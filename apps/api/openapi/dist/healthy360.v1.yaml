@@ -9729,6 +9729,39 @@ paths:
         `requested_delivery_date` and the branch cut-off all apply to one. A
         counter sale is handed over now and has no day to be late for.
 
+        ## One operation, two writes, and `payment` is what chooses
+
+        A `delivery` or a `pickup` is **placed** and comes back `status: placed`:
+        the kitchen has not confirmed it yet, nobody has been handed anything,
+        and the money arrives later through `POST /catalogue/orders/{order}/
+        payments`.
+
+        A `counter` sale is **completed**. In one transaction it is placed,
+        confirmed — which is where the ingredients come off the shelf —
+        receipted for exactly its own total, and fulfilled; it comes back
+        `status: fulfilled` with `confirmed_at` and `fulfilled_at` stamped and
+        `lock_version: 2`, because by the time this response is rendered the
+        customer has walked away with the food. There is nothing left for the
+        desk to do to it and no confirm call to follow.
+
+        The `payment` block is what decides which, and it is not a choice: it is
+        **required** on `counter` and **prohibited** on the other two, `422
+        validation.failed` either way round. A branch chosen by whether an
+        optional object happened to be present would be a branch nobody could
+        predict from the request, and these two differ by three status
+        transitions and a row in the day's takings.
+
+        **Insufficient stock does not refuse the sale.** The food has been cooked
+        and handed over, and refusing the order would not put the ingredients
+        back — so the sale completes, fulfilled, and the shortfall is recorded as
+        a consumption exception for somebody to reconcile. The same is true of an
+        article with no recipe, which is why a kitchen that has not finished
+        setting up its inventory can still sell lunch.
+
+        If any step fails, **all four roll back**: no order, no lines, no stock
+        movements, no receipt and no audit rows. A half-made counter sale sitting
+        in the book at a status nobody chose would be worse than no sale at all.
+
         ## No amounts in the body, ever
 
         Every line is repriced at placement against the tariff standing at that
@@ -9767,9 +9800,12 @@ paths:
         '201':
           description: |
             The order as the kitchen sees it, with every line at the price it was
-            placed at. A replay of a request this key already answered returns
-            this same body and this same status, with
-            `Idempotency-Replayed: true`; nothing ran a second time.
+            placed at. `status` is `placed` on a delivery or a pickup and
+            `fulfilled` on a counter sale, which is the whole observable
+            difference between the two writes this operation performs. A replay
+            of a request this key already answered returns this same body and
+            this same status, with `Idempotency-Replayed: true`; nothing ran a
+            second time.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -27649,25 +27685,92 @@ components:
           properties:
             payment_method:
               $ref: '#/components/schemas/PaymentMethod'
+            payment:
+              $ref: '#/components/schemas/OrderDeskCounterPayment'
           additionalProperties: false
           description: |
-            The quote's body plus one field, which is the whole difference
-            between asking what a sale would cost and making one.
+            The quote's body plus two fields, and the two do different jobs.
 
-            `payment_method` is required and has no default. It was hardcoded to
-            cash on delivery for the whole of the first order phase and stopped
-            being able to be the moment somebody could pay at a counter; a
-            default here would put that decision back one layer up, where it
-            would be even less visible.
+            `payment_method` is required on every shape and has no default. It
+            was hardcoded to cash on delivery for the whole of the first order
+            phase and stopped being able to be the moment somebody could pay at a
+            counter; a default here would put that decision back one layer up,
+            where it would be even less visible.
 
             It captures **intent**, and is deliberately not constrained to agree
             with any receipt recorded later: an order taken for cash at the
             counter and settled by a WISH transfer is an ordinary evening, and
             recording the divergence is why the two columns exist.
 
-            There is still no amount of any kind. Every line is repriced at
-            placement against the standing tariff, and a body that could state a
-            total would be a client quoting the server its own prices.
+            `payment` is the money **actually handed over**, and it is
+            conditional on `fulfilment_type`: **required** on `counter`,
+            **prohibited** on `delivery` and `pickup`. Both violations are `422
+            validation.failed`. Sending it is what makes this operation complete
+            the sale rather than merely place it — see the operation description.
+
+            There is still no amount of any kind, on either field. Every line is
+            repriced at placement against the standing tariff and the receipt is
+            written for exactly that total, so a body that could state a figure
+            would be a client quoting the server its own prices — at a counter,
+            with nobody watching.
+    OrderDeskCounterPayment:
+      type: object
+      required:
+        - method
+      additionalProperties: false
+      description: |
+        Money handed over at the counter, recorded as it happens.
+
+        Present on a `counter` sale and refused on the other two, because that is
+        what the three words mean. A walk-in pays now: the customer is in the
+        room, the food is in front of them, and there is no later moment at which
+        the money arrives. A counter order left unpaid would be a *pickup*
+        wearing the wrong label — something the kitchen is holding for somebody
+        who will settle when they come back — and nothing downstream could tell
+        it from a counter sale whose receipt was lost.
+
+        A delivery is settled at the door and a pickup when the customer
+        collects, both afterwards through `POST /catalogue/orders/{order}/
+        payments`, recorded by whoever actually took the money with their own
+        `confirmed_by` and their own moment. Receipting one of those here would
+        put cash into a day's takings that is still in a customer's pocket.
+
+        **There is no amount.** The receipt is written for exactly the order's
+        `total_minor`. A discrepancy at the till is a till problem, not an order
+        problem: rewriting the receipt to match the cash in the drawer would make
+        the sale unreconcilable against the tariff that produced it. Part
+        payments and over-payments are real elsewhere and arrive as their own
+        rows through the receipts operation.
+      properties:
+        method:
+          allOf:
+            - $ref: '#/components/schemas/PaymentMethod'
+          description: |
+            How the money turned up, which is deliberately **not** constrained to
+            equal `payment_method`. That one is the intent captured at placement;
+            this is what actually happened, and a counter sale taken as cash and
+            settled by a WISH transfer while the customer was standing there is
+            an ordinary evening.
+        reference:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+          description: |
+            The transfer identifier on a WISH payment, or whatever the desk
+            writes down to find this money again. Confidential at rest: it points
+            at a real transaction between two named parties.
+          examples:
+            - WISH-8841203
+        notes:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
+          description: |
+            Free text explaining the payment, bounded rather than open because a
+            note written at a counter is exactly where somebody puts a customer's
+            name. Confidential at rest.
     OrderDeskQuoteRefusal:
       type: object
       required:

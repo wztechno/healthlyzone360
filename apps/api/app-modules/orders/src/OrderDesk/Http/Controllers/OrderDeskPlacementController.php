@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Healthy360\Cart\Services\ChannelCurrency;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\PaymentMethod;
+use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\OrderDesk\Http\Concerns\RequiresIdempotencyKey;
 use Healthy360\Orders\OrderDesk\Http\Concerns\ResolvesDeskParty;
 use Healthy360\Orders\OrderDesk\Http\Requests\PlaceOrderDeskRequest;
@@ -15,6 +16,8 @@ use Healthy360\Orders\OrderDesk\Services\DeskBasket;
 use Healthy360\Orders\OrderDesk\Services\DeskChannelLocator;
 use Healthy360\Orders\Presenters\OrderPresenter;
 use Healthy360\Orders\Services\ComposedPlacement;
+use Healthy360\Orders\Services\CounterSale;
+use Healthy360\Orders\Services\CounterSaleDraft;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Orders\Services\OrderPlacementService;
 use Healthy360\Support\Api\ApiResponse;
@@ -86,6 +89,28 @@ use Illuminate\Http\JsonResponse;
  * Nothing existing is written. There is no cart to convert and no order to
  * overwrite, so there is no validator a screen could have been holding.
  *
+ * ## One endpoint, two writes, and the `payment` block is what chooses
+ *
+ * A delivery or a pickup is **placed** and comes back `placed`: the kitchen has
+ * not confirmed it yet, nobody has been handed anything, and the money arrives
+ * later through the receipts endpoint. A counter sale is **completed** —
+ * `CounterSale::complete()` places, confirms, receipts and fulfils it in one
+ * transaction — and comes back `fulfilled`, because by the time the response is
+ * rendered the customer has walked away with the food.
+ *
+ * The `payment` block decides which, and `PlaceOrderDeskRequest` makes that a
+ * property of the fulfilment type rather than a choice: required on `counter`,
+ * prohibited on the other two, `422` either way round. A branch chosen by
+ * whether an optional object happened to be present would be a branch nobody
+ * could predict from the request, and the two branches differ by three status
+ * transitions and a row in the takings.
+ *
+ * It stays one endpoint rather than becoming two because everything before the
+ * branch is the same act: the same permission, the same mandatory key, the same
+ * channel, the same basket aggregation, the same repricing, the same refusal
+ * envelope. A second route would have been a second copy of all of it, and the
+ * copy would have drifted at the first change to any of them.
+ *
  * ## What the desk is trusted with, and what it is not
  *
  * The customer and the address are resolved **by identifier** — see
@@ -124,6 +149,7 @@ final class OrderDeskPlacementController
         private readonly DeskBasket $basket,
         private readonly ChannelCurrency $currencies,
         private readonly OrderPlacementService $placement,
+        private readonly CounterSale $counterSales,
         private readonly OrderPresenter $presenter,
         private readonly TenantContext $context,
     ) {}
@@ -148,6 +174,39 @@ final class OrderDeskPlacementController
         $branchId = $this->deskBranchId($organisationId, $payload['branch_id']);
 
         $requestedDate = $payload['requested_delivery_date'];
+        $payment = $request->payment();
+
+        // The counter branch. Validation has already made the two conditions one
+        // — a `payment` block is required on a counter sale and prohibited on
+        // the other two — so this reads as "was money handed over", which is the
+        // fact that actually decides it.
+        //
+        // A counter sale that names an address is the one exception, and it
+        // falls through on purpose. There is no address on a `CounterSaleDraft`
+        // and `orders_fulfilment_shape_check` forbids one on the row, so this
+        // service could only ever drop it silently; the ordinary placement below
+        // refuses it instead, with `address_not_applicable` beside every other
+        // thing wrong with the body. Guaranteed to refuse rather than merely
+        // likely to: `shapeReasons()` produces that reason for exactly this
+        // combination, and `composeNow()` throws on any non-empty reason set, so
+        // the fall-through cannot place an unpaid counter order.
+        if ($payment !== null && $address === null) {
+            $order = $this->counterSales->complete(new CounterSaleDraft(
+                organisationId: $organisationId,
+                salesChannelId: (string) $channel->getKey(),
+                branchId: $branchId,
+                currencyCode: $this->currencies->for($channel),
+                lines: $this->basket->aggregate($payload['lines']),
+                placedOnBehalfBy: $this->agentId(),
+                paymentMethod: PaymentMethod::from($payment['method']),
+                account: $account,
+                reference: $payment['reference'],
+                notes: $payment['notes'],
+                idempotencyKey: $idempotencyKey,
+            ));
+
+            return $this->respond($order, replayed: false);
+        }
 
         $result = $this->placement->placeComposed(
             new ComposedPlacement(
@@ -173,12 +232,34 @@ final class OrderDeskPlacementController
             $idempotencyKey,
         );
 
-        $order = $result->order;
+        return $this->respond($result->order, $result->replayed);
+    }
+
+    /**
+     * The kitchen shape, at the status the write actually produced.
+     *
+     * One exit for both branches so that a counter sale and a delivery are read
+     * by the desk in the same shape — `status` is the only field that differs,
+     * and it differs because the counter sale really did reach `fulfilled` while
+     * the caller waited.
+     *
+     * **The counter branch always passes `replayed: false`.** `CounterSale::
+     * complete()` deliberately does not report which of the two happened, and
+     * over HTTP there is nothing here for it to report *to*: the `idempotency`
+     * middleware answers a replay from its stored envelope — the original body,
+     * the original `201`, plus `Idempotency-Replayed: true` — before this
+     * controller is entered at all. The placement branch's `200` survives for
+     * the same reason `OrderStoreController`'s does: a placement composed by a
+     * job replays through the service alone, and nothing composes a counter sale
+     * that way.
+     */
+    private function respond(Order $order, bool $replayed): JsonResponse
+    {
         $lines = $order->lines()->orderBy('created_at')->orderBy('id')->get();
 
         return ApiResponse::data(
             ['order' => $this->presenter->kitchen($order, $lines)],
-            status: $result->replayed ? 200 : 201,
+            status: $replayed ? 200 : 201,
         );
     }
 

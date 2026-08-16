@@ -61,12 +61,19 @@ beforeEach(function (): void {
 /**
  * A placement body for the world's meal, with only the fields under test stated.
  *
+ * The `payment` block follows the fulfilment type rather than the defaults,
+ * because the request requires it on a counter sale and prohibits it on the
+ * other two: a fixed default would make every delivery case in this file
+ * remember to unset it, and the one that forgot would fail as a 422 about
+ * payment while claiming to be about something else. Pass `['payment' => null]`
+ * to build the counter body that is missing one on purpose.
+ *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
 function deskSaleBody(object $test, array $overrides = []): array
 {
-    return [
+    $body = [
         'fulfilment_type' => 'counter',
         'payment_method' => 'cash_at_counter',
         'lines' => [[
@@ -75,6 +82,12 @@ function deskSaleBody(object $test, array $overrides = []): array
         ]],
         ...$overrides,
     ];
+
+    if ($body['fulfilment_type'] === 'counter' && ! array_key_exists('payment', $overrides)) {
+        $body['payment'] = ['method' => 'cash_at_counter'];
+    }
+
+    return $body;
 }
 
 /**
@@ -96,14 +109,18 @@ it('sells lunch to a stranger and writes a legal row for it', function (): void 
 
     $order = Order::query()->sole();
 
-    expect($response->json('data.order.status'))->toBe('placed')
+    // Fulfilled, not placed: a counter body carries a payment block, so the
+    // endpoint runs `CounterSale::complete()` and the customer has walked away
+    // with the food by the time this response is rendered. `CounterSaleTest`
+    // owns that behaviour; what is pinned here is that the *row* is legal.
+    expect($response->json('data.order.status'))->toBe('fulfilled')
         ->and($response->json('data.order.fulfilment_type'))->toBe('counter')
         ->and($response->json('data.order.subtotal_minor'))->toBe(5000)
         ->and($response->json('data.order.total_minor'))->toBe(5000)
         // The kitchen shape, because the audience is a member of staff reading
-        // their own book: the validator for the confirm that follows, and the
-        // name of whoever took the order.
-        ->and($response->json('data.order.lock_version'))->toBe(0)
+        // their own book: the validator, and the name of whoever took the order.
+        // Two, because the confirm and the fulfil each bumped it.
+        ->and($response->json('data.order.lock_version'))->toBe(2)
         ->and($response->json('data.order.placed_on_behalf_by'))->toBe((string) $this->agent->getKey())
         // Nobody was named, and that is legal rather than tolerated.
         ->and($order->customer_account_id)->toBeNull()

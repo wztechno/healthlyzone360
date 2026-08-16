@@ -43,6 +43,45 @@ use Illuminate\Validation\Rules\Enum;
  * `quantity` is validated numeric before `DeskBasket` sees it for the reason
  * `QuoteOrderDeskRequest` gives at length: the basket throws on a non-numeric
  * quantity by design, and an uncaught throw is a 500 where a 422 belongs.
+ *
+ * ## The `payment` block: required on a counter sale, prohibited on the others
+ *
+ * The one rule in this class that `fulfilment_type` decides, and the one place
+ * that decision belongs at this layer rather than in the refusal envelope — the
+ * three shape rules below are deliberately answered by
+ * `OrderPlacementService::shapeReasons()` instead, and the difference is worth
+ * stating because it looks inconsistent.
+ *
+ * Those three are about **what the order is**, and a placement wrong in two ways
+ * should say both at once. This one is about **which endpoint behaviour runs**:
+ * a counter body carrying a payment block takes `CounterSale::complete()` and
+ * comes back fulfilled; every other body takes the bare placement and comes back
+ * placed. That is not a fact about the order, it is the branch itself, and a
+ * branch chosen by whether an optional object happened to be present is a
+ * branch nobody can predict from the request.
+ *
+ * **Required for `counter`.** A walk-in pays now — that is what "counter" means.
+ * The customer is in the room, the food is in front of them, and there is no
+ * later moment at which the money arrives. A counter order left unpaid is a
+ * *pickup* wearing the wrong label: something the kitchen is holding for
+ * somebody who will settle when they come back. Making it optional would let the
+ * desk create exactly that row, with a fulfilment type that says the customer
+ * already walked away with the food and no receipt saying they paid for it, and
+ * nothing downstream could tell it from a counter sale whose receipt was lost.
+ * So an absent block is a `422`, not a placement.
+ *
+ * **Prohibited for `delivery` and `pickup`.** Their money arrives later — at the
+ * door, or when the customer collects — through `POST /catalogue/orders/{order}/
+ * payments`, recorded by whoever actually took it, with their own `confirmed_by`
+ * and their own moment. Accepting a payment block here would mean receipting a
+ * delivery at the instant it was placed, by a desk agent who has not been handed
+ * anything, and a day's takings would then include money that is still in a
+ * customer's pocket. Refused as `prohibited` rather than ignored, because a
+ * field supplied and dropped means the caller believed something about this
+ * order that is not true of it.
+ *
+ * **There is no amount**, for the same reason there is no total: the receipt is
+ * for exactly what the placement priced. See `CounterSaleDraft`.
  */
 class PlaceOrderDeskRequest extends FormRequest
 {
@@ -80,6 +119,63 @@ class PlaceOrderDeskRequest extends FormRequest
             'customer_address_id' => ['nullable', 'uuid'],
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
+            // Required on a counter sale and refused on the other two — see the
+            // class docblock for why this one rule is decided here while the
+            // three customer/address rules are decided in the refusal envelope.
+            'payment' => [
+                Rule::requiredIf(fn (): bool => $this->isCounterSale()),
+                Rule::prohibitedIf(fn (): bool => ! $this->isCounterSale()),
+                'array',
+            ],
+            'payment.method' => ['required_with:payment', new Enum(PaymentMethod::class)],
+            // Both bounded at the column's own width. `reference` and `notes`
+            // are `Confidential` on `OrderPaymentReceipt`: a transfer identifier
+            // points at a real transaction between two named parties, and a note
+            // written at a counter is exactly where somebody puts a customer's
+            // name.
+            'payment.reference' => ['nullable', 'string', 'max:120'],
+            'payment.notes' => ['nullable', 'string', 'max:300'],
+        ];
+    }
+
+    /**
+     * Whether this body is asking for a sale across the counter.
+     *
+     * Read from the raw input rather than from the validated set, because the
+     * two `payment` rules above run *during* validation and there is nothing
+     * validated yet. A body whose `fulfilment_type` is missing or nonsense
+     * therefore reads as "not a counter sale", which makes `payment` prohibited
+     * — the conservative half of the rule, and in any case that body is already
+     * failing on `fulfilment_type` itself.
+     */
+    private function isCounterSale(): bool
+    {
+        return $this->input('fulfilment_type') === FulfilmentType::Counter->value;
+    }
+
+    /**
+     * The counter sale's payment block, or null when this is not one.
+     *
+     * Separate from `payload()` because it is the *other* half of the request:
+     * everything in `payload()` becomes a `ComposedPlacement`, and this becomes
+     * the receipt beside it. Folding the two together would put a receipt field
+     * inside a placement shape that has no column for it.
+     *
+     * @return array{method: string, reference: string|null, notes: string|null}|null
+     */
+    public function payment(): ?array
+    {
+        /** @var array{method?: string, reference?: string|null, notes?: string|null}|null $payment */
+        $payment = $this->validated('payment');
+
+        if ($payment === null || ! isset($payment['method'])) {
+            return null;
+        }
+
+        return [
+            'method' => (string) $payment['method'],
+            'reference' => $this->stated($payment['reference'] ?? null),
+            'notes' => $this->stated($payment['notes'] ?? null),
         ];
     }
 

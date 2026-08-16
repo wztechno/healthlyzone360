@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Http\Controllers;
 
 use App\Models\User;
-use Carbon\CarbonImmutable;
-use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Http\Concerns\ReadsPrecondition;
@@ -15,6 +13,7 @@ use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
 use Healthy360\Orders\Presenters\OrderPresenter;
 use Healthy360\Orders\Services\OrderLocator;
+use Healthy360\Orders\Services\OrderPaymentReceipts;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -108,18 +107,21 @@ use Illuminate\Support\Facades\DB;
  *
  * `confirm`, `fulfil` and `cancel` are audited by `OrderLifecycle` — the only
  * thing that moves an order's state — and this write moves nothing, so it goes
- * through no service that audits. It writes its own `order.payment_recorded`
- * event, through `AuditRecorder`, exactly as the other non-lifecycle writes on
- * the platform do (`ConsumptionExceptionResolveController` is the closest
- * sibling: a controller-level write, audited from the controller, subject named
+ * through no service that audits. `order.payment_recorded` is therefore written
+ * on this path rather than on a lifecycle one, exactly as the other
+ * non-lifecycle writes on the platform do
+ * (`ConsumptionExceptionResolveController` is the closest sibling: a
+ * controller-level write, audited from the controller, subject named
  * explicitly). The subject is the **order**, not the receipt, so that an order's
  * whole trail — placed, confirmed, paid, fulfilled — is one query rather than
  * two joined on a metadata field.
  *
- * Metadata carries no key containing `code`: `AuditRecorder` redacts those by
- * substring, and a redacted payment method is an audit row that cannot say how
- * the money arrived. `currency` rather than `currency_code`, for that reason
- * alone.
+ * The event and the row it describes are both produced by
+ * `OrderPaymentReceipts`, extracted when the Order Desk's counter sale became
+ * the second caller. What stayed here is the whole of what is *not* shared: the
+ * lock, the cancelled check and the validator. The audit is still recorded
+ * outside the transaction, which is this endpoint's own decision and the reason
+ * the writer offers the row and the event as two calls — see that class.
  *
  * **`Idempotency-Key` is honoured** by the `idempotency` middleware, which
  * replays the original envelope — the same receipt, the same `201` — rather
@@ -136,7 +138,7 @@ final class OrderPaymentReceiptStoreController
     public function __construct(
         private readonly OrderLocator $locator,
         private readonly OrderPresenter $presenter,
-        private readonly AuditRecorder $audit,
+        private readonly OrderPaymentReceipts $receipts,
     ) {}
 
     /**
@@ -164,38 +166,28 @@ final class OrderPaymentReceiptStoreController
             $this->refuseCancelled($locked);
             $this->refuseStale($locked, $expected);
 
-            $receipt = new OrderPaymentReceipt;
-            $receipt->organisation_id = $locked->organisation_id;
-            $receipt->order_id = (string) $locked->getKey();
-            $receipt->method = PaymentMethod::from($payload['method']);
-            $receipt->amount_minor = $payload['amount_minor'];
-            // The order's currency, never the request's: a receipt in another
-            // currency is not a receipt for this order.
-            $receipt->currency_code = $locked->currency_code;
-            $receipt->reference = $payload['reference'];
-            $receipt->confirmed_by = (string) $confirmedBy->getKey();
-            // Stamped by the server rather than taken from the body. A desk
-            // that could name the moment could also name a moment in another
-            // shift, and `confirmed_at` is what a day's takings are cut on.
-            $receipt->confirmed_at = CarbonImmutable::now();
-            $receipt->notes = $payload['notes'];
-            $receipt->save();
-
-            return $receipt;
+            // The row itself is written by `OrderPaymentReceipts`, which the
+            // Order Desk's counter sale writes through as well. The currency
+            // decision, the server-stamped moment and the audit shape are all
+            // stated there once; what stays here is the part that is about a
+            // *stale screen* — the lock, the cancelled check and the validator —
+            // and a caller that placed the order itself has no screen to be
+            // stale.
+            return $this->receipts->write(
+                $locked,
+                PaymentMethod::from($payload['method']),
+                $payload['amount_minor'],
+                (string) $confirmedBy->getKey(),
+                $payload['reference'],
+                $payload['notes'],
+            );
         });
 
-        $this->audit->record(
-            'order.payment_recorded',
-            actorUserId: (string) $confirmedBy->getKey(),
-            subjectType: 'order',
-            subjectId: (string) $record->getKey(),
-            metadata: [
-                'receipt_id' => (string) $receipt->getKey(),
-                'method' => $receipt->method->value,
-                'amount_minor' => $receipt->amount_minor,
-                'currency' => $receipt->currency_code,
-            ],
-        );
+        // Outside the transaction, matching `OrderLifecycle`, which likewise
+        // audits after its own transition commits. `CounterSale` audits inside
+        // its transaction instead, which is why the writer offers the two as
+        // separate calls rather than fusing them.
+        $this->receipts->audit($receipt);
 
         return ApiResponse::data([
             'receipt' => $this->presenter->paymentReceipt($receipt),

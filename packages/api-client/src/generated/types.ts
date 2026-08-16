@@ -4893,6 +4893,58 @@ export type QuoteOrderDeskRequest = OrderDeskSaleBase & {};
 
 export type PlaceOrderDeskRequest = OrderDeskSaleBase & {
     payment_method: PaymentMethod;
+    payment?: OrderDeskCounterPayment;
+};
+
+/**
+ * Money handed over at the counter, recorded as it happens.
+ *
+ * Present on a `counter` sale and refused on the other two, because that is
+ * what the three words mean. A walk-in pays now: the customer is in the
+ * room, the food is in front of them, and there is no later moment at which
+ * the money arrives. A counter order left unpaid would be a *pickup*
+ * wearing the wrong label — something the kitchen is holding for somebody
+ * who will settle when they come back — and nothing downstream could tell
+ * it from a counter sale whose receipt was lost.
+ *
+ * A delivery is settled at the door and a pickup when the customer
+ * collects, both afterwards through `POST /catalogue/orders/{order}/
+ * payments`, recorded by whoever actually took the money with their own
+ * `confirmed_by` and their own moment. Receipting one of those here would
+ * put cash into a day's takings that is still in a customer's pocket.
+ *
+ * **There is no amount.** The receipt is written for exactly the order's
+ * `total_minor`. A discrepancy at the till is a till problem, not an order
+ * problem: rewriting the receipt to match the cash in the drawer would make
+ * the sale unreconcilable against the tariff that produced it. Part
+ * payments and over-payments are real elsewhere and arrive as their own
+ * rows through the receipts operation.
+ *
+ */
+export type OrderDeskCounterPayment = {
+    /**
+     * How the money turned up, which is deliberately **not** constrained to
+     * equal `payment_method`. That one is the intent captured at placement;
+     * this is what actually happened, and a counter sale taken as cash and
+     * settled by a WISH transfer while the customer was standing there is
+     * an ordinary evening.
+     *
+     */
+    method: PaymentMethod;
+    /**
+     * The transfer identifier on a WISH payment, or whatever the desk
+     * writes down to find this money again. Confidential at rest: it points
+     * at a real transaction between two named parties.
+     *
+     */
+    reference?: string | null;
+    /**
+     * Free text explaining the payment, bounded rather than open because a
+     * note written at a counter is exactly where somebody puts a customer's
+     * name. Confidential at rest.
+     *
+     */
+    notes?: string | null;
 };
 
 /**
@@ -21314,9 +21366,12 @@ export type PlaceOrderDeskOrderError = PlaceOrderDeskOrderErrors[keyof PlaceOrde
 export type PlaceOrderDeskOrderResponses = {
     /**
      * The order as the kitchen sees it, with every line at the price it was
-     * placed at. A replay of a request this key already answered returns
-     * this same body and this same status, with
-     * `Idempotency-Replayed: true`; nothing ran a second time.
+     * placed at. `status` is `placed` on a delivery or a pickup and
+     * `fulfilled` on a counter sale, which is the whole observable
+     * difference between the two writes this operation performs. A replay
+     * of a request this key already answered returns this same body and
+     * this same status, with `Idempotency-Replayed: true`; nothing ran a
+     * second time.
      *
      */
     201: KitchenOrderEnvelope;

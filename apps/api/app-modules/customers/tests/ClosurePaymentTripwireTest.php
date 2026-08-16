@@ -45,6 +45,22 @@ use Illuminate\Support\Facades\DB;
 | the S1 binding and the blocker falls back to the null default, answers
 | `not_applicable` against a table that is plainly there, and this file fails.
 |
+| **And the tripwire has now fired once, which is the only proof it works.**
+| Three tables matching `%payment%` exist — `payment_method_records` and
+| `payment_intents` from C1's payments skeleton, `order_payment_receipts` from
+| the Order Desk — and this file went red until somebody said, in writing, what
+| each of them is. All three are excluded by name in
+| `PaymentMethodsBlocker::EXCLUDED_TABLES` and every one of them is argued in
+| that class's docblock: two are a *kitchen's* record of money against an order,
+| which closure governs through the order and must neither block on nor delete,
+| and the third is a stored-instrument table with no writer anywhere on the
+| platform. That third exclusion carries a stated debt — read it before adding
+| the first writer.
+|
+| The exclusions are read from the blocker rather than restated here, exactly as
+| the fragments are, so the acknowledgement and the code that acts on it cannot
+| drift apart.
+|
 | **What this test deliberately does not do** is invent the payment blockers'
 | eventual logic. It asserts that somebody will be forced to write it, at the
 | moment it becomes writable, and no earlier.
@@ -182,11 +198,10 @@ final class J2ClosureTripwireSchema
 it('claims every wallet, payment or card table with a registered closure blocker', function (): void {
     $registered = app(ClosureBlockerRegistry::class)->codes();
 
-    // Asserted unconditionally, because today there are no matching tables and
-    // the loop below runs zero times. Without this the test would pass while
-    // asserting nothing — and would keep passing if somebody removed both
-    // blockers from the registry, which is precisely the state it exists to
-    // prevent.
+    // Asserted unconditionally, because the loop below only sees the tables
+    // nobody has excluded — one, today. Without this the test would say almost
+    // nothing, and would keep passing if somebody removed all three blockers
+    // from the registry, which is precisely the state it exists to prevent.
     expect($registered)->toContain('wallet_balance')
         ->toContain('payment_methods')
         ->toContain('unsettled_credit_memos');
