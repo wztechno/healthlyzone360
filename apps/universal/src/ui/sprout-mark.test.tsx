@@ -59,14 +59,16 @@ describe('SproutMark', () => {
         expect(screen.queryByText(/restoring/i)).toBeNull();
     });
 
-    it('hides its leaves from assistive technology, which hears the mark itself instead', async () => {
+    it('hides the drawing from assistive technology, which hears the mark itself instead', async () => {
         await renderMark();
 
-        const leaves = screen.getAllByTestId(/^splash-leaf-/, HIDDEN);
-        expect(leaves).toHaveLength(4);
-        for (const leaf of leaves) {
-            expect(leaf.props['aria-hidden']).toBe(true);
-        }
+        // One `aria-hidden` on the rosette covers every leaf under it, which is why the leaves
+        // themselves carry none: four hidden siblings and a hidden parent say the same thing twice.
+        const rosette = screen.getByTestId('splash-rosette', HIDDEN);
+        expect(rosette.props['aria-hidden']).toBe(true);
+        expect(rosette.props.importantForAccessibility).toBe('no-hide-descendants');
+
+        expect(screen.getAllByTestId(/^splash-leaf-/, HIDDEN)).toHaveLength(4);
     });
 
     it('turns each leaf a quarter further round, so the four open as a rosette', async () => {
@@ -80,17 +82,41 @@ describe('SproutMark', () => {
         expect(angles).toEqual(['45deg', '135deg', '225deg', '315deg']);
     });
 
+    it('is already the finished sprout on its very first frame', async () => {
+        await renderMark();
+
+        /*
+         * This is the regression that shipped. The leaves used to fade up from nothing, so frame
+         * zero was four invisible leaves over one small seed — and when the animation did not run
+         * on the web, the splash was a motionless dot. Every leaf must therefore be opaque and
+         * close to full size before a single frame has been drawn, which is what makes a failure to
+         * animate look still rather than broken.
+         */
+        for (const leaf of screen.getAllByTestId(/^splash-leaf-/, HIDDEN)) {
+            const style = flatten(leaf.props.style);
+            const scale = (style.transform as { scale?: number }[])[1]?.scale ?? 1;
+
+            expect(style.opacity ?? 1).toBe(1);
+            expect(scale).toBeGreaterThanOrEqual(0.9);
+        }
+    });
+
     it('is one drawing at any size, so the splash and an inline version cannot drift apart', async () => {
         await renderMark(48);
 
         const [leaf] = screen.getAllByTestId(/^splash-leaf-/, HIDDEN);
         const style = flatten(leaf?.props.style);
 
-        // 48 × 0.36, and the corner radius is the leaf's own side — which is what makes the shape a
-        // leaf rather than a rounded square.
+        // 48 × 0.36. The animated view holds the box; the coloured child inside it holds the shape,
+        // because a class and an animated style cannot share an element here.
         expect(style.width).toBe(17);
         expect(style.height).toBe(17);
-        expect(style.borderTopLeftRadius).toBe(17);
-        expect(style.borderBottomRightRadius).toBe(17);
+
+        const shape = flatten(leaf?.props.children?.props?.style);
+
+        // The corner radius is the leaf's own side, which is what makes the shape a leaf rather
+        // than a rounded square.
+        expect(shape.borderTopLeftRadius).toBe(17);
+        expect(shape.borderBottomRightRadius).toBe(17);
     });
 });

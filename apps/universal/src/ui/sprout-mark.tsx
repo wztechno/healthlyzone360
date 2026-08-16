@@ -1,6 +1,6 @@
 import { useMotion } from '@healthy360/design-system';
 import { useEffect, useState } from 'react';
-import { Animated, View } from 'react-native';
+import { Animated, Easing, View } from 'react-native';
 
 /**
  * The mark that holds the pause while a session is restored.
@@ -10,8 +10,8 @@ import { Animated, View } from 'react-native';
  * "Restoring your session…" appeared on nearly every cold load, which made a spinner and an
  * apology the first thing anyone saw of Healthy360. The sentence said nothing a person could act
  * on, and it said it in the place a product usually introduces itself. So the words are gone from
- * the screen and four leaves unfurl from a seed instead — growth being the plainest statement of
- * what the application is for.
+ * the screen and a four-leaf sprout stands there instead — growth being the plainest statement of
+ * what the application is for. It turns slowly, and each leaf breathes a little behind the last.
  *
  * **The words are not gone from the page.** Dropping visible text is a visual decision, never an
  * accessibility one: this carries `role="progressbar"`, `aria-busy` and the same accessible name
@@ -28,12 +28,18 @@ import { Animated, View } from 'react-native';
  * Each leaf is placed with its pointed corner on the centre and rotated about that corner, so the
  * four of them fan out of one seed rather than orbiting a hole.
  *
- * ## Under reduced motion it stops, and that is the whole design
+ * ## Every frame is the finished drawing, and that is the point
  *
- * The tokens define a reduced counterpart of exactly zero for every duration — reduced motion is
- * removal, not a slower version of the same sweep — so the resting frame has to be worth looking
- * at on its own. It is the open rosette: every leaf unfurled, nothing moving. `Shimmer` makes the
- * same call by not rendering its band at all.
+ * The first cut of this faded each leaf up from nothing, which meant frame zero was four invisible
+ * leaves over one small seed. It shipped, the animation did not run on the web, and what people got
+ * was a motionless green dot — a splash that looked broken rather than merely still.
+ *
+ * So the motion is now *modulation of a finished mark* rather than construction of one: the rosette
+ * is whole at every instant, turning slowly, its leaves breathing between a little under and a
+ * little over their own size. Stop the clock anywhere, including before the first tick, and what
+ * remains is the sprout. That is also exactly what reduced motion gets — the tokens define a
+ * reduced counterpart of exactly zero for every duration, so the still frame is not a fallback but
+ * the design itself.
  */
 export interface SproutMarkProps {
     /** The accessible name. This is what a screen reader hears in place of the old sentence. */
@@ -45,11 +51,14 @@ export interface SproutMarkProps {
 
 const DEFAULT_SIZE = 96;
 
-/** One full unfurl-and-fade, in milliseconds. Unhurried on purpose: this is a wait, not a warning. */
-const CYCLE_MS = 2400;
+/** One breath in and out for a leaf. Unhurried on purpose: this is a wait, not a warning. */
+const BREATH_MS = 2400;
 
-/** How far behind the previous leaf each one starts, so the rosette opens rather than blinking. */
-const STAGGER_MS = 160;
+/** One full turn of the rosette. Slow enough to read as growing rather than as spinning. */
+const TURN_MS = 9000;
+
+/** How far behind the previous leaf each one breathes, so the four move as a plant, not a pulse. */
+const STAGGER_MS = 300;
 
 const LEAVES = 4;
 
@@ -77,17 +86,18 @@ export function SproutMark({ label, size = DEFAULT_SIZE, testID }: SproutMarkPro
      * exactly what `react-hooks/refs` forbids. The initialiser runs once, so the values are as
      * stable as a ref's would have been.
      */
-    const [progress] = useState(() => Array.from({ length: LEAVES }, () => new Animated.Value(0)));
+    const [breath] = useState(() => Array.from({ length: LEAVES }, () => new Animated.Value(0)));
+    const [turn] = useState(() => new Animated.Value(0));
 
     useEffect(() => {
         if (!enabled) return;
 
         const timers: ReturnType<typeof setTimeout>[] = [];
-        const loops = progress.map((value, index) => {
+        const loops = breath.map((value, index) => {
             const loop = Animated.loop(
                 Animated.timing(value, {
                     toValue: 1,
-                    duration: CYCLE_MS,
+                    duration: BREATH_MS,
                     easing: easing.standard,
                     useNativeDriver: true,
                 }),
@@ -102,12 +112,24 @@ export function SproutMark({ label, size = DEFAULT_SIZE, testID }: SproutMarkPro
             return loop;
         });
 
+        const rotation = Animated.loop(
+            Animated.timing(turn, {
+                toValue: 1,
+                duration: TURN_MS,
+                easing: Easing.linear,
+                useNativeDriver: true,
+            }),
+        );
+        rotation.start();
+
         return () => {
             for (const timer of timers) clearTimeout(timer);
             for (const loop of loops) loop.stop();
-            for (const value of progress) value.setValue(0);
+            rotation.stop();
+            for (const value of breath) value.setValue(0);
+            turn.setValue(0);
         };
-    }, [enabled, progress, easing]);
+    }, [enabled, breath, turn, easing]);
 
     return (
         <View
@@ -120,43 +142,84 @@ export function SproutMark({ label, size = DEFAULT_SIZE, testID }: SproutMarkPro
             aria-live="polite"
             style={{ width: size, height: size }}
         >
-            {progress.map((value, index) => (
-                <Animated.View
-                    key={index}
-                    testID={testID === undefined ? undefined : `${testID}-leaf-${String(index)}`}
-                    aria-hidden
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    className="absolute bg-surface-brand"
-                    style={{
-                        width: leaf,
-                        height: leaf,
-                        // The pointed corner sits on the centre; the round half fans outward.
-                        left: centre,
-                        top: centre - leaf,
-                        borderTopLeftRadius: leaf,
-                        borderBottomRightRadius: leaf,
-                        transformOrigin: '0% 100%',
-                        opacity: enabled
-                            ? value.interpolate({
-                                  inputRange: [0, 0.22, 0.55, 0.88, 1],
-                                  outputRange: [0, 1, 1, 0, 0],
-                              })
-                            : 1,
-                        transform: [
-                            { rotate: `${String(45 + index * (360 / LEAVES))}deg` },
-                            {
-                                scale: enabled
-                                    ? value.interpolate({
-                                          inputRange: [0, 0.55, 1],
-                                          outputRange: [0.15, 1, 1.1],
-                                      })
-                                    : 1,
-                            },
-                        ],
-                    }}
-                />
-            ))}
+            {/*
+             * The whole rosette turns, slowly, inside a view that carries no `className`.
+             *
+             * That absence is load-bearing rather than stylistic: NativeWind resolves the style of
+             * any element it is given a class for, and resolving an `Animated.Interpolation` reads
+             * it once — the view would then hold whatever number the interpolation had at frame
+             * zero, for ever. So every animated view here is bare, and the colour goes on a child
+             * that may safely carry a class.
+             */}
+            <Animated.View
+                testID={testID === undefined ? undefined : `${testID}-rosette`}
+                aria-hidden
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={{
+                    position: 'absolute',
+                    width: size,
+                    height: size,
+                    transform: [
+                        {
+                            rotate: enabled
+                                ? turn.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: ['0deg', '360deg'],
+                                  })
+                                : '0deg',
+                        },
+                    ],
+                }}
+            >
+                {breath.map((value, index) => (
+                    <Animated.View
+                        key={index}
+                        testID={
+                            testID === undefined ? undefined : `${testID}-leaf-${String(index)}`
+                        }
+                        style={{
+                            position: 'absolute',
+                            // The pointed corner sits on the centre; the round half fans outward.
+                            left: centre,
+                            top: centre - leaf,
+                            width: leaf,
+                            height: leaf,
+                            transformOrigin: '0% 100%',
+                            transform: [
+                                { rotate: `${String(45 + index * (360 / LEAVES))}deg` },
+                                {
+                                    /*
+                                     * The leaf breathes between a little under and a little over
+                                     * its own size — it never shrinks away. Every frame of this
+                                     * animation, including the first, is the finished rosette,
+                                     * which is what makes a splash that fails to animate look
+                                     * merely still rather than broken. The first cut faded each
+                                     * leaf from nothing and shipped as a single motionless dot the
+                                     * moment the animation did not run.
+                                     */
+                                    scale: enabled
+                                        ? value.interpolate({
+                                              inputRange: [0, 0.5, 1],
+                                              outputRange: [0.94, 1.06, 0.94],
+                                          })
+                                        : 1,
+                                },
+                            ],
+                        }}
+                    >
+                        <View
+                            className="bg-surface-brand"
+                            style={{
+                                width: leaf,
+                                height: leaf,
+                                borderTopLeftRadius: leaf,
+                                borderBottomRightRadius: leaf,
+                            }}
+                        />
+                    </Animated.View>
+                ))}
+            </Animated.View>
 
             {/* The seed the leaves come out of. It breathes with them, and holds the centre when
                 they are gone. */}
