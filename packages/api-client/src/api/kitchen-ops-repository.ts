@@ -59,6 +59,10 @@ import type {
     RecipientSnapshotContact,
     ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
+    SpendSummary,
+    SpendSummaryCurrencyTotals,
+    SpendSummaryFilter,
+    SpendSummaryPeriod,
     StockAdjustmentRequest,
     StockItem,
     StockLevel,
@@ -103,6 +107,8 @@ import type {
     ReceivableOrderLine as WireReceivableOrderLine,
     RecipientSnapshot as WireRecipientSnapshot,
     RecipientSnapshotContact as WireRecipientSnapshotContact,
+    SpendSummaryCurrencyTotals as WireSpendSummaryCurrencyTotals,
+    SpendSummaryPeriod as WireSpendSummaryPeriod,
     StockItem as WireStockItem,
     StockLevel as WireStockLevel,
     StockMovement as WireStockMovement,
@@ -676,6 +682,60 @@ function mapMonthlyCostReportRow(wire: WireMonthlyCostReportRow): MonthlyCostRep
         otherCogsAmount: wire.other_cogs_amount,
         hasDataQualityFlag: wire.has_data_quality_flag,
         exceptionCount: wire.exception_count,
+        isSpendComplete: wire.is_spend_complete,
+        unpricedLineCount: wire.unpriced_line_count,
+        valuationPendingLineCount: wire.valuation_pending_line_count,
+    };
+}
+
+function mapSpendSummaryPeriod(wire: WireSpendSummaryPeriod): SpendSummaryPeriod {
+    return {
+        period: wire.period,
+        periodStart: wire.period_start,
+        periodEnd: wire.period_end,
+        receiptCount: wire.receipt_count,
+        unpricedReceiptCount: wire.unpriced_receipt_count,
+        unpricedLineCount: wire.unpriced_line_count,
+        valuationPendingLineCount: wire.valuation_pending_line_count,
+        isComplete: wire.is_complete,
+        totalsByCurrency: wire.totals_by_currency.map(mapSpendSummaryCurrencyTotals),
+    };
+}
+
+function mapSpendSummaryCurrencyTotals(
+    wire: WireSpendSummaryCurrencyTotals,
+): SpendSummaryCurrencyTotals {
+    return {
+        currencyCode: wire.currency_code,
+        receiptCount: wire.receipt_count,
+        receivedLineCount: wire.received_line_count,
+        itemSubtotal: wire.item_subtotal,
+        discountTotal: wire.discount_total,
+        taxTotal: wire.tax_total,
+        deliveryTotal: wire.delivery_total,
+        otherChargesTotal: wire.other_charges_total,
+        invoiceTotal: wire.invoice_total,
+        invoicedReceiptCount: wire.invoiced_receipt_count,
+        // Null and empty mean different things here — "not requested" against
+        // "requested, and nothing in this bucket" — so neither is normalised away.
+        bySupplier:
+            wire.by_supplier === null
+                ? null
+                : wire.by_supplier.map((row) => ({
+                      supplier: mapSupplierRef(row.supplier),
+                      receivedLineCount: row.received_line_count,
+                      itemSubtotal: row.item_subtotal,
+                  })),
+        byStockItem:
+            wire.by_stock_item === null
+                ? null
+                : wire.by_stock_item.map((row) => ({
+                      stockItemId: StockItemId.unsafe(row.stock_item_id),
+                      itemCode: row.item_code,
+                      itemNameEn: row.item_name_en,
+                      receivedLineCount: row.received_line_count,
+                      itemSubtotal: row.item_subtotal,
+                  })),
     };
 }
 
@@ -1323,6 +1383,43 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 nextCursor: meta.next_cursor ?? null,
                 hasMore: meta.has_more ?? false,
                 totalCount: null,
+            };
+        },
+
+        async getSpendSummary(filter: SpendSummaryFilter): Promise<SpendSummary> {
+            const params = new URLSearchParams();
+            params.set('group_by', filter.groupBy);
+            if (filter.from !== undefined) params.set('from', filter.from);
+            if (filter.to !== undefined) params.set('to', filter.to);
+            if (filter.branchId !== undefined) params.set('branch_id', String(filter.branchId));
+            if (filter.supplierId !== undefined) {
+                params.set('supplier_id', String(filter.supplierId));
+            }
+            if (filter.stockItemId !== undefined) {
+                params.set('stock_item_id', String(filter.stockItemId));
+            }
+            // One comma-separated parameter rather than a repeated one, matching the
+            // endpoint: an unrecognised token is refused there, so a typo cannot
+            // arrive as an empty breakdown that reads like a real answer.
+            if (filter.include !== undefined && filter.include.length > 0) {
+                params.set('include', filter.include.join(','));
+            }
+
+            const envelope = await transport.requestEnvelope<{
+                readonly group_by: 'week' | 'month';
+                readonly from: string;
+                readonly to: string;
+                readonly periods: readonly WireSpendSummaryPeriod[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/spend-summary?${params.toString()}`,
+            });
+
+            return {
+                groupBy: envelope.data.group_by,
+                from: envelope.data.from,
+                to: envelope.data.to,
+                periods: envelope.data.periods.map(mapSpendSummaryPeriod),
             };
         },
 

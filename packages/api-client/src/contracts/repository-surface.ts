@@ -259,6 +259,7 @@ export const REPOSITORY_SURFACE = {
         'getOrderProposal',
         'getProcurementReference',
         'getPurchaseOrder',
+        'getSpendSummary',
         'getSupplier',
         'holdQualityCheck',
         'issuePurchaseOrder',

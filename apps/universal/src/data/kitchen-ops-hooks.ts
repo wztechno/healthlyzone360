@@ -29,6 +29,8 @@ import type {
     ReplaceSupplierContactsRequest,
     ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
+    SpendSummary,
+    SpendSummaryFilter,
     StockAdjustmentRequest,
     StockItem,
     StockLevel,
@@ -779,6 +781,31 @@ export function usePurchasesLedgerQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listPurchasesLedger(filter);
+        },
+    });
+}
+
+/**
+ * The weekly or monthly purchase check (SUP6, §3.7) — the same ledger rolled up into periods, per
+ * currency, with the unpriced work counted rather than quietly omitted.
+ *
+ * Behind `inventory.view_costs_organisation` on the server; the ledger screen gates itself on the
+ * same code, so both of its modes are already inside one `<Gate>`. `enabled` is what keeps the
+ * summary from firing while the screen is in detail mode — two modes of one screen should not cost
+ * two requests when only one of them is on screen.
+ */
+export function useSpendSummaryQuery(
+    filter: SpendSummaryFilter,
+    enabled = true,
+): UseQueryResult<SpendSummary> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.spendSummary(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getSpendSummary(filter);
         },
     });
 }

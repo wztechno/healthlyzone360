@@ -4039,7 +4039,97 @@ export const zPurchasesLedgerCollection = z.object({
 });
 
 /**
- * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
+ * One supplier's item spend inside one period and currency (§3.7). Money
+ * and counts only — the receipt-level charges are a fact about a whole
+ * delivery and are reported once at the currency level rather than divided
+ * up here. A `null` supplier is a direct market purchase.
+ *
+ */
+export const zSpendSummarySupplierBreakdown = z.object({
+    supplier: zSupplierRef.nullable(),
+    received_line_count: z.int().gte(0),
+    item_subtotal: z.string()
+});
+
+/**
+ * One shelf's item spend inside one period and currency (§3.7).
+ */
+export const zSpendSummaryStockItemBreakdown = z.object({
+    stock_item_id: zUuid,
+    item_code: z.string(),
+    item_name_en: z.string(),
+    received_line_count: z.int().gte(0),
+    item_subtotal: z.string()
+});
+
+/**
+ * One currency's money inside one period (§3.7). Figures are never summed
+ * across currencies; every amount is a major-unit decimal string.
+ *
+ * `item_subtotal` is Σ receipt-line totals — what the goods themselves
+ * cost, and the figure that reconciles line for line to the purchases
+ * ledger. The four charge totals and `invoice_total` are receipt-level and
+ * deliberately separate: tax and delivery are not an ingredient's purchase
+ * price. A charge nobody recorded is `0`; an absent `invoice_total` is
+ * `null`, because an unknown invoice total is not a zero one.
+ *
+ * The two breakdowns are `null` when they were not requested and a list
+ * (possibly empty) when they were.
+ *
+ */
+export const zSpendSummaryCurrencyTotals = z.object({
+    currency_code: z.string(),
+    receipt_count: z.int().gte(0),
+    received_line_count: z.int().gte(0),
+    item_subtotal: z.string(),
+    discount_total: z.string(),
+    tax_total: z.string(),
+    delivery_total: z.string(),
+    other_charges_total: z.string(),
+    invoice_total: z.string().nullable(),
+    invoiced_receipt_count: z.int().gte(0),
+    by_supplier: z.array(zSpendSummarySupplierBreakdown).nullable(),
+    by_stock_item: z.array(zSpendSummaryStockItemBreakdown).nullable()
+});
+
+/**
+ * One ISO week or calendar month of purchasing (§3.7).
+ *
+ * The completeness facts sit here rather than inside a currency row because
+ * an unpriced line has no currency to belong to. A period with only
+ * unpriced deliveries therefore carries an empty `totals_by_currency` and
+ * `is_complete: false`.
+ *
+ * `unpriced_line_count` and `valuation_pending_line_count` are disjoint and
+ * both keep `is_complete` false: the first is "type these prices in", the
+ * second is "the price is recorded and its valuation waits on an
+ * exchange-rate decision" (§3.6).
+ *
+ */
+export const zSpendSummaryPeriod = z.object({
+    period: z.string(),
+    period_start: z.iso.date(),
+    period_end: z.iso.date(),
+    receipt_count: z.int().gte(0),
+    unpriced_receipt_count: z.int().gte(0),
+    unpriced_line_count: z.int().gte(0),
+    valuation_pending_line_count: z.int().gte(0),
+    is_complete: z.boolean(),
+    totals_by_currency: z.array(zSpendSummaryCurrencyTotals)
+});
+
+export const zSpendSummaryCollection = z.object({
+    data: z.object({
+        group_by: z.enum(['week', 'month']),
+        from: z.iso.date(),
+        to: z.iso.date(),
+        periods: z.array(zSpendSummaryPeriod)
+    }),
+    meta: zMeta
+});
+
+/**
+ * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies. Two data-quality flags, never merged: one says the month's COGS is understated by unresolved consumption exceptions, the other says its spend is understated because a delivery's invoice has not been entered (SUP6, §3.6). The three spend-completeness fields are month facts rather than currency facts — an unpriced line has no currency — so, like waste_quantity, they repeat across a month's currency rows.
  */
 export const zMonthlyCostReportRow = z.object({
     month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
@@ -4058,7 +4148,10 @@ export const zMonthlyCostReportRow = z.object({
     product_cogs_amount: z.string(),
     other_cogs_amount: z.string(),
     has_data_quality_flag: z.boolean(),
-    exception_count: z.int()
+    exception_count: z.int(),
+    is_spend_complete: z.boolean(),
+    unpriced_line_count: z.int().gte(0),
+    valuation_pending_line_count: z.int().gte(0)
 });
 
 export const zMonthlyCostReportCollection = z.object({
@@ -11416,6 +11509,26 @@ export const zListPurchasesLedgerQuery = z.object({
  * A page of purchases-ledger lines, newest first.
  */
 export const zListPurchasesLedgerResponse = zPurchasesLedgerCollection;
+
+export const zGetProcurementSpendSummaryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetProcurementSpendSummaryQuery = z.object({
+    group_by: z.enum(['week', 'month']),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    branch_id: zUuid.optional(),
+    supplier_id: zUuid.optional(),
+    stock_item_id: zUuid.optional(),
+    include: z.string().optional()
+});
+
+/**
+ * The spend summary, newest period first.
+ */
+export const zGetProcurementSpendSummaryResponse = zSpendSummaryCollection;
 
 export const zGetMonthlyCostReportHeaders = z.object({
     'X-Organisation-Id': zUuid,

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6022 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6048 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2900,6 +2900,9 @@ export interface NamespaceKeys {
     | 'ops.costReport.mixMeal'
     | 'ops.costReport.mixOther'
     | 'ops.costReport.mixProduct'
+    | 'ops.costReport.spendIncomplete'
+    | 'ops.costReport.spendIncompleteBody'
+    | 'ops.costReport.spendIncompleteTitle'
     | 'ops.costReport.subtitle'
     | 'ops.costReport.tileCogs'
     | 'ops.costReport.tileMargin'
@@ -2942,21 +2945,44 @@ export interface NamespaceKeys {
     | 'ops.exceptions.unresolvedCount'
     | 'ops.ledger.allItems'
     | 'ops.ledger.allSuppliers'
+    | 'ops.ledger.chargeDelivery'
+    | 'ops.ledger.chargeDiscount'
+    | 'ops.ledger.chargeOther'
+    | 'ops.ledger.chargeTax'
     | 'ops.ledger.columnDate'
     | 'ops.ledger.columnItem'
     | 'ops.ledger.columnLineTotal'
     | 'ops.ledger.columnSupplier'
     | 'ops.ledger.columnUnitPrice'
+    | 'ops.ledger.completeBadge'
     | 'ops.ledger.emptyBody'
     | 'ops.ledger.emptyTitle'
+    | 'ops.ledger.filterCostStatus'
     | 'ops.ledger.filterFrom'
     | 'ops.ledger.filterItem'
     | 'ops.ledger.filterSupplier'
     | 'ops.ledger.filterTo'
+    | 'ops.ledger.hideCharges'
+    | 'ops.ledger.incompleteBadge'
+    | 'ops.ledger.modeDetail'
+    | 'ops.ledger.modeLabel'
+    | 'ops.ledger.modeMonthly'
+    | 'ops.ledger.modeWeekly'
     | 'ops.ledger.nextPage'
+    | 'ops.ledger.noPricedDeliveries'
     | 'ops.ledger.noSupplier'
+    | 'ops.ledger.pendingFxNote'
+    | 'ops.ledger.periodDates'
+    | 'ops.ledger.showCharges'
     | 'ops.ledger.subtitle'
+    | 'ops.ledger.summaryEmptyBody'
+    | 'ops.ledger.summaryEmptyTitle'
+    | 'ops.ledger.summaryInvoiceTotal'
+    | 'ops.ledger.summaryLines'
+    | 'ops.ledger.summaryRange'
+    | 'ops.ledger.summarySubtotal'
     | 'ops.ledger.title'
+    | 'ops.ledger.unpricedLines'
     | 'ops.metricUnavailable'
     | 'ops.orders.allLoaded'
     | 'ops.orders.cancel'
@@ -8940,6 +8966,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.mixMeal',
   'kitchen:ops.costReport.mixOther',
   'kitchen:ops.costReport.mixProduct',
+  'kitchen:ops.costReport.spendIncomplete',
+  'kitchen:ops.costReport.spendIncompleteBody',
+  'kitchen:ops.costReport.spendIncompleteTitle',
   'kitchen:ops.costReport.subtitle',
   'kitchen:ops.costReport.tileCogs',
   'kitchen:ops.costReport.tileMargin',
@@ -8982,21 +9011,44 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.unresolvedCount',
   'kitchen:ops.ledger.allItems',
   'kitchen:ops.ledger.allSuppliers',
+  'kitchen:ops.ledger.chargeDelivery',
+  'kitchen:ops.ledger.chargeDiscount',
+  'kitchen:ops.ledger.chargeOther',
+  'kitchen:ops.ledger.chargeTax',
   'kitchen:ops.ledger.columnDate',
   'kitchen:ops.ledger.columnItem',
   'kitchen:ops.ledger.columnLineTotal',
   'kitchen:ops.ledger.columnSupplier',
   'kitchen:ops.ledger.columnUnitPrice',
+  'kitchen:ops.ledger.completeBadge',
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
+  'kitchen:ops.ledger.filterCostStatus',
   'kitchen:ops.ledger.filterFrom',
   'kitchen:ops.ledger.filterItem',
   'kitchen:ops.ledger.filterSupplier',
   'kitchen:ops.ledger.filterTo',
+  'kitchen:ops.ledger.hideCharges',
+  'kitchen:ops.ledger.incompleteBadge',
+  'kitchen:ops.ledger.modeDetail',
+  'kitchen:ops.ledger.modeLabel',
+  'kitchen:ops.ledger.modeMonthly',
+  'kitchen:ops.ledger.modeWeekly',
   'kitchen:ops.ledger.nextPage',
+  'kitchen:ops.ledger.noPricedDeliveries',
   'kitchen:ops.ledger.noSupplier',
+  'kitchen:ops.ledger.pendingFxNote',
+  'kitchen:ops.ledger.periodDates',
+  'kitchen:ops.ledger.showCharges',
   'kitchen:ops.ledger.subtitle',
+  'kitchen:ops.ledger.summaryEmptyBody',
+  'kitchen:ops.ledger.summaryEmptyTitle',
+  'kitchen:ops.ledger.summaryInvoiceTotal',
+  'kitchen:ops.ledger.summaryLines',
+  'kitchen:ops.ledger.summaryRange',
+  'kitchen:ops.ledger.summarySubtotal',
   'kitchen:ops.ledger.title',
+  'kitchen:ops.ledger.unpricedLines',
   'kitchen:ops.metricUnavailable',
   'kitchen:ops.orders.allLoaded',
   'kitchen:ops.orders.cancel',

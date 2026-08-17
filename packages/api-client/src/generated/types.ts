@@ -5542,7 +5542,142 @@ export type PurchasesLedgerCollection = {
 };
 
 /**
- * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
+ * One supplier's item spend inside one period and currency (§3.7). Money
+ * and counts only — the receipt-level charges are a fact about a whole
+ * delivery and are reported once at the currency level rather than divided
+ * up here. A `null` supplier is a direct market purchase.
+ *
+ */
+export type SpendSummarySupplierBreakdown = {
+    supplier: SupplierRef | null;
+    received_line_count: number;
+    /**
+     * Σ line totals for this supplier in this period and currency, major units.
+     */
+    item_subtotal: string;
+};
+
+/**
+ * One shelf's item spend inside one period and currency (§3.7).
+ */
+export type SpendSummaryStockItemBreakdown = {
+    stock_item_id: Uuid;
+    item_code: string;
+    item_name_en: string;
+    received_line_count: number;
+    item_subtotal: string;
+};
+
+/**
+ * One currency's money inside one period (§3.7). Figures are never summed
+ * across currencies; every amount is a major-unit decimal string.
+ *
+ * `item_subtotal` is Σ receipt-line totals — what the goods themselves
+ * cost, and the figure that reconciles line for line to the purchases
+ * ledger. The four charge totals and `invoice_total` are receipt-level and
+ * deliberately separate: tax and delivery are not an ingredient's purchase
+ * price. A charge nobody recorded is `0`; an absent `invoice_total` is
+ * `null`, because an unknown invoice total is not a zero one.
+ *
+ * The two breakdowns are `null` when they were not requested and a list
+ * (possibly empty) when they were.
+ *
+ */
+export type SpendSummaryCurrencyTotals = {
+    /**
+     * ISO 4217 currency every amount in this row is denominated in.
+     */
+    currency_code: string;
+    /**
+     * Receipts contributing money in this currency.
+     */
+    receipt_count: number;
+    /**
+     * Priced lines in this currency. Unpriced lines have no currency and are counted on the period.
+     */
+    received_line_count: number;
+    item_subtotal: string;
+    /**
+     * Recorded positive; the invoice arithmetic subtracts it (§3.6).
+     */
+    discount_total: string;
+    tax_total: string;
+    delivery_total: string;
+    other_charges_total: string;
+    /**
+     * Σ supplier-invoice totals where one was recorded; null when none was.
+     */
+    invoice_total: string | null;
+    /**
+     * How many receipts in this bucket carried an invoice total.
+     */
+    invoiced_receipt_count: number;
+    by_supplier: Array<SpendSummarySupplierBreakdown> | null;
+    by_stock_item: Array<SpendSummaryStockItemBreakdown> | null;
+};
+
+/**
+ * One ISO week or calendar month of purchasing (§3.7).
+ *
+ * The completeness facts sit here rather than inside a currency row because
+ * an unpriced line has no currency to belong to. A period with only
+ * unpriced deliveries therefore carries an empty `totals_by_currency` and
+ * `is_complete: false`.
+ *
+ * `unpriced_line_count` and `valuation_pending_line_count` are disjoint and
+ * both keep `is_complete` false: the first is "type these prices in", the
+ * second is "the price is recorded and its valuation waits on an
+ * exchange-rate decision" (§3.6).
+ *
+ */
+export type SpendSummaryPeriod = {
+    /**
+     * `IYYY-Www` for a week (`2026-W34`), `YYYY-MM` for a month (`2026-08`).
+     */
+    period: string;
+    /**
+     * First calendar day this period covers — a week starts Monday.
+     */
+    period_start: string;
+    period_end: string;
+    /**
+     * Receipts with at least one line in this period and filter scope.
+     */
+    receipt_count: number;
+    /**
+     * Of those, the ones carrying at least one line whose money is not settled.
+     */
+    unpriced_receipt_count: number;
+    /**
+     * Lines with no price recorded. They contribute quantity history and no money (§3.7).
+     */
+    unpriced_line_count: number;
+    /**
+     * Lines whose price is recorded and whose valuation waits on an exchange rate (§3.6).
+     */
+    valuation_pending_line_count: number;
+    /**
+     * True only when neither count above is non-zero.
+     */
+    is_complete: boolean;
+    totals_by_currency: Array<SpendSummaryCurrencyTotals>;
+};
+
+export type SpendSummaryCollection = {
+    data: {
+        group_by: 'week' | 'month';
+        /**
+         * The resolved lower bound actually read, whether it was sent or defaulted.
+         */
+        from: string;
+        to: string;
+        periods: Array<SpendSummaryPeriod>;
+    };
+    meta: Meta;
+};
+
+/**
+ * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies. Two data-quality flags, never merged: one says the month's COGS is understated by unresolved consumption exceptions, the other says its spend is understated because a delivery's invoice has not been entered (SUP6, §3.6). The three spend-completeness fields are month facts rather than currency facts — an unpriced line has no currency — so, like waste_quantity, they repeat across a month's currency rows.
  */
 export type MonthlyCostReportRow = {
     /**
@@ -5613,6 +5748,18 @@ export type MonthlyCostReportRow = {
      * Count of unresolved consumption exceptions on non-cancelled orders anchored to this month.
      */
     exception_count: number;
+    /**
+     * False when this month holds a delivery whose price is missing, or one whose recorded price could not be valued in the ingredient's currency — spend_amount is then understated (§3.6). A month whose only activity is unpriced receipts produces no row at all; the spend summary is where such a period appears.
+     */
+    is_spend_complete: boolean;
+    /**
+     * Receipt lines in this month with no price recorded. A month fact, repeated across the month's currency rows.
+     */
+    unpriced_line_count: number;
+    /**
+     * Receipt lines in this month whose price is recorded and whose valuation waits on an exchange rate.
+     */
+    valuation_pending_line_count: number;
 };
 
 export type MonthlyCostReportCollection = {
@@ -23381,6 +23528,101 @@ export type ListPurchasesLedgerResponses = {
 };
 
 export type ListPurchasesLedgerResponse = ListPurchasesLedgerResponses[keyof ListPurchasesLedgerResponses];
+
+export type GetProcurementSpendSummaryData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * `week` groups by ISO week over `received_on` (Monday-started,
+         * labelled `2026-W34`); `month` groups by calendar month (`2026-08`).
+         *
+         */
+        group_by: 'week' | 'month';
+        /**
+         * Inclusive lower bound on the receipt's business date, `YYYY-MM-DD`.
+         */
+        from?: string;
+        /**
+         * Inclusive upper bound on the receipt's business date, `YYYY-MM-DD`. Must not precede `from`.
+         */
+        to?: string;
+        /**
+         * Only receipts posted at this branch. Must belong to the active organisation.
+         */
+        branch_id?: Uuid;
+        /**
+         * Only receipts from this supplier. Must belong to the active organisation.
+         */
+        supplier_id?: Uuid;
+        /**
+         * Only lines that received this shelf. Must belong to the active organisation.
+         */
+        stock_item_id?: Uuid;
+        /**
+         * Comma-separated breakdowns to compute — `suppliers`, `items`, or
+         * both. An unrecognised token is refused rather than ignored, so a
+         * typo cannot look like an empty result.
+         *
+         */
+        include?: string;
+    };
+    url: '/catalogue/procurement/spend-summary';
+};
+
+export type GetProcurementSpendSummaryErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetProcurementSpendSummaryError = GetProcurementSpendSummaryErrors[keyof GetProcurementSpendSummaryErrors];
+
+export type GetProcurementSpendSummaryResponses = {
+    /**
+     * The spend summary, newest period first.
+     */
+    200: SpendSummaryCollection;
+};
+
+export type GetProcurementSpendSummaryResponse = GetProcurementSpendSummaryResponses[keyof GetProcurementSpendSummaryResponses];
 
 export type GetMonthlyCostReportData = {
     body?: never;

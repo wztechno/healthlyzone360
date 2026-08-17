@@ -1278,12 +1278,155 @@ export interface MonthlyCostReportRow {
     /** `true` when unresolved consumption exceptions mean this month's COGS is understated. */
     readonly hasDataQualityFlag: boolean;
     readonly exceptionCount: number;
+    /**
+     * `false` when this month holds a delivery whose price is missing, or one whose recorded price
+     * could not be valued in the ingredient's currency — {@link spendAmount} is then understated
+     * (SUP6, §3.6).
+     *
+     * A second flag rather than a widening of {@link hasDataQualityFlag}, because the two undermine
+     * different figures: one says the month's COGS is short, this one says its spend is. Merging
+     * them would leave a reader unable to tell which number to distrust.
+     *
+     * The three fields below are month facts rather than currency facts — an unpriced line has no
+     * currency — so, like {@link wasteQuantity}, they repeat across a month's currency rows. A month
+     * whose *only* activity is unpriced receipts produces no row here at all; the spend summary is
+     * where such a period appears.
+     */
+    readonly isSpendComplete: boolean;
+    readonly unpricedLineCount: number;
+    readonly valuationPendingLineCount: number;
 }
 
 /** Optional inclusive `YYYY-MM` month bounds over the monthly cost report. */
 export interface MonthlyCostReportFilter {
     readonly from?: string | undefined;
     readonly to?: string | undefined;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Weekly and monthly purchase financials (SUP6, §3.7)
+ * ---------------------------------------------------------------------------------------------- */
+
+/** How the spend summary buckets `receivedOn`. ISO weeks start Monday. */
+export const SPEND_SUMMARY_GROUPINGS = ['week', 'month'] as const;
+export type SpendSummaryGrouping = (typeof SPEND_SUMMARY_GROUPINGS)[number];
+
+/** The optional breakdowns the summary will compute, asked for by name. */
+export const SPEND_SUMMARY_INCLUDES = ['suppliers', 'items'] as const;
+export type SpendSummaryInclude = (typeof SPEND_SUMMARY_INCLUDES)[number];
+
+/**
+ * One supplier's item spend inside one period and currency (SUP6).
+ *
+ * Money and counts only: a receipt's header charges are a fact about the whole delivery and are
+ * reported once at the currency level rather than divided up here. A `null` supplier is a direct
+ * market purchase, which §3.6 keeps as an ordinary case rather than an exception.
+ */
+export interface SpendSummarySupplierBreakdown {
+    readonly supplier: SupplierRef | null;
+    readonly receivedLineCount: number;
+    readonly itemSubtotal: string;
+}
+
+/** One shelf's item spend inside one period and currency (SUP6). */
+export interface SpendSummaryStockItemBreakdown {
+    readonly stockItemId: StockItemId;
+    readonly itemCode: string;
+    readonly itemNameEn: string;
+    readonly receivedLineCount: number;
+    readonly itemSubtotal: string;
+}
+
+/**
+ * One currency's money inside one period (SUP6, §3.7).
+ *
+ * Every amount is a major-unit decimal string, and nothing anywhere in this shape adds two
+ * currencies together — there is no exchange rate in this system (§4.4).
+ *
+ * {@link itemSubtotal} is what the goods cost, and it is the figure that reconciles line for line to
+ * the purchases ledger under the same filters. The four charge totals and {@link invoiceTotal} are
+ * receipt-level and deliberately kept apart from it: tax and delivery are not an ingredient's
+ * purchase price. A charge nobody recorded is `"0.000000"`; an absent invoice total is `null`,
+ * because an unknown invoice total is not a zero one.
+ *
+ * The two breakdowns are `null` when they were not requested and a list (possibly empty) when they
+ * were, so a screen reads "not asked for" as a value rather than guessing at a missing key.
+ */
+export interface SpendSummaryCurrencyTotals {
+    readonly currencyCode: string;
+    /** Receipts contributing money in this currency. */
+    readonly receiptCount: number;
+    /** Priced lines in this currency. Unpriced lines have no currency and are counted on the period. */
+    readonly receivedLineCount: number;
+    readonly itemSubtotal: string;
+    /** Recorded positive; the invoice arithmetic subtracts it (§3.6). */
+    readonly discountTotal: string;
+    readonly taxTotal: string;
+    readonly deliveryTotal: string;
+    readonly otherChargesTotal: string;
+    /** Σ supplier-invoice totals where one was recorded; `null` when none was. */
+    readonly invoiceTotal: string | null;
+    readonly invoicedReceiptCount: number;
+    readonly bySupplier: readonly SpendSummarySupplierBreakdown[] | null;
+    readonly byStockItem: readonly SpendSummaryStockItemBreakdown[] | null;
+}
+
+/**
+ * One ISO week or calendar month of purchasing (SUP6, §3.7).
+ *
+ * **The envelope is the point.** The completeness facts sit on the period and the money sits inside
+ * {@link totalsByCurrency}, because an unpriced line has no currency to belong to. A period whose
+ * deliveries are all unpriced therefore carries an empty `totalsByCurrency` and
+ * `isComplete: false` — §3.7's **Incomplete** made structural rather than a flag a screen has to
+ * remember to read.
+ *
+ * {@link unpricedLineCount} and {@link valuationPendingLineCount} are disjoint and both keep the
+ * period incomplete. The first is "type these prices in"; the second is "the price is recorded and
+ * an exchange-rate decision is not this screen's to make" (§3.6).
+ */
+export interface SpendSummaryPeriod {
+    /** `IYYY-Www` for a week (`2026-W34`), `YYYY-MM` for a month (`2026-08`). */
+    readonly period: string;
+    /** First calendar day the period covers, `YYYY-MM-DD`. A week starts Monday. */
+    readonly periodStart: string;
+    readonly periodEnd: string;
+    readonly receiptCount: number;
+    readonly unpricedReceiptCount: number;
+    readonly unpricedLineCount: number;
+    readonly valuationPendingLineCount: number;
+    readonly isComplete: boolean;
+    readonly totalsByCurrency: readonly SpendSummaryCurrencyTotals[];
+}
+
+/**
+ * The summary as answered, newest period first (SUP6).
+ *
+ * {@link from} and {@link to} are the bounds the server actually read, whether they were sent or
+ * defaulted to the most recent window — a client that sent neither still has to be able to label the
+ * range it just drew.
+ */
+export interface SpendSummary {
+    readonly groupBy: SpendSummaryGrouping;
+    readonly from: string;
+    readonly to: string;
+    readonly periods: readonly SpendSummaryPeriod[];
+}
+
+/**
+ * What to summarise. `groupBy` is the only required field; omit the dates and the answer covers the
+ * most recent 53 weeks or 24 months, and an explicit range wider than that is refused with the cap
+ * named rather than silently truncated.
+ */
+export interface SpendSummaryFilter {
+    readonly groupBy: SpendSummaryGrouping;
+    /** Inclusive lower bound on the receipt's business date, `YYYY-MM-DD`. */
+    readonly from?: string | undefined;
+    readonly to?: string | undefined;
+    readonly branchId?: BranchId | undefined;
+    readonly supplierId?: SupplierId | undefined;
+    readonly stockItemId?: StockItemId | undefined;
+    /** Breakdowns to compute. Each costs exactly one more query; the default payload has neither. */
+    readonly include?: readonly SpendSummaryInclude[] | undefined;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -1603,6 +1746,15 @@ export interface KitchenOpsRepository {
     ): Promise<GoodsReceiptDetail>;
     /** The purchases ledger — every receipt line, cursor-paginated. Needs `inventory.view_costs_organisation`. */
     listPurchasesLedger(filter?: PurchaseLedgerFilter): Promise<CursorPage<PurchaseLedgerLine>>;
+    /**
+     * The weekly or monthly purchase check (SUP6, §3.7) — the same ledger rolled up into periods,
+     * per currency, with the unpriced work visibly counted rather than quietly omitted.
+     *
+     * Not paginated: the window is bounded server-side (53 weeks or 24 months), so the filtered set
+     * is answered whole. Needs `inventory.view_costs_organisation` — a summary of what the kitchen
+     * spent is money however coarsely it is grouped.
+     */
+    getSpendSummary(filter: SpendSummaryFilter): Promise<SpendSummary>;
     /**
      * The monthly cost report (INV1.4) — spend, COGS, waste, revenue and margin per month and
      * currency, newest month first. Needs `inventory.view_costs_organisation`. Not paginated: a

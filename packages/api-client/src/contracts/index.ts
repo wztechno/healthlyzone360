@@ -369,6 +369,8 @@ export {
     RECEIPT_COST_STATUSES,
     QUALITY_CHECK_STATUSES,
     QUALITY_CHECK_SUBJECT_TYPES,
+    SPEND_SUMMARY_GROUPINGS,
+    SPEND_SUMMARY_INCLUDES,
     STOCK_MOVEMENT_REASONS,
 } from './kitchen-ops.ts';
 export type {
@@ -429,6 +431,14 @@ export type {
     RecipientSnapshotContact,
     ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
+    SpendSummary,
+    SpendSummaryCurrencyTotals,
+    SpendSummaryFilter,
+    SpendSummaryGrouping,
+    SpendSummaryInclude,
+    SpendSummaryPeriod,
+    SpendSummaryStockItemBreakdown,
+    SpendSummarySupplierBreakdown,
     StockAdjustmentRequest,
     StockItem,
     StockItemBacking,

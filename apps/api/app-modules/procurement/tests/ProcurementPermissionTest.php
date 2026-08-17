@@ -33,6 +33,11 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 | *reads* are gated too — a badge that leaked the shortage count to every kitchen
 | role would have leaked the order book's front door.
 |
+| SUP6 adds the mirror boundary, which fails the same way in the other
+| direction: the weekly/monthly purchase financials are the **cost** code's, and
+| a caller holding view, manage and the ordering code is refused them. A spend
+| summary is money however coarsely it is grouped.
+|
 */
 
 /**
@@ -86,6 +91,20 @@ const PERMISSION_ORDERING_ONLY = [
     'inventory.order_supplies_organisation',
 ];
 
+/**
+ * Everything the inventory domain has except the **cost** code — the mirror of
+ * `PERMISSION_OPS_WITHOUT_ORDERING`, and the demanding negative case for §5's
+ * other boundary: this caller counts stock, posts deliveries and runs the order
+ * book, and still may not read what the kitchen spent.
+ */
+const PERMISSION_OPS_WITHOUT_COSTS = [
+    'organisation.view_current',
+    'branch.view_current',
+    'inventory.view_organisation',
+    'inventory.manage_organisation',
+    'inventory.order_supplies_organisation',
+];
+
 beforeEach(function (): void {
     $this->seed([ReferenceDataSeeder::class, OrganisationTypeSeeder::class, AccessControlSeeder::class]);
 });
@@ -134,6 +153,53 @@ it('admits a caller holding the ordering code and nothing else from the inventor
     $this->getJson("/api/v1/catalogue/procurement/order-proposal?{$query}", $world->headers)
         ->assertOk()
         ->assertJsonPath('data.items', []);
+});
+
+it('refuses the weekly and monthly purchase financials to a caller without the cost code', function (): void {
+    // §5 lists "weekly/monthly purchase financials" under
+    // `inventory.view_costs_organisation`, beside price history and the unpriced
+    // queue. Managing stock and running the order book are not that code, and a
+    // summary of what the kitchen spent is money however it is grouped.
+    $world = permissionWorld('no-costs@kitchen.test', PERMISSION_OPS_WITHOUT_COSTS);
+    $this->actingAs($world->user);
+
+    $this->getJson('/api/v1/catalogue/procurement/spend-summary?group_by=month', $world->headers)
+        ->assertForbidden();
+});
+
+it('admits the purchase financials to a caller holding the cost code', function (): void {
+    $world = permissionWorld('costs@kitchen.test', [
+        'organisation.view_current',
+        'branch.view_current',
+        'inventory.view_costs_organisation',
+    ]);
+    $this->actingAs($world->user);
+
+    // A kitchen with no receipts answers an empty period list rather than an
+    // error: nothing was bought, which is a fact and not a failure.
+    $this->getJson('/api/v1/catalogue/procurement/spend-summary?group_by=week', $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.group_by', 'week')
+        ->assertJsonPath('data.periods', []);
+});
+
+it('refuses a spend summary grouped by anything but a week or a month', function (): void {
+    $world = permissionWorld('bad-group@kitchen.test', [
+        'organisation.view_current',
+        'branch.view_current',
+        'inventory.view_costs_organisation',
+    ]);
+    $this->actingAs($world->user);
+
+    $this->getJson('/api/v1/catalogue/procurement/spend-summary?group_by=quarter', $world->headers)
+        ->assertStatus(422);
+
+    // A window wider than the cap is refused with the cap named, rather than
+    // silently truncated at one end.
+    $query = http_build_query(['group_by' => 'month', 'from' => '2024-01-01', 'to' => '2026-08-01']);
+    $this->getJson("/api/v1/catalogue/procurement/spend-summary?{$query}", $world->headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.details.max_periods', 24);
 });
 
 it('registers the ordering code in the inventory domain and grants it to the kitchen manager alone', function (): void {

@@ -1011,4 +1011,24 @@ test.describe('kitchen receiving', () => {
         await expect(page.getByTestId('kitchen-unpriced-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-unpriced-receipts');
     });
+
+    /**
+     * The ledger's weekly summary (SUP6).
+     *
+     * Worth its own sweep rather than riding on the detail table's, and for a reason the detail
+     * table does not have: the summary is a repeated card carrying a repeated Complete/Incomplete
+     * badge and a repeated disclosure button, and a repeated control whose accessible name is the
+     * same on every card is a page a screen-reader user cannot navigate. The mode control itself is
+     * a `tablist` with a roving tab stop, which is exactly where an unnamed landmark hides.
+     *
+     * Reached through the deep link rather than by pressing the segment, so the sweep stays
+     * read-only like every other test in this file.
+     */
+    test('the ledger week summary, with its period cards and state badges', async ({ page }) => {
+        await openKitchen(page);
+        await page.goto('/kitchen/purchases-ledger?mode=weekly');
+        await expect(page.getByTestId('kitchen-purchases-ledger-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ledger-mode')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-purchases-ledger-weekly');
+    });
 });

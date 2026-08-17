@@ -9575,6 +9575,127 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/procurement/spend-summary:
+    get:
+      operationId: getProcurementSpendSummary
+      tags: [Kitchen inventory & production]
+      summary: Weekly or monthly purchase financials
+      description: |
+        The same goods-receipt ledger the purchases screen browses line by line,
+        rolled up into the periods a manager reconciles in (§3.7): ISO weeks or
+        calendar months over the branch-local `received_on`. The aggregation is
+        shared with the monthly cost report, exactly as §3.7 requires, so the
+        two surfaces cannot disagree about a month's spend.
+
+        **A period, then currencies inside it — never one total across them.**
+        There is no exchange rate in this system (§4.4). An unpriced line has no
+        currency at all, so the completeness facts live on the *period* and the
+        money lives in `totals_by_currency`. A period whose deliveries are all
+        unpriced answers an empty `totals_by_currency` with `is_complete: false`
+        — §3.7's **Incomplete** made structural rather than a flag somebody has
+        to remember to read.
+
+        `unpriced_line_count` and `valuation_pending_line_count` are disjoint. A
+        line with no price recorded contributes no money and is unpriced; a line
+        whose price *is* recorded and whose valuation was refused for currency
+        contributes its money and waits on an exchange-rate decision (§3.6).
+        Either one keeps the period incomplete.
+
+        **Item subtotal and invoice total stay separate named values**, on §3.7's
+        own instruction: tax and delivery are not an ingredient's purchase price.
+        The four charge totals are zero when nothing was recorded; `invoice_total`
+        is `null` when no receipt in the bucket carried one, because an unknown
+        invoice total is not a zero one.
+
+        A `stock_item_id` filter narrows *lines*. A receipt's header charges are
+        a fact about the whole delivery and are not apportioned to one shelf: the
+        charges reported under that filter are those of the receipts the matching
+        lines came from, counted once each. `item_subtotal` is unaffected and
+        reconciles line for line to the purchases ledger under the same filters.
+
+        **The window is always bounded.** Omit `from`/`to` and the answer covers
+        the most recent 53 weeks or 24 months; an explicit range wider than that
+        is refused with the cap named rather than silently truncated. The
+        resolved bounds are echoed in `data.from`/`data.to`.
+
+        Breakdowns are opt-in (`include=suppliers,items`) and cost exactly one
+        query each, so the default payload stays a period list a screen can
+        render whole. Requires `inventory.view_costs_organisation` (§5).
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: group_by
+          in: query
+          required: true
+          description: |
+            `week` groups by ISO week over `received_on` (Monday-started,
+            labelled `2026-W34`); `month` groups by calendar month (`2026-08`).
+          schema:
+            type: string
+            enum: [week, month]
+        - name: from
+          in: query
+          required: false
+          description: Inclusive lower bound on the receipt's business date, `YYYY-MM-DD`.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Inclusive upper bound on the receipt's business date, `YYYY-MM-DD`. Must not precede `from`.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: false
+          description: Only receipts posted at this branch. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: supplier_id
+          in: query
+          required: false
+          description: Only receipts from this supplier. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: stock_item_id
+          in: query
+          required: false
+          description: Only lines that received this shelf. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: include
+          in: query
+          required: false
+          description: |
+            Comma-separated breakdowns to compute — `suppliers`, `items`, or
+            both. An unrecognised token is refused rather than ignored, so a
+            typo cannot look like an empty result.
+          schema:
+            type: string
+            example: suppliers,items
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The spend summary, newest period first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendSummaryCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/reports/monthly-cost:
     get:
       operationId: getMonthlyCostReport
@@ -28704,6 +28825,199 @@ components:
         meta:
           $ref: '#/components/schemas/PaginationMeta'
 
+    SpendSummarySupplierBreakdown:
+      type: object
+      required: [supplier, received_line_count, item_subtotal]
+      description: |
+        One supplier's item spend inside one period and currency (§3.7). Money
+        and counts only — the receipt-level charges are a fact about a whole
+        delivery and are reported once at the currency level rather than divided
+        up here. A `null` supplier is a direct market purchase.
+      properties:
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierRef'
+            - type: 'null'
+        received_line_count:
+          type: integer
+          minimum: 0
+        item_subtotal:
+          type: string
+          description: Σ line totals for this supplier in this period and currency, major units.
+      additionalProperties: false
+
+    SpendSummaryStockItemBreakdown:
+      type: object
+      required: [stock_item_id, item_code, item_name_en, received_line_count, item_subtotal]
+      description: One shelf's item spend inside one period and currency (§3.7).
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        received_line_count:
+          type: integer
+          minimum: 0
+        item_subtotal:
+          type: string
+      additionalProperties: false
+
+    SpendSummaryCurrencyTotals:
+      type: object
+      required:
+        - currency_code
+        - receipt_count
+        - received_line_count
+        - item_subtotal
+        - discount_total
+        - tax_total
+        - delivery_total
+        - other_charges_total
+        - invoice_total
+        - invoiced_receipt_count
+        - by_supplier
+        - by_stock_item
+      description: |
+        One currency's money inside one period (§3.7). Figures are never summed
+        across currencies; every amount is a major-unit decimal string.
+
+        `item_subtotal` is Σ receipt-line totals — what the goods themselves
+        cost, and the figure that reconciles line for line to the purchases
+        ledger. The four charge totals and `invoice_total` are receipt-level and
+        deliberately separate: tax and delivery are not an ingredient's purchase
+        price. A charge nobody recorded is `0`; an absent `invoice_total` is
+        `null`, because an unknown invoice total is not a zero one.
+
+        The two breakdowns are `null` when they were not requested and a list
+        (possibly empty) when they were.
+      properties:
+        currency_code:
+          type: string
+          description: ISO 4217 currency every amount in this row is denominated in.
+        receipt_count:
+          type: integer
+          minimum: 0
+          description: Receipts contributing money in this currency.
+        received_line_count:
+          type: integer
+          minimum: 0
+          description: Priced lines in this currency. Unpriced lines have no currency and are counted on the period.
+        item_subtotal:
+          type: string
+        discount_total:
+          type: string
+          description: Recorded positive; the invoice arithmetic subtracts it (§3.6).
+        tax_total:
+          type: string
+        delivery_total:
+          type: string
+        other_charges_total:
+          type: string
+        invoice_total:
+          type: ['string', 'null']
+          description: Σ supplier-invoice totals where one was recorded; null when none was.
+        invoiced_receipt_count:
+          type: integer
+          minimum: 0
+          description: How many receipts in this bucket carried an invoice total.
+        by_supplier:
+          type: ['array', 'null']
+          items:
+            $ref: '#/components/schemas/SpendSummarySupplierBreakdown'
+        by_stock_item:
+          type: ['array', 'null']
+          items:
+            $ref: '#/components/schemas/SpendSummaryStockItemBreakdown'
+      additionalProperties: false
+
+    SpendSummaryPeriod:
+      type: object
+      required:
+        - period
+        - period_start
+        - period_end
+        - receipt_count
+        - unpriced_receipt_count
+        - unpriced_line_count
+        - valuation_pending_line_count
+        - is_complete
+        - totals_by_currency
+      description: |
+        One ISO week or calendar month of purchasing (§3.7).
+
+        The completeness facts sit here rather than inside a currency row because
+        an unpriced line has no currency to belong to. A period with only
+        unpriced deliveries therefore carries an empty `totals_by_currency` and
+        `is_complete: false`.
+
+        `unpriced_line_count` and `valuation_pending_line_count` are disjoint and
+        both keep `is_complete` false: the first is "type these prices in", the
+        second is "the price is recorded and its valuation waits on an
+        exchange-rate decision" (§3.6).
+      properties:
+        period:
+          type: string
+          description: '`IYYY-Www` for a week (`2026-W34`), `YYYY-MM` for a month (`2026-08`).'
+        period_start:
+          type: string
+          format: date
+          description: First calendar day this period covers — a week starts Monday.
+        period_end:
+          type: string
+          format: date
+        receipt_count:
+          type: integer
+          minimum: 0
+          description: Receipts with at least one line in this period and filter scope.
+        unpriced_receipt_count:
+          type: integer
+          minimum: 0
+          description: Of those, the ones carrying at least one line whose money is not settled.
+        unpriced_line_count:
+          type: integer
+          minimum: 0
+          description: Lines with no price recorded. They contribute quantity history and no money (§3.7).
+        valuation_pending_line_count:
+          type: integer
+          minimum: 0
+          description: Lines whose price is recorded and whose valuation waits on an exchange rate (§3.6).
+        is_complete:
+          type: boolean
+          description: True only when neither count above is non-zero.
+        totals_by_currency:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpendSummaryCurrencyTotals'
+      additionalProperties: false
+
+    SpendSummaryCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [group_by, from, to, periods]
+          properties:
+            group_by:
+              type: string
+              enum: [week, month]
+            from:
+              type: string
+              format: date
+              description: The resolved lower bound actually read, whether it was sent or defaulted.
+            to:
+              type: string
+              format: date
+            periods:
+              type: array
+              items:
+                $ref: '#/components/schemas/SpendSummaryPeriod'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+
     MonthlyCostReportRow:
       type: object
       required:
@@ -28724,10 +29038,18 @@ components:
         - other_cogs_amount
         - has_data_quality_flag
         - exception_count
+        - is_spend_complete
+        - unpriced_line_count
+        - valuation_pending_line_count
       description: >-
         One month of one kitchen's economics in one currency (INV1.4). Every
         amount is a major-unit decimal string; figures are never summed across
-        currencies.
+        currencies. Two data-quality flags, never merged: one says the month's
+        COGS is understated by unresolved consumption exceptions, the other says
+        its spend is understated because a delivery's invoice has not been
+        entered (SUP6, §3.6). The three spend-completeness fields are month facts
+        rather than currency facts — an unpriced line has no currency — so, like
+        waste_quantity, they repeat across a month's currency rows.
       properties:
         month:
           type: string
@@ -28781,6 +29103,22 @@ components:
         exception_count:
           type: integer
           description: Count of unresolved consumption exceptions on non-cancelled orders anchored to this month.
+        is_spend_complete:
+          type: boolean
+          description: >-
+            False when this month holds a delivery whose price is missing, or one
+            whose recorded price could not be valued in the ingredient's currency
+            — spend_amount is then understated (§3.6). A month whose only
+            activity is unpriced receipts produces no row at all; the spend
+            summary is where such a period appears.
+        unpriced_line_count:
+          type: integer
+          minimum: 0
+          description: Receipt lines in this month with no price recorded. A month fact, repeated across the month's currency rows.
+        valuation_pending_line_count:
+          type: integer
+          minimum: 0
+          description: Receipt lines in this month whose price is recorded and whose valuation waits on an exchange rate.
       additionalProperties: false
 
     MonthlyCostReportCollection:

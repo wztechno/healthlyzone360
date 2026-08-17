@@ -469,6 +469,13 @@ export const queryKeys = {
             ['kitchenOps', 'unpriced-receipts', filter] as const,
         purchasesLedger: (filter: object = {}) =>
             ['kitchenOps', 'purchases-ledger', filter] as const,
+        /**
+         * The weekly/monthly purchase check (SUP6). Its own entry beside `purchasesLedger` rather
+         * than a variant of it: the ledger walks lines by cursor and this answers whole periods, so
+         * two modes of one screen are two cached answers and switching between them does not evict
+         * the other. The grouping is inside the filter object, so week and month are two entries.
+         */
+        spendSummary: (filter: object = {}) => ['kitchenOps', 'spend-summary', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,

@@ -227,6 +227,7 @@ use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\OrderProposalController;
 use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
+use Healthy360\Procurement\Http\Controllers\ProcurementSpendSummaryController;
 use Healthy360\Procurement\Http\Controllers\PurchaseOrderCancelController;
 use Healthy360\Procurement\Http\Controllers\PurchaseOrderIndexController;
 use Healthy360\Procurement\Http\Controllers\PurchaseOrderIssueController;
@@ -1570,6 +1571,20 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::get('/procurement/unpriced-receipts', UnpricedReceiptIndexController::class)->name('catalogue.procurement.unpriced-receipts.index');
                 Route::post('/procurement/goods-receipts/{goodsReceipt}/complete-prices', ReceiptPriceCompletionController::class)->name('catalogue.procurement.goods-receipts.complete-prices');
+
+                /*
+                | The weekly and monthly purchase check (SUP6, §3.7) — the same
+                | ledger rolled up into the periods a manager reconciles in. §5
+                | lists "weekly/monthly purchase financials" beside price history
+                | and the unpriced queue under the cost code, so it sits in this
+                | group rather than beside the receiving endpoints: a clerk who
+                | posts deliveries may not read what the kitchen spent.
+                |
+                | It reads `ProcurementSpendQuery`, which the monthly cost report
+                | below now also reads — §3.7's own instruction, so the two
+                | surfaces cannot disagree about a month's spend.
+                */
+                Route::get('/procurement/spend-summary', ProcurementSpendSummaryController::class)->name('catalogue.procurement.spend-summary.index');
 
                 /*
                 | The monthly cost report (INV1.4) sits beside the ledger on the

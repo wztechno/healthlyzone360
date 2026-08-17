@@ -9,9 +9,19 @@ namespace Healthy360\Procurement\Presenters;
  *
  * A row is one `(month, currency)` pair: spend, COGS, waste, revenue and the
  * margin between revenue and COGS, plus the meal-versus-product revenue **and**
- * COGS splits (INV1.5) and the data-quality flag. Every money field is a
+ * COGS splits (INV1.5) and the two data-quality flags. Every money field is a
  * major-unit decimal string beside its `currency_code`, never a float and never
  * summed across currencies.
+ *
+ * The two flags answer two different questions and are never merged.
+ * `has_data_quality_flag`/`exception_count` say the month's **COGS** is
+ * understated by unresolved consumption exceptions (INV1.2).
+ * `is_spend_complete`/`unpriced_line_count`/`valuation_pending_line_count` say
+ * the month's **spend** is understated because a delivery's invoice has not been
+ * entered, or because a recorded price could not be valued in the ingredient's
+ * currency (SUP6, §3.6). Those three are month facts rather than currency facts —
+ * an unpriced line has no currency — so, like `waste_quantity`, they repeat
+ * across a month's currency rows.
  *
  * **Nothing confidential passes through here.** The report is an aggregate of
  * money already visible on the purchases ledger and the order book to a reader
@@ -39,7 +49,10 @@ final class MonthlyCostReportPresenter
      *     product_cogs_amount: string,
      *     other_cogs_amount: string,
      *     has_data_quality_flag: bool,
-     *     exception_count: int
+     *     exception_count: int,
+     *     is_spend_complete: bool,
+     *     unpriced_line_count: int,
+     *     valuation_pending_line_count: int
      * }  $row
      * @return array<string, mixed>
      */
@@ -63,6 +76,9 @@ final class MonthlyCostReportPresenter
             'other_cogs_amount' => $row['other_cogs_amount'],
             'has_data_quality_flag' => $row['has_data_quality_flag'],
             'exception_count' => $row['exception_count'],
+            'is_spend_complete' => $row['is_spend_complete'],
+            'unpriced_line_count' => $row['unpriced_line_count'],
+            'valuation_pending_line_count' => $row['valuation_pending_line_count'],
         ];
     }
 }
