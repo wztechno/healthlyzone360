@@ -69,8 +69,23 @@ function FamilyCardShell({
     const router = useRouter();
 
     return (
-        <Card testID={testID} padding="md" tone="raised" className="self-stretch border-brand-100">
-            <Stack space="sm">
+        /*
+         * `grow` is what makes every tile in a row the same height, and `self-stretch` beside it is
+         * not the same thing: the grid cell above already stretches, but the cell is a *column*, so
+         * stretch governs the card's width and its height still came from its own content. A module
+         * with four count chips stood taller than one with none, and the "Open …" buttons landed at
+         * four different heights across a row.
+         *
+         * The body then takes the slack (`grow` on the stack) and the action is pushed to the
+         * bottom (`mt-auto`), so the buttons share one baseline however many chips a module has.
+         */
+        <Card
+            testID={testID}
+            padding="md"
+            tone="raised"
+            className="grow self-stretch border-brand-100"
+        >
+            <Stack space="sm" grow>
                 <Inline space="sm" align="center">
                     <Icon name={family.icon} size="md" className="text-brand-600" />
                     <Heading level={3} testID={`${testID}-name`} className="text-brand-600">
@@ -89,7 +104,7 @@ function FamilyCardShell({
 
                 {children}
 
-                <Inline space="sm" wrap>
+                <Inline space="sm" wrap className="mt-auto">
                     <Button
                         testID={`${testID}-open`}
                         variant="secondary"
