@@ -311,3 +311,180 @@ describe('createApiKitchenOrdersRepository — the three lifecycle writes', () =
         expect(asApiFailure(caught)?.code).toBe('resource.conflict');
     });
 });
+
+describe('createApiKitchenOrdersRepository — recordPayment', () => {
+    const RECEIPT_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2101';
+    const AGENT_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2201';
+
+    function receiptBody(overrides: Record<string, unknown> = {}) {
+        return {
+            data: {
+                receipt: {
+                    id: RECEIPT_UUID,
+                    order_id: ORDER_UUID,
+                    method: 'cash_on_delivery',
+                    amount_minor: 16000,
+                    currency_code: 'AED',
+                    reference: null,
+                    confirmed_by: AGENT_UUID,
+                    confirmed_at: '2026-05-10T09:30:00+00:00',
+                    notes: null,
+                    created_at: '2026-05-10T09:30:01+00:00',
+                    ...overrides,
+                },
+                payment: { method: 'cash_on_delivery', received_minor: 16000, receipted: true },
+            },
+            meta: { correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2301' },
+        };
+    }
+
+    it('sends the order lock version as a quoted If-Match and mints an Idempotency-Key', async () => {
+        const { repository, calls } = harness([{ status: 201, body: receiptBody() }]);
+
+        await repository.recordPayment({
+            id: OrderId.unsafe(ORDER_UUID),
+            lockVersion: 3,
+            method: 'cash_on_delivery',
+            amountMinor: 16000,
+        });
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.path).toBe(`/catalogue/orders/${ORDER_UUID}/payments`);
+        // Quoted, which is the form the server hands back in `ETag` and the form its parser
+        // expects — the same convention the three lifecycle writes use.
+        expect(calls[0]?.headers.get('If-Match')).toBe('"3"');
+        // Minted here so no screen can forget it. The endpoint refuses a `400` without it.
+        expect(calls[0]?.headers.get('Idempotency-Key')).toBeTruthy();
+    });
+
+    it('mints a fresh key per attempt so a deliberate second payment is not a replay', async () => {
+        const { repository, calls } = harness([
+            { status: 201, body: receiptBody() },
+            { status: 201, body: receiptBody() },
+        ]);
+
+        const request = {
+            id: OrderId.unsafe(ORDER_UUID),
+            lockVersion: 3,
+            method: 'cash_on_delivery',
+            amountMinor: 800,
+        } as const;
+
+        await repository.recordPayment(request);
+        // The same order, the same version — because this write does not bump it — and a second
+        // part payment. A key held across attempts would replay the first receipt and lose the
+        // balance.
+        await repository.recordPayment(request);
+
+        expect(calls[0]?.headers.get('Idempotency-Key')).not.toBe(
+            calls[1]?.headers.get('Idempotency-Key'),
+        );
+        expect(calls[1]?.headers.get('If-Match')).toBe('"3"');
+    });
+
+    it('sends the amount in minor units with no currency field at all', async () => {
+        const { repository, calls } = harness([{ status: 201, body: receiptBody() }]);
+
+        await repository.recordPayment({
+            id: OrderId.unsafe(ORDER_UUID),
+            lockVersion: 1,
+            method: 'wish',
+            amountMinor: 4500,
+            reference: 'WSH-ABC123',
+            notes: 'Confirmed on the app.',
+        });
+
+        // No `currency_code`: the order's is the only currency this receipt can be in, and a field
+        // here would let a caller assert that dirhams arrived against a dollar order.
+        expect(JSON.parse(calls[0]?.body ?? '{}')).toEqual({
+            method: 'wish',
+            amount_minor: 4500,
+            reference: 'WSH-ABC123',
+            notes: 'Confirmed on the app.',
+        });
+    });
+
+    it('omits the optional fields rather than sending them empty', async () => {
+        const { repository, calls } = harness([{ status: 201, body: receiptBody() }]);
+
+        await repository.recordPayment({
+            id: OrderId.unsafe(ORDER_UUID),
+            lockVersion: 1,
+            method: 'cash_at_counter',
+            amountMinor: 100,
+        });
+
+        // Absent, not `null` and not `""`: the server distinguishes "no reference" from a
+        // reference somebody cleared.
+        expect(JSON.parse(calls[0]?.body ?? '{}')).toEqual({
+            method: 'cash_at_counter',
+            amount_minor: 100,
+        });
+    });
+
+    it('answers the receipt and the order position together', async () => {
+        const { repository } = harness([
+            {
+                status: 201,
+                body: receiptBody({ method: 'wish', amount_minor: 500, reference: 'WSH-XYZ' }),
+            },
+        ]);
+
+        const recorded = await repository.recordPayment({
+            id: OrderId.unsafe(ORDER_UUID),
+            lockVersion: 1,
+            method: 'wish',
+            amountMinor: 500,
+        });
+
+        expect(recorded.receipt).toEqual({
+            id: RECEIPT_UUID,
+            orderId: ORDER_UUID,
+            method: 'wish',
+            amountMinor: 500,
+            currencyCode: 'AED',
+            reference: 'WSH-XYZ',
+            confirmedBy: AGENT_UUID,
+            confirmedAt: '2026-05-10T09:30:00+00:00',
+            notes: null,
+        });
+        // The position is answered alongside so no screen has to re-read for a number the server
+        // has just computed.
+        expect(recorded.payment).toEqual({
+            method: 'cash_on_delivery',
+            receivedMinor: 16000,
+            receipted: true,
+        });
+    });
+
+    it('surfaces a cancelled order as a conflict carrying no version to reload against', async () => {
+        const { repository } = harness([
+            {
+                status: 409,
+                body: {
+                    error: {
+                        code: 'resource.conflict',
+                        message: 'This order was cancelled.',
+                        details: { status: 'cancelled' },
+                    },
+                },
+            },
+        ]);
+
+        await expect(
+            repository.recordPayment({
+                id: OrderId.unsafe(ORDER_UUID),
+                lockVersion: 1,
+                method: 'cash_on_delivery',
+                amountMinor: 100,
+            }),
+        ).rejects.toSatisfy((caught: unknown) => {
+            const failure = asApiFailure(caught);
+            // No `currentLockVersion`, which is how a screen tells "the order moved, re-read"
+            // from "the order is cancelled, stop offering this".
+            return (
+                failure?.code === 'resource.conflict' && failure.currentLockVersion === undefined
+            );
+        });
+    });
+});

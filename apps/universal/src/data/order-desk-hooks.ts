@@ -6,6 +6,8 @@ import type {
     KitchenOrder,
     OrderDeskCalendar,
     OrderDeskCalendarFilters,
+    OrderDeskCashReport,
+    OrderDeskCashReportFilters,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerSearch,
@@ -204,6 +206,38 @@ export const DRIVERS_STALE_MS = 5 * 60_000;
  * fifteen seconds and may never assign anything. The answer is bounded and unpaged, so the whole
  * list arrives at once and the search over it is the screen's, client-side.
  */
+/**
+ * One day's takings, by agent and by method — the till-shift mitigation.
+ *
+ * **No poll and no stale window at all**, unlike every other read on this surface, and the contrast
+ * is deliberate. The queue is a live work surface measured in minutes; the buy list is a number that
+ * moves when somebody receives a delivery. This is a *reconciliation* — somebody stands a cash box
+ * next to it and counts — and a table that renewed itself under that person's finger would move the
+ * figures they were halfway through checking. It refetches when the screen asks and when a payment
+ * is recorded, which is every occasion on which it could have changed.
+ *
+ * `filters` is passed to the key as one object (query-key shape rule 3), so a memoised filter is the
+ * identity that decides whether this is the same day. `null` disables the read, which is how a screen
+ * whose date box is mid-edit asks for nothing rather than asking for the takings of a half-typed
+ * date.
+ */
+export function useOrderDeskCashReportQuery(
+    filters: OrderDeskCashReportFilters | null,
+    enabled = true,
+): UseQueryResult<OrderDeskCashReport> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.cashReport(filters ?? undefined),
+        enabled: enabled && filters !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (filters === null) throw new Error('There is no day to report.');
+            return repositories.orderDesk.getCashReport(filters);
+        },
+    });
+}
+
 export function useOrderDeskDriversQuery(enabled = true): UseQueryResult<OrderDeskDrivers> {
     const { repositories } = useRepositoryContext();
 

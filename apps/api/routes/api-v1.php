@@ -192,6 +192,7 @@ use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
@@ -1779,6 +1780,28 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:order.manage_organisation')->group(function (): void {
                 Route::get('/order-desk/drivers', OrderDeskDriverIndexController::class)
                     ->name('catalogue.order-desk.drivers.index');
+
+                /*
+                | **The till-shift mitigation.** The desk takes cash and this
+                | platform has no shift table — nothing opens a drawer with a
+                | float, nothing closes it against a count. That gap was accepted
+                | knowingly when `order_payment_receipts` landed, on the
+                | condition that the money at least be attributable: a manager
+                | must be able to ask "what did each agent take yesterday?".
+                | This is that answer and deliberately not more; a real drawer
+                | reconciliation is a later table, and when it lands this reads
+                | from the same ledger rather than being replaced by it.
+                |
+                | The drivers endpoint's code, and the same seat. This is a
+                | statement about *people* — who took how much — which is a
+                | different disclosure from the order book, and
+                | `order.view_organisation` is held by everybody who works a
+                | queue. A new code was considered and rejected: an authority to
+                | read the day's cash that could be held without the authority to
+                | move an order is not a seat anybody occupies.
+                */
+                Route::get('/order-desk/cash-report', OrderDeskCashReportController::class)
+                    ->name('catalogue.order-desk.cash-report');
             });
 
             /*

@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Delivery\Models\DeliveryJob;
+use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\OrderDesk\Enums\OrderDeskWindow;
@@ -134,6 +135,7 @@ final class OrderDeskQueue
         ?array $statuses = null,
         ?string $deliveryWindowCode = null,
         ?string $orderNumberQuery = null,
+        ?FulfilmentType $fulfilmentType = null,
     ): array {
         $timezone = $this->timezoneFor($organisationId, $branchId);
         $today = CarbonImmutable::now($timezone)->toDateString();
@@ -144,6 +146,7 @@ final class OrderDeskQueue
         $this->applyBranch($query, $branchId);
         $this->applyDeliveryWindowCode($query, $deliveryWindowCode);
         $this->applyOrderNumber($query, $orderNumberQuery);
+        $this->applyFulfilmentType($query, $fulfilmentType);
 
         // One row past the cap, and only one: it is the cheapest possible
         // answer to "is there more", and it cannot disagree with the page the
@@ -201,6 +204,13 @@ final class OrderDeskQueue
      * platform has proved; refusing to show an unverified one would leave the
      * desk phoning nobody while a perfectly good number sat in the row.
      *
+     * **This is the account's number, which is not always the order's.** The
+     * queue itself goes through {@see contactsForOrders()}, which prefers the
+     * number snapshotted onto the order when one was taken and falls back to
+     * this. The customer search surfaces have no order to prefer, so they call
+     * this directly and get the account's own answer, which is the only one
+     * that means anything to them.
+     *
      * @param  list<string>  $accountIds
      * @return array<string, array{display_name: string|null, phone: string|null}>
      */
@@ -221,8 +231,20 @@ final class OrderDeskQueue
             static fn (?string $userId): bool => $userId !== null && $userId !== '',
         )));
 
-        $byAccount = [];
-        $byUser = [];
+        // A user's accounts, so a user-owned row can be credited to the person
+        // it reaches. One map, not two: the two ownership arms are one person,
+        // and splitting them into separate maps would decide "which number"
+        // by arm rather than by the ordering below — an account-owned spare
+        // would beat the user's own primary.
+        $accountsByUser = [];
+
+        foreach ($accounts as $account) {
+            if ($account->user_id !== null) {
+                $accountsByUser[(string) $account->user_id][] = (string) $account->getKey();
+            }
+        }
+
+        $phoneByAccount = [];
 
         $phones = DB::table('contact_points')
             ->select(['customer_account_id', 'user_id', 'value_normalised'])
@@ -238,7 +260,8 @@ final class OrderDeskQueue
             // Primary first, then proven, then oldest — the last of the three
             // so that a tie resolves to the number the customer has had
             // longest rather than to whichever row the planner happened to
-            // emit first.
+            // emit first. The first row this ordering yields for a person is
+            // the one they get, whichever arm it hangs on.
             ->orderByDesc('is_primary')
             ->orderByRaw('(verified_at is not null) desc')
             ->orderBy('created_at')
@@ -249,13 +272,15 @@ final class OrderDeskQueue
             $value = (string) $phone->value_normalised;
 
             if ($phone->customer_account_id !== null) {
-                $byAccount[(string) $phone->customer_account_id] ??= $value;
+                $phoneByAccount[(string) $phone->customer_account_id] ??= $value;
 
                 continue;
             }
 
             if ($phone->user_id !== null) {
-                $byUser[(string) $phone->user_id] ??= $value;
+                foreach ($accountsByUser[(string) $phone->user_id] ?? [] as $accountId) {
+                    $phoneByAccount[$accountId] ??= $value;
+                }
             }
         }
 
@@ -263,11 +288,117 @@ final class OrderDeskQueue
 
         foreach ($accounts as $account) {
             $id = (string) $account->getKey();
-            $userId = $account->user_id;
 
             $contacts[$id] = [
                 'display_name' => $account->display_name,
-                'phone' => $byAccount[$id] ?? ($userId === null ? null : ($byUser[$userId] ?? null)),
+                'phone' => $phoneByAccount[$id] ?? null,
+            ];
+        }
+
+        return $contacts;
+    }
+
+    /**
+     * The same pair, resolved **per order** rather than per account, because the
+     * number now depends on the order.
+     *
+     * ## Why the order's own snapshot wins
+     *
+     * A delivery order carries `delivery_contact_point_id`: the number the
+     * customer nominated *for this delivery*, snapshotted onto the row when the
+     * order was placed and printed on the docket the courier is holding. The
+     * account's primary is a different fact — the number that customer is
+     * generally reachable on — and the two disagree far more often than a
+     * schema diagram suggests. A caller orders to their mother's flat and gives
+     * their mother's landline. An office manager orders lunch for a floor and
+     * gives reception. In both cases the account's primary is a mobile in
+     * somebody's pocket in another building, and a desk ringing it is ringing
+     * the wrong person about a van that is outside.
+     *
+     * So the snapshot is preferred where it exists, and the account path is the
+     * fallback rather than the rule. Where no snapshot exists — every pickup,
+     * every counter sale, every delivery placed before the widened snapshot
+     * columns landed — the answer is exactly what it was before this method
+     * existed, which is what makes this a narrowing of an unknown rather than a
+     * change of meaning.
+     *
+     * ## The lookup is direct, and deliberately has no ownership arms
+     *
+     * {@see contactsFor()} unions two ownership arms because it starts from an
+     * *account* and a contact point may hang off the account or off the user
+     * behind it. This starts from a **foreign key on the order**, which names
+     * one row: whose it is was decided at placement, and re-deciding it here
+     * would be second-guessing the snapshot. One `whereIn` over the page's
+     * distinct contact-point ids, for the reason everything else on this class
+     * is batched — two hundred rows is two hundred round trips if this is got
+     * wrong.
+     *
+     * `retired_at` is **not** filtered. A number the customer has since removed
+     * from their account is still the number written on this order's docket, and
+     * hiding it would leave the desk reading the account's current mobile while
+     * the courier stands at a door holding a different one. The retirement is a
+     * fact about the customer's future orders, not about this one.
+     *
+     * **Called only when the caller holds
+     * `order.view_customer_contact_organisation`** — the same rule
+     * {@see contactsFor()} states, and for the same reason: an unpermitted
+     * request must not cause the confidential columns to be read at all.
+     *
+     * Keyed by **order** id, not account id. Two orders for one account can now
+     * legitimately answer two different numbers, so an account-keyed map could
+     * not express the result.
+     *
+     * @param  list<Order>  $orders
+     * @return array<string, array{display_name: string|null, phone: string|null}>
+     */
+    public function contactsForOrders(array $orders): array
+    {
+        if ($orders === []) {
+            return [];
+        }
+
+        $byAccount = $this->contactsFor(array_map(
+            static fn (Order $order): string => (string) $order->customer_account_id,
+            $orders,
+        ));
+
+        $snapshotIds = array_values(array_unique(array_filter(
+            array_map(
+                static fn (Order $order): string => (string) $order->delivery_contact_point_id,
+                $orders,
+            ),
+            static fn (string $id): bool => $id !== '',
+        )));
+
+        $snapshotPhones = [];
+
+        if ($snapshotIds !== []) {
+            $rows = DB::table('contact_points')
+                ->select(['id', 'value_normalised'])
+                ->whereIn('id', $snapshotIds)
+                ->where('channel', 'phone')
+                ->get();
+
+            foreach ($rows as $row) {
+                $snapshotPhones[(string) $row->id] = (string) $row->value_normalised;
+            }
+        }
+
+        $contacts = [];
+
+        foreach ($orders as $order) {
+            $accountId = (string) $order->customer_account_id;
+            $account = $byAccount[$accountId] ?? ['display_name' => null, 'phone' => null];
+            $snapshotId = (string) $order->delivery_contact_point_id;
+
+            $contacts[(string) $order->getKey()] = [
+                // The name is the account's and only the account's. There is no
+                // snapshot of it on the order and there should not be: a name is
+                // who somebody *is*, which does not change per delivery, and a
+                // second copy would go stale the day they corrected its spelling.
+                'display_name' => $account['display_name'],
+                'phone' => ($snapshotId === '' ? null : ($snapshotPhones[$snapshotId] ?? null))
+                    ?? $account['phone'],
             ];
         }
 
@@ -462,6 +593,33 @@ final class OrderDeskQueue
         }
 
         $query->where('orders.delivery_window_code', $code);
+    }
+
+    /**
+     * One kind of leaving, or all three.
+     *
+     * **A single value rather than a set**, unlike `status`. The two filters
+     * look alike and are not: the statuses are a *subset* question — a desk
+     * watching for unconfirmed work wants `placed` alone and neither selected
+     * means both — whereas the three fulfilment types are three different jobs
+     * done by three different people. A courier board wants deliveries; a
+     * collection counter wants pickups. Nobody at a desk asks for "deliveries
+     * and counter sales but not pickups", and offering a multi-select would be
+     * inventing a question to justify a control.
+     *
+     * Null narrows nothing, which is the queue's own default and the honest
+     * reading of an absent parameter: a desk that named no type is looking at
+     * the whole book, not at deliveries by convention.
+     *
+     * @param  Builder<Order>  $query
+     */
+    private function applyFulfilmentType(Builder $query, ?FulfilmentType $type): void
+    {
+        if ($type === null) {
+            return;
+        }
+
+        $query->where('orders.fulfilment_type', $type->value);
     }
 
     /**

@@ -9,6 +9,8 @@ import type {
     OrderDeskBasketLine,
     OrderDeskCalendar,
     OrderDeskCalendarFilters,
+    OrderDeskCashReport,
+    OrderDeskCashReportFilters,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerSearch,
@@ -29,6 +31,7 @@ import type {
     KitchenOrder as WireKitchenOrder,
     OrderDeskBasketLine as WireOrderDeskBasketLine,
     OrderDeskCalendarEnvelope,
+    OrderDeskCashReportEnvelope,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerEnvelope,
     OrderDeskCustomersEnvelope,
@@ -48,6 +51,9 @@ import {
     mapAssignedDeliveryJob,
     mapCalendarDay,
     mapCalendarMeta,
+    mapOrderDeskCashReportMeta,
+    mapOrderDeskCashReportRow,
+    mapOrderDeskCashReportTotal,
     mapOrderDeskCustomer,
     mapOrderDeskCustomerAddress,
     mapOrderDeskCustomerCreated,
@@ -103,6 +109,14 @@ import type { Transport } from './transport.ts';
  * one of its production sites — and it is unpaged, which is why `limit` is answered alongside the
  * rows.
  *
+ * `getCashReport` is the odd one out and its `meta` is the reason: the day it reports is measured on
+ * **UTC**, always, because a receipt carries no branch and the order behind it may carry none
+ * either. The clock comes back on the wire rather than being assumed here, so a screen prints which
+ * midnight it is showing instead of implying the reader's own. Its `totals` are passed through
+ * untouched for the same reason the calendar's three bases are never added: folding them on the
+ * client would mean grouping on `method`, and grouping on `method` across two currencies produces a
+ * number in neither.
+ *
  * ## The writes, and the one thing five of them have in common
  *
  * Selling adds five operations and none of them is lock-versioned, because nothing there *edits* an
@@ -150,6 +164,12 @@ function queueQuery(filters?: OrderDeskQueueFilters): string {
     if (filters.deliveryWindowCode !== undefined) {
         search.set('delivery_window_code', filters.deliveryWindowCode);
     }
+    // A bare `set`, not the bracket form the statuses use: this parameter takes one value, so
+    // there is nothing for PHP's repeated-parameter collapse to lose. The two filters looking
+    // different in this function is the shape difference showing through — see the contract.
+    if (filters.fulfilmentType !== undefined) {
+        search.set('fulfilment_type', filters.fulfilmentType);
+    }
     if (filters.query !== undefined && filters.query.trim() !== '') {
         search.set('query', filters.query.trim());
     }
@@ -167,6 +187,21 @@ function queueQuery(filters?: OrderDeskQueueFilters): string {
  */
 function calendarQuery(filters: OrderDeskCalendarFilters): string {
     const search = new URLSearchParams({ from: filters.from, to: filters.to });
+    if (filters.branchId !== undefined) search.set('branch_id', String(filters.branchId));
+    return `?${search.toString()}`;
+}
+
+/**
+ * The cash report's query string.
+ *
+ * `date` is set unconditionally because the operation requires it — there is no default day here,
+ * and a request without one is a `422` rather than a helpful guess at today. `branch_id` is the
+ * family's usual optional narrowing, omitted rather than sent empty when there is none: `branch_id=`
+ * would be a caller naming a field it has no value for, and omitting it is what asks for the
+ * organisation-wide read.
+ */
+function cashReportQuery(filters: OrderDeskCashReportFilters): string {
+    const search = new URLSearchParams({ date: filters.date });
     if (filters.branchId !== undefined) search.set('branch_id', String(filters.branchId));
     return `?${search.toString()}`;
 }
@@ -314,6 +349,26 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return {
                 rows: envelope.data.map(mapOrderDeskDriver),
                 limit: meta.limit,
+            };
+        },
+
+        async getCashReport(filters: OrderDeskCashReportFilters): Promise<OrderDeskCashReport> {
+            // `data` is an object carrying two arrays rather than the bare array the queue answers
+            // — the wire's own shape, left alone here. The envelope is read whole because `meta`
+            // carries the clock the day was measured on, which is not derivable from the rows and
+            // which a screen has to print.
+            const payload = await transport.requestEnvelope<OrderDeskCashReportEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/order-desk/cash-report${cashReportQuery(filters)}`,
+            });
+
+            return {
+                rows: payload.data.rows.map(mapOrderDeskCashReportRow),
+                // Passed through, never recomputed from the rows: the server derives both from one
+                // query so they cannot disagree, and the only way a client-side fold would differ
+                // is by grouping on method alone and adding two currencies together.
+                totals: payload.data.totals.map(mapOrderDeskCashReportTotal),
+                meta: mapOrderDeskCashReportMeta(payload.meta as OrderDeskCashReportEnvelope['meta']),
             };
         },
 

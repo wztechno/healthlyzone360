@@ -354,6 +354,15 @@ export const queryKeys = {
         plansPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'plans', 'page', scope(filter), page] as const,
         plan: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan', planId] as const,
+        /**
+         * The plan's fixed menu — its own entry rather than part of the record.
+         *
+         * `getPlan` does not carry it and the editor's other four sections do not need it, so
+         * folding it into the detail key would make every plan read fetch a menu nobody asked for.
+         * Saving the menu invalidates both: the write moves the *item's* lock version, which is the
+         * number the other four sections send with their next save.
+         */
+        planMenu: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan-menu', planId] as const,
 
         zones: (filter?: QueryScope) => ['kitchenAdmin', 'zones', scope(filter)] as const,
         zonesPage: (filter: QueryScope | undefined, page: number) =>
@@ -512,6 +521,19 @@ export const queryKeys = {
          * wants its own copy.
          */
         drivers: () => ['orderDesk', 'drivers'] as const,
+        /**
+         * One day's takings. Keyed on the whole filter (shape rule 3): the day and the branch
+         * together are the document, and the branch in particular is not a narrowing of a shared
+         * answer — a site's takings and the organisation's are two different reconciliations that
+         * happen to look alike, so sharing an entry between them would be the worst possible cache
+         * hit.
+         *
+         * Under the desk root and therefore **never persisted**, which matters more here than on the
+         * queue: these rows name colleagues and say how much money each of them handled. The root's
+         * own note covers it — a tablet the whole kitchen signs into is not where that is written to
+         * disk.
+         */
+        cashReport: (filter?: QueryScope) => ['orderDesk', 'cash-report', scope(filter)] as const,
     },
 
     /**

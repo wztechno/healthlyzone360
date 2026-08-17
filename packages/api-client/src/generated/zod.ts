@@ -3939,6 +3939,56 @@ export const zAddOrderDeskCustomerAddressRequest = z.object({
 });
 
 /**
+ * What one agent took, one way, in one currency, on one day.
+ *
+ * The row's identity is all three of `(confirmed_by, method, currency_code)`
+ * — an agent who took cash and a WISH transfer is two rows, and an agent who
+ * took dollars and dirhams is two more. That is not a normalisation
+ * accident: the currency belongs to the key because `amount_minor_sum` is
+ * only meaningful within one, and a shape that let a group span two would
+ * be a shape in which a nonsense number could be written.
+ *
+ */
+export const zOrderDeskCashReportRow = z.object({
+    confirmed_by: zUuid,
+    display_name: z.string().nullable(),
+    method: zPaymentMethod,
+    currency_code: z.string().length(3),
+    receipt_count: z.int().gte(1),
+    amount_minor_sum: z.int()
+});
+
+/**
+ * The same money one level up: one method, one currency, across every agent.
+ *
+ * Derived from the rows rather than queried separately, so a total can never
+ * disagree with the table above it. **There is no grand total anywhere in
+ * this response and there will not be** — it would have to add currencies,
+ * and the only reliable defence against that is a shape with nowhere to put
+ * it.
+ *
+ */
+export const zOrderDeskCashReportTotal = z.object({
+    method: zPaymentMethod,
+    currency_code: z.string().length(3),
+    receipt_count: z.int().gte(1),
+    amount_minor_sum: z.int()
+});
+
+export const zOrderDeskCashReportEnvelope = z.object({
+    data: z.object({
+        rows: z.array(zOrderDeskCashReportRow),
+        totals: z.array(zOrderDeskCashReportTotal)
+    }),
+    meta: zMeta.and(z.object({
+        date: z.iso.date(),
+        branch_id: z.uuid().nullable(),
+        timezone: z.string(),
+        count: z.int().gte(0)
+    }))
+});
+
+/**
  * How much a guest token is allowed to do — the entire authorisation model
  * for the guest journey, in two values. `checkout_draft` is what an
  * anonymous browser is handed on its first request: enough to build a
@@ -10452,6 +10502,7 @@ export const zListOrderDeskQueueQuery = z.object({
     branch_id: zUuid.optional(),
     'status[]': z.array(z.enum(['placed', 'confirmed'])).optional(),
     delivery_window_code: z.string().max(40).optional(),
+    fulfilment_type: zFulfilmentType.optional(),
     query: z.string().max(60).optional()
 });
 
@@ -10593,6 +10644,21 @@ export const zListOrderDeskDriversHeaders = z.object({
  * This organisation's active members, named where a name exists.
  */
 export const zListOrderDeskDriversResponse = zOrderDeskDriversEnvelope;
+
+export const zGetOrderDeskCashReportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskCashReportQuery = z.object({
+    date: z.iso.date(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * One day's takings by agent, method and currency, with the per-method totals.
+ */
+export const zGetOrderDeskCashReportResponse = zOrderDeskCashReportEnvelope;
 
 export const zStartGuestSessionBody = zStartGuestSessionRequest;
 

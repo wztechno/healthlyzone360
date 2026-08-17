@@ -59,6 +59,17 @@ use Healthy360\Orders\Presenters\OrderPresenter;
  * screen cannot tell that apart from a fact about the reader ("you may not see
  * it") unless the shapes differ.
  *
+ * **Which number.** The one the courier was given, when the order snapshot
+ * carries one; the account's primary otherwise. A delivery order records the
+ * contact point the customer nominated *for that delivery*, and that is the
+ * number printed on the docket somebody is standing at a door holding — so it
+ * wins. The account's primary is the fallback, and it is the whole answer for
+ * every pickup, every counter sale and every delivery placed before the
+ * snapshot column existed. `OrderDeskQueue::contactsForOrders()` resolves the
+ * pair for the whole page in two statements and states the argument at length;
+ * this class receives the answer already decided, exactly as it receives
+ * `due_at` already computed.
+ *
  * **What is deliberately not here.** No address beyond the delivery snapshot
  * the order book already serves, no email, no allergen declaration, no account
  * identifier the desk could pivot on, and no order history. A name and a number

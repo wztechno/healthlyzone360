@@ -269,6 +269,35 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'order-cash-report',
+        // A view like its three siblings, and the plainest of them: it reads one append-only ledger
+        // and writes nothing. The receipts it counts are created by the sale wizard and by the
+        // queue's own drawer; this only adds them up.
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderCashReport.name',
+        descriptionKey: 'kitchen:families.orderCashReport.description',
+        // `▤` a fourth time, and the group's own argument covers it: these four cards are the same
+        // day's work seen four ways — in due order, by date, by ingredient and by who took the money
+        // — and the labels are what separate them. The workspace-wide note applies unchanged: the
+        // icon set is a table of typographic characters, and a real icon set retires it.
+        icon: 'calendar',
+        // Nested under the desk like the calendar and the buy list, with the same deliberate
+        // consequence: `isKitchenNavActive` matches this against `/kitchen/order-desk` too, so the
+        // breadcrumb reads "Order desk" and leads back to the queue.
+        href: '/kitchen/order-desk/cash-report',
+        // **The manage code, not the view one** — the group's third asymmetry, and the sharpest.
+        // The calendar sits on the order view code, the buy list on the inventory one, and this sits
+        // one step *above* the group's baseline: it is a statement about people (Sara took four
+        // hundred, Omar took ninety), which is a different disclosure from the order book that
+        // everybody working a queue can read. It is the code the endpoint asks for, which is the
+        // rule a one-slot registry follows.
+        permission: ORDER_MANAGE_PERMISSION,
+        // Nothing is written from a report. Money is recorded where it arrives — the sale wizard and
+        // the queue drawer — which is also where the order's lock version lives.
+        managePermission: null,
+    },
+    {
         key: 'review',
         kind: 'workbench',
         group: 'workbench',

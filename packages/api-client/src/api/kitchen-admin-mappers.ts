@@ -34,6 +34,8 @@ import type {
     PlanAdmin,
     PlanCombination,
     PlanDurationAdmin,
+    PlanMenu,
+    PlanMenuEntry,
     PlanVariantAdmin,
     PriceListAdmin,
     PriceListEntry,
@@ -75,6 +77,8 @@ import type {
     IngredientVerificationStatus,
     MealCombinationOption,
     PlanDurationOption,
+    PlanMenuCycle as WirePlanMenuCycle,
+    PlanMenuEntry as WirePlanMenuEntry,
     PlanProfile,
     PlanVariantCell,
     PriceListChannelAssignment,
@@ -882,6 +886,49 @@ export function mapPlanVariantsFromCells(
             isActive: cell.status === 'active',
         };
     });
+}
+
+/**
+ * One menu entry.
+ *
+ * The dish's name comes down resolved (`meal_name_en` / `meal_name_ar`) so a fourteen-day menu
+ * renders from one read rather than fourteen; both sides are nullable on the wire for the row whose
+ * meal has since been withdrawn, and an empty string is the honest rendering of that — the editor
+ * says "this dish is gone" from the absence rather than from an invented name.
+ */
+function mapPlanMenuEntry(wire: WirePlanMenuEntry): PlanMenuEntry {
+    return {
+        id: wire.id,
+        cycleDay: wire.cycle_day,
+        slot: wire.slot,
+        sequence: wire.sequence,
+        mealId: MealId.unsafe(wire.meal_catalogue_item_id),
+        mealName: localised(wire.meal_name_en ?? '', wire.meal_name_ar),
+    };
+}
+
+/**
+ * A plan's fixed menu, from the envelope that carries all three of its parts.
+ *
+ * `meta` is the **catalogue item's**, not the profile's: `subscription_plan_profiles` carries no
+ * lock version, so the item's is what `If-Match` sends — the same rule the profile write follows.
+ *
+ * Entries arrive in the server's order and are kept in it. Sorting them here would put a second
+ * opinion about what order a menu is in between the server and the screen, and the editor groups
+ * them by day anyway.
+ */
+export function mapPlanMenu(
+    item: AdminCatalogueItem,
+    cycle: WirePlanMenuCycle,
+    entries: readonly WirePlanMenuEntry[],
+): PlanMenu {
+    return {
+        planId: SubscriptionPlanId.unsafe(item.id),
+        meta: mapCatalogueItemMeta(item),
+        cycleDays: cycle.cycle_days,
+        anchorDate: cycle.anchor_date,
+        entries: entries.map(mapPlanMenuEntry),
+    };
 }
 
 export function mapBranchOperating(

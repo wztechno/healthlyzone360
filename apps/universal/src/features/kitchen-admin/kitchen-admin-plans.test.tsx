@@ -8,10 +8,12 @@ import {
 import type {
     AdminEntityMeta,
     CursorPage,
+    MealAdmin,
     PlanAdmin,
     PlanAdminFilter,
     PlanCombination,
     PlanDurationAdmin,
+    PlanMenu,
     PlanVariantAdmin,
     PriceListAdmin,
     PriceListEntry,
@@ -19,6 +21,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     KitchenId,
+    MealId,
     PlanVariantId,
     PriceListId,
     RoleId,
@@ -185,6 +188,83 @@ function planCombination(overrides: Partial<PlanCombination> = {}): PlanCombinat
 
 function planDuration(overrides: Partial<PlanDurationAdmin> = {}): PlanDurationAdmin {
     return { kind: 'fixed_days', days: 5, discountPercent: 0, ...overrides };
+}
+
+function mealIdentifier(ordinal: number): MealId {
+    return MealId.unsafe(`01935f6d-0000-7000-8000-0000000e00${String(ordinal).padStart(2, '0')}`);
+}
+
+/** A published dish, as the menu picker's listing hands it over. */
+function adminMeal(ordinal: number, overrides: Partial<MealAdmin> = {}): MealAdmin {
+    return {
+        id: mealIdentifier(ordinal),
+        meta: meta(),
+        name: { en: `Dish ${String(ordinal)}`, ar: `طبق ${String(ordinal)}` },
+        description: { en: '', ar: '' },
+        kitchenId: KITCHEN_ID,
+        recipeId: null,
+        recipeVersionId: null,
+        portionFactor: 1,
+        mealTypes: [],
+        dietClassifications: [],
+        allergens: [],
+        channelAvailability: [],
+        availability: [],
+        imagePlaceholderId: '',
+        marginPercent: null,
+        ...overrides,
+    };
+}
+
+/**
+ * A plan's menu, defaulting to the one every plan has: none.
+ *
+ * `meta` is the *item's*, which is what makes the menu's save and the other four answer to one lock
+ * version — see {@link planWorld}, where the world enforces exactly that.
+ */
+function planMenu(plan: PlanAdmin, overrides: Partial<PlanMenu> = {}): PlanMenu {
+    return {
+        planId: plan.id,
+        meta: plan.meta,
+        cycleDays: null,
+        anchorDate: null,
+        entries: [],
+        ...overrides,
+    };
+}
+
+/** A published week: two dishes on day 1, one on day 3. */
+function publishedMenu(plan: PlanAdmin): PlanMenu {
+    return planMenu(plan, {
+        cycleDays: 7,
+        anchorDate: '2026-09-07',
+        entries: [
+            {
+                id: 'menu-1',
+                cycleDay: 1,
+                slot: 'breakfast',
+                sequence: 1,
+                mealId: mealIdentifier(1),
+                mealName: adminMeal(1).name,
+            },
+            {
+                id: 'menu-2',
+                cycleDay: 1,
+                slot: 'lunch',
+                sequence: 1,
+                mealId: mealIdentifier(2),
+                mealName: adminMeal(2).name,
+            },
+            {
+                id: 'menu-3',
+                cycleDay: 3,
+                slot: 'dinner',
+                sequence: 1,
+                mealId: mealIdentifier(2),
+                mealName: adminMeal(2).name,
+            },
+        ],
+    });
 }
 
 /**
@@ -370,9 +450,18 @@ function planListing(
 interface PlanWorld {
     /** The record as the world holds it *now* — the replacement for a mock-store reach-in. */
     read: () => PlanAdmin;
+    /** The plan's menu as the world holds it now. Its own document, on its own endpoint. */
+    readMenu: () => PlanMenu;
     /** Moves the record on behind the screen's back, the way another writer would. */
     write: (next: PlanAdmin) => void;
     readonly overrides: RepositoryOverrides;
+}
+
+interface PlanWorldOptions {
+    /** What the server already holds. Defaults to no menu, which is what a new plan has. */
+    readonly menu?: PlanMenu;
+    /** The published dishes the menu picker offers. */
+    readonly meals?: readonly MealAdmin[];
 }
 
 /**
@@ -387,9 +476,15 @@ interface PlanWorld {
  * next save would be minted a *fresh* identifier and orphan every price entry pointing at the old
  * one.
  */
-function planWorld(initial: PlanAdmin, priceLists: readonly PriceListAdmin[] = []): PlanWorld {
+function planWorld(
+    initial: PlanAdmin,
+    priceLists: readonly PriceListAdmin[] = [],
+    options: PlanWorldOptions = {},
+): PlanWorld {
     let stored = initial;
     let minted = 0;
+    const meals = options.meals ?? [];
+    let storedMenu = options.menu ?? planMenu(initial);
 
     const requireVersion = (lockVersion: number): void => {
         if (lockVersion !== stored.meta.lockVersion) {
@@ -416,6 +511,7 @@ function planWorld(initial: PlanAdmin, priceLists: readonly PriceListAdmin[] = [
 
     return {
         read: () => stored,
+        readMenu: () => storedMenu,
         write: (next) => {
             stored = next;
         },
@@ -423,7 +519,33 @@ function planWorld(initial: PlanAdmin, priceLists: readonly PriceListAdmin[] = [
             kitchenAdmin: {
                 listPlans: planListing(() => [stored]),
                 listPriceLists: async () => page(priceLists),
+                listMeals: async () => page(meals),
                 getPlan: async () => stored,
+                // The menu always reports the *item's* current version, because that is the one
+                // `If-Match` carries: `subscription_plan_profiles` has no lock version of its own.
+                getPlanMenu: async () => ({ ...storedMenu, meta: stored.meta }),
+                replacePlanMenu: async (_planId, request) => {
+                    requireVersion(request.lockVersion);
+                    const committed = commit({});
+                    storedMenu = {
+                        planId: committed.id,
+                        meta: committed.meta,
+                        cycleDays: request.cycleDays,
+                        anchorDate: request.anchorDate,
+                        entries: request.entries.map((entry, index) => ({
+                            id: `saved-menu-${String(index)}`,
+                            cycleDay: entry.cycleDay,
+                            slot: entry.slot,
+                            sequence: entry.sequence,
+                            mealId: entry.mealId,
+                            mealName: meals.find((meal) => meal.id === entry.mealId)?.name ?? {
+                                en: '',
+                                ar: '',
+                            },
+                        })),
+                    };
+                    return storedMenu;
+                },
                 updatePlan: async (_planId, request) => {
                     requireVersion(request.lockVersion);
                     return commit({
@@ -980,11 +1102,13 @@ describe('editing the matrix', () => {
         await renderStubScreen(<PlanEditScreen plan="not-a-uuid" />, {
             session: kitchenManagerSession(),
             // The record query never runs — the identifier does not parse — but the category
-            // derivation and the price coverage are unconditional hooks and still ask.
+            // derivation, the price coverage and the menu picker's dish listing are
+            // unconditional hooks and still ask.
             repositories: {
                 kitchenAdmin: {
                     listPlans: planListing(() => []),
                     listPriceLists: async () => page([]),
+                    listMeals: async () => page([]),
                 },
             },
         });
@@ -1510,6 +1634,241 @@ describe('editing the durations', () => {
 /* ------------------------------------------------------------------------------------------------
  * Publication
  * ---------------------------------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------------------------------------
+ * The fifth section
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('editing the fixed menu', () => {
+    /** Both dishes this kitchen has published, which is all the picker may offer. */
+    const publishedMeals = [adminMeal(1), adminMeal(2)];
+
+    /** `menuEntryDraft` keys a server row `seed-menu-{index}-{id}`; the fixture ids are ours. */
+    const rowTestId = (index: number, id: string): string =>
+        `kitchen-plan-menu-days-row-seed-menu-${String(index)}-${id}`;
+
+    it('draws the rotation a day at a time, including the days nothing is served on', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread), {
+            menu: publishedMenu(spread),
+            meals: publishedMeals,
+        });
+
+        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: world.overrides,
+        });
+        await untilVisible('kitchen-plan-menu-days');
+
+        // Seven cards for a seven-day rotation. A blank Thursday is a fact about the menu, so it
+        // is drawn and says so rather than simply not appearing.
+        expect(screen.getByTestId('kitchen-plan-menu-days-day-1')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-plan-menu-days-day-7')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-plan-menu-days-day-4-empty')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-plan-menu-days-day-8')).toBeNull();
+
+        // Day 1 holds two dishes; day 3 holds one.
+        expect(screen.getByTestId(rowTestId(0, 'menu-1'))).toBeTruthy();
+        expect(screen.getByTestId(rowTestId(1, 'menu-2'))).toBeTruthy();
+        expect(screen.getByTestId(rowTestId(2, 'menu-3'))).toBeTruthy();
+
+        // A published menu says so, and offers the withdrawal rather than hiding it.
+        expect(screen.getByTestId('kitchen-plan-menu-withdraw')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-plan-menu-cutover')).toBeNull();
+    });
+
+    it('saves the menu on its own control, carrying the version it was read at', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread), {
+            menu: publishedMenu(spread),
+            meals: publishedMeals,
+        });
+
+        const { repositories } = await renderStubScreen(
+            <PlanEditScreen plan={String(spread.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: world.overrides,
+            },
+        );
+        await untilVisible('kitchen-plan-menu-days');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${rowTestId(1, 'menu-2')}-remove`));
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId(rowTestId(1, 'menu-2'))).toBeNull();
+        });
+        // Editing the menu arms the same guard the other four sections arm.
+        expect(screen.getByTestId('kitchen-plan-editor-screen-dirty')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-menu-save'));
+        });
+
+        await waitFor(() => {
+            expect(world.readMenu().entries).toHaveLength(2);
+        });
+
+        // The fifth write, like the four before it, sends the *item's* lock version — and the
+        // whole document, cycle and anchor included, because that is what "replace" means.
+        expect(repositories.kitchenAdmin.replacePlanMenu).toHaveBeenCalledWith(
+            spread.id,
+            expect.objectContaining({
+                lockVersion: spread.meta.lockVersion,
+                cycleDays: 7,
+                anchorDate: '2026-09-07',
+            }),
+        );
+        expect(world.read().meta.lockVersion).toBe(spread.meta.lockVersion + 1);
+    });
+
+    it('picks a dish from this kitchen’s published meals and saves it into the slot', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread), {
+            menu: publishedMenu(spread),
+            meals: publishedMeals,
+        });
+
+        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: world.overrides,
+        });
+        await untilVisible('kitchen-plan-menu-days');
+
+        const picker = `${rowTestId(0, 'menu-1')}-meal`;
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${picker}-trigger`));
+        });
+        await untilVisible(`${picker}-list`);
+
+        // Both published dishes are offered; nothing else can be.
+        expect(screen.getByTestId(`${picker}-option-${String(mealIdentifier(1))}`)).toBeTruthy();
+        expect(screen.getByTestId(`${picker}-option-${String(mealIdentifier(2))}`)).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${picker}-option-${String(mealIdentifier(2))}`));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-menu-save'));
+        });
+
+        await waitFor(() => {
+            expect(String(world.readMenu().entries[0]?.mealId)).toBe(String(mealIdentifier(2)));
+        });
+    });
+
+    it('states the stock cutover only when this save would publish the first menu', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread), { meals: publishedMeals });
+
+        const { repositories } = await renderStubScreen(
+            <PlanEditScreen plan={String(spread.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: world.overrides,
+            },
+        );
+        await untilVisible('kitchen-plan-menu');
+
+        // A plan with no menu says so, has nothing to withdraw, and is not warned about anything.
+        expect(screen.queryByTestId('kitchen-plan-menu-cutover')).toBeNull();
+        expect(screen.queryByTestId('kitchen-plan-menu-withdraw')).toBeNull();
+        expect(screen.getByTestId('kitchen-plan-menu-no-withdrawal')).toBeTruthy();
+
+        // Giving the rotation a length is already enough to make this a menu — and a cutover.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-menu-cycle-days-increment'));
+        });
+        await untilVisible('kitchen-plan-menu-cutover');
+
+        // ...and the one-document rule refuses the save until all three parts are there.
+        expect(screen.getByTestId('kitchen-plan-menu-blocked')).toBeTruthy();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-menu-save'));
+        });
+        expect(repositories.kitchenAdmin.replacePlanMenu).not.toHaveBeenCalled();
+    });
+
+    it('marks the days a shortened cycle leaves behind rather than deleting them', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread), {
+            menu: publishedMenu(spread),
+            meals: publishedMeals,
+        });
+
+        const { repositories } = await renderStubScreen(
+            <PlanEditScreen plan={String(spread.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: world.overrides,
+            },
+        );
+        await untilVisible('kitchen-plan-menu-days');
+
+        // Seven days down to two, one press at a time.
+        for (let press = 0; press < 5; press += 1) {
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-plan-menu-cycle-days-decrement'));
+            });
+        }
+
+        await untilVisible('kitchen-plan-menu-days-day-3-beyond');
+        // The dish is still there. It is marked, not discarded.
+        expect(screen.getByTestId(rowTestId(2, 'menu-3'))).toBeTruthy();
+        expect(screen.getByTestId(`${rowTestId(2, 'menu-3')}-error`)).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-menu-save'));
+        });
+        expect(repositories.kitchenAdmin.replacePlanMenu).not.toHaveBeenCalled();
+        expect(world.readMenu().entries).toHaveLength(3);
+    });
+
+    it('withdraws the menu through a dialog that says what stops', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread), {
+            menu: publishedMenu(spread),
+            meals: publishedMeals,
+        });
+
+        const { repositories } = await renderStubScreen(
+            <PlanEditScreen plan={String(spread.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: world.overrides,
+            },
+        );
+        await untilVisible('kitchen-plan-menu-withdraw');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-menu-withdraw'));
+        });
+        await untilVisible('kitchen-plan-menu-withdraw-dialog');
+        expect(screen.getByTestId('kitchen-plan-menu-withdraw-consequence')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-menu-withdraw-confirm'));
+        });
+
+        await waitFor(() => {
+            expect(world.readMenu().entries).toHaveLength(0);
+        });
+        expect(world.readMenu().cycleDays).toBeNull();
+        expect(world.readMenu().anchorDate).toBeNull();
+
+        // All three parts are *stated* as empty rather than omitted — that is the withdrawal.
+        expect(repositories.kitchenAdmin.replacePlanMenu).toHaveBeenCalledWith(
+            spread.id,
+            expect.objectContaining({
+                lockVersion: spread.meta.lockVersion,
+                cycleDays: null,
+                anchorDate: null,
+                entries: [],
+            }),
+        );
+    });
+});
 
 describe('publishing a plan', () => {
     it('creates a plan as a draft rather than publishing one on sight', async () => {

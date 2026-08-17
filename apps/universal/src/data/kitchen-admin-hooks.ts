@@ -17,6 +17,7 @@ import type {
     MealAdminFilter,
     PlanAdmin,
     PlanAdminFilter,
+    PlanMenu,
     PriceListAdmin,
     PriceListAdminFilter,
     ProductAdmin,
@@ -26,6 +27,7 @@ import type {
     RecipeAdminSummary,
     RecipeRollupDraft,
     RecipeRollupPreview,
+    ReplacePlanMenuRequest,
     ServiceArea,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
@@ -1319,6 +1321,28 @@ export function useAdminPlanQuery(planId: SubscriptionPlanId | null): UseQueryRe
     });
 }
 
+/**
+ * The plan's fixed menu.
+ *
+ * Its own query rather than a field of {@link useAdminPlanQuery}, because the plan record does not
+ * carry one: the menu is a separate document on a separate endpoint, and the four sections that
+ * were there before this one have no use for it. Disabled until the identifier parses, exactly like
+ * the detail read beside it.
+ */
+export function usePlanMenuQuery(planId: SubscriptionPlanId | null): UseQueryResult<PlanMenu> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.planMenu(planId ?? ('' as SubscriptionPlanId)),
+        enabled: repositories !== null && planId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (planId === null) throw new Error('No plan identifier.');
+            return repositories.kitchenAdmin.getPlanMenu(planId);
+        },
+    });
+}
+
 /** The plan counts behind the hub card, in one query. Four `limit: 1` listings, folded. */
 export function usePlanSummaryQuery(enabled = true): UseQueryResult<PublishedFamilySummary> {
     const { repositories } = useRepositoryContext();
@@ -1485,6 +1509,46 @@ export function useSetPlanCombinationsMutation(): UseMutationResult<
         mutationFn: ({ planId, request }: SetPlanCombinationsVariables) =>
             repositories.kitchenAdmin.setPlanCombinations(planId, request),
         onSuccess: onWritten,
+    });
+}
+
+export interface ReplacePlanMenuVariables {
+    readonly planId: SubscriptionPlanId;
+    readonly request: ReplacePlanMenuRequest;
+}
+
+/**
+ * Replaces the whole fixed menu — or withdraws it, when all three parts arrive empty.
+ *
+ * Two invalidations rather than one, and neither is optional. The menu's own entry is refreshed
+ * because it is what changed; the plan record is refreshed because this write moves the **catalogue
+ * item's** lock version, which is the number the editor's other four sections send with their next
+ * save. Leaving the record stale would make the next unrelated save fail with a conflict the person
+ * could not account for.
+ *
+ * The workspace root is *not* blanket-invalidated the way {@link usePlanWriteEffects} does it: a
+ * menu changes nothing on the plan listing, nothing a shopper sees, and nothing in the price lists.
+ * What it does change is what a generated subscription order deducts — and there is no client cache
+ * of that to invalidate, which is precisely why the editor states the consequence before the save
+ * rather than after it.
+ */
+export function useReplacePlanMenuMutation(): UseMutationResult<
+    PlanMenu,
+    unknown,
+    ReplacePlanMenuVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ planId, request }: ReplacePlanMenuVariables) =>
+            repositories.kitchenAdmin.replacePlanMenu(planId, request),
+        onSuccess: (menu) => {
+            queryClient.setQueryData(queryKeys.kitchenAdmin.planMenu(menu.planId), menu);
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenAdmin.plan(menu.planId),
+            });
+        },
     });
 }
 

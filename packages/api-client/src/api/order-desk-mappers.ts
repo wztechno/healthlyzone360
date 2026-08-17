@@ -6,6 +6,9 @@ import type {
     OrderDeskCalendarDay,
     OrderDeskCalendarMeta,
     OrderDeskCalendarWindow,
+    OrderDeskCashReportMeta,
+    OrderDeskCashReportRow,
+    OrderDeskCashReportTotal,
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
     OrderDeskCustomerContact,
@@ -30,6 +33,9 @@ import type {
     OrderDeskCalendarDay as WireCalendarDay,
     OrderDeskCalendarEnvelope,
     OrderDeskCalendarWindow as WireCalendarWindow,
+    OrderDeskCashReportEnvelope,
+    OrderDeskCashReportRow as WireCashReportRow,
+    OrderDeskCashReportTotal as WireCashReportTotal,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerContact as WireOrderDeskCustomerContact,
     OrderDeskCustomerEnvelope,
@@ -308,6 +314,66 @@ export function mapOrderDeskShortfallCount(
  */
 export function mapOrderDeskDriver(wire: WireOrderDeskDriver): OrderDeskDriver {
     return { userId: wire.user_id, displayName: wire.display_name };
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The day's takings
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * One agent's takings, one method, one currency.
+ *
+ * `display_name` keeps its `null` — an agent who never completed a profile still took the money, and
+ * substituting the identifier here would put a UUID in a reconciliation while claiming it was a
+ * person. `amount_minor_sum` is read without a fallback for a sharper reason: a defaulted zero on a
+ * malformed field would be a confident "this agent took nothing", which is the one sentence a cash
+ * report must never say by accident.
+ */
+export function mapOrderDeskCashReportRow(wire: WireCashReportRow): OrderDeskCashReportRow {
+    return {
+        confirmedBy: wire.confirmed_by,
+        displayName: wire.display_name,
+        method: wire.method,
+        currencyCode: wire.currency_code as CurrencyCode,
+        receiptCount: wire.receipt_count,
+        amountMinorSum: wire.amount_minor_sum,
+    };
+}
+
+/**
+ * One method's total across the agents.
+ *
+ * Mapped from the wire rather than folded up from the rows here, even though the arithmetic is four
+ * lines. The server derives both from the same query, so the two are guaranteed to agree; a client
+ * that recomputed would be a second opinion that could only ever disagree — and the one way it would
+ * disagree is by grouping on `method` alone and adding two currencies together.
+ */
+export function mapOrderDeskCashReportTotal(wire: WireCashReportTotal): OrderDeskCashReportTotal {
+    return {
+        method: wire.method,
+        currencyCode: wire.currency_code as CurrencyCode,
+        receiptCount: wire.receipt_count,
+        amountMinorSum: wire.amount_minor_sum,
+    };
+}
+
+/**
+ * What the report was measured against.
+ *
+ * `timezone` is carried rather than dropped even though it is always `UTC` today: a screen that
+ * printed a hard-coded word would go on printing it the day a shift table gives the boundary a real
+ * clock, and the whole point of echoing it is that the reader is not left assuming their own
+ * midnight.
+ */
+export function mapOrderDeskCashReportMeta(
+    wire: OrderDeskCashReportEnvelope['meta'],
+): OrderDeskCashReportMeta {
+    return {
+        date: wire.date,
+        branchId: wire.branch_id,
+        timezone: wire.timezone,
+        count: wire.count,
+    };
 }
 
 /* ------------------------------------------------------------------------------------------------

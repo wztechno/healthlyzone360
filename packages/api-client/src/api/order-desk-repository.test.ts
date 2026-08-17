@@ -1217,3 +1217,164 @@ describe('createApiOrderDeskRepository — assignDeliveryJob', () => {
         });
     });
 });
+
+describe('createApiOrderDeskRepository — the fulfilment-type filter', () => {
+    it('sends one bare value, not the bracket form the statuses use', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: [wireRow()], meta: META } },
+        ]);
+
+        await repository.listQueue({ fulfilmentType: 'pickup' });
+
+        // `fulfilment_type=pickup`, not `fulfilment_type[]=pickup`. The bracket form exists on
+        // `status` because PHP collapses repeated bare parameters to the last value; a
+        // single-valued parameter has nothing to lose, and the brackets would make the controller's
+        // `Rule::in` see an array.
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/queue?fulfilment_type=pickup');
+    });
+
+    it('omits the parameter entirely when no kind is chosen', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: [wireRow()], meta: META } },
+        ]);
+
+        await repository.listQueue({ window: 'today' });
+
+        // Absent is what the server reads as "all three". A `fulfilment_type=` would be the client
+        // naming a field it has no value for, and the endpoint would refuse it.
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/queue?window=today');
+    });
+
+    it('travels alongside the other filters without disturbing the bracketed one', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: [wireRow()], meta: META } },
+        ]);
+
+        await repository.listQueue({
+            window: 'overdue',
+            statuses: ['placed'],
+            fulfilmentType: 'delivery',
+            query: 'H360',
+        });
+
+        expect(calls[0]?.path).toBe(
+            '/catalogue/order-desk/queue?window=overdue&status[]=placed&fulfilment_type=delivery&query=H360',
+        );
+    });
+});
+
+describe('createApiOrderDeskRepository — getCashReport', () => {
+    const CASH_META = {
+        correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4903',
+        date: '2026-05-10',
+        branch_id: null,
+        timezone: 'UTC',
+        count: 2,
+    };
+
+    const CASH_BODY = {
+        data: {
+            rows: [
+                {
+                    confirmed_by: DRIVER_UUID,
+                    display_name: 'Sara Nasr',
+                    method: 'cash_on_delivery',
+                    currency_code: 'USD',
+                    receipt_count: 2,
+                    amount_minor_sum: 4_000,
+                },
+                {
+                    confirmed_by: DRIVER_UUID,
+                    display_name: null,
+                    method: 'cash_on_delivery',
+                    currency_code: 'AED',
+                    receipt_count: 1,
+                    amount_minor_sum: 9_000,
+                },
+            ],
+            totals: [
+                {
+                    method: 'cash_on_delivery',
+                    currency_code: 'USD',
+                    receipt_count: 2,
+                    amount_minor_sum: 4_000,
+                },
+                {
+                    method: 'cash_on_delivery',
+                    currency_code: 'AED',
+                    receipt_count: 1,
+                    amount_minor_sum: 9_000,
+                },
+            ],
+        },
+        meta: CASH_META,
+    };
+
+    it('sends the day and nothing else when no branch is named', async () => {
+        const { repository, calls } = harness([{ status: 200, body: CASH_BODY }]);
+
+        await repository.getCashReport({ date: '2026-05-10' });
+
+        expect(calls[0]?.method).toBe('GET');
+        // No `branch_id=`: omitted is the organisation-wide read, and an empty value would be the
+        // client naming a field it has no value for.
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/cash-report?date=2026-05-10');
+    });
+
+    it('sends the branch when one is named', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { ...CASH_BODY, meta: { ...CASH_META, branch_id: BRANCH_UUID } } },
+        ]);
+
+        await repository.getCashReport({ date: '2026-05-10', branchId: BRANCH_UUID as never });
+
+        expect(calls[0]?.path).toBe(
+            `/catalogue/order-desk/cash-report?date=2026-05-10&branch_id=${BRANCH_UUID}`,
+        );
+    });
+
+    it('keeps the currency on every row and total, and folds nothing', async () => {
+        const { repository } = harness([{ status: 200, body: CASH_BODY }]);
+
+        const report = await repository.getCashReport({ date: '2026-05-10' });
+
+        expect(report.rows).toEqual([
+            {
+                confirmedBy: DRIVER_UUID,
+                displayName: 'Sara Nasr',
+                method: 'cash_on_delivery',
+                currencyCode: 'USD',
+                receiptCount: 2,
+                amountMinorSum: 4_000,
+            },
+            {
+                confirmedBy: DRIVER_UUID,
+                // Nameless, and still listed: dropping the row would be losing cash from a
+                // reconciliation to protect a null.
+                displayName: null,
+                method: 'cash_on_delivery',
+                currencyCode: 'AED',
+                receiptCount: 1,
+                amountMinorSum: 9_000,
+            },
+        ]);
+
+        // Two totals for one method, because they are two currencies. The mapper passes them
+        // through — a client-side fold would group on `method` and add dollars to dirhams.
+        expect(report.totals).toHaveLength(2);
+        expect(report.totals.map((total) => total.currencyCode)).toEqual(['USD', 'AED']);
+    });
+
+    it('carries the clock the day was cut on rather than assuming it', async () => {
+        const { repository } = harness([{ status: 200, body: CASH_BODY }]);
+
+        const report = await repository.getCashReport({ date: '2026-05-10' });
+
+        expect(report.meta).toEqual({
+            date: '2026-05-10',
+            branchId: null,
+            timezone: 'UTC',
+            count: 2,
+        });
+    });
+});

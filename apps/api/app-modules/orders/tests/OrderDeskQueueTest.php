@@ -697,3 +697,177 @@ it('serves a null number rather than falling over when the customer has none', f
     expect($customer)->toHaveKeys(['display_name', 'phone'])
         ->and($customer['phone'])->toBeNull();
 });
+
+/*
+|--------------------------------------------------------------------------
+| The fulfilment-type filter, and the number the courier was actually given
+|--------------------------------------------------------------------------
+|
+| Two additions that look small and guard quite different things.
+|
+| The type filter is the queue's first **single-valued** narrowing, deliberately
+| unlike `status[]`: three types are three different jobs done by three different
+| people, so the parameter takes one value or none. The pair below pins that it
+| narrows rather than reorders, and that an unknown word is a 422 rather than a
+| silently unfiltered page — the failure that would look exactly like a working
+| screen to whoever typed it.
+|
+| The phone tests pin a *preference*, which is harder to see go wrong than an
+| absence. Both numbers are real, both belong to the same customer, and the row
+| shows one of them; a lost preference does not break anything, it simply rings
+| the wrong handset. So the fixture makes the two numbers differ by construction
+| and asserts which one wins, then asserts that an order with no snapshot still
+| falls all the way through to the account's own — because that fallback is every
+| pickup, every counter sale and every delivery placed before the column existed.
+|
+*/
+
+it('narrows the queue to one kind of leaving', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    $delivery = deskOrder($this, [
+        'requested_delivery_date' => '2026-05-10',
+        'fulfilment_type' => 'delivery',
+        'placed_at' => '2026-05-10 06:00:00',
+    ]);
+    $pickup = deskOrder($this, [
+        'requested_delivery_date' => '2026-05-10',
+        'fulfilment_type' => 'pickup',
+        'delivery_line_one' => null,
+        'placed_at' => '2026-05-10 06:30:00',
+    ]);
+    deskOrder($this, [
+        'requested_delivery_date' => '2026-05-10',
+        'fulfilment_type' => 'counter',
+        'customer_account_id' => null,
+        'delivery_line_one' => null,
+        'placed_at' => '2026-05-10 07:00:00',
+    ]);
+
+    // Unfiltered: all three.
+    expect($this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk()->json('meta.count'))
+        ->toBe(3);
+
+    $filtered = $this->getJson('/api/v1/catalogue/order-desk/queue?fulfilment_type=pickup', $this->headers)
+        ->assertOk();
+
+    expect($filtered->json('data.*.id'))->toBe([(string) $pickup->getKey()])
+        ->and($filtered->json('meta.count'))->toBe(1);
+
+    // And the other arm, so a filter that matched by accident cannot pass.
+    expect(
+        $this->getJson('/api/v1/catalogue/order-desk/queue?fulfilment_type=delivery', $this->headers)
+            ->assertOk()
+            ->json('data.*.id')
+    )->toBe([(string) $delivery->getKey()]);
+});
+
+it('refuses a fulfilment type it does not have', function (): void {
+    // The failure this guards against is not an exception, it is a *page*: a
+    // rule that let an unknown word through would answer the whole queue and
+    // look, to whoever typed `deliveries`, exactly like a kitchen with no
+    // pickups at all.
+    $this->getJson('/api/v1/catalogue/order-desk/queue?fulfilment_type=deliveries', $this->headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['fulfilment_type']]]]);
+});
+
+it('prefers the number the order was taken on over the account primary', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    $account = CustomerAccount::query()->find($this->customerId);
+    $account->display_name = 'Rami Khoury';
+    $account->save();
+
+    // The number this customer is generally reachable on.
+    ContactPoint::factory()->phone()->create([
+        'user_id' => $account->user_id,
+        'is_primary' => true,
+
+        'value_normalised' => '+96170111111',
+    ]);
+
+    // And the number they gave *for this delivery* — the landline at the flat
+    // the food is going to, which is not a number the account is reachable on
+    // at all. Not primary, and it still wins: the snapshot is a fact about the
+    // order rather than about the customer.
+    $snapshot = ContactPoint::factory()->phone()->forCustomerAccount($this->customerId)->create([
+        'is_primary' => false,
+
+        'value_normalised' => '+9611999999',
+    ]);
+
+    $withSnapshot = deskOrder($this, [
+        'requested_delivery_date' => '2026-05-10',
+        'delivery_contact_point_id' => $snapshot->getKey(),
+        'placed_at' => '2026-05-10 06:00:00',
+    ]);
+
+    // The same customer on the same page with no snapshot: the fallback has to
+    // still be reached for a row sitting beside one that took the other path,
+    // which is what makes this a merge rather than a switch.
+    $withoutSnapshot = deskOrder($this, [
+        'requested_delivery_date' => '2026-05-10',
+        'delivery_contact_point_id' => null,
+        'placed_at' => '2026-05-10 07:00:00',
+    ]);
+
+    $agent = deskAgent($this->orgId, 'agent-snapshot@kitchen.test', [
+        'order.view_organisation',
+        'order.view_customer_contact_organisation',
+    ]);
+
+    forgetResolvedGuards();
+    $this->actingAs($agent);
+
+    $response = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk();
+
+    expect($response->json('data.*.id'))->toBe([
+        (string) $withSnapshot->getKey(),
+        (string) $withoutSnapshot->getKey(),
+    ])
+        ->and($response->json('data.0.customer.phone'))->toBe('+9611999999')
+        // The name is the account's on both rows: there is no snapshot of a
+        // name and there should not be.
+        ->and($response->json('data.0.customer.display_name'))->toBe('Rami Khoury')
+        ->and($response->json('data.1.customer.phone'))->toBe('+96170111111')
+        ->and($response->json('data.1.customer.display_name'))->toBe('Rami Khoury');
+});
+
+it('falls back to the account number when the order snapshotted none', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    $account = CustomerAccount::query()->find($this->customerId);
+
+    ContactPoint::factory()->phone()->create([
+        'user_id' => $account->user_id,
+        'is_primary' => true,
+
+        'value_normalised' => '+96170222222',
+    ]);
+
+    // A pickup: a customer, a promised slot, and deliberately no address — so
+    // no snapshot contact point either, which is the ordinary case rather than
+    // the exception.
+    deskOrder($this, [
+        'requested_delivery_date' => '2026-05-10',
+        'fulfilment_type' => 'pickup',
+        'delivery_line_one' => null,
+        'delivery_contact_point_id' => null,
+    ]);
+
+    $agent = deskAgent($this->orgId, 'agent-fallback@kitchen.test', [
+        'order.view_organisation',
+        'order.view_customer_contact_organisation',
+    ]);
+
+    forgetResolvedGuards();
+    $this->actingAs($agent);
+
+    expect(
+        $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)
+            ->assertOk()
+            ->json('data.0.customer.phone')
+    )->toBe('+96170222222');
+});

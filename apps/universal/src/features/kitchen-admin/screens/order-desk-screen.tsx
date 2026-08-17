@@ -1,13 +1,20 @@
 import type {
     KitchenOrder,
     KitchenOrderLine,
+    KitchenOrderPaymentMethod,
     OrderDeskDeliveryJob,
+    OrderDeskFulfilmentType,
     OrderDeskQueueFilters,
     OrderDeskQueueRow,
     OrderDeskQueueStatus,
     OrderDeskWindow,
 } from '@healthy360/api-client/contracts';
-import { ORDER_DESK_QUEUE_STATUSES, ORDER_DESK_WINDOWS } from '@healthy360/api-client/contracts';
+import {
+    KITCHEN_ORDER_PAYMENT_METHODS,
+    ORDER_DESK_FULFILMENT_TYPES,
+    ORDER_DESK_QUEUE_STATUSES,
+    ORDER_DESK_WINDOWS,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -22,6 +29,7 @@ import {
     Icon,
     Inline,
     SegmentedControl,
+    Select,
     Skeleton,
     Stack,
     Table,
@@ -41,6 +49,7 @@ import {
     useConfirmOrderMutation,
     useFulfilOrderMutation,
     useKitchenOrderQuery,
+    useRecordOrderPaymentMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
 import {
     useAssignDeliveryJobMutation,
@@ -50,7 +59,7 @@ import {
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
-import { humaniseCode } from '../format.ts';
+import { humaniseCode, minorAmountToInput, parseMinorAmount } from '../format.ts';
 import {
     canAssignDeliveryJob,
     canConfirmKitchenOrder,
@@ -144,6 +153,25 @@ import {
  * formatter, so "in 3 hours" and "2 hours ago" read the same to somebody who cannot separate amber
  * from red. `ops-format.ts` holds the argument.
  *
+ * ## Two filters that look alike and are not
+ *
+ * The status chips are a **subset** filter — neither selected means both, which a single-choice
+ * control cannot say without inventing an "All" value the wire does not have. The fulfilment-type
+ * `Select` is the opposite: the endpoint takes exactly one value or none, because the three types are
+ * three different jobs done by three different people, and nobody at a desk asks for "deliveries and
+ * counter sales but not pickups". The controls differ because the questions differ, and each one can
+ * express exactly what its endpoint accepts.
+ *
+ * ## Money is recorded from the drawer, and it is the only write here that changes nothing
+ *
+ * A counter sale settles itself. A delivery is paid at the door and a pickup on collection, both
+ * after placement, by whoever was standing there — so the drawer offers {@link RecordPaymentDialog}
+ * while an order is unsettled, not cancelled, and the reader may manage orders. It sends the order's
+ * `lockVersion` from the **detail** read like the lifecycle buttons do, and unlike them the server
+ * does not bump it: the precondition is there so nobody records a payment against an order somebody
+ * cancelled while the dialog was open, not because the row is being moved. The figures it prefills
+ * come off the queue row, because the detail endpoint serves no payment position at all.
+ *
  * ## The customer column must not look broken to somebody who may not read it
  *
  * `row.customer` is **absent** — not null — for a caller without
@@ -152,6 +180,11 @@ import {
  * either case, and a "you are not permitted" cell on every row of a queue somebody works all day
  * would be noise about the reader rather than information about the order. The distinction is kept
  * where it is useful — in the contract and the mapper — rather than shown here.
+ *
+ * The number under the name is **the order's, not the account's**, wherever the order snapshotted
+ * one: a caller ordering to their mother's flat gives their mother's landline, and it is the number
+ * on the docket the courier is holding. The server decides that and this screen never re-derives it,
+ * which is the same rule the due badge follows — see the contract.
  */
 
 /**
@@ -177,6 +210,16 @@ const WINDOW_LABEL_KEYS: Readonly<Record<OrderDeskWindow, string>> = {
  * quite different reasons to reach for it and the name is what makes them read as one rule.
  */
 const EM_DASH = '—';
+
+/**
+ * The value the type filter carries for "do not narrow".
+ *
+ * A sentinel rather than `null`, because `Select` is a single-choice control and "all kinds" is one
+ * of its choices — the same shape `list-toolbar.tsx` uses for its category filter. It is deliberately
+ * not a value the wire has: the filter is *absent* from the request when this is chosen, which is
+ * what the server reads as "all three".
+ */
+const ANY_FULFILMENT_TYPE = '__any__';
 
 /**
  * Choose whose evening this is.
@@ -434,6 +477,269 @@ function AssignDriverDialog({
     );
 }
 
+/**
+ * Write down money that has arrived.
+ *
+ * ## Why the desk needs this at all
+ *
+ * A counter sale settles itself — the wizard takes the money and the order comes back already
+ * fulfilled. The other two do not: a delivery is paid at the door and a pickup on collection, both
+ * *after* the order was placed, by whoever was standing there. Until this dialog existed the queue
+ * could show that an order was unsettled and offer nothing to do about it, so the receipt was written
+ * on paper and the payment column stayed wrong for the rest of the shift.
+ *
+ * ## The version it sends is the **order's**, from the detail read
+ *
+ * Same rule the lifecycle buttons follow, and for the same reason: the queue row was rendered from a
+ * poll that may be fifteen seconds old. What differs is what the precondition is *for*. Confirm and
+ * fulfil are guarded because they move the order; this one does not move it at all — the guard is
+ * there so that nobody records a payment against an order somebody cancelled while this dialog was
+ * open. The server does not bump the version either, so the caller may record a second part payment
+ * straight afterwards without re-reading.
+ *
+ * ## The two conflicts, told apart the way the assign dialog tells its two apart
+ *
+ * `409 resource.conflict` covers a stale precondition and a cancelled order, and on this client the
+ * only thing separating them is whether a version came back (`contracts/failure.ts` normalises the
+ * code down to the optional `currentLockVersion`):
+ *
+ * - **with a version** — the order moved. Re-read and try again; a Refresh button is offered.
+ * - **without one** — the order is cancelled. **No retry is offered**, because refreshing will not
+ *   make a cancelled order payable, and money that genuinely changed hands on a cancelled order is a
+ *   refund, which is a different object with different money attached.
+ *
+ * ## The method is not constrained to the order's, and the reference is where WISH lives
+ *
+ * A sale taken as cash and settled by a transfer while the customer stood there is an ordinary
+ * evening, so the select offers all three and merely *defaults* to what the order was taken on.
+ * Choosing `wish` raises the wizard's own manual-confirmation warning verbatim — the same two
+ * sentences, from the same keys, because a second wording of "nothing checks this for us" would be a
+ * second policy — and the reference field is where that confirmation actually rests.
+ *
+ * ## The amount is prefilled and editable
+ *
+ * Prefilled with the outstanding remainder, which is what an agent asks for nine times in ten.
+ * Editable because part payments are ordinary and over-payments are legal: the money arrived, and a
+ * ledger that refused to record what happened would send somebody looking for paper again. It is a
+ * major-unit field parsed by `parseMinorAmount`, so `5.505` in dollars is refused as the typo it is
+ * rather than silently rounded into a figure nobody typed.
+ */
+function RecordPaymentDialog({
+    order,
+    row,
+    onClose,
+    onRecorded,
+    onRefresh,
+    refreshing,
+}: {
+    readonly order: KitchenOrder;
+    readonly row: OrderDeskQueueRow;
+    readonly onClose: () => void;
+    readonly onRecorded: (amount: string) => void;
+    readonly onRefresh: () => void;
+    readonly refreshing: boolean;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const record = useRecordOrderPaymentMutation();
+
+    /**
+     * What is still owed, never below zero. An over-paid order cannot reach this dialog — the action
+     * is offered only while `receipted` is false — but the clamp is here anyway, because the figure
+     * seeds a text field and a negative default would be a form that opens invalid.
+     */
+    const outstandingMinor = Math.max(0, row.totalMinor - row.payment.receivedMinor);
+
+    const [method, setMethod] = useState<KitchenOrderPaymentMethod>(row.payment.method);
+    const [amount, setAmount] = useState(() =>
+        minorAmountToInput(outstandingMinor, row.currencyCode),
+    );
+    const [reference, setReference] = useState('');
+    const [notes, setNotes] = useState('');
+
+    const amountMinor = parseMinorAmount(amount, row.currencyCode);
+    // At least one minor unit: the server refuses zero, and a receipt asserting that no money
+    // changed hands is a keystroke rather than evidence.
+    const amountValid = amountMinor !== null && amountMinor >= 1;
+
+    const failure = toFailure(record.error);
+    const conflict = failure?.code === 'resource.conflict' ? failure : null;
+    // The discriminator, in one place — see the component note.
+    const stale = conflict !== null && conflict.currentLockVersion !== undefined;
+
+    function submit() {
+        if (amountMinor === null || !amountValid) return;
+        record.mutate(
+            {
+                id: order.id,
+                // The **order's** version, from the detail read. Never the queue row's.
+                lockVersion: order.lockVersion,
+                method,
+                amountMinor,
+                // Trimmed to absence rather than sent empty: the server distinguishes "no
+                // reference" from a reference somebody cleared, and an empty string is neither.
+                ...(reference.trim() === '' ? {} : { reference: reference.trim() }),
+                ...(notes.trim() === '' ? {} : { notes: notes.trim() }),
+            },
+            {
+                onSuccess: () => {
+                    onRecorded(
+                        formatMoney(formatter, {
+                            amount: amountMinor,
+                            currency: row.currencyCode,
+                        }),
+                    );
+                },
+            },
+        );
+    }
+
+    return (
+        <Dialog
+            testID="kitchen-order-desk-payment"
+            open
+            onClose={onClose}
+            title={t('kitchen:desk.recordPayment.title')}
+            description={t('kitchen:desk.recordPayment.description', {
+                number: row.orderNumber,
+            })}
+            actions={
+                <>
+                    <Button
+                        testID="kitchen-order-desk-payment-cancel"
+                        variant="secondary"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <Button
+                        testID="kitchen-order-desk-payment-confirm"
+                        label={t('kitchen:desk.recordPayment.confirm')}
+                        loading={record.isPending}
+                        disabled={!amountValid || record.isPending}
+                        onPress={submit}
+                    />
+                </>
+            }
+        >
+            {failure === null ? null : conflict !== null ? (
+                <Callout
+                    testID="kitchen-order-desk-payment-conflict"
+                    tone="warning"
+                    role="alert"
+                    title={t(
+                        stale
+                            ? 'kitchen:ops.orders.conflictTitle'
+                            : 'kitchen:desk.recordPayment.cancelledTitle',
+                    )}
+                    body={t(
+                        stale
+                            ? 'kitchen:ops.orders.conflictBody'
+                            : 'kitchen:desk.recordPayment.cancelledBody',
+                    )}
+                    actions={
+                        stale ? (
+                            <Button
+                                testID="kitchen-order-desk-payment-conflict-refresh"
+                                size="sm"
+                                variant="secondary"
+                                label={t('kitchen:ops.orders.conflictRefresh')}
+                                loading={refreshing}
+                                onPress={() => {
+                                    record.reset();
+                                    onRefresh();
+                                }}
+                            />
+                        ) : undefined
+                    }
+                />
+            ) : (
+                <Text testID="kitchen-order-desk-payment-error" tone="danger" role="alert">
+                    {failure.message}
+                </Text>
+            )}
+
+            <Select<KitchenOrderPaymentMethod>
+                testID="kitchen-order-desk-payment-method"
+                id="kitchen-order-desk-payment-method"
+                label={t('kitchen:desk.recordPayment.methodLabel')}
+                hint={t('kitchen:desk.recordPayment.methodHint')}
+                value={method}
+                onChange={setMethod}
+                options={KITCHEN_ORDER_PAYMENT_METHODS.map((candidate) => ({
+                    value: candidate,
+                    label: t(kitchenOrderPaymentMethodKey(candidate)),
+                }))}
+            />
+
+            {/*
+             * The wizard's own two sentences, from the wizard's own keys. A WISH transfer is
+             * confirmed by a person looking at a telephone, and this platform checks nothing — a
+             * second wording of that would be a second policy.
+             */}
+            {method === 'wish' ? (
+                <Callout
+                    testID="kitchen-order-desk-payment-wish-note"
+                    tone="warning"
+                    role="status"
+                    title={t('kitchen:desk.sale.wishNoteTitle')}
+                    body={t('kitchen:desk.sale.wishNoteBody')}
+                />
+            ) : null}
+
+            <TextInputField
+                testID="kitchen-order-desk-payment-amount"
+                id="kitchen-order-desk-payment-amount"
+                label={t('kitchen:desk.recordPayment.amountLabel', {
+                    currency: row.currencyCode,
+                })}
+                hint={t('kitchen:desk.recordPayment.amountHint', {
+                    outstanding: formatMoney(formatter, {
+                        amount: outstandingMinor,
+                        currency: row.currencyCode,
+                    }),
+                })}
+                // Only once the person has actually typed something wrong: a field that opens
+                // red because it is empty is a form telling somebody off for arriving.
+                {...(amount.trim() !== '' && !amountValid
+                    ? { error: t('kitchen:desk.recordPayment.amountInvalid') }
+                    : {})}
+                value={amount}
+                onChangeText={setAmount}
+                inputMode="decimal"
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
+
+            <TextInputField
+                testID="kitchen-order-desk-payment-reference"
+                id="kitchen-order-desk-payment-reference"
+                label={t('kitchen:desk.sale.referenceLabel')}
+                hint={t(
+                    // The same field carrying two different weights. On a transfer it is the only
+                    // trace the money existed; on cash there is nothing to reference.
+                    method === 'wish'
+                        ? 'kitchen:desk.recordPayment.referenceHintWish'
+                        : 'kitchen:desk.recordPayment.referenceHint',
+                )}
+                value={reference}
+                onChangeText={setReference}
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
+
+            <TextInputField
+                testID="kitchen-order-desk-payment-notes"
+                id="kitchen-order-desk-payment-notes"
+                label={t('kitchen:desk.sale.notesLabel')}
+                hint={t('kitchen:desk.recordPayment.notesHint')}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+            />
+        </Dialog>
+    );
+}
+
 /** One labelled fact in the drawer. Never a table: these are pairs, not a dataset. */
 function DetailRow({
     testID,
@@ -505,6 +811,16 @@ function OrderDeskQueueList() {
 
     const [deskWindow, setDeskWindow] = useState<OrderDeskWindow>('today');
     const [statuses, setStatuses] = useState<readonly OrderDeskQueueStatus[]>([]);
+    /**
+     * One kind of sale, or all three.
+     *
+     * A `Select` rather than the chip row beside it, and the difference is the wire's rather than a
+     * styling choice: `statuses` is a *subset* filter — neither chip selected means both — while the
+     * server takes exactly one fulfilment type or none. Chips here would offer a combination the
+     * endpoint cannot express, and a screen that silently sent only the first would be worse than one
+     * that never offered the choice.
+     */
+    const [fulfilmentType, setFulfilmentType] = useState<OrderDeskFulfilmentType | null>(null);
     const [query, setQuery] = useState('');
     /**
      * The row the drawer was opened from, held rather than looked up by identifier.
@@ -523,6 +839,15 @@ function OrderDeskQueueList() {
      * stale version the endpoint exists to reject.
      */
     const [assigning, setAssigning] = useState(false);
+    /**
+     * Whether the receipt dialog is open.
+     *
+     * A boolean for {@link assigning}'s reason: the dialog reads the order off the *detail* query and
+     * the money off {@link selectedRow}, both of which are re-derived as the poll lands, so what it
+     * submits is the current validator against the current outstanding figure. A copy taken at open
+     * time would be exactly the stale pair the precondition exists to reject.
+     */
+    const [recordingPayment, setRecordingPayment] = useState(false);
 
     const now = useTickingNow(ORDER_DESK_POLL_MS, online);
     const trimmed = query.trim();
@@ -536,9 +861,13 @@ function OrderDeskQueueList() {
         () => ({
             window: deskWindow,
             ...(statuses.length === 0 ? {} : { statuses }),
+            // Omitted rather than sent as a null: absent is what the server reads as "all three",
+            // and a present-but-empty parameter would be the screen naming a field it has no value
+            // for.
+            ...(fulfilmentType === null ? {} : { fulfilmentType }),
             ...(trimmed === '' ? {} : { query: trimmed }),
         }),
-        [deskWindow, statuses, trimmed],
+        [deskWindow, statuses, fulfilmentType, trimmed],
     );
 
     const queue = useOrderDeskQueueQuery(filters, true, {
@@ -554,7 +883,11 @@ function OrderDeskQueueList() {
     const rows = useMemo<readonly OrderDeskQueueRow[]>(() => queue.data?.rows ?? [], [queue.data]);
     const meta = queue.data?.meta ?? null;
     const failure = toFailure(queue.error);
-    const filtered = trimmed !== '' || statuses.length > 0 || deskWindow !== 'today';
+    const filtered =
+        trimmed !== '' ||
+        statuses.length > 0 ||
+        fulfilmentType !== null ||
+        deskWindow !== 'today';
 
     /**
      * The open row as the queue currently has it, or the copy the drawer was opened with.
@@ -588,6 +921,7 @@ function OrderDeskQueueList() {
     function clearFilters() {
         setDeskWindow('today');
         setStatuses([]);
+        setFulfilmentType(null);
         setQuery('');
     }
 
@@ -604,11 +938,33 @@ function OrderDeskQueueList() {
     function closeDetail() {
         setSelected(null);
         setAssigning(false);
+        setRecordingPayment(false);
         clearActionState();
     }
 
     function openAssign() {
         setAssigning(true);
+    }
+
+    /**
+     * The money is written down. Say how much, and let the poll bring the row up to date.
+     *
+     * The toast is the announcement, on the same terms as {@link onAssigned}: it is the
+     * application's own polite live region, so this is the mechanism every other write on this
+     * surface already uses rather than a second one bolted on for a screen reader. The dialog closes
+     * because the decision is made; the drawer stays open on the order, which is what the person was
+     * reading — and the invalidation the hook fires is what redraws the payment block underneath it.
+     */
+    function onPaymentRecorded(amount: string) {
+        setRecordingPayment(false);
+        toast.show({
+            testID: 'kitchen-order-desk-payment-recorded-toast',
+            tone: 'success',
+            message: t('kitchen:desk.recordPayment.recordedToast', {
+                amount,
+                number: selectedRow?.orderNumber ?? order?.orderNumber ?? '',
+            }),
+        });
     }
 
     /**
@@ -943,6 +1299,39 @@ function OrderDeskQueueList() {
                         }))}
                     />
 
+                    {/*
+                     * One kind of sale, or all three — a single-choice control because the endpoint
+                     * takes a single value. The three types are three different jobs done by three
+                     * different people (a dispatch board wants deliveries, a collection counter
+                     * wants pickups), which is why this is not the chip row the statuses use: nobody
+                     * asks for "deliveries and counter sales but not pickups".
+                     *
+                     * The "all kinds" option is this screen's, not the wire's. Choosing it omits the
+                     * parameter, which is what the server reads as no narrowing at all.
+                     */}
+                    <Select<OrderDeskFulfilmentType | typeof ANY_FULFILMENT_TYPE>
+                        testID="kitchen-order-desk-type"
+                        id="kitchen-order-desk-type"
+                        label={t('kitchen:desk.filterTypeLabel')}
+                        value={fulfilmentType ?? ANY_FULFILMENT_TYPE}
+                        onChange={(next) => {
+                            setFulfilmentType(next === ANY_FULFILMENT_TYPE ? null : next);
+                        }}
+                        options={[
+                            {
+                                value: ANY_FULFILMENT_TYPE,
+                                label: t('kitchen:desk.filterTypeAll'),
+                            },
+                            ...ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
+                                value: candidate,
+                                // The wizard's own labels, through the shared table — translating
+                                // "Collection" twice would eventually produce two translations of
+                                // it.
+                                label: t(kitchenOrderFulfilmentTypeKey(candidate)),
+                            })),
+                        ]}
+                    />
+
                     <TextInputField
                         testID="kitchen-order-desk-search"
                         id="kitchen-order-desk-search"
@@ -1232,6 +1621,39 @@ function OrderDeskQueueList() {
                                                 : 'kitchen:desk.payment.notReceipted',
                                         )}
                                     />
+                                    {/*
+                                     * Offered while there is still something to collect, and not
+                                     * otherwise. Three conditions, each ruling out a different
+                                     * order:
+                                     *
+                                     * - `receipted` — a settled order needs nothing written down,
+                                     *   and an over-payment is not corrected by a second receipt
+                                     *   (giving money back is a refund, which is not this ledger).
+                                     * - `cancelled` — the server refuses it with a `409` that
+                                     *   carries no version, so offering the button would be
+                                     *   offering a wall to walk into.
+                                     * - `canManage` — recording money is managing the order, on the
+                                     *   same code the lifecycle buttons and the driver assignment
+                                     *   take.
+                                     *
+                                     * A counter sale never reaches this drawer: it arrives already
+                                     * fulfilled and settled, so it is not in the open queue at all.
+                                     */}
+                                    {selectedRow.payment.receipted ||
+                                    order.status === 'cancelled' ||
+                                    !canManage ? null : (
+                                        <Inline space="sm" wrap>
+                                            <Button
+                                                testID="kitchen-order-desk-detail-record-payment"
+                                                size="sm"
+                                                variant="secondary"
+                                                label={t('kitchen:desk.recordPayment.open')}
+                                                onPress={() => {
+                                                    setRecordingPayment(true);
+                                                }}
+                                            />
+                                        </Inline>
+                                    )}
                                 </>
                             )}
                         </Stack>
@@ -1392,6 +1814,31 @@ function OrderDeskQueueList() {
                         void queue.refetch();
                     }}
                     refreshing={queue.isFetching}
+                />
+            ) : null}
+
+            {/*
+             * Outside the drawer for the assign dialog's reason — a modal mounted inside a scrolling
+             * panel is a focus trap fighting the panel's — and mounted only while open, which is
+             * what gives every opening a clean sheet without an effect that resets four fields.
+             *
+             * It needs **both**: the order for the validator it sends, and the row for the money it
+             * prefills, because the detail endpoint serves no payment position at all.
+             */}
+            {recordingPayment && order !== null && selectedRow !== null ? (
+                <RecordPaymentDialog
+                    order={order}
+                    row={selectedRow}
+                    onClose={() => {
+                        setRecordingPayment(false);
+                    }}
+                    onRecorded={onPaymentRecorded}
+                    onRefresh={() => {
+                        clearActionState();
+                        void detail.refetch();
+                        void queue.refetch();
+                    }}
+                    refreshing={detail.isFetching || queue.isFetching}
                 />
             ) : null}
         </Stack>

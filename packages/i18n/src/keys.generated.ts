@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5575 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5669 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2427,6 +2427,8 @@ export interface NamespaceKeys {
     | 'desk.deliveryTracking'
     | 'desk.emptyBody'
     | 'desk.emptyTitle'
+    | 'desk.filterTypeAll'
+    | 'desk.filterTypeLabel'
     | 'desk.filteredEmptyBody'
     | 'desk.filteredEmptyTitle'
     | 'desk.loadErrorTitle'
@@ -2441,6 +2443,21 @@ export interface NamespaceKeys {
     | 'desk.paymentMethod'
     | 'desk.paymentReceived'
     | 'desk.paymentState'
+    | 'desk.recordPayment.amountHint'
+    | 'desk.recordPayment.amountInvalid'
+    | 'desk.recordPayment.amountLabel'
+    | 'desk.recordPayment.cancelledBody'
+    | 'desk.recordPayment.cancelledTitle'
+    | 'desk.recordPayment.confirm'
+    | 'desk.recordPayment.description'
+    | 'desk.recordPayment.methodHint'
+    | 'desk.recordPayment.methodLabel'
+    | 'desk.recordPayment.notesHint'
+    | 'desk.recordPayment.open'
+    | 'desk.recordPayment.recordedToast'
+    | 'desk.recordPayment.referenceHint'
+    | 'desk.recordPayment.referenceHintWish'
+    | 'desk.recordPayment.title'
     | 'desk.refusal.address_not_applicable'
     | 'desk.refusal.address_not_deliverable'
     | 'desk.refusal.address_required'
@@ -2645,6 +2662,8 @@ export interface NamespaceKeys {
     | 'families.meals.name'
     | 'families.orderCalendar.description'
     | 'families.orderCalendar.name'
+    | 'families.orderCashReport.description'
+    | 'families.orderCashReport.name'
     | 'families.orderDesk.description'
     | 'families.orderDesk.name'
     | 'families.orderRequirements.description'
@@ -2832,6 +2851,26 @@ export interface NamespaceKeys {
     | 'nav.groups.workbench'
     | 'nav.overview'
     | 'nav.railTitle'
+    | 'ops.cashReport.a11y.unnamedAgent'
+    | 'ops.cashReport.caption'
+    | 'ops.cashReport.columnAgent'
+    | 'ops.cashReport.columnAmount'
+    | 'ops.cashReport.columnCount'
+    | 'ops.cashReport.columnMethod'
+    | 'ops.cashReport.dateHint'
+    | 'ops.cashReport.dateInvalidBody'
+    | 'ops.cashReport.dateInvalidTitle'
+    | 'ops.cashReport.dateLabel'
+    | 'ops.cashReport.emptyBody'
+    | 'ops.cashReport.emptyTitle'
+    | 'ops.cashReport.loadErrorTitle'
+    | 'ops.cashReport.measuredOn'
+    | 'ops.cashReport.scopeBody'
+    | 'ops.cashReport.scopeTitle'
+    | 'ops.cashReport.subtitle'
+    | 'ops.cashReport.title'
+    | 'ops.cashReport.totalsHeading'
+    | 'ops.cashReport.totalsNote'
     | 'ops.costReport.caption'
     | 'ops.costReport.chartCogs'
     | 'ops.costReport.chartCogsMix'
@@ -3341,6 +3380,59 @@ export interface NamespaceKeys {
     | 'plans.matrixRowHeader'
     | 'plans.matrixSaveError'
     | 'plans.mealsPerDayLabel'
+    | 'plans.menuAddDish'
+    | 'plans.menuAddedAnnouncement'
+    | 'plans.menuAnchorHint'
+    | 'plans.menuAnchorLabel'
+    | 'plans.menuAnchorMalformed'
+    | 'plans.menuAnchorRequired'
+    | 'plans.menuBeyondCycle'
+    | 'plans.menuBlockedTitle'
+    | 'plans.menuCutoverBody'
+    | 'plans.menuCutoverTitle'
+    | 'plans.menuCycleDaysHint'
+    | 'plans.menuCycleDaysLabel'
+    | 'plans.menuCycleOutOfRange'
+    | 'plans.menuCycleRequired'
+    | 'plans.menuDayBeyond'
+    | 'plans.menuDayEmptyHint'
+    | 'plans.menuDayFalls'
+    | 'plans.menuDayNumber'
+    | 'plans.menuDuplicateCoordinate'
+    | 'plans.menuEmpty'
+    | 'plans.menuEmptyDish'
+    | 'plans.menuEntriesRequired'
+    | 'plans.menuEntryCount'
+    | 'plans.menuEntryNumber'
+    | 'plans.menuEntryRemoved'
+    | 'plans.menuHelp'
+    | 'plans.menuLoadErrorTitle'
+    | 'plans.menuMealHint'
+    | 'plans.menuMealLabel'
+    | 'plans.menuMealRequired'
+    | 'plans.menuMealUnavailable'
+    | 'plans.menuMealsPending'
+    | 'plans.menuNothingToWithdraw'
+    | 'plans.menuSaveError'
+    | 'plans.menuSavedToast'
+    | 'plans.menuSequenceHint'
+    | 'plans.menuSequenceLabel'
+    | 'plans.menuSequenceRequired'
+    | 'plans.menuSlotBreakfast'
+    | 'plans.menuSlotDinner'
+    | 'plans.menuSlotLabel'
+    | 'plans.menuSlotLunch'
+    | 'plans.menuSlotSnack'
+    | 'plans.menuStateNone'
+    | 'plans.menuStatePublished'
+    | 'plans.menuTooManyEntries'
+    | 'plans.menuUnknownMeal'
+    | 'plans.menuWithdraw'
+    | 'plans.menuWithdrawBody'
+    | 'plans.menuWithdrawConfirm'
+    | 'plans.menuWithdrawConsequence'
+    | 'plans.menuWithdrawTitle'
+    | 'plans.menuWithdrawnToast'
     | 'plans.nameRequired'
     | 'plans.newVariantName'
     | 'plans.noDurations'
@@ -3375,11 +3467,13 @@ export interface NamespaceKeys {
     | 'plans.rowUndeclared'
     | 'plans.saveCombinations'
     | 'plans.saveDurations'
+    | 'plans.saveMenu'
     | 'plans.saveVariants'
     | 'plans.sectionCombinations'
     | 'plans.sectionDetails'
     | 'plans.sectionDurations'
     | 'plans.sectionMatrix'
+    | 'plans.sectionMenu'
     | 'plans.sectionPrices'
     | 'plans.servingsRequired'
     | 'plans.servingsSummary'
@@ -8020,6 +8114,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.deliveryTracking',
   'kitchen:desk.emptyBody',
   'kitchen:desk.emptyTitle',
+  'kitchen:desk.filterTypeAll',
+  'kitchen:desk.filterTypeLabel',
   'kitchen:desk.filteredEmptyBody',
   'kitchen:desk.filteredEmptyTitle',
   'kitchen:desk.loadErrorTitle',
@@ -8034,6 +8130,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.paymentMethod',
   'kitchen:desk.paymentReceived',
   'kitchen:desk.paymentState',
+  'kitchen:desk.recordPayment.amountHint',
+  'kitchen:desk.recordPayment.amountInvalid',
+  'kitchen:desk.recordPayment.amountLabel',
+  'kitchen:desk.recordPayment.cancelledBody',
+  'kitchen:desk.recordPayment.cancelledTitle',
+  'kitchen:desk.recordPayment.confirm',
+  'kitchen:desk.recordPayment.description',
+  'kitchen:desk.recordPayment.methodHint',
+  'kitchen:desk.recordPayment.methodLabel',
+  'kitchen:desk.recordPayment.notesHint',
+  'kitchen:desk.recordPayment.open',
+  'kitchen:desk.recordPayment.recordedToast',
+  'kitchen:desk.recordPayment.referenceHint',
+  'kitchen:desk.recordPayment.referenceHintWish',
+  'kitchen:desk.recordPayment.title',
   'kitchen:desk.refusal.address_not_applicable',
   'kitchen:desk.refusal.address_not_deliverable',
   'kitchen:desk.refusal.address_required',
@@ -8238,6 +8349,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.meals.name',
   'kitchen:families.orderCalendar.description',
   'kitchen:families.orderCalendar.name',
+  'kitchen:families.orderCashReport.description',
+  'kitchen:families.orderCashReport.name',
   'kitchen:families.orderDesk.description',
   'kitchen:families.orderDesk.name',
   'kitchen:families.orderRequirements.description',
@@ -8425,6 +8538,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.groups.workbench',
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
+  'kitchen:ops.cashReport.a11y.unnamedAgent',
+  'kitchen:ops.cashReport.caption',
+  'kitchen:ops.cashReport.columnAgent',
+  'kitchen:ops.cashReport.columnAmount',
+  'kitchen:ops.cashReport.columnCount',
+  'kitchen:ops.cashReport.columnMethod',
+  'kitchen:ops.cashReport.dateHint',
+  'kitchen:ops.cashReport.dateInvalidBody',
+  'kitchen:ops.cashReport.dateInvalidTitle',
+  'kitchen:ops.cashReport.dateLabel',
+  'kitchen:ops.cashReport.emptyBody',
+  'kitchen:ops.cashReport.emptyTitle',
+  'kitchen:ops.cashReport.loadErrorTitle',
+  'kitchen:ops.cashReport.measuredOn',
+  'kitchen:ops.cashReport.scopeBody',
+  'kitchen:ops.cashReport.scopeTitle',
+  'kitchen:ops.cashReport.subtitle',
+  'kitchen:ops.cashReport.title',
+  'kitchen:ops.cashReport.totalsHeading',
+  'kitchen:ops.cashReport.totalsNote',
   'kitchen:ops.costReport.caption',
   'kitchen:ops.costReport.chartCogs',
   'kitchen:ops.costReport.chartCogsMix',
@@ -8934,6 +9067,59 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.matrixRowHeader',
   'kitchen:plans.matrixSaveError',
   'kitchen:plans.mealsPerDayLabel',
+  'kitchen:plans.menuAddDish',
+  'kitchen:plans.menuAddedAnnouncement',
+  'kitchen:plans.menuAnchorHint',
+  'kitchen:plans.menuAnchorLabel',
+  'kitchen:plans.menuAnchorMalformed',
+  'kitchen:plans.menuAnchorRequired',
+  'kitchen:plans.menuBeyondCycle',
+  'kitchen:plans.menuBlockedTitle',
+  'kitchen:plans.menuCutoverBody',
+  'kitchen:plans.menuCutoverTitle',
+  'kitchen:plans.menuCycleDaysHint',
+  'kitchen:plans.menuCycleDaysLabel',
+  'kitchen:plans.menuCycleOutOfRange',
+  'kitchen:plans.menuCycleRequired',
+  'kitchen:plans.menuDayBeyond',
+  'kitchen:plans.menuDayEmptyHint',
+  'kitchen:plans.menuDayFalls',
+  'kitchen:plans.menuDayNumber',
+  'kitchen:plans.menuDuplicateCoordinate',
+  'kitchen:plans.menuEmpty',
+  'kitchen:plans.menuEmptyDish',
+  'kitchen:plans.menuEntriesRequired',
+  'kitchen:plans.menuEntryCount',
+  'kitchen:plans.menuEntryNumber',
+  'kitchen:plans.menuEntryRemoved',
+  'kitchen:plans.menuHelp',
+  'kitchen:plans.menuLoadErrorTitle',
+  'kitchen:plans.menuMealHint',
+  'kitchen:plans.menuMealLabel',
+  'kitchen:plans.menuMealRequired',
+  'kitchen:plans.menuMealUnavailable',
+  'kitchen:plans.menuMealsPending',
+  'kitchen:plans.menuNothingToWithdraw',
+  'kitchen:plans.menuSaveError',
+  'kitchen:plans.menuSavedToast',
+  'kitchen:plans.menuSequenceHint',
+  'kitchen:plans.menuSequenceLabel',
+  'kitchen:plans.menuSequenceRequired',
+  'kitchen:plans.menuSlotBreakfast',
+  'kitchen:plans.menuSlotDinner',
+  'kitchen:plans.menuSlotLabel',
+  'kitchen:plans.menuSlotLunch',
+  'kitchen:plans.menuSlotSnack',
+  'kitchen:plans.menuStateNone',
+  'kitchen:plans.menuStatePublished',
+  'kitchen:plans.menuTooManyEntries',
+  'kitchen:plans.menuUnknownMeal',
+  'kitchen:plans.menuWithdraw',
+  'kitchen:plans.menuWithdrawBody',
+  'kitchen:plans.menuWithdrawConfirm',
+  'kitchen:plans.menuWithdrawConsequence',
+  'kitchen:plans.menuWithdrawTitle',
+  'kitchen:plans.menuWithdrawnToast',
   'kitchen:plans.nameRequired',
   'kitchen:plans.newVariantName',
   'kitchen:plans.noDurations',
@@ -8968,11 +9154,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.rowUndeclared',
   'kitchen:plans.saveCombinations',
   'kitchen:plans.saveDurations',
+  'kitchen:plans.saveMenu',
   'kitchen:plans.saveVariants',
   'kitchen:plans.sectionCombinations',
   'kitchen:plans.sectionDetails',
   'kitchen:plans.sectionDurations',
   'kitchen:plans.sectionMatrix',
+  'kitchen:plans.sectionMenu',
   'kitchen:plans.sectionPrices',
   'kitchen:plans.servingsRequired',
   'kitchen:plans.servingsSummary',

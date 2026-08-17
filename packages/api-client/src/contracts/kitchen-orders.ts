@@ -240,6 +240,93 @@ export interface CancelKitchenOrderRequest extends KitchenOrderTransitionRequest
     readonly reason: KitchenOrderCancellationReason;
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * Money arriving against an order
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * Where an order stands on being paid — derived on read and **stored nowhere**.
+ *
+ * `method` is the order's *intended* method, never any receipt's: it is what somebody asks the
+ * customer for, read before the money arrives.
+ *
+ * **`receipted`, not `paid`.** This platform holds no proof that money exists, only that somebody
+ * wrote down that it arrived. It is `receivedMinor >= totalMinor`, an inequality in both directions:
+ * a part payment leaves it false until the balance lands, and an over-payment does not make it truer.
+ *
+ * The identical shape rides on the desk queue's row as `OrderDeskPaymentSummary`. The wire serves one
+ * object from both places on purpose — two copies of "receipted" would eventually disagree.
+ */
+export interface KitchenOrderPaymentSummary {
+    readonly method: KitchenOrderPaymentMethod;
+    /** The sum of every receipt against this order, in the order's currency. Zero, never null. */
+    readonly receivedMinor: number;
+    readonly receipted: boolean;
+}
+
+/**
+ * One receipt, as written.
+ *
+ * A record of an **assertion**, not of a settlement: `confirmedBy` is the person who says the money
+ * arrived and `confirmedAt` is when they say it did — which is not always when they wrote it down.
+ * That is the whole evidentiary weight of this row, and it is why the ledger is append-only by
+ * convention: there is no operation anywhere on this client that edits or deletes one.
+ */
+export interface KitchenOrderPaymentReceipt {
+    readonly id: string;
+    readonly orderId: string;
+    readonly method: KitchenOrderPaymentMethod;
+    readonly amountMinor: number;
+    readonly currencyCode: CurrencyCode;
+    /** The WISH transaction identifier, or null for cash. Confidential at rest. */
+    readonly reference: string | null;
+    readonly confirmedBy: string;
+    readonly confirmedAt: IsoDateTime;
+    readonly notes: string | null;
+}
+
+/** The receipt just written, and where the order now stands because of it. */
+export interface RecordedKitchenOrderPayment {
+    readonly receipt: KitchenOrderPaymentReceipt;
+    readonly payment: KitchenOrderPaymentSummary;
+}
+
+/**
+ * Money arriving against an order, written down by whoever took it.
+ *
+ * ## `lockVersion` is the **order's**, and this write does not bump it
+ *
+ * The precondition is required — the server answers `428 request.precondition_required` without it
+ * — and it guards a read rather than a write: what it prevents is somebody recording a payment
+ * against an order that has been cancelled since they looked at it. The order row is not modified,
+ * so the version that came back from the detail read is still current afterwards, and a screen may
+ * record two part payments in a row without re-reading between them.
+ *
+ * ## `method` is deliberately not constrained to the order's intended one
+ *
+ * A sale taken as cash and settled by a WISH transfer while the customer stood there is an ordinary
+ * evening. The order's `paymentMethod` is what was *expected*; this is what turned up, and forcing
+ * them to agree would make the desk lie about one of them.
+ *
+ * ## `amountMinor`, and why over-payment is legal
+ *
+ * A positive integer in the **order's** currency — there is no currency field, because inventing one
+ * would let a caller assert that dirhams arrived against a dollar order. Partial payments are
+ * ordinary (`receipted` simply stays false) and over-payments are accepted rather than refused: the
+ * money genuinely did arrive, and a ledger that refused to record what happened would send the desk
+ * looking for somewhere else to write it down. Reconciling the difference is the till's problem, and
+ * this platform has no shift table to reconcile it in — see
+ * {@link OrderDeskRepository.getCashReport}, which is the mitigation.
+ */
+export interface RecordKitchenOrderPaymentRequest extends KitchenOrderTransitionRequest {
+    readonly method: KitchenOrderPaymentMethod;
+    /** Minor units of the **order's** currency. At least 1 — a zero receipt records nothing. */
+    readonly amountMinor: number;
+    /** The transfer identifier on a WISH payment; the field a manual confirmation rests on. */
+    readonly reference?: string | undefined;
+    readonly notes?: string | undefined;
+}
+
 export interface KitchenOrdersRepository {
     /** Newest first, keyset-paged. Every filter is optional; none of them is a client-side sieve. */
     listOrders(filters?: KitchenOrderFilters): Promise<KitchenOrderPage>;
@@ -255,4 +342,49 @@ export interface KitchenOrdersRepository {
 
     /** From `placed` or `confirmed` only, terminal. */
     cancelOrder(request: CancelKitchenOrderRequest): Promise<KitchenOrder>;
+
+    /**
+     * Write down money that arrived against an order.
+     *
+     * ## Why this lives here and not on the order desk
+     *
+     * The audience is the desk — an agent takes a cash-on-delivery payment at the door or confirms a
+     * WISH transfer over the telephone — and `OrderDeskRepository` is where that agent's other
+     * operations are. It is here anyway, and the desk repository's own header states the rule this
+     * follows: *the lifecycle writes an order needs are `kitchenOrders`', because duplicating them
+     * behind a desk-shaped name would give two modules the ability to move the same order with two
+     * different ideas of what version they hold.*
+     *
+     * This write sends the **order's** `lockVersion`. That is the discriminator the desk header
+     * already drew: `assignDeliveryJob` sits on the desk precisely because it carries the *job's*
+     * validator, which no order operation holds. A second module holding the order's version would
+     * be the exact coupling that rule exists to prevent — and a screen would have two places to look
+     * for the version it must send.
+     *
+     * The audience follows the surface rather than the other way round: the drawer that records a
+     * payment already imports `useKitchenOrderQuery` for the version it sends, because the desk's own
+     * queue row is a poll or two old and the detail read is what the transitions are guarded by.
+     *
+     * ## What it does and does not change
+     *
+     * Answers the receipt **and** the order's new payment position, because a screen needs both and a
+     * second read to get the second one would be a round trip for a number the server just computed.
+     * It does **not** answer the order, and it does not bump the order's `lockVersion` — nothing on
+     * the row is modified — so the version the caller sent is still current afterwards.
+     *
+     * ## Refusals
+     *
+     * - **`409 resource.conflict`**, two readings under one code, told apart the way
+     *   `assignDeliveryJob`'s are: a **stale precondition** carries `currentLockVersion` and is
+     *   resolved by re-reading; a **cancelled order** carries none, and no amount of re-reading makes
+     *   a cancelled order payable. The screen must offer a refresh for the first and refuse the
+     *   second.
+     * - **`428 request.precondition_required`** — unreachable from this client, because
+     *   {@link RecordKitchenOrderPaymentRequest} makes `lockVersion` mandatory.
+     * - **`422 validation.failed`** — a zero or negative amount, or a method outside the three.
+     *
+     * The `Idempotency-Key` is minted inside the repository per attempt, so no screen can forget it
+     * and a deliberate second attempt records a second payment rather than replaying the first.
+     */
+    recordPayment(request: RecordKitchenOrderPaymentRequest): Promise<RecordedKitchenOrderPayment>;
 }

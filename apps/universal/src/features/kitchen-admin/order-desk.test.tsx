@@ -9,6 +9,8 @@ import type {
     OrderDeskQueueFilters,
     OrderDeskQueueMeta,
     OrderDeskQueueRow,
+    RecordKitchenOrderPaymentRequest,
+    RecordedKitchenOrderPayment,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
@@ -1339,5 +1341,301 @@ describe('order desk queue — the driver picker', () => {
         );
         // Nothing to confirm, so the confirming action has nothing to do.
         expect(screen.queryByTestId('kitchen-order-desk-assign-list')).toBeNull();
+    });
+});
+
+/**
+ * The queue's first single-valued filter, and why it is a `Select` rather than another chip.
+ *
+ * The statuses are a *subset* question and the chips say so: neither selected means both. The three
+ * fulfilment types are three different jobs done by three different people, the endpoint takes one
+ * value or none, and a chip row here would offer a combination the wire cannot express. These pin
+ * the shape difference at the only place it is observable — what reaches `listQueue`.
+ */
+describe('order desk queue — the fulfilment-type filter', () => {
+    it('sends one kind to the endpoint, and drops the key again when the reader clears it', async () => {
+        const { repositories } = await renderDesk(async () => queue(seedQueue()));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // The screen opens on no narrowing at all, which is the server's "all three".
+        expect(repositories.orderDesk.listQueue).toHaveBeenCalledWith({ window: 'today' });
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-type-trigger'));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-type-option-pickup')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-type-option-pickup'));
+
+        await waitFor(() => {
+            expect(repositories.orderDesk.listQueue).toHaveBeenCalledWith({
+                window: 'today',
+                fulfilmentType: 'pickup',
+            });
+        });
+
+        // "All kinds" is the screen's own sentinel and never reaches the wire: choosing it omits
+        // the key, which is what the server reads as no narrowing.
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-type-trigger'));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-type-option-__any__')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-type-option-__any__'));
+
+        await waitFor(() => {
+            expect(repositories.orderDesk.listQueue).toHaveBeenLastCalledWith({ window: 'today' });
+        });
+    });
+
+    it('keys a narrowed queue to a different cache entry from the unnarrowed one', () => {
+        // Value equality, as the window pair above: the screen memoises the filter object, so the
+        // hash is what decides whether two screens are looking at the same question.
+        expect(
+            queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'delivery' }),
+        ).toEqual(queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'delivery' }));
+        expect(
+            queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'delivery' }),
+        ).not.toEqual(queryKeys.orderDesk.queue({ window: 'today' }));
+        expect(
+            queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'delivery' }),
+        ).not.toEqual(queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'pickup' }));
+    });
+});
+
+/**
+ * Recording money that arrived — the drawer's one write that changes nothing on the order.
+ *
+ * A counter sale settles itself; a delivery is paid at the door and a pickup on collection, both
+ * after placement. So the action is offered while an order is unsettled and not cancelled, it
+ * prefills the outstanding remainder, and it sends the **order's** version from the detail read
+ * rather than the queue row's — which is the same rule the lifecycle buttons follow and the same
+ * fifteen-second-old row it protects against.
+ *
+ * The two conflicts are the interesting half. `409` covers a stale precondition and a cancelled
+ * order, and only a returned version separates them: a lost race offers a refresh, and a cancelled
+ * order offers nothing, because re-reading will not make it payable.
+ */
+describe('order desk queue — recording a payment', () => {
+    /** An unsettled order: sixteen dirhams' worth taken, nothing received. */
+    function unsettledRow(overrides: Partial<OrderDeskQueueRow> = {}): OrderDeskQueueRow {
+        return deskRow({
+            id: orderIdAt(1),
+            status: 'confirmed',
+            currencyCode: 'AED',
+            totalMinor: 16_000,
+            payment: { method: 'cash_on_delivery', receivedMinor: 0, receipted: false },
+            ...overrides,
+        });
+    }
+
+    async function renderPayment(overrides: {
+        readonly row?: OrderDeskQueueRow | undefined;
+        readonly detail?: Partial<KitchenOrder> | undefined;
+        readonly recordPayment?:
+            | ((request: RecordKitchenOrderPaymentRequest) => Promise<RecordedKitchenOrderPayment>)
+            | undefined;
+    }) {
+        const row = overrides.row ?? unsettledRow();
+        return renderStubScreen(<OrderDeskScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                orderDesk: { listQueue: async () => queue([row]) },
+                kitchenOrders: {
+                    // Deliberately a *different* version from the row's: the dialog must send this
+                    // one, because the row it was drawn from can be a poll or two old.
+                    getOrder: async () => detailOrder(row, { lockVersion: 9, ...overrides.detail }),
+                    ...(overrides.recordPayment === undefined
+                        ? {}
+                        : { recordPayment: overrides.recordPayment }),
+                },
+            },
+        });
+    }
+
+    async function openDialog() {
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByTestId('kitchen-order-desk-detail-record-payment'),
+                ).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-record-payment'));
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-payment-amount-input')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+    }
+
+    it('prefills the outstanding remainder in the order\'s currency', async () => {
+        await renderPayment({
+            row: unsettledRow({
+                payment: { method: 'cash_on_delivery', receivedMinor: 4_000, receipted: false },
+            }),
+        });
+        await openDialog();
+
+        // 16 000 minus the 4 000 already received, in major units — the figure the agent asks for
+        // nine times in ten, and editable because part payments are ordinary.
+        expect(screen.getByTestId('kitchen-order-desk-payment-amount-input').props.value).toBe(
+            '120.00',
+        );
+    });
+
+    it('sends the detail read\'s version, the chosen method and the amount in minor units', async () => {
+        const recordPayment = jest.fn(async () => ({
+            receipt: {
+                id: 'receipt-1',
+                orderId: String(orderIdAt(1)),
+                method: 'cash_on_delivery' as const,
+                amountMinor: 16_000,
+                currencyCode: 'AED' as const,
+                reference: null,
+                confirmedBy: 'user-1',
+                confirmedAt: new Date().toISOString(),
+                notes: null,
+            },
+            payment: {
+                method: 'cash_on_delivery' as const,
+                receivedMinor: 16_000,
+                receipted: true,
+            },
+        }));
+
+        await renderPayment({ recordPayment });
+        await openDialog();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-payment-confirm'));
+
+        await waitFor(() => {
+            expect(recordPayment).toHaveBeenCalledWith({
+                id: orderIdAt(1),
+                // 9, from the detail read — never the row's 1.
+                lockVersion: 9,
+                method: 'cash_on_delivery',
+                amountMinor: 16_000,
+            });
+        });
+    });
+
+    it('raises the wizard\'s own manual-confirmation warning when the money came by transfer', async () => {
+        await renderPayment({});
+        await openDialog();
+
+        // Cash needs no warning: nothing about it is being asserted on somebody's word.
+        expect(screen.queryByTestId('kitchen-order-desk-payment-wish-note')).toBeNull();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-payment-method-trigger'));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-payment-method-option-wish')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-payment-method-option-wish'));
+
+        // The same two sentences the sale wizard shows, from the same keys — a second wording of
+        // "nothing checks this for us" would be a second policy.
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-payment-wish-note')).toBeTruthy();
+        });
+    });
+
+    it('offers a refresh when a version came back with the conflict', async () => {
+        await renderPayment({
+            recordPayment: async () => {
+                throw new ApiError(conflictFailure({ currentLockVersion: 11 }));
+            },
+        });
+        await openDialog();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-payment-confirm'));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-payment-conflict')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // A version came back — a lost race, and re-reading is a real remedy.
+        expect(screen.getByTestId('kitchen-order-desk-payment-conflict-refresh')).toBeTruthy();
+    });
+
+    it('offers nothing when the conflict carries no version, because the order is cancelled', async () => {
+        await renderPayment({
+            recordPayment: async () => {
+                throw new ApiError(conflictFailure());
+            },
+        });
+        await openDialog();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-payment-confirm'));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-payment-conflict')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // Refreshing will not make a cancelled order payable, and a button there would be an
+        // invitation to press the same wall twice.
+        expect(screen.queryByTestId('kitchen-order-desk-payment-conflict-refresh')).toBeNull();
+    });
+
+    it('does not offer the action on an order that is already settled', async () => {
+        await renderPayment({
+            row: unsettledRow({
+                payment: { method: 'cash_on_delivery', receivedMinor: 16_000, receipted: true },
+            }),
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-detail-payment')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // Settled: there is nothing left to write down, and an over-payment is not corrected by a
+        // second receipt — money going back is a refund, which is a different object.
+        expect(screen.queryByTestId('kitchen-order-desk-detail-record-payment')).toBeNull();
+    });
+
+    it('does not offer the action on a cancelled order', async () => {
+        await renderPayment({ detail: { status: 'cancelled' } });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-detail-payment')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // The server refuses a cancelled order with a `409` carrying no version, so offering the
+        // button would be offering a wall to walk into.
+        expect(screen.queryByTestId('kitchen-order-desk-detail-record-payment')).toBeNull();
     });
 });

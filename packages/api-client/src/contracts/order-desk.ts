@@ -96,8 +96,25 @@ export type OrderDeskQueueStatus = (typeof ORDER_DESK_QUEUE_STATUSES)[number];
  * tonight's delivery needs the number the customer gave, not one the platform has proved.
  */
 export interface OrderDeskCustomerContact {
+    /**
+     * The **account's** name, always. There is no snapshot of a name on an order and there should
+     * not be: a name is who somebody is, which does not change per delivery.
+     */
     readonly displayName: string | null;
-    /** E.164, as the contact point stores it. */
+    /**
+     * E.164, as the contact point stores it.
+     *
+     * **The number the courier was given, when the order snapshot carries one; the account's
+     * primary otherwise.** A delivery order records the contact point the customer nominated *for
+     * that delivery*, and the server prefers it — a caller ordering to their mother's flat gives
+     * their mother's landline, and the account's primary is then a mobile in somebody's pocket in
+     * another building. Every pickup, every counter sale and every delivery placed before the
+     * snapshot column existed falls through to the account's own number.
+     *
+     * A client never re-derives this and has nothing to re-derive it from: the snapshot's contact
+     * point is not on the row, deliberately, because the desk needs the number rather than the
+     * identifier of the record it came from.
+     */
     readonly phone: string | null;
 }
 
@@ -266,6 +283,17 @@ export interface OrderDeskQueueFilters {
     readonly branchId?: BranchId | undefined;
     /** Omitted, both open statuses are listed. An empty array means the same thing. */
     readonly statuses?: readonly OrderDeskQueueStatus[] | undefined;
+    /**
+     * One way of leaving the kitchen. Omitted, all three are listed.
+     *
+     * **A single value, unlike {@link OrderDeskQueueFilters.statuses}.** The two look alike and are
+     * not. The statuses are a *subset* question — a desk watching for unconfirmed work wants
+     * `placed` alone, and selecting neither means both. The three fulfilment types are three
+     * different jobs done by three different people: a dispatch board wants deliveries, a
+     * collection counter wants pickups. Nobody asks for "deliveries and counter sales but not
+     * pickups", so an array here would be inventing a question to justify a control.
+     */
+    readonly fulfilmentType?: OrderDeskFulfilmentType | undefined;
     /** One named delivery slot, by the window's own code. */
     readonly deliveryWindowCode?: string | undefined;
     /**
@@ -496,6 +524,95 @@ export interface OrderDeskRequirementsFilters {
 export interface OrderDeskShortfallCount {
     readonly count: number | null;
     readonly branchId: string | null;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The day's takings
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * What one agent took, one way, in one currency, on one day.
+ *
+ * ## The currency is part of the row's identity, not an attribute of it
+ *
+ * The row is `(confirmedBy, method, currencyCode)` — an agent who took cash and a WISH transfer is
+ * two rows, and an agent who took dollars and dirhams is two more. That is not normalisation for
+ * its own sake: `amountMinorSum` is only meaningful inside one currency, and a shape that let a
+ * group span two would be a shape in which a number belonging to no currency could be written. The
+ * defence is structural rather than a rule somebody has to remember.
+ *
+ * ## What this is for, and what it cannot do
+ *
+ * It is the **till-shift mitigation**. This platform has no shift table: nothing opens a drawer
+ * with a float or closes it against a count, so nothing can say whether the cash box balances. What
+ * it can say is who took how much, which is what makes the money attributable while the real
+ * reconciliation is still a later table.
+ */
+export interface OrderDeskCashReportRow {
+    readonly confirmedBy: string;
+    /**
+     * **Null for an agent whose profile was never completed.** They still took the money, so they
+     * are still listed — dropping a row to avoid a null would be losing cash from a reconciliation
+     * to protect a formatting concern. Renders as an em dash; sorted last by the server.
+     */
+    readonly displayName: string | null;
+    readonly method: KitchenOrderPaymentMethod;
+    readonly currencyCode: CurrencyCode;
+    /** How many separate receipts make up the sum beside it. Never zero — a row exists because one does. */
+    readonly receiptCount: number;
+    /** The sum of those receipts, in minor units of {@link OrderDeskCashReportRow.currencyCode}. */
+    readonly amountMinorSum: number;
+}
+
+/**
+ * The same money one level up: one method, one currency, across every agent.
+ *
+ * Derived by the server from the rows, so a total can never disagree with the table above it.
+ * **There is no grand total in this contract and there will not be** — it would have to add
+ * currencies, and the only reliable defence against that is a type with nowhere to put it.
+ */
+export interface OrderDeskCashReportTotal {
+    readonly method: KitchenOrderPaymentMethod;
+    readonly currencyCode: CurrencyCode;
+    readonly receiptCount: number;
+    readonly amountMinorSum: number;
+}
+
+/** What the report was measured against, echoed because the client chose only half of it. */
+export interface OrderDeskCashReportMeta {
+    /** `YYYY-MM-DD` — the day reported. */
+    readonly date: string;
+    /** The site it was narrowed to, or `null` for the whole organisation. */
+    readonly branchId: string | null;
+    /**
+     * The clock the day was measured on. **Always `UTC`**, and echoed rather than assumed: a
+     * receipt carries no branch and the order behind it may carry none either, so there is no
+     * timezone true of every receipt in the answer. A screen states this, because otherwise it is
+     * implying the reader's own midnight.
+     */
+    readonly timezone: string;
+    /** Rows in this response. Not a count of receipts. */
+    readonly count: number;
+}
+
+/** One day's takings, by agent and by method. */
+export interface OrderDeskCashReport {
+    readonly rows: readonly OrderDeskCashReportRow[];
+    readonly totals: readonly OrderDeskCashReportTotal[];
+    readonly meta: OrderDeskCashReportMeta;
+}
+
+export interface OrderDeskCashReportFilters {
+    /** `YYYY-MM-DD`. **Required** — one day, not a range: reconciling a till is a daily act. */
+    readonly date: string;
+    /**
+     * Narrow to the site that cooked it, through the **order** — a receipt has no branch of its own.
+     *
+     * One consequence, and it is the queue's trap restated: an order with no branch is *excluded*
+     * when this is set. Right for "what did the Marina site take?", wrong as a default, which is why
+     * omitting it is the organisation-wide read rather than a guess at the active branch.
+     */
+    readonly branchId?: BranchId | undefined;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -858,6 +975,24 @@ export interface OrderDeskRepository {
      * only ever wanted at the moment somebody is choosing.
      */
     listDrivers(): Promise<OrderDeskDrivers>;
+
+    /**
+     * One day's takings, by agent, method and currency — **the till-shift mitigation**.
+     *
+     * The desk takes cash and this platform has no shift table: nothing opens a drawer with a float
+     * or closes it against a count, so nothing here can say whether the box balances. What it can
+     * say is who took how much, which is what keeps the money attributable until a real drawer
+     * reconciliation exists.
+     *
+     * Answers {@link OrderDeskCashReport} rather than a bare array for the calendar's reason plus one
+     * of its own: `meta.timezone` is **always `UTC`** and a screen that did not print it would be
+     * implying the reader's own midnight. `totals` arrives beside the rows rather than being summed
+     * on the client, because summing per method is only legal inside one currency and a client that
+     * did it would eventually add two.
+     *
+     * Requires `order.manage_organisation` — a manager's reconciliation of their agents' takings.
+     */
+    getCashReport(filters: OrderDeskCashReportFilters): Promise<OrderDeskCashReport>;
 
     /**
      * What this basket would come to. **The only price authority on this surface.**

@@ -4859,9 +4859,26 @@ export type OrderDeskDeliveryJob = {
  *
  */
 export type OrderDeskCustomerContact = {
+    /**
+     * The account's, always. There is no snapshot of a name on an order
+     * and there should not be: a name is who somebody is, which does not
+     * change per delivery.
+     *
+     */
     display_name: string | null;
     /**
      * E.164, as the contact point stores it.
+     *
+     * **The number the courier was given, when the order snapshot carries
+     * one; the account's primary otherwise.** A delivery order records the
+     * contact point the customer nominated for that delivery, and it is
+     * preferred here — a caller ordering to their mother's flat gives their
+     * mother's landline, and the account's primary is then a mobile in
+     * somebody's pocket in another building. Every pickup, every counter
+     * sale and every delivery placed before the snapshot column existed
+     * falls through to the account's own number, which is what this field
+     * has always been.
+     *
      */
     phone: string | null;
 };
@@ -5588,6 +5605,102 @@ export type AddOrderDeskCustomerAddressRequest = {
     apartment?: string | null;
     directions?: string | null;
     postal_code?: string | null;
+};
+
+/**
+ * What one agent took, one way, in one currency, on one day.
+ *
+ * The row's identity is all three of `(confirmed_by, method, currency_code)`
+ * — an agent who took cash and a WISH transfer is two rows, and an agent who
+ * took dollars and dirhams is two more. That is not a normalisation
+ * accident: the currency belongs to the key because `amount_minor_sum` is
+ * only meaningful within one, and a shape that let a group span two would
+ * be a shape in which a nonsense number could be written.
+ *
+ */
+export type OrderDeskCashReportRow = {
+    confirmed_by: Uuid;
+    /**
+     * **Null for an agent whose profile was never completed.** They still
+     * took the money, so they are still listed — dropping the row to avoid a
+     * null would be losing cash from a reconciliation to protect a
+     * formatting concern. Render the platform's em dash. Nameless agents
+     * sort last.
+     *
+     */
+    display_name: string | null;
+    method: PaymentMethod;
+    /**
+     * ISO 4217, taken from the order the receipt was written against.
+     */
+    currency_code: string;
+    /**
+     * How many separate receipts make up the sum beside it.
+     */
+    receipt_count: number;
+    /**
+     * The sum of those receipts, in minor units of `currency_code`. Legal
+     * because every receipt in the group is the same unit of the same
+     * currency — which is exactly what makes the currency part of the key.
+     *
+     */
+    amount_minor_sum: number;
+};
+
+/**
+ * The same money one level up: one method, one currency, across every agent.
+ *
+ * Derived from the rows rather than queried separately, so a total can never
+ * disagree with the table above it. **There is no grand total anywhere in
+ * this response and there will not be** — it would have to add currencies,
+ * and the only reliable defence against that is a shape with nowhere to put
+ * it.
+ *
+ */
+export type OrderDeskCashReportTotal = {
+    method: PaymentMethod;
+    currency_code: string;
+    receipt_count: number;
+    amount_minor_sum: number;
+};
+
+export type OrderDeskCashReportEnvelope = {
+    data: {
+        /**
+         * Named agents first, nameless last, then a total order over the
+         * remaining key columns — so two identical requests cannot return
+         * the same figures in two orders. Empty on a day nobody took
+         * anything, which is a real answer rather than a gap.
+         *
+         */
+        rows: Array<OrderDeskCashReportRow>;
+        /**
+         * Ordered by first appearance in `rows`, and therefore as deterministic as they are.
+         */
+        totals: Array<OrderDeskCashReportTotal>;
+    };
+    meta: Meta & {
+        /**
+         * The day reported, echoed because the boundary below is what it means.
+         */
+        date: string;
+        /**
+         * The site the report was narrowed to, or null for the whole organisation.
+         */
+        branch_id: string | null;
+        /**
+         * The clock the day was measured on. **Always `UTC`** — see the
+         * operation. Echoed rather than assumed so a screen can say
+         * which midnight it is showing instead of implying the reader's
+         * own.
+         *
+         */
+        timezone: string;
+        /**
+         * Rows in this response. Not a count of receipts.
+         */
+        count: number;
+    };
 };
 
 /**
@@ -21820,6 +21933,21 @@ export type ListOrderDeskQueueData = {
          */
         delivery_window_code?: string;
         /**
+         * Restrict to one way of leaving the kitchen. Omitted, all three are
+         * listed.
+         *
+         * **A single value, unlike `status[]`.** The two filters look alike and
+         * are not. The statuses are a subset question — a desk watching for
+         * unconfirmed work wants `placed` alone, and selecting neither means
+         * both. The three fulfilment types are three different jobs done by
+         * three different people: a dispatch board wants deliveries, a
+         * collection counter wants pickups. Nobody asks for "deliveries and
+         * counter sales but not pickups", so a multi-select would be inventing
+         * a question to justify a control.
+         *
+         */
+        fulfilment_type?: FulfilmentType;
+        /**
          * Case-insensitive substring match on the order number, and on nothing else.
          */
         query?: string;
@@ -22485,6 +22613,77 @@ export type ListOrderDeskDriversResponses = {
 };
 
 export type ListOrderDeskDriversResponse = ListOrderDeskDriversResponses[keyof ListOrderDeskDriversResponses];
+
+export type GetOrderDeskCashReportData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The day to report, read on the UTC clock. Required, and one day
+         * rather than a range: reconciling a till is a daily act, and a report
+         * summing Monday and Tuesday is one nobody can stand a cash box next
+         * to.
+         *
+         */
+        date: string;
+        /**
+         * Narrow to the site that cooked it, through the order. Omitted, the
+         * report is organisation-wide. Orders with no branch are excluded when
+         * this is set — see the description.
+         *
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/cash-report';
+};
+
+export type GetOrderDeskCashReportErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskCashReportError = GetOrderDeskCashReportErrors[keyof GetOrderDeskCashReportErrors];
+
+export type GetOrderDeskCashReportResponses = {
+    /**
+     * One day's takings by agent, method and currency, with the per-method totals.
+     */
+    200: OrderDeskCashReportEnvelope;
+};
+
+export type GetOrderDeskCashReportResponse = GetOrderDeskCashReportResponses[keyof GetOrderDeskCashReportResponses];
 
 export type StartGuestSessionData = {
     body?: StartGuestSessionRequest;

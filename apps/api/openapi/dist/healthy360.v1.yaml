@@ -9687,6 +9687,23 @@ paths:
           schema:
             type: string
             maxLength: 40
+        - name: fulfilment_type
+          in: query
+          required: false
+          description: |
+            Restrict to one way of leaving the kitchen. Omitted, all three are
+            listed.
+
+            **A single value, unlike `status[]`.** The two filters look alike and
+            are not. The statuses are a subset question — a desk watching for
+            unconfirmed work wants `placed` alone, and selecting neither means
+            both. The three fulfilment types are three different jobs done by
+            three different people: a dispatch board wants deliveries, a
+            collection counter wants pickups. Nobody asks for "deliveries and
+            counter sales but not pickups", so a multi-select would be inventing
+            a question to justify a control.
+          schema:
+            $ref: '#/components/schemas/FulfilmentType'
         - name: query
           in: query
           required: false
@@ -10629,6 +10646,110 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/cash-report:
+    get:
+      operationId: getOrderDeskCashReport
+      tags:
+        - Order desk
+      summary: Who took what, on one day
+      description: |
+        **The till-shift mitigation, and it is named as one.** The desk takes
+        cash. Every note that crossed the counter is a receipt naming who says it
+        arrived and when — and this platform has **no shift table**: nothing
+        opens a drawer with a float, nothing closes it against a count, nothing
+        reconciles the difference. That gap was accepted knowingly when receipts
+        landed, on the condition that the money at least be *attributable*: a
+        manager must be able to ask "what did each agent take yesterday?" and get
+        an answer they can stand a cash box next to.
+
+        This is that answer and deliberately not more. **It cannot tell anybody
+        whether the cash box balances**, because nothing on this platform has
+        ever been told what was in it. A real drawer reconciliation is a later
+        table — an opening float, a closing count, a named variance — and when it
+        lands, this operation keeps reading the same ledger rather than being
+        replaced by it.
+
+        ## The day boundary is UTC, and `meta.timezone` says so
+
+        `confirmed_at` is an instant; a day is not. Turning one into the other
+        needs a clock this operation does not have — a receipt carries no branch,
+        and the order behind it may carry none either, because an
+        organisation-wide delivery zone leaves `branch_id` null. There is no
+        timezone true of every receipt in the answer, and using each order's
+        branch where it had one would measure the two halves of a report on two
+        different clocks.
+
+        So the boundary is UTC, matching the queue's organisation-wide convention
+        exactly: unnamed, the only zone that is not a guess. A kitchen whose
+        evening runs past UTC midnight sees that evening split across two
+        reports — a visible, explicable fact rather than a silent
+        misattribution.
+
+        ## Grouped by three things, and the third is what makes the sums legal
+
+        Rows are `(confirmed_by, method, currency_code)`. The currency is part of
+        the **key**, never an attribute of the group: summing inside a group is
+        legal because every receipt in it is the same unit of the same currency,
+        and a group that spanned two currencies would carry a number in no
+        currency at all. A kitchen taking dollars and dirhams therefore sees two
+        rows for one agent's cash, and two totals, which is the truth.
+
+        `totals` is the same arithmetic per `(method, currency_code)` across the
+        agents, derived from the rows so the two can never disagree. There is
+        deliberately **no grand total**: it would have to add currencies.
+
+        ## `branch_id` narrows through the order
+
+        A receipt has no branch — money is taken by a person at a till, and which
+        site cooked the food is a fact about the order — so the filter reaches the
+        order. One consequence, stated because it is the same trap the queue
+        documents: an order with a null `branch_id` is **excluded** by a branch
+        filter. Right for "what did the Marina site take?", wrong as a default,
+        which is why the default is no narrowing at all.
+
+        Requires `order.manage_organisation` — a manager's reconciliation of
+        their agents' takings, not an agent's view of their own work.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: date
+          in: query
+          required: true
+          description: |
+            The day to report, read on the UTC clock. Required, and one day
+            rather than a range: reconciling a till is a daily act, and a report
+            summing Monday and Tuesday is one nobody can stand a cash box next
+            to.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            Narrow to the site that cooked it, through the order. Omitted, the
+            report is organisation-wide. Orders with no branch are excluded when
+            this is set — see the description.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: One day's takings by agent, method and currency, with the per-method totals.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCashReportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /guest/sessions:
@@ -28310,11 +28431,26 @@ components:
           type:
             - string
             - 'null'
+          description: |
+            The account's, always. There is no snapshot of a name on an order
+            and there should not be: a name is who somebody is, which does not
+            change per delivery.
         phone:
           type:
             - string
             - 'null'
-          description: E.164, as the contact point stores it.
+          description: |
+            E.164, as the contact point stores it.
+
+            **The number the courier was given, when the order snapshot carries
+            one; the account's primary otherwise.** A delivery order records the
+            contact point the customer nominated for that delivery, and it is
+            preferred here — a caller ordering to their mother's flat gives their
+            mother's landline, and the account's primary is then a mobile in
+            somebody's pocket in another building. Every pickup, every counter
+            sale and every delivery placed before the snapshot column existed
+            falls through to the account's own number, which is what this field
+            has always been.
       additionalProperties: false
     OrderDeskRow:
       allOf:
@@ -29389,6 +29525,141 @@ components:
             - string
             - 'null'
           maxLength: 20
+    OrderDeskCashReportRow:
+      type: object
+      required:
+        - confirmed_by
+        - display_name
+        - method
+        - currency_code
+        - receipt_count
+        - amount_minor_sum
+      additionalProperties: false
+      description: |
+        What one agent took, one way, in one currency, on one day.
+
+        The row's identity is all three of `(confirmed_by, method, currency_code)`
+        — an agent who took cash and a WISH transfer is two rows, and an agent who
+        took dollars and dirhams is two more. That is not a normalisation
+        accident: the currency belongs to the key because `amount_minor_sum` is
+        only meaningful within one, and a shape that let a group span two would
+        be a shape in which a nonsense number could be written.
+      properties:
+        confirmed_by:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type:
+            - string
+            - 'null'
+          description: |
+            **Null for an agent whose profile was never completed.** They still
+            took the money, so they are still listed — dropping the row to avoid a
+            null would be losing cash from a reconciliation to protect a
+            formatting concern. Render the platform's em dash. Nameless agents
+            sort last.
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217, taken from the order the receipt was written against.
+        receipt_count:
+          type: integer
+          minimum: 1
+          description: How many separate receipts make up the sum beside it.
+        amount_minor_sum:
+          type: integer
+          description: |
+            The sum of those receipts, in minor units of `currency_code`. Legal
+            because every receipt in the group is the same unit of the same
+            currency — which is exactly what makes the currency part of the key.
+    OrderDeskCashReportTotal:
+      type: object
+      required:
+        - method
+        - currency_code
+        - receipt_count
+        - amount_minor_sum
+      additionalProperties: false
+      description: |
+        The same money one level up: one method, one currency, across every agent.
+
+        Derived from the rows rather than queried separately, so a total can never
+        disagree with the table above it. **There is no grand total anywhere in
+        this response and there will not be** — it would have to add currencies,
+        and the only reliable defence against that is a shape with nowhere to put
+        it.
+      properties:
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        receipt_count:
+          type: integer
+          minimum: 1
+        amount_minor_sum:
+          type: integer
+    OrderDeskCashReportEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - rows
+            - totals
+          additionalProperties: false
+          properties:
+            rows:
+              type: array
+              description: |
+                Named agents first, nameless last, then a total order over the
+                remaining key columns — so two identical requests cannot return
+                the same figures in two orders. Empty on a day nobody took
+                anything, which is a real answer rather than a gap.
+              items:
+                $ref: '#/components/schemas/OrderDeskCashReportRow'
+            totals:
+              type: array
+              description: Ordered by first appearance in `rows`, and therefore as deterministic as they are.
+              items:
+                $ref: '#/components/schemas/OrderDeskCashReportTotal'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - date
+                - branch_id
+                - timezone
+                - count
+              properties:
+                date:
+                  type: string
+                  format: date
+                  description: The day reported, echoed because the boundary below is what it means.
+                branch_id:
+                  type:
+                    - string
+                    - 'null'
+                  format: uuid
+                  description: The site the report was narrowed to, or null for the whole organisation.
+                timezone:
+                  type: string
+                  description: |
+                    The clock the day was measured on. **Always `UTC`** — see the
+                    operation. Echoed rather than assumed so a screen can say
+                    which midnight it is showing instead of implying the reader's
+                    own.
+                count:
+                  type: integer
+                  minimum: 0
+                  description: Rows in this response. Not a count of receipts.
     GuestSessionGrade:
       type: string
       enum:

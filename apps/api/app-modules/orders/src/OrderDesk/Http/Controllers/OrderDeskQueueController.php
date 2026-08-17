@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\OrderDesk\Http\Controllers;
 
+use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
@@ -81,6 +82,10 @@ final class OrderDeskQueueController
             ))],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
             'query' => ['nullable', 'string', 'max:60'],
+            // A **single** value, unlike `status` — see
+            // `OrderDeskQueue::applyFulfilmentType()` for why the two filters
+            // that look alike are shaped differently.
+            'fulfilment_type' => ['nullable', Rule::in(FulfilmentType::codes())],
         ]);
 
         $page = $this->queue->forSeller(
@@ -90,6 +95,9 @@ final class OrderDeskQueueController
             $this->statuses($validated['status'] ?? null),
             isset($validated['delivery_window_code']) ? (string) $validated['delivery_window_code'] : null,
             isset($validated['query']) ? (string) $validated['query'] : null,
+            isset($validated['fulfilment_type'])
+                ? FulfilmentType::from((string) $validated['fulfilment_type'])
+                : null,
         );
 
         $orders = $page['orders'];
@@ -113,9 +121,11 @@ final class OrderDeskQueueController
         // columns to be read at all.
         $includeContact = Gate::allows(self::CONTACT_PERMISSION);
 
-        $contacts = $includeContact
-            ? $this->queue->contactsFor(array_map(static fn (Order $order): string => (string) $order->customer_account_id, $orders))
-            : [];
+        // Keyed by **order**, not by account — the number now depends on the
+        // order, because a delivery that snapshotted a contact point answers
+        // that number rather than the account's primary. See
+        // `OrderDeskQueue::contactsForOrders()`.
+        $contacts = $includeContact ? $this->queue->contactsForOrders($orders) : [];
 
         $rows = [];
 
@@ -133,7 +143,7 @@ final class OrderDeskQueueController
                 // rather than a missing object — see the presenter.
                 $deliveryJobs[$id] ?? null,
                 $includeContact,
-                $contacts[(string) $order->customer_account_id] ?? null,
+                $contacts[$id] ?? null,
             );
         }
 
