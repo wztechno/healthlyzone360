@@ -4330,6 +4330,153 @@ export type ItemLatestPurchaseCollection = {
 };
 
 /**
+ * The three tallies partition each other: `out_of_stock_count` plus
+ * `low_stock_count` equals `count`, because a level that is both empty and
+ * below its threshold is counted once, as out of stock.
+ *
+ */
+export type SupplyNeedsCountEnvelope = {
+    data: {
+        /**
+         * Shelves at this branch that need ordering.
+         */
+        count: number;
+        /**
+         * Of those, the ones with nothing left (`quantity <= 0`).
+         */
+        out_of_stock_count: number;
+        /**
+         * Of those, the ones at or below a set reorder threshold but not yet empty.
+         */
+        low_stock_count: number;
+    };
+    meta: Meta;
+};
+
+/**
+ * One active supplier a proposal row could be bought from. Archived
+ * suppliers never appear here — a picker offering a shuttered warehouse is
+ * how an order gets sent to one.
+ *
+ * No price, and none is coming: this object exists so a person can choose
+ * who to buy from, not to compare what they charge.
+ *
+ */
+export type SupplierOption = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    name_ar: string | null;
+    /**
+     * This supplier holds the preferred flag for this stock item.
+     */
+    is_preferred: boolean;
+    /**
+     * Typical days from order to delivery, when the kitchen recorded one.
+     */
+    lead_time_days: number | null;
+};
+
+/**
+ * One row of the supply-order builder (SUP3).
+ *
+ * `is_out_of_stock` and `is_low` are independent readings of the numbers
+ * beside them — a shelf at zero with a threshold set is genuinely both.
+ * `origin` is the single label the union produces, and it is where the
+ * "counted once, as out of stock" rule lives.
+ *
+ * A `requested` row's `is_out_of_stock` still follows from its
+ * `quantity_on_hand`: a shelf that has never moved at this branch reports
+ * `"0.0000"`, and reporting `false` beside it would be a flag a client
+ * could not reconcile with the number it describes.
+ *
+ * No field here carries a price, a cost or a currency, at any depth.
+ *
+ */
+export type OrderProposalItem = {
+    stock_item_id: Uuid;
+    item_code: string;
+    item_name_en: string;
+    unit_id: Uuid | null;
+    /**
+     * The unit the quantity is counted in — `kg`, `l`, `piece`.
+     */
+    unit_code: string;
+    branch_id: Uuid;
+    /**
+     * A decimal string at scale 4, never a float. `"0.0000"` when the shelf has no level row at this branch.
+     */
+    quantity_on_hand: string;
+    /**
+     * The reorder point as a decimal string, or null when none is set.
+     */
+    reorder_threshold: string | null;
+    /**
+     * The level to restock back up to, as a decimal string, or null when none is set.
+     */
+    par_level: string | null;
+    /**
+     * Computed — `quantity_on_hand` is at or below zero.
+     */
+    is_out_of_stock: boolean;
+    /**
+     * Computed — a threshold is set and `quantity_on_hand` is at or below it.
+     */
+    is_low: boolean;
+    /**
+     * Why this row is in the proposal. A row satisfying both shortage rules is labelled `out_of_stock`.
+     */
+    origin: 'out_of_stock' | 'low_stock' | 'requested';
+    /**
+     * `par_level - quantity_on_hand` as a decimal string when a par is set
+     * and the difference is positive; null otherwise, meaning the person
+     * must type a quantity.
+     *
+     */
+    suggested_quantity: string | null;
+    /**
+     * How the suggestion was reached. `none` accompanies a null
+     * suggestion. There is deliberately no `threshold` basis — see the
+     * endpoint description.
+     *
+     */
+    suggested_quantity_basis: 'par' | 'none';
+    /**
+     * Every active linked supplier, preferred first then by name.
+     */
+    supplier_options: Array<SupplierOption>;
+    /**
+     * The active preferred supplier, else the sole active option, else
+     * null. Null with two or more options means the person must choose,
+     * which is not the same as `unassigned_reason` being set.
+     *
+     */
+    suggested_supplier_id: Uuid | null;
+    /**
+     * Why this row has no supplier to offer at all. `no_supplier`: nothing
+     * was ever linked. `suppliers_archived`: links exist and every one of
+     * them is archived, which is a different problem with a different fix.
+     * Null whenever at least one active option exists.
+     *
+     */
+    unassigned_reason: 'no_supplier' | 'suppliers_archived' | null;
+};
+
+/**
+ * Rows in the order they must be rendered: out of stock, then low, then
+ * requested. `meta` counts the queue only — `out_of_stock_count` and
+ * `low_stock_count` exclude requested rows, so they agree exactly with
+ * `/catalogue/procurement/supply-needs/count` for the same branch.
+ *
+ */
+export type OrderProposalCollection = {
+    data: {
+        items: Array<OrderProposalItem>;
+    };
+    meta: Meta;
+};
+
+/**
  * The pair that identifies the link, plus the two things about it a
  * kitchen edits. Idempotent: sending the same body twice leaves the same
  * row.
@@ -21286,6 +21433,130 @@ export type ListItemLatestPurchasesResponses = {
 };
 
 export type ListItemLatestPurchasesResponse = ListItemLatestPurchasesResponses[keyof ListItemLatestPurchasesResponses];
+
+export type CountSupplyNeedsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The branch whose shelves are counted. Must belong to the active organisation.
+         */
+        branch_id: Uuid;
+    };
+    url: '/catalogue/procurement/supply-needs/count';
+};
+
+export type CountSupplyNeedsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CountSupplyNeedsError = CountSupplyNeedsErrors[keyof CountSupplyNeedsErrors];
+
+export type CountSupplyNeedsResponses = {
+    /**
+     * The branch's shortage tallies.
+     */
+    200: SupplyNeedsCountEnvelope;
+};
+
+export type CountSupplyNeedsResponse = CountSupplyNeedsResponses[keyof CountSupplyNeedsResponses];
+
+export type GetOrderProposalData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The branch the proposal is for. Must belong to the active organisation.
+         */
+        branch_id: Uuid;
+        /**
+         * Manually added shelves, repeated as `stock_item_ids[]=…`. At most 100.
+         */
+        stock_item_ids?: Array<Uuid>;
+    };
+    url: '/catalogue/procurement/order-proposal';
+};
+
+export type GetOrderProposalErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderProposalError = GetOrderProposalErrors[keyof GetOrderProposalErrors];
+
+export type GetOrderProposalResponses = {
+    /**
+     * The branch's proposal rows, queue first.
+     */
+    200: OrderProposalCollection;
+};
+
+export type GetOrderProposalResponse = GetOrderProposalResponses[keyof GetOrderProposalResponses];
 
 export type GetProcurementReferenceData = {
     body?: never;

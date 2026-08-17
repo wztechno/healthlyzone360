@@ -363,6 +363,129 @@ export interface SupplierLink {
     readonly supplierItemRef: string | null;
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * Supply ordering (SUP3) — the shortage queue and its proposal
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * How many shelves at one branch need ordering (SUP3) — the hub badge and the Supply orders
+ * landing metrics.
+ *
+ * The three numbers **partition each other**: `outOfStockCount` plus `lowStockCount` equals `count`,
+ * because a level that is both empty and below its threshold is counted once, as out of stock. A
+ * screen may show any two and derive the third; it must never add all three.
+ *
+ * Deliberately wider than {@link KitchenOpsRepository.countLowStockLevels}, which is a *warning* and
+ * ignores levels with no threshold set. A kitchen that never set a threshold on olive oil and has
+ * run out of olive oil still needs to order olive oil.
+ */
+export interface SupplyNeedsCount {
+    readonly count: number;
+    readonly outOfStockCount: number;
+    readonly lowStockCount: number;
+}
+
+/** Why a proposal row is in the list. A row satisfying both shortage rules is `outOfStock`. */
+export type OrderProposalOrigin = 'outOfStock' | 'lowStock' | 'requested';
+
+/** How a suggested quantity was reached. There is deliberately no `threshold` basis — see §2. */
+export type SuggestedQuantityBasis = 'par' | 'none';
+
+/**
+ * Why a proposal row has no supplier to offer at all, or `null` when it has at least one.
+ *
+ * The two are kept apart because they have different fixes: `noSupplier` means nothing was ever
+ * linked (link somebody), `suppliersArchived` means links exist and every one of them is archived
+ * (restore one, or link somebody else). One empty dropdown for both would leave the person guessing.
+ */
+export type UnassignedReason = 'noSupplier' | 'suppliersArchived';
+
+/**
+ * One active supplier a proposal row could be bought from (SUP3).
+ *
+ * Archived suppliers never appear here. No price, and none is coming: this object exists so a
+ * person can choose *who* to buy from, not to compare what they charge — the supply-order
+ * permission is not the cost permission.
+ */
+export interface SupplierOption {
+    readonly id: SupplierId;
+    readonly code: string;
+    readonly nameEn: string;
+    readonly nameAr: string | null;
+    /** This supplier holds the preferred flag for this stock item. */
+    readonly isPreferred: boolean;
+    /** Typical days from order to delivery, when the kitchen recorded one. */
+    readonly leadTimeDays: number | null;
+}
+
+/**
+ * One row of the supply-order builder (SUP3).
+ *
+ * `isOutOfStock` and `isLow` are independent readings of the numbers beside them — a shelf at zero
+ * with a threshold set is genuinely both. `origin` is the single label the union produces, and it is
+ * where the "counted once, as out of stock" rule lives.
+ *
+ * A `requested` row's `isOutOfStock` still follows from its `quantityOnHand`: a shelf that has never
+ * moved at this branch reports `"0.0000"`, and `false` beside it would be a flag no client could
+ * reconcile with the number it describes.
+ *
+ * `suggestedQuantity` is `parLevel - quantityOnHand`, and only that — never
+ * `reorderThreshold - quantityOnHand`, because the threshold is the *trigger* and is compared
+ * inclusively, so restocking exactly to it lands the shelf back on the boundary that raised the
+ * alarm. `null` means the person must type a quantity.
+ *
+ * **No field here carries a price, a cost or a currency**, at any depth, and none ever will.
+ */
+export interface OrderProposalItem {
+    readonly stockItemId: StockItemId;
+    readonly itemCode: string;
+    readonly itemNameEn: string;
+    readonly unitId: string | null;
+    /** The unit the quantity is counted in — `kg`, `l`, `piece`. */
+    readonly unitCode: string;
+    readonly branchId: BranchId;
+    /** A decimal string at scale 4. `"0.0000"` when the shelf has no level row at this branch. */
+    readonly quantityOnHand: string;
+    readonly reorderThreshold: string | null;
+    readonly parLevel: string | null;
+    readonly isOutOfStock: boolean;
+    readonly isLow: boolean;
+    readonly origin: OrderProposalOrigin;
+    /** A decimal string, or `null` when nothing can honestly be suggested. */
+    readonly suggestedQuantity: string | null;
+    readonly suggestedQuantityBasis: SuggestedQuantityBasis;
+    /** Every active linked supplier, preferred first then by name. Rendered in this order. */
+    readonly supplierOptions: readonly SupplierOption[];
+    /**
+     * The active preferred supplier, else the sole active option, else `null`.
+     *
+     * `null` with two or more options means the person must choose, which is **not** the same as
+     * {@link unassignedReason} being set — there is somebody to choose from either way.
+     */
+    readonly suggestedSupplierId: SupplierId | null;
+    readonly unassignedReason: UnassignedReason | null;
+}
+
+/**
+ * What one branch should order, and who from (SUP3) — the supply-order builder's whole read.
+ *
+ * **Row order is the answer, not a hint.** Out of stock first, then low, then requested; each group
+ * ordered by item name with the item code as tie-break. Clients render the order they are given and
+ * never re-sort, exactly as they do not re-sort the stock-item picker.
+ *
+ * The counts describe the **queue only**: `requestedItemCount` is separate, and `outOfStockCount`
+ * plus `lowStockCount` therefore agree exactly with {@link SupplyNeedsCount} for the same branch.
+ */
+export interface OrderProposal {
+    readonly items: readonly OrderProposalItem[];
+    readonly branchId: BranchId;
+    readonly outOfStockCount: number;
+    readonly lowStockCount: number;
+    /** Rows with an {@link OrderProposalItem.unassignedReason} — nobody to buy them from. */
+    readonly unassignedCount: number;
+    readonly requestedItemCount: number;
+}
+
 /** A supplier named on a receipt or ledger line (INV1.1). */
 export interface SupplierRef {
     readonly id: SupplierId;
@@ -849,6 +972,32 @@ export interface KitchenOpsRepository {
     listItemLatestPurchases(
         stockItemIds: readonly StockItemId[],
     ): Promise<readonly ItemLatestPurchase[]>;
+    /**
+     * How many shelves at one branch need ordering (SUP3) — the hub badge and the landing metrics.
+     *
+     * **The first ops read that takes a branch as an argument**, and the exception to the file
+     * header's rule that levels narrow through `X-Branch-Id`. A proposal is always *for one branch*,
+     * and a manager holding an organisation-wide membership has no header branch at all yet must
+     * still be able to prepare an order for a site — so the branch is the question here, not the
+     * context. Needs `inventory.order_supplies_organisation`, not the plain view code: this number
+     * is the front door of the order book.
+     */
+    countSupplyNeeds(branchId: BranchId): Promise<SupplyNeedsCount>;
+    /**
+     * What one branch should order, and who from (SUP3) — the supply-order builder's whole read.
+     *
+     * `stockItemIds` are the **Add another item** picks: shelves that join the proposal whatever
+     * their level says, deduped against the queue so an item that was already short is one row
+     * rather than two. At most 100. Re-querying with a longer list is how a row is added, so that
+     * one place decides what a proposal row looks like.
+     *
+     * Nothing is created — reading this twice is free of consequence. Needs
+     * `inventory.order_supplies_organisation`; no part of the response is cost-bearing.
+     */
+    getOrderProposal(
+        branchId: BranchId,
+        stockItemIds?: readonly StockItemId[],
+    ): Promise<OrderProposal>;
     /**
      * The goods-receipt form's reference data (INV1.1) — the currencies a price can be booked in, the
      * organisation's default currency, and the measurement units a line can be quoted in. Needs

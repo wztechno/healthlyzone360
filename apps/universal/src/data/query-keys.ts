@@ -421,6 +421,24 @@ export const queryKeys = {
          */
         itemLatestPurchases: (stockItemIds: readonly string[]) =>
             ['kitchenOps', 'item-latest-purchases', [...stockItemIds].sort().join(',')] as const,
+        /**
+         * How many shelves at one branch need ordering (SUP3).
+         *
+         * Keyed on the branch, unlike `lowStockCount` beside it. That one narrows through the
+         * `X-Branch-Id` header, so switching branch changes the whole context and the cache with
+         * it; this one takes the branch as a *question*, and two branches' answers are two entries.
+         */
+        supplyNeedsCount: (branchId: string) =>
+            ['kitchenOps', 'supply-needs-count', branchId] as const,
+        /**
+         * One branch's order proposal, plus whatever was manually added to it (SUP3).
+         *
+         * The id list is sorted and joined for the same reason `itemLatestPurchases` sorts its own:
+         * the builder derives the set from row state, and two renders that produced the same shelves
+         * in a different order must be one cache entry rather than two requests for one answer.
+         */
+        orderProposal: (branchId: string, stockItemIds: readonly string[] = []) =>
+            ['kitchenOps', 'order-proposal', branchId, [...stockItemIds].sort().join(',')] as const,
         purchasesLedger: (filter: object = {}) =>
             ['kitchenOps', 'purchases-ledger', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,

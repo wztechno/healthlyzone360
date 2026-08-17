@@ -11,6 +11,7 @@ import type {
     ItemLatestPurchase,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
+    OrderProposal,
     PostGoodsReceiptRequest,
     ProcurementReference,
     ProductionOrder,
@@ -32,17 +33,19 @@ import type {
     SupplierDetail,
     SupplierFilter,
     SupplierLink,
+    SupplyNeedsCount,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
 } from '@healthy360/api-client/contracts';
 import type { CursorPage } from '@healthy360/api-client/contracts';
 import type {
+    BranchId,
     ProductionOrderId,
     QualityCheckId,
     StockItemId,
     SupplierId,
 } from '@healthy360/domain-types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
 import { queryKeys } from './query-keys.ts';
@@ -409,6 +412,68 @@ export function useItemLatestPurchasesQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listItemLatestPurchases(stockItemIds);
+        },
+    });
+}
+
+/**
+ * How many shelves at one branch need ordering (SUP3) — the hub badge and the landing metrics.
+ *
+ * Disabled until a branch is resolved, on the same terms as every other branch-shaped read here: a
+ * request without one is a `422` the screen has no useful way to render, and the landing page's
+ * own branch-required state is the honest answer instead.
+ *
+ * Wider than {@link useLowStockCountQuery}, and the difference is the point. That one is a stock
+ * *warning* and ignores shelves nobody set a threshold on; this one is a *purchasing* prompt and
+ * counts an empty shelf whether or not anybody asked to be told about it.
+ */
+export function useSupplyNeedsCountQuery(
+    branchId: BranchId | null,
+    enabled = true,
+): UseQueryResult<SupplyNeedsCount> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.supplyNeedsCount(String(branchId ?? '')),
+        enabled: enabled && branchId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (branchId === null) throw new Error('A branch identifier is required.');
+            return repositories.kitchenOps.countSupplyNeeds(branchId);
+        },
+    });
+}
+
+/**
+ * What one branch should order, and who from (SUP3) — the supply-order builder's whole read.
+ *
+ * `stockItemIds` are the **Add another item** picks. Adding one re-queries rather than appending a
+ * row client-side, so that one place decides what a proposal row looks like: the shelf somebody
+ * typed in comes back the same shape as the shelf that ran out, suppliers resolved and all.
+ *
+ * `placeholderData: keepPreviousData` is what makes that bearable. Without it the whole table would
+ * blank on every addition and the person would lose their place — and the quantities they have
+ * typed live in screen state keyed by stock item, so the previous rows staying on screen while the
+ * new answer arrives is exactly right rather than a stale-data risk.
+ */
+export function useOrderProposalQuery(
+    branchId: BranchId | null,
+    stockItemIds: readonly StockItemId[] = [],
+    enabled = true,
+): UseQueryResult<OrderProposal> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.orderProposal(
+            String(branchId ?? ''),
+            stockItemIds.map(String),
+        ),
+        enabled: enabled && branchId !== null && repositories !== null,
+        placeholderData: keepPreviousData,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (branchId === null) throw new Error('A branch identifier is required.');
+            return repositories.kitchenOps.getOrderProposal(branchId, stockItemIds);
         },
     });
 }

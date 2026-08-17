@@ -3117,6 +3117,93 @@ export const zSupplierDetail = zSupplier.and(z.object({
 }));
 
 /**
+ * The three tallies partition each other: `out_of_stock_count` plus
+ * `low_stock_count` equals `count`, because a level that is both empty and
+ * below its threshold is counted once, as out of stock.
+ *
+ */
+export const zSupplyNeedsCountEnvelope = z.object({
+    data: z.object({
+        count: z.int().gte(0),
+        out_of_stock_count: z.int().gte(0),
+        low_stock_count: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
+ * One active supplier a proposal row could be bought from. Archived
+ * suppliers never appear here — a picker offering a shuttered warehouse is
+ * how an order gets sent to one.
+ *
+ * No price, and none is coming: this object exists so a person can choose
+ * who to buy from, not to compare what they charge.
+ *
+ */
+export const zSupplierOption = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    is_preferred: z.boolean(),
+    lead_time_days: z.int().nullable()
+});
+
+/**
+ * One row of the supply-order builder (SUP3).
+ *
+ * `is_out_of_stock` and `is_low` are independent readings of the numbers
+ * beside them — a shelf at zero with a threshold set is genuinely both.
+ * `origin` is the single label the union produces, and it is where the
+ * "counted once, as out of stock" rule lives.
+ *
+ * A `requested` row's `is_out_of_stock` still follows from its
+ * `quantity_on_hand`: a shelf that has never moved at this branch reports
+ * `"0.0000"`, and reporting `false` beside it would be a flag a client
+ * could not reconcile with the number it describes.
+ *
+ * No field here carries a price, a cost or a currency, at any depth.
+ *
+ */
+export const zOrderProposalItem = z.object({
+    stock_item_id: zUuid,
+    item_code: z.string(),
+    item_name_en: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_code: z.string(),
+    branch_id: zUuid,
+    quantity_on_hand: z.string(),
+    reorder_threshold: z.string().nullable(),
+    par_level: z.string().nullable(),
+    is_out_of_stock: z.boolean(),
+    is_low: z.boolean(),
+    origin: z.enum([
+        'out_of_stock',
+        'low_stock',
+        'requested'
+    ]),
+    suggested_quantity: z.string().nullable(),
+    suggested_quantity_basis: z.enum(['par', 'none']),
+    supplier_options: z.array(zSupplierOption),
+    suggested_supplier_id: zUuid.nullable(),
+    unassigned_reason: z.enum(['no_supplier', 'suppliers_archived']).nullable()
+});
+
+/**
+ * Rows in the order they must be rendered: out of stock, then low, then
+ * requested. `meta` counts the queue only — `out_of_stock_count` and
+ * `low_stock_count` exclude requested rows, so they agree exactly with
+ * `/catalogue/procurement/supply-needs/count` for the same branch.
+ *
+ */
+export const zOrderProposalCollection = z.object({
+    data: z.object({
+        items: z.array(zOrderProposalItem)
+    }),
+    meta: zMeta
+});
+
+/**
  * The pair that identifies the link, plus the two things about it a
  * kitchen edits. Idempotent: sending the same body twice leaves the same
  * row.
@@ -10599,6 +10686,35 @@ export const zListItemLatestPurchasesQuery = z.object({
  * The latest purchase of each requested item that has one.
  */
 export const zListItemLatestPurchasesResponse = zItemLatestPurchaseCollection;
+
+export const zCountSupplyNeedsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCountSupplyNeedsQuery = z.object({
+    branch_id: zUuid
+});
+
+/**
+ * The branch's shortage tallies.
+ */
+export const zCountSupplyNeedsResponse = zSupplyNeedsCountEnvelope;
+
+export const zGetOrderProposalHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderProposalQuery = z.object({
+    branch_id: zUuid,
+    stock_item_ids: z.array(zUuid).max(100).optional()
+});
+
+/**
+ * The branch's proposal rows, queue first.
+ */
+export const zGetOrderProposalResponse = zOrderProposalCollection;
 
 export const zGetProcurementReferenceHeaders = z.object({
     'X-Organisation-Id': zUuid,

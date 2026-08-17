@@ -8812,6 +8812,155 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/supply-needs/count:
+    get:
+      operationId: countSupplyNeeds
+      tags:
+        - Kitchen inventory & production
+      summary: Supply-needs count for one branch
+      description: |
+        How many shelves at one branch need ordering (SUP3) — the hub badge and
+        the Supply orders landing metrics, in one read.
+
+        The queue is the distinct union of two rules over the branch's existing
+        levels: **out of stock** (`quantity <= 0`) and **low stock**
+        (`reorder_threshold` set and `quantity` at or below it). A level meeting
+        both is counted **once**, as out of stock, so `out_of_stock_count` plus
+        `low_stock_count` always equals `count`.
+
+        This is deliberately wider than `/catalogue/inventory/low-stock-count`,
+        which is a *warning* and ignores levels with no threshold set. A kitchen
+        that never set a threshold on olive oil and has run out of olive oil
+        still needs to order olive oil, so emptiness joins lowness here.
+
+        Answered by the same predicate the order proposal lists, so a badge can
+        never disagree with the list it opens. A stock item with no level row at
+        this branch has never moved here and is **not** a shortage; it reaches an
+        order through the proposal's `stock_item_ids`.
+
+        `branch_id` is required and is a query parameter rather than the
+        `X-Branch-Id` header: stock is a quantity on a shelf at a site, there is
+        no honest organisation-wide answer, and a manager holding an
+        organisation-wide membership has no header branch yet must still be able
+        to prepare an order for one.
+
+        Requires `inventory.order_supplies_organisation`. Not the plain view
+        code — this number is the front door of the order book.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: true
+          description: The branch whose shelves are counted. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The branch's shortage tallies.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplyNeedsCountEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/order-proposal:
+    get:
+      operationId: getOrderProposal
+      tags:
+        - Kitchen inventory & production
+      summary: What one branch should order
+      description: |
+        The supply-order builder's whole read (SUP3): the shortage queue in the
+        order it should be worked, the quantity the system is willing to suggest
+        for each row, and the suppliers each shortage could be bought from.
+
+        **Nothing is created.** A `GET`, and it stays one: the builder re-reads
+        this whenever an item is added or Refresh is pressed, and a screen that
+        minted draft orders by being opened would fill a kitchen's order book
+        with purchases nobody decided to make. Creating the drafts is a separate
+        transactional write.
+
+        **Row order is the answer, not a hint.** Out-of-stock rows come first,
+        then low-stock rows, then explicitly requested ones; each group is
+        ordered by item name with the item code as tie-break. Clients render the
+        order they are given and never re-sort.
+
+        `suggested_quantity` is `par_level - quantity_on_hand`, and only that.
+        Never `reorder_threshold - quantity_on_hand`: the threshold is the
+        *trigger* and is compared inclusively, so restocking exactly to it lands
+        the shelf back on the boundary that raised the alarm. With no usable par
+        the suggestion is `null` and `suggested_quantity_basis` is `none` — an
+        honest blank the person fills in rather than a plausible wrong number.
+
+        Supplier resolution is: the active preferred supplier, else the sole
+        active linked supplier, else nobody. `supplier_options` carries every
+        active candidate regardless, because the person may disagree with all
+        three outcomes. Archived suppliers are excluded from the options but not
+        from the diagnosis: `unassigned_reason` distinguishes `no_supplier`
+        (nobody was ever linked) from `suppliers_archived` (links exist and every
+        one of them is archived), because those have different fixes.
+
+        `stock_item_ids` is the **Add another item** list — shelves that join the
+        proposal whatever their level says, deduped against the queue so an item
+        that was already short is one row rather than two. An id whose shelf has
+        never moved at this branch answers `quantity_on_hand: "0.0000"` with null
+        thresholds rather than a fabricated level row. At most 100.
+
+        **There is no money in this response**, at any depth: no price, no cost,
+        no currency. The supply-order permission is not the cost permission, and
+        a payload carrying last prices "for reference" would hand the valuation
+        ledger to whoever could open the builder. Cost-authorised screens fetch
+        prices from the endpoint that gates them.
+
+        Requires `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: true
+          description: The branch the proposal is for. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: stock_item_ids
+          in: query
+          required: false
+          description: Manually added shelves, repeated as `stock_item_ids[]=…`. At most 100.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 100
+            items:
+              $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The branch's proposal rows, queue first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderProposalCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/procurement/reference:
     get:
       operationId: getProcurementReference
@@ -27761,6 +27910,216 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ItemLatestPurchase'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SupplyNeedsCountEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      description: |
+        The three tallies partition each other: `out_of_stock_count` plus
+        `low_stock_count` equals `count`, because a level that is both empty and
+        below its threshold is counted once, as out of stock.
+      properties:
+        data:
+          type: object
+          required:
+            - count
+            - out_of_stock_count
+            - low_stock_count
+          properties:
+            count:
+              type: integer
+              minimum: 0
+              description: Shelves at this branch that need ordering.
+            out_of_stock_count:
+              type: integer
+              minimum: 0
+              description: Of those, the ones with nothing left (`quantity <= 0`).
+            low_stock_count:
+              type: integer
+              minimum: 0
+              description: Of those, the ones at or below a set reorder threshold but not yet empty.
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SupplierOption:
+      type: object
+      required:
+        - id
+        - code
+        - name_en
+        - name_ar
+        - is_preferred
+        - lead_time_days
+      description: |
+        One active supplier a proposal row could be bought from. Archived
+        suppliers never appear here — a picker offering a shuttered warehouse is
+        how an order gets sent to one.
+
+        No price, and none is coming: this object exists so a person can choose
+        who to buy from, not to compare what they charge.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type:
+            - string
+            - 'null'
+        is_preferred:
+          type: boolean
+          description: This supplier holds the preferred flag for this stock item.
+        lead_time_days:
+          type:
+            - integer
+            - 'null'
+          description: Typical days from order to delivery, when the kitchen recorded one.
+      additionalProperties: false
+    OrderProposalItem:
+      type: object
+      required:
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - unit_id
+        - unit_code
+        - branch_id
+        - quantity_on_hand
+        - reorder_threshold
+        - par_level
+        - is_out_of_stock
+        - is_low
+        - origin
+        - suggested_quantity
+        - suggested_quantity_basis
+        - supplier_options
+        - suggested_supplier_id
+        - unassigned_reason
+      description: |
+        One row of the supply-order builder (SUP3).
+
+        `is_out_of_stock` and `is_low` are independent readings of the numbers
+        beside them — a shelf at zero with a threshold set is genuinely both.
+        `origin` is the single label the union produces, and it is where the
+        "counted once, as out of stock" rule lives.
+
+        A `requested` row's `is_out_of_stock` still follows from its
+        `quantity_on_hand`: a shelf that has never moved at this branch reports
+        `"0.0000"`, and reporting `false` beside it would be a flag a client
+        could not reconcile with the number it describes.
+
+        No field here carries a price, a cost or a currency, at any depth.
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        unit_code:
+          type: string
+          description: The unit the quantity is counted in — `kg`, `l`, `piece`.
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity_on_hand:
+          type: string
+          description: A decimal string at scale 4, never a float. `"0.0000"` when the shelf has no level row at this branch.
+        reorder_threshold:
+          type:
+            - string
+            - 'null'
+          description: The reorder point as a decimal string, or null when none is set.
+        par_level:
+          type:
+            - string
+            - 'null'
+          description: The level to restock back up to, as a decimal string, or null when none is set.
+        is_out_of_stock:
+          type: boolean
+          description: Computed — `quantity_on_hand` is at or below zero.
+        is_low:
+          type: boolean
+          description: Computed — a threshold is set and `quantity_on_hand` is at or below it.
+        origin:
+          type: string
+          enum:
+            - out_of_stock
+            - low_stock
+            - requested
+          description: Why this row is in the proposal. A row satisfying both shortage rules is labelled `out_of_stock`.
+        suggested_quantity:
+          type:
+            - string
+            - 'null'
+          description: |
+            `par_level - quantity_on_hand` as a decimal string when a par is set
+            and the difference is positive; null otherwise, meaning the person
+            must type a quantity.
+        suggested_quantity_basis:
+          type: string
+          enum:
+            - par
+            - none
+          description: |
+            How the suggestion was reached. `none` accompanies a null
+            suggestion. There is deliberately no `threshold` basis — see the
+            endpoint description.
+        supplier_options:
+          type: array
+          description: Every active linked supplier, preferred first then by name.
+          items:
+            $ref: '#/components/schemas/SupplierOption'
+        suggested_supplier_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The active preferred supplier, else the sole active option, else
+            null. Null with two or more options means the person must choose,
+            which is not the same as `unassigned_reason` being set.
+        unassigned_reason:
+          type:
+            - string
+            - 'null'
+          enum:
+            - no_supplier
+            - suppliers_archived
+            - null
+          description: |
+            Why this row has no supplier to offer at all. `no_supplier`: nothing
+            was ever linked. `suppliers_archived`: links exist and every one of
+            them is archived, which is a different problem with a different fix.
+            Null whenever at least one active option exists.
+      additionalProperties: false
+    OrderProposalCollection:
+      type: object
+      required:
+        - data
+        - meta
+      description: |
+        Rows in the order they must be rendered: out of stock, then low, then
+        requested. `meta` counts the queue only — `out_of_stock_count` and
+        `low_stock_count` exclude requested rows, so they agree exactly with
+        `/catalogue/procurement/supply-needs/count` for the same branch.
+      properties:
+        data:
+          type: object
+          required:
+            - items
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderProposalItem'
         meta:
           $ref: '#/components/schemas/Meta'
     UpsertSupplierLinkRequest:

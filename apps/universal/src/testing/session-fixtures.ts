@@ -59,6 +59,12 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     'inventory.view_organisation',
     'inventory.manage_organisation',
     'inventory.view_costs_organisation',
+    // SUP3. The backend grants the supply-order code to `kitchen_manager` too — the manager is the
+    // stock-responsible person by construction. Listed here rather than left out because every
+    // kitchen suite renders through this session, and a screen gated on a code the fixture lacks
+    // renders the forbidden page instead of the thing under test. A suite proving the boundary
+    // subtracts it explicitly.
+    'inventory.order_supplies_organisation',
     // S1/C4. The backend has granted `subscription.view_organisation` to `kitchen_manager` since the
     // schedule projection landed, and it is deliberately *not* folded into `order.view_organisation`
     // there: a subscription is a standing commercial arrangement with a captured price, and reading

@@ -1729,6 +1729,103 @@ test.describe('kitchen workspace (en)', () => {
         );
     });
 
+    /**
+     * SUP3. The shortage the kitchen created on the stock screen has to reach the order builder
+     * with a supplier already beside it, and that is the whole claim: the threshold dialog, the
+     * union predicate, the supplier link and the resolution rule are four separate pieces of the
+     * stack, and this is the only place all four are exercised together against real Postgres.
+     *
+     * It drives a *linked* item on purpose. An arbitrary row would prove the queue works and prove
+     * nothing about `suggested_supplier_id`, which is the half of the proposal a mock can most
+     * easily get wrong.
+     */
+    test('a threshold raised above stock reaches the order builder with its supplier chosen', async ({
+        page,
+    }) => {
+        await openWorkspace(page);
+        await openScreen(
+            page,
+            '/kitchen/suppliers',
+            'kitchen-suppliers-screen',
+            'kitchen-suppliers-table',
+        );
+
+        // Any supplier already carrying a supplied item — the link is what the proposal resolves.
+        const supplierOpen = page
+            .locator('[data-testid^="kitchen-supplier-"][data-testid$="-open"]')
+            .first();
+        await expect(supplierOpen).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await supplierOpen.click();
+        await expect(page.getByTestId('kitchen-supplier-items')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await page.getByTestId('kitchen-supplier-item-picker').click();
+        const pick = page.locator('[data-testid^="kitchen-supplier-item-picker-option-"]').first();
+        await expect(pick).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        const pickId = await pick.getAttribute('data-testid');
+        if (pickId === null) throw new Error('The item picker option carries no test id.');
+        const stockItemId = pickId.replace('kitchen-supplier-item-picker-option-', '');
+        await pick.click();
+        await page.getByTestId('kitchen-supplier-item-link').click();
+        await expectToast(page, 'kitchen-supplier-item-linked-toast');
+
+        // Preferred, so the proposal has an unambiguous answer rather than a "choose one" cell.
+        await page.getByTestId(`kitchen-supplier-item-${stockItemId}-prefer`).click();
+        await expectToast(page, 'kitchen-supplier-item-preferred-toast');
+
+        /* ── make it low, through the threshold dialog the stock screen already owns ─────────── */
+
+        await openScreen(page, '/kitchen/stock', 'kitchen-stock-screen', 'kitchen-stock-panel');
+        await expect(page.getByTestId('kitchen-stock-items-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await page.getByTestId(`kitchen-stock-item-${stockItemId}-threshold`).click();
+        await expect(page.getByTestId('kitchen-stock-threshold-dialog')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Comfortably above whatever is on the shelf, and a par above that: the first puts the row
+        // in the queue, the second is what makes the builder able to suggest a quantity at all.
+        await page.getByTestId('kitchen-stock-threshold-value-input').fill('100000');
+        await page.getByTestId('kitchen-stock-threshold-par-input').fill('100001');
+        await page.getByTestId('kitchen-stock-threshold-confirm').click();
+        await expectToast(page, 'kitchen-stock-threshold-toast');
+
+        /* ── and it is waiting in the builder, with the supplier already on it ───────────────── */
+
+        await openScreen(
+            page,
+            '/kitchen/supply-orders',
+            'kitchen-supply-orders-screen',
+            'kitchen-supply-orders-panel',
+        );
+        await expect(
+            page.getByTestId(`kitchen-supply-order-row-${stockItemId}-name`),
+        ).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+
+        await page.getByTestId('kitchen-supply-orders-prepare').click();
+        await expect(page.getByTestId('kitchen-supply-order-builder-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const row = `kitchen-supply-order-row-${stockItemId}`;
+        await expect(page.getByTestId(`${row}-name`)).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+
+        // The preferred link resolved server-side — not a placeholder asking for a choice.
+        await expect(page.getByTestId(`${row}-preferred`)).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // A par above the on-hand quantity, so the box opens with a number rather than blank.
+        await expect(page.getByTestId(`${row}-quantity-input`)).not.toHaveValue('');
+
+        // And the grouping preview picked it up without anything being pressed.
+        await expect(page.getByTestId('kitchen-supply-order-groups')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+    });
+
     test('adds a gazetteer area to a zone and the list reads the new coverage back', async ({
         page,
     }) => {

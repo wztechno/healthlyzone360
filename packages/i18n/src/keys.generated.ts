@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5796 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5863 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2694,6 +2694,8 @@ export interface NamespaceKeys {
     | 'families.stock.name'
     | 'families.suppliers.description'
     | 'families.suppliers.name'
+    | 'families.supplyOrders.description'
+    | 'families.supplyOrders.name'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
@@ -2715,6 +2717,7 @@ export interface NamespaceKeys {
     | 'hub.kpi.deliveryZones'
     | 'hub.kpi.drafts'
     | 'hub.kpi.lowStock'
+    | 'hub.kpi.lowStockReadyToOrder'
     | 'hub.kpi.needsReview'
     | 'hub.kpi.publishedMeals'
     | 'hub.kpi.requirementShortfalls'
@@ -3401,6 +3404,70 @@ export interface NamespaceKeys {
     | 'ops.suppliers.unlinkTitle'
     | 'ops.suppliers.unlinkedToast'
     | 'ops.suppliers.whatsappHint'
+    | 'ops.supplyOrders.addHint'
+    | 'ops.supplyOrders.addLabel'
+    | 'ops.supplyOrders.addPlaceholder'
+    | 'ops.supplyOrders.addSupplier'
+    | 'ops.supplyOrders.addTitle'
+    | 'ops.supplyOrders.andMore'
+    | 'ops.supplyOrders.branchRequiredBody'
+    | 'ops.supplyOrders.branchRequiredTitle'
+    | 'ops.supplyOrders.builderCaption'
+    | 'ops.supplyOrders.builderEmptyBody'
+    | 'ops.supplyOrders.builderTitle'
+    | 'ops.supplyOrders.chooseSupplier'
+    | 'ops.supplyOrders.columnFrom'
+    | 'ops.supplyOrders.columnItem'
+    | 'ops.supplyOrders.columnLevels'
+    | 'ops.supplyOrders.columnOnHand'
+    | 'ops.supplyOrders.columnOrdering'
+    | 'ops.supplyOrders.columnQuantity'
+    | 'ops.supplyOrders.columnReorderAt'
+    | 'ops.supplyOrders.emptyBody'
+    | 'ops.supplyOrders.emptyTitle'
+    | 'ops.supplyOrders.excludedCount'
+    | 'ops.supplyOrders.groupSummary'
+    | 'ops.supplyOrders.lowBadge'
+    | 'ops.supplyOrders.metrics.low'
+    | 'ops.supplyOrders.metrics.outOfStock'
+    | 'ops.supplyOrders.needsCount'
+    | 'ops.supplyOrders.notOrdering'
+    | 'ops.supplyOrders.nothingNeededBody'
+    | 'ops.supplyOrders.nothingNeededTitle'
+    | 'ops.supplyOrders.order'
+    | 'ops.supplyOrders.orderAnyway'
+    | 'ops.supplyOrders.outBadge'
+    | 'ops.supplyOrders.panelSubtitle'
+    | 'ops.supplyOrders.panelTitle'
+    | 'ops.supplyOrders.preferredBadge'
+    | 'ops.supplyOrders.prepare'
+    | 'ops.supplyOrders.previewCaption'
+    | 'ops.supplyOrders.previewTitle'
+    | 'ops.supplyOrders.quantityIssue.negative'
+    | 'ops.supplyOrders.quantityIssue.notANumber'
+    | 'ops.supplyOrders.quantityIssue.tooLarge'
+    | 'ops.supplyOrders.quantityIssue.tooPrecise'
+    | 'ops.supplyOrders.quantityLabel'
+    | 'ops.supplyOrders.quantityPlaceholder'
+    | 'ops.supplyOrders.readAt'
+    | 'ops.supplyOrders.readAtPending'
+    | 'ops.supplyOrders.readyEmpty'
+    | 'ops.supplyOrders.readyTitle'
+    | 'ops.supplyOrders.reasonArchived'
+    | 'ops.supplyOrders.reasonNoSupplier'
+    | 'ops.supplyOrders.refresh'
+    | 'ops.supplyOrders.refreshCancel'
+    | 'ops.supplyOrders.refreshConfirm'
+    | 'ops.supplyOrders.refreshConfirmBody'
+    | 'ops.supplyOrders.refreshConfirmTitle'
+    | 'ops.supplyOrders.rememberLink'
+    | 'ops.supplyOrders.subtitle'
+    | 'ops.supplyOrders.supplierLabel'
+    | 'ops.supplyOrders.supplierPlaceholder'
+    | 'ops.supplyOrders.title'
+    | 'ops.supplyOrders.unassignedCount'
+    | 'ops.supplyOrders.unlinkedCaption'
+    | 'ops.supplyOrders.unlinkedTitle'
     | 'plans.addCombination'
     | 'plans.addDuration'
     | 'plans.backToList'
@@ -8508,6 +8575,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.stock.name',
   'kitchen:families.suppliers.description',
   'kitchen:families.suppliers.name',
+  'kitchen:families.supplyOrders.description',
+  'kitchen:families.supplyOrders.name',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
@@ -8529,6 +8598,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.kpi.deliveryZones',
   'kitchen:hub.kpi.drafts',
   'kitchen:hub.kpi.lowStock',
+  'kitchen:hub.kpi.lowStockReadyToOrder',
   'kitchen:hub.kpi.needsReview',
   'kitchen:hub.kpi.publishedMeals',
   'kitchen:hub.kpi.requirementShortfalls',
@@ -9215,6 +9285,70 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.unlinkTitle',
   'kitchen:ops.suppliers.unlinkedToast',
   'kitchen:ops.suppliers.whatsappHint',
+  'kitchen:ops.supplyOrders.addHint',
+  'kitchen:ops.supplyOrders.addLabel',
+  'kitchen:ops.supplyOrders.addPlaceholder',
+  'kitchen:ops.supplyOrders.addSupplier',
+  'kitchen:ops.supplyOrders.addTitle',
+  'kitchen:ops.supplyOrders.andMore',
+  'kitchen:ops.supplyOrders.branchRequiredBody',
+  'kitchen:ops.supplyOrders.branchRequiredTitle',
+  'kitchen:ops.supplyOrders.builderCaption',
+  'kitchen:ops.supplyOrders.builderEmptyBody',
+  'kitchen:ops.supplyOrders.builderTitle',
+  'kitchen:ops.supplyOrders.chooseSupplier',
+  'kitchen:ops.supplyOrders.columnFrom',
+  'kitchen:ops.supplyOrders.columnItem',
+  'kitchen:ops.supplyOrders.columnLevels',
+  'kitchen:ops.supplyOrders.columnOnHand',
+  'kitchen:ops.supplyOrders.columnOrdering',
+  'kitchen:ops.supplyOrders.columnQuantity',
+  'kitchen:ops.supplyOrders.columnReorderAt',
+  'kitchen:ops.supplyOrders.emptyBody',
+  'kitchen:ops.supplyOrders.emptyTitle',
+  'kitchen:ops.supplyOrders.excludedCount',
+  'kitchen:ops.supplyOrders.groupSummary',
+  'kitchen:ops.supplyOrders.lowBadge',
+  'kitchen:ops.supplyOrders.metrics.low',
+  'kitchen:ops.supplyOrders.metrics.outOfStock',
+  'kitchen:ops.supplyOrders.needsCount',
+  'kitchen:ops.supplyOrders.notOrdering',
+  'kitchen:ops.supplyOrders.nothingNeededBody',
+  'kitchen:ops.supplyOrders.nothingNeededTitle',
+  'kitchen:ops.supplyOrders.order',
+  'kitchen:ops.supplyOrders.orderAnyway',
+  'kitchen:ops.supplyOrders.outBadge',
+  'kitchen:ops.supplyOrders.panelSubtitle',
+  'kitchen:ops.supplyOrders.panelTitle',
+  'kitchen:ops.supplyOrders.preferredBadge',
+  'kitchen:ops.supplyOrders.prepare',
+  'kitchen:ops.supplyOrders.previewCaption',
+  'kitchen:ops.supplyOrders.previewTitle',
+  'kitchen:ops.supplyOrders.quantityIssue.negative',
+  'kitchen:ops.supplyOrders.quantityIssue.notANumber',
+  'kitchen:ops.supplyOrders.quantityIssue.tooLarge',
+  'kitchen:ops.supplyOrders.quantityIssue.tooPrecise',
+  'kitchen:ops.supplyOrders.quantityLabel',
+  'kitchen:ops.supplyOrders.quantityPlaceholder',
+  'kitchen:ops.supplyOrders.readAt',
+  'kitchen:ops.supplyOrders.readAtPending',
+  'kitchen:ops.supplyOrders.readyEmpty',
+  'kitchen:ops.supplyOrders.readyTitle',
+  'kitchen:ops.supplyOrders.reasonArchived',
+  'kitchen:ops.supplyOrders.reasonNoSupplier',
+  'kitchen:ops.supplyOrders.refresh',
+  'kitchen:ops.supplyOrders.refreshCancel',
+  'kitchen:ops.supplyOrders.refreshConfirm',
+  'kitchen:ops.supplyOrders.refreshConfirmBody',
+  'kitchen:ops.supplyOrders.refreshConfirmTitle',
+  'kitchen:ops.supplyOrders.rememberLink',
+  'kitchen:ops.supplyOrders.subtitle',
+  'kitchen:ops.supplyOrders.supplierLabel',
+  'kitchen:ops.supplyOrders.supplierPlaceholder',
+  'kitchen:ops.supplyOrders.title',
+  'kitchen:ops.supplyOrders.unassignedCount',
+  'kitchen:ops.supplyOrders.unlinkedCaption',
+  'kitchen:ops.supplyOrders.unlinkedTitle',
   'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',
   'kitchen:plans.backToList',

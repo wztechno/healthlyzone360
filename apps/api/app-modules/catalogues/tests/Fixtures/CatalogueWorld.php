@@ -68,6 +68,13 @@ final class CatalogueWorld
         'inventory.view_organisation',
         'inventory.manage_organisation',
         'inventory.view_costs_organisation',
+
+        // SUP3. The supply-order code joins the three, for the same reason they
+        // are here: the manager this fixture represents is the stock-responsible
+        // person, and the ordering suites drive routes that 403 without it. A
+        // suite testing the boundary subtracts it explicitly rather than relying
+        // on this list not to have it.
+        'inventory.order_supplies_organisation',
     ];
 
     /**

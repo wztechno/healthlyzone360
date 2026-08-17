@@ -41,6 +41,7 @@ import {
     useConsumptionExceptionCountQuery,
     useLowStockCountQuery,
     useSuppliersQuery,
+    useSupplyNeedsCountQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useOrderDeskShortfallCountQuery } from '../../../data/order-desk-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
@@ -469,6 +470,50 @@ function SuppliersCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
+/**
+ * The supply-orders card (SUP3) — how many shelves are waiting to be ordered.
+ *
+ * Branch-shaped, unlike every other card on this hub. A proposal is always for one site, so a
+ * manager holding an organisation-wide membership gets the card without a number rather than a
+ * number that summed three kitchens' shortages into one meaningless total.
+ *
+ * The badge turns `warning` only when there is something to do. A neutral zero is a fully stocked
+ * kitchen and reads as reassurance; a warning zero would train people to ignore the colour.
+ */
+function SupplyOrdersCard({ family }: { readonly family: EntityFamily }) {
+    const { t } = useTranslation();
+    const access = useAccessState();
+    const branchId = access.branch?.id ?? null;
+    const needs = useSupplyNeedsCountQuery(branchId);
+    const testID = `kitchen-family-${family.key}`;
+    const count = needs.data?.count ?? null;
+
+    return (
+        <FamilyCardShell family={family} testID={testID}>
+            {needs.isPending && branchId !== null ? (
+                <Skeleton
+                    testID={`${testID}-loading`}
+                    heightClassName="h-6"
+                    widthClassName="w-1/2"
+                />
+            ) : (
+                <Inline space="xs" wrap testID={`${testID}-counts`}>
+                    <Badge
+                        testID={`${testID}-needs`}
+                        tone={count !== null && count > 0 ? 'warning' : 'neutral'}
+                        icon="dot"
+                        label={
+                            count === null
+                                ? t('kitchen:hub.countUnavailable')
+                                : t('kitchen:ops.supplyOrders.needsCount', { count })
+                        }
+                    />
+                </Inline>
+            )}
+        </FamilyCardShell>
+    );
+}
+
 function renderFamilyCard(
     family: EntityFamily,
     summaries: {
@@ -516,6 +561,9 @@ function renderFamilyCard(
     }
     if (family.key === 'suppliers') {
         return <SuppliersCard key={family.key} family={family} />;
+    }
+    if (family.key === 'supplyOrders') {
+        return <SupplyOrdersCard key={family.key} family={family} />;
     }
     return (
         <FamilyCardShell key={family.key} family={family} testID={`kitchen-family-${family.key}`}>
@@ -614,6 +662,9 @@ export function KitchenHomeScreen() {
         state.branch?.id ?? null,
         permitted.has('order-requirements'),
     );
+    // SUP3. Not a second count — the low-stock tile keeps its own endpoint — only whether the
+    // person reading the tile is the person who could act on it.
+    const canOrderSupplies = permitted.has('supplyOrders');
 
     const reviewQueue = useMemo(() => {
         const data = reviewSources.data;
@@ -769,11 +820,23 @@ export function KitchenHomeScreen() {
                                             label={t('kitchen:hub.kpi.lowStock')}
                                             value={lowStockCount}
                                             pending={lowStock.isPending}
+                                            /*
+                                             * SUP3 extends the hint rather than the tile. The
+                                             * number stays the low-stock count from its own
+                                             * endpoint — this is a stock warning and it keeps
+                                             * meaning that — but a viewer who may actually order
+                                             * supplies gets told the warning is actionable, which
+                                             * a viewer who may not would only find frustrating.
+                                             */
                                             hint={
                                                 lowStockCount !== null && lowStockCount > 0
-                                                    ? t('kitchen:ops.stock.lowStockCount', {
-                                                          count: lowStockCount,
-                                                      })
+                                                    ? canOrderSupplies
+                                                        ? t('kitchen:hub.kpi.lowStockReadyToOrder', {
+                                                              count: lowStockCount,
+                                                          })
+                                                        : t('kitchen:ops.stock.lowStockCount', {
+                                                              count: lowStockCount,
+                                                          })
                                                     : undefined
                                             }
                                         />

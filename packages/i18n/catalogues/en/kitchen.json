@@ -40,7 +40,9 @@
             "deliveryZones": "Delivery zones",
             "lowStock": "Low stock",
             "consumptionExceptions": "Consumption exceptions",
-            "requirementShortfalls": "Short for the week"
+            "requirementShortfalls": "Short for the week",
+            "lowStockReadyToOrder_one": "{{count}} item ready to order",
+            "lowStockReadyToOrder_other": "{{count}} items ready to order"
         }
     },
     "nav": {
@@ -276,6 +278,81 @@
             "lastPurchaseFrom": "{{supplier}} · {{date}}",
             "noPurchaseSupplier": "Supplier not recorded",
             "history": "History"
+        },
+        "supplyOrders": {
+            "title": "Supply orders",
+            "subtitle": "What this branch is short of, and the order that fixes it.",
+            "panelTitle": "Needs ordering",
+            "panelSubtitle": "Counted live from this branch's shelves.",
+            "metrics": {
+                "outOfStock": "Out of stock",
+                "low": "Running low"
+            },
+            "emptyTitle": "Nothing to count yet",
+            "emptyBody": "Stock levels appear here once this branch has moved something.",
+            "previewTitle": "What's low right now",
+            "previewCaption": "The first items needing attention at this branch.",
+            "columnItem": "Item",
+            "columnOnHand": "On hand",
+            "columnReorderAt": "Reorder at",
+            "columnLevels": "Reorder at / Par",
+            "columnQuantity": "Order quantity",
+            "columnFrom": "From",
+            "columnOrdering": "Ordering",
+            "outBadge": "Out",
+            "lowBadge": "Low",
+            "prepare": "Prepare order",
+            "andMore_one": "and {{count}} more item",
+            "andMore_other": "and {{count}} more items",
+            "needsCount_one": "{{count}} item needs ordering",
+            "needsCount_other": "{{count}} items need ordering",
+            "nothingNeededTitle": "Nothing needs ordering",
+            "nothingNeededBody": "Every shelf at this branch is above its reorder point.",
+            "builderEmptyBody": "Nothing is short, but you can still add an item to order.",
+            "orderAnyway": "Order something anyway",
+            "branchRequiredTitle": "Choose a branch first",
+            "branchRequiredBody": "Stock is counted per site, so an order is always for one branch. Pick one to see what it needs.",
+            "builderTitle": "Prepare a supply order",
+            "builderCaption": "Items this branch is short of, with quantities and suppliers.",
+            "readAt": "Read at {{time}}",
+            "readAtPending": "Reading the shelves…",
+            "refresh": "Refresh",
+            "refreshConfirmTitle": "Refresh and lose your changes?",
+            "refreshConfirmBody": "Re-reading the shelves replaces this list. Quantities you have typed on items that are still short are kept; anything else is lost.",
+            "refreshConfirm": "Refresh",
+            "refreshCancel": "Keep editing",
+            "quantityLabel": "Order quantity for {{item}}",
+            "quantityPlaceholder": "—",
+            "quantityIssue": {
+                "negative": "Enter a quantity above zero.",
+                "notANumber": "Enter a number, for example 2.5.",
+                "tooPrecise": "At most four decimal places.",
+                "tooLarge": "That quantity is too large."
+            },
+            "notOrdering": "Not ordering",
+            "order": "Order",
+            "preferredBadge": "Preferred",
+            "chooseSupplier": "Choose a supplier",
+            "supplierLabel": "Supplier for {{item}}",
+            "supplierPlaceholder": "Choose a supplier",
+            "unlinkedTitle": "Not linked to a supplier yet",
+            "unlinkedCaption": "Items with no supplier on file, and the supplier book to choose from.",
+            "reasonNoSupplier": "No supplier is linked to this item.",
+            "reasonArchived": "Every supplier linked to this item is archived. Restore one, or link another.",
+            "rememberLink": "Remember this supplier for this item",
+            "addSupplier": "Add a new supplier",
+            "addTitle": "Add something else",
+            "addLabel": "Item to add",
+            "addHint": "Any item this kitchen stocks, whether or not it is short.",
+            "addPlaceholder": "Search items",
+            "readyTitle": "Ready to order",
+            "readyEmpty": "Nothing is ready yet. Enter a quantity and choose a supplier to see the order take shape.",
+            "groupSummary_one": "{{supplier}} — {{count}} item",
+            "groupSummary_other": "{{supplier}} — {{count}} items",
+            "unassignedCount_one": "{{count}} item won't be ordered — no supplier chosen",
+            "unassignedCount_other": "{{count}} items won't be ordered — no supplier chosen",
+            "excludedCount_one": "{{count}} item left out — no quantity entered",
+            "excludedCount_other": "{{count}} items left out — no quantity entered"
         },
         "suppliers": {
             "title": "Suppliers",
@@ -1062,6 +1139,10 @@
         "stock": {
             "name": "Stock",
             "description": "On-hand quantities per branch and the movement ledger — no valuation in this phase."
+        },
+        "supplyOrders": {
+            "name": "Supply orders",
+            "description": "What this branch is short of, and preparing the order that fixes it."
         },
         "suppliers": {
             "name": "Suppliers",

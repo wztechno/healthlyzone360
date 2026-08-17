@@ -310,6 +310,22 @@ final class PermissionRegistry
             // count stock without ever seeing its value; the purchase cost,
             // valuation and COGS that INV1.1 and INV1.2 add all sit behind this.
             'inventory.view_costs_organisation' => ['domain' => 'inventory', 'description' => 'View inventory costs: purchase prices, stock valuation and cost of goods sold'],
+
+            // SUP3. A fourth inventory code, and the split is between recording
+            // what arrived and deciding what to spend. `manage` is the receiving
+            // clerk's authority — stock came off a van, book it — and every
+            // kitchen hand who counts a shelf needs it. Preparing a supply order
+            // is the opposite direction: it commits the kitchen's money to a
+            // supplier before anything exists to count. Folding the two into
+            // `manage` would mean whoever may log a delivery may also order
+            // twelve crates of saffron, and the plain view code would put the
+            // whole order book — who the kitchen buys from and how much of what
+            // — in front of every role that can read a shelf. So the order book
+            // reads on this code too, not just its writes (§5): the proposal and
+            // the purchase orders behind it are the same authority as issuing
+            // one. Receiving stays on `manage` in a later slice, deliberately —
+            // the person unloading the van is rarely the person who ordered it.
+            'inventory.order_supplies_organisation' => ['domain' => 'inventory', 'description' => 'Prepare, issue, print and cancel supplier purchase orders'],
         ];
     }
 
@@ -578,6 +594,17 @@ final class PermissionRegistry
                     'inventory.view_organisation',
                     'inventory.manage_organisation',
                     'inventory.view_costs_organisation',
+
+                    // SUP3. And the fourth: the kitchen manager is the stock-
+                    // responsible person by construction, so the authority to
+                    // decide what the kitchen buys lands here and nowhere else
+                    // among the operating roles. Recording that a delivery
+                    // arrived and deciding to spend money on the next one are
+                    // different authorities — the chef and the kitchen staff
+                    // keep the shelf codes they had and gain nothing, and the
+                    // commercial manager reads the costs without being handed
+                    // the chequebook.
+                    'inventory.order_supplies_organisation',
 
                     // S1. `subscription.view_organisation` has existed in the
                     // registry since the foundation as a proposal and had no

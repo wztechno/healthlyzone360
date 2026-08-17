@@ -501,6 +501,22 @@ export function suppliedItemRowTestId(stockItemId: string): string {
     return `kitchen-supplier-item-${stockItemId}`;
 }
 
+/**
+ * One row of the supply-order builder (SUP3).
+ *
+ * Keyed by the stock item, which is what a proposal row *is*: the row for a shelf that ran out and
+ * the row for the same shelf somebody added by hand are the same row, deduped by the server, and a
+ * key derived from the origin would have made that provable only by accident.
+ */
+export function supplyOrderRowTestId(stockItemId: string): string {
+    return `kitchen-supply-order-row-${stockItemId}`;
+}
+
+/** One supplier's block in the builder's grouping preview (SUP3). */
+export function supplyOrderGroupTestId(supplierId: string): string {
+    return `kitchen-supply-order-group-${supplierId}`;
+}
+
 export function goodsReceiptRowTestId(goodsReceiptId: string): string {
     return `kitchen-goods-receipt-${goodsReceiptId}`;
 }

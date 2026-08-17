@@ -146,6 +146,17 @@ async function openFirstSupplier(page: Page) {
     await expect(page.getByTestId('kitchen-supplier-details')).toBeVisible();
 }
 
+async function openSupplyOrders(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-supplyOrders-open').click();
+    await expect(page.getByTestId('kitchen-supply-orders-screen')).toBeVisible();
+}
+
+async function openSupplyOrderBuilder(page: Page) {
+    await page.goto('/kitchen/supply-orders/new');
+    await expect(page.getByTestId('kitchen-supply-order-builder-screen')).toBeVisible();
+}
+
 async function openZones(page: Page) {
     await openKitchen(page);
     await page.getByTestId('kitchen-family-delivery-zones-open').click();
@@ -523,6 +534,69 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await openFirstSupplier(page);
         await expect(page.getByTestId('kitchen-supplier-contacts')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-supplier-detail');
+    });
+
+    /* ── supply orders (SUP3) ────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The supply-orders landing page.
+     *
+     * Two things here are the kind that lose an accessible name unnoticed: the ops panel's metric
+     * tiles, which are numbers with visually-associated labels, and the Out/Low badges, which carry
+     * meaning that must survive with colour switched off — hence a word in each rather than a dot.
+     *
+     * Both of its states are swept, because they are genuinely different pages: a queue with rows
+     * renders a table, and an empty queue renders a positive empty state carrying an action, which
+     * is the arrangement `EmptyState` only permits on one of its two variants.
+     */
+    test('the supply-orders landing page', async ({ page }) => {
+        await openSupplyOrders(page);
+        await expect(page.getByTestId('kitchen-supply-orders-panel')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-orders');
+    });
+
+    /**
+     * The builder, which is the densest form in this workspace: a quantity field, a supplier select
+     * and a toggle **per row**, plus a second table below it whose selects carry a checkbox each.
+     *
+     * The risk it exists to catch is duplicated accessible names. Every row's quantity box and
+     * every row's supplier picker is labelled with the item's own name for exactly that reason —
+     * forty inputs all labelled "Order quantity" is a form a screen-reader user cannot navigate,
+     * and it is invisible by eye because the label is hidden.
+     *
+     * The grouping preview is an accordion whose panels are regions named by their headers, and it
+     * is swept expanded because a collapsed panel proves nothing about what is inside it.
+     */
+    test('the supply-order builder, with its per-row inputs and grouping preview', async ({
+        page,
+    }) => {
+        await openSupplyOrders(page);
+        await openSupplyOrderBuilder(page);
+        await expect(page.getByTestId('kitchen-supply-order-add-select')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-order-builder');
+    });
+
+    /**
+     * The refresh confirmation, which is a dialog in its own right — and one that only exists once
+     * something has been typed, so it is reached the way a person reaches it.
+     */
+    test('the builder refresh confirmation', async ({ page }) => {
+        await openSupplyOrders(page);
+        await openSupplyOrderBuilder(page);
+
+        const quantity = page
+            .locator('[data-testid^="kitchen-supply-order-row-"][data-testid$="-quantity-input"]')
+            .first();
+
+        // No rows means nothing to type into and no dialog to reach — a fully stocked seeded
+        // kitchen is a legitimate outcome, and asserting a dialog into existence would be
+        // asserting the seed rather than the page.
+        if ((await quantity.count()) === 0) return;
+
+        await quantity.fill('3');
+        await page.getByTestId('kitchen-supply-order-refresh').click();
+        await expect(page.getByTestId('kitchen-supply-order-refresh-confirm')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-order-refresh-confirm');
     });
 
     test('the delivery-zone list', async ({ page }) => {

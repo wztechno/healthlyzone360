@@ -341,7 +341,16 @@ it('seeds exactly the registered permission set', function (): void {
     // organisation code on the platform — opens the account a cold caller has no
     // way to open. Selling to somebody and adding them to the file are separate
     // authorities, which is why the last two are two codes and not one.
-    expect(Permission::query()->count())->toBe(54)
+    //
+    // SUP3 takes it to 55 with `inventory.order_supplies_organisation`, the
+    // fourth inventory code. It is one code and not two because preparing a
+    // supply order and issuing it are one job done by one person — but it is a
+    // *separate* code from `inventory.manage_organisation` because booking a
+    // delivery that arrived and committing the kitchen's money to the next one
+    // are not. It gates reads as well as writes: the order book names who the
+    // kitchen buys from and in what quantity, which the plain view code has no
+    // business exposing.
+    expect(Permission::query()->count())->toBe(55)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -377,11 +386,11 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 42],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 41],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 43],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 42],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs and holds the order desk in full' => ['kitchen_manager', 27],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 28],
     'chef edits recipes and their costs and runs inventory, but never publishes and never sees a price or an inventory cost' => ['kitchen_chef', 7],
     'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
     'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],

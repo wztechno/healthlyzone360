@@ -224,6 +224,7 @@ use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
 use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
+use Healthy360\Procurement\Http\Controllers\OrderProposalController;
 use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
 use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
 use Healthy360\Procurement\Http\Controllers\SupplierArchiveController;
@@ -235,6 +236,7 @@ use Healthy360\Procurement\Http\Controllers\SupplierRestoreController;
 use Healthy360\Procurement\Http\Controllers\SupplierShowController;
 use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
 use Healthy360\Procurement\Http\Controllers\SupplierUpdateController;
+use Healthy360\Procurement\Http\Controllers\SupplyNeedsCountController;
 use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderStoreController;
@@ -1525,6 +1527,46 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 | gates money everywhere in this domain, not the plain view code.
                 */
                 Route::get('/reports/monthly-cost', MonthlyCostReportController::class)->name('catalogue.reports.monthly-cost.index');
+            });
+
+            /*
+            | Supply ordering (SUP3) — a fourth inventory code, and its own
+            | group, because the boundary is not the one either group above
+            | draws.
+            |
+            | **Reads sit here, not on `inventory.view_organisation`**, and that
+            | is the deliberate part (§5). The rest of this surface publishes
+            | quantities: how much flour is on the shelf is operational, and
+            | every kitchen hand who counts it may read it. The order book is
+            | different in kind — it names who the kitchen buys from, in what
+            | quantity and how often — and a kitchen hand with the plain view
+            | code has no business reading the purchasing relationship. So the
+            | supply-needs count and the proposal take
+            | `inventory.order_supplies_organisation` for their *reads*, which is
+            | the same code slice 4's writes will take.
+            |
+            | Nor is it the cost code. There is no money anywhere in either
+            | response, on purpose: deciding what to buy and being entitled to
+            | the valuation ledger are different authorities, and a proposal
+            | carrying "last price, for reference" would hand the second to
+            | whoever held the first. A cost-authorised screen fetches prices
+            | from the endpoint that already gates them.
+            |
+            | Receiving is **not** here and will not be. When slice 5 adds it, it
+            | takes `inventory.manage_organisation`: the person unloading the van
+            | is rarely the person who decided to order it, and making a receiver
+            | hold the chequebook to book in a delivery would be a control that
+            | had made itself unusable.
+            |
+            | Both take `branch_id` as a required query parameter rather than
+            | reading `X-Branch-Id`. A proposal is always *for one branch* (§4),
+            | and a manager holding an organisation-wide membership has no header
+            | branch at all — making the site part of the question is what lets
+            | them prepare an order for one.
+            */
+            Route::middleware('permission:inventory.order_supplies_organisation')->group(function (): void {
+                Route::get('/procurement/supply-needs/count', SupplyNeedsCountController::class)->name('catalogue.procurement.supply-needs.count');
+                Route::get('/procurement/order-proposal', OrderProposalController::class)->name('catalogue.procurement.order-proposal.index');
             });
 
             /*

@@ -30,6 +30,9 @@ import type {
     LastPurchase,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
+    OrderProposal,
+    OrderProposalItem,
+    OrderProposalOrigin,
     PostGoodsReceiptRequest,
     ProcurementReference,
     ProductionOrder,
@@ -52,7 +55,10 @@ import type {
     SupplierDetail,
     SupplierFilter,
     SupplierLink,
+    SupplierOption,
     SupplierRef,
+    SupplyNeedsCount,
+    UnassignedReason,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
 } from '../contracts/kitchen-ops.ts';
@@ -63,6 +69,7 @@ import type {
     ItemLatestPurchase as WireItemLatestPurchase,
     LastPurchase as WireLastPurchase,
     MonthlyCostReportRow as WireMonthlyCostReportRow,
+    OrderProposalItem as WireOrderProposalItem,
     ProcurementReference as WireProcurementReference,
     ProductionOrder as WireProductionOrder,
     PurchasesLedgerLine as WirePurchaseLedgerLine,
@@ -75,6 +82,7 @@ import type {
     SupplierContact as WireSupplierContact,
     SupplierDetail as WireSupplierDetail,
     SupplierLink as WireSupplierLink,
+    SupplierOption as WireSupplierOption,
     SupplierRef as WireSupplierRef,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
@@ -228,6 +236,71 @@ function mapSupplierLink(wire: WireSupplierLink): SupplierLink {
         stockItemId: StockItemId.unsafe(wire.stock_item_id),
         isPreferred: wire.is_preferred,
         supplierItemRef: wire.supplier_item_ref,
+    };
+}
+
+/**
+ * The wire's snake-cased enums, in the workspace's camelCase (SUP3).
+ *
+ * Mapped rather than passed through so a screen never writes `'out_of_stock'` in a comparison: the
+ * contract's union is the vocabulary, and a typo in it is a typecheck failure rather than a branch
+ * that silently never runs.
+ */
+const PROPOSAL_ORIGINS: Readonly<Record<WireOrderProposalItem['origin'], OrderProposalOrigin>> = {
+    out_of_stock: 'outOfStock',
+    low_stock: 'lowStock',
+    requested: 'requested',
+};
+
+/**
+ * Keyed on the wire's own union rather than on `string`, so a reason the server starts sending and
+ * this map has never heard of is a typecheck failure here instead of an `undefined` reaching a
+ * screen that would render the row as if it had a supplier.
+ */
+const UNASSIGNED_REASONS: Readonly<
+    Record<Exclude<WireOrderProposalItem['unassigned_reason'], null>, UnassignedReason>
+> = {
+    no_supplier: 'noSupplier',
+    suppliers_archived: 'suppliersArchived',
+};
+
+function mapSupplierOption(wire: WireSupplierOption): SupplierOption {
+    return {
+        id: SupplierId.unsafe(wire.id),
+        code: wire.code,
+        nameEn: wire.name_en,
+        nameAr: wire.name_ar,
+        isPreferred: wire.is_preferred,
+        leadTimeDays: wire.lead_time_days,
+    };
+}
+
+function mapOrderProposalItem(wire: WireOrderProposalItem): OrderProposalItem {
+    return {
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        itemCode: wire.item_code,
+        itemNameEn: wire.item_name_en,
+        unitId: wire.unit_id,
+        unitCode: wire.unit_code,
+        branchId: BranchId.unsafe(wire.branch_id),
+        // Quantities stay strings the whole way through, on the same terms as a price: the wire's
+        // decimals are the precision guarantee, and `Number()` here would round a par calculation
+        // before anything got the chance to render it.
+        quantityOnHand: wire.quantity_on_hand,
+        reorderThreshold: wire.reorder_threshold,
+        parLevel: wire.par_level,
+        isOutOfStock: wire.is_out_of_stock,
+        isLow: wire.is_low,
+        origin: PROPOSAL_ORIGINS[wire.origin],
+        suggestedQuantity: wire.suggested_quantity,
+        suggestedQuantityBasis: wire.suggested_quantity_basis,
+        supplierOptions: wire.supplier_options.map(mapSupplierOption),
+        suggestedSupplierId:
+            wire.suggested_supplier_id === null
+                ? null
+                : SupplierId.unsafe(wire.suggested_supplier_id),
+        unassignedReason:
+            wire.unassigned_reason === null ? null : UNASSIGNED_REASONS[wire.unassigned_reason],
     };
 }
 
@@ -610,6 +683,64 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 path: `/catalogue/procurement/item-purchases/latest?${params.toString()}`,
             });
             return envelope.data.purchases.map(mapItemLatestPurchase);
+        },
+
+        async countSupplyNeeds(branchId: BranchId): Promise<SupplyNeedsCount> {
+            // The branch travels in the query string rather than the `X-Branch-Id` header every
+            // other level read narrows by: this is the branch being *asked about*, and a manager
+            // holding an organisation-wide membership has no header branch to ask with.
+            const params = new URLSearchParams({ branch_id: String(branchId) });
+
+            const envelope = await transport.requestEnvelope<{
+                readonly count: number;
+                readonly out_of_stock_count: number;
+                readonly low_stock_count: number;
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/supply-needs/count?${params.toString()}`,
+            });
+
+            return {
+                count: envelope.data.count,
+                outOfStockCount: envelope.data.out_of_stock_count,
+                lowStockCount: envelope.data.low_stock_count,
+            };
+        },
+
+        async getOrderProposal(
+            branchId: BranchId,
+            stockItemIds: readonly StockItemId[] = [],
+        ): Promise<OrderProposal> {
+            const params = new URLSearchParams({ branch_id: String(branchId) });
+            for (const stockItemId of stockItemIds) {
+                params.append('stock_item_ids[]', String(stockItemId));
+            }
+
+            const envelope = await transport.requestEnvelope<{
+                readonly items: readonly WireOrderProposalItem[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/order-proposal?${params.toString()}`,
+            });
+
+            const meta = envelope.meta as Partial<{
+                readonly branch_id: string;
+                readonly out_of_stock_count: number;
+                readonly low_stock_count: number;
+                readonly unassigned_count: number;
+                readonly requested_item_count: number;
+            }>;
+
+            return {
+                // Never re-sorted. The server's order — out of stock, then low, then requested — is
+                // the answer the builder renders, and a client sort would silently rewrite it.
+                items: envelope.data.items.map(mapOrderProposalItem),
+                branchId,
+                outOfStockCount: meta.out_of_stock_count ?? 0,
+                lowStockCount: meta.low_stock_count ?? 0,
+                unassignedCount: meta.unassigned_count ?? 0,
+                requestedItemCount: meta.requested_item_count ?? 0,
+            };
         },
 
         async getProcurementReference(): Promise<ProcurementReference> {
