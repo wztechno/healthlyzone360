@@ -77,6 +77,9 @@ export function DietitianCard({ dietitian, onPress, testID }: DietitianCardProps
             interactive
             footer={footer}
             onPress={onPress}
+            // Fills the grid cell, so a short profile ends level with a long one beside it. See the
+            // note on the same class in `meal-card.tsx`.
+            className="grow"
             accessibilityLabel={t('marketplace:dietitians.cardLabel', {
                 dietitian: dietitian.displayName,
             })}

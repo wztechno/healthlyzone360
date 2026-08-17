@@ -24,12 +24,14 @@ import type {
     LockedRequest,
     MealAdmin,
     PlanAdmin,
+    PlanMenu,
     PriceListAdmin,
     PriceListEntry,
     ProductAdmin,
     RecipeAdmin,
     RecipeRollupDraft,
     RecipeRollupPreview,
+    ReplacePlanMenuRequest,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
     SetDeliveryWindowsRequest,
@@ -61,11 +63,14 @@ import type {
     IngredientCategory,
     MealCombinationOption,
     PlanDurationOption,
+    PlanMenuCycle as WirePlanMenuCycle,
+    PlanMenuEntry as WirePlanMenuEntry,
     PlanVariantCell,
     ProcurementReference,
 } from '../generated/types.ts';
 import {
     buildCategoryLookup,
+    mapPlanMenu,
     mapRecipeRollupPreview,
     pickCurrentRecipeVersion,
     type CategoryLookup,
@@ -108,6 +113,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'setPlanVariants'
     | 'setPlanDurations'
     | 'setPlanCombinations'
+    | 'replacePlanMenu'
     | 'createZone'
     | 'updateZone'
     | 'archiveZone'
@@ -1319,6 +1325,46 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
 
             return reads.getPlan(planId);
+        },
+
+        /**
+         * Replaces the plan's fixed menu, or withdraws it.
+         *
+         * One request, unlike its three plan siblings: the menu is a single document on a single
+         * endpoint, so there is no vocabulary to reconcile first and nothing to re-read afterwards
+         * — the response carries the plan, the cycle it now runs on and every entry it now has, with
+         * the item's new lock version in it.
+         *
+         * All three fields are sent on every call, `null` and `[]` included. The server takes
+         * `present` rather than `required` on each of them precisely so that "no menu" can be
+         * *stated*; omitting a field because it happens to be empty would send half a document and
+         * be refused as an accident rather than honoured as a decision.
+         */
+        async replacePlanMenu(
+            planId: SubscriptionPlanId,
+            request: ReplacePlanMenuRequest,
+        ): Promise<PlanMenu> {
+            const envelope = await transport.requestEnvelope<{
+                item: AdminCatalogueItem;
+                cycle: WirePlanMenuCycle;
+                entries: WirePlanMenuEntry[];
+            }>({
+                method: 'PUT',
+                path: `/catalogue/plans/${encodeURIComponent(String(planId))}/menu`,
+                headers: ifMatch(request.lockVersion),
+                body: {
+                    entries: request.entries.map((entry) => ({
+                        cycle_day: entry.cycleDay,
+                        slot: entry.slot,
+                        sequence: entry.sequence,
+                        meal_catalogue_item_id: String(entry.mealId),
+                    })),
+                    menu_cycle_days: request.cycleDays,
+                    menu_cycle_anchor_date: request.anchorDate,
+                },
+            });
+
+            return mapPlanMenu(envelope.data.item, envelope.data.cycle, envelope.data.entries);
         },
 
         async createZone(request: CreateDeliveryZoneRequest): Promise<DeliveryZoneAdmin> {

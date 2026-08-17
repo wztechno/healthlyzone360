@@ -1,5 +1,7 @@
 import { Button, Inline, Select, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 
 /**
  * One draft row in a repeatable stock-item-and-quantity list — a goods receipt line, a production
@@ -167,23 +169,27 @@ export function StockItemLineEditor({
                         />
                     ) : null}
                     {withCost ? (
-                        <Text
-                            testID={`${testID}-row-${String(index)}-line-total`}
-                            variant="bodyStrong"
-                            tone="secondary"
-                        >
-                            {lineTotal(line) === 0 ? '—' : money(lineTotal(line))}
-                        </Text>
+                        <ControlLineCell>
+                            <Text
+                                testID={`${testID}-row-${String(index)}-line-total`}
+                                variant="bodyStrong"
+                                tone="secondary"
+                            >
+                                {lineTotal(line) === 0 ? '—' : money(lineTotal(line))}
+                            </Text>
+                        </ControlLineCell>
                     ) : null}
-                    <Button
-                        testID={`${testID}-row-${String(index)}-remove`}
-                        variant="ghost"
-                        size="sm"
-                        label={removeLabel}
-                        onPress={() => {
-                            removeLine(line.key);
-                        }}
-                    />
+                    <ControlLineCell>
+                        <Button
+                            testID={`${testID}-row-${String(index)}-remove`}
+                            variant="ghost"
+                            size="sm"
+                            label={removeLabel}
+                            onPress={() => {
+                                removeLine(line.key);
+                            }}
+                        />
+                    </ControlLineCell>
                 </Inline>
             ))}
             {withCost ? (
@@ -245,10 +251,32 @@ function renderUnit({
     const text = labelFor?.(stockItemId, unitId) ?? '';
 
     return (
-        <Text testID={`${testID}-label`} variant="body" tone="secondary">
-            {text === '' ? '—' : text}
-        </Text>
+        <ControlLineCell>
+            <Text testID={`${testID}-label`} variant="body" tone="secondary">
+                {text === '' ? '—' : text}
+            </Text>
+        </ControlLineCell>
     );
+}
+
+/**
+ * A cell in a line row that carries no label of its own — the unit when it is fixed, the line
+ * total, the remove control.
+ *
+ * The row is a set of labelled fields, and a labelled field is a *column*: the label on top, the
+ * input under it. Anything without a label is therefore a shorter box in a row of taller ones, and
+ * `align="start"` — which is what makes the labels line up with each other — put those boxes level
+ * with the **labels** rather than with the inputs. Measured on the goods receipt: the inputs ran
+ * from 25 to 69, and the remove button from 0 to 44, a clear 25 units high with nothing beside it.
+ * That is the same complaint as the wrapped action column on the stock table, in a different shape.
+ *
+ * `self-end` drops just these cells to the bottom of the line, which is exactly the control line,
+ * because the field's input is the last thing in its column. The minimum height then centres a
+ * short one — the line total is 24 units tall against a 44-unit input — on that line rather than
+ * hanging from it. The labelled fields keep their own top alignment, so the labels still agree.
+ */
+function ControlLineCell({ children }: { readonly children: ReactNode }) {
+    return <View className="min-h-touch justify-center self-end">{children}</View>;
 }
 
 /** quantity × unit price for one row, or `0` when either is missing or non-positive. */

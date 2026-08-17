@@ -29,14 +29,14 @@ describe('MODE_ROUTE_AREAS', () => {
             'corporate',
             'insurance',
         ]);
-        expect([...MODE_ROUTE_AREAS.kiosk]).toEqual(['auth', 'pos', 'kds']);
+        expect([...MODE_ROUTE_AREAS.kiosk]).toEqual(['auth', 'kds']);
         expect([...MODE_ROUTE_AREAS.driver]).toEqual(['auth', 'driver']);
     });
 
-    it('gives all-dev every one of the fourteen areas, including platform-admin', () => {
+    it('gives all-dev every one of the thirteen areas, including platform-admin', () => {
         expect([...MODE_ROUTE_AREAS['all-dev']]).toEqual([...ROUTE_AREAS]);
         expect(MODE_ROUTE_AREAS['all-dev']).toContain('platform-admin');
-        expect(MODE_ROUTE_AREAS['all-dev']).toHaveLength(14);
+        expect(MODE_ROUTE_AREAS['all-dev']).toHaveLength(13);
     });
 
     it('exposes platform-admin to all-dev only', () => {

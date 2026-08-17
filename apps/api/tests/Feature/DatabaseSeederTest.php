@@ -14,6 +14,7 @@ use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\PlanDurationKind;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\EnergyBand;
 use Healthy360\Catalogues\Models\MealCombinationOption;
 use Healthy360\Catalogues\Models\PlanDuration;
@@ -329,7 +330,18 @@ it('seeds exactly the registered permission set', function (): void {
     // platform code had already been added to the registry without this pin
     // being refreshed — the registry stood at 48 before INV1.0, and the three
     // inventory codes take it to 51. Re-pinned to the registry's actual size.
-    expect(Permission::query()->count())->toBe(51)
+    //
+    // C2 (the order desk) takes it to 54 with three organisation codes, and the
+    // shape of that trio is the argument for all three:
+    // `order.view_customer_contact_organisation` adds two fields to a queue row
+    // and permits no action at all; `order.create_on_behalf_organisation` is the
+    // authority to place an order nobody asked for themselves, bypassing the
+    // activation checklist because the member of staff is the verification; and
+    // `customer.create_on_behalf_organisation` — the first `customer.*`
+    // organisation code on the platform — opens the account a cold caller has no
+    // way to open. Selling to somebody and adding them to the file are separate
+    // authorities, which is why the last two are two codes and not one.
+    expect(Permission::query()->count())->toBe(54)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -365,14 +377,20 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 39],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 38],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 42],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 41],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book and runs inventory including its costs' => ['kitchen_manager', 24],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs and holds the order desk in full' => ['kitchen_manager', 27],
     'chef edits recipes and their costs and runs inventory, but never publishes and never sees a price or an inventory cost' => ['kitchen_chef', 7],
     'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
-    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book and reads inventory and its costs' => ['commercial_manager', 15],
+    'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
+    // Eight, not seven: the role gained `catalogue.view_organisation` with the
+    // sale wizard's item picker, which reads the kitchen's own catalogue to
+    // find out what there is to sell and 403s without it. Reading the range is
+    // still not deciding it — the manage and publish codes stay absent, which
+    // is the half of this row the name is about.
+    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 8],
 ]);
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
@@ -504,15 +522,68 @@ it('keeps price visibility away from the chef and the kitchen staff entirely', f
  * demonstrable against one the product is not already on, and VerdantProductCatalogueSeeder puts
  * every product on the two that sell it. `pos` is not a listing kind, so nothing consumer-facing
  * moves — the marketplace directory and menus read `b2c_web` and `marketplace` only.
+ *
+ * `desk` is the fourth and the second `pos` row, which is the assertion worth keeping: the Order
+ * Desk sells through a channel of its own, and `counter` — an empty channel whose whole job is to
+ * be the one a product is *not* on — must survive beside it rather than be repurposed into it.
  */
-it('gives the demonstration kitchen its three routes to market', function (): void {
+it('gives the demonstration kitchen its four routes to market', function (): void {
     $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
 
     $channels = SalesChannel::withoutTenancy()->where('organisation_id', $verdant->getKey())->orderBy('code')->get();
 
-    expect($channels->pluck('code')->all())->toBe(['counter', 'web-shop', 'wholesale'])
+    expect($channels->pluck('code')->all())->toBe(['counter', 'desk', 'web-shop', 'wholesale'])
         ->and($channels->pluck('channel_kind')->map(static fn ($kind): string => $kind->value)->all())
-        ->toBe(['pos', 'b2c_web', 'b2b']);
+        ->toBe(['pos', 'pos', 'b2c_web', 'b2b'])
+        ->and($channels->pluck('order_source')->all())
+        ->toBe(['pos', 'desk', 'web', null]);
+});
+
+/**
+ * The desk opens holding exactly what the web shop holds — and would sell nothing without both
+ * halves. `LineProbe` refuses an article with no `channel_catalogue_items` row for the channel;
+ * `PriceResolver::listsFor()` reads `channel_price_lists` as the only source of a channel's
+ * tariffs and an empty set refuses every line as `unpriced`. So parity is asserted on both tables
+ * rather than on the channel row, which is the part that cannot sell anything on its own.
+ */
+it('stocks the demonstration kitchen order desk from its web shop', function (): void {
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+
+    $channelId = static fn (string $code): string => (string) SalesChannel::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->where('code', $code)
+        ->sole()
+        ->getKey();
+
+    $shopId = $channelId('web-shop');
+    $deskId = $channelId('desk');
+
+    $offerings = static fn (string $salesChannelId): array => ChannelCatalogueItem::withoutTenancy()
+        ->where('sales_channel_id', $salesChannelId)
+        ->get()
+        ->map(static fn (ChannelCatalogueItem $row): string => implode('|', [
+            (string) $row->catalogue_item_id,
+            (string) $row->catalogue_item_variant_id,
+            $row->is_available ? '1' : '0',
+            (string) $row->available_from?->toDateString(),
+            (string) $row->available_to?->toDateString(),
+        ]))
+        ->sort()
+        ->values()
+        ->all();
+
+    $tariffs = static fn (string $salesChannelId): array => ChannelPriceList::withoutTenancy()
+        ->where('sales_channel_id', $salesChannelId)
+        ->get()
+        ->map(static fn (ChannelPriceList $row): string => $row->price_list_id.'|'.$row->priority)
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($offerings($shopId))->not->toBe([])
+        ->and($offerings($deskId))->toBe($offerings($shopId))
+        ->and($tariffs($shopId))->not->toBe([])
+        ->and($tariffs($deskId))->toBe($tariffs($shopId));
 });
 
 it('gives the demonstration kitchen a draft tariff in its own currency', function (): void {
@@ -787,8 +858,12 @@ it('seeds two delivery windows, one of them restricted to some weekdays', functi
         ->and($windows->firstWhere('code', 'evening')?->weekdays)->toBe([1, 2, 3, 4]);
 });
 
-it('seeds the eight platform template roles plus the platform operators bespoke role', function (): void {
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8);
+it('seeds the nine platform template roles plus the platform operators bespoke role', function (): void {
+    // Nine since C2. `order_desk_agent` is the first template that describes a
+    // shift rather than a discipline — who is standing at the counter, not what
+    // they are responsible for — and it is still organisation-scoped like the
+    // eight before it.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(9);
 
     // The one organisation-scoped role the demo seeds: platform permissions
     // are granted deliberately, inside a platform-operator organisation, and

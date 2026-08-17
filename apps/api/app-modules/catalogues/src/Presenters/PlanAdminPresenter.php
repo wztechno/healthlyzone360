@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Healthy360\Catalogues\Presenters;
 
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\EnergyBand;
 use Healthy360\Catalogues\Models\MealCombinationOption;
 use Healthy360\Catalogues\Models\PlanDuration;
+use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
@@ -201,6 +203,40 @@ final class PlanAdminPresenter
             'includes_snacks' => $profile->includes_snacks,
             'meals_per_day' => $profile->meals_per_day,
             'snacks_per_day' => $profile->snacks_per_day,
+        ];
+    }
+
+    /**
+     * One dish on one day of a plan's cycle.
+     *
+     * The dish's own name travels with the entry rather than being left to a
+     * second call: the editor this feeds renders a week of slots, and a client
+     * that had to resolve forty identifiers against the item list to draw one
+     * screen would resolve them badly. It is `null` only if the meal has been
+     * deleted underneath the row, which `restrictOnDelete` forbids — the
+     * nullability is the presenter admitting it did not load the relation
+     * rather than a state that can exist.
+     *
+     * @return array{
+     *     id: string,
+     *     cycle_day: int,
+     *     slot: string,
+     *     sequence: int,
+     *     meal_catalogue_item_id: string,
+     *     meal_name_en: string|null,
+     *     meal_name_ar: string|null
+     * }
+     */
+    public function menuEntry(PlanMenuEntry $entry, ?CatalogueItem $meal = null): array
+    {
+        return [
+            'id' => (string) $entry->getKey(),
+            'cycle_day' => $entry->cycle_day,
+            'slot' => $entry->slot,
+            'sequence' => $entry->sequence,
+            'meal_catalogue_item_id' => $entry->meal_catalogue_item_id,
+            'meal_name_en' => $meal?->name_en,
+            'meal_name_ar' => $meal?->name_ar,
         ];
     }
 

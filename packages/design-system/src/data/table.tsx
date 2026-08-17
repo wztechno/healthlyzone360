@@ -1,7 +1,8 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { Icon } from '../icons/icon.tsx';
@@ -129,6 +130,56 @@ export function Table<Row>({
     const nextDirection = (key: string): TableSortDirection => {
         if (key !== sortKey) return 'asc';
         return sortDirection === 'asc' ? 'desc' : 'asc';
+    };
+
+    /**
+     * The action column is sized to its buttons, not to a share of the row.
+     *
+     * It used to take `flex: 1` like any other column, which on a four-column table left it about a
+     * fifth of the width — and "Adjust / Waste / Threshold" does not fit in a fifth of anything. The
+     * buttons wrapped onto two and three lines, so the same three controls sat at a different height
+     * in every row and the column read as a pile rather than a list. Giving the cell `flexBasis:
+     * 'auto'` with no grow and no shrink sizes it to its content instead, which on the web is the
+     * unwrapped width of the row of buttons.
+     *
+     * That alone would misalign the header, because "ACTIONS" is much narrower than the buttons
+     * underneath it and the data columns would then divide a different remainder in the header row
+     * than in the body rows. So the widest action cell is *measured* and applied as a `minWidth` to
+     * every action cell **and** to the header's — one width for the whole column, taken from the
+     * content rather than from a number picked here. Measuring is what keeps it honest in Arabic,
+     * where every label is a different length; a hard-coded column width would only ever be right in
+     * one language.
+     *
+     * `minWidth` rather than `width`: a row with an extra button is still allowed to be wider, and
+     * the next measurement pass simply raises the column to it. The width only ever grows, so the
+     * loop settles after one pass. It is keyed by the header text so switching language starts a
+     * fresh measurement instead of holding the old language's width for ever.
+     */
+    const [measured, setMeasured] = useState<{ key: string; width: number } | null>(null);
+    const actionKey = rowAction?.header ?? '';
+    const actionWidth = measured !== null && measured.key === actionKey ? measured.width : null;
+
+    const measureAction = (event: LayoutChangeEvent) => {
+        const width = Math.ceil(event.nativeEvent.layout.width);
+        setMeasured((current) =>
+            current !== null && current.key === actionKey && current.width >= width
+                ? current
+                : { key: actionKey, width },
+        );
+    };
+
+    // Typed structurally rather than as `ViewStyle`, because the same object is spread onto the
+    // header cell, which is a `Text`.
+    const actionCellStyle: {
+        readonly flexGrow: number;
+        readonly flexShrink: number;
+        readonly flexBasis: 'auto';
+        readonly minWidth?: number;
+    } = {
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: 'auto',
+        ...(actionWidth === null ? {} : { minWidth: actionWidth }),
     };
 
     const captionNode = captionHidden ? null : (
@@ -335,7 +386,7 @@ export function Table<Row>({
                                 role="columnheader"
                                 numberOfLines={2}
                                 className={cx(HEADER_CELL_CLASS, 'text-end')}
-                                style={{ flex: 1 }}
+                                style={actionCellStyle}
                             >
                                 {rowAction.header}
                             </RNText>
@@ -373,9 +424,20 @@ export function Table<Row>({
                                     testID={`${base}-cell-${rowKey(row)}-action`}
                                     role="cell"
                                     className="items-end"
-                                    style={{ flex: 1 }}
+                                    style={actionCellStyle}
                                 >
-                                    {rowAction.render(row)}
+                                    {/*
+                                     * The measurement happens on this inner view rather than on
+                                     * the cell, and that is the whole reason it terminates. The
+                                     * cell is the thing `minWidth` is applied to, so measuring it
+                                     * would feed the column's own width back in as the content
+                                     * width and no row could ever report anything narrower than
+                                     * the widest one already seen. This view is content-sized
+                                     * inside an `items-end` column, so what it reports is the
+                                     * natural width of that row's buttons, independently of what
+                                     * the column has been widened to.
+                                     */}
+                                    <View onLayout={measureAction}>{rowAction.render(row)}</View>
                                 </View>
                             )}
                         </View>

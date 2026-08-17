@@ -19,6 +19,7 @@
             "kitchen_manager": "مدير المطبخ",
             "commercial_manager": "المدير التجاري",
             "organisation_owner": "مالك المنشأة",
+            "order_desk_agent": "موظف مكتب الطلبات",
             "unknown": "{{code}}"
         }
     },

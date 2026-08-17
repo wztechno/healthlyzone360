@@ -42,6 +42,14 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     'delivery_zone.manage_organisation',
     'order.view_organisation',
     'order.manage_organisation',
+    // C2. The order desk, in full. The backend grants all three to `kitchen_manager` deliberately —
+    // a manager is who a desk agent escalates to, and one who had to borrow an agent's login to
+    // take an order would be a control that had made itself unusable. Added here when the sale
+    // wizard first needed them, which is exactly the drift this fixture's "mirrors the template
+    // roles" promise exists to prevent.
+    'order.create_on_behalf_organisation',
+    'customer.create_on_behalf_organisation',
+    'order.view_customer_contact_organisation',
     // B1/B4. The backend grants this pair to `kitchen_manager` alongside the tariff pair — reading
     // what corporate buyers submitted against this kitchen's programmes, and naming a price against
     // it. Absent here until the kitchen gained a screen that needed them, which is exactly the drift
@@ -51,6 +59,14 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     'inventory.view_organisation',
     'inventory.manage_organisation',
     'inventory.view_costs_organisation',
+    // S1/C4. The backend has granted `subscription.view_organisation` to `kitchen_manager` since the
+    // schedule projection landed, and it is deliberately *not* folded into `order.view_organisation`
+    // there: a subscription is a standing commercial arrangement with a captured price, and reading
+    // today's order list is not by itself a reason to see who is committed to what. Added here when
+    // the order-desk calendar first needed it — its endpoint requires this code *and* the order one,
+    // because two of its three bases are subscription arithmetic — which is exactly the drift this
+    // fixture's "mirrors the template roles" promise exists to prevent.
+    'subscription.view_organisation',
     'device.manage_own',
     'session.revoke_own',
 ];

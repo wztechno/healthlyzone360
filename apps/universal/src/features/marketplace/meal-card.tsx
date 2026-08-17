@@ -8,6 +8,7 @@ import { Text as RNText, View } from 'react-native';
 import { EntityImage, MediaChip } from '../../media/entity-image.tsx';
 
 import { formatMoney, nutrientValue } from './format.ts';
+import { TagCluster } from './tag-cluster.tsx';
 
 /**
  * A meal on a kitchen's menu.
@@ -47,6 +48,11 @@ import { formatMoney, nutrientValue } from './format.ts';
  * to, so the menu answered a press with an in-place drawer; now the record exists, every caller
  * navigates to it and the drawer is gone. The card itself never knew the difference — `onPress` is
  * the whole contract, which is why the handoff cost this component nothing but a paragraph.
+ *
+ * The whole card is that one target, and it stays that way. The consequence worth knowing is on the
+ * diet cluster below: its `+3 more` is a label rather than a control, because a focusable thing
+ * inside a `button` is an axe `nested-interactive` failure. The classifications it counts are on
+ * the meal's own page, which is where a press lands anyway.
  */
 export interface MealCardProps {
     readonly meal: MarketplaceMeal;
@@ -164,8 +170,18 @@ export function MealCard({ meal, onPress, testID }: MealCardProps) {
             padding="none"
             tone="raised"
             interactive
-            onPress={onPress}
             footer={footer}
+            /*
+             * Fills the grid cell. `Card`'s own `self-stretch` is a *cross-axis* keyword and
+             * `CardGridItem` is a column, so it was only ever stretching the card's width — the
+             * height still came from the content, which is why a card with three lines of tags
+             * stood taller than its neighbour with two. `grow` is the main-axis half of the same
+             * idea, and `flexBasis` is left at `auto` deliberately: `flex-1` would set it to zero,
+             * which collapses a card whose parent has no definite height (a rail, a native
+             * ScrollView) rather than sizing it to its content.
+             */
+            className="grow"
+            onPress={onPress}
             accessibilityLabel={t('marketplace:menu.cardLabel', {
                 meal: meal.name,
                 energy,
@@ -212,20 +228,20 @@ export function MealCard({ meal, onPress, testID }: MealCardProps) {
                     </Text>
                 )}
 
-                {meal.dietClassifications.length === 0 ? null : (
-                    <View className="flex-row flex-wrap gap-1.5">
-                        {meal.dietClassifications.map((diet) => (
-                            <View
-                                key={diet}
-                                className="min-h-[24px] justify-center rounded-full bg-surface-brand-subtle px-2.5"
-                            >
-                                <RNText className="text-xs font-semibold text-content-on-brand-subtle">
-                                    {t(`marketplace:diets.${diet}`)}
-                                </RNText>
-                            </View>
-                        ))}
-                    </View>
-                )}
+                {/*
+                 * Clamped to two lines above `md`, with whatever does not fit counted in a
+                 * trailing `+3 more`. That counter is a label rather than a control on purpose:
+                 * the whole card is the button, and a focusable thing inside a button is an axe
+                 * `nested-interactive` failure. See `tag-cluster.tsx` for why the count is
+                 * measured rather than fixed, and why phones keep the unclamped row.
+                 */}
+                <TagCluster
+                    testID={`${resolvedTestID}-diets`}
+                    tags={meal.dietClassifications.map((diet) => ({
+                        key: diet,
+                        label: t(`marketplace:diets.${diet}`),
+                    }))}
+                />
             </View>
         </Card>
     );

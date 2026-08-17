@@ -17,10 +17,16 @@ const FALLBACK_HREF = '/workspace';
  * separately.
  *
  * So the substitution happens here instead, at the two call sites that launch the application. A
- * kiosk build lands on `/pos` and a driver build on `/driver`; neither area has endpoints yet, so
- * both would arrive at a route that immediately redirects home — a launch that flickers through two
- * screens to reach the third. Sending them straight to the workspace picker skips the flicker and
- * lands them somewhere that works.
+ * build family whose landing area has no endpoints behind it would arrive at a route that
+ * immediately redirects home — a launch that flickers through two screens to reach the third.
+ * Sending it straight to the workspace picker skips the flicker and lands it somewhere that works.
+ *
+ * **No mode is substituted today.** `/driver` was the last one, and it stopped being substituted the
+ * day the run sheet's endpoints were wired (`../features/availability.ts`: `driverJobs`); every
+ * other landing — `/customer`, `/workspace`, `/kds` — has been backed by real routes throughout. So
+ * this function is currently the identity on all five families, and it stays because that is a fact
+ * about today's availability table rather than about this resolver: the next area to be built ahead
+ * of its endpoints, or the next one whose endpoints are withdrawn, needs no code change here at all.
  *
  * The `reason` is passed through untouched. It says why the *kernel* chose what it chose, and the
  * splash branches on `session_restoring` / `unauthenticated`; rewriting it to describe this

@@ -6,7 +6,7 @@ import type { Repositories } from './index.ts';
  * The compiler already forces every implementation to satisfy the contracts; what it cannot do is
  * hand that surface to code that needs it as *data* — the test-harness stub factory that builds a
  * fully-shaped bundle, and the drift check that notices a contract grew a method nobody implemented.
- * This table is the human-maintained side of that, in one place for all twenty-one repositories.
+ * This table is the human-maintained side of that, in one place for all twenty-two repositories.
  *
  * Two guards keep it honest:
  *
@@ -199,6 +199,7 @@ export const REPOSITORY_SURFACE = {
         'getIngredient',
         'getMeal',
         'getPlan',
+        'getPlanMenu',
         'getPriceList',
         'getProduct',
         'getRecipe',
@@ -217,6 +218,7 @@ export const REPOSITORY_SURFACE = {
         'publishPlan',
         'publishPriceList',
         'publishRecipe',
+        'replacePlanMenu',
         'retireMeal',
         'retirePlan',
         'retireRecipe',
@@ -266,8 +268,30 @@ export const REPOSITORY_SURFACE = {
         'retryConsumptionException',
         'setStockThreshold',
     ],
-    kitchenOrders: ['cancelOrder', 'confirmOrder', 'fulfilOrder', 'getOrder', 'listOrders'],
+    kitchenOrders: [
+        'cancelOrder',
+        'confirmOrder',
+        'fulfilOrder',
+        'getOrder',
+        'listOrders',
+        'recordPayment',
+    ],
+    orderDesk: [
+        'addCustomerAddress',
+        'assignDeliveryJob',
+        'countRequirementShortfalls',
+        'createCustomer',
+        'getCashReport',
+        'listCalendar',
+        'listDrivers',
+        'listQueue',
+        'listRequirements',
+        'placeSale',
+        'quoteSale',
+        'searchCustomers',
+    ],
     kitchenQuotations: ['getQuotation', 'listQuotations', 'quoteQuotation'],
+    driverJobs: ['deliverJob', 'listJobs'],
     platformAdmin: [
         'createKitchen',
         'getKitchen',

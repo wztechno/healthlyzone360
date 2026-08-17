@@ -1681,6 +1681,77 @@ export const zPlanProfileEnvelope = z.object({
 });
 
 /**
+ * The four sittings, the same vocabulary a subscription meal choice
+ * stores — generation copies this value straight onto a choice row.
+ *
+ */
+export const zPlanMenuSlot = z.enum([
+    'breakfast',
+    'lunch',
+    'dinner',
+    'snack'
+]);
+
+/**
+ * One dish, in one slot, on one day of the plan's cycle.
+ *
+ */
+export const zPlanMenuEntry = z.object({
+    id: zUuid,
+    cycle_day: z.int().gte(1).lte(366),
+    slot: zPlanMenuSlot,
+    sequence: z.int().gte(1).lte(12),
+    meal_catalogue_item_id: zUuid,
+    meal_name_en: z.string().nullable(),
+    meal_name_ar: z.string().nullable()
+});
+
+/**
+ * The rotation the entries sit on. **Both null means no menu is
+ * published**, which is the behaviour every plan has by default and the
+ * state in which a subscription order deducts no stock.
+ *
+ */
+export const zPlanMenuCycle = z.object({
+    cycle_days: z.int().gte(1).lte(366).nullable(),
+    anchor_date: z.iso.date().nullable()
+});
+
+export const zPlanMenuEnvelope = z.object({
+    data: z.object({
+        item: zAdminCatalogueItem,
+        cycle: zPlanMenuCycle,
+        entries: z.array(zPlanMenuEntry)
+    }),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
+});
+
+/**
+ * The complete menu. All three fields are required to be *present* and
+ * may all be null or empty: that combination withdraws the menu, which is
+ * a decision a kitchen makes and not a field they forgot.
+ *
+ * They move together. Entries with no cycle length, or a cycle length
+ * with no entries, or a cycle length with no anchor, are each `422` —
+ * see the operation description.
+ *
+ * `catalogue_item_id` is not a field: the plan is in the URL.
+ *
+ */
+export const zReplacePlanMenuRequest = z.object({
+    entries: z.array(z.object({
+        cycle_day: z.int().gte(1).lte(366),
+        slot: zPlanMenuSlot,
+        sequence: z.int().gte(1).lte(12).nullish(),
+        meal_catalogue_item_id: zUuid
+    })).max(400),
+    menu_cycle_days: z.int().gte(1).lte(366).nullable(),
+    menu_cycle_anchor_date: z.iso.date().nullable()
+});
+
+/**
  * One cell of a plan's availability matrix, together with the variant that
  * carries it. **The variant is the priceable thing**: a price row names
  * `catalogue_item_variant_id`, exactly as it does for a pack.
@@ -2242,7 +2313,7 @@ export const zMarketplacePlan = z.object({
     diet_classifications: z.array(z.string()),
     variants: z.array(zMarketplacePlanVariant),
     durations: z.array(zMarketplacePlanDuration),
-    sample_meal_ids: z.array(zUuid),
+    sample_meal_ids: z.array(zUuid).max(12),
     image_placeholder_id: z.string(),
     rating: z.number().nullable(),
     rating_count: z.int().gte(0)
@@ -2495,12 +2566,73 @@ export const zCancellationReason = z.enum([
 ]);
 
 /**
- * One value, and the field exists anyway: an order has to record how it
- * was paid for, and a column that appears the day a second method does
- * would leave every earlier order unable to say.
+ * **Three cases, and each one has a table behind it.** That is the whole
+ * rule this vocabulary is governed by, and it is the same rule that kept it
+ * at one case for the whole of the first phase: a payment method exists
+ * here when there is somewhere in the schema that records money arriving
+ * that way, and not a moment sooner.
+ *
+ * * `cash_on_delivery` — a driver is handed money at a door. The original
+ * case, and still the way most orders are settled.
+ * * `cash_at_counter` — money handed over in the room, at the order desk.
+ * * `wish` — a transfer through the WISH app, **manually confirmed**.
+ * Nothing verifies it: a desk person looks at the merchant app, sees that
+ * the money arrived, and says so, and the receipt's `confirmed_by` names
+ * who.
+ *
+ * What has not changed is the refusal. There is still no `card`, no
+ * `wallet` and no `online` reserved here, and no case is added in
+ * anticipation of a table — a reserved case is a value something eventually
+ * writes, and this value is read to decide what evidence a payment is
+ * expected to carry.
+ *
+ * The vocabulary is used by two fields that are deliberately **not**
+ * constrained to agree. An order's `payment_method` is the *intent*
+ * captured at placement; a payment receipt's `method` is how the money
+ * actually turned up. An order taken for cash at the counter and settled by
+ * WISH is a real evening, and the pair of fields is how it stays legible.
  *
  */
-export const zPaymentMethod = z.enum(['cash_on_delivery']);
+export const zPaymentMethod = z.enum([
+    'cash_on_delivery',
+    'cash_at_counter',
+    'wish'
+]);
+
+/**
+ * How an order leaves the kitchen. **Three cases, and each one is a
+ * different set of facts the order must carry** — which is what makes this
+ * a vocabulary rather than a flag. `orders_fulfilment_shape_check` states
+ * the column half of it in the database, so the two cannot drift.
+ *
+ * * `delivery` — a courier takes it to a door. A customer and an address,
+ * both required. The only way this platform sold anything before the
+ * order desk, and still how most orders leave.
+ * * `pickup` — the customer collects it. A customer, a **promised slot**,
+ * and deliberately **no address**: "be here at six" is a promise whether
+ * or not the food travels, but a destination on an order nobody is
+ * delivering is a courier instruction that will never be followed.
+ * * `counter` — somebody bought lunch at the desk. The customer is
+ * **optional** — a regular is worth naming, a stranger is not — and the
+ * address is forbidden. The desk may know *who* and must never claim
+ * *where*, which is the asymmetry that makes this its own case rather
+ * than "pickup without an account".
+ *
+ * `delivery` is the column default, so every order placed before this
+ * vocabulary existed carries it.
+ *
+ * What this is **not** is a delivery *status*. Where an order has got to is
+ * `status`, which moves; this never moves after placement. An order taken
+ * for delivery and collected by an impatient customer is a delivery that
+ * was handed over early, not a pickup — rewriting the type would make the
+ * fee already snapshotted on the row unexplainable.
+ *
+ */
+export const zFulfilmentType = z.enum([
+    'delivery',
+    'pickup',
+    'counter'
+]);
 
 export const zOpenCartRequest = z.object({
     channel_code: z.string().max(40)
@@ -2682,15 +2814,33 @@ export const zKitchenOrderLine = zCustomerOrderLine.and(z.object({
  * The address as it stood when the order was placed, copied. Editing the
  * address later must not change where this order was sent.
  *
+ * **The whole block is null on an order that is not being delivered.**
+ * A `pickup` is collected and a `counter` sale is handed over in the room;
+ * neither has a destination, and `orders_fulfilment_shape_check` refuses
+ * an address on either. Read `fulfilment_type` on the order to tell "there
+ * is nowhere to take this" from "the address is missing" — they are
+ * different facts and this block looks the same for both.
+ *
+ * `building`, `floor`, `apartment` and `directions` are the half a courier
+ * actually navigates by: the street gets somebody to the building, and
+ * these get them to the door. They were mirrored onto the order by the
+ * fulfilment migration; before it, a snapshot was a strictly poorer copy
+ * of the address it came from.
+ *
  */
 export const zCustomerOrderDelivery = z.object({
     label: z.string().nullable(),
-    line_one: z.string(),
+    line_one: z.string().nullable(),
     line_two: z.string().nullable(),
     city: z.string().nullable(),
     area_name_en: z.string().nullable(),
     area_name_ar: z.string().nullable(),
     area_id: z.uuid().nullable(),
+    building: z.string().max(120).nullable(),
+    floor: z.string().max(40).nullable(),
+    apartment: z.string().max(40).nullable(),
+    directions: z.string().nullable(),
+    contact_point_id: z.uuid().nullable(),
     window_code: z.string().nullable(),
     requested_date: z.iso.date().nullable()
 });
@@ -3217,7 +3367,7 @@ export const zQualityCheckEnvelope = z.object({
 });
 
 /**
- * The receipt. **Five things on the row are deliberately absent**, each
+ * The receipt. **Six things on the row are deliberately absent**, each
  * for its own reason:
  *
  * * `price_list_id` / `price_list_item_id` — a kitchen's tariff structure
@@ -3232,6 +3382,16 @@ export const zQualityCheckEnvelope = z.object({
  * * `created_by` — for a self-service order this is the customer and says
  * nothing; for a staff-placed order it names an employee to a member of
  * the public.
+ * * `placed_on_behalf_by` — the same disclosure, sharper. Where
+ * `created_by` merely *might* be an employee, this is non-null on
+ * exactly the orders a member of staff took for somebody else, so
+ * serving it would name a named individual to the customer they served
+ * every single time. Who answered the telephone is the kitchen's record
+ * of its own shift; a customer with a complaint has the kitchen to
+ * complain to, not an employee to identify. `fulfilment_type` **is**
+ * served here and is the counter-example: how the food reaches somebody
+ * is a term of their own order, and withholding it would leave an empty
+ * delivery block with no explanation for it.
  * * `lock_version` — the validator of a resource this audience cannot
  * write. Serving one with no writer invites `If-Match` at an endpoint
  * that would ignore it.
@@ -3253,6 +3413,7 @@ export const zCustomerOrder = z.object({
     delivery_fee_minor: z.int().nullable(),
     total_minor: z.int(),
     payment_method: zPaymentMethod,
+    fulfilment_type: zFulfilmentType,
     delivery: zCustomerOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
@@ -3274,12 +3435,18 @@ export const zCustomerOrder = z.object({
  * screen that could not read the validator could not send the `If-Match`
  * the three lifecycle actions demand.
  *
+ * **`customer_account_id` is nullable and `fulfilment_type` says when.**
+ * A counter sale may be a stranger buying a sandwich, and there is nobody
+ * to name; a delivery and a pickup always have somebody. The pair has to
+ * be read together — a null customer is a fact about a walk-in, never a
+ * row that failed to load.
+ *
  */
 export const zKitchenOrder = z.object({
     id: zUuid,
     order_number: z.string(),
     organisation_id: zUuid,
-    customer_account_id: zUuid,
+    customer_account_id: z.uuid().nullable(),
     sales_channel_id: zUuid,
     branch_id: z.uuid().nullable(),
     status: zOrderStatus,
@@ -3288,6 +3455,7 @@ export const zKitchenOrder = z.object({
     delivery_fee_minor: z.int().nullable(),
     total_minor: z.int(),
     payment_method: zPaymentMethod,
+    fulfilment_type: zFulfilmentType,
     delivery: zKitchenOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
@@ -3295,6 +3463,7 @@ export const zKitchenOrder = z.object({
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
     created_by: z.uuid().nullable(),
+    placed_on_behalf_by: z.uuid().nullable(),
     lock_version: z.int().gte(0),
     line_count: z.int().gte(0),
     lines: z.array(zKitchenOrderLine),
@@ -3314,6 +3483,509 @@ export const zKitchenOrderEnvelope = z.object({
         order: zKitchenOrder
     }),
     meta: zMeta
+});
+
+/**
+ * One statement that money arrived against an order.
+ *
+ * **There is no `currency_code` field, and that is a decision rather than
+ * an omission.** The receipt is denominated in the order's own currency,
+ * taken from the order by the server: a receipt in another currency is not
+ * a receipt for this order, it is a conversion nobody performed and a
+ * figure that cannot be summed against the order's total. Accepting the
+ * field would mean either validating it against the order — a round trip to
+ * be told what the server already knows — or trusting it, and a trusted
+ * mismatch is a kitchen's takings quietly wrong in two currencies at once.
+ *
+ * `method` is **not** constrained to the order's own `payment_method`. See
+ * the operation: recording the divergence is the point.
+ *
+ */
+export const zStorePaymentReceiptRequest = z.object({
+    method: zPaymentMethod,
+    amount_minor: z.int().gte(1),
+    reference: z.string().max(120).nullish(),
+    notes: z.string().max(300).nullish()
+});
+
+/**
+ * One recorded arrival of money, and the person who says it arrived.
+ *
+ * **Append-only.** There is no update operation and no delete operation for
+ * a receipt, and there will not be: money arriving is not an event that
+ * un-happens, and giving it back is a refund on the payments surface with
+ * its own authority and its own record.
+ *
+ * No `organisation_id`: a receipt is reachable only through an order the
+ * caller's own kitchen owns, so the field would restate the caller's
+ * organisation to itself.
+ *
+ */
+export const zOrderPaymentReceipt = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    method: zPaymentMethod,
+    amount_minor: z.int().gte(0),
+    currency_code: z.string().length(3),
+    reference: z.string().nullable(),
+    confirmed_by: zUuid,
+    confirmed_at: z.iso.datetime({ offset: true }),
+    notes: z.string().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * Where an order stands on being paid, derived on read and **stored
+ * nowhere**. There is no `payment_status` column behind this and there will
+ * not be one: a stored flag beside an append-only ledger is a second answer
+ * to a question the ledger already answers, and two answers drift.
+ *
+ * `method` is the order's **intended** method, not any receipt's. A desk
+ * reads this before the money arrives — it is how somebody knows what to
+ * ask the customer for — so the useful fact here is what the order was
+ * taken on. What actually arrived is on each receipt, under its own name.
+ *
+ * **`receipted`, not `paid`.** The word is doing real work: this platform
+ * holds no proof that money exists, only that somebody wrote down that it
+ * arrived. It is `received_minor >= total_minor` — an inequality in both
+ * directions, because a part payment leaves it false until the balance
+ * lands and an over-payment does not make it truer.
+ *
+ */
+export const zOrderPaymentSummary = z.object({
+    method: zPaymentMethod,
+    received_minor: z.int().gte(0),
+    receipted: z.boolean()
+});
+
+export const zOrderPaymentReceiptEnvelope = z.object({
+    data: z.object({
+        receipt: zOrderPaymentReceipt,
+        payment: zOrderPaymentSummary
+    }),
+    meta: zMeta
+});
+
+/**
+ * Which slice of the open book the desk is looking at — three questions
+ * somebody at a desk actually asks, rather than a date range that could
+ * express a hundred nobody does.
+ *
+ * **`today` includes orders with no requested date at all.** An order whose
+ * customer named no day is not scheduled for nothing, it is scheduled for
+ * as soon as possible, and a plain range would silently drop exactly the
+ * set nobody has committed to a day yet. `overdue` does not inherit that
+ * rule: a dateless order is never late, because there is no day it has
+ * missed. `next_7` runs from today to seven days after it, inclusive at
+ * both ends.
+ *
+ */
+export const zOrderDeskWindow = z.enum([
+    'today',
+    'overdue',
+    'next_7'
+]);
+
+/**
+ * The customer's name, and the number somebody can ring them on.
+ *
+ * **Present only when the caller holds
+ * `order.view_customer_contact_organisation`**, and *absent* — not null —
+ * without it. Null here is a fact about the customer ("we hold no number
+ * for them"), and a screen could not tell that apart from a fact about the
+ * reader unless the two cases differed in shape.
+ *
+ * Either field may be null on its own: an anonymised account has no name,
+ * and a customer who never gave a number has no number. The number is
+ * served **verified or not** — a courier ringing about tonight's delivery
+ * needs the number the customer gave, not one the platform has proved.
+ *
+ * This is the whole of the disclosure. No address beyond the delivery
+ * snapshot the order book already serves, no email, no allergen
+ * declaration, no order history, and no account identifier to pivot on.
+ *
+ */
+export const zOrderDeskCustomerContact = z.object({
+    display_name: z.string().nullable(),
+    phone: z.string().nullable()
+});
+
+/**
+ * One tap at the counter. The desk sends what the agent pressed, duplicates
+ * and all: the server merges lines naming the same article **and the same
+ * pack** into one line whose quantity is the sum, first-seen position
+ * preserved, because `order_lines` holds one row per article and three taps
+ * of the same coffee is a quantity rather than three lines. An article
+ * ordered plain and the same article ordered in a pack stay two lines —
+ * they are two different things to sell.
+ *
+ * Both the quote and the placement merge identically, so the quantity
+ * quoted is the quantity charged.
+ *
+ */
+export const zOrderDeskBasketLine = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: zUuid.nullish(),
+    quantity: z.union([
+        z.number(),
+        z.string()
+    ])
+});
+
+/**
+ * The fields a desk quote and a desk sale share — everything except how the
+ * customer is paying, which only a sale needs to state.
+ *
+ * `fulfilment_type` decides which of the rest are required, forbidden or
+ * merely allowed. The rule is **not** enforced as validation: it arrives as
+ * `customer_required` / `address_required` / `address_not_applicable`, in
+ * the quote's `refusals` or in the placement's refusal envelope, so that a
+ * request wrong in two ways says both instead of surfacing one as a `422`
+ * and the other as a `409`.
+ *
+ */
+export const zOrderDeskSaleBase = z.object({
+    fulfilment_type: zFulfilmentType,
+    lines: z.array(zOrderDeskBasketLine).min(1),
+    branch_id: zUuid.nullish(),
+    customer_account_id: zUuid.nullish(),
+    customer_address_id: zUuid.nullish(),
+    requested_delivery_date: z.iso.date().nullish(),
+    delivery_window_code: z.string().max(40).nullish()
+});
+
+export const zQuoteOrderDeskRequest = zOrderDeskSaleBase.and(z.object({}));
+
+/**
+ * Money handed over at the counter, recorded as it happens.
+ *
+ * Present on a `counter` sale and refused on the other two, because that is
+ * what the three words mean. A walk-in pays now: the customer is in the
+ * room, the food is in front of them, and there is no later moment at which
+ * the money arrives. A counter order left unpaid would be a *pickup*
+ * wearing the wrong label — something the kitchen is holding for somebody
+ * who will settle when they come back — and nothing downstream could tell
+ * it from a counter sale whose receipt was lost.
+ *
+ * A delivery is settled at the door and a pickup when the customer
+ * collects, both afterwards through `POST /catalogue/orders/{order}/
+ * payments`, recorded by whoever actually took the money with their own
+ * `confirmed_by` and their own moment. Receipting one of those here would
+ * put cash into a day's takings that is still in a customer's pocket.
+ *
+ * **There is no amount.** The receipt is written for exactly the order's
+ * `total_minor`. A discrepancy at the till is a till problem, not an order
+ * problem: rewriting the receipt to match the cash in the drawer would make
+ * the sale unreconcilable against the tariff that produced it. Part
+ * payments and over-payments are real elsewhere and arrive as their own
+ * rows through the receipts operation.
+ *
+ */
+export const zOrderDeskCounterPayment = z.object({
+    method: zPaymentMethod,
+    reference: z.string().max(120).nullish(),
+    notes: z.string().max(300).nullish()
+});
+
+export const zPlaceOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
+    payment_method: zPaymentMethod,
+    payment: zOrderDeskCounterPayment.optional()
+}));
+
+/**
+ * One thing standing between this basket and a sale, as **data**.
+ *
+ * `reason` is a stable machine key and every other property is whatever
+ * identifies the offending thing — `catalogue_item_id` on a line refusal,
+ * `delivery_area_id` on a zone one, `fulfilment_type` on a shape one,
+ * `cut_off_at` and `branch_id` on a schedule one. The shape is open on
+ * purpose: it is the same `{reason, …context}` vocabulary the placement
+ * refusal carries, and pinning the context keys per reason would freeze a
+ * vocabulary both endpoints extend together.
+ *
+ */
+export const zOrderDeskQuoteRefusal = z.object({
+    reason: z.string()
+});
+
+/**
+ * One line of the quote, priced or explained.
+ *
+ * The four price-bearing fields are **null together** whenever the line was
+ * refused: there is no price to show for an article the kitchen has
+ * withdrawn, and a zero would read as free. `refusals` is what says why, and
+ * an empty array is what says the line is sellable.
+ *
+ * `quantity` is the **merged** quantity — duplicate taps summed — because
+ * that is the number the placement will use and therefore the number the
+ * agent has to see.
+ *
+ */
+export const zOrderDeskQuoteLine = z.object({
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: z.uuid().nullable(),
+    quantity: z.string(),
+    name_en: z.string().nullable(),
+    name_ar: z.string().nullable(),
+    unit_price_minor: z.int().nullable(),
+    line_total_minor: z.int().nullable(),
+    currency_code: z.string().length(3),
+    refusals: z.array(zOrderDeskQuoteRefusal)
+});
+
+/**
+ * What this basket would come to, and everything standing in the way of it.
+ *
+ * **The totals are summed over the refusal-free lines only**, and they are
+ * offered even when the sale cannot proceed because "drop the soup and it
+ * comes to eleven dollars" is the agent's next sentence. They are not what
+ * would be charged, which is what `quotable` is for.
+ *
+ */
+export const zOrderDeskQuote = z.object({
+    lines: z.array(zOrderDeskQuoteLine),
+    subtotal_minor: z.int().gte(0),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int().gte(0),
+    currency_code: z.string().length(3),
+    refusals: z.array(zOrderDeskQuoteRefusal),
+    quotable: z.boolean()
+});
+
+export const zOrderDeskQuoteEnvelope = z.object({
+    data: z.object({
+        quote: zOrderDeskQuote
+    }),
+    meta: zMeta
+});
+
+/**
+ * A customer as the order desk sees them: enough to pick the right one out
+ * of a list of five, and nothing more.
+ *
+ * `display_name` and `phone` are the disclosure this shape exists for, and
+ * they are the same pair the queue row carries behind the same permission
+ * code. The two surfaces deliberately agree — a search revealing more than
+ * the queue would make the queue's gating pointless.
+ *
+ * **What is absent is each its own decision.** No email: a number is what a
+ * desk rings, and an address is what a marketing list is built from. No
+ * account number — it is confidential, it is what a person quotes to
+ * *support*, and a desk that could read one could quote it back to a caller
+ * who is not the account holder. No addresses: a street somebody lives on
+ * belongs to the order going there, not to a search result. No order
+ * history and no count of other kitchens, so this never becomes the surface
+ * on which one kitchen reads another's customer relationships. No status,
+ * because the desk bypasses the activation checklist and it would change
+ * nothing an agent could do.
+ *
+ */
+export const zOrderDeskCustomer = z.object({
+    id: zUuid,
+    display_name: z.string().nullable(),
+    phone: z.string().nullable(),
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    has_orders_with_org: z.boolean()
+});
+
+export const zOrderDeskCustomersEnvelope = z.object({
+    data: z.array(zOrderDeskCustomer),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        limit: z.int()
+    }))
+});
+
+export const zOrderDeskCustomerEnvelope = z.object({
+    data: z.object({
+        customer: zOrderDeskCustomer,
+        possible_duplicates: z.array(zOrderDeskCustomer)
+    }),
+    meta: zMeta
+});
+
+/**
+ * Three counts of three different kinds of thing, and **they are never
+ * summed**. There is deliberately no total anywhere in this schema.
+ *
+ * They overlap by construction: a projected day becomes a claimed one, a
+ * claimed one becomes an order, and the forecast is optimistic about days a
+ * claim already exists for. Adding them over-counts, and a kitchen ordering
+ * ingredients from the result would over-buy quietly. Render three numbers.
+ *
+ */
+export const zOrderDeskCalendarCounts = z.object({
+    order: z.int().gte(0),
+    scheduled: z.int().gte(0),
+    projected: z.int().gte(0)
+});
+
+export const zOrderDeskCalendarWindow = z.object({
+    code: z.string().max(40).nullable(),
+    counts: zOrderDeskCalendarCounts
+});
+
+export const zOrderDeskCalendarDay = z.object({
+    date: z.iso.date(),
+    counts: zOrderDeskCalendarCounts,
+    windows: z.array(zOrderDeskCalendarWindow)
+});
+
+export const zOrderDeskCalendarEnvelope = z.object({
+    data: z.object({
+        days: z.array(zOrderDeskCalendarDay)
+    }),
+    meta: zMeta.and(z.object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        day_count: z.int().gte(1),
+        max_window_days: z.int()
+    }))
+});
+
+export const zOrderDeskRequirementRow = z.object({
+    ingredient_id: zUuid,
+    stock_item_id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_code: z.string().nullable(),
+    required: z.string(),
+    available: z.string(),
+    short: z.string(),
+    suggested_buy: z.string()
+});
+
+/**
+ * The part of the window nobody could turn into a number. **Never a zero
+ * in the list above** — "buy nothing for that" and "we could not work out
+ * what to buy for that" are opposite statements.
+ *
+ */
+export const zOrderDeskNotComputable = z.object({
+    days: z.int().gte(0),
+    reasons: z.record(z.string(), z.int().gte(1))
+});
+
+export const zOrderDeskRequirementsEnvelope = z.object({
+    data: z.object({
+        requirements: z.array(zOrderDeskRequirementRow),
+        not_computable: zOrderDeskNotComputable
+    }),
+    meta: zMeta.and(z.object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        branch_id: zUuid,
+        max_window_days: z.int()
+    }))
+});
+
+export const zOrderDeskShortfallCountEnvelope = z.object({
+    data: z.object({
+        shortfall_count: z.int().gte(0).nullable(),
+        branch_id: zUuid.nullable()
+    }),
+    meta: zMeta
+});
+
+export const zOrderDeskDriver = z.object({
+    user_id: zUuid,
+    display_name: z.string().nullable()
+});
+
+export const zOrderDeskDriversEnvelope = z.object({
+    data: z.array(zOrderDeskDriver),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        limit: z.int()
+    }))
+});
+
+export const zCreateOrderDeskCustomerRequest = z.object({
+    display_name: z.string().max(255),
+    phone: z.string().max(255),
+    preferred_language_code: z.string().length(2).nullish(),
+    country_code: z.string().length(2).nullish()
+});
+
+/**
+ * The customer's own address body minus `address_type`, `contact_point_id`
+ * and `is_default` — see the operation for why each is absent. Every length
+ * is the column's.
+ *
+ * `delivery_area_id` is a `uuid` and nothing more. Whether anybody
+ * delivers there is asked at save time and answered as
+ * `address.area_not_served`, which is the sentence the agent reads out to
+ * the customer; an `exists` rule would refuse an unknown identifier as
+ * "invalid" and still say nothing about coverage.
+ *
+ */
+export const zAddOrderDeskCustomerAddressRequest = z.object({
+    delivery_area_id: zUuid,
+    label: z.string().max(60).nullish(),
+    line_one: z.string().max(255),
+    line_two: z.string().max(255).nullish(),
+    building: z.string().max(120).nullish(),
+    floor: z.string().max(40).nullish(),
+    apartment: z.string().max(40).nullish(),
+    directions: z.string().max(1000).nullish(),
+    postal_code: z.string().max(20).nullish()
+});
+
+/**
+ * What one agent took, one way, in one currency, on one day.
+ *
+ * The row's identity is all three of `(confirmed_by, method, currency_code)`
+ * — an agent who took cash and a WISH transfer is two rows, and an agent who
+ * took dollars and dirhams is two more. That is not a normalisation
+ * accident: the currency belongs to the key because `amount_minor_sum` is
+ * only meaningful within one, and a shape that let a group span two would
+ * be a shape in which a nonsense number could be written.
+ *
+ */
+export const zOrderDeskCashReportRow = z.object({
+    confirmed_by: zUuid,
+    display_name: z.string().nullable(),
+    method: zPaymentMethod,
+    currency_code: z.string().length(3),
+    receipt_count: z.int().gte(1),
+    amount_minor_sum: z.int()
+});
+
+/**
+ * The same money one level up: one method, one currency, across every agent.
+ *
+ * Derived from the rows rather than queried separately, so a total can never
+ * disagree with the table above it. **There is no grand total anywhere in
+ * this response and there will not be** — it would have to add currencies,
+ * and the only reliable defence against that is a shape with nowhere to put
+ * it.
+ *
+ */
+export const zOrderDeskCashReportTotal = z.object({
+    method: zPaymentMethod,
+    currency_code: z.string().length(3),
+    receipt_count: z.int().gte(1),
+    amount_minor_sum: z.int()
+});
+
+export const zOrderDeskCashReportEnvelope = z.object({
+    data: z.object({
+        rows: z.array(zOrderDeskCashReportRow),
+        totals: z.array(zOrderDeskCashReportTotal)
+    }),
+    meta: zMeta.and(z.object({
+        date: z.iso.date(),
+        branch_id: z.uuid().nullable(),
+        timezone: z.string(),
+        count: z.int().gte(0)
+    }))
 });
 
 /**
@@ -4681,46 +5353,6 @@ export const zReplaceCatalogueItemAvailabilityRequest = z.object({
 });
 
 /**
- * One ticket on the kitchen display rail.
- */
-export const zKitchenDisplayTicket = z.object({
-    id: zUuid,
-    label: z.string().max(160),
-    status: z.enum([
-        'new',
-        'preparing',
-        'ready'
-    ]),
-    station: z.string().max(64),
-    source_type: z.string().max(48),
-    source_id: zUuid
-});
-
-export const zCreatePosSaleLine = z.object({
-    catalogue_item_id: zUuid,
-    quantity: z.number().gte(0.0001),
-    line_total_minor: z.int().gte(0)
-});
-
-export const zCreatePosSaleRequest = z.object({
-    pos_shift_id: zUuid,
-    payment_method_kind: z.enum(['cash_on_delivery', 'card']),
-    currency_code: zCurrencyCode,
-    lines: z.array(zCreatePosSaleLine).min(1)
-});
-
-/**
- * A recorded counter sale. Three fields — the lines are not echoed back,
- * because the caller sent them.
- *
- */
-export const zPosTransaction = z.object({
-    id: zUuid,
-    total_minor: z.int().gte(0),
-    payment_method_kind: z.enum(['cash_on_delivery', 'card'])
-});
-
-/**
  * Where the job is in its life.
  */
 export const zDeliveryJobStatus = z.enum([
@@ -4747,6 +5379,56 @@ export const zDeliveryJobTrackingStatus = z.enum([
 ]);
 
 /**
+ * The run this order became: which driver has it, what state it is in, and
+ * when it was assigned.
+ *
+ * **`null` is a real answer, and it is true of three different orders.** A
+ * pickup or a counter sale is never driven anywhere. A delivery order still
+ * `placed` has no run yet, because a job is projected on *confirm* — the
+ * moment a kitchen commits to cook — and a placed order may still be
+ * cancelled without a driver hearing about it. And a delivery order
+ * confirmed before C3 shipped was never projected and will not be
+ * retrospectively. All three read as `null`; a screen that needs to
+ * distinguish them has `fulfilment_type` and `status` on the same row.
+ *
+ * **No address here.** Where the food is going is already on the row's own
+ * `delivery` block, and a second copy inside the job would be two answers
+ * to one question.
+ *
+ * This seat was declared nullable and empty before anything could fill it,
+ * so the row would not change shape under a client when C3 arrived — the
+ * same argument the payment seat was declared on.
+ *
+ */
+export const zOrderDeskDeliveryJob = z.object({
+    id: zUuid,
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_user_id: zUuid.nullable(),
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int()
+});
+
+export const zOrderDeskRow = zKitchenOrder.and(z.object({
+    due_at: z.iso.datetime({ offset: true }),
+    payment: zOrderPaymentSummary,
+    delivery_job: zOrderDeskDeliveryJob.nullable(),
+    customer: zOrderDeskCustomerContact.optional()
+}));
+
+export const zOrderDeskQueueEnvelope = z.object({
+    data: z.array(zOrderDeskRow),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        limit: z.int(),
+        truncated: z.boolean(),
+        window: zOrderDeskWindow,
+        today: z.iso.date(),
+        timezone: z.string()
+    }))
+});
+
+/**
  * A delivery job as the dispatch board sees it.
  */
 export const zDeliveryJob = z.object({
@@ -4758,15 +5440,74 @@ export const zDeliveryJob = z.object({
 });
 
 /**
- * The same job on the driver's own run sheet. `driver_user_id` is absent
- * because it would say the same thing on every row.
+ * Where this run is going, **as the order recorded it at placement** — never
+ * as the customer's address book stands now. A customer who edits their
+ * address at eight o'clock has not changed where tonight's food is going,
+ * and a run sheet reading the live address would send a driver to a door
+ * the order was never for.
+ *
+ * Every field is nullable, and the nulls are ordinary: an order placed
+ * before the snapshot was widened carries no building or floor, an
+ * as-soon-as-possible order names no day, and a kitchen that has not named
+ * its slots has no window code.
+ *
+ */
+export const zDriverJobDelivery = z.object({
+    line_one: z.string().nullable(),
+    building: z.string().nullable(),
+    floor: z.string().nullable(),
+    apartment: z.string().nullable(),
+    directions: z.string().nullable(),
+    area_name_en: z.string().nullable(),
+    area_name_ar: z.string().nullable(),
+    window_code: z.string().nullable(),
+    requested_date: z.iso.date().nullable(),
+    phone: z.string().nullable()
+});
+
+/**
+ * The same job on the driver's own run sheet, carrying what somebody
+ * standing next to a van needs: which order this is, where the food is
+ * going in enough detail to find a door, when it was promised, when they
+ * were given it, and the number to ring when they still cannot find the
+ * building.
+ *
+ * `driver_user_id` is absent because it would say the same thing on every
+ * row — the caller's own id, which they already have — and the dispatch
+ * board is the surface where whose job it is is worth answering. Money is
+ * absent for a related reason: a driver collecting cash on delivery is a
+ * real flow and it belongs to the receipts ledger, not bolted onto a run
+ * sheet.
  *
  */
 export const zDriverJob = z.object({
     id: zUuid,
     order_id: zUuid,
+    order_number: z.string().nullable(),
     status: zDeliveryJobStatus,
-    tracking_status: zDeliveryJobTrackingStatus
+    tracking_status: zDeliveryJobTrackingStatus,
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    delivery: zDriverJobDelivery
+});
+
+export const zAssignDeliveryJobRequest = z.object({
+    driver_user_id: zUuid
+});
+
+/**
+ * The dispatch board's shape plus what the assignment just decided. A
+ * superset rather than a different shape, so a board refreshing one row
+ * from this response does not have to reconcile two vocabularies.
+ *
+ */
+export const zAssignedDeliveryJob = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_user_id: zUuid.nullable(),
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    lock_version: z.int()
 });
 
 export const zDeliverDriverJobRequest = z.object({
@@ -6324,10 +7065,10 @@ export const zPlatformKitchenSummaryEnvelope = z.object({
 });
 
 /**
- * **One request creates four things, in one transaction: the
+ * **One request creates five things, in one transaction: the
  * organisation, one active main branch, the `kitchen_production`
- * capability, and a `b2c_web` sales channel coded `web-shop`.** All four
- * or none.
+ * capability, a `b2c_web` sales channel coded `web-shop`, and a `pos`
+ * sales channel coded `desk`.** All five or none.
  *
  * A kitchen that is only an organisation row is a kitchen whose workspace
  * refuses on the first screen: the organisation context resolves a
@@ -6338,6 +7079,14 @@ export const zPlatformKitchenSummaryEnvelope = z.object({
  * to add the rest afterwards was rejected because it makes the console's
  * success message a lie for the twenty minutes before somebody notices. A
  * new kitchen works immediately; it simply has nothing in it yet.
+ *
+ * The fifth is the counter. The Order Desk sells through its own channel
+ * rather than through the web shop, so that a kitchen may put the catering
+ * trays across the counter without putting them on the site — and a
+ * kitchen provisioned without one can take a web order but not a walk-in,
+ * which is half a business. Both channels open empty: a kitchen created a
+ * moment ago has no articles and no tariffs, so there is nothing to
+ * assign to either.
  *
  * The wholesale channel is deliberately **not** created. A kitchen that
  * has never traded with a company does not need a B2B channel sitting
@@ -6723,15 +7472,11 @@ export const zKycDocumentPath = zUuid;
 export const zKycAccessPurpose = z.string().min(1).max(160);
 
 /**
- * The ticket identifier. Unlike the catalogue paths this one takes an
- * identifier only — a rail ticket has no stable key a human would hold.
- *
- */
-export const zKitchenDisplayTicketPath = zUuid;
-
-/**
- * The delivery job identifier. One that is not the caller's own answers
- * 404, decided before the request body is looked at.
+ * The delivery job identifier. On the driver routes, one that is not the
+ * caller's own answers 404, decided before the request body is looked at;
+ * on the dispatcher's `assign`, one belonging to another organisation
+ * answers 404 for the same reason — a 403 would confirm that the
+ * identifier names something real.
  *
  */
 export const zDeliveryJobPath = zUuid;
@@ -8822,6 +9567,43 @@ export const zReplacePlanVariantsPath = z.object({
  */
 export const zReplacePlanVariantsResponse = zPlanVariantsEnvelope;
 
+export const zGetPlanMenuHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetPlanMenuPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan, its cycle configuration and every entry on its menu.
+ */
+export const zGetPlanMenuResponse = zPlanMenuEnvelope;
+
+export const zReplacePlanMenuBody = zReplacePlanMenuRequest;
+
+export const zReplacePlanMenuHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplacePlanMenuPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The plan, the cycle it now runs on, and every entry it now has.
+ */
+export const zReplacePlanMenuResponse = zPlanMenuEnvelope;
+
 export const zListPlanVariantDurationsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -9686,6 +10468,198 @@ export const zCancelKitchenOrderPath = z.object({
  */
 export const zCancelKitchenOrderResponse = zKitchenOrderEnvelope;
 
+export const zRecordOrderPaymentBody = zStorePaymentReceiptRequest;
+
+export const zRecordOrderPaymentHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRecordOrderPaymentPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The receipt that was written, and the order's payment position with
+ * it counted in.
+ *
+ * No `ETag`: the order's validator has not moved, and serving one from
+ * an operation that did not change it would invite a client to treat
+ * this as a write to the order.
+ *
+ */
+export const zRecordOrderPaymentResponse = zOrderPaymentReceiptEnvelope;
+
+export const zListOrderDeskQueueHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListOrderDeskQueueQuery = z.object({
+    window: zOrderDeskWindow.optional(),
+    branch_id: zUuid.optional(),
+    'status[]': z.array(z.enum(['placed', 'confirmed'])).optional(),
+    delivery_window_code: z.string().max(40).optional(),
+    fulfilment_type: zFulfilmentType.optional(),
+    query: z.string().max(60).optional()
+});
+
+/**
+ * The open queue in due order, capped, with the day and clock it was measured against.
+ */
+export const zListOrderDeskQueueResponse = zOrderDeskQueueEnvelope;
+
+export const zQuoteOrderDeskBody = zQuoteOrderDeskRequest;
+
+export const zQuoteOrderDeskHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The priced basket, its totals, and every refusal standing between it and a sale.
+ */
+export const zQuoteOrderDeskResponse = zOrderDeskQuoteEnvelope;
+
+export const zPlaceOrderDeskOrderBody = zPlaceOrderDeskRequest;
+
+export const zPlaceOrderDeskOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The order as the kitchen sees it, with every line at the price it was
+ * placed at. `status` is `placed` on a delivery or a pickup and
+ * `fulfilled` on a counter sale, which is the whole observable
+ * difference between the two writes this operation performs. A replay
+ * of a request this key already answered returns this same body and
+ * this same status, with `Idempotency-Replayed: true`; nothing ran a
+ * second time.
+ *
+ */
+export const zPlaceOrderDeskOrderResponse = zKitchenOrderEnvelope;
+
+export const zSearchOrderDeskCustomersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSearchOrderDeskCustomersQuery = z.object({
+    query: z.string().min(3).max(60)
+});
+
+/**
+ * The matching customers of this kitchen, capped, alphabetically by name.
+ */
+export const zSearchOrderDeskCustomersResponse = zOrderDeskCustomersEnvelope;
+
+export const zCreateOrderDeskCustomerBody = zCreateOrderDeskCustomerRequest;
+
+export const zCreateOrderDeskCustomerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The customer as the desk sees them, and anybody already on that
+ * number. A replay of a request this key already answered returns the
+ * same body and the same status, with `Idempotency-Replayed: true`.
+ *
+ */
+export const zCreateOrderDeskCustomerResponse = zOrderDeskCustomerEnvelope;
+
+export const zAddOrderDeskCustomerAddressBody = zAddOrderDeskCustomerAddressRequest;
+
+export const zAddOrderDeskCustomerAddressHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAddOrderDeskCustomerAddressPath = z.object({
+    account: zUuid
+});
+
+/**
+ * The address was added, with whether anybody delivers to it today.
+ */
+export const zAddOrderDeskCustomerAddressResponse = zCustomerAddressEnvelope;
+
+export const zGetOrderDeskCalendarHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskCalendarQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * Every day of the window, each with its three counts and their split by slot.
+ */
+export const zGetOrderDeskCalendarResponse = zOrderDeskCalendarEnvelope;
+
+export const zGetOrderDeskRequirementsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskRequirementsQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+    branch_id: zUuid
+});
+
+/**
+ * The window's requirements against one branch, and the part of it nobody could compute.
+ */
+export const zGetOrderDeskRequirementsResponse = zOrderDeskRequirementsEnvelope;
+
+export const zGetOrderDeskShortfallCountHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskShortfallCountQuery = z.object({
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The count, or null when no branch was named.
+ */
+export const zGetOrderDeskShortfallCountResponse = zOrderDeskShortfallCountEnvelope;
+
+export const zListOrderDeskDriversHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * This organisation's active members, named where a name exists.
+ */
+export const zListOrderDeskDriversResponse = zOrderDeskDriversEnvelope;
+
+export const zGetOrderDeskCashReportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskCashReportQuery = z.object({
+    date: z.iso.date(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * One day's takings by agent, method and currency, with the per-method totals.
+ */
+export const zGetOrderDeskCashReportResponse = zOrderDeskCashReportEnvelope;
+
 export const zStartGuestSessionBody = zStartGuestSessionRequest;
 
 export const zStartGuestSessionHeaders = z.object({
@@ -10080,64 +11054,6 @@ export const zWithdrawMyConsentPath = z.object({
  */
 export const zWithdrawMyConsentResponse = z.void();
 
-export const zListKitchenDisplayTicketsHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Branch-Id': zUuid.optional(),
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-/**
- * Up to 100 open tickets, oldest first.
- */
-export const zListKitchenDisplayTicketsResponse = z.object({
-    data: z.object({
-        tickets: z.array(zKitchenDisplayTicket).max(100)
-    }),
-    meta: zMeta
-});
-
-export const zBumpKitchenDisplayTicketHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-export const zBumpKitchenDisplayTicketPath = z.object({
-    ticket: zUuid
-});
-
-/**
- * The ticket, bumped.
- */
-export const zBumpKitchenDisplayTicketResponse = z.object({
-    data: z.object({
-        ticket: z.object({
-            id: zUuid,
-            status: z.string()
-        })
-    }),
-    meta: zMeta
-});
-
-export const zCreatePosSaleBody = zCreatePosSaleRequest;
-
-export const zCreatePosSaleHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-/**
- * The recorded transaction — its identifier, the computed total and
- * how it was paid. The lines are not echoed back; the caller sent
- * them.
- *
- */
-export const zCreatePosSaleResponse = z.object({
-    data: z.object({
-        pos_transaction: zPosTransaction
-    }),
-    meta: zMeta
-});
-
 export const zListDeliveryJobsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -10186,8 +11102,30 @@ export const zDeliverDriverJobResponse = z.object({
     data: z.object({
         job: z.object({
             id: zUuid,
-            status: z.string()
+            status: zDeliveryJobStatus
         })
+    }),
+    meta: zMeta
+});
+
+export const zAssignDeliveryJobBody = zAssignDeliveryJobRequest;
+
+export const zAssignDeliveryJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAssignDeliveryJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job as it now stands, with its new validator.
+ */
+export const zAssignDeliveryJobResponse = z.object({
+    data: z.object({
+        job: zAssignedDeliveryJob
     }),
     meta: zMeta
 });

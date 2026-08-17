@@ -855,6 +855,93 @@ export interface SetPlanCombinationsRequest extends LockedRequest {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * The fixed menu
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The four sittings a dish can fill.
+ *
+ * Exactly the vocabulary `subscription_meal_choices.slot` stores, because generation copies this
+ * string straight onto a choice row: a value a menu admitted and a choice did not would be a failure
+ * discovered at the far end of the system, on the night the order was generated.
+ */
+export const PLAN_MENU_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+export type PlanMenuSlot = (typeof PLAN_MENU_SLOTS)[number];
+
+/** One dish, in one slot, on one day of the plan's cycle. */
+export interface PlanMenuEntry {
+    /**
+     * The server's row identifier.
+     *
+     * Carried so an editor can key a row that came from the server, and for nothing else: the
+     * replacement body has **no identifier field**, because an entry's identity on this contract is
+     * its coordinate — `(cycleDay, slot, sequence)` — and a menu is replaced as a whole document.
+     */
+    readonly id: string;
+    /**
+     * 1-based day of the cycle. **Day 1 is the anchor date itself**, and the cycle is anchored to the
+     * *plan* rather than to each subscriber: everybody on the plan eats the same dish on the same
+     * date, which is what makes a day one production run instead of an à la carte service.
+     */
+    readonly cycleDay: number;
+    readonly slot: PlanMenuSlot;
+    /** Disambiguates the kitchen that serves lunch twice. 1 unless somebody says otherwise. */
+    readonly sequence: number;
+    readonly mealId: MealId;
+    /** As the server resolved it, so a menu renders without a second read per dish. */
+    readonly mealName: LocalisedText;
+}
+
+/**
+ * A plan's fixed menu, as one document.
+ *
+ * **All three parts move together.** A cycle length with no entries, entries with no cycle length,
+ * and a cycle length with no anchor are each refused; all three empty is the legitimate statement
+ * "this plan has no published menu", which is what every plan says until somebody writes one.
+ *
+ * Publishing a menu is a **cutover**, not a cosmetic change: until one exists a fixed-menu
+ * subscription order carries no meal lines and deducts no stock, and from the first save generation
+ * fills the day's choices from this menu and confirmed orders start consuming ingredients.
+ */
+export interface PlanMenu {
+    readonly planId: SubscriptionPlanId;
+    /**
+     * The **catalogue item's** meta, not the profile's.
+     *
+     * `subscription_plan_profiles` is not lock-versioned: the menu write carries the item's version,
+     * exactly as the profile write does, so a save reads this rather than inventing a number.
+     */
+    readonly meta: AdminEntityMeta;
+    /** Length of the rotation in days, or `null` when no menu is published. */
+    readonly cycleDays: number | null;
+    /** `YYYY-MM-DD` the cycle's day 1 falls on. A date, because a cycle turns over at midnight. */
+    readonly anchorDate: string | null;
+    readonly entries: readonly PlanMenuEntry[];
+}
+
+/** One entry as the replacement body carries it — a coordinate and the dish that fills it. */
+export interface PlanMenuEntryInput {
+    readonly cycleDay: number;
+    readonly slot: PlanMenuSlot;
+    readonly sequence: number;
+    /** Must be a **published meal** of this kitchen; anything else is refused with `422`. */
+    readonly mealId: MealId;
+}
+
+/**
+ * Replaces the whole menu.
+ *
+ * Replace, never merge, for {@link SetPlanVariantsRequest}'s reason and one more: an entry has no
+ * stable identifier to merge against, so a partial write could not express "day 3's lunch is now a
+ * different dish" without inventing one.
+ */
+export interface ReplacePlanMenuRequest extends LockedRequest {
+    readonly entries: readonly PlanMenuEntryInput[];
+    readonly cycleDays: number | null;
+    readonly anchorDate: string | null;
+}
+
+/* ------------------------------------------------------------------------------------------------
  * Delivery zones, windows and branch operating data
  * ---------------------------------------------------------------------------------------------- */
 
@@ -1083,6 +1170,19 @@ export interface KitchenAdminRepository {
         planId: SubscriptionPlanId,
         request: SetPlanCombinationsRequest,
     ): Promise<PlanAdmin>;
+    /** The plan's fixed menu. Cycle and entries together, because they are one document. */
+    getPlanMenu(planId: SubscriptionPlanId): Promise<PlanMenu>;
+    /**
+     * Replaces it wholesale, or withdraws it when everything is empty.
+     *
+     * Refused with `validation.failed` for a dish that is not a published meal of this kitchen, for
+     * a day beyond the submitted cycle, and for a plan with no commercial terms yet
+     * (`plan_profile_missing`) — a menu on an unconfigured plan is a menu on nothing.
+     */
+    replacePlanMenu(
+        planId: SubscriptionPlanId,
+        request: ReplacePlanMenuRequest,
+    ): Promise<PlanMenu>;
 
     /* ── delivery zones and windows ─────────────────────────────────────────────────────────── */
 

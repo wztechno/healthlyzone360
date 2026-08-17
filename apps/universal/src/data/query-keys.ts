@@ -73,6 +73,7 @@ export const QUERY_ROOTS = [
     'kitchenAdmin',
     'kitchenOps',
     'kitchenOrders',
+    'orderDesk',
     'kitchenQuotations',
     'account',
     'verification',
@@ -80,6 +81,7 @@ export const QUERY_ROOTS = [
     'b2bApplication',
     'platformAdmin',
     'invitations',
+    'driverJobs',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -352,6 +354,15 @@ export const queryKeys = {
         plansPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'plans', 'page', scope(filter), page] as const,
         plan: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan', planId] as const,
+        /**
+         * The plan's fixed menu — its own entry rather than part of the record.
+         *
+         * `getPlan` does not carry it and the editor's other four sections do not need it, so
+         * folding it into the detail key would make every plan read fetch a menu nobody asked for.
+         * Saving the menu invalidates both: the write moves the *item's* lock version, which is the
+         * number the other four sections send with their next save.
+         */
+        planMenu: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan-menu', planId] as const,
 
         zones: (filter?: QueryScope) => ['kitchenAdmin', 'zones', scope(filter)] as const,
         zonesPage: (filter: QueryScope | undefined, page: number) =>
@@ -427,6 +438,102 @@ export const queryKeys = {
         all: () => ['kitchenOrders'] as const,
         list: (filter?: QueryScope) => ['kitchenOrders', 'list', scope(filter)] as const,
         order: (orderId: OrderId) => ['kitchenOrders', 'order', orderId] as const,
+    },
+
+    /**
+     * ── orderDesk: the open book in the order somebody at a desk has to work it ──────────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Added whole by the Order Desk wave, which owns this file's change for that slice — the
+     * header's rule is that a later wave asks rather than edits, and this is the wave that was
+     * asked.
+     *
+     * Its own root rather than a branch of `kitchenOrders`, and the reason is invalidation rather
+     * than taxonomy. They read the same rows through two endpoints with two different sorts, and a
+     * desk agent polling a queue every fifteen seconds must not be evicting the order book from
+     * under a manager working the detail panel beside them. When the desk gains its own writes they
+     * will invalidate both roots explicitly, which is a decision somebody can read; one shared root
+     * would make the coupling implicit and permanent.
+     *
+     * One entry, and `queue(filters)` takes the whole filter object per shape rule 3 — window,
+     * branch, statuses, delivery-window code and the order-number search are one *view*, so two
+     * screens asking for the same view share an entry and a filter change is a different entry
+     * rather than a mutation of this one. There is no by-identifier entry: the queue's detail read
+     * is `kitchenOrders.order(id)`, because the thing being opened is the order.
+     *
+     * **Never persisted, and one step further out than `kitchenOrders`.** These rows carry a named
+     * customer's *display name and telephone number* — disclosed only to a caller holding
+     * `order.view_customer_contact_organisation` — on a tablet at a counter that the whole kitchen
+     * signs into and that members of the public stand in front of. Writing them to disk would
+     * outlive both the session and the permission that allowed them to be read.
+     * `PERSISTABLE_QUERY_ROOTS` stays as it is.
+     */
+    orderDesk: {
+        all: () => ['orderDesk'] as const,
+        queue: (filter?: QueryScope) => ['orderDesk', 'queue', scope(filter)] as const,
+        /**
+         * What a basket would come to. Keyed on the whole sale request (shape rule 3), because the
+         * quote is a function of *all* of it — the fulfilment type, the customer, the address and
+         * every line — and two of those change the total without changing the basket.
+         *
+         * A cache entry rather than a mutation because it is a **read**: the same basket asked
+         * twice is the same answer, the wizard steps back and forth over it, and a `useQuery` is
+         * what keeps the last good total on screen while the next one is in flight (a mutation
+         * would blank it on every keystroke). It happens to travel by `POST`, which is a fact about
+         * the request body's size, not about whether it changes anything.
+         */
+        quote: (request?: QueryScope) => ['orderDesk', 'quote', scope(request)] as const,
+        /**
+         * The customer search behind the sale wizard. Keyed on the query text alone: the endpoint
+         * takes nothing else, and the org scope is the transport's.
+         */
+        customers: (query: string) => ['orderDesk', 'customers', query] as const,
+        /**
+         * The same orders counted by *date* rather than by due-ness.
+         *
+         * A sibling of `queue` rather than a branch of it, and keyed on the whole filter object per
+         * shape rule 3: the range and the branch together are one *view*, so paging back a week is
+         * a different entry rather than a mutation of this one — which is what lets the previous
+         * week stay in cache while somebody arrows back and forth over a month.
+         */
+        calendar: (filter?: QueryScope) => ['orderDesk', 'calendar', scope(filter)] as const,
+        /**
+         * What one branch must buy for a window. Keyed on the whole filter (shape rule 3): the
+         * range and the **branch** together are the view, and the branch in particular is not a
+         * narrowing of a shared answer — two branches' buy lists are two different documents that
+         * happen to look alike, so sharing an entry between them would be the worst possible cache
+         * hit.
+         */
+        requirements: (filter?: QueryScope) =>
+            ['orderDesk', 'requirements', scope(filter)] as const,
+        /**
+         * The hub badge. Keyed on the branch, and on `null` when there is none — the null entry is
+         * a real answer (`count: null`, "nobody chose a shelf") rather than an absent one, so it
+         * caches like any other.
+         */
+        shortfallCount: (branchId: string | null) =>
+            ['orderDesk', 'shortfall-count', branchId] as const,
+        /**
+         * The people a run can be given to. No argument, because the endpoint takes none.
+         *
+         * One entry for the whole workspace: the membership of a kitchen changes on the timescale
+         * of employment, so every picker on every screen wants the same answer and none of them
+         * wants its own copy.
+         */
+        drivers: () => ['orderDesk', 'drivers'] as const,
+        /**
+         * One day's takings. Keyed on the whole filter (shape rule 3): the day and the branch
+         * together are the document, and the branch in particular is not a narrowing of a shared
+         * answer — a site's takings and the organisation's are two different reconciliations that
+         * happen to look alike, so sharing an entry between them would be the worst possible cache
+         * hit.
+         *
+         * Under the desk root and therefore **never persisted**, which matters more here than on the
+         * queue: these rows name colleagues and say how much money each of them handled. The root's
+         * own note covers it — a tablet the whole kitchen signs into is not where that is written to
+         * disk.
+         */
+        cashReport: (filter?: QueryScope) => ['orderDesk', 'cash-report', scope(filter)] as const,
     },
 
     /**
@@ -618,6 +725,35 @@ export const queryKeys = {
         all: () => ['invitations'] as const,
         byToken: (token: string) => ['invitations', 'token', token] as const,
     },
+
+    /**
+     * ── driverJobs: one driver's run sheet ──────────────────────────────────────────────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Added whole by the Order Desk delivery-chain wave, which owns this file's change for that
+     * slice — the header's rule is that a later wave asks rather than edits, and this is the wave
+     * that was asked.
+     *
+     * Its own root rather than a branch of `kitchenOrders` for the reason
+     * `api-client/src/contracts/driver-jobs.ts` gives: those are the seller's *orders* and these are
+     * *delivery jobs* — a different table, a different module and a two-axis status the order shape
+     * has no room for. They also invalidate on opposite events. A driver stamping a job delivered
+     * must not evict the kitchen's order book off a tablet somebody is working, and a kitchen
+     * confirming an order must not throw away the run sheet in a driver's pocket.
+     *
+     * One entry and no parameters, because the endpoint has none: no cursor, no filters, and the
+     * narrowing is `driver_user_id = me` rather than anything a key could carry. `all()` exists so
+     * the deliver mutation has a prefix to invalidate, which is the same prefix — kept anyway so
+     * the invalidation reads like every other one in this file rather than like a special case.
+     *
+     * **Never persisted.** A run sheet is a list of live deliveries — where somebody's food is
+     * going, right now — held on a phone that travels, gets left in a car and changes hands between
+     * shifts. `PERSISTABLE_QUERY_ROOTS` stays as it is.
+     */
+    driverJobs: {
+        all: () => ['driverJobs'] as const,
+        list: () => ['driverJobs', 'list'] as const,
+    },
 } as const;
 
 /**
@@ -636,7 +772,10 @@ export const queryKeys = {
  * clearest grounds of any of them: it holds the names and email addresses of the owners of
  * organisations the reader does not belong to. `kitchenOrders` is absent on both grounds at once —
  * a kitchen's order book is commercial data *and* a list of named customers' delivery addresses,
- * held on a tablet the whole kitchen signs into.
+ * held on a tablet the whole kitchen signs into. `orderDesk` is absent for the same reason and one
+ * step further out: its rows carry customers' names and telephone numbers, served only to a caller
+ * holding `order.view_customer_contact_organisation`, and a cache on disk would outlive both the
+ * session and the permission that allowed them to be read.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

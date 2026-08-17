@@ -2233,6 +2233,97 @@ export type PlanProfileEnvelope = {
 };
 
 /**
+ * The four sittings, the same vocabulary a subscription meal choice
+ * stores — generation copies this value straight onto a choice row.
+ *
+ */
+export type PlanMenuSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+/**
+ * One dish, in one slot, on one day of the plan's cycle.
+ *
+ */
+export type PlanMenuEntry = {
+    id: Uuid;
+    /**
+     * 1-based day of the cycle. **Day 1 is the anchor date itself**, and
+     * the cycle is anchored to the *plan*, not to each subscriber — every
+     * subscriber eats the same dish on the same date, which is what makes
+     * a day one production run rather than an à la carte service.
+     *
+     */
+    cycle_day: number;
+    slot: PlanMenuSlot;
+    /**
+     * Disambiguates the kitchen that serves lunch twice. Defaults to 1.
+     *
+     */
+    sequence: number;
+    meal_catalogue_item_id: Uuid;
+    meal_name_en: string | null;
+    meal_name_ar: string | null;
+};
+
+/**
+ * The rotation the entries sit on. **Both null means no menu is
+ * published**, which is the behaviour every plan has by default and the
+ * state in which a subscription order deducts no stock.
+ *
+ */
+export type PlanMenuCycle = {
+    cycle_days: number | null;
+    /**
+     * The date cycle day 1 falls on. A date rather than an instant: a
+     * cycle turns over at the kitchen's midnight.
+     *
+     */
+    anchor_date: string | null;
+};
+
+export type PlanMenuEnvelope = {
+    data: {
+        item: AdminCatalogueItem;
+        cycle: PlanMenuCycle;
+        entries: Array<PlanMenuEntry>;
+    };
+    meta: Meta & {
+        count: number;
+    };
+};
+
+/**
+ * The complete menu. All three fields are required to be *present* and
+ * may all be null or empty: that combination withdraws the menu, which is
+ * a decision a kitchen makes and not a field they forgot.
+ *
+ * They move together. Entries with no cycle length, or a cycle length
+ * with no entries, or a cycle length with no anchor, are each `422` —
+ * see the operation description.
+ *
+ * `catalogue_item_id` is not a field: the plan is in the URL.
+ *
+ */
+export type ReplacePlanMenuRequest = {
+    entries: Array<{
+        cycle_day: number;
+        slot: PlanMenuSlot;
+        /**
+         * Defaults to 1.
+         */
+        sequence?: number | null;
+        /**
+         * Must be a **published meal** of this kitchen. A menu entry is
+         * a promise to serve the dish, so a draft or a retired one is
+         * `422`.
+         *
+         */
+        meal_catalogue_item_id: Uuid;
+    }>;
+    menu_cycle_days: number | null;
+    menu_cycle_anchor_date: string | null;
+};
+
+/**
  * One cell of a plan's availability matrix, together with the variant that
  * carries it. **The variant is the priceable thing**: a price row names
  * `catalogue_item_variant_id`, exactly as it does for a pack.
@@ -3010,9 +3101,19 @@ export type MarketplacePlan = {
     variants: Array<MarketplacePlanVariant>;
     durations: Array<MarketplacePlanDuration>;
     /**
-     * Always empty. No table links a plan to the meals a representative
-     * week would contain, and assembling one from the catalogue would be
-     * the system writing a menu.
+     * The first dishes of the plan's own fixed menu, distinct and in the
+     * order the kitchen serves them — cycle day, then sitting in the order
+     * of the day, then sequence. Published dishes only: a withdrawn one is
+     * omitted rather than advertised.
+     *
+     * **Empty when the plan publishes no menu**, which is the ordinary
+     * case for a free-selection plan and for a plan whose kitchen has not
+     * written its menu down. The identifiers are always read from the
+     * kitchen's stated menu and never assembled from its catalogue — a
+     * sample the platform composed itself would be the platform writing a
+     * menu.
+     *
+     * Capped at twelve: it is a sample of the menu, not the menu.
      *
      */
     sample_meal_ids: Array<Uuid>;
@@ -3355,12 +3456,65 @@ export type OrderStatus = 'placed' | 'confirmed' | 'fulfilled' | 'cancelled';
 export type CancellationReason = 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable';
 
 /**
- * One value, and the field exists anyway: an order has to record how it
- * was paid for, and a column that appears the day a second method does
- * would leave every earlier order unable to say.
+ * **Three cases, and each one has a table behind it.** That is the whole
+ * rule this vocabulary is governed by, and it is the same rule that kept it
+ * at one case for the whole of the first phase: a payment method exists
+ * here when there is somewhere in the schema that records money arriving
+ * that way, and not a moment sooner.
+ *
+ * * `cash_on_delivery` — a driver is handed money at a door. The original
+ * case, and still the way most orders are settled.
+ * * `cash_at_counter` — money handed over in the room, at the order desk.
+ * * `wish` — a transfer through the WISH app, **manually confirmed**.
+ * Nothing verifies it: a desk person looks at the merchant app, sees that
+ * the money arrived, and says so, and the receipt's `confirmed_by` names
+ * who.
+ *
+ * What has not changed is the refusal. There is still no `card`, no
+ * `wallet` and no `online` reserved here, and no case is added in
+ * anticipation of a table — a reserved case is a value something eventually
+ * writes, and this value is read to decide what evidence a payment is
+ * expected to carry.
+ *
+ * The vocabulary is used by two fields that are deliberately **not**
+ * constrained to agree. An order's `payment_method` is the *intent*
+ * captured at placement; a payment receipt's `method` is how the money
+ * actually turned up. An order taken for cash at the counter and settled by
+ * WISH is a real evening, and the pair of fields is how it stays legible.
  *
  */
-export type PaymentMethod = 'cash_on_delivery';
+export type PaymentMethod = 'cash_on_delivery' | 'cash_at_counter' | 'wish';
+
+/**
+ * How an order leaves the kitchen. **Three cases, and each one is a
+ * different set of facts the order must carry** — which is what makes this
+ * a vocabulary rather than a flag. `orders_fulfilment_shape_check` states
+ * the column half of it in the database, so the two cannot drift.
+ *
+ * * `delivery` — a courier takes it to a door. A customer and an address,
+ * both required. The only way this platform sold anything before the
+ * order desk, and still how most orders leave.
+ * * `pickup` — the customer collects it. A customer, a **promised slot**,
+ * and deliberately **no address**: "be here at six" is a promise whether
+ * or not the food travels, but a destination on an order nobody is
+ * delivering is a courier instruction that will never be followed.
+ * * `counter` — somebody bought lunch at the desk. The customer is
+ * **optional** — a regular is worth naming, a stranger is not — and the
+ * address is forbidden. The desk may know *who* and must never claim
+ * *where*, which is the asymmetry that makes this its own case rather
+ * than "pickup without an account".
+ *
+ * `delivery` is the column default, so every order placed before this
+ * vocabulary existed carries it.
+ *
+ * What this is **not** is a delivery *status*. Where an order has got to is
+ * `status`, which moves; this never moves after placement. An order taken
+ * for delivery and collected by an impatient customer is a delivery that
+ * was handed over early, not a pickup — rewriting the type would make the
+ * fee already snapshotted on the row unexplainable.
+ *
+ */
+export type FulfilmentType = 'delivery' | 'pickup' | 'counter';
 
 export type OpenCartRequest = {
     /**
@@ -3653,10 +3807,30 @@ export type KitchenOrderLine = CustomerOrderLine & {
  * The address as it stood when the order was placed, copied. Editing the
  * address later must not change where this order was sent.
  *
+ * **The whole block is null on an order that is not being delivered.**
+ * A `pickup` is collected and a `counter` sale is handed over in the room;
+ * neither has a destination, and `orders_fulfilment_shape_check` refuses
+ * an address on either. Read `fulfilment_type` on the order to tell "there
+ * is nowhere to take this" from "the address is missing" — they are
+ * different facts and this block looks the same for both.
+ *
+ * `building`, `floor`, `apartment` and `directions` are the half a courier
+ * actually navigates by: the street gets somebody to the building, and
+ * these get them to the door. They were mirrored onto the order by the
+ * fulfilment migration; before it, a snapshot was a strictly poorer copy
+ * of the address it came from.
+ *
  */
 export type CustomerOrderDelivery = {
     label: string | null;
-    line_one: string;
+    /**
+     * Null on a pickup or a counter sale, which carry no address at all.
+     * On a delivery whose customer has since closed their account it is
+     * the redaction marker rather than the street: a reader has to be able
+     * to tell "this was erased" from "this was never filled in".
+     *
+     */
+    line_one: string | null;
     line_two: string | null;
     /**
      * The gazetteer's region — the governorate or district. Usually null:
@@ -3669,6 +3843,24 @@ export type CustomerOrderDelivery = {
     area_name_en: string | null;
     area_name_ar: string | null;
     area_id: string | null;
+    building: string | null;
+    floor: string | null;
+    apartment: string | null;
+    /**
+     * Free text the customer wrote for whoever has to find them. Never
+     * parsed and never matched against — it is prose, and treating it as
+     * structure is how "ring twice" becomes a routing decision.
+     *
+     */
+    directions: string | null;
+    /**
+     * The number the courier was actually given, as a reference rather
+     * than a copied string. A snapshot of *which* contact was named at
+     * placement, not of what it said: a person who changes their telephone
+     * changes it once, and the verification state travels with the row.
+     *
+     */
+    contact_point_id: string | null;
     window_code: string | null;
     requested_date: string | null;
 };
@@ -4318,7 +4510,7 @@ export type QualityCheckEnvelope = {
 };
 
 /**
- * The receipt. **Five things on the row are deliberately absent**, each
+ * The receipt. **Six things on the row are deliberately absent**, each
  * for its own reason:
  *
  * * `price_list_id` / `price_list_item_id` — a kitchen's tariff structure
@@ -4333,6 +4525,16 @@ export type QualityCheckEnvelope = {
  * * `created_by` — for a self-service order this is the customer and says
  * nothing; for a staff-placed order it names an employee to a member of
  * the public.
+ * * `placed_on_behalf_by` — the same disclosure, sharper. Where
+ * `created_by` merely *might* be an employee, this is non-null on
+ * exactly the orders a member of staff took for somebody else, so
+ * serving it would name a named individual to the customer they served
+ * every single time. Who answered the telephone is the kitchen's record
+ * of its own shift; a customer with a complaint has the kitchen to
+ * complain to, not an employee to identify. `fulfilment_type` **is**
+ * served here and is the counter-example: how the food reaches somebody
+ * is a term of their own order, and withholding it would leave an empty
+ * delivery block with no explanation for it.
  * * `lock_version` — the validator of a resource this audience cannot
  * write. Serving one with no writer invites `If-Match` at an endpoint
  * that would ignore it.
@@ -4360,6 +4562,7 @@ export type CustomerOrder = {
     delivery_fee_minor: number | null;
     total_minor: number;
     payment_method: PaymentMethod;
+    fulfilment_type: FulfilmentType;
     delivery: CustomerOrderDelivery;
     placed_at: string;
     confirmed_at: string | null;
@@ -4381,12 +4584,25 @@ export type CustomerOrder = {
  * screen that could not read the validator could not send the `If-Match`
  * the three lifecycle actions demand.
  *
+ * **`customer_account_id` is nullable and `fulfilment_type` says when.**
+ * A counter sale may be a stranger buying a sandwich, and there is nobody
+ * to name; a delivery and a pickup always have somebody. The pair has to
+ * be read together — a null customer is a fact about a walk-in, never a
+ * row that failed to load.
+ *
  */
 export type KitchenOrder = {
     id: Uuid;
     order_number: string;
     organisation_id: Uuid;
-    customer_account_id: Uuid;
+    /**
+     * Null only on a `counter` sale nobody named. Present on every
+     * delivery and every pickup — `orders_fulfilment_shape_check` requires
+     * it — and present on a counter sale for a regular the desk chose to
+     * record.
+     *
+     */
+    customer_account_id: string | null;
     sales_channel_id: Uuid;
     branch_id: string | null;
     status: OrderStatus;
@@ -4395,6 +4611,7 @@ export type KitchenOrder = {
     delivery_fee_minor: number | null;
     total_minor: number;
     payment_method: PaymentMethod;
+    fulfilment_type: FulfilmentType;
     delivery: KitchenOrderDelivery;
     placed_at: string;
     confirmed_at: string | null;
@@ -4402,6 +4619,18 @@ export type KitchenOrder = {
     cancelled_at: string | null;
     cancellation_reason: CancellationReason | null;
     created_by: string | null;
+    /**
+     * The member of staff who took this order **for** somebody else, and
+     * null on every self-service order.
+     *
+     * Deliberately not `created_by`, which is written on every path — a
+     * customer placing their own order writes their own user id there — so
+     * "did a person at a desk take this" is not answerable from it without
+     * asking whether that user happens to be an employee. Seller-only: the
+     * customer's shape carries neither.
+     *
+     */
+    placed_on_behalf_by: string | null;
     lock_version: number;
     line_count: number;
     lines: Array<KitchenOrderLine>;
@@ -4421,6 +4650,1057 @@ export type KitchenOrderEnvelope = {
         order: KitchenOrder;
     };
     meta: Meta;
+};
+
+/**
+ * One statement that money arrived against an order.
+ *
+ * **There is no `currency_code` field, and that is a decision rather than
+ * an omission.** The receipt is denominated in the order's own currency,
+ * taken from the order by the server: a receipt in another currency is not
+ * a receipt for this order, it is a conversion nobody performed and a
+ * figure that cannot be summed against the order's total. Accepting the
+ * field would mean either validating it against the order — a round trip to
+ * be told what the server already knows — or trusting it, and a trusted
+ * mismatch is a kitchen's takings quietly wrong in two currencies at once.
+ *
+ * `method` is **not** constrained to the order's own `payment_method`. See
+ * the operation: recording the divergence is the point.
+ *
+ */
+export type StorePaymentReceiptRequest = {
+    method: PaymentMethod;
+    /**
+     * What arrived, in minor units of the order's currency.
+     *
+     * **At least one**, although the column's own constraint admits zero.
+     * The two answer different questions: the constraint refuses a
+     * *negative* figure, because giving money back is a refund and belongs
+     * to the payments surface. This operation is stricter because a receipt
+     * is evidence — somebody asserting that no money changed hands has
+     * recorded a keystroke, and the row would sit in a day's takings as a
+     * payment event worth nothing.
+     *
+     * There is no upper bound and none against the order's total.
+     * Over-payment is ordinary: a customer hands over a round note and
+     * takes change from the till, which is not a row in this ledger.
+     *
+     */
+    amount_minor: number;
+    /**
+     * The transaction identifier the desk read off the merchant app — a
+     * WISH transfer's, in practice, because cash has no such thing. Free
+     * text because it is somebody else's vocabulary, and bounded because it
+     * is confidential: it points at a real transaction between two named
+     * parties.
+     *
+     */
+    reference?: string | null;
+    /**
+     * Anything the person taking the money needs the next person to know.
+     * Confidential and bounded for the same reason: a free-text note
+     * written at a counter is exactly where somebody puts a customer's
+     * name.
+     *
+     */
+    notes?: string | null;
+};
+
+/**
+ * One recorded arrival of money, and the person who says it arrived.
+ *
+ * **Append-only.** There is no update operation and no delete operation for
+ * a receipt, and there will not be: money arriving is not an event that
+ * un-happens, and giving it back is a refund on the payments surface with
+ * its own authority and its own record.
+ *
+ * No `organisation_id`: a receipt is reachable only through an order the
+ * caller's own kitchen owns, so the field would restate the caller's
+ * organisation to itself.
+ *
+ */
+export type OrderPaymentReceipt = {
+    id: Uuid;
+    order_id: Uuid;
+    method: PaymentMethod;
+    amount_minor: number;
+    /**
+     * The order's currency, always. Never taken from the request.
+     */
+    currency_code: string;
+    /**
+     * Null for cash, which has no transaction identifier.
+     */
+    reference: string | null;
+    confirmed_by: Uuid;
+    /**
+     * When the money arrived, stamped by the server. Not taken from the
+     * request: a desk that could name the moment could name a moment in
+     * another shift, and this is what a day's takings are cut on.
+     *
+     */
+    confirmed_at: string;
+    notes: string | null;
+    created_at: string | null;
+};
+
+/**
+ * Where an order stands on being paid, derived on read and **stored
+ * nowhere**. There is no `payment_status` column behind this and there will
+ * not be one: a stored flag beside an append-only ledger is a second answer
+ * to a question the ledger already answers, and two answers drift.
+ *
+ * `method` is the order's **intended** method, not any receipt's. A desk
+ * reads this before the money arrives — it is how somebody knows what to
+ * ask the customer for — so the useful fact here is what the order was
+ * taken on. What actually arrived is on each receipt, under its own name.
+ *
+ * **`receipted`, not `paid`.** The word is doing real work: this platform
+ * holds no proof that money exists, only that somebody wrote down that it
+ * arrived. It is `received_minor >= total_minor` — an inequality in both
+ * directions, because a part payment leaves it false until the balance
+ * lands and an over-payment does not make it truer.
+ *
+ */
+export type OrderPaymentSummary = {
+    method: PaymentMethod;
+    /**
+     * The sum of every receipt against this order, in the order's currency.
+     * Zero when there are none — never null, because an order whose payment
+     * position is unknown is not a state this platform reaches.
+     *
+     */
+    received_minor: number;
+    receipted: boolean;
+};
+
+export type OrderPaymentReceiptEnvelope = {
+    data: {
+        receipt: OrderPaymentReceipt;
+        payment: OrderPaymentSummary;
+    };
+    meta: Meta;
+};
+
+/**
+ * Which slice of the open book the desk is looking at — three questions
+ * somebody at a desk actually asks, rather than a date range that could
+ * express a hundred nobody does.
+ *
+ * **`today` includes orders with no requested date at all.** An order whose
+ * customer named no day is not scheduled for nothing, it is scheduled for
+ * as soon as possible, and a plain range would silently drop exactly the
+ * set nobody has committed to a day yet. `overdue` does not inherit that
+ * rule: a dateless order is never late, because there is no day it has
+ * missed. `next_7` runs from today to seven days after it, inclusive at
+ * both ends.
+ *
+ */
+export type OrderDeskWindow = 'today' | 'overdue' | 'next_7';
+
+/**
+ * The run this order became: which driver has it, what state it is in, and
+ * when it was assigned.
+ *
+ * **`null` is a real answer, and it is true of three different orders.** A
+ * pickup or a counter sale is never driven anywhere. A delivery order still
+ * `placed` has no run yet, because a job is projected on *confirm* — the
+ * moment a kitchen commits to cook — and a placed order may still be
+ * cancelled without a driver hearing about it. And a delivery order
+ * confirmed before C3 shipped was never projected and will not be
+ * retrospectively. All three read as `null`; a screen that needs to
+ * distinguish them has `fulfilment_type` and `status` on the same row.
+ *
+ * **No address here.** Where the food is going is already on the row's own
+ * `delivery` block, and a second copy inside the job would be two answers
+ * to one question.
+ *
+ * This seat was declared nullable and empty before anything could fill it,
+ * so the row would not change shape under a client when C3 arrived — the
+ * same argument the payment seat was declared on.
+ *
+ */
+export type OrderDeskDeliveryJob = {
+    id: Uuid;
+    status: DeliveryJobStatus;
+    tracking_status: DeliveryJobTrackingStatus;
+    /**
+     * `null` until dispatch assigns one.
+     */
+    driver_user_id: Uuid | null;
+    assigned_at: string | null;
+    /**
+     * The job's own validator, carried on the queue row so an Assign dialog
+     * has its `If-Match` without re-reading the job. It is **not** the
+     * order's `lock_version` and the two move independently — assigning a
+     * driver deliberately does not touch the order.
+     *
+     */
+    lock_version: number;
+};
+
+/**
+ * The customer's name, and the number somebody can ring them on.
+ *
+ * **Present only when the caller holds
+ * `order.view_customer_contact_organisation`**, and *absent* — not null —
+ * without it. Null here is a fact about the customer ("we hold no number
+ * for them"), and a screen could not tell that apart from a fact about the
+ * reader unless the two cases differed in shape.
+ *
+ * Either field may be null on its own: an anonymised account has no name,
+ * and a customer who never gave a number has no number. The number is
+ * served **verified or not** — a courier ringing about tonight's delivery
+ * needs the number the customer gave, not one the platform has proved.
+ *
+ * This is the whole of the disclosure. No address beyond the delivery
+ * snapshot the order book already serves, no email, no allergen
+ * declaration, no order history, and no account identifier to pivot on.
+ *
+ */
+export type OrderDeskCustomerContact = {
+    /**
+     * The account's, always. There is no snapshot of a name on an order
+     * and there should not be: a name is who somebody is, which does not
+     * change per delivery.
+     *
+     */
+    display_name: string | null;
+    /**
+     * E.164, as the contact point stores it.
+     *
+     * **The number the courier was given, when the order snapshot carries
+     * one; the account's primary otherwise.** A delivery order records the
+     * contact point the customer nominated for that delivery, and it is
+     * preferred here — a caller ordering to their mother's flat gives their
+     * mother's landline, and the account's primary is then a mobile in
+     * somebody's pocket in another building. Every pickup, every counter
+     * sale and every delivery placed before the snapshot column existed
+     * falls through to the account's own number, which is what this field
+     * has always been.
+     *
+     */
+    phone: string | null;
+};
+
+export type OrderDeskRow = KitchenOrder & {
+    /**
+     * The instant this order is actually due, as a UTC ISO-8601
+     * timestamp, and **never null**. It is what the queue is sorted by,
+     * computed in SQL from the requested day, the delivery window's
+     * start and the branch's timezone, falling through the end of the
+     * requested day when there are no window hours, through UTC when
+     * there is no branch, and through `placed_at` when the customer
+     * named no day at all.
+     *
+     */
+    due_at: string;
+    payment: OrderPaymentSummary;
+    delivery_job: OrderDeskDeliveryJob | null;
+    customer?: OrderDeskCustomerContact;
+};
+
+export type OrderDeskQueueEnvelope = {
+    data: Array<OrderDeskRow>;
+    meta: Meta & {
+        /**
+         * Rows in this response.
+         */
+        count: number;
+        /**
+         * The most rows this operation will ever return. There is no
+         * second page — the computed sort makes a cursor impossible —
+         * so the cap is stated rather than implied.
+         *
+         */
+        limit: number;
+        /**
+         * More orders matched than were returned. A screen showing a
+         * truncated queue has to say so: a silent truncation would hide
+         * exactly the backlog the queue exists to surface.
+         *
+         */
+        truncated: boolean;
+        window: OrderDeskWindow;
+        /**
+         * The day the window was measured from.
+         */
+        today: string;
+        /**
+         * The IANA zone that day was computed in — the named branch's,
+         * or `UTC` when no branch was named. Echoed because the client
+         * did not choose it and cannot derive it.
+         *
+         */
+        timezone: string;
+    };
+};
+
+/**
+ * One tap at the counter. The desk sends what the agent pressed, duplicates
+ * and all: the server merges lines naming the same article **and the same
+ * pack** into one line whose quantity is the sum, first-seen position
+ * preserved, because `order_lines` holds one row per article and three taps
+ * of the same coffee is a quantity rather than three lines. An article
+ * ordered plain and the same article ordered in a pack stay two lines —
+ * they are two different things to sell.
+ *
+ * Both the quote and the placement merge identically, so the quantity
+ * quoted is the quantity charged.
+ *
+ */
+export type OrderDeskBasketLine = {
+    catalogue_item_id: Uuid;
+    /**
+     * The pack, when the article has variants.
+     */
+    catalogue_item_variant_id?: Uuid | null;
+    /**
+     * How many. Numeric rather than integer because a counter sells 0.35 kg
+     * as readily as three coffees, and accepted as a string as well as a
+     * number so a client holding a decimal can send it without a float
+     * round trip. Zero and negatives are `422`.
+     *
+     */
+    quantity: number | string;
+};
+
+/**
+ * The fields a desk quote and a desk sale share — everything except how the
+ * customer is paying, which only a sale needs to state.
+ *
+ * `fulfilment_type` decides which of the rest are required, forbidden or
+ * merely allowed. The rule is **not** enforced as validation: it arrives as
+ * `customer_required` / `address_required` / `address_not_applicable`, in
+ * the quote's `refusals` or in the placement's refusal envelope, so that a
+ * request wrong in two ways says both instead of surfacing one as a `422`
+ * and the other as a `409`.
+ *
+ */
+export type OrderDeskSaleBase = {
+    fulfilment_type: FulfilmentType;
+    lines: Array<OrderDeskBasketLine>;
+    /**
+     * The branch that will produce this order. The same fact the queue
+     * takes as a query parameter, in a body because a POST states its facts
+     * in one — and it is not a filter here: it decides **which cut-off
+     * applies** and **which branch-scoped delivery zone wins**, both of
+     * which change the answer. A branch belonging to another kitchen is
+     * `422`.
+     *
+     */
+    branch_id?: Uuid | null;
+    /**
+     * Who this is for. Required for a delivery and a pickup, optional for a
+     * counter sale — a regular is worth naming and a stranger is not.
+     *
+     * Resolved **by identifier**, never inferred from the caller: the
+     * caller is a member of staff, and inferring would place the order
+     * against the agent's own account or the kitchen's corporate buyer.
+     * Where an identifier legitimately comes from is the desk's customer
+     * search, which is the org-scoped door.
+     *
+     */
+    customer_account_id?: Uuid | null;
+    /**
+     * Where it goes. **Delivery only** — a pickup or a counter sale
+     * carrying one is refused rather than silently ignored, because an
+     * address supplied and dropped means the caller believed something
+     * about this order that is not true of it.
+     *
+     * It must belong to `customer_account_id`; one that does not is `404`,
+     * deliberately the same answer as "no such address", because confirming
+     * that an identifier exists but is somebody else's is itself the
+     * disclosure.
+     *
+     */
+    customer_address_id?: Uuid | null;
+    /**
+     * The day asked for, `YYYY-MM-DD`. Applies to a pickup as well as a
+     * delivery: a collection is cooked to a slot like anything else, so the
+     * branch cut-off is asked about it. A counter sale is handed over now
+     * and has no day to be late for.
+     *
+     */
+    requested_delivery_date?: string | null;
+    /**
+     * The slot, by the window's own code. Not validated against the
+     * kitchen's windows here — whether that slot is offered on that day by
+     * that branch is a scheduling question answered with the cut-off rules
+     * in hand.
+     *
+     */
+    delivery_window_code?: string | null;
+};
+
+export type QuoteOrderDeskRequest = OrderDeskSaleBase & {};
+
+export type PlaceOrderDeskRequest = OrderDeskSaleBase & {
+    payment_method: PaymentMethod;
+    payment?: OrderDeskCounterPayment;
+};
+
+/**
+ * Money handed over at the counter, recorded as it happens.
+ *
+ * Present on a `counter` sale and refused on the other two, because that is
+ * what the three words mean. A walk-in pays now: the customer is in the
+ * room, the food is in front of them, and there is no later moment at which
+ * the money arrives. A counter order left unpaid would be a *pickup*
+ * wearing the wrong label — something the kitchen is holding for somebody
+ * who will settle when they come back — and nothing downstream could tell
+ * it from a counter sale whose receipt was lost.
+ *
+ * A delivery is settled at the door and a pickup when the customer
+ * collects, both afterwards through `POST /catalogue/orders/{order}/
+ * payments`, recorded by whoever actually took the money with their own
+ * `confirmed_by` and their own moment. Receipting one of those here would
+ * put cash into a day's takings that is still in a customer's pocket.
+ *
+ * **There is no amount.** The receipt is written for exactly the order's
+ * `total_minor`. A discrepancy at the till is a till problem, not an order
+ * problem: rewriting the receipt to match the cash in the drawer would make
+ * the sale unreconcilable against the tariff that produced it. Part
+ * payments and over-payments are real elsewhere and arrive as their own
+ * rows through the receipts operation.
+ *
+ */
+export type OrderDeskCounterPayment = {
+    /**
+     * How the money turned up, which is deliberately **not** constrained to
+     * equal `payment_method`. That one is the intent captured at placement;
+     * this is what actually happened, and a counter sale taken as cash and
+     * settled by a WISH transfer while the customer was standing there is
+     * an ordinary evening.
+     *
+     */
+    method: PaymentMethod;
+    /**
+     * The transfer identifier on a WISH payment, or whatever the desk
+     * writes down to find this money again. Confidential at rest: it points
+     * at a real transaction between two named parties.
+     *
+     */
+    reference?: string | null;
+    /**
+     * Free text explaining the payment, bounded rather than open because a
+     * note written at a counter is exactly where somebody puts a customer's
+     * name. Confidential at rest.
+     *
+     */
+    notes?: string | null;
+};
+
+/**
+ * One thing standing between this basket and a sale, as **data**.
+ *
+ * `reason` is a stable machine key and every other property is whatever
+ * identifies the offending thing — `catalogue_item_id` on a line refusal,
+ * `delivery_area_id` on a zone one, `fulfilment_type` on a shape one,
+ * `cut_off_at` and `branch_id` on a schedule one. The shape is open on
+ * purpose: it is the same `{reason, …context}` vocabulary the placement
+ * refusal carries, and pinning the context keys per reason would freeze a
+ * vocabulary both endpoints extend together.
+ *
+ */
+export type OrderDeskQuoteRefusal = {
+    /**
+     * The stable key. Line-level: `item_unknown`, `item_not_published`,
+     * `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+     * `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
+     * `customer_required`, `address_required`, `address_not_applicable`,
+     * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+     * `currency_mismatch` (with `subject: delivery_fee`), `cut_off_passed`,
+     * `branch_closed`, `date_in_the_past`.
+     *
+     */
+    reason: string;
+    [key: string]: unknown;
+};
+
+/**
+ * One line of the quote, priced or explained.
+ *
+ * The four price-bearing fields are **null together** whenever the line was
+ * refused: there is no price to show for an article the kitchen has
+ * withdrawn, and a zero would read as free. `refusals` is what says why, and
+ * an empty array is what says the line is sellable.
+ *
+ * `quantity` is the **merged** quantity — duplicate taps summed — because
+ * that is the number the placement will use and therefore the number the
+ * agent has to see.
+ *
+ */
+export type OrderDeskQuoteLine = {
+    catalogue_item_id: Uuid;
+    catalogue_item_variant_id: string | null;
+    /**
+     * A decimal string, never a number, for the reason every quantity on this platform is one.
+     */
+    quantity: string;
+    /**
+     * Null when the article could not be read at all — an identifier from another kitchen, or one that no longer exists.
+     */
+    name_en: string | null;
+    name_ar: string | null;
+    unit_price_minor: number | null;
+    /**
+     * Minor units, rounded once at the line total rather than at the unit price, so rounding cannot compound across an order.
+     */
+    line_total_minor: number | null;
+    /**
+     * The price's currency where there is one, and the counter's own tariff currency where there is not.
+     */
+    currency_code: string;
+    refusals: Array<OrderDeskQuoteRefusal>;
+};
+
+/**
+ * What this basket would come to, and everything standing in the way of it.
+ *
+ * **The totals are summed over the refusal-free lines only**, and they are
+ * offered even when the sale cannot proceed because "drop the soup and it
+ * comes to eleven dollars" is the agent's next sentence. They are not what
+ * would be charged, which is what `quotable` is for.
+ *
+ */
+export type OrderDeskQuote = {
+    lines: Array<OrderDeskQuoteLine>;
+    subtotal_minor: number;
+    /**
+     * **Null rather than zero when no fee applies**, and the difference is
+     * real: zero is a fee somebody decided on — a free-delivery zone — and
+     * a pickup or a counter sale has no fee at all. A screen that could not
+     * tell them apart would print "Delivery: 0.00" on a counter sale. Null
+     * also when the destination was refused, because an unserved area has
+     * no fee to quote.
+     *
+     */
+    delivery_fee_minor: number | null;
+    /**
+     * `subtotal_minor` plus the fee where there is one. No discount slot exists anywhere in this schema.
+     */
+    total_minor: number;
+    /**
+     * The counter channel's own tariff currency — the currency of the first
+     * price list it would actually consult, falling back to the kitchen's
+     * default when it has none. Nothing is ever converted.
+     *
+     */
+    currency_code: string;
+    /**
+     * Order-level refusals — the shape, the destination and the schedule. Line refusals are on their lines.
+     */
+    refusals: Array<OrderDeskQuoteRefusal>;
+    /**
+     * Whether this basket could be placed as it stands. **False whenever
+     * any refusal exists at all**, line-level or order-level, because the
+     * placement operation refuses a whole order when any reason is
+     * collected — a quote showing a confident total for a basket the sale
+     * would then reject is a number the agent reads out loud and has to
+     * take back.
+     *
+     */
+    quotable: boolean;
+};
+
+export type OrderDeskQuoteEnvelope = {
+    data: {
+        quote: OrderDeskQuote;
+    };
+    meta: Meta;
+};
+
+/**
+ * A customer as the order desk sees them: enough to pick the right one out
+ * of a list of five, and nothing more.
+ *
+ * `display_name` and `phone` are the disclosure this shape exists for, and
+ * they are the same pair the queue row carries behind the same permission
+ * code. The two surfaces deliberately agree — a search revealing more than
+ * the queue would make the queue's gating pointless.
+ *
+ * **What is absent is each its own decision.** No email: a number is what a
+ * desk rings, and an address is what a marketing list is built from. No
+ * account number — it is confidential, it is what a person quotes to
+ * *support*, and a desk that could read one could quote it back to a caller
+ * who is not the account holder. No addresses: a street somebody lives on
+ * belongs to the order going there, not to a search result. No order
+ * history and no count of other kitchens, so this never becomes the surface
+ * on which one kitchen reads another's customer relationships. No status,
+ * because the desk bypasses the activation checklist and it would change
+ * nothing an agent could do.
+ *
+ */
+export type OrderDeskCustomer = {
+    id: Uuid;
+    /**
+     * Null on an anonymised account.
+     */
+    display_name: string | null;
+    /**
+     * E.164, as the contact point stores it — the account's primary number
+     * where it has one, otherwise the account holder's. Resolved across
+     * both ownership arms because a registered customer's number hangs off
+     * their identity and a desk-provisioned caller's hangs off the account,
+     * and answering for only one would read as "no phone" rather than as a
+     * bug. Served verified or not.
+     *
+     */
+    phone: string | null;
+    /**
+     * How the record came to exist. `staff` is a caller some kitchen wrote
+     * down at a desk; it is what an agent checks when deciding whether the
+     * details on file were typed or were given by the customer themselves.
+     *
+     */
+    origin: 'self_service' | 'guest' | 'b2b_provisioning' | 'staff' | 'import';
+    /**
+     * Whether **this** kitchen holds at least one order against the
+     * account — a regular versus a name in the book. Scoped to the asking
+     * organisation and silent about anybody else's trade. It is also the
+     * first arm of the scoping rule restated as a fact: a `false` here
+     * means the row is visible on the second arm alone, because somebody
+     * who works at this kitchen wrote them down.
+     *
+     */
+    has_orders_with_org: boolean;
+};
+
+export type OrderDeskCustomersEnvelope = {
+    data: Array<OrderDeskCustomer>;
+    meta: Meta & {
+        count: number;
+        /**
+         * The most rows this operation will ever return. There is no
+         * second page: the agent has somebody on the telephone, and
+         * the answer to a full list is a longer query.
+         *
+         */
+        limit: number;
+    };
+};
+
+export type OrderDeskCustomerEnvelope = {
+    data: {
+        customer: OrderDeskCustomer;
+        /**
+         * Accounts **already** holding the number just recorded, in this
+         * kitchen's scope, computed before the new row existed. Empty is
+         * the ordinary case and is always present rather than omitted.
+         *
+         * This is a warning, never a refusal: two customers genuinely share
+         * a telephone — a household, a reception desk, an office floor —
+         * and the platform's uniqueness rule applies only to verified
+         * contacts, so a second unverified one is legal. Refusing would
+         * make an existing customer's flatmate unserveable at a counter
+         * with somebody waiting.
+         *
+         */
+        possible_duplicates: Array<OrderDeskCustomer>;
+    };
+    meta: Meta;
+};
+
+/**
+ * Three counts of three different kinds of thing, and **they are never
+ * summed**. There is deliberately no total anywhere in this schema.
+ *
+ * They overlap by construction: a projected day becomes a claimed one, a
+ * claimed one becomes an order, and the forecast is optimistic about days a
+ * claim already exists for. Adding them over-counts, and a kitchen ordering
+ * ingredients from the result would over-buy quietly. Render three numbers.
+ *
+ */
+export type OrderDeskCalendarCounts = {
+    /**
+     * Real orders due this day — every non-cancelled status, because a
+     * fulfilled order still left the kitchen that day. Orders with no
+     * requested delivery date are counted on no day at all.
+     *
+     */
+    order: number;
+    /**
+     * Subscription delivery days the generator has **claimed** and not yet
+     * turned into an order. A commitment that exists as a row. Skipped days
+     * are not deliveries and are counted nowhere.
+     *
+     */
+    scheduled: number;
+    /**
+     * **A forecast, not a fact.** Days computed from an active
+     * subscription's weekday pattern and remaining balance, which no row
+     * asserts. The projection does not consult the generator's own cursor,
+     * so after an outage — while the hourly tick catches up one delivery
+     * per hour — it keeps showing the pattern the customer bought rather
+     * than the backlog the kitchen is working. Right for planning, wrong
+     * for promising; label it on the screen. Paused subscriptions project
+     * nothing.
+     *
+     */
+    projected: number;
+};
+
+export type OrderDeskCalendarWindow = {
+    /**
+     * The delivery slot's own code, or **`null`** for the day's unslotted
+     * work — legitimate on both books. Null rather than a placeholder word
+     * because a code is a kitchen's own vocabulary and any word invented
+     * here would be one a kitchen could also have typed. The null entry, if
+     * present, is last.
+     *
+     */
+    code: string | null;
+    counts: OrderDeskCalendarCounts;
+};
+
+export type OrderDeskCalendarDay = {
+    date: string;
+    counts: OrderDeskCalendarCounts;
+    /**
+     * The day's counts split by delivery slot, named slots alphabetically
+     * and the unslotted bucket last. Only slots carrying something appear —
+     * a screen already knows its own slots, and sixty days of empty ones
+     * would be mostly zeroes.
+     *
+     */
+    windows: Array<OrderDeskCalendarWindow>;
+};
+
+export type OrderDeskCalendarEnvelope = {
+    data: {
+        /**
+         * Every day of the requested window in date order, **including the
+         * empty ones**: a calendar with holes is one the client has to
+         * reconstruct, and "nothing that day" is itself an answer.
+         *
+         */
+        days: Array<OrderDeskCalendarDay>;
+    };
+    meta: Meta & {
+        from: string;
+        to: string;
+        /**
+         * How many squares the grid has. A count of **days**, never of
+         * work: there is no count of work anywhere in this response,
+         * because that would be the total the three bases must not
+         * have.
+         *
+         */
+        day_count: number;
+        /**
+         * The longest window this operation will answer, counted
+         * inclusively. Echoed so a client can bound its own date picker
+         * instead of discovering the limit as a 422.
+         *
+         */
+        max_window_days: number;
+    };
+};
+
+export type OrderDeskRequirementRow = {
+    ingredient_id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * The shelf's own code. Rows are ordered by it, so the list reads the way a store cupboard is walked.
+     */
+    code: string;
+    /**
+     * The shelf's name. English only, because `stock_items` carries one
+     * name column — the same field the levels list serves as
+     * `item_name_en`, not a translation this operation withheld.
+     *
+     */
+    name_en: string;
+    /**
+     * The measurement unit every quantity on this row is expressed in. Null when the shelf has no resolved unit.
+     */
+    unit_id: Uuid | null;
+    /**
+     * That unit's code, for rendering. Null when there is no resolved unit — show the em dash rather than a bare number.
+     */
+    unit_code: string | null;
+    /**
+     * How much the window needs, at **six** decimal places — the scale the
+     * explosion computes and the movement ledger stores. Published at six
+     * rather than rounded to the column's four, because truncating a
+     * computed figure to match what it is compared against would publish a
+     * rounder number than the arithmetic produced.
+     *
+     */
+    required: string;
+    /**
+     * What the branch holds, at four places. `0` when the shelf has no
+     * level row here — that is a shelf holding none, not an unknown.
+     *
+     */
+    available: string;
+    /**
+     * `max(0, required − available)`, at four places. **Compared at four**
+     * so a rounding tail five decimal places down cannot manufacture a
+     * shortfall on a row that balances exactly.
+     *
+     */
+    short: string;
+    /**
+     * What to order. Where the level has a par: `par − (available −
+     * required)`, the quantity that leaves the shelf at par once the window
+     * has been cooked. Where it has none, or where that is not positive
+     * (a par written below the window's own demand), the bare shortfall —
+     * so a par nobody has maintained can never reduce a buy below what the
+     * kitchen needs.
+     *
+     */
+    suggested_buy: string;
+};
+
+/**
+ * The part of the window nobody could turn into a number. **Never a zero
+ * in the list above** — "buy nothing for that" and "we could not work out
+ * what to buy for that" are opposite statements.
+ *
+ */
+export type OrderDeskNotComputable = {
+    /**
+     * Distinct **dates** carrying at least one hole. A date rather than a
+     * demand item: two orders and a subscription day all failing on one
+     * Tuesday is one day the buy list is incomplete for, which is the
+     * question the number answers.
+     *
+     */
+    days: number;
+    /**
+     * Hole counts by reason code, most days first. A count is **days that
+     * reason spoiled**, not occurrences: three ingredients of one dish all
+     * failing for the same reason on one day is one day, so an elaborate
+     * recipe does not look like a bigger problem than a simple one with the
+     * same consequence.
+     *
+     * Only reasons that actually occurred appear. The vocabulary is
+     * `plan_has_no_menu`, `menu_dish_withdrawn`, `meal_has_no_recipe`,
+     * `no_yield_piece_count`, `unquantified_recipe_line`,
+     * `no_ingredient_link`, `no_stock_item`, `no_stock_unit` and
+     * `unit_conversion_unsupported`; the map is left open so a code added
+     * later reaches a client as data rather than as a schema violation.
+     *
+     */
+    reasons: {
+        [key: string]: number;
+    };
+};
+
+export type OrderDeskRequirementsEnvelope = {
+    data: {
+        /**
+         * One row per shelf the window needs anything of, ordered by stock-item code.
+         */
+        requirements: Array<OrderDeskRequirementRow>;
+        not_computable: OrderDeskNotComputable;
+    };
+    meta: Meta & {
+        from: string;
+        to: string;
+        branch_id: Uuid;
+        /**
+         * The longest window this operation will answer, counted
+         * inclusively. Echoed so a client can bound its own date picker
+         * instead of discovering the limit as a 422.
+         *
+         */
+        max_window_days: number;
+    };
+};
+
+export type OrderDeskShortfallCountEnvelope = {
+    data: {
+        /**
+         * How many ingredients the next seven days are short of at this
+         * branch. **`null` when no `branch_id` was given** — render nothing
+         * at all for it, never a zero.
+         *
+         */
+        shortfall_count: number | null;
+        /**
+         * The branch the count is about, echoed so the answer says what it is about. Null exactly when the count is.
+         */
+        branch_id: Uuid | null;
+    };
+    meta: Meta;
+};
+
+export type OrderDeskDriver = {
+    user_id: Uuid;
+    /**
+     * The person's name, from their profile. **Null when they have no
+     * profile yet** — a member whose account was created but never
+     * completed is still a member, and leaving them out would make them
+     * unassignable. Render the em dash the platform uses for every other
+     * unknown rather than inventing a placeholder.
+     *
+     */
+    display_name: string | null;
+};
+
+export type OrderDeskDriversEnvelope = {
+    data: Array<OrderDeskDriver>;
+    meta: Meta & {
+        count: number;
+        /**
+         * The most rows this operation will ever return. There is no
+         * second page: a kitchen with more active members than this has
+         * an organisation chart rather than a rota.
+         *
+         */
+        limit: number;
+    };
+};
+
+export type CreateOrderDeskCustomerRequest = {
+    /**
+     * What the caller says their name is. One field rather than a
+     * given/family pair, because the platform's customer may be a company.
+     *
+     */
+    display_name: string;
+    /**
+     * **Required, because a cold caller is a telephone number.** It is how
+     * the kitchen rings back about tonight's delivery and what the next
+     * agent searches on when the same person calls again; an account
+     * without one is a name nobody can act on. Further numbers are added
+     * afterwards through the customer's own contact operations.
+     *
+     * Already in E.164, or `422` on this field. The platform does not infer
+     * a country code from a local number — guessing would send somebody
+     * else's handset a passcode that unlocks an account — so the desk asks
+     * for it.
+     *
+     */
+    phone: string;
+    /**
+     * A language the platform knows; unknown codes are `422` rather than a foreign-key failure.
+     */
+    preferred_language_code?: string | null;
+    country_code?: string | null;
+};
+
+/**
+ * The customer's own address body minus `address_type`, `contact_point_id`
+ * and `is_default` — see the operation for why each is absent. Every length
+ * is the column's.
+ *
+ * `delivery_area_id` is a `uuid` and nothing more. Whether anybody
+ * delivers there is asked at save time and answered as
+ * `address.area_not_served`, which is the sentence the agent reads out to
+ * the customer; an `exists` rule would refuse an unknown identifier as
+ * "invalid" and still say nothing about coverage.
+ *
+ */
+export type AddOrderDeskCustomerAddressRequest = {
+    delivery_area_id: Uuid;
+    label?: string | null;
+    line_one: string;
+    line_two?: string | null;
+    building?: string | null;
+    floor?: string | null;
+    apartment?: string | null;
+    directions?: string | null;
+    postal_code?: string | null;
+};
+
+/**
+ * What one agent took, one way, in one currency, on one day.
+ *
+ * The row's identity is all three of `(confirmed_by, method, currency_code)`
+ * — an agent who took cash and a WISH transfer is two rows, and an agent who
+ * took dollars and dirhams is two more. That is not a normalisation
+ * accident: the currency belongs to the key because `amount_minor_sum` is
+ * only meaningful within one, and a shape that let a group span two would
+ * be a shape in which a nonsense number could be written.
+ *
+ */
+export type OrderDeskCashReportRow = {
+    confirmed_by: Uuid;
+    /**
+     * **Null for an agent whose profile was never completed.** They still
+     * took the money, so they are still listed — dropping the row to avoid a
+     * null would be losing cash from a reconciliation to protect a
+     * formatting concern. Render the platform's em dash. Nameless agents
+     * sort last.
+     *
+     */
+    display_name: string | null;
+    method: PaymentMethod;
+    /**
+     * ISO 4217, taken from the order the receipt was written against.
+     */
+    currency_code: string;
+    /**
+     * How many separate receipts make up the sum beside it.
+     */
+    receipt_count: number;
+    /**
+     * The sum of those receipts, in minor units of `currency_code`. Legal
+     * because every receipt in the group is the same unit of the same
+     * currency — which is exactly what makes the currency part of the key.
+     *
+     */
+    amount_minor_sum: number;
+};
+
+/**
+ * The same money one level up: one method, one currency, across every agent.
+ *
+ * Derived from the rows rather than queried separately, so a total can never
+ * disagree with the table above it. **There is no grand total anywhere in
+ * this response and there will not be** — it would have to add currencies,
+ * and the only reliable defence against that is a shape with nowhere to put
+ * it.
+ *
+ */
+export type OrderDeskCashReportTotal = {
+    method: PaymentMethod;
+    currency_code: string;
+    receipt_count: number;
+    amount_minor_sum: number;
+};
+
+export type OrderDeskCashReportEnvelope = {
+    data: {
+        /**
+         * Named agents first, nameless last, then a total order over the
+         * remaining key columns — so two identical requests cannot return
+         * the same figures in two orders. Empty on a day nobody took
+         * anything, which is a real answer rather than a gap.
+         *
+         */
+        rows: Array<OrderDeskCashReportRow>;
+        /**
+         * Ordered by first appearance in `rows`, and therefore as deterministic as they are.
+         */
+        totals: Array<OrderDeskCashReportTotal>;
+    };
+    meta: Meta & {
+        /**
+         * The day reported, echoed because the boundary below is what it means.
+         */
+        date: string;
+        /**
+         * The site the report was narrowed to, or null for the whole organisation.
+         */
+        branch_id: string | null;
+        /**
+         * The clock the day was measured on. **Always `UTC`** — see the
+         * operation. Echoed rather than assumed so a screen can say
+         * which midnight it is showing instead of implying the reader's
+         * own.
+         *
+         */
+        timezone: string;
+        /**
+         * Rows in this response. Not a count of receipts.
+         */
+        count: number;
+    };
 };
 
 /**
@@ -4757,8 +6037,12 @@ export type GuestOrder = {
     delivery_fee_minor: number | null;
     total_minor: number;
     /**
-     * One case, and no reserved others: a reserved case is a value
-     * something eventually writes.
+     * One case **on this surface**, narrower than the platform's
+     * `PaymentMethod` vocabulary on purpose. A guest checkout takes cash at
+     * the door and offers nothing else: the desk's two methods need
+     * somebody at a desk, and neither is reachable by a customer placing
+     * their own order. Serving the wider enum here would promise a value
+     * this endpoint cannot produce.
      *
      */
     payment_method: 'cash_on_delivery';
@@ -6120,72 +7404,6 @@ export type ReplaceCatalogueItemAvailabilityRequest = {
 };
 
 /**
- * One ticket on the kitchen display rail.
- */
-export type KitchenDisplayTicket = {
-    id: Uuid;
-    /**
-     * What the rail shows — the thing being made.
-     */
-    label: string;
-    /**
-     * The rail's three live states. `bumped` exists on the row but never
-     * appears here: this list is work outstanding.
-     *
-     */
-    status: 'new' | 'preparing' | 'ready';
-    /**
-     * Which station is working it.
-     */
-    station: string;
-    /**
-     * What the ticket came from — an order line, a production batch.
-     */
-    source_type: string;
-    source_id: Uuid;
-};
-
-export type CreatePosSaleLine = {
-    catalogue_item_id: Uuid;
-    /**
-     * Stored to four decimal places.
-     */
-    quantity: number;
-    /**
-     * Whole minor units. The transaction's total is the **sum of these**,
-     * computed by the server — there is no total field on this request.
-     *
-     */
-    line_total_minor: number;
-};
-
-export type CreatePosSaleRequest = {
-    pos_shift_id: Uuid;
-    /**
-     * Narrower than the platform's payment vocabulary on purpose:
-     * `invoice` is a different arrangement and is refused here.
-     *
-     */
-    payment_method_kind: 'cash_on_delivery' | 'card';
-    currency_code: CurrencyCode;
-    lines: Array<CreatePosSaleLine>;
-};
-
-/**
- * A recorded counter sale. Three fields — the lines are not echoed back,
- * because the caller sent them.
- *
- */
-export type PosTransaction = {
-    id: Uuid;
-    /**
-     * The server's sum of the submitted lines.
-     */
-    total_minor: number;
-    payment_method_kind: 'cash_on_delivery' | 'card';
-};
-
-/**
  * Where the job is in its life.
  */
 export type DeliveryJobStatus = 'pending' | 'assigned' | 'in_transit' | 'delivered' | 'failed' | 'cancelled';
@@ -6213,15 +7431,106 @@ export type DeliveryJob = {
 };
 
 /**
- * The same job on the driver's own run sheet. `driver_user_id` is absent
- * because it would say the same thing on every row.
+ * Where this run is going, **as the order recorded it at placement** — never
+ * as the customer's address book stands now. A customer who edits their
+ * address at eight o'clock has not changed where tonight's food is going,
+ * and a run sheet reading the live address would send a driver to a door
+ * the order was never for.
+ *
+ * Every field is nullable, and the nulls are ordinary: an order placed
+ * before the snapshot was widened carries no building or floor, an
+ * as-soon-as-possible order names no day, and a kitchen that has not named
+ * its slots has no window code.
+ *
+ */
+export type DriverJobDelivery = {
+    /**
+     * The street. What gets somebody to the building.
+     */
+    line_one: string | null;
+    building: string | null;
+    floor: string | null;
+    apartment: string | null;
+    /**
+     * Free text the customer wrote for the courier. Never parsed.
+     */
+    directions: string | null;
+    area_name_en: string | null;
+    area_name_ar: string | null;
+    window_code: string | null;
+    requested_date: string | null;
+    /**
+     * E.164, and it is **the number the order was given** — resolved from
+     * the contact point the snapshot names, not the customer's best current
+     * number. `null` when the order named none, with no fallback: a
+     * substitution would answer a different question while looking like the
+     * same field, and this route carries no permission code to hold a
+     * customer-contact lookup behind. The desk has
+     * `order.view_customer_contact_organisation` for that.
+     *
+     */
+    phone: string | null;
+};
+
+/**
+ * The same job on the driver's own run sheet, carrying what somebody
+ * standing next to a van needs: which order this is, where the food is
+ * going in enough detail to find a door, when it was promised, when they
+ * were given it, and the number to ring when they still cannot find the
+ * building.
+ *
+ * `driver_user_id` is absent because it would say the same thing on every
+ * row — the caller's own id, which they already have — and the dispatch
+ * board is the surface where whose job it is is worth answering. Money is
+ * absent for a related reason: a driver collecting cash on delivery is a
+ * real flow and it belongs to the receipts ledger, not bolted onto a run
+ * sheet.
  *
  */
 export type DriverJob = {
     id: Uuid;
     order_id: Uuid;
+    /**
+     * The number printed on the bag, so a courier can match one to the other.
+     */
+    order_number: string | null;
     status: DeliveryJobStatus;
     tracking_status: DeliveryJobTrackingStatus;
+    /**
+     * When this run was handed to the caller. `null` on a job nobody has assigned.
+     */
+    assigned_at: string | null;
+    delivery: DriverJobDelivery;
+};
+
+export type AssignDeliveryJobRequest = {
+    /**
+     * An **active member** of this organisation. There is deliberately no
+     * null: unassigning a run is a different decision and would need its
+     * own route and its own audit action rather than arriving as an omitted
+     * key.
+     *
+     */
+    driver_user_id: Uuid;
+};
+
+/**
+ * The dispatch board's shape plus what the assignment just decided. A
+ * superset rather than a different shape, so a board refreshing one row
+ * from this response does not have to reconcile two vocabularies.
+ *
+ */
+export type AssignedDeliveryJob = {
+    id: Uuid;
+    order_id: Uuid;
+    status: DeliveryJobStatus;
+    tracking_status: DeliveryJobTrackingStatus;
+    driver_user_id: Uuid | null;
+    assigned_at: string | null;
+    /**
+     * The validator to send as `If-Match` on the next write.
+     */
+    lock_version: number;
 };
 
 export type DeliverDriverJobRequest = {
@@ -8269,10 +9578,10 @@ export type PlatformKitchenSummaryEnvelope = {
 };
 
 /**
- * **One request creates four things, in one transaction: the
+ * **One request creates five things, in one transaction: the
  * organisation, one active main branch, the `kitchen_production`
- * capability, and a `b2c_web` sales channel coded `web-shop`.** All four
- * or none.
+ * capability, a `b2c_web` sales channel coded `web-shop`, and a `pos`
+ * sales channel coded `desk`.** All five or none.
  *
  * A kitchen that is only an organisation row is a kitchen whose workspace
  * refuses on the first screen: the organisation context resolves a
@@ -8283,6 +9592,14 @@ export type PlatformKitchenSummaryEnvelope = {
  * to add the rest afterwards was rejected because it makes the console's
  * success message a lie for the twenty minutes before somebody notices. A
  * new kitchen works immediately; it simply has nothing in it yet.
+ *
+ * The fifth is the counter. The Order Desk sells through its own channel
+ * rather than through the web shop, so that a kitchen may put the catering
+ * trays across the counter without putting them on the site — and a
+ * kitchen provisioned without one can take a web order but not a walk-in,
+ * which is half a business. Both channels open empty: a kitchen created a
+ * moment ago has no articles and no tariffs, so there is nothing to
+ * assign to either.
  *
  * The wholesale channel is deliberately **not** created. A kitchen that
  * has never traded with a company does not need a B2B channel sitting
@@ -8704,15 +10021,11 @@ export type KycDocumentPath = Uuid;
 export type KycAccessPurpose = string;
 
 /**
- * The ticket identifier. Unlike the catalogue paths this one takes an
- * identifier only — a rail ticket has no stable key a human would hold.
- *
- */
-export type KitchenDisplayTicketPath = Uuid;
-
-/**
- * The delivery job identifier. One that is not the caller's own answers
- * 404, decided before the request body is looked at.
+ * The delivery job identifier. On the driver routes, one that is not the
+ * caller's own answers 404, decided before the request body is looked at;
+ * on the dispatcher's `assign`, one belonging to another organisation
+ * answers 404 for the same reason — a 403 would confirm that the
+ * identifier names something real.
  *
  */
 export type DeliveryJobPath = Uuid;
@@ -16388,6 +17701,175 @@ export type ReplacePlanVariantsResponses = {
 
 export type ReplacePlanVariantsResponse = ReplacePlanVariantsResponses[keyof ReplacePlanVariantsResponses];
 
+export type GetPlanMenuData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/menu';
+};
+
+export type GetPlanMenuErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetPlanMenuError = GetPlanMenuErrors[keyof GetPlanMenuErrors];
+
+export type GetPlanMenuResponses = {
+    /**
+     * The plan, its cycle configuration and every entry on its menu.
+     */
+    200: PlanMenuEnvelope;
+};
+
+export type GetPlanMenuResponse = GetPlanMenuResponses[keyof GetPlanMenuResponses];
+
+export type ReplacePlanMenuData = {
+    body: ReplacePlanMenuRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/plans/{item}/menu';
+};
+
+export type ReplacePlanMenuErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplacePlanMenuError = ReplacePlanMenuErrors[keyof ReplacePlanMenuErrors];
+
+export type ReplacePlanMenuResponses = {
+    /**
+     * The plan, the cycle it now runs on, and every entry it now has.
+     */
+    200: PlanMenuEnvelope;
+};
+
+export type ReplacePlanMenuResponse = ReplacePlanMenuResponses[keyof ReplacePlanMenuResponses];
+
 export type ListPlanVariantDurationsData = {
     body?: never;
     headers: {
@@ -20278,6 +21760,931 @@ export type CancelKitchenOrderResponses = {
 
 export type CancelKitchenOrderResponse = CancelKitchenOrderResponses[keyof CancelKitchenOrderResponses];
 
+export type RecordOrderPaymentData = {
+    body: StorePaymentReceiptRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/payments';
+};
+
+export type RecordOrderPaymentErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RecordOrderPaymentError = RecordOrderPaymentErrors[keyof RecordOrderPaymentErrors];
+
+export type RecordOrderPaymentResponses = {
+    /**
+     * The receipt that was written, and the order's payment position with
+     * it counted in.
+     *
+     * No `ETag`: the order's validator has not moved, and serving one from
+     * an operation that did not change it would invite a client to treat
+     * this as a write to the order.
+     *
+     */
+    201: OrderPaymentReceiptEnvelope;
+};
+
+export type RecordOrderPaymentResponse = RecordOrderPaymentResponses[keyof RecordOrderPaymentResponses];
+
+export type ListOrderDeskQueueData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Which slice of the open book. Defaults to `today`, which also carries
+         * every order with no requested date at all.
+         *
+         */
+        window?: OrderDeskWindow;
+        /**
+         * Narrow to one production site, and read `today` on that branch's
+         * clock. Omitted, the queue is organisation-wide and the day boundary
+         * is UTC.
+         *
+         */
+        branch_id?: Uuid;
+        /**
+         * Restrict to a subset of the two open states. Omitted, both are
+         * listed. `fulfilled` and `cancelled` are not accepted at all: they are
+         * finished with, and they are the order book's business.
+         *
+         * **Repeat the bracketed name** — `?status[]=placed&status[]=confirmed`
+         * — which is the only form this server reads. PHP collapses repeated
+         * bare parameters to the last value, so the plain `status=placed&
+         * status=confirmed` that `style: form` with `explode: true` describes
+         * for an unbracketed name arrives at the controller as the single
+         * string `confirmed`, fails its `array` rule and earns a 422 on every
+         * multi-status request. The name carries the brackets so that the
+         * document describes what the endpoint actually accepts; this is the
+         * only array-valued query parameter in the specification, so there is
+         * no sibling convention it diverges from.
+         *
+         */
+        'status[]'?: Array<'placed' | 'confirmed'>;
+        /**
+         * Restrict to one named delivery slot, by the window's own code.
+         */
+        delivery_window_code?: string;
+        /**
+         * Restrict to one way of leaving the kitchen. Omitted, all three are
+         * listed.
+         *
+         * **A single value, unlike `status[]`.** The two filters look alike and
+         * are not. The statuses are a subset question — a desk watching for
+         * unconfirmed work wants `placed` alone, and selecting neither means
+         * both. The three fulfilment types are three different jobs done by
+         * three different people: a dispatch board wants deliveries, a
+         * collection counter wants pickups. Nobody asks for "deliveries and
+         * counter sales but not pickups", so a multi-select would be inventing
+         * a question to justify a control.
+         *
+         */
+        fulfilment_type?: FulfilmentType;
+        /**
+         * Case-insensitive substring match on the order number, and on nothing else.
+         */
+        query?: string;
+    };
+    url: '/catalogue/order-desk/queue';
+};
+
+export type ListOrderDeskQueueErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrderDeskQueueError = ListOrderDeskQueueErrors[keyof ListOrderDeskQueueErrors];
+
+export type ListOrderDeskQueueResponses = {
+    /**
+     * The open queue in due order, capped, with the day and clock it was measured against.
+     */
+    200: OrderDeskQueueEnvelope;
+};
+
+export type ListOrderDeskQueueResponse = ListOrderDeskQueueResponses[keyof ListOrderDeskQueueResponses];
+
+export type QuoteOrderDeskData = {
+    body: QuoteOrderDeskRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/quote';
+};
+
+export type QuoteOrderDeskErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type QuoteOrderDeskError = QuoteOrderDeskErrors[keyof QuoteOrderDeskErrors];
+
+export type QuoteOrderDeskResponses = {
+    /**
+     * The priced basket, its totals, and every refusal standing between it and a sale.
+     */
+    200: OrderDeskQuoteEnvelope;
+};
+
+export type QuoteOrderDeskResponse = QuoteOrderDeskResponses[keyof QuoteOrderDeskResponses];
+
+export type PlaceOrderDeskOrderData = {
+    body: PlaceOrderDeskRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * As `Idempotency-Key`, but mandatory. Used where the command creates
+         * records that cannot be un-created — provisioning a tenant — and where
+         * a retry with no key would therefore be unrecoverable rather than
+         * merely wasteful. Absent is **400** `request.invalid`.
+         *
+         */
+        'Idempotency-Key': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/orders';
+};
+
+export type PlaceOrderDeskOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PlaceOrderDeskOrderError = PlaceOrderDeskOrderErrors[keyof PlaceOrderDeskOrderErrors];
+
+export type PlaceOrderDeskOrderResponses = {
+    /**
+     * The order as the kitchen sees it, with every line at the price it was
+     * placed at. `status` is `placed` on a delivery or a pickup and
+     * `fulfilled` on a counter sale, which is the whole observable
+     * difference between the two writes this operation performs. A replay
+     * of a request this key already answered returns this same body and
+     * this same status, with `Idempotency-Replayed: true`; nothing ran a
+     * second time.
+     *
+     */
+    201: KitchenOrderEnvelope;
+};
+
+export type PlaceOrderDeskOrderResponse = PlaceOrderDeskOrderResponses[keyof PlaceOrderDeskOrderResponses];
+
+export type SearchOrderDeskCustomersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * A name fragment, or a telephone number in E.164.
+         */
+        query: string;
+    };
+    url: '/catalogue/order-desk/customers';
+};
+
+export type SearchOrderDeskCustomersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SearchOrderDeskCustomersError = SearchOrderDeskCustomersErrors[keyof SearchOrderDeskCustomersErrors];
+
+export type SearchOrderDeskCustomersResponses = {
+    /**
+     * The matching customers of this kitchen, capped, alphabetically by name.
+     */
+    200: OrderDeskCustomersEnvelope;
+};
+
+export type SearchOrderDeskCustomersResponse = SearchOrderDeskCustomersResponses[keyof SearchOrderDeskCustomersResponses];
+
+export type CreateOrderDeskCustomerData = {
+    body: CreateOrderDeskCustomerRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * As `Idempotency-Key`, but mandatory. Used where the command creates
+         * records that cannot be un-created — provisioning a tenant — and where
+         * a retry with no key would therefore be unrecoverable rather than
+         * merely wasteful. Absent is **400** `request.invalid`.
+         *
+         */
+        'Idempotency-Key': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/customers';
+};
+
+export type CreateOrderDeskCustomerErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateOrderDeskCustomerError = CreateOrderDeskCustomerErrors[keyof CreateOrderDeskCustomerErrors];
+
+export type CreateOrderDeskCustomerResponses = {
+    /**
+     * The customer as the desk sees them, and anybody already on that
+     * number. A replay of a request this key already answered returns the
+     * same body and the same status, with `Idempotency-Replayed: true`.
+     *
+     */
+    201: OrderDeskCustomerEnvelope;
+};
+
+export type CreateOrderDeskCustomerResponse = CreateOrderDeskCustomerResponses[keyof CreateOrderDeskCustomerResponses];
+
+export type AddOrderDeskCustomerAddressData = {
+    body: AddOrderDeskCustomerAddressRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The customer account, as returned by the desk's customer search or create.
+         */
+        account: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/order-desk/customers/{account}/addresses';
+};
+
+export type AddOrderDeskCustomerAddressErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AddOrderDeskCustomerAddressError = AddOrderDeskCustomerAddressErrors[keyof AddOrderDeskCustomerAddressErrors];
+
+export type AddOrderDeskCustomerAddressResponses = {
+    /**
+     * The address was added, with whether anybody delivers to it today.
+     */
+    201: CustomerAddressEnvelope;
+};
+
+export type AddOrderDeskCustomerAddressResponse = AddOrderDeskCustomerAddressResponses[keyof AddOrderDeskCustomerAddressResponses];
+
+export type GetOrderDeskCalendarData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * First day of the window, inclusive.
+         */
+        from: string;
+        /**
+         * Last day of the window, inclusive. Must not be before `from`, and
+         * must not put more than sixty days in the window.
+         *
+         */
+        to: string;
+        /**
+         * Narrow every basis to one production site. Omitted, the calendar is
+         * organisation-wide. Unlike on the queue it names no clock: a
+         * calendar's days are the dates customers asked for rather than
+         * instants.
+         *
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/calendar';
+};
+
+export type GetOrderDeskCalendarErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskCalendarError = GetOrderDeskCalendarErrors[keyof GetOrderDeskCalendarErrors];
+
+export type GetOrderDeskCalendarResponses = {
+    /**
+     * Every day of the window, each with its three counts and their split by slot.
+     */
+    200: OrderDeskCalendarEnvelope;
+};
+
+export type GetOrderDeskCalendarResponse = GetOrderDeskCalendarResponses[keyof GetOrderDeskCalendarResponses];
+
+export type GetOrderDeskRequirementsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * First day of the window, inclusive.
+         */
+        from: string;
+        /**
+         * Last day of the window, inclusive. Must not be before `from`, and
+         * must not put more than thirty-one days in the window.
+         *
+         */
+        to: string;
+        /**
+         * The shelf to compare against. **Required**, unlike on every other
+         * order-desk operation — this is the question rather than a filter over
+         * it, because there is no organisation-wide "available".
+         *
+         */
+        branch_id: Uuid;
+    };
+    url: '/catalogue/order-desk/requirements';
+};
+
+export type GetOrderDeskRequirementsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskRequirementsError = GetOrderDeskRequirementsErrors[keyof GetOrderDeskRequirementsErrors];
+
+export type GetOrderDeskRequirementsResponses = {
+    /**
+     * The window's requirements against one branch, and the part of it nobody could compute.
+     */
+    200: OrderDeskRequirementsEnvelope;
+};
+
+export type GetOrderDeskRequirementsResponse = GetOrderDeskRequirementsResponses[keyof GetOrderDeskRequirementsResponses];
+
+export type GetOrderDeskShortfallCountData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * The shelf to judge against. Omitted, the answer is `null` — see the
+         * description. Optional here and required on the list beside it.
+         *
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/requirements/shortfall-count';
+};
+
+export type GetOrderDeskShortfallCountErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskShortfallCountError = GetOrderDeskShortfallCountErrors[keyof GetOrderDeskShortfallCountErrors];
+
+export type GetOrderDeskShortfallCountResponses = {
+    /**
+     * The count, or null when no branch was named.
+     */
+    200: OrderDeskShortfallCountEnvelope;
+};
+
+export type GetOrderDeskShortfallCountResponse = GetOrderDeskShortfallCountResponses[keyof GetOrderDeskShortfallCountResponses];
+
+export type ListOrderDeskDriversData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/drivers';
+};
+
+export type ListOrderDeskDriversErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrderDeskDriversError = ListOrderDeskDriversErrors[keyof ListOrderDeskDriversErrors];
+
+export type ListOrderDeskDriversResponses = {
+    /**
+     * This organisation's active members, named where a name exists.
+     */
+    200: OrderDeskDriversEnvelope;
+};
+
+export type ListOrderDeskDriversResponse = ListOrderDeskDriversResponses[keyof ListOrderDeskDriversResponses];
+
+export type GetOrderDeskCashReportData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The day to report, read on the UTC clock. Required, and one day
+         * rather than a range: reconciling a till is a daily act, and a report
+         * summing Monday and Tuesday is one nobody can stand a cash box next
+         * to.
+         *
+         */
+        date: string;
+        /**
+         * Narrow to the site that cooked it, through the order. Omitted, the
+         * report is organisation-wide. Orders with no branch are excluded when
+         * this is set — see the description.
+         *
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/cash-report';
+};
+
+export type GetOrderDeskCashReportErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskCashReportError = GetOrderDeskCashReportErrors[keyof GetOrderDeskCashReportErrors];
+
+export type GetOrderDeskCashReportResponses = {
+    /**
+     * One day's takings by agent, method and currency, with the per-method totals.
+     */
+    200: OrderDeskCashReportEnvelope;
+};
+
+export type GetOrderDeskCashReportResponse = GetOrderDeskCashReportResponses[keyof GetOrderDeskCashReportResponses];
+
 export type StartGuestSessionData = {
     body?: StartGuestSessionRequest;
     headers?: {
@@ -21809,238 +24216,6 @@ export type WithdrawMyConsentResponses = {
 
 export type WithdrawMyConsentResponse = WithdrawMyConsentResponses[keyof WithdrawMyConsentResponses];
 
-export type ListKitchenDisplayTicketsData = {
-    body?: never;
-    headers: {
-        /**
-         * The active organisation. Never trusted without server-side validation
-         * against an active membership.
-         *
-         */
-        'X-Organisation-Id': Uuid;
-        /**
-         * The active branch. Validated against the membership scope: a
-         * branch-scoped membership may only work inside its own branch.
-         *
-         */
-        'X-Branch-Id'?: Uuid;
-        /**
-         * An opaque client-generated identifier for support correlation. Logged
-         * and echoed back; never used as the correlation identifier.
-         *
-         */
-        'X-Client-Request-Id'?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/catalogue/kitchen-display/tickets';
-};
-
-export type ListKitchenDisplayTicketsErrors = {
-    /**
-     * A context the endpoint needs was not supplied —
-     * `context.organisation_required` for a missing `X-Organisation-Id`, and
-     * `context.branch_required` for a missing `X-Branch-Id` on the
-     * branch-scoped operations. Distinct from
-     * `context.branch_out_of_scope` (403): the caller has not asked for a
-     * branch they may not have, they have not asked for one at all.
-     *
-     */
-    400: ErrorEnvelope;
-    /**
-     * No usable credential was presented.
-     */
-    401: ErrorEnvelope;
-    /**
-     * The context was refused (`context.organisation_forbidden`,
-     * `context.branch_out_of_scope`) or the membership's roles do not grant
-     * the required permission (`authz.permission_denied`, with the denying
-     * RBAC step in `details.reason`).
-     *
-     */
-    403: ErrorEnvelope;
-    /**
-     * The rate limit for this endpoint was exceeded.
-     */
-    429: ErrorEnvelope;
-};
-
-export type ListKitchenDisplayTicketsError = ListKitchenDisplayTicketsErrors[keyof ListKitchenDisplayTicketsErrors];
-
-export type ListKitchenDisplayTicketsResponses = {
-    /**
-     * Up to 100 open tickets, oldest first.
-     */
-    200: {
-        data: {
-            tickets: Array<KitchenDisplayTicket>;
-        };
-        meta: Meta;
-    };
-};
-
-export type ListKitchenDisplayTicketsResponse = ListKitchenDisplayTicketsResponses[keyof ListKitchenDisplayTicketsResponses];
-
-export type BumpKitchenDisplayTicketData = {
-    body?: never;
-    headers: {
-        /**
-         * The active organisation. Never trusted without server-side validation
-         * against an active membership.
-         *
-         */
-        'X-Organisation-Id': Uuid;
-        /**
-         * An opaque client-generated identifier for support correlation. Logged
-         * and echoed back; never used as the correlation identifier.
-         *
-         */
-        'X-Client-Request-Id'?: string;
-    };
-    path: {
-        /**
-         * The ticket identifier. Unlike the catalogue paths this one takes an
-         * identifier only — a rail ticket has no stable key a human would hold.
-         *
-         */
-        ticket: Uuid;
-    };
-    query?: never;
-    url: '/catalogue/kitchen-display/tickets/{ticket}/bump';
-};
-
-export type BumpKitchenDisplayTicketErrors = {
-    /**
-     * A context the endpoint needs was not supplied —
-     * `context.organisation_required` for a missing `X-Organisation-Id`, and
-     * `context.branch_required` for a missing `X-Branch-Id` on the
-     * branch-scoped operations. Distinct from
-     * `context.branch_out_of_scope` (403): the caller has not asked for a
-     * branch they may not have, they have not asked for one at all.
-     *
-     */
-    400: ErrorEnvelope;
-    /**
-     * No usable credential was presented.
-     */
-    401: ErrorEnvelope;
-    /**
-     * The context was refused (`context.organisation_forbidden`,
-     * `context.branch_out_of_scope`) or the membership's roles do not grant
-     * the required permission (`authz.permission_denied`, with the denying
-     * RBAC step in `details.reason`).
-     *
-     */
-    403: ErrorEnvelope;
-    /**
-     * The resource does not exist, or is not the caller's to see.
-     */
-    404: ErrorEnvelope;
-    /**
-     * The rate limit for this endpoint was exceeded.
-     */
-    429: ErrorEnvelope;
-};
-
-export type BumpKitchenDisplayTicketError = BumpKitchenDisplayTicketErrors[keyof BumpKitchenDisplayTicketErrors];
-
-export type BumpKitchenDisplayTicketResponses = {
-    /**
-     * The ticket, bumped.
-     */
-    200: {
-        data: {
-            ticket: {
-                id: Uuid;
-                /**
-                 * Always `bumped` on success.
-                 */
-                status: string;
-            };
-        };
-        meta: Meta;
-    };
-};
-
-export type BumpKitchenDisplayTicketResponse = BumpKitchenDisplayTicketResponses[keyof BumpKitchenDisplayTicketResponses];
-
-export type CreatePosSaleData = {
-    body: CreatePosSaleRequest;
-    headers: {
-        /**
-         * The active organisation. Never trusted without server-side validation
-         * against an active membership.
-         *
-         */
-        'X-Organisation-Id': Uuid;
-        /**
-         * An opaque client-generated identifier for support correlation. Logged
-         * and echoed back; never used as the correlation identifier.
-         *
-         */
-        'X-Client-Request-Id'?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/catalogue/pos/sales';
-};
-
-export type CreatePosSaleErrors = {
-    /**
-     * A context the endpoint needs was not supplied —
-     * `context.organisation_required` for a missing `X-Organisation-Id`, and
-     * `context.branch_required` for a missing `X-Branch-Id` on the
-     * branch-scoped operations. Distinct from
-     * `context.branch_out_of_scope` (403): the caller has not asked for a
-     * branch they may not have, they have not asked for one at all.
-     *
-     */
-    400: ErrorEnvelope;
-    /**
-     * No usable credential was presented.
-     */
-    401: ErrorEnvelope;
-    /**
-     * The context was refused (`context.organisation_forbidden`,
-     * `context.branch_out_of_scope`) or the membership's roles do not grant
-     * the required permission (`authz.permission_denied`, with the denying
-     * RBAC step in `details.reason`).
-     *
-     */
-    403: ErrorEnvelope;
-    /**
-     * The resource does not exist, or is not the caller's to see.
-     */
-    404: ErrorEnvelope;
-    /**
-     * The submitted data is invalid.
-     */
-    422: ErrorEnvelope;
-    /**
-     * The rate limit for this endpoint was exceeded.
-     */
-    429: ErrorEnvelope;
-};
-
-export type CreatePosSaleError = CreatePosSaleErrors[keyof CreatePosSaleErrors];
-
-export type CreatePosSaleResponses = {
-    /**
-     * The recorded transaction — its identifier, the computed total and
-     * how it was paid. The lines are not echoed back; the caller sent
-     * them.
-     *
-     */
-    201: {
-        data: {
-            pos_transaction: PosTransaction;
-        };
-        meta: Meta;
-    };
-};
-
-export type CreatePosSaleResponse = CreatePosSaleResponses[keyof CreatePosSaleResponses];
-
 export type ListDeliveryJobsData = {
     body?: never;
     headers: {
@@ -22191,8 +24366,11 @@ export type DeliverDriverJobData = {
     };
     path: {
         /**
-         * The delivery job identifier. One that is not the caller's own answers
-         * 404, decided before the request body is looked at.
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
          *
          */
         job: Uuid;
@@ -22249,9 +24427,13 @@ export type DeliverDriverJobResponses = {
             job: {
                 id: Uuid;
                 /**
-                 * Always `delivered` on success.
+                 * Always `delivered` on success. Typed as the job
+                 * status enum rather than a bare string so a client
+                 * reads it with the same vocabulary the two lists
+                 * serve.
+                 *
                  */
-                status: string;
+                status: DeliveryJobStatus;
             };
         };
         meta: Meta;
@@ -22259,6 +24441,111 @@ export type DeliverDriverJobResponses = {
 };
 
 export type DeliverDriverJobResponse = DeliverDriverJobResponses[keyof DeliverDriverJobResponses];
+
+export type AssignDeliveryJobData = {
+    body: AssignDeliveryJobRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
+         *
+         */
+        job: Uuid;
+    };
+    query?: never;
+    url: '/delivery/jobs/{job}/assign';
+};
+
+export type AssignDeliveryJobErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AssignDeliveryJobError = AssignDeliveryJobErrors[keyof AssignDeliveryJobErrors];
+
+export type AssignDeliveryJobResponses = {
+    /**
+     * The job as it now stands, with its new validator.
+     */
+    200: {
+        data: {
+            job: AssignedDeliveryJob;
+        };
+        meta: Meta;
+    };
+};
+
+export type AssignDeliveryJobResponse = AssignDeliveryJobResponses[keyof AssignDeliveryJobResponses];
 
 export type CreatePaymentIntentData = {
     body: CreatePaymentIntentRequest;

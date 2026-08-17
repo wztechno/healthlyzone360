@@ -7,8 +7,10 @@ namespace Healthy360\Orders\Services;
 use Carbon\CarbonImmutable;
 use Closure;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\CancellationReason;
+use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Exceptions\TransitionRejected;
 use Healthy360\Orders\Models\Order;
@@ -51,6 +53,7 @@ final readonly class OrderLifecycle
         private AuditRecorder $audit,
         private TenantContext $context,
         private OrderStockConsumption $consumption,
+        private DeliveryJobProjection $jobs,
     ) {}
 
     /**
@@ -60,6 +63,15 @@ final readonly class OrderLifecycle
      * did not move, or moved stock on an order that failed to confirm, are both
      * states nobody could reconcile — and it is idempotent, so the lost-update
      * retry the `If-Match` guard already contemplates cannot double-deduct.
+     *
+     * It is also the moment a delivery order becomes a *run* (C3), for the same
+     * reason and in the same transaction. Committing to cook is the first point
+     * at which anybody can honestly say the food is going to travel: a placed
+     * order may still be cancelled without a driver ever hearing about it. The
+     * projection is idempotent for the reason the deduction is — this closure
+     * re-runs on a retried confirm — and it is gated on the fulfilment type
+     * here rather than inside the port, so that the one line a reader of this
+     * class needs to see about delivery is visible in this class.
      *
      * @throws ApiException
      */
@@ -72,6 +84,10 @@ final readonly class OrderLifecycle
             ['confirmed_at' => CarbonImmutable::now()],
             function (Order $confirmed): void {
                 $this->consumption->consume($confirmed);
+
+                if ($confirmed->fulfilment_type === FulfilmentType::Delivery) {
+                    $this->jobs->project($confirmed);
+                }
             },
         );
     }
@@ -88,6 +104,19 @@ final readonly class OrderLifecycle
      * A cancellation always carries a reason, because the fixed vocabulary is
      * only useful if it is never optional — an order cancelled "for no stated
      * reason" is the row that makes every count wrong.
+     *
+     * **The stock comes back and the delivery job does not go anywhere.** The
+     * asymmetry is deliberate and it is not an oversight: stock is a quantity
+     * that has to balance, so a deduction that is not reversed is a wrong number
+     * forever, whereas a delivery job is a *record of work* whose own status
+     * lifecycle — assigned, in transit, cancelled — belongs to the delivery
+     * module and is worked on the dispatch board. A cancelled confirmed order
+     * keeps its job row so that the board can show a dispatcher there is a run
+     * to call off, and so that a driver already holding the food is not deleted
+     * out of the system mid-journey. Cancelling the *run* is a delivery decision
+     * made where delivery decisions are made; this class does not reach across
+     * to make it, and `DeliveryJobProjection` deliberately offers no reverse to
+     * make it with.
      *
      * @throws ApiException
      */

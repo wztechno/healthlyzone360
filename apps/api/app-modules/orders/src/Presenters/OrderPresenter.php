@@ -6,6 +6,7 @@ namespace Healthy360\Orders\Presenters;
 
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
+use Healthy360\Orders\Models\OrderPaymentReceipt;
 
 /**
  * The two wire shapes of an order, built separately on purpose.
@@ -37,6 +38,17 @@ use Healthy360\Orders\Models\OrderLine;
  * * **`created_by`** — the user who transacted the placement. For a
  *   self-service order that is the customer themselves and says nothing; for
  *   an order placed by staff it names an employee to a member of the public.
+ * * **`placed_on_behalf_by`** — the same disclosure, sharper. Where
+ *   `created_by` merely *might* be an employee, this column is non-null on
+ *   exactly the orders a member of staff took for somebody else, so serving it
+ *   would name a named individual to the customer they served every single
+ *   time. Who at the kitchen answered the telephone is the kitchen's own
+ *   record of its own shift: it is what a manager reads to answer "who took
+ *   this order", and a customer with a complaint has the kitchen to complain
+ *   to, not an employee to identify. *`fulfilment_type` is served to both* and
+ *   is the pair's counter-example — how the food reaches somebody is a term of
+ *   their own order, and withholding it would leave a receipt with an empty
+ *   delivery block and no reason for it.
  * * **`lock_version`** — the optimistic-concurrency validator of a resource
  *   the customer cannot write. Serving a validator with no writer is an
  *   invitation to send `If-Match` at an endpoint that would ignore it.
@@ -55,6 +67,20 @@ use Healthy360\Orders\Models\OrderLine;
  * snapshotted it: code and containment, never the derivation or the source
  * ingredient. It is what the customer was told the food contains, and an order
  * line is the most likely row on the platform to be handed to a courier.
+ *
+ * ## The two payment shapes live here as well
+ *
+ * `paymentReceipt()` and `paymentSummary()` are kitchen-side shapes for an
+ * order's money, and they are here rather than in a presenter of their own for
+ * one reason: **two surfaces serve them and neither owns them.** The desk's
+ * receipt endpoint returns both, and `OrderDeskPresenter` puts the summary on
+ * every queue row. A shape defined at one of those two call sites would be
+ * imported by the other, which is how a queue row and a receipt response start
+ * disagreeing about what `receipted` means.
+ *
+ * Neither is a customer shape and neither ever will be. What a kitchen has been
+ * paid is the kitchen's ledger; what the customer owes is their order total,
+ * which the customer shape already carries.
  */
 final class OrderPresenter
 {
@@ -71,14 +97,20 @@ final class OrderPresenter
      *     delivery_fee_minor: int|null,
      *     total_minor: int,
      *     payment_method: string,
+     *     fulfilment_type: string,
      *     delivery: array{
      *         label: string|null,
-     *         line_one: string,
+     *         line_one: string|null,
      *         line_two: string|null,
      *         city: string|null,
      *         area_name_en: string|null,
      *         area_name_ar: string|null,
      *         area_id: string|null,
+     *         building: string|null,
+     *         floor: string|null,
+     *         apartment: string|null,
+     *         directions: string|null,
+     *         contact_point_id: string|null,
      *         window_code: string|null,
      *         requested_date: string|null
      *     },
@@ -122,6 +154,11 @@ final class OrderPresenter
             'delivery_fee_minor' => $order->delivery_fee_minor,
             'total_minor' => $order->total_minor,
             'payment_method' => $order->payment_method->value,
+            // How their food reaches them is the customer's own fact — they
+            // chose it, and a receipt that did not say whether it was being
+            // delivered, collected or handed over at a counter would leave the
+            // empty delivery block below unexplained.
+            'fulfilment_type' => $order->fulfilment_type->value,
             'delivery' => [
                 'label' => $order->delivery_label,
                 'line_one' => $order->delivery_line_one,
@@ -130,6 +167,15 @@ final class OrderPresenter
                 'area_name_en' => $order->delivery_area_name_en,
                 'area_name_ar' => $order->delivery_area_name_ar,
                 'area_id' => $order->delivery_area_id,
+                // The rest of their own address, as it stood at placement. A
+                // customer reading a receipt for a delivery that went to the
+                // wrong floor needs to see which floor the order actually
+                // carried, not which one their address book holds today.
+                'building' => $order->delivery_building,
+                'floor' => $order->delivery_floor,
+                'apartment' => $order->delivery_apartment,
+                'directions' => $order->delivery_directions,
+                'contact_point_id' => $order->delivery_contact_point_id,
                 'window_code' => $order->delivery_window_code,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
             ],
@@ -161,7 +207,7 @@ final class OrderPresenter
      *     id: string,
      *     order_number: string,
      *     organisation_id: string,
-     *     customer_account_id: string,
+     *     customer_account_id: string|null,
      *     sales_channel_id: string,
      *     branch_id: string|null,
      *     status: string,
@@ -170,15 +216,21 @@ final class OrderPresenter
      *     delivery_fee_minor: int|null,
      *     total_minor: int,
      *     payment_method: string,
+     *     fulfilment_type: string,
      *     delivery: array{
      *         label: string|null,
-     *         line_one: string,
+     *         line_one: string|null,
      *         line_two: string|null,
      *         city: string|null,
      *         area_name_en: string|null,
      *         area_name_ar: string|null,
      *         area_id: string|null,
      *         zone_id: string|null,
+     *         building: string|null,
+     *         floor: string|null,
+     *         apartment: string|null,
+     *         directions: string|null,
+     *         contact_point_id: string|null,
      *         window_code: string|null,
      *         requested_date: string|null
      *     },
@@ -188,6 +240,7 @@ final class OrderPresenter
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
      *     created_by: string|null,
+     *     placed_on_behalf_by: string|null,
      *     lock_version: int,
      *     line_count: int,
      *     lines: list<array{
@@ -231,6 +284,12 @@ final class OrderPresenter
             'delivery_fee_minor' => $order->delivery_fee_minor,
             'total_minor' => $order->total_minor,
             'payment_method' => $order->payment_method->value,
+            // The field that says what the whole delivery block below means. On
+            // a pickup or a counter row the address is null by constraint, not
+            // by omission, and a kitchen screen cannot tell "no address" from
+            // "address not loaded" without being told which kind of order it is
+            // reading.
+            'fulfilment_type' => $order->fulfilment_type->value,
             'delivery' => [
                 'label' => $order->delivery_label,
                 'line_one' => $order->delivery_line_one,
@@ -240,6 +299,16 @@ final class OrderPresenter
                 'area_name_ar' => $order->delivery_area_name_ar,
                 'area_id' => $order->delivery_area_id,
                 'zone_id' => $order->delivery_zone_id,
+                // The half of the snapshot a courier actually navigates by. The
+                // street gets somebody to the building; the building, the
+                // floor, the flat and the customer's own directions get them to
+                // the door, and the contact point is the number to ring when
+                // they still cannot find it.
+                'building' => $order->delivery_building,
+                'floor' => $order->delivery_floor,
+                'apartment' => $order->delivery_apartment,
+                'directions' => $order->delivery_directions,
+                'contact_point_id' => $order->delivery_contact_point_id,
                 'window_code' => $order->delivery_window_code,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
             ],
@@ -249,11 +318,96 @@ final class OrderPresenter
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
             'created_by' => $order->created_by,
+            // Provenance, and the kitchen's own record of its own shift. Null
+            // on every self-service order, which is what makes it readable as
+            // "a person at a desk took this" — `created_by` is written on every
+            // path and answers a different question.
+            'placed_on_behalf_by' => $order->placed_on_behalf_by,
             'lock_version' => $order->lock_version,
             'line_count' => count($presented),
             'lines' => $presented,
             'created_at' => $order->created_at?->toIso8601String(),
             'updated_at' => $order->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * One statement that money arrived.
+     *
+     * `method` is the receipt's own, which is **how the money turned up** and
+     * deliberately not the order's `payment_method`, which is what was intended
+     * at placement. An order taken for cash at the counter and settled by WISH
+     * is a real evening; serving one of the two figures under the other's name
+     * would make it unreadable.
+     *
+     * `confirmed_by` is served — the whole control on a WISH receipt is that a
+     * named person asserted it, and a receipt whose asserter the reader cannot
+     * see is an anonymous claim. It names a member of the kitchen's own staff to
+     * the kitchen's own staff, which is the audience `OrderPresenter::kitchen()`
+     * already shows `created_by` to.
+     *
+     * No `organisation_id`: a receipt is reachable only through an order that
+     * `OrderQuery::forSeller()` has already scoped, so the field would restate
+     * the caller's own organisation to itself.
+     *
+     * @return array{
+     *     id: string,
+     *     order_id: string,
+     *     method: string,
+     *     amount_minor: int,
+     *     currency_code: string,
+     *     reference: string|null,
+     *     confirmed_by: string,
+     *     confirmed_at: string,
+     *     notes: string|null,
+     *     created_at: string|null
+     * }
+     */
+    public function paymentReceipt(OrderPaymentReceipt $receipt): array
+    {
+        return [
+            'id' => (string) $receipt->getKey(),
+            'order_id' => $receipt->order_id,
+            'method' => $receipt->method->value,
+            'amount_minor' => $receipt->amount_minor,
+            'currency_code' => $receipt->currency_code,
+            'reference' => $receipt->reference,
+            'confirmed_by' => $receipt->confirmed_by,
+            'confirmed_at' => $receipt->confirmed_at->toIso8601String(),
+            'notes' => $receipt->notes,
+            'created_at' => $receipt->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Where an order stands on being paid, in three fields.
+     *
+     * `$receivedMinor` is summed over the order's receipts by the caller and
+     * handed in, never queried here: the desk queue derives it for a whole page
+     * in one grouped statement, and a presenter that fetched its own would turn
+     * two hundred rows into two hundred round trips.
+     *
+     * **`method` is the order's *intended* method**, not any receipt's. A queue
+     * row is read before the money arrives — it is how the desk knows what to
+     * ask the customer for — so the useful fact there is what the order was
+     * taken on. What actually arrived is on the receipts, and the pair is only
+     * legible while each one is served under its own name.
+     *
+     * **`receipted` rather than `paid`.** The word is doing real work: this
+     * platform holds no proof that money exists, only that somebody at a desk
+     * wrote down that it arrived. `>=` and not `==` because over-payment is
+     * ordinary — a customer hands over a round note and takes change from the
+     * till, which is not a row in this table — and a part payment leaves it
+     * false until the balance lands.
+     *
+     * @return array{method: string, received_minor: int, receipted: bool}
+     */
+    public function paymentSummary(Order $order, int $receivedMinor): array
+    {
+        return [
+            'method' => $order->payment_method->value,
+            'received_minor' => $receivedMinor,
+            'receipted' => $receivedMinor >= $order->total_minor,
         ];
     }
 

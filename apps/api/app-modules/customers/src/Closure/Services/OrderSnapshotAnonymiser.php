@@ -42,7 +42,18 @@ use Throwable;
  * opinion: amounts, dates, status, channel, branch, and the delivery *area* and
  * *city* all survive — the area is `Public` on that table and is what tax and
  * coverage are computed on. The address lines and the customer's own label for
- * the place are overwritten.
+ * the place are overwritten, along with the building, floor, flat, the
+ * customer's own directions to their door and the reference to the number the
+ * courier was given.
+ *
+ * Those five moved in step with the orders-module implementation rather than
+ * being left behind, and the reason is what this class is *for*: it runs in a
+ * tree where that implementation is absent, and a fallback that redacted less
+ * than the real one would make "was this closure complete" depend on which
+ * binding happened to win. The address line is written **conditionally** for
+ * the same reason it is there — since the fulfilment migration it is null on
+ * orders that never had an address, and `orders_fulfilment_shape_check` refuses
+ * a marker on those shapes.
  */
 final class OrderSnapshotAnonymiser implements OrderAnonymisation
 {
@@ -88,14 +99,30 @@ final class OrderSnapshotAnonymiser implements OrderAnonymisation
             return DB::table('orders')
                 ->where('customer_account_id', $customerAccountId)
                 ->where(function ($query): void {
-                    $query->where('delivery_line_one', '!=', self::REDACTED)
+                    $query->whereNotNull('delivery_label')
                         ->orWhereNotNull('delivery_line_two')
-                        ->orWhereNotNull('delivery_label');
+                        ->orWhereNotNull('delivery_building')
+                        ->orWhereNotNull('delivery_floor')
+                        ->orWhereNotNull('delivery_apartment')
+                        ->orWhereNotNull('delivery_directions')
+                        ->orWhereNotNull('delivery_contact_point_id')
+                        // Never true where the column is null, which is exactly
+                        // the orders that never carried an address.
+                        ->orWhere('delivery_line_one', '!=', self::REDACTED);
                 })
                 ->update([
                     'delivery_label' => null,
-                    'delivery_line_one' => self::REDACTED,
+                    // The marker where there was an address, null where there
+                    // never was one. A literal here would write it onto a
+                    // pickup or a counter sale in the same history and the
+                    // shape CHECK would abort the closure.
+                    'delivery_line_one' => DB::raw("CASE WHEN delivery_line_one IS NULL THEN NULL ELSE '".self::REDACTED."' END"),
                     'delivery_line_two' => null,
+                    'delivery_building' => null,
+                    'delivery_floor' => null,
+                    'delivery_apartment' => null,
+                    'delivery_directions' => null,
+                    'delivery_contact_point_id' => null,
                     'updated_at' => now(),
                 ]);
         } catch (Throwable) {

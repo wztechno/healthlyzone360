@@ -15,15 +15,23 @@ import type {
     KitchenOrderFilters,
     KitchenOrderLine,
     KitchenOrderPage,
+    KitchenOrderPaymentReceipt,
+    KitchenOrderPaymentSummary,
     KitchenOrdersRepository,
     KitchenOrderTransitionRequest,
+    RecordedKitchenOrderPayment,
+    RecordKitchenOrderPaymentRequest,
 } from '../contracts/kitchen-orders.ts';
 import type {
     KitchenOrder as WireKitchenOrder,
     KitchenOrderDelivery as WireKitchenOrderDelivery,
     KitchenOrderLine as WireKitchenOrderLine,
+    OrderPaymentReceipt as WireOrderPaymentReceipt,
+    OrderPaymentSummary as WireOrderPaymentSummary,
     PaginationMeta,
+    StorePaymentReceiptRequest,
 } from '../generated/types.ts';
+import { generateRequestId } from './config.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -33,8 +41,8 @@ import type { Transport } from './transport.ts';
  *
  * Same convention as `kitchen-admin-writes.ts`: the header value is the lock version wrapped in
  * double quotes, which is the form the server hands back in `ETag` and the form its parser expects.
- * The three lifecycle actions are the only writes here and all three carry it. Two failures follow
- * from that and both are surfaced verbatim rather than translated:
+ * All four writes carry it. Two failures follow from that and both are surfaced verbatim rather
+ * than translated:
  *
  * - **omitted** → `request.precondition_required` (which this module makes unreachable — the
  *   contract requires `lockVersion`, so there is no call shape that could forget it);
@@ -48,8 +56,24 @@ import type { Transport } from './transport.ts';
  * ## Two response shapes, one endpoint family
  *
  * The list answers a **bare array** in `data` with the cursor in `meta`, so it needs
- * `requestEnvelope`; the single read and all three writes answer `data.order`. That asymmetry is
- * the wire's, and it is read literally here rather than smoothed over.
+ * `requestEnvelope`; the single read and the three lifecycle writes answer `data.order`. That
+ * asymmetry is the wire's, and it is read literally here rather than smoothed over.
+ *
+ * ## The fourth write is a payment, and it is here rather than on the order desk
+ *
+ * `recordPayment` is worked by a desk agent and every other operation that agent performs lives on
+ * `order-desk-repository.ts`. It is here anyway, because that module's own header states the rule:
+ * *the lifecycle writes an order needs are `kitchenOrders`', because duplicating them behind a
+ * desk-shaped name would give two modules the ability to move the same order with two different
+ * ideas of what version they hold.* This write sends the **order's** `lockVersion`, which is exactly
+ * the discriminator that header drew — `assignDeliveryJob` sits on the desk because it carries the
+ * *job's* validator instead. Audience follows surface, not the other way round.
+ *
+ * It is the one write here that does **not** answer `data.order`, and the one that does not bump the
+ * version it sent: nothing on the order row is modified, so a screen may record two part payments in
+ * a row without re-reading between them. It answers the receipt and the order's new payment position
+ * together, because a screen needs both and a second read for the second would be a round trip for a
+ * number the server has just computed.
  */
 
 function currencyOf(code: string): CurrencyCode {
@@ -104,6 +128,10 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         deliveryFeeMinor: wire.delivery_fee_minor,
         totalMinor: wire.total_minor,
         paymentMethod: wire.payment_method,
+        // Read literally rather than defaulted to `'delivery'`: the column's *database* default is
+        // delivery, and repeating that here would turn a wire fault into a confident claim that an
+        // order nobody is driving anywhere is going out on a van.
+        fulfilmentType: wire.fulfilment_type,
         delivery: mapDelivery(wire.delivery),
         placedAt: wire.placed_at,
         confirmedAt: wire.confirmed_at,
@@ -113,6 +141,42 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         lockVersion: wire.lock_version,
         lineCount: wire.line_count,
         lines: wire.lines.map(mapLine),
+    };
+}
+
+/**
+ * One receipt, as written.
+ *
+ * Nothing is defaulted. `amount_minor` in particular is read straight through: a `?? 0` on a
+ * malformed field would put a receipt for nothing into a cash ledger, which is worse than an error.
+ */
+function mapPaymentReceipt(wire: WireOrderPaymentReceipt): KitchenOrderPaymentReceipt {
+    return {
+        id: wire.id,
+        orderId: wire.order_id,
+        method: wire.method,
+        amountMinor: wire.amount_minor,
+        currencyCode: currencyOf(wire.currency_code),
+        reference: wire.reference,
+        confirmedBy: wire.confirmed_by,
+        confirmedAt: wire.confirmed_at,
+        notes: wire.notes,
+    };
+}
+
+/**
+ * Where the order stands afterwards.
+ *
+ * The same three fields `order-desk-mappers.ts` maps for the queue row, mapped again here rather
+ * than imported across: this module is the order's, that one is the desk's, and an import in either
+ * direction would make one repository's shape depend on the other's file layout. The wire type is
+ * the single source both read (`OrderPaymentSummary`), which is what actually keeps them in step.
+ */
+function mapPaymentSummary(wire: WireOrderPaymentSummary): KitchenOrderPaymentSummary {
+    return {
+        method: wire.method,
+        receivedMinor: wire.received_minor,
+        receipted: wire.receipted,
     };
 }
 
@@ -192,6 +256,46 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
             return transition(request.id, request.lockVersion, 'cancel', {
                 reason: request.reason,
             });
+        },
+
+        async recordPayment(
+            request: RecordKitchenOrderPaymentRequest,
+        ): Promise<RecordedKitchenOrderPayment> {
+            const body: StorePaymentReceiptRequest = {
+                method: request.method,
+                amount_minor: request.amountMinor,
+                // Spread rather than set to `undefined`: `exactOptionalPropertyTypes` would let a
+                // present-but-empty key through, and the server distinguishes "no reference" from
+                // a reference somebody cleared. There is deliberately no `currency_code` — the
+                // order's is the only one this receipt can be in.
+                ...(request.reference === undefined ? {} : { reference: request.reference }),
+                ...(request.notes === undefined ? {} : { notes: request.notes }),
+            };
+
+            const payload = await transport.request<{
+                readonly receipt: WireOrderPaymentReceipt;
+                readonly payment: WireOrderPaymentSummary;
+            }>({
+                method: 'POST',
+                path: `/catalogue/orders/${encodeURIComponent(String(request.id))}/payments`,
+                headers: {
+                    // The **order's** version, and this write does not bump it: what the
+                    // precondition guards is that nobody records money against an order somebody
+                    // cancelled in the meantime.
+                    ...ifMatch(request.lockVersion),
+                    // A fresh key per attempt, minted here so no screen can forget it — the rule
+                    // `order-repository.ts` and `order-desk-repository.ts` follow. Per *attempt* is
+                    // the important half: a held key would make a deliberate second payment replay
+                    // the first receipt instead of recording the balance.
+                    'Idempotency-Key': generateRequestId(),
+                },
+                body,
+            });
+
+            return {
+                receipt: mapPaymentReceipt(payload.receipt),
+                payment: mapPaymentSummary(payload.payment),
+            };
         },
     };
 }

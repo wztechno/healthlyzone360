@@ -101,16 +101,19 @@ describe('availableWorkspaceAreas', () => {
             (option) => option.area,
         );
 
-        for (const area of [
-            'dietitian',
-            'clinic',
-            'insurance',
-            'patient',
-            'partner',
-            'pos',
-            'driver',
-        ])
+        for (const area of ['dietitian', 'clinic', 'insurance', 'patient', 'partner'])
             expect(areas).not.toContain(area);
+    });
+
+    /**
+     * The other half of the same filter, and the reason `driver` left the list above: the run
+     * sheet's endpoints are wired, so the area is a real destination in the families that compile
+     * it. This is the assertion that would fail if `driverJobs` were flipped back without the rest
+     * of the client going with it.
+     */
+    it('offers the driver area now that the run sheet has endpoints behind it', () => {
+        const areas = availableWorkspaceAreas(hydrated([])).map((option) => option.area);
+        expect(areas).toContain('driver');
     });
 
     it('adds platform-admin once the permission is present', () => {
@@ -130,7 +133,7 @@ describe('availableWorkspaceAreas', () => {
         });
         const areas = availableWorkspaceAreas(state).map((option) => option.area);
 
-        for (const area of ['kitchen', 'pos', 'kds']) expect(areas).not.toContain(area);
+        for (const area of ['kitchen', 'kds']) expect(areas).not.toContain(area);
     });
 
     /** Decision D1: consumer areas open on a global identity alone. */
@@ -148,7 +151,7 @@ describe('availableWorkspaceAreas', () => {
 
     it('never offers an area outside the build family', () => {
         const areas = availableWorkspaceAreas(hydrated([], 'staff')).map((option) => option.area);
-        expect(areas).not.toContain('pos');
+        expect(areas).not.toContain('kds');
         expect(areas).not.toContain('customer');
     });
 
@@ -161,7 +164,7 @@ describe('availableWorkspaceAreas', () => {
 
 describe('areasForMode', () => {
     it('reports what a build family compiles, regardless of the user', () => {
-        expect(areasForMode('kiosk')).toEqual(['pos', 'kds']);
+        expect(areasForMode('kiosk')).toEqual(['kds']);
         expect(areasForMode('driver')).toEqual(['driver']);
         expect(areasForMode('customer')).toEqual(['customer', 'patient']);
     });

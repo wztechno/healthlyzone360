@@ -4,6 +4,8 @@ import type {
     KitchenOrderFilters,
     KitchenOrderPage,
     KitchenOrderTransitionRequest,
+    RecordKitchenOrderPaymentRequest,
+    RecordedKitchenOrderPayment,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +15,8 @@ import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
 /**
- * The kitchen order book's data access — a list, a detail read, and the three lifecycle actions.
+ * The kitchen order book's data access — a list, a detail read, the three lifecycle actions, and the
+ * receipt that records money arriving against one of them.
  *
  * One hook per repository operation, same as `./kitchen-ops-hooks.ts`, with one difference that
  * shapes everything below: these rows **are** lock-versioned, so a screen here is not free to
@@ -108,13 +111,29 @@ export function useKitchenOrderQuery(
     });
 }
 
-/** Seeds the fresh record into its own entry, then invalidates every list. See the module note. */
+/**
+ * Seeds the fresh record into its own entry, then invalidates every list that shows it. See the
+ * module note.
+ *
+ * **Two roots, named explicitly.** The same order is listed by the order book and by the Order Desk
+ * queue through two endpoints with two different sorts, and `query-keys.ts` keeps them as separate
+ * roots precisely so a fifteen-second poll on one does not evict the other. The cost of that
+ * separation is this second line: a lifecycle write changes the status the desk queue draws and the
+ * window a confirmed order falls into, so a desk left holding the old row would offer "Confirm" on
+ * an order somebody at the book already confirmed. Naming both is a decision a reader can see,
+ * rather than a coupling that happens to hold — and it is the same pair
+ * `usePlaceOrderDeskSaleMutation` names for the same reason.
+ *
+ * Invalidating a root nothing is subscribed to costs nothing, so the order book pays no price for
+ * keeping the desk honest.
+ */
 function useKitchenOrderWriteEffects(): (order: KitchenOrder) => void {
     const queryClient = useQueryClient();
 
     return (order: KitchenOrder) => {
         queryClient.setQueryData(queryKeys.kitchenOrders.order(order.id), order);
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
     };
 }
 
@@ -168,5 +187,57 @@ export function useCancelOrderMutation(): UseMutationResult<
         mutationFn: (request: CancelKitchenOrderRequest) =>
             repositories.kitchenOrders.cancelOrder(request),
         onSuccess: onWritten,
+    });
+}
+
+/**
+ * Write down money that arrived against an order.
+ *
+ * ## Why this is here and not in `order-desk-hooks.ts`
+ *
+ * The person pressing it is a desk agent, and this is the fourth hook the desk queue's drawer
+ * imports out of this module — `useKitchenOrderQuery`, `useConfirmOrderMutation` and
+ * `useFulfilOrderMutation` are the other three. That is the settled shape: the desk owns the *queue*
+ * and the order owns its own *writes*, because the writes carry the order's `lockVersion` and one
+ * module has to be where a screen looks for it. `order-desk-repository.ts` states the rule at
+ * length; this hook is the same rule one layer up.
+ *
+ * ## It does **not** go through {@link useKitchenOrderWriteEffects}, and that is the point
+ *
+ * The three lifecycle writes answer the fresh order and seed it into the detail entry, which is what
+ * lets "Fulfil" fire straight after "Confirm". This one answers a **receipt** and a payment position
+ * — no order at all — because recording a payment does not touch the order row and does not bump its
+ * version. So there is nothing to seed, and seeding is not merely unnecessary: the version the caller
+ * sent is still current, and a screen that re-read to discover that would be spending a round trip to
+ * learn nothing had changed.
+ *
+ * Both roots are still invalidated, and for the reason they always are here. The queue row carries
+ * `payment.receivedMinor` and `payment.receipted`, which this write has just changed and which the
+ * order book's own detail read does not serve at all — so the desk's row is the *only* place the
+ * result becomes visible, and it is the one that must be refetched. `kitchenOrders` is named beside
+ * it because the same order's list rows are a legitimate audience for "this is settled now" the day a
+ * payment column reaches them, and because an invalidation nothing is subscribed to costs nothing.
+ *
+ * **No retry.** A `409` is either a stale precondition — answered by re-reading, which is the
+ * screen's decision — or a cancelled order, which no amount of retrying makes payable. A silent
+ * retry would also risk a second receipt against a fresh idempotency key, which is money written down
+ * twice.
+ */
+export function useRecordOrderPaymentMutation(): UseMutationResult<
+    RecordedKitchenOrderPayment,
+    unknown,
+    RecordKitchenOrderPaymentRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: RecordKitchenOrderPaymentRequest) =>
+            repositories.kitchenOrders.recordPayment(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+        },
     });
 }

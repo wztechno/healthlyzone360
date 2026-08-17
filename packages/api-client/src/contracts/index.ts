@@ -2,6 +2,7 @@ import type { AccountRepository } from './account.ts';
 import type { AuthRepository } from './auth.ts';
 import type { B2BApplicationRepository } from './b2b-application.ts';
 import type { BusinessRepository } from './business.ts';
+import type { DriverJobsRepository } from './driver-jobs.ts';
 import type { GuestRepository } from './guest.ts';
 import type { InvitationsRepository } from './invitations.ts';
 import type { CommerceRepository } from './commerce.ts';
@@ -12,6 +13,7 @@ import type { KitchenOrdersRepository } from './kitchen-orders.ts';
 import type { KitchenQuotationsRepository } from './kitchen-quotations.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
+import type { OrderDeskRepository } from './order-desk.ts';
 import type { MealPlanRepository } from './planner.ts';
 import type { PlatformAdminRepository } from './platform-admin.ts';
 import type { ProfessionalRepository } from './professional.ts';
@@ -263,6 +265,7 @@ export {
     CONSUMER_VISIBLE_STATUSES,
     COST_DECIMAL_PLACES,
     PLAN_DURATION_KINDS,
+    PLAN_MENU_SLOTS,
     PRICE_STATUSES,
     PUBLISHABLE_STATUSES,
     isConsumerVisible,
@@ -306,6 +309,10 @@ export type {
     PlanCombination,
     PlanDurationAdmin,
     PlanDurationKind,
+    PlanMenu,
+    PlanMenuEntry,
+    PlanMenuEntryInput,
+    PlanMenuSlot,
     PlanVariantAdmin,
     PlanVariantInput,
     PriceListAdmin,
@@ -330,6 +337,7 @@ export type {
     RecipeStepInput,
     RecipeVersionAdmin,
     RecipeVersionSummary,
+    ReplacePlanMenuRequest,
     RollupWarning,
     ServiceArea,
     ServiceAreaFilter,
@@ -405,6 +413,7 @@ export type {
 
 export {
     KITCHEN_ORDER_CANCELLATION_REASONS,
+    KITCHEN_ORDER_FULFILMENT_TYPES,
     KITCHEN_ORDER_OPEN_STATUSES,
     KITCHEN_ORDER_PAYMENT_METHODS,
     KITCHEN_ORDER_STATUSES,
@@ -415,14 +424,87 @@ export type {
     KitchenOrderCancellationReason,
     KitchenOrderDelivery,
     KitchenOrderFilters,
+    KitchenOrderFulfilmentType,
     KitchenOrderLine,
     KitchenOrderLineAllergen,
     KitchenOrderPage,
     KitchenOrderPaymentMethod,
+    KitchenOrderPaymentReceipt,
+    KitchenOrderPaymentSummary,
     KitchenOrdersRepository,
     KitchenOrderStatus,
     KitchenOrderTransitionRequest,
+    RecordedKitchenOrderPayment,
+    RecordKitchenOrderPaymentRequest,
 } from './kitchen-orders.ts';
+
+export {
+    CALENDAR_BASES,
+    CALENDAR_FORECAST_BASIS,
+    ORDER_DESK_CUSTOMER_ORIGINS,
+    ORDER_DESK_FULFILMENT_TYPES,
+    ORDER_DESK_QUEUE_STATUSES,
+    ORDER_DESK_WINDOWS,
+} from './order-desk.ts';
+export type {
+    AddOrderDeskCustomerAddressRequest,
+    AssignDeliveryJobRequest,
+    AssignedDeliveryJob,
+    CalendarBasis,
+    CreateOrderDeskCustomerRequest,
+    OrderDeskBasketLine,
+    OrderDeskCalendar,
+    OrderDeskCalendarCounts,
+    OrderDeskCalendarDay,
+    OrderDeskCalendarFilters,
+    OrderDeskCalendarMeta,
+    OrderDeskCalendarWindow,
+    OrderDeskCashReport,
+    OrderDeskCashReportFilters,
+    OrderDeskCashReportMeta,
+    OrderDeskCashReportRow,
+    OrderDeskCashReportTotal,
+    OrderDeskCounterPayment,
+    OrderDeskCustomer,
+    OrderDeskCustomerAddress,
+    OrderDeskCustomerContact,
+    OrderDeskCustomerCreated,
+    OrderDeskCustomerOrigin,
+    OrderDeskCustomerSearch,
+    OrderDeskDeliveryJob,
+    OrderDeskDriver,
+    OrderDeskDrivers,
+    OrderDeskFulfilmentType,
+    OrderDeskNotComputable,
+    OrderDeskPaymentSummary,
+    OrderDeskQueue,
+    OrderDeskQueueFilters,
+    OrderDeskQueueMeta,
+    OrderDeskQueueRow,
+    OrderDeskQueueStatus,
+    OrderDeskQuote,
+    OrderDeskQuoteLine,
+    OrderDeskRefusal,
+    OrderDeskRepository,
+    OrderDeskRequirement,
+    OrderDeskRequirements,
+    OrderDeskRequirementsFilters,
+    OrderDeskRequirementsMeta,
+    OrderDeskSaleRequest,
+    OrderDeskShortfallCount,
+    OrderDeskWindow,
+    PlaceOrderDeskSaleRequest,
+} from './order-desk.ts';
+
+export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs.ts';
+export type {
+    DeliverDriverJobRequest,
+    DriverJob,
+    DriverJobDelivery,
+    DriverJobStatus,
+    DriverJobsRepository,
+    DriverJobTrackingStatus,
+} from './driver-jobs.ts';
 
 export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';
 export type {
@@ -740,6 +822,23 @@ export interface Repositories {
     readonly kitchenOrders: KitchenOrdersRepository;
 
     /**
+     * The Order Desk's queue — the same open orders as `kitchenOrders`, in the order somebody has
+     * to work them, with the day and clock that ordering was computed against.
+     *
+     * Its own field rather than a method on `kitchenOrders`, and the reason is the sort. The order
+     * book is walked with a cursor, newest first; this queue is sorted by a *computed* due instant
+     * across three tables, which `CursorPage` cannot page. One contract carrying both would have to
+     * publish a cursor that is meaningless on half its methods. It also reads two fields the book
+     * does not — a customer's name and phone number, behind their own permission code — so the
+     * narrower surface is the one that can state that boundary in a single place.
+     *
+     * Read-only. Moving an order stays on `kitchenOrders`, where the `lockVersion` and the three
+     * `If-Match` writes already live; two modules able to transition the same row would be two
+     * ideas of which version they hold.
+     */
+    readonly orderDesk: OrderDeskRepository;
+
+    /**
      * The B2B quotations submitted against this kitchen, and the one action that answers them.
      *
      * A sibling of `business` rather than a branch of it, for the reason `kitchenOrders` is a
@@ -750,6 +849,21 @@ export interface Repositories {
      * invalidation should never cross between them. See `./kitchen-quotations.ts`'s header.
      */
     readonly kitchenQuotations: KitchenQuotationsRepository;
+
+    /**
+     * One driver's run sheet, and the stamp that closes a job.
+     *
+     * Not a branch of `kitchenOrders` and not a branch of `commerce`. Both of those are *orders* —
+     * the seller's ticket and the buyer's receipt — and this is a **delivery job**, a different row
+     * in a different module with its own two-axis status. The only field they share is the order
+     * identifier, which is exactly the seam a driver reads out loud and nothing more.
+     *
+     * The narrowest surface on this bundle, and deliberately: two methods, no filters, no cursor,
+     * no lock version. See `./driver-jobs.ts` for why each of those absences is the subject's shape
+     * rather than a gap. The routes carry no permission code — `where driver_user_id = me` is the
+     * whole isolation — so there is no call here that could reach another driver's work.
+     */
+    readonly driverJobs: DriverJobsRepository;
 
     /**
      * Platform administration of kitchen tenants (PA1) — the nineteenth field.

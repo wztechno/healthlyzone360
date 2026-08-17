@@ -22,6 +22,7 @@ use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
+use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Exceptions\PlacementRefused;
@@ -104,9 +105,10 @@ use Illuminate\Support\Facades\DB;
  * ## Orders the platform composes — S1's additive entry point
  *
  * `placeComposed()` places an order that has no basket behind it. S1's
- * subscription generation is the first and only caller: a delivery day crosses
- * its cut-off and one real order has to exist for it, placed by a scheduled
- * command with no request, no session and no cart.
+ * subscription generation was the first caller: a delivery day crosses its
+ * cut-off and one real order has to exist for it, placed by a scheduled command
+ * with no request, no session and no cart. The Order Desk is the second, and it
+ * is what made this entry point grow a shape.
  *
  * It is a second entry point rather than a second service, because everything
  * after "where do the lines come from" is identical and having two of it is how
@@ -130,6 +132,40 @@ use Illuminate\Support\Facades\DB;
  *    the caller has supplied both; everything else still refuses. The
  *    provenance is written to `order_lines.price_source`, so a reconciliation
  *    can read why the number disagrees with the standing tariff.
+ *
+ * ## The composed gate matrix — what a pickup and a counter sale skip, and why
+ *
+ * A composed placement now states how the order leaves (`ComposedPlacement::
+ * $fulfilmentType`), and three of the checks above only make sense for one of
+ * the three ways. `composeNow()` is where that is decided, once, so that no
+ * later caller has to remember which gate applies to what:
+ *
+ * | check | delivery | pickup | counter |
+ * |---|---|---|---|
+ * | `assertTrading()`, empty lines | yes | yes | yes |
+ * | `shapeReasons()` | yes | yes | yes |
+ * | `CheckoutEligibility::outstanding()` | self-service only | self-service only | self-service only |
+ * | `addressReasons()`, `zoneFor()`, fee currency | yes | — | — |
+ * | `scheduleReasons()` | yes | **yes** | — |
+ * | `composedSnapshots()` (repricing) | yes | yes | yes |
+ * | `agreementReasons()`, agreement snapshot | yes | yes | yes |
+ *
+ * The two rows worth arguing about are the last two.
+ *
+ * **A pickup is still cooked to a slot.** The address gates fall away because
+ * nothing travels, but the kitchen's cut-off is about when the food can be
+ * *made*, not about when it can be carried, so a pickup asked for after the
+ * branch stopped taking orders for that day is refused exactly as a delivery is.
+ * A counter sale is handed over now and has no requested day to be late for.
+ *
+ * **The agreement gate runs on all three**, and today it is a guaranteed no-op:
+ * it returns immediately unless the buyer is a `b2b` account on a channel with
+ * private pricing, and neither composed caller is that — subscription generation
+ * places for consumers, the desk places on a `pos` channel. It is here for
+ * parity rather than for effect. `placeNow()` has always run it, and the day a
+ * composed caller places on a private channel — a corporate standing order is
+ * the obvious one — the alternative would be a wholesale order placed without a
+ * minimum-order check, discovered in a reconciliation months later.
  */
 final readonly class OrderPlacementService
 {
@@ -214,11 +250,13 @@ final readonly class OrderPlacementService
     }
 
     /**
-     * Place an order the platform composed — S1's subscription deliveries.
+     * Place an order the platform composed — S1's subscription deliveries, and
+     * everything the Order Desk sells.
      *
-     * Same gates, same seller context, same idempotency guarantee as `place()`;
-     * the lines are supplied rather than read from a basket, and any of them
-     * may carry a grandfathered price. See the class docblock.
+     * Same seller context and same idempotency guarantee as `place()`; the gates
+     * are the same ones, applied per fulfilment type (see the class docblock's
+     * matrix). The lines are supplied rather than read from a basket, and any of
+     * them may carry a grandfathered price.
      *
      * @param  string|null  $idempotencyKey  the caller's replay key — subscription generation keys on subscription + date
      *
@@ -228,13 +266,22 @@ final readonly class OrderPlacementService
     {
         $account = $placement->account;
 
+        // Every component is null-safe now, and the three new ones are here
+        // because they change what was placed. Two desk taps a second apart with
+        // the same basket, the same customer and the same key — one a pickup and
+        // one a delivery, or one paid at the counter and one by WISH — are two
+        // different orders, and a fingerprint that could not tell them apart
+        // would answer the second with the first.
         $fingerprint = $this->idempotency->fingerprint([
             'composed' => 'v1',
-            'customer_account_id' => (string) $account->getKey(),
-            'address_id' => (string) $placement->address->getKey(),
+            'customer_account_id' => $account === null ? null : (string) $account->getKey(),
+            'address_id' => $placement->address === null ? null : (string) $placement->address->getKey(),
             'sales_channel_id' => $placement->salesChannelId,
             'delivery_window' => $placement->deliveryWindowCode,
             'requested_date' => $placement->requestedDate?->toDateString(),
+            'fulfilment_type' => $placement->fulfilmentType->value,
+            'placed_on_behalf_by' => $placement->placedOnBehalfBy,
+            'payment_method' => $placement->paymentMethod->value,
             'lines' => (string) json_encode(array_map(
                 static fn (ComposedLine $line): array => [
                     $line->catalogueItemId,
@@ -246,10 +293,12 @@ final readonly class OrderPlacementService
             ), JSON_THROW_ON_ERROR),
         ]);
 
+        [$subjectUserId, $subjectAccountId] = $this->composedSubject($placement);
+
         $outcome = $this->idempotency->around(
             $idempotencyKey,
-            $account->user_id,
-            $account->user_id === null ? (string) $account->getKey() : null,
+            $subjectUserId,
+            $subjectAccountId,
             $fingerprint,
             fn (): Order => $this->seller->during(
                 $placement->organisationId,
@@ -287,42 +336,93 @@ final readonly class OrderPlacementService
         // The same PA1 stop as `placeNow()`. A subscription's next delivery is
         // composed by a scheduled job rather than a person, and a suspended
         // kitchen must not have orders quietly generated against it while the
-        // platform is deciding what to do with it.
+        // platform is deciding what to do with it. A desk sale is the same rule
+        // seen from the other side: a withdrawn tenant must not keep selling
+        // lunch over the counter either.
         $this->trading->assertTrading($placement->organisationId);
 
         if ($placement->lines === []) {
             throw new PlacementRefused([['reason' => 'cart_empty']]);
         }
 
-        $reasons = $this->eligibility->outstanding($placement->account);
-        $reasons = [...$reasons, ...$this->addressReasons((string) $placement->account->getKey(), $placement->address)];
+        $account = $placement->account;
+        $address = $placement->address;
 
-        $effectiveDate = $placement->requestedDate;
+        $reasons = $this->shapeReasons($placement);
 
-        [$zone, $zoneReasons] = $this->zoneFor($placement->branchId, $placement->address);
-        $reasons = [...$reasons, ...$zoneReasons];
-
-        if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null && $zone->currency_code !== $placement->currencyCode) {
-            $reasons[] = [
-                'reason' => 'currency_mismatch',
-                'subject' => 'delivery_fee',
-                'expected_currency' => $placement->currencyCode,
-                'offered_currency' => $zone->currency_code,
-            ];
+        // **The eligibility bypass, and why it is here rather than inside the
+        // evaluator.** A desk order is placed for somebody the kitchen has in
+        // front of it: a cold caller whose account was provisioned a minute ago
+        // has no verified email, no dietary declaration and a `provisional`
+        // status, and every one of those is a real requirement for *self*-
+        // service. The member of staff is the verification the checklist was
+        // asking for.
+        //
+        // Teaching `CheckoutEligibility` about staff would weaken it for
+        // everybody — one flag on the evaluator and the next caller to pass it
+        // is a web request. So the gate is untouched and the *call* is skipped,
+        // which means the bypass is visible in one place and applies to exactly
+        // the placements that name the member of staff responsible for it.
+        if ($placement->placedOnBehalfBy === null && $account !== null) {
+            $reasons = [...$reasons, ...$this->eligibility->outstanding($account)];
         }
 
-        $reasons = [...$reasons, ...$this->scheduleReasons($placement->branchId, $effectiveDate, $now)];
+        $effectiveDate = $placement->requestedDate;
+        $zone = null;
+
+        // Delivery only. A pickup and a counter sale have no destination, so
+        // "is this address theirs", "do we serve it" and "does the fee price in
+        // this order's currency" are three questions about nothing — and
+        // `zoneFor()` on a null address is not a refusal, it is a crash.
+        if ($placement->fulfilmentType->requiresAddress() && $address !== null) {
+            if ($account !== null) {
+                $reasons = [...$reasons, ...$this->addressReasons((string) $account->getKey(), $address)];
+            }
+
+            [$zone, $zoneReasons] = $this->zoneFor($placement->branchId, $address);
+            $reasons = [...$reasons, ...$zoneReasons];
+
+            if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null && $zone->currency_code !== $placement->currencyCode) {
+                $reasons[] = [
+                    'reason' => 'currency_mismatch',
+                    'subject' => 'delivery_fee',
+                    'expected_currency' => $placement->currencyCode,
+                    'offered_currency' => $zone->currency_code,
+                ];
+            }
+        }
+
+        // Delivery *and* pickup. The cut-off is about when the food can be made,
+        // not about when it can be carried, so a collection asked for after the
+        // branch closed its book for that day is refused exactly as a delivery
+        // is. A counter sale is handed over now and has no day to be late for.
+        if ($placement->fulfilmentType !== FulfilmentType::Counter) {
+            $reasons = [...$reasons, ...$this->scheduleReasons($placement->branchId, $effectiveDate, $now)];
+        }
+
+        $channel = SalesChannel::withoutTenancy()->whereKey($placement->salesChannelId)->first();
 
         [$snapshots, $lineReasons] = $this->composedSnapshots($placement, $effectiveDate);
         $reasons = [...$reasons, ...$lineReasons];
+
+        // Guarded exactly as `placeNow()` guards it, and for the same reason: a
+        // subtotal summed over the lines that survived is not this order's
+        // subtotal, so testing it against an agreement minimum would invent a
+        // `minimum_order_not_met` on top of the refusals that are already true.
+        if ($lineReasons === []) {
+            $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
+            $reasons = [...$reasons, ...$this->agreementReasons($account, $channel, $subtotal, $effectiveDate ?? $now)];
+        }
 
         if ($reasons !== []) {
             throw new PlacementRefused($reasons);
         }
 
+        $agreement = $this->activeAgreementSnapshot($account, $channel, $effectiveDate ?? $now);
+
         $order = $this->persist(
-            account: $placement->account,
-            address: $placement->address,
+            account: $account,
+            address: $address,
             organisationId: $placement->organisationId,
             salesChannelId: $placement->salesChannelId,
             branchId: $placement->branchId,
@@ -332,6 +432,11 @@ final readonly class OrderPlacementService
             deliveryWindowCode: $placement->deliveryWindowCode,
             effectiveDate: $effectiveDate,
             now: $now,
+            fulfilmentType: $placement->fulfilmentType,
+            paymentMethod: $placement->paymentMethod,
+            placedOnBehalfBy: $placement->placedOnBehalfBy,
+            b2bAgreementId: $agreement['agreement_id'] ?? null,
+            priceListId: $agreement['price_list_id'] ?? null,
         );
 
         $this->audit->record(
@@ -341,7 +446,9 @@ final readonly class OrderPlacementService
             subjectId: (string) $order->getKey(),
             metadata: [
                 'composed' => true,
-                'customer_account_id' => (string) $placement->account->getKey(),
+                'customer_account_id' => $account === null ? null : (string) $account->getKey(),
+                'fulfilment_type' => $placement->fulfilmentType->value,
+                'placed_on_behalf_by' => $placement->placedOnBehalfBy,
                 'line_count' => count($snapshots),
                 'total_minor' => $order->total_minor,
                 'currency' => $order->currency_code,
@@ -350,6 +457,98 @@ final readonly class OrderPlacementService
         );
 
         return $order;
+    }
+
+    /**
+     * Whether the placement's own fields agree with the way it says the order
+     * leaves — as refusals, not as exceptions.
+     *
+     * `FulfilmentType::requiresCustomer()` and `requiresAddress()` are the same
+     * two predicates `orders_fulfilment_shape_check` states in SQL, asked here
+     * so the answer arrives as a sentence rather than as SQLSTATE 23514 from
+     * three layers down. The database keeps the constraint regardless — an
+     * importer or a backfill is not going through this method — but a desk agent
+     * who picked "counter" for a customer they had already given an address for
+     * is owed "an address does not apply to a counter sale", not a 500.
+     *
+     * Three reasons, and the third is the one that would otherwise go unsaid:
+     *
+     *  * `customer_required` — delivery and pickup. Somebody has to be rung.
+     *  * `address_required` — delivery. Somebody has to be driven to.
+     *  * `address_not_applicable` — pickup and counter. Refused rather than
+     *    silently dropped, because an address supplied and ignored means the
+     *    caller believed something about this order that is not true of it, and
+     *    the honest answer is to say so before the food is cooked.
+     *
+     * Collected beside every other reason rather than thrown, so that a
+     * placement wrong in two ways says both.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function shapeReasons(ComposedPlacement $placement): array
+    {
+        $type = $placement->fulfilmentType;
+        $reasons = [];
+
+        if ($type->requiresCustomer() && $placement->account === null) {
+            $reasons[] = ['reason' => 'customer_required', 'fulfilment_type' => $type->value];
+        }
+
+        if ($type->requiresAddress() && $placement->address === null) {
+            $reasons[] = ['reason' => 'address_required', 'fulfilment_type' => $type->value];
+        }
+
+        if (! $type->requiresAddress() && $placement->address !== null) {
+            $reasons[] = ['reason' => 'address_not_applicable', 'fulfilment_type' => $type->value];
+        }
+
+        return $reasons;
+    }
+
+    /**
+     * Who holds the idempotency key for a composed placement.
+     *
+     * `idempotency_keys_subject_check` is `num_nonnulls(user_id,
+     * customer_account_id) = 1` — exactly one subject, never both — so this is a
+     * choice and not a pair, and the choice moved when the desk arrived.
+     *
+     * **A staff placement keys on the member of staff.** The customer may be an
+     * account provisioned during the call, or on a counter sale may not exist at
+     * all, and neither is a durable subject for a replay guard. The agent is:
+     * they are who double-taps the button, they are who the retry comes from,
+     * and their user id is already on the placement as `placedOnBehalfBy`.
+     * `customerAccountId` is null on that arm because the CHECK forbids the
+     * pair, not because the customer is unknown.
+     *
+     * **Everything else is unchanged** — a registered customer keys on their own
+     * identity, a guest on the account that is the only durable thing about
+     * them, exactly as `place()` does.
+     *
+     * Both null is reachable and deliberate: a counter sale with no customer and
+     * no staff user is a legal composed shape, and `OrderIdempotency` answers
+     * that by declining to protect the placement rather than by inventing a
+     * subject. Nothing on the platform composes one today — the desk always
+     * names its agent — and a placement with no subject at all has nobody whose
+     * retry the key would be recognising.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function composedSubject(ComposedPlacement $placement): array
+    {
+        if ($placement->placedOnBehalfBy !== null) {
+            return [$placement->placedOnBehalfBy, null];
+        }
+
+        $account = $placement->account;
+
+        if (! $account instanceof CustomerAccount) {
+            return [null, null];
+        }
+
+        return [
+            $account->user_id,
+            $account->user_id === null ? (string) $account->getKey() : null,
+        ];
     }
 
     /**
@@ -435,6 +634,14 @@ final readonly class OrderPlacementService
             deliveryWindowCode: $deliveryWindowCode,
             effectiveDate: $effectiveDate,
             now: $now,
+            // Both stated rather than defaulted, which is the restructuring the
+            // Order Desk forced: `persist()` used to hardcode cash on delivery,
+            // and a shared writer that decides a commercial fact for its callers
+            // is a writer the second caller has to work around. A cart checkout
+            // is a courier delivery paid at the door — that has not changed, and
+            // now it is said here instead of being assumed there.
+            fulfilmentType: FulfilmentType::Delivery,
+            paymentMethod: PaymentMethod::CashOnDelivery,
             b2bAgreementId: $agreement['agreement_id'] ?? null,
             priceListId: $agreement['price_list_id'] ?? null,
             // Same transaction, deliberately. An order beside a still-open
@@ -468,16 +675,45 @@ final readonly class OrderPlacementService
      * the same act whoever asked for it, and two copies of this would be two
      * copies of the §4.8 denylist decision about what an order line may carry.
      *
+     * **Nothing commercial is decided here any more.** `payment_method` was
+     * hardcoded to cash on delivery in this method for the whole of C1, which
+     * was true of every order the platform could then take and stopped being
+     * true the moment somebody could pay at a counter. Both callers now state
+     * the fulfilment type and the payment method, so the one place that knows
+     * *how* the order was sold is the one that took it, and this method's job is
+     * back to being the shape of the row.
+     *
+     * **The address snapshot is conditional.** A pickup and a counter sale have
+     * no destination, and `orders_fulfilment_shape_check` refuses either of them
+     * carrying a `delivery_line_one`. When `$address` is null every `delivery_*`
+     * column is simply never written and stays null — including the fee, which
+     * keeps `orders_total_check` (`total = subtotal + COALESCE(fee, 0)`)
+     * satisfied without a special case. What is *still* written on that branch
+     * is `delivery_window_code` and `requested_delivery_date`: a pickup has a
+     * promised slot, and the promise is not about travel.
+     *
+     * **And when there is an address, the whole of it is copied now.** The
+     * building, the floor, the apartment, the directions and the contact point
+     * have been on `customer_addresses` since it was created and never reached
+     * the order; the fulfilment migration added the columns and this is the
+     * method that fills them. Both paths flow through here, so a cart checkout
+     * gains the richer snapshot too — which is the point. An order delivered to
+     * "Rue Gouraud 12" with the *fourth floor, ring twice* part left behind in a
+     * table the customer may edit tomorrow is a snapshot that failed at the one
+     * job a snapshot has.
+     *
      * `$within` runs inside the same transaction after the order exists. The
      * basket path uses it to mark the cart converted; the composed path passes
      * nothing, because there is no basket to convert.
      *
+     * @param  CustomerAccount|null  $account  null only on a counter sale for somebody the desk did not name
+     * @param  CustomerAddress|null  $address  null for pickup and counter; the whole snapshot block turns on it
      * @param  list<array<string, mixed>>  $snapshots
      * @param  (callable(Order): mixed)|null  $within
      */
     private function persist(
-        CustomerAccount $account,
-        CustomerAddress $address,
+        ?CustomerAccount $account,
+        ?CustomerAddress $address,
         string $organisationId,
         string $salesChannelId,
         ?string $branchId,
@@ -487,6 +723,9 @@ final readonly class OrderPlacementService
         ?string $deliveryWindowCode,
         ?CarbonImmutable $effectiveDate,
         CarbonImmutable $now,
+        FulfilmentType $fulfilmentType,
+        PaymentMethod $paymentMethod,
+        ?string $placedOnBehalfBy = null,
         ?callable $within = null,
         ?string $b2bAgreementId = null,
         ?string $priceListId = null,
@@ -497,12 +736,12 @@ final readonly class OrderPlacementService
         return DB::transaction(function () use (
             $account, $address, $organisationId, $salesChannelId, $branchId, $currencyCode,
             $snapshots, $zone, $fee, $subtotal, $deliveryWindowCode, $effectiveDate, $now, $within,
-            $b2bAgreementId, $priceListId,
+            $b2bAgreementId, $priceListId, $fulfilmentType, $paymentMethod, $placedOnBehalfBy,
         ): Order {
             $order = new Order;
             $order->order_number = $this->numbers->next();
             $order->organisation_id = $organisationId;
-            $order->customer_account_id = (string) $account->getKey();
+            $order->customer_account_id = $account === null ? null : (string) $account->getKey();
             $order->sales_channel_id = $salesChannelId;
             $order->branch_id = $branchId;
             $order->status = OrderStatus::Placed;
@@ -510,27 +749,47 @@ final readonly class OrderPlacementService
             $order->subtotal_minor = $subtotal;
             $order->delivery_fee_minor = $fee;
             $order->total_minor = $subtotal + ($fee ?? 0);
+            $order->fulfilment_type = $fulfilmentType;
 
-            // The address as it stands right now, copied. Editing it later
-            // must not change where this order was sent.
-            $area = DeliveryArea::query()->whereKey($address->delivery_area_id)->first();
+            if ($address !== null) {
+                // The address as it stands right now, copied. Editing it later
+                // must not change where this order was sent.
+                $area = DeliveryArea::query()->whereKey($address->delivery_area_id)->first();
 
-            $order->delivery_label = $address->label;
-            $order->delivery_line_one = $address->line_one;
-            $order->delivery_line_two = $address->line_two;
-            // The gazetteer's `region` — the governorate or district. It is
-            // deliberately unpopulated in the platform data (OD-12), so this
-            // is usually null; the column exists because a courier manifest
-            // has a city line and a snapshot that could not fill it would send
-            // somebody back to a table that has since changed.
-            $order->delivery_city = $area?->region;
-            $order->delivery_area_name_en = $area?->name_en;
-            $order->delivery_area_name_ar = $area?->name_ar;
-            $order->delivery_area_id = $address->delivery_area_id;
-            $order->delivery_zone_id = $zone?->getKey() === null ? null : (string) $zone->getKey();
+                $order->delivery_label = $address->label;
+                $order->delivery_line_one = $address->line_one;
+                $order->delivery_line_two = $address->line_two;
+                // The gazetteer's `region` — the governorate or district. It is
+                // deliberately unpopulated in the platform data (OD-12), so this
+                // is usually null; the column exists because a courier manifest
+                // has a city line and a snapshot that could not fill it would send
+                // somebody back to a table that has since changed.
+                $order->delivery_city = $area?->region;
+                $order->delivery_area_name_en = $area?->name_en;
+                $order->delivery_area_name_ar = $area?->name_ar;
+                $order->delivery_area_id = $address->delivery_area_id;
+                $order->delivery_zone_id = $zone?->getKey() === null ? null : (string) $zone->getKey();
+                // The half of the address that never used to travel. Copied
+                // rather than joined for the reason the rest of the block is:
+                // the row it came from may be edited, moved or deleted, and the
+                // delivery that already happened may not be rewritten by any of
+                // that. The contact point is a reference and not a copied
+                // number — which number the courier was *given* is the durable
+                // fact, and the verification state travels with the row.
+                $order->delivery_building = $address->building;
+                $order->delivery_floor = $address->floor;
+                $order->delivery_apartment = $address->apartment;
+                $order->delivery_directions = $address->directions;
+                $order->delivery_contact_point_id = $address->contact_point_id;
+            }
+
+            // Outside the address branch on purpose. "Be here at six" is a
+            // promise whether or not the food travels, so a pickup keeps its
+            // window and its day while carrying no destination at all.
             $order->delivery_window_code = $deliveryWindowCode;
             $order->requested_delivery_date = $effectiveDate;
-            $order->payment_method = PaymentMethod::CashOnDelivery;
+            $order->payment_method = $paymentMethod;
+            $order->placed_on_behalf_by = $placedOnBehalfBy;
             $order->b2b_agreement_id = $b2bAgreementId;
             $order->price_list_id = $priceListId;
             $order->placed_at = $now;
@@ -915,15 +1174,23 @@ final readonly class OrderPlacementService
     /**
      * Commercial terms that apply only to corporate buyers on private channels.
      *
+     * The account is nullable because a counter sale may name nobody, and a
+     * buyer who does not exist has no negotiated tariff — the same immediate
+     * "not applicable" the three existing guards produce, reached one condition
+     * earlier. Nullable rather than gated at the call site so that the composed
+     * path can run this on all three fulfilment types without asking again what
+     * "no buyer" means.
+     *
      * @return list<array<string, mixed>>
      */
     private function agreementReasons(
-        CustomerAccount $account,
+        ?CustomerAccount $account,
         ?SalesChannel $channel,
         int $subtotalMinor,
         CarbonImmutable $on,
     ): array {
-        if (! $channel instanceof SalesChannel
+        if (! $account instanceof CustomerAccount
+            || ! $channel instanceof SalesChannel
             || $account->account_type !== CustomerAccountType::B2b
             || $account->organisation_id === null
             || ! $channel->channel_kind->hasPrivatePricing()) {
@@ -964,11 +1231,12 @@ final readonly class OrderPlacementService
      * @return array{agreement_id: string, price_list_id: string}|null
      */
     private function activeAgreementSnapshot(
-        CustomerAccount $account,
+        ?CustomerAccount $account,
         ?SalesChannel $channel,
         CarbonImmutable $on,
     ): ?array {
-        if (! $channel instanceof SalesChannel
+        if (! $account instanceof CustomerAccount
+            || ! $channel instanceof SalesChannel
             || $account->account_type !== CustomerAccountType::B2b
             || $account->organisation_id === null
             || ! $channel->channel_kind->hasPrivatePricing()) {

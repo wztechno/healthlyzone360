@@ -572,11 +572,11 @@ describe('evaluateArea against the registry', () => {
         }
     });
 
-    it('requires a branch for exactly kitchen, pos and kds', () => {
+    it('requires a branch for exactly kitchen and kds', () => {
         const branchAreas = ROUTE_AREAS.filter(
             (area) => ROUTE_REQUIREMENTS[area].requiresBranch === true,
         );
-        expect([...branchAreas]).toEqual(['kitchen', 'pos', 'kds']);
+        expect([...branchAreas]).toEqual(['kitchen', 'kds']);
     });
 
     it('leaves public and auth completely unguarded', () => {
@@ -595,9 +595,9 @@ describe('mode × area matrix', () => {
         ROUTE_AREAS.map((area) => [mode, area] as [AppMode, RouteArea]),
     );
 
-    it('covers all 70 combinations', () => {
+    it('covers all 65 combinations', () => {
         expect(combinations).toHaveLength(APP_MODES.length * ROUTE_AREAS.length);
-        expect(combinations).toHaveLength(70);
+        expect(combinations).toHaveLength(65);
     });
 
     it.each(combinations)('%s × %s matches MODE_ROUTE_AREAS', (mode, area) => {

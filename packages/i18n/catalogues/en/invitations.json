@@ -15,6 +15,7 @@
             "kitchen_manager": "Kitchen manager",
             "commercial_manager": "Commercial manager",
             "organisation_owner": "Organisation owner",
+            "order_desk_agent": "Order desk agent",
             "unknown": "{{code}}"
         }
     },

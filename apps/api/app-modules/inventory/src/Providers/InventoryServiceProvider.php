@@ -7,7 +7,9 @@ namespace Healthy360\Inventory\Providers;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Console\DeriveStockItemsCommand;
+use Healthy360\Inventory\Contracts\SubscriptionMealDemand;
 use Healthy360\Inventory\Observers\DerivedStockObserver;
+use Healthy360\Inventory\Services\NullSubscriptionMealDemand;
 use Healthy360\Inventory\Services\OrderConsumptionService;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Illuminate\Database\Eloquent\Model;
@@ -25,7 +27,23 @@ class InventoryServiceProvider extends ServiceProvider
         CatalogueItem::class,
     ];
 
-    public function register(): void {}
+    /**
+     * The null default for this module's own outward port.
+     *
+     * `SubscriptionMealDemand` is the mirror image of `OrderStockConsumption`:
+     * there inventory *answers* another module's question, here it *asks* one.
+     * The requirement forecast needs to know which subscription days a kitchen
+     * still owes and what has been chosen for them, and those tables belong to
+     * the subscriptions module, which inventory may not import. Registered with
+     * a null default in `register()` — where the delivery and orders modules put
+     * theirs — so a deployment without subscriptions forecasts its real orders
+     * instead of failing at the container, and the subscriptions module's
+     * `boot()` replaces it when that module is installed.
+     */
+    public function register(): void
+    {
+        $this->app->bind(SubscriptionMealDemand::class, NullSubscriptionMealDemand::class);
+    }
 
     /**
      * Answer the orders module's stock-consumption port with real inventory

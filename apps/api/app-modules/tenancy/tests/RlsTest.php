@@ -116,26 +116,28 @@ use Illuminate\Support\Str;
 | scope: `SubscriptionLocator`, `ResolvesClosureRequest`, `ResolvesOffboarding`
 | and `ScheduleProjection::forOrganisation()`.
 |
-| The payments and POS repair leaves the set at **eleven** as well, and this
-| one is worth stating because the tables sound like they belong here.
-| `payment_intents` and `pos_shifts` both gained the fail-closed organisation
-| scope they should always have had — an unscoped `whereKey()` on either was
-| letting one tenant capture, refund or sell against another's row — and
-| neither gained a policy:
+| The payments repair leaves the set at **eleven** as well, and this one is
+| worth stating because the table sounds like it belongs here.
+| `payment_intents` gained the fail-closed organisation scope it should always
+| have had — an unscoped `whereKey()` was letting one tenant capture or refund
+| against another's row — and did not gain a policy. It is `app-scope`, on the
+| `carts`/`orders` precedent C1 set: the child of `orders`, which holds the
+| delivery address and deliberately has no policy, and a policy on the child of
+| an unguarded parent buys database isolation for the amount while leaving the
+| street unguarded. It would also read **zero rows** on the two paths that
+| legitimately run outside the owning tenant's context — the buyer-side create,
+| where no organisation is published at all, and
+| `PaymentsInvoicingSettlementLookup`, which is the `b2b_offboardings` shape
+| above: a platform operator asking about somebody else's organisation. Both
+| name `withoutTenancy()` and their own predicate.
 |
-|   * `payment_intents` — `app-scope`, on the `carts`/`orders` precedent C1
-|     set. It is the child of `orders`, which holds the delivery address and
-|     deliberately has no policy; a policy on the child of an unguarded parent
-|     buys database isolation for the amount while leaving the street
-|     unguarded. It would also read **zero rows** on the two paths that
-|     legitimately run outside the owning tenant's context — the buyer-side
-|     create, where no organisation is published at all, and
-|     `PaymentsInvoicingSettlementLookup`, which is the `b2b_offboardings`
-|     shape above: a platform operator asking about somebody else's
-|     organisation. Both name `withoutTenancy()` and their own predicate.
-|   * `pos_shifts` — `app-scope`, because its parent `pos_registers` has none
-|     and a shift carries no price, no formulation and no personal data. It is
-|     a marker of who was at which counter and when.
+| `pos_shifts` was argued here beside it on the same `app-scope` ground until
+| the Order Desk deleted the table with the rest of the POS module. The set is
+| **unchanged at eleven** by that demolition, and the absence of an edit below
+| is the evidence rather than an oversight: a table that never joined the set
+| cannot leave it. Had the shift table carried a policy, `DROP TABLE` would
+| have taken the policy with it and the pin would have had to drop to ten in
+| the same commit.
 |
 */
 
@@ -929,16 +931,25 @@ it('still migrates and seeds under the owner role with row-level security enable
     // of the six protected tables with no session context whatsoever.
     $this->seed();
 
-    // Eight platform template roles since K1.1: the four foundation roles plus
-    // kitchen_manager, kitchen_chef, kitchen_staff and commercial_manager.
-    // Pinned so a new template role has to be a deliberate act. K1.3 widened
-    // three of them with `recipe.view_costs_organisation` and added none; K1.6
-    // widened kitchen_manager and commercial_manager with the plan pair and,
-    // again, added none. K1.7 widened the same two with
+    // **Nine** platform template roles since C2: the four foundation roles,
+    // K1.1's kitchen_manager, kitchen_chef, kitchen_staff and
+    // commercial_manager, and now order_desk_agent. Pinned so a new template
+    // role has to be a deliberate act. K1.3 widened three of them with
+    // `recipe.view_costs_organisation` and added none; K1.6 widened
+    // kitchen_manager and commercial_manager with the plan pair and, again,
+    // added none. K1.7 widened the same two with
     // `delivery_zone.manage_organisation` — and kitchen_manager alone with
     // `branch.manage_current`, so the role that runs the kitchen can state
     // when it trades — and still added none.
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(8)
+    //
+    // C2 is the first phase since K1.1 to add one, and it adds exactly one. The
+    // order desk is a job somebody does rather than a widening of a job somebody
+    // already had: an agent holds the three desk codes plus the reads that make
+    // a counter workable, and no existing role is that shape — kitchen_staff
+    // holds no order codes at all, and kitchen_manager holds strictly more.
+    // `organisationTemplateRoleCodes()` in PermissionRegistryTest names the same
+    // nine and is the other half of this pin.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(9)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(ConsentDefinition::query()->count())->toBeGreaterThan(1);

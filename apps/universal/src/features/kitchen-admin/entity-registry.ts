@@ -61,6 +61,25 @@ export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
 export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
 
 /**
+ * Placing an order **for somebody else** — the authority the Order Desk's sale wizard needs, and its
+ * own code rather than `order.manage_organisation`.
+ *
+ * Moving an order that a customer placed and *creating* one in a customer's name are different
+ * powers: the first changes the state of an obligation somebody already entered into, the second
+ * creates the obligation. The backend grants them separately, and a desk agent holds both while a
+ * kitchen chef holds neither.
+ */
+export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organisation';
+
+/**
+ * Writing down a customer the kitchen has never met — a cold caller with no login.
+ *
+ * Separate from placing on their behalf because the two are refused separately: a desk that may take
+ * an order for an existing customer is not automatically a desk that may create account records.
+ */
+export const CUSTOMER_CREATE_ON_BEHALF_PERMISSION = 'customer.create_on_behalf_organisation';
+
+/**
  * The B2B quotation pair (B4), split for the reason `price_list.*` was split in K1.5: seeing what a
  * corporate buyer submitted and deciding what to charge them for it are different authorities, and
  * the backend grants both only to `kitchen_manager` and `commercial_manager`.
@@ -90,6 +109,18 @@ export const INVENTORY_VIEW_PERMISSION = 'inventory.view_organisation';
 export const INVENTORY_MANAGE_PERMISSION = 'inventory.manage_organisation';
 
 /**
+ * Reading this kitchen's subscriptions.
+ *
+ * No family is gated on it — `EntityFamily.permission` carries one code, and the surface that needs
+ * this one needs it *alongside* `order.view_organisation` rather than instead of it. The order-desk
+ * calendar counts three books, two of which are subscription arithmetic, and its endpoint demands
+ * both codes; the screen's own `<Gate>` therefore asks for both while its hub card is offered on the
+ * order code, which is what the group is. The constant lives here so the screen names the same
+ * string the backend route does rather than spelling it inline.
+ */
+export const SUBSCRIPTION_VIEW_PERMISSION = 'subscription.view_organisation';
+
+/**
  * How a family's card reports how much is in it.
  *
  * `managed` families are counted from their own listing and can carry a draft badge; `reference`
@@ -109,10 +140,27 @@ export type EntityKind = (typeof ENTITY_KINDS)[number];
 /**
  * Hub and kitchen-rail sectioning. Order here is display order for grouped nav and the hub grid.
  *
- * `workbench` is the "what now?" queue; `catalogue` is what goes into a dish; `commercial` is what
- * a customer is charged and where it is delivered; `operations` is stock through QC (ops panels).
+ * `orderDesk` is the counter — live customer work; `workbench` is the "what now?" queue over this
+ * workspace's own records; `catalogue` is what goes into a dish; `commercial` is what a customer is
+ * charged and where it is delivered; `operations` is stock through QC (ops panels).
+ *
+ * ## Why the desk is first, above the workbench
+ *
+ * The ordering of this tuple is "how immediate is it?", which is the same rule that puts the review
+ * queue first among the families: everything below the top answers "where do I go?", and the top
+ * answers "what should I do *now*?". The workbench held that position while the most immediate thing
+ * in the workspace was a blocked record or an unresolved stock exception — all of which are this
+ * kitchen's own housekeeping, and none of which has anybody waiting on the phone. The Order Desk is
+ * the only group whose contents are somebody *else's* clock: a customer is due food at a named hour,
+ * and the queue is sorted by how close that hour is. That belongs above the housekeeping.
  */
-export const ENTITY_GROUPS = ['workbench', 'catalogue', 'commercial', 'operations'] as const;
+export const ENTITY_GROUPS = [
+    'orderDesk',
+    'workbench',
+    'catalogue',
+    'commercial',
+    'operations',
+] as const;
 export type EntityGroup = (typeof ENTITY_GROUPS)[number];
 
 export interface EntityFamily {
@@ -133,6 +181,122 @@ export interface EntityFamily {
 }
 
 export const ENTITY_FAMILIES: readonly EntityFamily[] = [
+    {
+        key: 'order-desk',
+        // A view across the order book rather than a family of records: no listing of its own, no
+        // create control and no lifecycle — exactly what the third kind was added for. The sale
+        // wizard that will give this surface something to create is a later slice; until it lands,
+        // calling this `managed` would promise a draft count that cannot exist.
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderDesk.name',
+        descriptionKey: 'kitchen:families.orderDesk.description',
+        // `▤`, the ruled sheet — a timetable, which is what this queue is: the open orders in the
+        // order their hour falls. Deliberately *not* `☰`, the order book's docket glyph, even
+        // though these are the same dockets: the two nouns are already adjacent in the rail
+        // ("Orders", "Order desk"), and two adjacent cards wearing one glyph would leave the label
+        // doing all the work of telling them apart. The compromise every other card in this
+        // workspace records applies unchanged — the icon set is a table of typographic characters,
+        // and a real icon set retires it.
+        icon: 'calendar',
+        href: '/kitchen/order-desk',
+        // The order book's own pair, and deliberately the same pair: this is the same rows read in
+        // a different order, so "may see the orders placed against this kitchen" is exactly the
+        // right question to ask before opening it. The *contact* columns inside the queue are a
+        // greater authority and carry their own code
+        // (`order.view_customer_contact_organisation`), resolved server-side — a screen never asks
+        // for it, because the field is simply absent from rows a caller may not read it on.
+        permission: ORDER_VIEW_PERMISSION,
+        managePermission: ORDER_MANAGE_PERMISSION,
+    },
+    {
+        key: 'order-calendar',
+        // A view, not a family of records — the same reading the queue beside it takes. It has no
+        // listing of its own, nothing is created from it and nothing has a lifecycle: it counts
+        // three books that other surfaces own.
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderCalendar.name',
+        descriptionKey: 'kitchen:families.orderCalendar.description',
+        // `▤`, the ruled sheet — a week laid out in squares, which is literally what this opens.
+        // It is the queue's glyph too, and here the duplication is honest rather than a compromise:
+        // the two cards are the same work seen at two scales, they sit together in one group, and
+        // their labels ("Order desk", "Order calendar") separate them. The workspace-wide note
+        // applies unchanged — the icon set is a table of typographic characters.
+        icon: 'calendar',
+        // Nested under the desk rather than a prefix-disjoint sibling, because the calendar *is*
+        // part of the desk and the route tree says so. One consequence, and it is deliberate:
+        // `isKitchenNavActive` matches this path against `/kitchen/order-desk` as well, and
+        // `kitchen-ops-shell.tsx` takes the **first** registry family that matches — so the
+        // breadcrumb on this screen reads "Order desk", clickable back to the queue, exactly as it
+        // does on the sale wizard one route over. A trail that offered the way back to the queue is
+        // the right trail for a surface that has no actions of its own.
+        href: '/kitchen/order-desk/calendar',
+        // The order code, matching the queue and the group. The endpoint additionally requires
+        // `subscription.view_organisation`, which this registry has no second slot for — the
+        // screen's `<Gate>` asks for both, and a role holding only this half meets the workspace's
+        // refusal page rather than a calendar with two empty books.
+        permission: ORDER_VIEW_PERMISSION,
+        // Nothing is written from a calendar. Every action it might suggest — confirming an order,
+        // assigning a run — happens on the queue, which holds the lock versions.
+        managePermission: null,
+    },
+    {
+        key: 'order-requirements',
+        // A view like its two siblings: it lists ingredients nobody created here, against shelves the
+        // stock family owns, and it writes nothing. A buy list is a reading of two books.
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderRequirements.name',
+        descriptionKey: 'kitchen:families.orderRequirements.description',
+        // `▤` again, and for the calendar's reason: this is the same forward book seen a third way —
+        // by ingredient rather than by order or by day — and the group plus the label ("Requirements")
+        // is what separates the three cards. The icon set is a table of typographic characters.
+        icon: 'calendar',
+        // Nested under the desk, like the calendar, with the same deliberate consequence: the
+        // breadcrumb reads "Order desk" and leads back to the queue.
+        href: '/kitchen/order-desk/requirements',
+        // **The inventory code, not the order one** — and this is the group's second asymmetry, the
+        // mirror of the calendar's. The calendar sits on `order.view_organisation` while its endpoint
+        // also demands `subscription.view_organisation`; this one sits on the *only* code its
+        // endpoints ask for, which happens not to be the code the rest of the group carries. A slot
+        // holds one code, so the rule is that it holds the code the screen's own `<Gate>` asks — an
+        // agent who may take orders but may not see the stock room gets the queue and the calendar
+        // and not this, which is exactly right: a buy list is a statement about the store cupboard.
+        permission: INVENTORY_VIEW_PERMISSION,
+        // Nothing is written from a buy list. Ordering the goods is the purchasing surface's, and
+        // counting them is the stock family's.
+        managePermission: null,
+    },
+    {
+        key: 'order-cash-report',
+        // A view like its three siblings, and the plainest of them: it reads one append-only ledger
+        // and writes nothing. The receipts it counts are created by the sale wizard and by the
+        // queue's own drawer; this only adds them up.
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderCashReport.name',
+        descriptionKey: 'kitchen:families.orderCashReport.description',
+        // `▤` a fourth time, and the group's own argument covers it: these four cards are the same
+        // day's work seen four ways — in due order, by date, by ingredient and by who took the money
+        // — and the labels are what separate them. The workspace-wide note applies unchanged: the
+        // icon set is a table of typographic characters, and a real icon set retires it.
+        icon: 'calendar',
+        // Nested under the desk like the calendar and the buy list, with the same deliberate
+        // consequence: `isKitchenNavActive` matches this against `/kitchen/order-desk` too, so the
+        // breadcrumb reads "Order desk" and leads back to the queue.
+        href: '/kitchen/order-desk/cash-report',
+        // **The manage code, not the view one** — the group's third asymmetry, and the sharpest.
+        // The calendar sits on the order view code, the buy list on the inventory one, and this sits
+        // one step *above* the group's baseline: it is a statement about people (Sara took four
+        // hundred, Omar took ninety), which is a different disclosure from the order book that
+        // everybody working a queue can read. It is the code the endpoint asks for, which is the
+        // rule a one-slot registry follows.
+        permission: ORDER_MANAGE_PERMISSION,
+        // Nothing is written from a report. Money is recorded where it arrives — the sale wizard and
+        // the queue drawer — which is also where the order's lock version lives.
+        managePermission: null,
+    },
     {
         key: 'review',
         kind: 'workbench',

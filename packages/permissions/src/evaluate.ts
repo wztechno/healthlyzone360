@@ -91,7 +91,7 @@ function authenticationRequired(requirement: RouteRequirement): boolean {
 }
 
 /**
- * A branch is demanded either because the route says so (kitchen, POS, KDS) or because the active
+ * A branch is demanded either because the route says so (kitchen, KDS) or because the active
  * membership is itself branch-scoped and no branch has been confirmed yet.
  */
 function branchRequired(state: AccessState, requirement: RouteRequirement): boolean {

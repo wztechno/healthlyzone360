@@ -93,6 +93,7 @@ function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         deliveryFeeMinor: null,
         totalMinor: 5_000,
         paymentMethod: 'cash_on_delivery',
+        fulfilmentType: 'delivery',
         delivery: {
             label: 'Home',
             lineOne: 'Villa 12, Street 8b',

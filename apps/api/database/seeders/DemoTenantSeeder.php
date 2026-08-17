@@ -160,6 +160,10 @@ class DemoTenantSeeder extends Seeder
         // sell it. A kitchen with a till is the most ordinary thing there is —
         // `olive-terrace-counter` in MarketplaceKitchensSeeder runs one — and a
         // `pos` channel lists nothing publicly, so nothing consumer-facing moves.
+        //
+        // A fourth, `desk`, is opened by `openTheOrderDesk()` after the product
+        // catalogue lands, because unlike these three it is not structure: it is
+        // stocked, and what stocks it has to exist first.
         $webShop = $this->salesChannel($verdant, 'web-shop', 'b2c_web', 'Web shop', 'المتجر الإلكتروني', 'web', $verdantOwner);
         $this->salesChannel($verdant, 'wholesale', 'b2b', 'Wholesale', 'البيع بالجملة', null, $verdantOwner);
         $this->salesChannel($verdant, 'counter', 'pos', 'Counter', 'الكاشير', 'pos', $verdantOwner);
@@ -179,6 +183,11 @@ class DemoTenantSeeder extends Seeder
         });
 
         $this->call(VerdantProductCatalogueSeeder::class);
+
+        // Last of Verdant's channel work, and necessarily so: the desk opens
+        // holding whatever the web shop holds, and the product catalogue seeder
+        // above is the last writer to put anything on the web shop.
+        $this->openTheOrderDesk($verdant, $verdantOwner);
 
         $this->seedPlatformOperator();
     }
@@ -1174,6 +1183,80 @@ class DemoTenantSeeder extends Seeder
             }
 
             $meal->forceFill(['status' => CatalogueItemStatus::Published])->save();
+        }
+    }
+
+    /**
+     * Verdant's counter: a fourth route to market, opened holding exactly what
+     * the web shop holds.
+     *
+     * **`desk` is not `counter`, and both survive.** The `counter` channel a few
+     * lines above is kind `pos`, order source `pos`, and exists so that
+     * *switching a product onto* a channel is demonstrable against one the
+     * product is not already on — it lists nothing and sells nothing. This one
+     * is the Order Desk's channel: same kind, order source `desk`, and stocked.
+     * Deleting or repurposing `counter` would take the availability
+     * demonstration with it, so the seeder now writes two `pos` rows on purpose.
+     *
+     * **The mirror is the whole point.** `LineProbe` refuses any article with no
+     * `channel_catalogue_items` row for the channel, and `PriceResolver` reads
+     * `channel_price_lists` as the only source of a channel's tariffs — so a
+     * desk channel on its own would leave the dev stack and every write-spec
+     * with a counter that refuses `channel_unavailable` and `unpriced` on every
+     * line, which reads as a broken feature rather than an empty fixture. Both
+     * sets are copied verbatim, exactly as the two backfill migrations copy them
+     * for kitchens that were provisioned before the desk existed.
+     *
+     * Idempotent on the same keys the tables are unique on, like every other
+     * write in this file: the seeder converges rather than duplicating, and
+     * `DatabaseSeederTest` pins that it does.
+     */
+    private function openTheOrderDesk(Organisation $verdant, User $creator): void
+    {
+        $webShop = SalesChannel::withoutTenancy()
+            ->where('organisation_id', $verdant->getKey())
+            ->where('code', 'web-shop')
+            ->sole();
+
+        // The names the backfill migration derives for a kitchen whose web shop
+        // is called plainly "Web shop" — kept identical so a seeded kitchen and
+        // a backfilled one are indistinguishable.
+        $desk = $this->salesChannel($verdant, 'desk', 'pos', 'Order desk', 'مكتب الطلبات', 'desk', $creator);
+
+        $assignments = ChannelCatalogueItem::withoutTenancy()
+            ->where('sales_channel_id', $webShop->getKey())
+            ->get();
+
+        foreach ($assignments as $assignment) {
+            ChannelCatalogueItem::withoutTenancy()->updateOrCreate(
+                [
+                    'sales_channel_id' => $desk->getKey(),
+                    'catalogue_item_id' => $assignment->catalogue_item_id,
+                    'catalogue_item_variant_id' => $assignment->catalogue_item_variant_id,
+                ],
+                [
+                    'organisation_id' => $verdant->getKey(),
+                    'is_available' => $assignment->is_available,
+                    'available_from' => $assignment->available_from,
+                    'available_to' => $assignment->available_to,
+                    'created_by' => $creator->getKey(),
+                ],
+            );
+        }
+
+        $tariffs = ChannelPriceList::withoutTenancy()
+            ->where('sales_channel_id', $webShop->getKey())
+            ->get();
+
+        foreach ($tariffs as $tariff) {
+            ChannelPriceList::withoutTenancy()->updateOrCreate(
+                ['sales_channel_id' => $desk->getKey(), 'price_list_id' => $tariff->price_list_id],
+                [
+                    'organisation_id' => $verdant->getKey(),
+                    'priority' => $tariff->priority,
+                    'created_by' => $creator->getKey(),
+                ],
+            );
         }
     }
 

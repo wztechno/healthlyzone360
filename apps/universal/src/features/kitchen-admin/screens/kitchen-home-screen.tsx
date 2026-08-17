@@ -41,6 +41,7 @@ import {
     useConsumptionExceptionCountQuery,
     useLowStockCountQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
+import { useOrderDeskShortfallCountQuery } from '../../../data/order-desk-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
@@ -68,8 +69,23 @@ function FamilyCardShell({
     const router = useRouter();
 
     return (
-        <Card testID={testID} padding="md" tone="raised" className="self-stretch border-brand-100">
-            <Stack space="sm">
+        /*
+         * `grow` is what makes every tile in a row the same height, and `self-stretch` beside it is
+         * not the same thing: the grid cell above already stretches, but the cell is a *column*, so
+         * stretch governs the card's width and its height still came from its own content. A module
+         * with four count chips stood taller than one with none, and the "Open …" buttons landed at
+         * four different heights across a row.
+         *
+         * The body then takes the slack (`grow` on the stack) and the action is pushed to the
+         * bottom (`mt-auto`), so the buttons share one baseline however many chips a module has.
+         */
+        <Card
+            testID={testID}
+            padding="md"
+            tone="raised"
+            className="grow self-stretch border-brand-100"
+        >
+            <Stack space="sm" grow>
                 <Inline space="sm" align="center">
                     <Icon name={family.icon} size="md" className="text-brand-600" />
                     <Heading level={3} testID={`${testID}-name`} className="text-brand-600">
@@ -88,7 +104,7 @@ function FamilyCardShell({
 
                 {children}
 
-                <Inline space="sm" wrap>
+                <Inline space="sm" wrap className="mt-auto">
                     <Button
                         testID={`${testID}-open`}
                         variant="secondary"
@@ -520,6 +536,7 @@ function KpiTile({
 }
 
 const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
+    orderDesk: 'kitchen:nav.groups.orderDesk',
     workbench: 'kitchen:nav.groups.workbench',
     catalogue: 'kitchen:nav.groups.catalogue',
     commercial: 'kitchen:nav.groups.commercial',
@@ -545,6 +562,13 @@ export function KitchenHomeScreen() {
     const lowStock = useLowStockCountQuery(permitted.has('stock'));
     const exceptionsCount = useConsumptionExceptionCountQuery(
         permitted.has('consumption-exceptions'),
+    );
+    // The buy list's badge. Asked with the workspace's active branch, which may be null — the
+    // endpoint answers rather than refuses, and what comes back for a manager who holds no branch
+    // is `count: null`. See the tile below for what that renders as.
+    const shortfalls = useOrderDeskShortfallCountQuery(
+        state.branch?.id ?? null,
+        permitted.has('order-requirements'),
     );
 
     const reviewQueue = useMemo(() => {
@@ -604,6 +628,29 @@ export function KitchenHomeScreen() {
             ? null
             : (lowStock.data ?? null)
         : null;
+
+    /**
+     * How many ingredients the next seven days are short of at the active branch (C5).
+     *
+     * Three-way, like the two tiles beside it — but with a fourth state those two cannot have.
+     * `shortfall_count` comes back **null** when no branch is selected, because availability is a
+     * quantity on one shelf and there is no organisation-wide shelf to count against. That is not a
+     * zero: zero shortfalls is good news, and not knowing is not news at all.
+     *
+     * So a null count **renders nothing at all** rather than a dashed tile — the em-dash rule
+     * applied to a badge, where there is no room for the character itself. A tile permanently
+     * showing "—" to a manager whose membership is organisation-wide is furniture: they will never
+     * see a number there until they select a branch, and a KPI strip that carries a blank for them
+     * on every visit teaches people to stop reading it. Pending is different and still shows the
+     * tile, because a number is coming.
+     */
+    const shortfallCount = permitted.has('order-requirements')
+        ? shortfalls.isPending
+            ? null
+            : (shortfalls.data?.count ?? null)
+        : null;
+    const showShortfallTile =
+        permitted.has('order-requirements') && (shortfalls.isPending || shortfallCount !== null);
 
     // Unresolved consumption-exception count for the KPI strip (INV1.5): an
     // operational fact — how many confirmed sales left the stock figures
@@ -682,6 +729,21 @@ export function KitchenHomeScreen() {
                                                 lowStockCount !== null && lowStockCount > 0
                                                     ? t('kitchen:ops.stock.lowStockCount', {
                                                           count: lowStockCount,
+                                                      })
+                                                    : undefined
+                                            }
+                                        />
+                                    ) : null}
+                                    {showShortfallTile ? (
+                                        <KpiTile
+                                            testID="kitchen-kpi-requirement-shortfalls"
+                                            label={t('kitchen:hub.kpi.requirementShortfalls')}
+                                            value={shortfallCount}
+                                            pending={shortfalls.isPending}
+                                            hint={
+                                                shortfallCount !== null && shortfallCount > 0
+                                                    ? t('kitchen:ops.requirements.shortfallCount', {
+                                                          count: shortfallCount,
                                                       })
                                                     : undefined
                                             }

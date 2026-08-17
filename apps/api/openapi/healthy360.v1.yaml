@@ -182,9 +182,7 @@ tags:
       operating surface off the `catalogue.*` piggyback it used to share:
       counting stock and writing a product listing are different jobs. A third
       code, `inventory.view_costs_organisation`, gates the purchase cost,
-      valuation and COGS that INV1.1 and INV1.2 add. `POST .../pos/sales` is the
-      exception — a till sale is a commerce action, so it stays on
-      `catalogue.manage_organisation`.
+      valuation and COGS that INV1.1 and INV1.2 add.
   - name: Reference data
     description: Platform-governed vocabularies — public to read, platform-operator only to write.
   - name: Verification
@@ -221,6 +219,25 @@ tags:
       lifecycle decisions it may take on one. Organisation-scoped rather than
       branch-scoped, because a kitchen manager holding an organisation-wide
       membership selects no branch.
+  - name: Order desk
+    description: |
+      The same orders as the book beside it, asked a different question. The
+      book is a ledger — newest first, every status, cursor-walked — and answers
+      "what did we do last Tuesday". The desk is a **queue**: what is still open,
+      in the order it has to be worked, which is not a column but an instant
+      computed from the requested day, the delivery window's hours and the
+      branch's timezone.
+
+      Bounded rather than paginated, because the sort makes a cursor impossible
+      and because a desk queue is a list somebody works through rather than a
+      corpus somebody browses.
+
+      It is also the **only kitchen-facing family that carries a customer's name
+      and telephone number**, and it carries them behind their own permission.
+      Every other projection withholds the pair — a production schedule counts
+      portions, and the order book serves the address the food has to reach and
+      no name at all. The desk is where somebody rings the customer back, which
+      is the one job those two facts have.
   - name: Guest
     description: |
       Buying without an account, and asking to be forgotten afterwards.
@@ -6036,6 +6053,149 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/plans/{item}/menu:
+    get:
+      operationId: getPlanMenu
+      tags: [Subscription plans]
+      summary: A plan's fixed menu
+      description: |
+        What the plan serves, on which day of its cycle — ordered the way a
+        chef reads it: day, then sitting in the order of the day rather than
+        alphabetically, then the second lunch after the first.
+
+        Each entry carries the dish's name beside its identifier, so an editor
+        drawing a week of slots does not have to resolve forty identifiers to
+        do it.
+
+        `cycle` is served even when it is empty: `cycle_days: null` is the
+        whole "this plan has no menu" fact, and it is the same answer whether
+        the plan has no profile at all or a profile with no menu on it.
+
+        Requires `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The plan, its cycle configuration and every entry on its menu.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanMenuEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replacePlanMenu
+      tags: [Subscription plans]
+      summary: Replace a plan's fixed menu
+      description: |
+        ## Publishing a menu changes what a subscription order does to stock
+
+        **Today a confirmed fixed-menu subscription order deducts nothing.** No
+        meal lines are generated for a plan whose subscribers have made no
+        choices, and the plan line itself consumes nothing by design — the
+        kitchen ships food while its recorded shelves never move.
+
+        **The moment a menu exists for a plan, that stops, for that plan
+        alone.** Generation fills each day's slots from the menu, those become
+        real order lines, and confirming an order explodes each one through its
+        published recipe and deducts the ingredients. What comes with it:
+
+        * every meal on the menu with no published recipe version starts
+          raising `no_recipe_version` consumption exceptions, one per confirmed
+          order per day;
+        * every meal whose recipe version has no yield piece count starts
+          raising `no_yield_piece_count` the same way;
+        * both are blocking reasons, so they stay open until a person settles
+          them.
+
+        There is no flag and no kitchen-wide switch: **publishing a menu is the
+        opt-in, and it is per plan.** Recipe one plan, publish its menu, watch
+        the exceptions, then do the next one.
+
+        ## The menu is one document
+
+        `entries`, `menu_cycle_days` and `menu_cycle_anchor_date` are submitted
+        and stored together. Half of it is `422`: dishes with no cycle have no
+        modulus to resolve a date against, and a cycle with no dishes would
+        announce a menu whose every day is empty. Sending **no** entries and
+        **no** cycle is the one legal half-state, because it is not one — it
+        withdraws the menu and returns the plan to today's behaviour.
+
+        The two cycle fields are columns on the plan profile and are **not**
+        writable through `PUT …/profile`: that endpoint is a whole-document
+        write, and a client sending a body written before those columns existed
+        would silently withdraw a kitchen's menu.
+
+        ## The rest
+
+        **Entries are replaced, not merged**, and absent ones are deleted
+        rather than archived — nothing references a menu entry, no price is
+        quoted against one, and the dish is protected by its own delete
+        restriction. Two days may therefore swap their dishes in one
+        submission.
+
+        A dish must be this kitchen's, must be a **meal**, and must be
+        **published** — a menu entry is a promise to serve it. A `cycle_day`
+        beyond the submitted cycle length is `422`, and so is one slot filled
+        twice.
+
+        **`If-Match` carries the item's validator.** Requires
+        `plan.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplacePlanMenuRequest'
+      responses:
+        '200':
+          description: The plan, the cycle it now runs on, and every entry it now has.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanMenuEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/plans/{item}/variant-durations:
     get:
       operationId: listPlanVariantDurations
@@ -9070,6 +9230,1292 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/orders/{order}/payments:
+    post:
+      operationId: recordOrderPayment
+      tags: [Kitchen orders]
+      summary: Record that money arrived against an order
+      description: |
+        A sub-resource of the **order**, beside `confirm`, `fulfil` and `cancel`,
+        rather than an order-desk operation. A receipt is not a desk artefact: a
+        driver's cash comes back against an order the desk never touched, and a
+        WISH reconciliation will one day write here with no desk in the room at
+        all. The desk is the surface that usually records one; the order is what
+        a receipt is always about.
+
+        **`method` is deliberately not constrained to the order's own
+        `payment_method`.** An order taken for cash at the counter and settled by
+        a WISH transfer is an ordinary evening, and so is a delivery meant for
+        cash at the door that the customer transferred while the driver waited.
+        The order's field is the *intent* captured at placement and this one is
+        how the money *arrived*; recording the divergence is the point of having
+        two. Refusing it would push a desk into either lying in the request or
+        editing the order, and the second rewrites what the customer agreed to.
+
+        **The body carries no currency.** The receipt is denominated in the
+        order's, taken from the order — a receipt in another currency is not a
+        receipt for this order.
+
+        **Over-payment is permitted and is not an error.** A customer hands over
+        a round note and takes change from the till; the change is not a row
+        here, because this ledger records money arriving and nothing else. Part
+        payment is equally real — a deposit now and a balance on delivery are two
+        rows — so `receipted` is `received_minor >= total_minor` and no amount is
+        checked against the order's total.
+
+        **Whether an order is paid is derived, never stored.** There is no
+        payment-status column on an order and there will not be one: a stored
+        flag beside an append-only ledger is a second answer to a question the
+        ledger already answers.
+
+        **A cancelled order refuses**, `409 resource.conflict`, with
+        `details.status`, `details.allowed_statuses` and
+        `details.current_lock_version`. Nobody records money arriving for an
+        order that no longer exists commercially: the kitchen is not cooking it,
+        and the figure would reconcile against nothing. If a cancelled order
+        really was paid for, what happened is a refund. A **fulfilled** order
+        does *not* refuse — cash on delivery arrives when the food does, and the
+        driver's takings are keyed in afterwards.
+
+        **`If-Match` required**, and it guards something subtler than the
+        lifecycle operations do. Nothing about the order row is written here, so
+        the validator is not protecting against a lost update; it protects
+        against *acting on a stale view* — the screen that offered "take payment"
+        was rendered before somebody cancelled the order. For the same reason the
+        order's `lock_version` is **not** bumped by a receipt: a validator that
+        moved every time a colleague keyed in cash would invalidate every screen
+        holding it, and nothing they were looking at would have changed.
+
+        **`Idempotency-Key` matters more here than on most commands.** Two
+        genuine receipts for the same amount against one order are exactly what a
+        deposit and a balance look like, so nothing about the ledger can tell a
+        retry apart from a second payment. The same key with the same body
+        replays the original `201` and the original receipt.
+
+        Requires `order.manage_organisation`, the same authority as the lifecycle
+        actions: recording that a kitchen has been paid is a write to its book,
+        not a reading of it.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePaymentReceiptRequest'
+      responses:
+        '201':
+          description: |
+            The receipt that was written, and the order's payment position with
+            it counted in.
+
+            No `ETag`: the order's validator has not moved, and serving one from
+            an operation that did not change it would invite a client to treat
+            this as a write to the order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPaymentReceiptEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/queue:
+    get:
+      operationId: listOrderDeskQueue
+      tags: [Order desk]
+      summary: The open book, in the order it has to be worked
+      description: |
+        **Not a second order index.** `GET /catalogue/orders` is the kitchen's
+        whole book, newest first, walked with a cursor — the surface for "what
+        did we do last Tuesday". This is the surface for "what is next", which is
+        a different sort and therefore a different operation. They could not be
+        one: the due order is a computed expression across three tables, and the
+        cursor pagination re-sorts everything it walks, so a cursor and this
+        ordering are mutually exclusive by construction.
+
+        **`due_at` is the sort, and it is never null.** It is the instant an
+        order is actually due, built from the day the customer asked for, the
+        start of the delivery window they chose, and the timezone of the branch
+        that cooks it — with three fallbacks, each of which is a state the data
+        really reaches. A window with no hours, or no window at all, falls to the
+        **end** of the requested day: an order due "some time on Thursday" must
+        not sort ahead of one due at nine that morning. No branch falls to UTC,
+        the only zone that is not a guess. And no requested day at all falls to
+        `placed_at` — an order nobody named a day for is not unscheduled, it is
+        as soon as possible, and ordering it by when it arrived is the only
+        ordering fair to whoever has waited longest.
+
+        **Bounded, not paginated.** At most two hundred rows, with
+        `meta.truncated` telling the screen the truth when more matched. A desk
+        queue is a list somebody works through; a kitchen with more than two
+        hundred open orders in one window has a problem the screen should state
+        rather than hide behind a page two nobody would click.
+
+        `window` is a vocabulary rather than a date range because these are the
+        three questions a desk asks. `today` **includes orders with no requested
+        date**; `overdue` deliberately does not, because a dateless order is
+        never late.
+
+        `branch_id` does two jobs. It narrows an organisation-wide queue to one
+        production site — a *narrowing* of a book the caller can already see,
+        which is why it is a query parameter and not `X-Branch-Id` — and it names
+        the clock `today` is read on, because a branch is a place and a place has
+        a working day. Unnamed, the day boundary is UTC. `meta.today` and
+        `meta.timezone` say which was used.
+
+        `query` searches the **order number only**, case-insensitively, on the
+        order book's argument verbatim: a staff-facing search across confidential
+        columns is how a directory of everybody a kitchen has ever delivered to
+        gets built one query at a time. That the row beside it may carry a name
+        changes nothing — reading a name the kitchen already has an order for is
+        a disclosure with a purpose; matching on one turns the queue into a
+        lookup by person.
+
+        Requires `order.view_organisation`. The `customer` object additionally
+        requires `order.view_customer_contact_organisation` and is **absent**
+        without it — absent rather than null, because null is a fact about the
+        customer and a screen cannot tell that apart from a fact about the reader
+        unless the shapes differ.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: window
+          in: query
+          required: false
+          description: |
+            Which slice of the open book. Defaults to `today`, which also carries
+            every order with no requested date at all.
+          schema:
+            $ref: '#/components/schemas/OrderDeskWindow'
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            Narrow to one production site, and read `today` on that branch's
+            clock. Omitted, the queue is organisation-wide and the day boundary
+            is UTC.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: 'status[]'
+          in: query
+          required: false
+          description: |
+            Restrict to a subset of the two open states. Omitted, both are
+            listed. `fulfilled` and `cancelled` are not accepted at all: they are
+            finished with, and they are the order book's business.
+
+            **Repeat the bracketed name** — `?status[]=placed&status[]=confirmed`
+            — which is the only form this server reads. PHP collapses repeated
+            bare parameters to the last value, so the plain `status=placed&
+            status=confirmed` that `style: form` with `explode: true` describes
+            for an unbracketed name arrives at the controller as the single
+            string `confirmed`, fails its `array` rule and earns a 422 on every
+            multi-status request. The name carries the brackets so that the
+            document describes what the endpoint actually accepts; this is the
+            only array-valued query parameter in the specification, so there is
+            no sibling convention it diverges from.
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [placed, confirmed]
+          style: form
+          explode: true
+        - name: delivery_window_code
+          in: query
+          required: false
+          description: Restrict to one named delivery slot, by the window's own code.
+          schema:
+            type: string
+            maxLength: 40
+        - name: fulfilment_type
+          in: query
+          required: false
+          description: |
+            Restrict to one way of leaving the kitchen. Omitted, all three are
+            listed.
+
+            **A single value, unlike `status[]`.** The two filters look alike and
+            are not. The statuses are a subset question — a desk watching for
+            unconfirmed work wants `placed` alone, and selecting neither means
+            both. The three fulfilment types are three different jobs done by
+            three different people: a dispatch board wants deliveries, a
+            collection counter wants pickups. Nobody asks for "deliveries and
+            counter sales but not pickups", so a multi-select would be inventing
+            a question to justify a control.
+          schema:
+            $ref: '#/components/schemas/FulfilmentType'
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring match on the order number, and on nothing else.
+          schema:
+            type: string
+            maxLength: 60
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The open queue in due order, capped, with the day and clock it was measured against.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskQueueEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/quote:
+    post:
+      operationId: quoteOrderDesk
+      tags: [Order desk]
+      summary: What this sale would cost, and everything standing in the way of it
+      description: |
+        **A POST that writes nothing.** The question has a basket in it and a
+        basket does not fit in a query string — the same argument
+        `POST /catalogue/checkout/preview` is a POST on. Nothing is created,
+        nothing is reserved, and asking twice is asking once.
+
+        ## Refusals are the answer, not a failure
+
+        **This operation returns `200` with the problems in the body**, and it is
+        the one place in this API where that is right. A withdrawn article, an
+        unpriced one, an address nobody delivers to, a cut-off that passed at
+        three: each arrives as a `reason` code beside the lines that *did* price,
+        and the desk agent sees both halves at once. A `422` would give them one
+        problem per round trip and lose the total, which is the number the
+        customer is standing there waiting for.
+
+        Line refusals sit on the line, in `lines[].refusals`, using the same
+        vocabulary the placement refusal folds in per article — `item_unknown`,
+        `item_not_published`, `variant_unknown`, `variant_not_active`,
+        `channel_unavailable`, `unpriced`, `currency_mismatch`,
+        `channel_not_trading`. Order-level refusals sit in the top-level
+        `refusals`, and are the three families an agent can actually do something
+        about: the fulfilment **shape** (`customer_required`,
+        `address_required`, `address_not_applicable`), the **destination**
+        (`address_not_deliverable`, `area_not_served`, `zone_suspended`, and a
+        `currency_mismatch` whose `subject` is `delivery_fee`), and the
+        **schedule** (`cut_off_passed`, `branch_closed`, `date_in_the_past`).
+
+        **`quotable` is the field a screen branches on.** It is false whenever
+        *any* refusal exists, line-level or order-level, because the placement
+        operation refuses a whole order when any reason is collected. The totals
+        are still computed — over the refusal-free lines only — because "drop the
+        soup and it comes to eleven dollars" is the agent's next sentence. They
+        are not what would be charged, which is exactly what `quotable` says.
+
+        ## What is deliberately not asked
+
+        **Eligibility.** A quote for a caller whose account was opened thirty
+        seconds ago must not report `account_not_ready`: the desk bypasses that
+        gate when it places, so raising it here would refuse a sale that is about
+        to go through perfectly. **The corporate agreement gate** likewise — it
+        is a no-op on the counter's `pos` channel, and running it would quote a
+        wholesale minimum against a sandwich.
+
+        ## Prices are the same prices
+
+        Every line is probed through the kitchen's `desk` channel, on the
+        requested day, in that channel's own tariff currency, by the same code
+        path the placement uses — and the line total is rounded once, in minor
+        units. Two implementations of "what does this cost" is how a quote and a
+        receipt come to differ by a piastre while the customer is holding both.
+
+        A kitchen with no `desk` channel, or one that is not trading, is
+        **`409 resource.conflict`** rather than twelve `channel_unavailable`
+        refusals: "the counter was never opened" is one sentence, and "none of
+        this food is available" is the wrong twelve.
+
+        Duplicate lines naming the same article and pack are **merged** before
+        pricing, exactly as the placement merges them, so the quantity quoted is
+        the quantity charged.
+
+        Requires `order.view_organisation`. Selling is the sibling operation and
+        needs `order.create_on_behalf_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteOrderDeskRequest'
+      responses:
+        '200':
+          description: The priced basket, its totals, and every refusal standing between it and a sale.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskQuoteEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/orders:
+    post:
+      operationId: placeOrderDeskOrder
+      tags: [Order desk]
+      summary: Sell something across the counter
+      description: |
+        The other side of `POST /orders`. That one is a customer converting their
+        own basket; this is a member of staff placing an order **for** somebody —
+        a walk-in at the counter, a caller on the telephone, a regular collecting
+        at six — and the whole of what makes it different is that whoever pressed
+        the button is not whoever is going to eat.
+
+        ## `order.create_on_behalf_organisation`
+
+        Its own code, and not `order.manage_organisation`. Confirming, fulfilling
+        and cancelling change what a customer is already owed; **placing** decides
+        they are owed anything at all, and it is the one order action with nobody
+        on the other side to have agreed to it. It also carries a real bypass:
+        naming the agent skips the activation checklist entirely, because the
+        member of staff standing in front of the customer is the verification the
+        checklist was asking for. A provisional account with no verified email
+        can be sold to here and cannot check out for itself.
+
+        ## `Idempotency-Key` is **mandatory**
+
+        Absent or blank is `400 request.invalid` with `details.header`. It is
+        required here and optional on `POST /orders` because the two have
+        different fallbacks, not different standards: a customer's checkout
+        converts a cart, and a double-tapped checkout finds that cart already
+        converted and refuses. **A desk sale has no cart, and may have no
+        customer at all.** Nothing in the schema would notice a second identical
+        counter sale — two orders, two sets of stock movements at confirm, and a
+        till out by one lunch with no row saying which one was the mistake.
+
+        A replay returns the original envelope, the original `201` and
+        `Idempotency-Replayed: true`. A key reused against a **different** body
+        is `409 request.idempotency_key_reused`; the fix is a new key. The key is
+        scoped to the **member of staff**, never to the customer: the customer
+        may be an account opened during the call, or on a counter sale may not
+        exist, and neither is a durable subject for a replay guard.
+
+        ## The shape of a sale
+
+        `fulfilment_type` decides which of the other fields are required,
+        forbidden or merely allowed, and the rule is enforced as a **refusal**
+        rather than as validation so that an order wrong in two ways says both:
+
+        | | customer | address |
+        |---|---|---|
+        | `delivery` | required | required |
+        | `pickup` | required | **forbidden** |
+        | `counter` | optional | **forbidden** |
+
+        A pickup is still cooked to a slot, so `delivery_window_code`,
+        `requested_delivery_date` and the branch cut-off all apply to one. A
+        counter sale is handed over now and has no day to be late for.
+
+        ## One operation, two writes, and `payment` is what chooses
+
+        A `delivery` or a `pickup` is **placed** and comes back `status: placed`:
+        the kitchen has not confirmed it yet, nobody has been handed anything,
+        and the money arrives later through `POST /catalogue/orders/{order}/
+        payments`.
+
+        A `counter` sale is **completed**. In one transaction it is placed,
+        confirmed — which is where the ingredients come off the shelf —
+        receipted for exactly its own total, and fulfilled; it comes back
+        `status: fulfilled` with `confirmed_at` and `fulfilled_at` stamped and
+        `lock_version: 2`, because by the time this response is rendered the
+        customer has walked away with the food. There is nothing left for the
+        desk to do to it and no confirm call to follow.
+
+        The `payment` block is what decides which, and it is not a choice: it is
+        **required** on `counter` and **prohibited** on the other two, `422
+        validation.failed` either way round. A branch chosen by whether an
+        optional object happened to be present would be a branch nobody could
+        predict from the request, and these two differ by three status
+        transitions and a row in the day's takings.
+
+        **Insufficient stock does not refuse the sale.** The food has been cooked
+        and handed over, and refusing the order would not put the ingredients
+        back — so the sale completes, fulfilled, and the shortfall is recorded as
+        a consumption exception for somebody to reconcile. The same is true of an
+        article with no recipe, which is why a kitchen that has not finished
+        setting up its inventory can still sell lunch.
+
+        If any step fails, **all four roll back**: no order, no lines, no stock
+        movements, no receipt and no audit rows. A half-made counter sale sitting
+        in the book at a status nobody chose would be worse than no sale at all.
+
+        ## No amounts in the body, ever
+
+        Every line is repriced at placement against the tariff standing at that
+        moment; the quote operation's numbers were advisory and were never
+        stored. A body that could state a total would be a client quoting the
+        server its own prices, at a counter, with nobody watching. The
+        consequence is real and correct: a price that moved between the quote and
+        the tap is charged at the new figure, and an article withdrawn in between
+        refuses the placement outright.
+
+        Refusals are **`409 order.placement_refused`** carrying `details.reasons`
+        — every blocker at once, from the same vocabulary `POST /orders` uses
+        plus the three shape reasons above. Duplicate lines naming the same
+        article and pack are merged into one line before anything is priced,
+        because `order_lines` holds one row per article and three taps of the
+        same coffee is a quantity, not three lines.
+
+        No `If-Match`: nothing existing is written, so there is no validator a
+        screen could have been holding. No `Location` header: nothing in this API
+        emits one.
+
+        The order comes back in the **kitchen** shape — the audience is a member
+        of staff reading their own book — so it carries `lock_version` for the
+        confirm that follows and `placed_on_behalf_by` naming who took the order.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderDeskRequest'
+      responses:
+        '201':
+          description: |
+            The order as the kitchen sees it, with every line at the price it was
+            placed at. `status` is `placed` on a delivery or a pickup and
+            `fulfilled` on a counter sale, which is the whole observable
+            difference between the two writes this operation performs. A replay
+            of a request this key already answered returns this same body and
+            this same status, with `Idempotency-Replayed: true`; nothing ran a
+            second time.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/customers:
+    get:
+      operationId: searchOrderDeskCustomers
+      tags: [Order desk]
+      summary: Who is this on the telephone?
+      description: |
+        The first thing a desk agent does on every call that is not a walk-in,
+        and **the door every customer identifier the desk uses comes through**.
+        The quote, the sale and the address operation all take a
+        `customer_account_id`; this is where one legitimately comes from, which
+        is what lets those operations trust an identifier without an
+        organisation filter of their own.
+
+        ## `order.view_customer_contact_organisation`, not the creation code
+
+        The permission here is the **reading** one, and the split is the point of
+        having two codes. Opening an account writes down somebody who told you
+        their details; searching reads back the name and telephone number of
+        people who never spoke to you, one query at a time — which is exactly the
+        disclosure the contact code exists for, and the same pair the queue row
+        carries behind the same code. A search revealing more than the queue
+        would make the queue's gating pointless.
+
+        ## Scope: two arms, and the application is the whole control
+
+        An account is returned only when **either** this organisation holds at
+        least one order against it, **or** its origin is `staff` and it was
+        created by a user holding an **active** membership of this organisation.
+
+        There is no third arm and no database predicate doing this work. A
+        `customer_accounts` row carries no organisation — the same person orders
+        from four kitchens with one account — and a staff-provisioned account has
+        neither a user nor an organisation, which is the shape the row-level
+        security policy admits to every kitchen session. The scoping rule, the
+        permission code, and the fact that an account identifier is otherwise
+        unobtainable are the entire isolation story, and the schema migration
+        that made such rows possible states that rather than implying otherwise.
+
+        A consequence worth naming: a member of staff who works at two kitchens
+        holds an active membership of both, so a caller they wrote down at one is
+        visible at the other. Nothing records which kitchen somebody was sitting
+        in when they typed a name, and the alternative — dropping the second arm
+        — would lose a caller between the tap that creates them and the tap that
+        sells to them.
+
+        ## Matching
+
+        `query` matches the **display name** as a case-insensitive substring, and
+        the **telephone number** exactly, after normalisation.
+
+        The number is normalised by the same code that stored it, so
+        `+961 70 123-456` finds `+96170123456`. A query that is not already in
+        E.164 — a name, or a local number with no country code — simply does not
+        engage the phone arm: the platform does not guess a country code, and a
+        raw local number compared against a stored international one would match
+        nothing while looking exactly like "we have no such customer".
+
+        Minimum three characters (shorter is `422`), at most twenty rows, and no
+        cursor: the agent has somebody on the telephone, and the answer to twenty
+        matches is a longer query rather than a second page.
+
+        No `branch_id`. A customer is not a branch's, and offering the parameter
+        would invite a client to believe it narrowed something.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: query
+          in: query
+          required: true
+          description: A name fragment, or a telephone number in E.164.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 60
+          examples:
+            name:
+              value: hadd
+            phone:
+              value: '+96170123456'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The matching customers of this kitchen, capped, alphabetically by name.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCustomersEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    post:
+      operationId: createOrderDeskCustomer
+      tags: [Order desk]
+      summary: Write down a cold caller
+      description: |
+        Somebody rings a kitchen having never used the platform, and there is no
+        account for the order to be placed against. **This is the one path where
+        a member of staff creates a record about a member of the public who is
+        not at a keyboard**, which is why it has its own code —
+        `customer.create_on_behalf_organisation` — rather than riding on the one
+        that sells them lunch. An account outlives the sale, and a kitchen may
+        reasonably want an agent who can take an order for somebody already on
+        file without being able to add people to the file.
+
+        ## What it writes
+
+        A consumer account with **no login**, `origin: staff`, provisional and
+        with no expiry, plus the caller's telephone number as an account-owned
+        contact point recorded as `staff` and **unverified**.
+
+        Unverified because nobody proved anything: the desk heard a number over a
+        telephone, which is provenance rather than proof. The platform's
+        uniqueness rule applies only to *verified* contacts, which is what makes
+        a duplicate legal — see below — and marking a heard number verified would
+        both lie and let a desk claim a number away from whoever really holds it.
+
+        The account is durable and claimable: the day this person registers, the
+        guest-conversion path attaches a user to a row that already holds their
+        number, their address and their order history. It is deliberately **not**
+        a guest account, which the expiry sweeps would delete somewhere between
+        two orders.
+
+        The account is provisional and stays provisional. A cold caller satisfies
+        none of the activation checklist, and the desk sells to them anyway
+        because the sale operation names the agent and skips it — the member of
+        staff in front of the customer is the verification the checklist was
+        asking for.
+
+        ## `Idempotency-Key` is **mandatory**
+
+        Absent or blank is `400 request.invalid` with `details.header`. Nothing in
+        the schema would notice a second identical customer: the one-account-per-
+        person rule is enforced on the **login**, and a staff-provisioned account
+        has none — so two taps are two perfectly legal people with no row
+        anywhere saying which one was the mistake.
+
+        ## Duplicates are surfaced, not refused
+
+        **Search first** is the workflow. But two customers genuinely do share a
+        telephone number — a household, a reception desk, an office floor — so a
+        number already on file is not an error, and the account is created
+        anyway. `possible_duplicates` then carries every **in-scope** account
+        already holding that exact number, in the same shape the search returns,
+        computed before the new row exists so a customer is never listed as a
+        duplicate of themselves. The agent sees "we already have a Ramy on this
+        number" while the customer is still on the line, which is the only moment
+        merging is cheap.
+
+        The list is scoped exactly as the search is. Answering "somebody,
+        somewhere on the platform, has this number" would turn a duplicate
+        warning into an oracle over every telephone number the platform holds.
+
+        `phone` is refused (`422`, on the `phone` field) unless it is already in
+        E.164. The platform does not infer a country code — guessing one would
+        send somebody else's handset a passcode — so a desk agent asks for it the
+        way they ask for the rest of the number.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderDeskCustomerRequest'
+      responses:
+        '201':
+          description: |
+            The customer as the desk sees them, and anybody already on that
+            number. A replay of a request this key already answered returns the
+            same body and the same status, with `Idempotency-Replayed: true`.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCustomerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/customers/{account}/addresses:
+    post:
+      operationId: addOrderDeskCustomerAddress
+      tags: [Order desk]
+      summary: Where the food is going
+      description: |
+        The second half of writing down a cold caller, and a separate request
+        from the first for a reason a desk agent would recognise: the name and
+        the number come out in the first ten seconds of a call, and the address
+        takes a minute and three corrections.
+
+        ## This is the control the account shape leans on
+
+        Staff-provisioned accounts have **no database-layer isolation** — they
+        are ownerless rows, and the row-level-security policy admits every one of
+        them to every kitchen session. This operation is where that matters most,
+        because what it writes is a street somebody lives on.
+
+        So the account is put through the **same scoping rule as the search** —
+        an order with this kitchen, or provisioned by somebody with an active
+        membership of it — and an identifier that fails it is `404`, not `403`.
+        Confirming that an identifier exists but belongs to somebody else is
+        itself the disclosure.
+
+        ## The rules are the customer's own rules
+
+        A delivery address in an area nobody serves is
+        `422 address.area_not_served`, exactly as it is on the customer's own
+        address book — told to the agent while the customer is still on the
+        telephone, which is the only moment it is useful. The **first** address
+        becomes the default whether or not it was asked for.
+
+        `is_deliverable` on the response is recomputed on every read rather than
+        frozen at save time, because coverage moves.
+
+        ## What the body does not accept
+
+        No `address_type`: the desk adds delivery addresses, and a billing
+        address is an invoicing arrangement rather than something dictated over
+        a telephone. No `contact_point_id`: on the customer's own form it names
+        one of *their* contacts and only they could know which; here it would be
+        an identifier this operation cannot prove belongs to this account. No
+        `is_default`, because the first address is one already.
+
+        **No `Idempotency-Key`**, matching the customer's own address operation.
+        A double-tapped address is a visible duplicate on the screen the agent is
+        already looking at; a double-tapped customer is a second person in the
+        file nobody notices until the next call, which is why the operation
+        beside this one requires a key and this one does not.
+
+        Requires `customer.create_on_behalf_organisation` — the writing code,
+        not the reading one.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: account
+          in: path
+          required: true
+          description: The customer account, as returned by the desk's customer search or create.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddOrderDeskCustomerAddressRequest'
+      responses:
+        '201':
+          description: The address was added, with whether anybody delivers to it today.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAddressEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/calendar:
+    get:
+      operationId: getOrderDeskCalendar
+      tags: [Order desk]
+      summary: The shape of the week, counted three ways
+      description: |
+        **Not the queue with dates on it.** The queue is the open book in the
+        order it has to be worked. This is how much is committed on each day and
+        in each slot, so that somebody deciding whether to take one more delivery
+        for Thursday can see Thursday.
+
+        ## Three bases, and they are never added together
+
+        Each day carries three counts, and they mean three different things:
+
+        * `order` — real rows in the order book. Somebody agreed to something.
+        * `scheduled` — subscription delivery days the generator has claimed and
+          not yet placed an order for. A commitment with no order behind it yet.
+        * `projected` — days computed from an active subscription's weekday
+          pattern and remaining balance. **A forecast**; nothing asserts them.
+
+        **Never sum them, and note that this response gives you no total to be
+        tempted by.** The three overlap: a projected day becomes a claim, a claim
+        becomes an order, and the forecast is optimistic about days a claim
+        already exists for. A kitchen ordering ingredients against a total would
+        over-buy, quietly, at the end of a month in which nothing looked wrong.
+        Render three numbers.
+
+        **`projected` is a forecast and degrades as one.** The projection behind
+        it reads weekday patterns and remaining balances and does **not** consult
+        the generator's own cursor, so after an outage — while the hourly tick
+        catches up one delivery per hour — it keeps showing the pattern the
+        customer bought rather than the backlog the kitchen is actually working.
+        It is the right number for planning and the wrong number for promising,
+        and a screen should label it.
+
+        ## Which orders are counted
+
+        Every non-cancelled order whose requested delivery date falls in the
+        window, **whatever its status**. A fulfilled order still left the kitchen
+        that day — that is what fulfilled means — and a calendar that dropped it
+        would empty yesterday out as the day was worked, which is the opposite of
+        a production record. Cancelled orders count nowhere.
+
+        Orders with **no requested delivery date are excluded**, which is not the
+        queue's rule. The queue shows a dateless order today, because a queue is
+        a list of work in hand. A calendar is a grid of days, and an order nobody
+        named a day for has no square to sit in.
+
+        ## Windows
+
+        `windows` splits a day's three counts by delivery slot. Work with no
+        named slot — legitimate on both books — is an entry whose `code` is
+        **`null`**, not a placeholder word: a code is a kitchen's own vocabulary,
+        and any word this operation invented would be one a kitchen could also
+        have typed. Named slots come first, alphabetically; the null bucket is
+        last.
+
+        Only slots that carry something appear on a day, and **every day of the
+        window appears** even when all three of its counts are zero.
+
+        ## Permissions and bounds
+
+        Requires **both** `order.view_organisation` and
+        `subscription.view_organisation`, because it is the one order-desk
+        operation that unions two books the platform deliberately keeps apart.
+        Holding either alone is a `403`.
+
+        `from` and `to` are both required and the window is capped at **sixty
+        days counted inclusively**: sixty answers, sixty-one is a `422` naming
+        `to`. The cap exists because the projection behind the third basis costs
+        one query per active subscription per request.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: from
+          in: query
+          required: true
+          description: First day of the window, inclusive.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: |
+            Last day of the window, inclusive. Must not be before `from`, and
+            must not put more than sixty days in the window.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            Narrow every basis to one production site. Omitted, the calendar is
+            organisation-wide. Unlike on the queue it names no clock: a
+            calendar's days are the dates customers asked for rather than
+            instants.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every day of the window, each with its three counts and their split by slot.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCalendarEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/requirements:
+    get:
+      operationId: getOrderDeskRequirements
+      tags: [Order desk]
+      summary: What one branch must buy to cook a window
+      description: |
+        The buy list. Every ingredient a window's demand needs, how much of it
+        one branch already holds, and how short that leaves the kitchen.
+
+        ## Three demand populations, one list
+
+        The window's demand comes from three places, counted separately and then
+        merged per shelf:
+
+        * **Real order lines** on every non-cancelled order whose requested
+          delivery date falls in the window — meals and resold products alike,
+          whatever the order's status. A fulfilled order still ate its
+          ingredients that day.
+        * **Meal choices** standing against subscription days that are not orders
+          yet. Somebody has said what fills the slot; generation has not written
+          the line.
+        * **Plan-menu days**: for those same subscription days, every slot the
+          plan's menu names that no choice has claimed. This is what generation
+          will write when it reaches the day, computed early.
+
+        They cannot double-count: the subscription populations only ever cover
+        days no order exists for, and within a day a slot with a choice belongs
+        to the second population and a slot without to the third.
+
+        Quantities are summed per dish **before** the recipe is exploded, so
+        selling one dish sixty times in a window produces one explosion and one
+        rounding step rather than sixty of each.
+
+        ## `branch_id` is required here, and optional everywhere else on the desk
+
+        Every other order-desk operation takes `branch_id` as a narrowing an
+        organisation-wide agent may omit. This one refuses without it, because
+        half the response is `available` and there is no honest organisation-wide
+        value for that: summing three branches' shelves would tell a buyer they
+        have flour while the kitchen that needs it has none.
+
+        **The branch narrows availability, not demand.** A stock item is an
+        organisation-level row while a stock level is a branch's, and both
+        `orders` and `subscriptions` carry nullable branch columns that any
+        narrowing rule would have had to invent a policy for. So this answers
+        "everything this kitchen owes, measured against *this* site's shelf". For
+        a single-site organisation that is exact. For a multi-site one it
+        over-states that site's share and is never short.
+
+        A stock item with **no level row at the branch** reads as `0`, not as
+        unknown: a level row appears with the first movement, so its absence is a
+        shelf holding none of that thing.
+
+        ## `not_computable` is never folded into the numbers
+
+        A dish with no published recipe, a plan whose menu was never written, a
+        recipe line measured in a unit that will not convert into the shelf's —
+        none of these produce a quantity, and **none of them produce a zero
+        either**. "Buy nothing for that" and "we could not work out what to buy
+        for that" are opposite statements. They are reported apart, as a count of
+        days and a breakdown by reason, and a screen should show both.
+
+        `insufficient_stock` is not a reason here: on this surface it is the
+        output, spelled `short`.
+
+        ## Bounds
+
+        `from` and `to` are both required and the window is capped at
+        **thirty-one days counted inclusively** — shorter than the calendar's
+        sixty on purpose. A calendar is a view of commitments; a buy list beyond
+        a month is speculation, and a number that precise about a month that
+        vague invites somebody to act on it. Thirty-one so a whole calendar month
+        always fits in one request.
+
+        Requires `inventory.view_organisation`. Not the costs code: there is no
+        money anywhere in this response.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: from
+          in: query
+          required: true
+          description: First day of the window, inclusive.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: |
+            Last day of the window, inclusive. Must not be before `from`, and
+            must not put more than thirty-one days in the window.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: true
+          description: |
+            The shelf to compare against. **Required**, unlike on every other
+            order-desk operation — this is the question rather than a filter over
+            it, because there is no organisation-wide "available".
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The window's requirements against one branch, and the part of it nobody could compute.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskRequirementsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/requirements/shortfall-count:
+    get:
+      operationId: getOrderDeskShortfallCount
+      tags: [Order desk]
+      summary: How many things the next week is short of
+      description: |
+        The badge behind the buy list: how many ingredients the next seven days
+        need more of than the branch holds.
+
+        ## `branch_id` is optional here and required on the list, deliberately
+
+        The list refuses without a branch because there is no honest
+        organisation-wide `available`. That refusal is right for a screen
+        somebody navigated to and wrong for a badge nobody asked for — a hub tile
+        returning `422` because the manager holds an organisation-wide membership
+        would be an error where there is no mistake.
+
+        So an absent branch is **answered**, with `shortfall_count: null` and
+        `branch_id: null` beside it. **Null is not zero and must not render as
+        one.** Zero shortfalls is good news; not knowing is not news at all. Show
+        the number when there is one and show nothing when there is not — the
+        same em-dash rule every other unknown on this platform follows.
+
+        ## Seven days, fixed
+
+        A badge takes no window, because its job is to be the same number every
+        time anybody glances at it and a caller-chosen window would let two
+        people looking at one hub disagree about how bad things are. Seven days
+        from today counted inclusively — long enough that a delivery can still be
+        arranged, short enough that the demand behind it is mostly real orders.
+        "Today" is the application clock rather than the branch's.
+
+        Counts rows whose shortfall is strictly above zero, and nothing else.
+        Not the holes: a thing nobody could compute is a different problem with a
+        different remedy, and folding it in would send a buyer looking for
+        something to order.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            The shelf to judge against. Omitted, the answer is `null` — see the
+            description. Optional here and required on the list beside it.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The count, or null when no branch was named.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskShortfallCountEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/drivers:
+    get:
+      operationId: listOrderDeskDrivers
+      tags: [Order desk]
+      summary: Who this kitchen can send out with its food
+      description: |
+        The picker behind `POST /delivery/jobs/{job}/assign`. That operation
+        takes a `driver_user_id` and refuses anybody who is not an **active**
+        member of the organisation; this is where one legitimately comes from,
+        and the two apply the same predicate to the same table so that a list
+        cannot offer somebody the assign call would then refuse.
+
+        **Every active member is listed, and that is deliberate.** There is no
+        driver role on this platform: a driver is staff of the kitchen whose jobs
+        these are, and the driver's own surface narrows by who holds the run
+        rather than by a permission code. A role here would mean a kitchen could
+        not hand tonight's late delivery to the chef who offered to drop it off
+        on the way home. So this answers a question of *fact* — who works here,
+        right now — and **the picker is where a kitchen's operating judgement
+        lives**. A dispatcher looking at a list of colleagues knows which of them
+        drives; the server does not and has never been told.
+
+        `active` and nothing else: an invitation nobody accepted, a suspension
+        and an ended employment are all membership rows, and none of them is
+        somebody a kitchen can send out with its food.
+
+        `display_name` may be **null** — a member whose profile has not been
+        completed is still a member, and refusing to list them would leave a
+        dispatcher unable to assign a job to somebody demonstrably on the
+        payroll. Nameless members sort last. Render the platform's em dash rather
+        than inventing a placeholder.
+
+        Requires `order.manage_organisation`, the same code the assign operation
+        carries and the same audience. A hundred rows, alphabetically, with no
+        cursor: a kitchen with more than a hundred active members has an
+        organisation chart rather than a rota, and a picker is not the surface
+        for browsing one.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: This organisation's active members, named where a name exists.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskDriversEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/cash-report:
+    get:
+      operationId: getOrderDeskCashReport
+      tags: [Order desk]
+      summary: Who took what, on one day
+      description: |
+        **The till-shift mitigation, and it is named as one.** The desk takes
+        cash. Every note that crossed the counter is a receipt naming who says it
+        arrived and when — and this platform has **no shift table**: nothing
+        opens a drawer with a float, nothing closes it against a count, nothing
+        reconciles the difference. That gap was accepted knowingly when receipts
+        landed, on the condition that the money at least be *attributable*: a
+        manager must be able to ask "what did each agent take yesterday?" and get
+        an answer they can stand a cash box next to.
+
+        This is that answer and deliberately not more. **It cannot tell anybody
+        whether the cash box balances**, because nothing on this platform has
+        ever been told what was in it. A real drawer reconciliation is a later
+        table — an opening float, a closing count, a named variance — and when it
+        lands, this operation keeps reading the same ledger rather than being
+        replaced by it.
+
+        ## The day boundary is UTC, and `meta.timezone` says so
+
+        `confirmed_at` is an instant; a day is not. Turning one into the other
+        needs a clock this operation does not have — a receipt carries no branch,
+        and the order behind it may carry none either, because an
+        organisation-wide delivery zone leaves `branch_id` null. There is no
+        timezone true of every receipt in the answer, and using each order's
+        branch where it had one would measure the two halves of a report on two
+        different clocks.
+
+        So the boundary is UTC, matching the queue's organisation-wide convention
+        exactly: unnamed, the only zone that is not a guess. A kitchen whose
+        evening runs past UTC midnight sees that evening split across two
+        reports — a visible, explicable fact rather than a silent
+        misattribution.
+
+        ## Grouped by three things, and the third is what makes the sums legal
+
+        Rows are `(confirmed_by, method, currency_code)`. The currency is part of
+        the **key**, never an attribute of the group: summing inside a group is
+        legal because every receipt in it is the same unit of the same currency,
+        and a group that spanned two currencies would carry a number in no
+        currency at all. A kitchen taking dollars and dirhams therefore sees two
+        rows for one agent's cash, and two totals, which is the truth.
+
+        `totals` is the same arithmetic per `(method, currency_code)` across the
+        agents, derived from the rows so the two can never disagree. There is
+        deliberately **no grand total**: it would have to add currencies.
+
+        ## `branch_id` narrows through the order
+
+        A receipt has no branch — money is taken by a person at a till, and which
+        site cooked the food is a fact about the order — so the filter reaches the
+        order. One consequence, stated because it is the same trap the queue
+        documents: an order with a null `branch_id` is **excluded** by a branch
+        filter. Right for "what did the Marina site take?", wrong as a default,
+        which is why the default is no narrowing at all.
+
+        Requires `order.manage_organisation` — a manager's reconciliation of
+        their agents' takings, not an agent's view of their own work.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: date
+          in: query
+          required: true
+          description: |
+            The day to report, read on the UTC clock. Required, and one day
+            rather than a range: reconciling a till is a daily act, and a report
+            summing Monday and Tuesday is one nobody can stand a cash box next
+            to.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            Narrow to the site that cooked it, through the order. Omitted, the
+            report is organisation-wide. Orders with no branch are excluded when
+            this is set — see the description.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: One day's takings by agent, method and currency, with the per-method totals.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCashReportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /guest/sessions:
     post:
       operationId: startGuestSession
@@ -10766,212 +12212,6 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
-  /catalogue/kitchen-display/tickets:
-    get:
-      operationId: listKitchenDisplayTickets
-      tags: [Kitchen operations]
-      summary: The live ticket rail
-      description: |
-        Everything the kitchen is currently working on — `new`, `preparing`
-        and `ready` — oldest first, because a ticket rail is a queue and a
-        queue is fair in arrival order.
-
-        **Capped at 100 rows with no pagination and no cursor**, deliberately.
-        A rail with more than a hundred open tickets is a kitchen in trouble,
-        and the answer to that is not a second page. There is no way for a
-        client to reach row 101 and none is offered.
-
-        `bumped` tickets are excluded: the rail shows work outstanding, and a
-        completed ticket leaving the screen is the whole point of bumping it.
-
-        **Organisation-scoped, not branch-scoped.** Every branch's tickets in
-        the organisation come back, even when the request carries
-        `X-Branch-Id` — the header is accepted by the stack but this endpoint
-        does not narrow on it. A client that wants one branch's rail filters
-        on what it is given.
-
-        Requires `inventory.view_organisation`. No `org.trading`: suspension
-        stops a kitchen selling, not finishing the food it already owes
-        people.
-      parameters:
-        - $ref: '#/components/parameters/XOrganisationIdRequired'
-        - $ref: '#/components/parameters/XBranchId'
-        - $ref: '#/components/parameters/XClientRequestId'
-      responses:
-        '200':
-          description: Up to 100 open tickets, oldest first.
-          headers:
-            X-Correlation-Id:
-              $ref: '#/components/headers/XCorrelationId'
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: object
-                    required: [tickets]
-                    properties:
-                      tickets:
-                        type: array
-                        maxItems: 100
-                        items:
-                          $ref: '#/components/schemas/KitchenDisplayTicket'
-                  meta:
-                    $ref: '#/components/schemas/Meta'
-        '400':
-          $ref: '#/components/responses/ContextRequired'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/ContextOrPermissionDenied'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-
-  /catalogue/kitchen-display/tickets/{ticket}/bump:
-    post:
-      operationId: bumpKitchenDisplayTicket
-      tags: [Kitchen operations]
-      summary: Clear a ticket off the rail
-      description: |
-        Moves the ticket to `bumped`, which removes it from the rail. The body
-        is empty and any body sent is ignored.
-
-        **Idempotent in effect, unguarded in form.** There is no state-machine
-        check: bumping an already-bumped ticket succeeds and returns the same
-        answer. On a touchscreen in a kitchen that is the right behaviour —
-        the alternative is a conflict dialog under somebody's wet hands — and
-        it is why this endpoint carries no `If-Match` and no
-        `Idempotency-Key`.
-
-        The response is the ticket's identifier and its new status, and
-        nothing else. What the ticket was for has not changed, and the rail
-        re-reads itself.
-
-        A ticket belonging to another organisation is `404`, not `403`: the
-        tenant scope is the lookup. Requires
-        `inventory.manage_organisation`.
-      parameters:
-        - $ref: '#/components/parameters/KitchenDisplayTicketPath'
-        - $ref: '#/components/parameters/XOrganisationIdRequired'
-        - $ref: '#/components/parameters/XClientRequestId'
-      responses:
-        '200':
-          description: The ticket, bumped.
-          headers:
-            X-Correlation-Id:
-              $ref: '#/components/headers/XCorrelationId'
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: object
-                    required: [ticket]
-                    properties:
-                      ticket:
-                        type: object
-                        required: [id, status]
-                        properties:
-                          id:
-                            $ref: '#/components/schemas/Uuid'
-                          status:
-                            type: string
-                            description: Always `bumped` on success.
-                            examples: [bumped]
-                        additionalProperties: false
-                  meta:
-                    $ref: '#/components/schemas/Meta'
-        '400':
-          $ref: '#/components/responses/ContextRequired'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/ContextOrPermissionDenied'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-
-  /catalogue/pos/sales:
-    post:
-      operationId: createPosSale
-      tags: [Kitchen operations]
-      summary: Record a counter sale
-      description: |
-        A completed over-the-counter transaction against an open till shift.
-
-        **The total is the server's arithmetic**, summed from the lines'
-        `line_total_minor`. There is no total in the request and none would be
-        accepted: a client-supplied total is a client-supplied discount.
-
-        **`payment_method_kind` is `cash_on_delivery` or `card` here**, even
-        though the underlying vocabulary also has `invoice`. A counter sale is
-        settled at the counter; an invoice is a different arrangement with a
-        different endpoint behind it, and this one refuses the word with
-        `422`.
-
-        **No `Idempotency-Key`, and that is worth stating rather than
-        implying.** A retried request records a second sale. Clients must not
-        retry this call automatically.
-
-        **`pos_shift_id` must name a shift of the caller's own organisation.**
-        A shift belonging to another kitchen is `404`, the same answer an
-        identifier that names nothing gets: the sale is written against
-        `X-Organisation-Id`, so a foreign shift that resolved would stitch two
-        tenants into one transaction.
-
-        Requires `catalogue.manage_organisation`. No `org.trading` — the
-        operations family is deliberately left open to a suspended kitchen
-        finishing what it already owes.
-      parameters:
-        - $ref: '#/components/parameters/XOrganisationIdRequired'
-        - $ref: '#/components/parameters/XClientRequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePosSaleRequest'
-      responses:
-        '201':
-          description: |
-            The recorded transaction — its identifier, the computed total and
-            how it was paid. The lines are not echoed back; the caller sent
-            them.
-          headers:
-            X-Correlation-Id:
-              $ref: '#/components/headers/XCorrelationId'
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: object
-                    required: [pos_transaction]
-                    properties:
-                      pos_transaction:
-                        $ref: '#/components/schemas/PosTransaction'
-                  meta:
-                    $ref: '#/components/schemas/Meta'
-        '400':
-          $ref: '#/components/responses/ContextRequired'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/ContextOrPermissionDenied'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-
   /delivery/jobs:
     get:
       operationId: listDeliveryJobs
@@ -11039,6 +12279,21 @@ paths:
         endpoint needs no permission code: a driver's run sheet is theirs by
         ownership, and there is no role that would make somebody else's run
         sheet theirs.
+
+        **The row carries what somebody standing next to a van needs** (C3):
+        the order number printed on the bag, the whole delivery snapshot — the
+        street, the building, the floor, the flat, the customer's own directions,
+        the area, the promised slot and day — the moment the run was handed over,
+        and the number to ring when the building still cannot be found. Before
+        C3 it served four identifiers and two status strings, which was honest
+        while nothing created delivery jobs and there was no driver client to
+        read them, and stopped being honest the moment confirming an order
+        started projecting real runs.
+
+        Every delivery field comes from the **order's snapshot** as it stood at
+        placement, never from the customer's address book: a customer editing
+        their address at eight o'clock has not changed where tonight's food is
+        going.
 
         `driver_user_id` is deliberately **absent** from the rows here. It
         would say the same thing on every one of them, and the dispatch board
@@ -11137,9 +12392,13 @@ paths:
                           id:
                             $ref: '#/components/schemas/Uuid'
                           status:
-                            type: string
-                            description: Always `delivered` on success.
-                            examples: [delivered]
+                            allOf:
+                              - $ref: '#/components/schemas/DeliveryJobStatus'
+                            description: |
+                              Always `delivered` on success. Typed as the job
+                              status enum rather than a bare string so a client
+                              reads it with the same vocabulary the two lists
+                              serve.
                         additionalProperties: false
                   meta:
                     $ref: '#/components/schemas/Meta'
@@ -11153,6 +12412,117 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /delivery/jobs/{job}/assign:
+    post:
+      operationId: assignDeliveryJob
+      tags: [Delivery]
+      summary: Give a run to a driver
+      description: |
+        Names the driver who is taking this delivery out, stamps the moment, and
+        moves the job to `assigned`.
+
+        **The first write on this table two people can race**, which is why
+        `delivery_jobs` gained a `lock_version` with this operation. A dispatch
+        board is a shared screen: two dispatchers can be looking at the same
+        unassigned run and the same free driver, and without a validator the
+        second write silently wins — one driver is told about a job that is no
+        longer theirs, and the row remembers only the later decision.
+
+        The version is folded into the conditional `UPDATE`'s own `WHERE`, so
+        there is no window between reading it and writing the row. Absent is
+        **428**, stale is **409** carrying `details.current_lock_version`,
+        `details.status` and `details.driver_user_id` so a board can re-render
+        without a second round trip. A header present but not a Healthy360
+        validator is **400**, not 409: the client has not lost a race, it has
+        sent nonsense.
+
+        **Re-assignment is permitted**, under a fresh `If-Match`. Drivers get
+        sick and vans break down, and a run handed to somebody who cannot do it
+        is the most likely reason anybody opens this twice; refusing would leave
+        a dispatcher with no move except to cancel a delivery the customer is
+        still expecting. The validator is what makes it deliberate — re-assigning
+        requires having read the job *since* it was last assigned.
+        `assigned_at` is re-stamped, because the useful question is when the
+        person now holding the run was given it; every earlier answer survives in
+        the audit trail.
+
+        **A `delivered` or `cancelled` run refuses**, `409` with
+        `details.status`. Assignment sets `status = assigned`, and applying that
+        to a finished job would leave a row simultaneously assigned and stamped
+        `delivered_at`.
+
+        **`driver_user_id` must name an active member of this organisation.**
+        Anything else — a stranger, a former employee, an invitation nobody
+        accepted, a perfectly real courier who works for the kitchen next door —
+        is **422** `validation.failed` with the message on
+        `details.fields.driver_user_id`. A 404 would be the wrong answer: the
+        job is real and the caller may reach it; what is wrong is one field of
+        the body.
+
+        **`tracking_status` deliberately does not move.** The customer-facing
+        vocabulary runs `awaiting_assignment → picked_up → en_route → arrived →
+        delivered` and there is no value between the first two, because *a
+        driver has been named but has not collected the food* is not a message a
+        customer is owed. **The order is not touched either** — not its status,
+        not its `lock_version`: a dispatcher naming a driver changes nothing the
+        customer agreed to, and bumping the order's validator would invalidate
+        every desk screen holding it for a change none of them can see.
+
+        Requires `order.manage_organisation` — the same code that confirms the
+        order this run came from. The three *reads* on this table carry no
+        permission code because they are narrowed by ownership; deciding whose
+        evening this is, is authority. A job belonging to another organisation is
+        **404**, never 403.
+      parameters:
+        - $ref: '#/components/parameters/DeliveryJobPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignDeliveryJobRequest'
+      responses:
+        '200':
+          description: The job as it now stands, with its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [job]
+                    properties:
+                      job:
+                        $ref: '#/components/schemas/AssignedDeliveryJob'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -16476,22 +17846,16 @@ components:
         minLength: 1
         maxLength: 160
         examples: ['kyc_review', 'support_query_4821']
-    KitchenDisplayTicketPath:
-      name: ticket
-      in: path
-      required: true
-      description: |
-        The ticket identifier. Unlike the catalogue paths this one takes an
-        identifier only — a rail ticket has no stable key a human would hold.
-      schema:
-        $ref: '#/components/schemas/Uuid'
     DeliveryJobPath:
       name: job
       in: path
       required: true
       description: |
-        The delivery job identifier. One that is not the caller's own answers
-        404, decided before the request body is looked at.
+        The delivery job identifier. On the driver routes, one that is not the
+        caller's own answers 404, decided before the request body is looked at;
+        on the dispatcher's `assign`, one belonging to another organisation
+        answers 404 for the same reason — a 403 would confirm that the
+        identifier names something real.
       schema:
         $ref: '#/components/schemas/Uuid'
     PaymentIntentPath:
@@ -21239,6 +22603,139 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    PlanMenuSlot:
+      type: string
+      enum: [breakfast, lunch, dinner, snack]
+      description: |
+        The four sittings, the same vocabulary a subscription meal choice
+        stores — generation copies this value straight onto a choice row.
+
+    PlanMenuEntry:
+      type: object
+      required: [id, cycle_day, slot, sequence, meal_catalogue_item_id, meal_name_en, meal_name_ar]
+      description: |
+        One dish, in one slot, on one day of the plan's cycle.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        cycle_day:
+          type: integer
+          minimum: 1
+          maximum: 366
+          description: |
+            1-based day of the cycle. **Day 1 is the anchor date itself**, and
+            the cycle is anchored to the *plan*, not to each subscriber — every
+            subscriber eats the same dish on the same date, which is what makes
+            a day one production run rather than an à la carte service.
+        slot:
+          $ref: '#/components/schemas/PlanMenuSlot'
+        sequence:
+          type: integer
+          minimum: 1
+          maximum: 12
+          description: |
+            Disambiguates the kitchen that serves lunch twice. Defaults to 1.
+        meal_catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        meal_name_en:
+          type: ['string', 'null']
+        meal_name_ar:
+          type: ['string', 'null']
+      additionalProperties: false
+
+    PlanMenuCycle:
+      type: object
+      required: [cycle_days, anchor_date]
+      description: |
+        The rotation the entries sit on. **Both null means no menu is
+        published**, which is the behaviour every plan has by default and the
+        state in which a subscription order deducts no stock.
+      properties:
+        cycle_days:
+          type: ['integer', 'null']
+          minimum: 1
+          maximum: 366
+        anchor_date:
+          type: ['string', 'null']
+          format: date
+          description: |
+            The date cycle day 1 falls on. A date rather than an instant: a
+            cycle turns over at the kitchen's midnight.
+
+    PlanMenuEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [item, cycle, entries]
+          properties:
+            item:
+              $ref: '#/components/schemas/AdminCatalogueItem'
+            cycle:
+              $ref: '#/components/schemas/PlanMenuCycle'
+            entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlanMenuEntry'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count]
+              properties:
+                count:
+                  type: integer
+
+    ReplacePlanMenuRequest:
+      type: object
+      required: [entries, menu_cycle_days, menu_cycle_anchor_date]
+      description: |
+        The complete menu. All three fields are required to be *present* and
+        may all be null or empty: that combination withdraws the menu, which is
+        a decision a kitchen makes and not a field they forgot.
+
+        They move together. Entries with no cycle length, or a cycle length
+        with no entries, or a cycle length with no anchor, are each `422` —
+        see the operation description.
+
+        `catalogue_item_id` is not a field: the plan is in the URL.
+      properties:
+        entries:
+          type: array
+          maxItems: 400
+          items:
+            type: object
+            required: [cycle_day, slot, meal_catalogue_item_id]
+            properties:
+              cycle_day:
+                type: integer
+                minimum: 1
+                maximum: 366
+              slot:
+                $ref: '#/components/schemas/PlanMenuSlot'
+              sequence:
+                type: ['integer', 'null']
+                minimum: 1
+                maximum: 12
+                description: Defaults to 1.
+              meal_catalogue_item_id:
+                allOf:
+                  - $ref: '#/components/schemas/Uuid'
+                description: |
+                  Must be a **published meal** of this kitchen. A menu entry is
+                  a promise to serve the dish, so a draft or a retired one is
+                  `422`.
+            additionalProperties: false
+        menu_cycle_days:
+          type: ['integer', 'null']
+          minimum: 1
+          maximum: 366
+        menu_cycle_anchor_date:
+          type: ['string', 'null']
+          format: date
+      additionalProperties: false
+
     PlanVariantCell:
       type: object
       required: [catalogue_item_variant_id, code, status, meal_combination_option_id, energy_band_id, service_tier, includes_snacks, meals_per_day, snacks_per_day]
@@ -22425,10 +23922,21 @@ components:
             $ref: '#/components/schemas/MarketplacePlanDuration'
         sample_meal_ids:
           type: array
+          maxItems: 12
           description: |
-            Always empty. No table links a plan to the meals a representative
-            week would contain, and assembling one from the catalogue would be
-            the system writing a menu.
+            The first dishes of the plan's own fixed menu, distinct and in the
+            order the kitchen serves them — cycle day, then sitting in the order
+            of the day, then sequence. Published dishes only: a withdrawn one is
+            omitted rather than advertised.
+
+            **Empty when the plan publishes no menu**, which is the ordinary
+            case for a free-selection plan and for a plan whose kitchen has not
+            written its menu down. The identifiers are always read from the
+            kitchen's stated menu and never assembled from its catalogue — a
+            sample the platform composed itself would be the platform writing a
+            menu.
+
+            Capped at twelve: it is a sample of the menu, not the menu.
           items:
             $ref: '#/components/schemas/Uuid'
         image_placeholder_id:
@@ -22961,10 +24469,63 @@ components:
     PaymentMethod:
       type: string
       description: |
-        One value, and the field exists anyway: an order has to record how it
-        was paid for, and a column that appears the day a second method does
-        would leave every earlier order unable to say.
-      enum: [cash_on_delivery]
+        **Three cases, and each one has a table behind it.** That is the whole
+        rule this vocabulary is governed by, and it is the same rule that kept it
+        at one case for the whole of the first phase: a payment method exists
+        here when there is somewhere in the schema that records money arriving
+        that way, and not a moment sooner.
+
+        * `cash_on_delivery` — a driver is handed money at a door. The original
+          case, and still the way most orders are settled.
+        * `cash_at_counter` — money handed over in the room, at the order desk.
+        * `wish` — a transfer through the WISH app, **manually confirmed**.
+          Nothing verifies it: a desk person looks at the merchant app, sees that
+          the money arrived, and says so, and the receipt's `confirmed_by` names
+          who.
+
+        What has not changed is the refusal. There is still no `card`, no
+        `wallet` and no `online` reserved here, and no case is added in
+        anticipation of a table — a reserved case is a value something eventually
+        writes, and this value is read to decide what evidence a payment is
+        expected to carry.
+
+        The vocabulary is used by two fields that are deliberately **not**
+        constrained to agree. An order's `payment_method` is the *intent*
+        captured at placement; a payment receipt's `method` is how the money
+        actually turned up. An order taken for cash at the counter and settled by
+        WISH is a real evening, and the pair of fields is how it stays legible.
+      enum: [cash_on_delivery, cash_at_counter, wish]
+
+    FulfilmentType:
+      type: string
+      description: |
+        How an order leaves the kitchen. **Three cases, and each one is a
+        different set of facts the order must carry** — which is what makes this
+        a vocabulary rather than a flag. `orders_fulfilment_shape_check` states
+        the column half of it in the database, so the two cannot drift.
+
+        * `delivery` — a courier takes it to a door. A customer and an address,
+          both required. The only way this platform sold anything before the
+          order desk, and still how most orders leave.
+        * `pickup` — the customer collects it. A customer, a **promised slot**,
+          and deliberately **no address**: "be here at six" is a promise whether
+          or not the food travels, but a destination on an order nobody is
+          delivering is a courier instruction that will never be followed.
+        * `counter` — somebody bought lunch at the desk. The customer is
+          **optional** — a regular is worth naming, a stranger is not — and the
+          address is forbidden. The desk may know *who* and must never claim
+          *where*, which is the asymmetry that makes this its own case rather
+          than "pickup without an account".
+
+        `delivery` is the column default, so every order placed before this
+        vocabulary existed carries it.
+
+        What this is **not** is a delivery *status*. Where an order has got to is
+        `status`, which moves; this never moves after placement. An order taken
+        for delivery and collected by an impatient customer is a delivery that
+        was handed over early, not a pickup — rewriting the type would make the
+        fee already snapshotted on the row unexplainable.
+      enum: [delivery, pickup, counter]
 
     OpenCartRequest:
       type: object
@@ -23368,15 +24929,36 @@ components:
 
     CustomerOrderDelivery:
       type: object
-      required: [label, line_one, line_two, city, area_name_en, area_name_ar, area_id, window_code, requested_date]
+      required:
+        [label, line_one, line_two, city, area_name_en, area_name_ar, area_id,
+         building, floor, apartment, directions, contact_point_id, window_code,
+         requested_date]
       description: |
         The address as it stood when the order was placed, copied. Editing the
         address later must not change where this order was sent.
+
+        **The whole block is null on an order that is not being delivered.**
+        A `pickup` is collected and a `counter` sale is handed over in the room;
+        neither has a destination, and `orders_fulfilment_shape_check` refuses
+        an address on either. Read `fulfilment_type` on the order to tell "there
+        is nowhere to take this" from "the address is missing" — they are
+        different facts and this block looks the same for both.
+
+        `building`, `floor`, `apartment` and `directions` are the half a courier
+        actually navigates by: the street gets somebody to the building, and
+        these get them to the door. They were mirrored onto the order by the
+        fulfilment migration; before it, a snapshot was a strictly poorer copy
+        of the address it came from.
       properties:
         label:
           type: ['string', 'null']
         line_one:
-          type: string
+          type: ['string', 'null']
+          description: |
+            Null on a pickup or a counter sale, which carry no address at all.
+            On a delivery whose customer has since closed their account it is
+            the redaction marker rather than the street: a reader has to be able
+            to tell "this was erased" from "this was never filled in".
         line_two:
           type: ['string', 'null']
         city:
@@ -23393,6 +24975,29 @@ components:
         area_id:
           type: ['string', 'null']
           format: uuid
+        building:
+          type: ['string', 'null']
+          maxLength: 120
+        floor:
+          type: ['string', 'null']
+          maxLength: 40
+        apartment:
+          type: ['string', 'null']
+          maxLength: 40
+        directions:
+          type: ['string', 'null']
+          description: |
+            Free text the customer wrote for whoever has to find them. Never
+            parsed and never matched against — it is prose, and treating it as
+            structure is how "ring twice" becomes a routing decision.
+        contact_point_id:
+          type: ['string', 'null']
+          format: uuid
+          description: |
+            The number the courier was actually given, as a reference rather
+            than a copied string. A snapshot of *which* contact was named at
+            placement, not of what it said: a person who changes their telephone
+            changes it once, and the verification state travels with the row.
         window_code:
           type: ['string', 'null']
         requested_date:
@@ -24444,11 +26049,11 @@ components:
       type: object
       required:
         [id, order_number, status, currency_code, subtotal_minor,
-         delivery_fee_minor, total_minor, payment_method, delivery, placed_at,
-         confirmed_at, fulfilled_at, cancelled_at, cancellation_reason,
-         line_count, lines, created_at]
+         delivery_fee_minor, total_minor, payment_method, fulfilment_type,
+         delivery, placed_at, confirmed_at, fulfilled_at, cancelled_at,
+         cancellation_reason, line_count, lines, created_at]
       description: |
-        The receipt. **Five things on the row are deliberately absent**, each
+        The receipt. **Six things on the row are deliberately absent**, each
         for its own reason:
 
         * `price_list_id` / `price_list_item_id` — a kitchen's tariff structure
@@ -24463,6 +26068,16 @@ components:
         * `created_by` — for a self-service order this is the customer and says
           nothing; for a staff-placed order it names an employee to a member of
           the public.
+        * `placed_on_behalf_by` — the same disclosure, sharper. Where
+          `created_by` merely *might* be an employee, this is non-null on
+          exactly the orders a member of staff took for somebody else, so
+          serving it would name a named individual to the customer they served
+          every single time. Who answered the telephone is the kitchen's record
+          of its own shift; a customer with a complaint has the kitchen to
+          complain to, not an employee to identify. `fulfilment_type` **is**
+          served here and is the counter-example: how the food reaches somebody
+          is a term of their own order, and withholding it would leave an empty
+          delivery block with no explanation for it.
         * `lock_version` — the validator of a resource this audience cannot
           write. Serving one with no writer invites `If-Match` at an endpoint
           that would ignore it.
@@ -24495,6 +26110,8 @@ components:
           type: integer
         payment_method:
           $ref: '#/components/schemas/PaymentMethod'
+        fulfilment_type:
+          $ref: '#/components/schemas/FulfilmentType'
         delivery:
           $ref: '#/components/schemas/CustomerOrderDelivery'
         placed_at:
@@ -24530,9 +26147,10 @@ components:
       required:
         [id, order_number, organisation_id, customer_account_id,
          sales_channel_id, branch_id, status, currency_code, subtotal_minor,
-         delivery_fee_minor, total_minor, payment_method, delivery, placed_at,
-         confirmed_at, fulfilled_at, cancelled_at, cancellation_reason,
-         created_by, lock_version, line_count, lines, created_at, updated_at]
+         delivery_fee_minor, total_minor, payment_method, fulfilment_type,
+         delivery, placed_at, confirmed_at, fulfilled_at, cancelled_at,
+         cancellation_reason, created_by, placed_on_behalf_by, lock_version,
+         line_count, lines, created_at, updated_at]
       description: |
         The seller's view of the same row. Built independently of the customer
         shape rather than as a superset of it: a wide shape and a narrow one
@@ -24542,6 +26160,12 @@ components:
         `lock_version` is here because this is the audience that **writes** — a
         screen that could not read the validator could not send the `If-Match`
         the three lifecycle actions demand.
+
+        **`customer_account_id` is nullable and `fulfilment_type` says when.**
+        A counter sale may be a stranger buying a sandwich, and there is nobody
+        to name; a delivery and a pickup always have somebody. The pair has to
+        be read together — a null customer is a fact about a walk-in, never a
+        row that failed to load.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -24550,7 +26174,13 @@ components:
         organisation_id:
           $ref: '#/components/schemas/Uuid'
         customer_account_id:
-          $ref: '#/components/schemas/Uuid'
+          type: ['string', 'null']
+          format: uuid
+          description: |
+            Null only on a `counter` sale nobody named. Present on every
+            delivery and every pickup — `orders_fulfilment_shape_check` requires
+            it — and present on a counter sale for a regular the desk chose to
+            record.
         sales_channel_id:
           $ref: '#/components/schemas/Uuid'
         branch_id:
@@ -24570,6 +26200,8 @@ components:
           type: integer
         payment_method:
           $ref: '#/components/schemas/PaymentMethod'
+        fulfilment_type:
+          $ref: '#/components/schemas/FulfilmentType'
         delivery:
           $ref: '#/components/schemas/KitchenOrderDelivery'
         placed_at:
@@ -24591,6 +26223,18 @@ components:
         created_by:
           type: ['string', 'null']
           format: uuid
+        placed_on_behalf_by:
+          type: ['string', 'null']
+          format: uuid
+          description: |
+            The member of staff who took this order **for** somebody else, and
+            null on every self-service order.
+
+            Deliberately not `created_by`, which is written on every path — a
+            customer placing their own order writes their own user id there — so
+            "did a person at a desk take this" is not answerable from it without
+            asking whether that user happens to be an employee. Seller-only: the
+            customer's shape carries neither.
         lock_version:
           type: integer
           minimum: 0
@@ -24634,6 +26278,1337 @@ components:
               $ref: '#/components/schemas/KitchenOrder'
         meta:
           $ref: '#/components/schemas/Meta'
+
+    StorePaymentReceiptRequest:
+      type: object
+      required: [method, amount_minor]
+      description: |
+        One statement that money arrived against an order.
+
+        **There is no `currency_code` field, and that is a decision rather than
+        an omission.** The receipt is denominated in the order's own currency,
+        taken from the order by the server: a receipt in another currency is not
+        a receipt for this order, it is a conversion nobody performed and a
+        figure that cannot be summed against the order's total. Accepting the
+        field would mean either validating it against the order — a round trip to
+        be told what the server already knows — or trusting it, and a trusted
+        mismatch is a kitchen's takings quietly wrong in two currencies at once.
+
+        `method` is **not** constrained to the order's own `payment_method`. See
+        the operation: recording the divergence is the point.
+      properties:
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 1
+          description: |
+            What arrived, in minor units of the order's currency.
+
+            **At least one**, although the column's own constraint admits zero.
+            The two answer different questions: the constraint refuses a
+            *negative* figure, because giving money back is a refund and belongs
+            to the payments surface. This operation is stricter because a receipt
+            is evidence — somebody asserting that no money changed hands has
+            recorded a keystroke, and the row would sit in a day's takings as a
+            payment event worth nothing.
+
+            There is no upper bound and none against the order's total.
+            Over-payment is ordinary: a customer hands over a round note and
+            takes change from the till, which is not a row in this ledger.
+          examples: [3000]
+        reference:
+          type: ['string', 'null']
+          maxLength: 120
+          description: |
+            The transaction identifier the desk read off the merchant app — a
+            WISH transfer's, in practice, because cash has no such thing. Free
+            text because it is somebody else's vocabulary, and bounded because it
+            is confidential: it points at a real transaction between two named
+            parties.
+          examples: ['WSH-77213']
+        notes:
+          type: ['string', 'null']
+          maxLength: 300
+          description: |
+            Anything the person taking the money needs the next person to know.
+            Confidential and bounded for the same reason: a free-text note
+            written at a counter is exactly where somebody puts a customer's
+            name.
+      additionalProperties: false
+
+    OrderPaymentReceipt:
+      type: object
+      required: [id, order_id, method, amount_minor, currency_code, reference, confirmed_by, confirmed_at, notes, created_at]
+      description: |
+        One recorded arrival of money, and the person who says it arrived.
+
+        **Append-only.** There is no update operation and no delete operation for
+        a receipt, and there will not be: money arriving is not an event that
+        un-happens, and giving it back is a refund on the payments surface with
+        its own authority and its own record.
+
+        No `organisation_id`: a receipt is reachable only through an order the
+        caller's own kitchen owns, so the field would restate the caller's
+        organisation to itself.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 0
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: The order's currency, always. Never taken from the request.
+        reference:
+          type: ['string', 'null']
+          description: Null for cash, which has no transaction identifier.
+        confirmed_by:
+          $ref: '#/components/schemas/Uuid'
+        confirmed_at:
+          type: string
+          format: date-time
+          description: |
+            When the money arrived, stamped by the server. Not taken from the
+            request: a desk that could name the moment could name a moment in
+            another shift, and this is what a day's takings are cut on.
+        notes:
+          type: ['string', 'null']
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    OrderPaymentSummary:
+      type: object
+      required: [method, received_minor, receipted]
+      description: |
+        Where an order stands on being paid, derived on read and **stored
+        nowhere**. There is no `payment_status` column behind this and there will
+        not be one: a stored flag beside an append-only ledger is a second answer
+        to a question the ledger already answers, and two answers drift.
+
+        `method` is the order's **intended** method, not any receipt's. A desk
+        reads this before the money arrives — it is how somebody knows what to
+        ask the customer for — so the useful fact here is what the order was
+        taken on. What actually arrived is on each receipt, under its own name.
+
+        **`receipted`, not `paid`.** The word is doing real work: this platform
+        holds no proof that money exists, only that somebody wrote down that it
+        arrived. It is `received_minor >= total_minor` — an inequality in both
+        directions, because a part payment leaves it false until the balance
+        lands and an over-payment does not make it truer.
+      properties:
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        received_minor:
+          type: integer
+          minimum: 0
+          description: |
+            The sum of every receipt against this order, in the order's currency.
+            Zero when there are none — never null, because an order whose payment
+            position is unknown is not a state this platform reaches.
+        receipted:
+          type: boolean
+      additionalProperties: false
+
+    OrderPaymentReceiptEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [receipt, payment]
+          properties:
+            receipt:
+              $ref: '#/components/schemas/OrderPaymentReceipt'
+            payment:
+              $ref: '#/components/schemas/OrderPaymentSummary'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    OrderDeskWindow:
+      type: string
+      enum: [today, overdue, next_7]
+      description: |
+        Which slice of the open book the desk is looking at — three questions
+        somebody at a desk actually asks, rather than a date range that could
+        express a hundred nobody does.
+
+        **`today` includes orders with no requested date at all.** An order whose
+        customer named no day is not scheduled for nothing, it is scheduled for
+        as soon as possible, and a plain range would silently drop exactly the
+        set nobody has committed to a day yet. `overdue` does not inherit that
+        rule: a dateless order is never late, because there is no day it has
+        missed. `next_7` runs from today to seven days after it, inclusive at
+        both ends.
+
+    OrderDeskDeliveryJob:
+      type: object
+      required: [id, status, tracking_status, driver_user_id, assigned_at, lock_version]
+      description: |
+        The run this order became: which driver has it, what state it is in, and
+        when it was assigned.
+
+        **`null` is a real answer, and it is true of three different orders.** A
+        pickup or a counter sale is never driven anywhere. A delivery order still
+        `placed` has no run yet, because a job is projected on *confirm* — the
+        moment a kitchen commits to cook — and a placed order may still be
+        cancelled without a driver hearing about it. And a delivery order
+        confirmed before C3 shipped was never projected and will not be
+        retrospectively. All three read as `null`; a screen that needs to
+        distinguish them has `fulfilment_type` and `status` on the same row.
+
+        **No address here.** Where the food is going is already on the row's own
+        `delivery` block, and a second copy inside the job would be two answers
+        to one question.
+
+        This seat was declared nullable and empty before anything could fill it,
+        so the row would not change shape under a client when C3 arrived — the
+        same argument the payment seat was declared on.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/DeliveryJobStatus'
+        tracking_status:
+          $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        driver_user_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: '`null` until dispatch assigns one.'
+        assigned_at:
+          type: ['string', 'null']
+          format: date-time
+        lock_version:
+          type: integer
+          description: |
+            The job's own validator, carried on the queue row so an Assign dialog
+            has its `If-Match` without re-reading the job. It is **not** the
+            order's `lock_version` and the two move independently — assigning a
+            driver deliberately does not touch the order.
+      additionalProperties: false
+
+    OrderDeskCustomerContact:
+      type: object
+      required: [display_name, phone]
+      description: |
+        The customer's name, and the number somebody can ring them on.
+
+        **Present only when the caller holds
+        `order.view_customer_contact_organisation`**, and *absent* — not null —
+        without it. Null here is a fact about the customer ("we hold no number
+        for them"), and a screen could not tell that apart from a fact about the
+        reader unless the two cases differed in shape.
+
+        Either field may be null on its own: an anonymised account has no name,
+        and a customer who never gave a number has no number. The number is
+        served **verified or not** — a courier ringing about tonight's delivery
+        needs the number the customer gave, not one the platform has proved.
+
+        This is the whole of the disclosure. No address beyond the delivery
+        snapshot the order book already serves, no email, no allergen
+        declaration, no order history, and no account identifier to pivot on.
+      properties:
+        display_name:
+          type: ['string', 'null']
+          description: |
+            The account's, always. There is no snapshot of a name on an order
+            and there should not be: a name is who somebody is, which does not
+            change per delivery.
+        phone:
+          type: ['string', 'null']
+          description: |
+            E.164, as the contact point stores it.
+
+            **The number the courier was given, when the order snapshot carries
+            one; the account's primary otherwise.** A delivery order records the
+            contact point the customer nominated for that delivery, and it is
+            preferred here — a caller ordering to their mother's flat gives their
+            mother's landline, and the account's primary is then a mobile in
+            somebody's pocket in another building. Every pickup, every counter
+            sale and every delivery placed before the snapshot column existed
+            falls through to the account's own number, which is what this field
+            has always been.
+      additionalProperties: false
+
+    OrderDeskRow:
+      allOf:
+        - $ref: '#/components/schemas/KitchenOrder'
+        - type: object
+          required: [due_at, payment, delivery_job]
+          properties:
+            due_at:
+              type: string
+              format: date-time
+              description: |
+                The instant this order is actually due, as a UTC ISO-8601
+                timestamp, and **never null**. It is what the queue is sorted by,
+                computed in SQL from the requested day, the delivery window's
+                start and the branch's timezone, falling through the end of the
+                requested day when there are no window hours, through UTC when
+                there is no branch, and through `placed_at` when the customer
+                named no day at all.
+            payment:
+              $ref: '#/components/schemas/OrderPaymentSummary'
+            delivery_job:
+              oneOf:
+                - $ref: '#/components/schemas/OrderDeskDeliveryJob'
+                - type: 'null'
+            customer:
+              $ref: '#/components/schemas/OrderDeskCustomerContact'
+          description: |
+            One row of the desk queue: everything the order book's row carries,
+            plus the queue's own arithmetic, the order's payment position, and
+            the run it became.
+
+            `payment` is **never null**. Every order has a payment position, and
+            "nothing has been paid" is `received_minor: 0` with
+            `receipted: false` rather than an absent object — null would be a
+            third state meaning nothing a desk could act on. It is derived for
+            the whole page in one grouped aggregate over the receipts ledger,
+            never a query per row.
+
+            `delivery_job` **is** nullable, and the difference is the point:
+            "there is no run" is a fact about an order rather than a gap in the
+            server's knowledge. It is resolved for the whole page in one
+            statement, the same batching rule the payment aggregate follows.
+
+            The `allOf` is honest here rather than a documentation convenience.
+            This shape really is the kitchen shape **plus** fields — the server
+            composes it — and that is safe where a narrowing would not be,
+            because the desk is served to the same audience behind the same
+            `order.view_organisation`. Rebuilding the seller's twenty-odd fields
+            a second time would mean two hand-maintained copies, and the day
+            somebody added a column to one the desk would quietly serve a row the
+            book does not.
+
+            `customer` is **not** in `required`: it is present only for a caller
+            holding `order.view_customer_contact_organisation`.
+
+    OrderDeskQueueEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskRow'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count, limit, truncated, window, today, timezone]
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                  description: Rows in this response.
+                limit:
+                  type: integer
+                  description: |
+                    The most rows this operation will ever return. There is no
+                    second page — the computed sort makes a cursor impossible —
+                    so the cap is stated rather than implied.
+                truncated:
+                  type: boolean
+                  description: |
+                    More orders matched than were returned. A screen showing a
+                    truncated queue has to say so: a silent truncation would hide
+                    exactly the backlog the queue exists to surface.
+                window:
+                  $ref: '#/components/schemas/OrderDeskWindow'
+                today:
+                  type: string
+                  format: date
+                  description: The day the window was measured from.
+                timezone:
+                  type: string
+                  description: |
+                    The IANA zone that day was computed in — the named branch's,
+                    or `UTC` when no branch was named. Echoed because the client
+                    did not choose it and cannot derive it.
+
+    OrderDeskBasketLine:
+      type: object
+      required: [catalogue_item_id, quantity]
+      description: |
+        One tap at the counter. The desk sends what the agent pressed, duplicates
+        and all: the server merges lines naming the same article **and the same
+        pack** into one line whose quantity is the sum, first-seen position
+        preserved, because `order_lines` holds one row per article and three taps
+        of the same coffee is a quantity rather than three lines. An article
+        ordered plain and the same article ordered in a pack stay two lines —
+        they are two different things to sell.
+
+        Both the quote and the placement merge identically, so the quantity
+        quoted is the quantity charged.
+      properties:
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The pack, when the article has variants.
+        quantity:
+          type: [number, string]
+          description: |
+            How many. Numeric rather than integer because a counter sells 0.35 kg
+            as readily as three coffees, and accepted as a string as well as a
+            number so a client holding a decimal can send it without a float
+            round trip. Zero and negatives are `422`.
+          examples: ['0.3500', 3]
+      additionalProperties: false
+
+    OrderDeskSaleBase:
+      type: object
+      description: |
+        The fields a desk quote and a desk sale share — everything except how the
+        customer is paying, which only a sale needs to state.
+
+        `fulfilment_type` decides which of the rest are required, forbidden or
+        merely allowed. The rule is **not** enforced as validation: it arrives as
+        `customer_required` / `address_required` / `address_not_applicable`, in
+        the quote's `refusals` or in the placement's refusal envelope, so that a
+        request wrong in two ways says both instead of surfacing one as a `422`
+        and the other as a `409`.
+      required: [fulfilment_type, lines]
+      properties:
+        fulfilment_type:
+          $ref: '#/components/schemas/FulfilmentType'
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderDeskBasketLine'
+        branch_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The branch that will produce this order. The same fact the queue
+            takes as a query parameter, in a body because a POST states its facts
+            in one — and it is not a filter here: it decides **which cut-off
+            applies** and **which branch-scoped delivery zone wins**, both of
+            which change the answer. A branch belonging to another kitchen is
+            `422`.
+        customer_account_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Who this is for. Required for a delivery and a pickup, optional for a
+            counter sale — a regular is worth naming and a stranger is not.
+
+            Resolved **by identifier**, never inferred from the caller: the
+            caller is a member of staff, and inferring would place the order
+            against the agent's own account or the kitchen's corporate buyer.
+            Where an identifier legitimately comes from is the desk's customer
+            search, which is the org-scoped door.
+        customer_address_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Where it goes. **Delivery only** — a pickup or a counter sale
+            carrying one is refused rather than silently ignored, because an
+            address supplied and dropped means the caller believed something
+            about this order that is not true of it.
+
+            It must belong to `customer_account_id`; one that does not is `404`,
+            deliberately the same answer as "no such address", because confirming
+            that an identifier exists but is somebody else's is itself the
+            disclosure.
+        requested_delivery_date:
+          type: ['string', 'null']
+          format: date
+          description: |
+            The day asked for, `YYYY-MM-DD`. Applies to a pickup as well as a
+            delivery: a collection is cooked to a slot like anything else, so the
+            branch cut-off is asked about it. A counter sale is handed over now
+            and has no day to be late for.
+        delivery_window_code:
+          type: ['string', 'null']
+          maxLength: 40
+          description: |
+            The slot, by the window's own code. Not validated against the
+            kitchen's windows here — whether that slot is offered on that day by
+            that branch is a scheduling question answered with the cut-off rules
+            in hand.
+
+    QuoteOrderDeskRequest:
+      allOf:
+        - $ref: '#/components/schemas/OrderDeskSaleBase'
+        - type: object
+          additionalProperties: false
+          description: |
+            A basket to price, and the shape of the sale it would become. No
+            payment method: nothing is being paid for yet.
+
+    PlaceOrderDeskRequest:
+      allOf:
+        - $ref: '#/components/schemas/OrderDeskSaleBase'
+        - type: object
+          required: [payment_method]
+          properties:
+            payment_method:
+              $ref: '#/components/schemas/PaymentMethod'
+            payment:
+              $ref: '#/components/schemas/OrderDeskCounterPayment'
+          additionalProperties: false
+          description: |
+            The quote's body plus two fields, and the two do different jobs.
+
+            `payment_method` is required on every shape and has no default. It
+            was hardcoded to cash on delivery for the whole of the first order
+            phase and stopped being able to be the moment somebody could pay at a
+            counter; a default here would put that decision back one layer up,
+            where it would be even less visible.
+
+            It captures **intent**, and is deliberately not constrained to agree
+            with any receipt recorded later: an order taken for cash at the
+            counter and settled by a WISH transfer is an ordinary evening, and
+            recording the divergence is why the two columns exist.
+
+            `payment` is the money **actually handed over**, and it is
+            conditional on `fulfilment_type`: **required** on `counter`,
+            **prohibited** on `delivery` and `pickup`. Both violations are `422
+            validation.failed`. Sending it is what makes this operation complete
+            the sale rather than merely place it — see the operation description.
+
+            There is still no amount of any kind, on either field. Every line is
+            repriced at placement against the standing tariff and the receipt is
+            written for exactly that total, so a body that could state a figure
+            would be a client quoting the server its own prices — at a counter,
+            with nobody watching.
+
+    OrderDeskCounterPayment:
+      type: object
+      required: [method]
+      additionalProperties: false
+      description: |
+        Money handed over at the counter, recorded as it happens.
+
+        Present on a `counter` sale and refused on the other two, because that is
+        what the three words mean. A walk-in pays now: the customer is in the
+        room, the food is in front of them, and there is no later moment at which
+        the money arrives. A counter order left unpaid would be a *pickup*
+        wearing the wrong label — something the kitchen is holding for somebody
+        who will settle when they come back — and nothing downstream could tell
+        it from a counter sale whose receipt was lost.
+
+        A delivery is settled at the door and a pickup when the customer
+        collects, both afterwards through `POST /catalogue/orders/{order}/
+        payments`, recorded by whoever actually took the money with their own
+        `confirmed_by` and their own moment. Receipting one of those here would
+        put cash into a day's takings that is still in a customer's pocket.
+
+        **There is no amount.** The receipt is written for exactly the order's
+        `total_minor`. A discrepancy at the till is a till problem, not an order
+        problem: rewriting the receipt to match the cash in the drawer would make
+        the sale unreconcilable against the tariff that produced it. Part
+        payments and over-payments are real elsewhere and arrive as their own
+        rows through the receipts operation.
+      properties:
+        method:
+          allOf:
+            - $ref: '#/components/schemas/PaymentMethod'
+          description: |
+            How the money turned up, which is deliberately **not** constrained to
+            equal `payment_method`. That one is the intent captured at placement;
+            this is what actually happened, and a counter sale taken as cash and
+            settled by a WISH transfer while the customer was standing there is
+            an ordinary evening.
+        reference:
+          type: ['string', 'null']
+          maxLength: 120
+          description: |
+            The transfer identifier on a WISH payment, or whatever the desk
+            writes down to find this money again. Confidential at rest: it points
+            at a real transaction between two named parties.
+          examples: ['WISH-8841203']
+        notes:
+          type: ['string', 'null']
+          maxLength: 300
+          description: |
+            Free text explaining the payment, bounded rather than open because a
+            note written at a counter is exactly where somebody puts a customer's
+            name. Confidential at rest.
+
+    OrderDeskQuoteRefusal:
+      type: object
+      required: [reason]
+      description: |
+        One thing standing between this basket and a sale, as **data**.
+
+        `reason` is a stable machine key and every other property is whatever
+        identifies the offending thing — `catalogue_item_id` on a line refusal,
+        `delivery_area_id` on a zone one, `fulfilment_type` on a shape one,
+        `cut_off_at` and `branch_id` on a schedule one. The shape is open on
+        purpose: it is the same `{reason, …context}` vocabulary the placement
+        refusal carries, and pinning the context keys per reason would freeze a
+        vocabulary both endpoints extend together.
+      properties:
+        reason:
+          type: string
+          description: |
+            The stable key. Line-level: `item_unknown`, `item_not_published`,
+            `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+            `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
+            `customer_required`, `address_required`, `address_not_applicable`,
+            `address_not_deliverable`, `area_not_served`, `zone_suspended`,
+            `currency_mismatch` (with `subject: delivery_fee`), `cut_off_passed`,
+            `branch_closed`, `date_in_the_past`.
+      additionalProperties: true
+
+    OrderDeskQuoteLine:
+      type: object
+      required:
+        - catalogue_item_id
+        - catalogue_item_variant_id
+        - quantity
+        - name_en
+        - name_ar
+        - unit_price_minor
+        - line_total_minor
+        - currency_code
+        - refusals
+      description: |
+        One line of the quote, priced or explained.
+
+        The four price-bearing fields are **null together** whenever the line was
+        refused: there is no price to show for an article the kitchen has
+        withdrawn, and a zero would read as free. `refusals` is what says why, and
+        an empty array is what says the line is sellable.
+
+        `quantity` is the **merged** quantity — duplicate taps summed — because
+        that is the number the placement will use and therefore the number the
+        agent has to see.
+      properties:
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_variant_id:
+          type: ['string', 'null']
+          format: uuid
+        quantity:
+          type: string
+          description: A decimal string, never a number, for the reason every quantity on this platform is one.
+          examples: ['3.000000']
+        name_en:
+          type: ['string', 'null']
+          description: Null when the article could not be read at all — an identifier from another kitchen, or one that no longer exists.
+        name_ar:
+          type: ['string', 'null']
+        unit_price_minor:
+          type: ['integer', 'null']
+        line_total_minor:
+          type: ['integer', 'null']
+          description: Minor units, rounded once at the line total rather than at the unit price, so rounding cannot compound across an order.
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: The price's currency where there is one, and the counter's own tariff currency where there is not.
+        refusals:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+      additionalProperties: false
+
+    OrderDeskQuote:
+      type: object
+      required:
+        - lines
+        - subtotal_minor
+        - delivery_fee_minor
+        - total_minor
+        - currency_code
+        - refusals
+        - quotable
+      description: |
+        What this basket would come to, and everything standing in the way of it.
+
+        **The totals are summed over the refusal-free lines only**, and they are
+        offered even when the sale cannot proceed because "drop the soup and it
+        comes to eleven dollars" is the agent's next sentence. They are not what
+        would be charged, which is what `quotable` is for.
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteLine'
+        subtotal_minor:
+          type: integer
+          minimum: 0
+        delivery_fee_minor:
+          type: ['integer', 'null']
+          description: |
+            **Null rather than zero when no fee applies**, and the difference is
+            real: zero is a fee somebody decided on — a free-delivery zone — and
+            a pickup or a counter sale has no fee at all. A screen that could not
+            tell them apart would print "Delivery: 0.00" on a counter sale. Null
+            also when the destination was refused, because an unserved area has
+            no fee to quote.
+        total_minor:
+          type: integer
+          minimum: 0
+          description: '`subtotal_minor` plus the fee where there is one. No discount slot exists anywhere in this schema.'
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: |
+            The counter channel's own tariff currency — the currency of the first
+            price list it would actually consult, falling back to the kitchen's
+            default when it has none. Nothing is ever converted.
+        refusals:
+          type: array
+          description: Order-level refusals — the shape, the destination and the schedule. Line refusals are on their lines.
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+        quotable:
+          type: boolean
+          description: |
+            Whether this basket could be placed as it stands. **False whenever
+            any refusal exists at all**, line-level or order-level, because the
+            placement operation refuses a whole order when any reason is
+            collected — a quote showing a confident total for a basket the sale
+            would then reject is a number the agent reads out loud and has to
+            take back.
+      additionalProperties: false
+
+    OrderDeskQuoteEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [quote]
+          properties:
+            quote:
+              $ref: '#/components/schemas/OrderDeskQuote'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    OrderDeskCustomer:
+      type: object
+      required: [id, display_name, phone, origin, has_orders_with_org]
+      description: |
+        A customer as the order desk sees them: enough to pick the right one out
+        of a list of five, and nothing more.
+
+        `display_name` and `phone` are the disclosure this shape exists for, and
+        they are the same pair the queue row carries behind the same permission
+        code. The two surfaces deliberately agree — a search revealing more than
+        the queue would make the queue's gating pointless.
+
+        **What is absent is each its own decision.** No email: a number is what a
+        desk rings, and an address is what a marketing list is built from. No
+        account number — it is confidential, it is what a person quotes to
+        *support*, and a desk that could read one could quote it back to a caller
+        who is not the account holder. No addresses: a street somebody lives on
+        belongs to the order going there, not to a search result. No order
+        history and no count of other kitchens, so this never becomes the surface
+        on which one kitchen reads another's customer relationships. No status,
+        because the desk bypasses the activation checklist and it would change
+        nothing an agent could do.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: [string, 'null']
+          description: Null on an anonymised account.
+        phone:
+          type: [string, 'null']
+          description: |
+            E.164, as the contact point stores it — the account's primary number
+            where it has one, otherwise the account holder's. Resolved across
+            both ownership arms because a registered customer's number hangs off
+            their identity and a desk-provisioned caller's hangs off the account,
+            and answering for only one would read as "no phone" rather than as a
+            bug. Served verified or not.
+        origin:
+          type: string
+          enum: [self_service, guest, b2b_provisioning, staff, import]
+          description: |
+            How the record came to exist. `staff` is a caller some kitchen wrote
+            down at a desk; it is what an agent checks when deciding whether the
+            details on file were typed or were given by the customer themselves.
+        has_orders_with_org:
+          type: boolean
+          description: |
+            Whether **this** kitchen holds at least one order against the
+            account — a regular versus a name in the book. Scoped to the asking
+            organisation and silent about anybody else's trade. It is also the
+            first arm of the scoping rule restated as a fact: a `false` here
+            means the row is visible on the second arm alone, because somebody
+            who works at this kitchen wrote them down.
+
+    OrderDeskCustomersEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskCustomer'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count, limit]
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                limit:
+                  type: integer
+                  description: |
+                    The most rows this operation will ever return. There is no
+                    second page: the agent has somebody on the telephone, and
+                    the answer to a full list is a longer query.
+
+    OrderDeskCustomerEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [customer, possible_duplicates]
+          properties:
+            customer:
+              $ref: '#/components/schemas/OrderDeskCustomer'
+            possible_duplicates:
+              type: array
+              description: |
+                Accounts **already** holding the number just recorded, in this
+                kitchen's scope, computed before the new row existed. Empty is
+                the ordinary case and is always present rather than omitted.
+
+                This is a warning, never a refusal: two customers genuinely share
+                a telephone — a household, a reception desk, an office floor —
+                and the platform's uniqueness rule applies only to verified
+                contacts, so a second unverified one is legal. Refusing would
+                make an existing customer's flatmate unserveable at a counter
+                with somebody waiting.
+              items:
+                $ref: '#/components/schemas/OrderDeskCustomer'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    OrderDeskCalendarCounts:
+      type: object
+      required: [order, scheduled, projected]
+      additionalProperties: false
+      description: |
+        Three counts of three different kinds of thing, and **they are never
+        summed**. There is deliberately no total anywhere in this schema.
+
+        They overlap by construction: a projected day becomes a claimed one, a
+        claimed one becomes an order, and the forecast is optimistic about days a
+        claim already exists for. Adding them over-counts, and a kitchen ordering
+        ingredients from the result would over-buy quietly. Render three numbers.
+      properties:
+        order:
+          type: integer
+          minimum: 0
+          description: |
+            Real orders due this day — every non-cancelled status, because a
+            fulfilled order still left the kitchen that day. Orders with no
+            requested delivery date are counted on no day at all.
+        scheduled:
+          type: integer
+          minimum: 0
+          description: |
+            Subscription delivery days the generator has **claimed** and not yet
+            turned into an order. A commitment that exists as a row. Skipped days
+            are not deliveries and are counted nowhere.
+        projected:
+          type: integer
+          minimum: 0
+          description: |
+            **A forecast, not a fact.** Days computed from an active
+            subscription's weekday pattern and remaining balance, which no row
+            asserts. The projection does not consult the generator's own cursor,
+            so after an outage — while the hourly tick catches up one delivery
+            per hour — it keeps showing the pattern the customer bought rather
+            than the backlog the kitchen is working. Right for planning, wrong
+            for promising; label it on the screen. Paused subscriptions project
+            nothing.
+
+    OrderDeskCalendarWindow:
+      type: object
+      required: [code, counts]
+      additionalProperties: false
+      properties:
+        code:
+          type: [string, 'null']
+          maxLength: 40
+          description: |
+            The delivery slot's own code, or **`null`** for the day's unslotted
+            work — legitimate on both books. Null rather than a placeholder word
+            because a code is a kitchen's own vocabulary and any word invented
+            here would be one a kitchen could also have typed. The null entry, if
+            present, is last.
+        counts:
+          $ref: '#/components/schemas/OrderDeskCalendarCounts'
+
+    OrderDeskCalendarDay:
+      type: object
+      required: [date, counts, windows]
+      additionalProperties: false
+      properties:
+        date:
+          type: string
+          format: date
+        counts:
+          $ref: '#/components/schemas/OrderDeskCalendarCounts'
+        windows:
+          type: array
+          description: |
+            The day's counts split by delivery slot, named slots alphabetically
+            and the unslotted bucket last. Only slots carrying something appear —
+            a screen already knows its own slots, and sixty days of empty ones
+            would be mostly zeroes.
+          items:
+            $ref: '#/components/schemas/OrderDeskCalendarWindow'
+
+    OrderDeskCalendarEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [days]
+          properties:
+            days:
+              type: array
+              description: |
+                Every day of the requested window in date order, **including the
+                empty ones**: a calendar with holes is one the client has to
+                reconstruct, and "nothing that day" is itself an answer.
+              items:
+                $ref: '#/components/schemas/OrderDeskCalendarDay'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [from, to, day_count, max_window_days]
+              properties:
+                from:
+                  type: string
+                  format: date
+                to:
+                  type: string
+                  format: date
+                day_count:
+                  type: integer
+                  minimum: 1
+                  description: |
+                    How many squares the grid has. A count of **days**, never of
+                    work: there is no count of work anywhere in this response,
+                    because that would be the total the three bases must not
+                    have.
+                max_window_days:
+                  type: integer
+                  description: |
+                    The longest window this operation will answer, counted
+                    inclusively. Echoed so a client can bound its own date picker
+                    instead of discovering the limit as a 422.
+
+    OrderDeskRequirementRow:
+      type: object
+      required: [ingredient_id, stock_item_id, code, name_en, unit_id, unit_code, required, available, short, suggested_buy]
+      additionalProperties: false
+      properties:
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          description: The shelf's own code. Rows are ordered by it, so the list reads the way a store cupboard is walked.
+        name_en:
+          type: string
+          description: |
+            The shelf's name. English only, because `stock_items` carries one
+            name column — the same field the levels list serves as
+            `item_name_en`, not a translation this operation withheld.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The measurement unit every quantity on this row is expressed in. Null when the shelf has no resolved unit.
+        unit_code:
+          type: [string, 'null']
+          description: That unit's code, for rendering. Null when there is no resolved unit — show the em dash rather than a bare number.
+        required:
+          type: string
+          description: |
+            How much the window needs, at **six** decimal places — the scale the
+            explosion computes and the movement ledger stores. Published at six
+            rather than rounded to the column's four, because truncating a
+            computed figure to match what it is compared against would publish a
+            rounder number than the arithmetic produced.
+        available:
+          type: string
+          description: |
+            What the branch holds, at four places. `0` when the shelf has no
+            level row here — that is a shelf holding none, not an unknown.
+        short:
+          type: string
+          description: |
+            `max(0, required − available)`, at four places. **Compared at four**
+            so a rounding tail five decimal places down cannot manufacture a
+            shortfall on a row that balances exactly.
+        suggested_buy:
+          type: string
+          description: |
+            What to order. Where the level has a par: `par − (available −
+            required)`, the quantity that leaves the shelf at par once the window
+            has been cooked. Where it has none, or where that is not positive
+            (a par written below the window's own demand), the bare shortfall —
+            so a par nobody has maintained can never reduce a buy below what the
+            kitchen needs.
+
+    OrderDeskNotComputable:
+      type: object
+      required: [days, reasons]
+      additionalProperties: false
+      description: |
+        The part of the window nobody could turn into a number. **Never a zero
+        in the list above** — "buy nothing for that" and "we could not work out
+        what to buy for that" are opposite statements.
+      properties:
+        days:
+          type: integer
+          minimum: 0
+          description: |
+            Distinct **dates** carrying at least one hole. A date rather than a
+            demand item: two orders and a subscription day all failing on one
+            Tuesday is one day the buy list is incomplete for, which is the
+            question the number answers.
+        reasons:
+          type: object
+          description: |
+            Hole counts by reason code, most days first. A count is **days that
+            reason spoiled**, not occurrences: three ingredients of one dish all
+            failing for the same reason on one day is one day, so an elaborate
+            recipe does not look like a bigger problem than a simple one with the
+            same consequence.
+
+            Only reasons that actually occurred appear. The vocabulary is
+            `plan_has_no_menu`, `menu_dish_withdrawn`, `meal_has_no_recipe`,
+            `no_yield_piece_count`, `unquantified_recipe_line`,
+            `no_ingredient_link`, `no_stock_item`, `no_stock_unit` and
+            `unit_conversion_unsupported`; the map is left open so a code added
+            later reaches a client as data rather than as a schema violation.
+          additionalProperties:
+            type: integer
+            minimum: 1
+
+    OrderDeskRequirementsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [requirements, not_computable]
+          properties:
+            requirements:
+              type: array
+              description: One row per shelf the window needs anything of, ordered by stock-item code.
+              items:
+                $ref: '#/components/schemas/OrderDeskRequirementRow'
+            not_computable:
+              $ref: '#/components/schemas/OrderDeskNotComputable'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [from, to, branch_id, max_window_days]
+              properties:
+                from:
+                  type: string
+                  format: date
+                to:
+                  type: string
+                  format: date
+                branch_id:
+                  $ref: '#/components/schemas/Uuid'
+                max_window_days:
+                  type: integer
+                  description: |
+                    The longest window this operation will answer, counted
+                    inclusively. Echoed so a client can bound its own date picker
+                    instead of discovering the limit as a 422.
+
+    OrderDeskShortfallCountEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [shortfall_count, branch_id]
+          additionalProperties: false
+          properties:
+            shortfall_count:
+              type: [integer, 'null']
+              minimum: 0
+              description: |
+                How many ingredients the next seven days are short of at this
+                branch. **`null` when no `branch_id` was given** — render nothing
+                at all for it, never a zero.
+            branch_id:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+              description: The branch the count is about, echoed so the answer says what it is about. Null exactly when the count is.
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    OrderDeskDriver:
+      type: object
+      required: [user_id, display_name]
+      additionalProperties: false
+      properties:
+        user_id:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: [string, 'null']
+          description: |
+            The person's name, from their profile. **Null when they have no
+            profile yet** — a member whose account was created but never
+            completed is still a member, and leaving them out would make them
+            unassignable. Render the em dash the platform uses for every other
+            unknown rather than inventing a placeholder.
+
+    OrderDeskDriversEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskDriver'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count, limit]
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                limit:
+                  type: integer
+                  description: |
+                    The most rows this operation will ever return. There is no
+                    second page: a kitchen with more active members than this has
+                    an organisation chart rather than a rota.
+
+    CreateOrderDeskCustomerRequest:
+      type: object
+      required: [display_name, phone]
+      additionalProperties: false
+      properties:
+        display_name:
+          type: string
+          maxLength: 255
+          description: |
+            What the caller says their name is. One field rather than a
+            given/family pair, because the platform's customer may be a company.
+        phone:
+          type: string
+          maxLength: 255
+          description: |
+            **Required, because a cold caller is a telephone number.** It is how
+            the kitchen rings back about tonight's delivery and what the next
+            agent searches on when the same person calls again; an account
+            without one is a name nobody can act on. Further numbers are added
+            afterwards through the customer's own contact operations.
+
+            Already in E.164, or `422` on this field. The platform does not infer
+            a country code from a local number — guessing would send somebody
+            else's handset a passcode that unlocks an account — so the desk asks
+            for it.
+          examples: ['+96170123456']
+        preferred_language_code:
+          type: [string, 'null']
+          minLength: 2
+          maxLength: 2
+          description: A language the platform knows; unknown codes are `422` rather than a foreign-key failure.
+        country_code:
+          type: [string, 'null']
+          minLength: 2
+          maxLength: 2
+
+    AddOrderDeskCustomerAddressRequest:
+      type: object
+      required: [delivery_area_id, line_one]
+      additionalProperties: false
+      description: |
+        The customer's own address body minus `address_type`, `contact_point_id`
+        and `is_default` — see the operation for why each is absent. Every length
+        is the column's.
+
+        `delivery_area_id` is a `uuid` and nothing more. Whether anybody
+        delivers there is asked at save time and answered as
+        `address.area_not_served`, which is the sentence the agent reads out to
+        the customer; an `exists` rule would refuse an unknown identifier as
+        "invalid" and still say nothing about coverage.
+      properties:
+        delivery_area_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: [string, 'null']
+          maxLength: 60
+        line_one:
+          type: string
+          maxLength: 255
+        line_two:
+          type: [string, 'null']
+          maxLength: 255
+        building:
+          type: [string, 'null']
+          maxLength: 120
+        floor:
+          type: [string, 'null']
+          maxLength: 40
+        apartment:
+          type: [string, 'null']
+          maxLength: 40
+        directions:
+          type: [string, 'null']
+          maxLength: 1000
+        postal_code:
+          type: [string, 'null']
+          maxLength: 20
+
+    OrderDeskCashReportRow:
+      type: object
+      required: [confirmed_by, display_name, method, currency_code, receipt_count, amount_minor_sum]
+      additionalProperties: false
+      description: |
+        What one agent took, one way, in one currency, on one day.
+
+        The row's identity is all three of `(confirmed_by, method, currency_code)`
+        — an agent who took cash and a WISH transfer is two rows, and an agent who
+        took dollars and dirhams is two more. That is not a normalisation
+        accident: the currency belongs to the key because `amount_minor_sum` is
+        only meaningful within one, and a shape that let a group span two would
+        be a shape in which a nonsense number could be written.
+      properties:
+        confirmed_by:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: [string, 'null']
+          description: |
+            **Null for an agent whose profile was never completed.** They still
+            took the money, so they are still listed — dropping the row to avoid a
+            null would be losing cash from a reconciliation to protect a
+            formatting concern. Render the platform's em dash. Nameless agents
+            sort last.
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217, taken from the order the receipt was written against.
+        receipt_count:
+          type: integer
+          minimum: 1
+          description: How many separate receipts make up the sum beside it.
+        amount_minor_sum:
+          type: integer
+          description: |
+            The sum of those receipts, in minor units of `currency_code`. Legal
+            because every receipt in the group is the same unit of the same
+            currency — which is exactly what makes the currency part of the key.
+
+    OrderDeskCashReportTotal:
+      type: object
+      required: [method, currency_code, receipt_count, amount_minor_sum]
+      additionalProperties: false
+      description: |
+        The same money one level up: one method, one currency, across every agent.
+
+        Derived from the rows rather than queried separately, so a total can never
+        disagree with the table above it. **There is no grand total anywhere in
+        this response and there will not be** — it would have to add currencies,
+        and the only reliable defence against that is a shape with nowhere to put
+        it.
+      properties:
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        receipt_count:
+          type: integer
+          minimum: 1
+        amount_minor_sum:
+          type: integer
+
+    OrderDeskCashReportEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [rows, totals]
+          additionalProperties: false
+          properties:
+            rows:
+              type: array
+              description: |
+                Named agents first, nameless last, then a total order over the
+                remaining key columns — so two identical requests cannot return
+                the same figures in two orders. Empty on a day nobody took
+                anything, which is a real answer rather than a gap.
+              items:
+                $ref: '#/components/schemas/OrderDeskCashReportRow'
+            totals:
+              type: array
+              description: Ordered by first appearance in `rows`, and therefore as deterministic as they are.
+              items:
+                $ref: '#/components/schemas/OrderDeskCashReportTotal'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [date, branch_id, timezone, count]
+              properties:
+                date:
+                  type: string
+                  format: date
+                  description: The day reported, echoed because the boundary below is what it means.
+                branch_id:
+                  type: [string, 'null']
+                  format: uuid
+                  description: The site the report was narrowed to, or null for the whole organisation.
+                timezone:
+                  type: string
+                  description: |
+                    The clock the day was measured on. **Always `UTC`** — see the
+                    operation. Echoed rather than assumed so a screen can say
+                    which midnight it is showing instead of implying the reader's
+                    own.
+                count:
+                  type: integer
+                  minimum: 0
+                  description: Rows in this response. Not a count of receipts.
 
     GuestSessionGrade:
       type: string
@@ -25079,8 +28054,12 @@ components:
           type: string
           enum: [cash_on_delivery]
           description: |
-            One case, and no reserved others: a reserved case is a value
-            something eventually writes.
+            One case **on this surface**, narrower than the platform's
+            `PaymentMethod` vocabulary on purpose. A guest checkout takes cash at
+            the door and offers nothing else: the desk's two methods need
+            somebody at a desk, and neither is reachable by a customer placing
+            their own order. Serving the wider enum here would promise a value
+            this endpoint cannot produce.
         delivery:
           $ref: '#/components/schemas/GuestOrderDelivery'
         placed_at:
@@ -27169,93 +30148,6 @@ components:
             somebody may genuinely mean, which is why this is a PUT.
       additionalProperties: false
 
-    KitchenDisplayTicket:
-      type: object
-      required: [id, label, status, station, source_type, source_id]
-      properties:
-        id:
-          $ref: '#/components/schemas/Uuid'
-        label:
-          type: string
-          maxLength: 160
-          description: What the rail shows — the thing being made.
-        status:
-          type: string
-          enum: [new, preparing, ready]
-          description: |
-            The rail's three live states. `bumped` exists on the row but never
-            appears here: this list is work outstanding.
-        station:
-          type: string
-          maxLength: 64
-          description: Which station is working it.
-          examples: [main]
-        source_type:
-          type: string
-          maxLength: 48
-          description: What the ticket came from — an order line, a production batch.
-        source_id:
-          $ref: '#/components/schemas/Uuid'
-      additionalProperties: false
-      description: One ticket on the kitchen display rail.
-
-    CreatePosSaleLine:
-      type: object
-      required: [catalogue_item_id, quantity, line_total_minor]
-      properties:
-        catalogue_item_id:
-          $ref: '#/components/schemas/Uuid'
-        quantity:
-          type: number
-          minimum: 0.0001
-          description: Stored to four decimal places.
-        line_total_minor:
-          type: integer
-          minimum: 0
-          description: |
-            Whole minor units. The transaction's total is the **sum of these**,
-            computed by the server — there is no total field on this request.
-      additionalProperties: false
-
-    CreatePosSaleRequest:
-      type: object
-      required: [pos_shift_id, payment_method_kind, currency_code, lines]
-      properties:
-        pos_shift_id:
-          $ref: '#/components/schemas/Uuid'
-        payment_method_kind:
-          type: string
-          enum: [cash_on_delivery, card]
-          description: |
-            Narrower than the platform's payment vocabulary on purpose:
-            `invoice` is a different arrangement and is refused here.
-        currency_code:
-          $ref: '#/components/schemas/CurrencyCode'
-        lines:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/CreatePosSaleLine'
-      additionalProperties: false
-
-    PosTransaction:
-      type: object
-      required: [id, total_minor, payment_method_kind]
-      properties:
-        id:
-          $ref: '#/components/schemas/Uuid'
-        total_minor:
-          type: integer
-          minimum: 0
-          description: The server's sum of the submitted lines.
-        payment_method_kind:
-          type: string
-          enum: [cash_on_delivery, card]
-      additionalProperties: false
-      description: |
-        A recorded counter sale. Three fields — the lines are not echoed back,
-        because the caller sent them.
-
     DeliveryJobStatus:
       type: string
       enum: [pending, assigned, in_transit, delivered, failed, cancelled]
@@ -27289,9 +30181,107 @@ components:
       additionalProperties: false
       description: A delivery job as the dispatch board sees it.
 
+    DriverJobDelivery:
+      type: object
+      required: [line_one, building, floor, apartment, directions, area_name_en, area_name_ar, window_code, requested_date, phone]
+      description: |
+        Where this run is going, **as the order recorded it at placement** — never
+        as the customer's address book stands now. A customer who edits their
+        address at eight o'clock has not changed where tonight's food is going,
+        and a run sheet reading the live address would send a driver to a door
+        the order was never for.
+
+        Every field is nullable, and the nulls are ordinary: an order placed
+        before the snapshot was widened carries no building or floor, an
+        as-soon-as-possible order names no day, and a kitchen that has not named
+        its slots has no window code.
+      properties:
+        line_one:
+          type: ['string', 'null']
+          description: The street. What gets somebody to the building.
+        building:
+          type: ['string', 'null']
+        floor:
+          type: ['string', 'null']
+        apartment:
+          type: ['string', 'null']
+        directions:
+          type: ['string', 'null']
+          description: Free text the customer wrote for the courier. Never parsed.
+        area_name_en:
+          type: ['string', 'null']
+        area_name_ar:
+          type: ['string', 'null']
+        window_code:
+          type: ['string', 'null']
+        requested_date:
+          type: ['string', 'null']
+          format: date
+        phone:
+          type: ['string', 'null']
+          description: |
+            E.164, and it is **the number the order was given** — resolved from
+            the contact point the snapshot names, not the customer's best current
+            number. `null` when the order named none, with no fallback: a
+            substitution would answer a different question while looking like the
+            same field, and this route carries no permission code to hold a
+            customer-contact lookup behind. The desk has
+            `order.view_customer_contact_organisation` for that.
+      additionalProperties: false
+
     DriverJob:
       type: object
-      required: [id, order_id, status, tracking_status]
+      required: [id, order_id, order_number, status, tracking_status, assigned_at, delivery]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          type: ['string', 'null']
+          description: The number printed on the bag, so a courier can match one to the other.
+        status:
+          $ref: '#/components/schemas/DeliveryJobStatus'
+        tracking_status:
+          $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        assigned_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When this run was handed to the caller. `null` on a job nobody has assigned.
+        delivery:
+          $ref: '#/components/schemas/DriverJobDelivery'
+      additionalProperties: false
+      description: |
+        The same job on the driver's own run sheet, carrying what somebody
+        standing next to a van needs: which order this is, where the food is
+        going in enough detail to find a door, when it was promised, when they
+        were given it, and the number to ring when they still cannot find the
+        building.
+
+        `driver_user_id` is absent because it would say the same thing on every
+        row — the caller's own id, which they already have — and the dispatch
+        board is the surface where whose job it is is worth answering. Money is
+        absent for a related reason: a driver collecting cash on delivery is a
+        real flow and it belongs to the receipts ledger, not bolted onto a run
+        sheet.
+
+    AssignDeliveryJobRequest:
+      type: object
+      required: [driver_user_id]
+      properties:
+        driver_user_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: |
+            An **active member** of this organisation. There is deliberately no
+            null: unassigning a run is a different decision and would need its
+            own route and its own audit action rather than arriving as an omitted
+            key.
+      additionalProperties: false
+
+    AssignedDeliveryJob:
+      type: object
+      required: [id, order_id, status, tracking_status, driver_user_id, assigned_at, lock_version]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -27301,10 +30291,21 @@ components:
           $ref: '#/components/schemas/DeliveryJobStatus'
         tracking_status:
           $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        driver_user_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        assigned_at:
+          type: ['string', 'null']
+          format: date-time
+        lock_version:
+          type: integer
+          description: The validator to send as `If-Match` on the next write.
       additionalProperties: false
       description: |
-        The same job on the driver's own run sheet. `driver_user_id` is absent
-        because it would say the same thing on every row.
+        The dispatch board's shape plus what the assignment just decided. A
+        superset rather than a different shape, so a board refreshing one row
+        from this response does not have to reconcile two vocabularies.
 
     DeliverDriverJobRequest:
       type: object
@@ -30193,10 +33194,10 @@ components:
     CreatePlatformKitchenRequest:
       type: object
       description: |
-        **One request creates four things, in one transaction: the
+        **One request creates five things, in one transaction: the
         organisation, one active main branch, the `kitchen_production`
-        capability, and a `b2c_web` sales channel coded `web-shop`.** All four
-        or none.
+        capability, a `b2c_web` sales channel coded `web-shop`, and a `pos`
+        sales channel coded `desk`.** All five or none.
 
         A kitchen that is only an organisation row is a kitchen whose workspace
         refuses on the first screen: the organisation context resolves a
@@ -30207,6 +33208,14 @@ components:
         to add the rest afterwards was rejected because it makes the console's
         success message a lie for the twenty minutes before somebody notices. A
         new kitchen works immediately; it simply has nothing in it yet.
+
+        The fifth is the counter. The Order Desk sells through its own channel
+        rather than through the web shop, so that a kitchen may put the catering
+        trays across the counter without putting them on the site — and a
+        kitchen provisioned without one can take a web order but not a walk-in,
+        which is half a business. Both channels open empty: a kitchen created a
+        moment ago has no articles and no tariffs, so there is nothing to
+        assign to either.
 
         The wholesale channel is deliberately **not** created. A kitchen that
         has never traded with a company does not need a B2B channel sitting

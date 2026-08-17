@@ -86,6 +86,8 @@ use Healthy360\Catalogues\Http\Controllers\PlanDurationUpdateController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandStoreController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandUpdateController;
+use Healthy360\Catalogues\Http\Controllers\PlanMenuIndexController;
+use Healthy360\Catalogues\Http\Controllers\PlanMenuReplaceController;
 use Healthy360\Catalogues\Http\Controllers\PlanProfileShowController;
 use Healthy360\Catalogues\Http\Controllers\PlanProfileUpdateController;
 use Healthy360\Catalogues\Http\Controllers\PlanVariantDurationIndexController;
@@ -125,6 +127,7 @@ use Healthy360\Customers\Http\Controllers\CustomerAccountShowController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountStoreController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileReplaceController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileShowController;
+use Healthy360\Delivery\Http\Controllers\DeliveryJobAssignController;
 use Healthy360\Delivery\Http\Controllers\DeliveryJobIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryWindowStoreController;
@@ -160,14 +163,14 @@ use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
+use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
+use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
 use Healthy360\Inventory\Http\Controllers\StockThresholdController;
 use Healthy360\Inventory\Http\Controllers\StockWasteController;
-use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketBumpController;
-use Healthy360\KitchenDisplay\Http\Controllers\KdsTicketIndexController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenIndexController;
@@ -186,7 +189,17 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
+use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
@@ -198,7 +211,6 @@ use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenReactivate
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenShowController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenStoreController;
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenSuspendController;
-use Healthy360\POS\Http\Controllers\PosSaleStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
 use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
@@ -617,18 +629,35 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | header was always required in substance; it is now required in the
         | routing table, which is where a reader can see it.
         |
-        | No permission code. A driver is staff of the kitchen whose jobs
-        | these are, and the narrowing that matters is `driver_user_id` — the
-        | caller's own assignments — which is ownership rather than authority
-        | and is enforced in the controllers. `/delivery/jobs` is the
-        | dispatcher's view of the same table and is scoped by the
-        | organisation alone.
+        | No permission code on the three **reads**. A driver is staff of the
+        | kitchen whose jobs these are, and the narrowing that matters is
+        | `driver_user_id` — the caller's own assignments — which is ownership
+        | rather than authority and is enforced in the controllers.
+        | `/delivery/jobs` is the dispatcher's view of the same table and is
+        | scoped by the organisation alone.
+        |
+        | **`assign` is the exception, and it is the only write here that
+        | somebody could be wrong to make** (C3). Deciding whose run this is
+        | *is* authority — it commits a person's evening — so it carries
+        | `order.manage_organisation`, the same code that confirms the order
+        | the run came from, rather than a new `delivery.*` one: a manager who
+        | may accept a sale and cancel it should not need a second grant to say
+        | who takes it out. `delivery_zone.manage_organisation` governs the
+        | *map* and is deliberately not reused for tonight's rota.
+        |
+        | `precondition` because two dispatchers share one board and can see
+        | the same free driver; the validator is folded into the conditional
+        | UPDATE inside the controller.
         */
         Route::middleware('org.context')->group(function (): void {
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
 
             Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
+
+            Route::post('/delivery/jobs/{job}/assign', DeliveryJobAssignController::class)
+                ->middleware(['permission:order.manage_organisation', 'precondition'])
+                ->name('delivery.jobs.assign');
         });
 
         /*
@@ -1254,6 +1283,33 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/plans/{item}/variant-durations', PlanVariantDurationReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.plans.variant-durations.replace');
+
+                /*
+                | The fixed menu — what the plan serves, on which day of its
+                | cycle. A fourth face of the same listing, so it takes the
+                | same `If-Match` on the **item's** validator that the profile
+                | and the matrix do.
+                |
+                | The read sits here rather than beside the profile read
+                | below, because the boundary that section draws is between
+                | what a customer will be shown and what a merchandiser
+                | decides. A menu editor is the second; the customer-facing
+                | "what is for dinner on Thursday" is a marketplace surface
+                | with its own presenter.
+                |
+                | The PUT also carries `menu_cycle_days` and
+                | `menu_cycle_anchor_date`, which are columns on
+                | `subscription_plan_profiles` and are **not** writable
+                | through `PUT …/profile`: that endpoint is a whole-document
+                | write, and a client sending a body written before those
+                | columns existed would silently withdraw a kitchen's menu.
+                | `PlanMenuService` is their only writer.
+                */
+                Route::get('/plans/{item}/menu', PlanMenuIndexController::class)->name('catalogue.plans.menu.index');
+
+                Route::put('/plans/{item}/menu', PlanMenuReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.plans.menu.replace');
             });
 
             /*
@@ -1350,11 +1406,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | `inventory.view_costs_organisation`, gates the money INV1.1/INV1.2
             | add and is wired into the registry now; nothing in this slice is
             | cost-bearing yet, so no route checks it.
-            |
-            | `pos/sales` deliberately stays on `catalogue.manage_organisation`:
-            | recording a till sale is a commerce action, not an inventory one,
-            | and INV1.0's re-point named inventory, procurement, production, QC
-            | and the display rail — not POS.
             */
             Route::middleware('permission:inventory.view_organisation')->group(function (): void {
                 Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
@@ -1367,7 +1418,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
                 Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
-                Route::get('/kitchen-display/tickets', KdsTicketIndexController::class)->name('catalogue.kitchen-display.tickets.index');
             });
 
             Route::middleware('permission:inventory.manage_organisation')->group(function (): void {
@@ -1391,7 +1441,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/quality-control/checks', QualityCheckStoreController::class)->name('catalogue.quality-control.checks.store');
                 Route::post('/quality-control/checks/{qualityCheck}/hold', QualityCheckHoldController::class)->name('catalogue.quality-control.checks.hold');
                 Route::post('/quality-control/checks/{qualityCheck}/release', QualityCheckReleaseController::class)->name('catalogue.quality-control.checks.release');
-                Route::post('/kitchen-display/tickets/{ticket}/bump', KdsTicketBumpController::class)->name('catalogue.kitchen-display.tickets.bump');
             });
 
             /*
@@ -1411,10 +1460,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 | gates money everywhere in this domain, not the plain view code.
                 */
                 Route::get('/reports/monthly-cost', MonthlyCostReportController::class)->name('catalogue.reports.monthly-cost.index');
-            });
-
-            Route::middleware('permission:catalogue.manage_organisation')->group(function (): void {
-                Route::post('/pos/sales', PosSaleStoreController::class)->name('catalogue.pos.sales.store');
             });
 
             /*
@@ -1492,6 +1537,329 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/cancel', KitchenOrderCancelController::class)
                     ->middleware('precondition')
                     ->name('catalogue.orders.cancel');
+
+                // A fourth sub-resource, and the only one that is not a
+                // transition: it writes a row in another table and leaves the
+                // order exactly as it found it, `lock_version` included. The
+                // `If-Match` is still required — it guards against acting on a
+                // stale view, which is how cash gets keyed against an order
+                // somebody cancelled a minute ago — and `idempotency` is what
+                // stops a desk tablet on a bad connection paying twice, since
+                // two genuine receipts for one amount are exactly what a deposit
+                // and a balance look like.
+                Route::post('/orders/{order}/payments', OrderPaymentReceiptStoreController::class)
+                    ->middleware(['precondition', 'idempotency'])
+                    ->name('catalogue.orders.payments.store');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | The order desk (C2)
+            |--------------------------------------------------------------
+            |
+            | The same book as `/orders`, asked a different question. That one
+            | is a ledger — newest first, cursor-walked, every status — and it
+            | answers "what did we do last Tuesday". This one is a **queue**:
+            | what is still open, in the order it has to be worked, which is not
+            | a column but a computed instant across three tables. The two
+            | cannot be one endpoint, because `CursorPage` re-sorts every query
+            | it constrains, so a cursor and this ordering are mutually
+            | exclusive by construction rather than by preference.
+            |
+            | **Bounded, not paginated**, and the response says so: two hundred
+            | rows with `meta.truncated`. A desk queue is a list somebody works
+            | through, and a kitchen with more open orders than that has a
+            | problem the screen should state rather than hide behind a page
+            | two nobody would click.
+            |
+            | `order.view_organisation`, the same read as the book beside it —
+            | seeing the day's work in a useful order is not a greater authority
+            | than seeing it in a useless one. What *is* greater sits inside the
+            | row: the customer's name and the number to ring them on are gated
+            | by `order.view_customer_contact_organisation`, checked by the
+            | controller rather than by a second route, because it withholds two
+            | fields rather than the endpoint. Every other kitchen-facing
+            | projection on the platform withholds the pair outright; the desk
+            | is the one surface where somebody has to make the call.
+            |
+            */
+            Route::middleware('permission:order.view_organisation')->group(function (): void {
+                Route::get('/order-desk/queue', OrderDeskQueueController::class)->name('catalogue.order-desk.queue');
+
+                /*
+                | **A POST that writes nothing.** The question has a basket in
+                | it, and a basket does not fit in a query string — the same
+                | argument `POST /catalogue/checkout/preview` is a POST on.
+                | Nothing is created, nothing is reserved, and asking twice is
+                | asking once.
+                |
+                | It sits behind `order.view_organisation` rather than beside
+                | the sale below, and that is the split the desk role is built
+                | around: working out what a basket comes to commits the kitchen
+                | to nothing, and a trainee at the counter pricing something for
+                | a caller needs no greater authority than reading the day's
+                | book. Selling is the other route.
+                |
+                | **It answers 200 with the problems in the body.** A withdrawn
+                | article, an address nobody delivers to, a cut-off that passed
+                | at three — each is a `reason` beside the lines that did price,
+                | because a quote's job is to *explain*. A 422 would hand the
+                | agent one problem per round trip and lose the total, which is
+                | the number the customer is standing there waiting for.
+                */
+                Route::post('/order-desk/quote', OrderDeskQuoteController::class)
+                    ->name('catalogue.order-desk.quote');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | Selling across the counter (C2)
+            |--------------------------------------------------------------
+            |
+            | The other side of `POST /orders`. That one is a customer
+            | converting their own basket; this is a member of staff placing an
+            | order **for** somebody, and the whole of what makes it different
+            | is that whoever pressed the button is not whoever is going to eat.
+            |
+            | `order.create_on_behalf_organisation`, its own code and not
+            | `order.manage_organisation`. Confirming and cancelling change what
+            | a customer is already owed; placing decides they are owed anything
+            | at all, and it is the one order action with nobody on the other
+            | side to have agreed to it. It also carries the eligibility bypass
+            | — naming `placed_on_behalf_by` skips the activation checklist,
+            | because the member of staff in front of the customer is the
+            | verification the checklist was asking for.
+            |
+            | `idempotency`, and the controller additionally **requires** the
+            | key. The middleware only enforces semantics when a key is present,
+            | which is right where a key is optional and wrong here: a customer
+            | checkout that is double-tapped finds its cart already converted
+            | and refuses, and a desk sale has no cart — and may have no
+            | customer — so nothing in the schema would notice a second
+            | identical counter sale. The key is the only guard there is.
+            |
+            | No `precondition`. Nothing existing is written, so there is no
+            | validator a screen could have been holding.
+            |
+            */
+            Route::middleware('permission:order.create_on_behalf_organisation')->group(function (): void {
+                Route::post('/order-desk/orders', OrderDeskPlacementController::class)
+                    ->middleware('idempotency')
+                    ->name('catalogue.order-desk.orders.store');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | The shape of the week (C4)
+            |--------------------------------------------------------------
+            |
+            | The queue is the open book in the order it has to be worked; this
+            | is how much is committed on each day and in each slot, so that
+            | somebody deciding whether to take one more delivery for Thursday
+            | can see Thursday. Three bases — real orders, subscription days the
+            | generator has claimed, and days a weekday pattern forecasts — and
+            | they are **never summed**. There is no total key anywhere in the
+            | response, because the three overlap in ways no arithmetic
+            | expresses and a kitchen buying ingredients off a total would buy
+            | too much.
+            |
+            | **Two permission codes**, `order.view_organisation` and
+            | `subscription.view_organisation`, because the response unions two
+            | books the platform deliberately keeps apart: a subscription is a
+            | standing commercial arrangement carrying a captured price, and
+            | `KitchenSubscriptionScheduleController` exists to say that reading
+            | today's order list is not by itself a reason to see who is
+            | committed to what and for how long. A calendar that aggregated
+            | around that distinction would make it ornamental. Refused from
+            | either side, and the first code to deny is the one the 403 names.
+            |
+            | Written the way `POST /catalogue/recipes/{recipe}/versions/
+            | {version}/cost-snapshots` and the platform's B2B offboarding
+            | routes write it: the group states the code the family shares and
+            | the route adds the one only it needs. The aliases stack because
+            | gathered middleware is deduplicated on the **resolved string** and
+            | the two differ by their parameter — this is the desk's first
+            | two-code route, not the platform's.
+            |
+            | The sixty-day cap is enforced **by this controller**, not
+            | inherited. The cap on the subscription-schedule endpoint is a
+            | private constant on another controller in another module; it
+            | protects nothing here, and the projection behind the third basis
+            | is the same O(subscriptions × days) cost with a query per
+            | subscription. `from` and `to` are both required, unlike that
+            | endpoint's defaults: a calendar screen always knows which weeks it
+            | is showing, and a server-invented fortnight would be a different
+            | fortnight from the one on the grid.
+            |
+            | `branch_id` is a query parameter, the desk convention. It narrows
+            | an organisation-wide book to one production site and nothing more
+            | — unlike on the queue it names no clock, because a calendar's days
+            | are dates the customer asked for rather than instants.
+            |
+            */
+            Route::middleware('permission:order.view_organisation')->group(function (): void {
+                Route::get('/order-desk/calendar', OrderDeskCalendarController::class)
+                    ->middleware('permission:subscription.view_organisation')
+                    ->name('catalogue.order-desk.calendar');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | What to buy for it (C5)
+            |--------------------------------------------------------------
+            |
+            | The desk family's third read, and the only one whose controllers
+            | live in another module. The URL is a desk URL because a buyer
+            | looks for it beside the calendar; the code is in Inventory
+            | because that is where the arithmetic and the shelves are, and
+            | because it could not be anywhere else — the registry edge runs
+            | Inventory → Orders, so an orders-module forecast reaching in for
+            | `MealExplosion` would close the cycle the architecture test
+            | rejects. `RequirementForecast` states the whole argument.
+            |
+            | `inventory.view_organisation`, not an order code: the response is
+            | quantities on shelves, and a desk agent who may not see the
+            | stock room has no business with a buy list. Not
+            | `inventory.view_costs_organisation` either — there is no money
+            | anywhere in it, deliberately.
+            |
+            | **`branch_id` breaks the desk convention on purpose, and only on
+            | the list.** Every other endpoint in this family takes it as an
+            | optional narrowing because an organisation-wide agent selects no
+            | branch. Half of this response is `available`, and there is no
+            | honest organisation-wide value for that — summing three shelves
+            | would tell a buyer they have flour while the kitchen that needs
+            | it has none — so the list requires it and refuses `422` without.
+            | The badge beside it does not: a hub tile that errored because
+            | nobody had chosen a branch would be an error where there is no
+            | mistake, so it answers `shortfall_count: null` and the surface
+            | renders nothing rather than a zero it did not earn.
+            |
+            */
+            Route::middleware('permission:inventory.view_organisation')->group(function (): void {
+                Route::get('/order-desk/requirements', OrderDeskRequirementsController::class)
+                    ->name('catalogue.order-desk.requirements');
+                Route::get('/order-desk/requirements/shortfall-count', OrderDeskShortfallCountController::class)
+                    ->name('catalogue.order-desk.requirements.shortfall-count');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | Who can take the run (C4)
+            |--------------------------------------------------------------
+            |
+            | The picker behind `POST /delivery/jobs/{job}/assign`. That
+            | endpoint takes a `driver_user_id` and refuses anybody who is not
+            | an **active** member of this organisation; this is where a
+            | dispatcher legitimately obtains one, and the two apply the same
+            | predicate to the same table so that a list cannot offer somebody
+            | the assign endpoint would then refuse.
+            |
+            | It lists **every** active member, and that is not an oversight.
+            | There is no driver role on this platform by design — the driver's
+            | own run-sheet routes (`/driver/jobs`, further up this file) narrow
+            | by `driver_user_id` rather than by a permission code, because
+            | *a driver is staff of the kitchen whose jobs these are* —
+            | and inventing one here would mean a kitchen could not hand
+            | tonight's late delivery to the chef who offered to drop it off on
+            | the way home. The endpoint answers a question of fact, who works
+            | here; the picker is where a kitchen's operating judgement lives.
+            |
+            | Names are why it exists at all. `organisation_memberships` carries
+            | a `user_id` and nothing a human reads, `users` deliberately
+            | carries no name, and the invitations surface serves email
+            | addresses — so without this a dispatcher would be picking a driver
+            | out of a column of addresses.
+            |
+            | `order.manage_organisation`, the same code the assign endpoint
+            | carries and the same audience. A separate code for reading the
+            | list of candidates would be an authority nobody could usefully
+            | hold on its own.
+            |
+            */
+            Route::middleware('permission:order.manage_organisation')->group(function (): void {
+                Route::get('/order-desk/drivers', OrderDeskDriverIndexController::class)
+                    ->name('catalogue.order-desk.drivers.index');
+
+                /*
+                | **The till-shift mitigation.** The desk takes cash and this
+                | platform has no shift table — nothing opens a drawer with a
+                | float, nothing closes it against a count. That gap was accepted
+                | knowingly when `order_payment_receipts` landed, on the
+                | condition that the money at least be attributable: a manager
+                | must be able to ask "what did each agent take yesterday?".
+                | This is that answer and deliberately not more; a real drawer
+                | reconciliation is a later table, and when it lands this reads
+                | from the same ledger rather than being replaced by it.
+                |
+                | The drivers endpoint's code, and the same seat. This is a
+                | statement about *people* — who took how much — which is a
+                | different disclosure from the order book, and
+                | `order.view_organisation` is held by everybody who works a
+                | queue. A new code was considered and rejected: an authority to
+                | read the day's cash that could be held without the authority to
+                | move an order is not a seat anybody occupies.
+                */
+                Route::get('/order-desk/cash-report', OrderDeskCashReportController::class)
+                    ->name('catalogue.order-desk.cash-report');
+            });
+
+            /*
+            |--------------------------------------------------------------
+            | The people on the other end of the telephone (C2)
+            |--------------------------------------------------------------
+            |
+            | Two authorities, deliberately not one, and the split is the
+            | reason the search sits behind the *reading* code.
+            |
+            | Searching reads back the **name and telephone number of people
+            | who never spoke to you**, one query at a time — which is
+            | exactly the disclosure `order.view_customer_contact_
+            | organisation` was minted for, and the same pair the queue row
+            | carries behind the same code. A search that revealed more than
+            | the queue would make the queue's gating pointless.
+            |
+            | Creating is the other code. `customer.create_on_behalf_
+            | organisation` writes down a member of the public who is not at
+            | a keyboard, and the account it opens outlives the sale; a
+            | kitchen may reasonably want an agent who can take an order for
+            | somebody already on file without being able to add people to
+            | the file. The address endpoint is behind the creation code
+            | rather than the reading one for the plainest of reasons: it
+            | writes a street somebody lives on.
+            |
+            | **What scopes them is the application, not the database.** A
+            | `customer_accounts` row carries no organisation — the same
+            | person orders from four kitchens with one account — and the
+            | row-level-security policy admits every ownerless row, which is
+            | every staff-provisioned one, to every kitchen session. The rule
+            | is `DeskCustomerDirectory`'s: an order with this kitchen, or
+            | provisioned by somebody holding an active membership of it.
+            | Migration 2026_08_16_003006 states the concession rather than
+            | implying otherwise.
+            |
+            | `idempotency` on the customer create and **not** on the address.
+            | Nothing in the schema would notice a second identical
+            | customer — the `b2c` unique index is partial on `user_id` and a
+            | staff-provisioned row has none — so a double tap is two legal
+            | people and no row says which was the mistake. A double-tapped
+            | address is a visible duplicate on the screen the agent is
+            | already looking at, and `POST /me/addresses` carries no key
+            | either.
+            |
+            */
+            Route::middleware('permission:order.view_customer_contact_organisation')->group(function (): void {
+                Route::get('/order-desk/customers', OrderDeskCustomerIndexController::class)
+                    ->name('catalogue.order-desk.customers.index');
+            });
+
+            Route::middleware('permission:customer.create_on_behalf_organisation')->group(function (): void {
+                Route::post('/order-desk/customers', OrderDeskCustomerStoreController::class)
+                    ->middleware('idempotency')
+                    ->name('catalogue.order-desk.customers.store');
+
+                Route::post('/order-desk/customers/{account}/addresses', OrderDeskCustomerAddressStoreController::class)
+                    ->name('catalogue.order-desk.customers.addresses.store');
             });
 
             /*

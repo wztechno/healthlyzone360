@@ -13,16 +13,19 @@ import {
     Rating,
     Stack,
     Text,
+    useBreakpoint,
     useToast,
 } from '@healthy360/design-system';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { MealId } from '@healthy360/domain-types';
+import type { DietClassification } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { useAddCartItemMutation, useMealQuery } from '../../../data/catalogue-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
@@ -68,6 +71,7 @@ export interface MealDetailScreenProps {
 export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const { atLeast } = useBreakpoint();
     const formatter = useFormatter();
     const toast = useToast();
     const { me } = useSession();
@@ -121,6 +125,9 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
     };
 
     const item = meal.data;
+
+    /** Whether there is a second column to put the classification and the price panel in. */
+    const wide = atLeast('lg');
 
     const browseAction = (
         <Button
@@ -178,74 +185,133 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                 >
                     {item === undefined ? null : (
                         <Stack space="lg">
-                            <EntityImage
-                                testID="meal-detail-image"
-                                assetId={item.imagePlaceholderId}
-                                variant="detail"
-                                seed={item.slug}
-                                label={t('catalogue:meal.imageLabel', { meal: item.name })}
-                                aspect="wide"
-                            />
-
-                            <Stack space="xs">
-                                <Heading level={1} testID="meal-detail-name">
-                                    {item.name}
-                                </Heading>
-                                <Text tone="secondary">{item.description}</Text>
-                            </Stack>
-
-                            <Inline space="sm" align="center" wrap>
-                                <Button
-                                    testID="meal-detail-kitchen"
-                                    size="sm"
-                                    variant="ghost"
-                                    label={t('catalogue:meal.cookedBy', {
-                                        kitchen: item.kitchenName,
-                                    })}
-                                    onPress={() => {
-                                        router.push(`/kitchens/${String(item.kitchenId)}` as never);
-                                    }}
-                                />
-                                {item.rating === null ? (
-                                    <Text tone="secondary" variant="caption">
-                                        {t('catalogue:meal.notRatedYet')}
-                                    </Text>
-                                ) : (
-                                    <Rating
-                                        testID="meal-detail-rating"
-                                        label={t('catalogue:meal.ratingLabel', { meal: item.name })}
-                                        value={item.rating}
-                                        count={item.ratingCount}
-                                        size="sm"
+                            {/*
+                             * The head of the page is two columns from `lg` up, and the reason is
+                             * arithmetic. The shell caps its content at 1152, so a full-width 16:9
+                             * photograph was 648 units tall — the entire first screen was the
+                             * picture, the dish's name began below the fold, and the price and
+                             * "add to basket" sat about three and a half screens down, under the
+                             * nutrition table. A product page that puts its one action there is
+                             * asking to be abandoned.
+                             *
+                             * So the photograph is capped and set beside what a person actually
+                             * came to read: the name, who cooked it, the serving, the
+                             * classification, the price and the button. Everything that rewards a
+                             * wide measure — the macro rings, the nutrition table, the allergen
+                             * list — stays full width below. Below `lg` the two columns collapse
+                             * back into the single column the phone already had; the cap on the
+                             * image is the only part that applies at every width, because a 16:9
+                             * image is too tall for a tablet as well.
+                             */}
+                            <View className="flex-col gap-6 lg:flex-row lg:items-start">
+                                <View className="w-full max-w-[560px] lg:w-[45%] lg:shrink-0">
+                                    <EntityImage
+                                        testID="meal-detail-image"
+                                        assetId={item.imagePlaceholderId}
+                                        variant="detail"
+                                        seed={item.slug}
+                                        label={t('catalogue:meal.imageLabel', { meal: item.name })}
+                                        aspect="wide"
                                     />
-                                )}
-                                {item.preparationMinutes === null ? null : (
-                                    <Chip
-                                        label={t('catalogue:meal.preparationMinutes', {
-                                            minutes: formatter.formatNumber(
-                                                item.preparationMinutes,
-                                            ),
-                                        })}
-                                        tone="neutral"
-                                    />
-                                )}
-                            </Inline>
+                                </View>
 
-                            <Stack space="xs" testID="meal-detail-serving">
-                                <Text variant="label">{t('catalogue:meal.servingTitle')}</Text>
-                                <Text>
-                                    {t('catalogue:meal.servingLabel', {
-                                        serving: item.serving.label,
-                                    })}
-                                </Text>
-                                {item.serving.grams === null ? null : (
-                                    <Text tone="secondary" variant="caption">
-                                        {t('catalogue:meal.servingGrams', {
-                                            grams: formatter.formatNumber(item.serving.grams),
-                                        })}
-                                    </Text>
-                                )}
-                            </Stack>
+                                <Stack space="md" className="flex-1">
+                                    <Stack space="xs">
+                                        <Heading level={1} testID="meal-detail-name">
+                                            {item.name}
+                                        </Heading>
+                                        <Text tone="secondary">{item.description}</Text>
+                                    </Stack>
+
+                                    <Inline space="sm" align="center" wrap>
+                                        <Button
+                                            testID="meal-detail-kitchen"
+                                            size="sm"
+                                            variant="ghost"
+                                            label={t('catalogue:meal.cookedBy', {
+                                                kitchen: item.kitchenName,
+                                            })}
+                                            onPress={() => {
+                                                router.push(
+                                                    `/kitchens/${String(item.kitchenId)}` as never,
+                                                );
+                                            }}
+                                        />
+                                        {item.rating === null ? (
+                                            <Text tone="secondary" variant="caption">
+                                                {t('catalogue:meal.notRatedYet')}
+                                            </Text>
+                                        ) : (
+                                            <Rating
+                                                testID="meal-detail-rating"
+                                                label={t('catalogue:meal.ratingLabel', {
+                                                    meal: item.name,
+                                                })}
+                                                value={item.rating}
+                                                count={item.ratingCount}
+                                                size="sm"
+                                            />
+                                        )}
+                                        {item.preparationMinutes === null ? null : (
+                                            <Chip
+                                                label={t('catalogue:meal.preparationMinutes', {
+                                                    minutes: formatter.formatNumber(
+                                                        item.preparationMinutes,
+                                                    ),
+                                                })}
+                                                tone="neutral"
+                                            />
+                                        )}
+                                    </Inline>
+
+                                    <Stack space="xs" testID="meal-detail-serving">
+                                        <Text variant="label">
+                                            {t('catalogue:meal.servingTitle')}
+                                        </Text>
+                                        <Text>
+                                            {t('catalogue:meal.servingLabel', {
+                                                serving: item.serving.label,
+                                            })}
+                                        </Text>
+                                        {item.serving.grams === null ? null : (
+                                            <Text tone="secondary" variant="caption">
+                                                {t('catalogue:meal.servingGrams', {
+                                                    grams: formatter.formatNumber(
+                                                        item.serving.grams,
+                                                    ),
+                                                })}
+                                            </Text>
+                                        )}
+                                    </Stack>
+
+                                    {/*
+                                     * The classification and the commerce panel are in the
+                                     * column beside the photograph *only* where there is a column
+                                     * to put them in. Below `lg` they stay exactly where they have
+                                     * always been — the classification under the composition
+                                     * accordion, the price under the availability strip — because
+                                     * a phone's reading order is not a thing to reshuffle while
+                                     * fixing a desktop layout. One branch rather than two rendered
+                                     * copies with one hidden: a hidden copy is still in the
+                                     * accessibility tree, and this page would then announce two
+                                     * prices and two "add to basket" buttons.
+                                     */}
+                                    {wide ? (
+                                        <MealDietTags diets={item.dietClassifications} />
+                                    ) : null}
+                                    {wide ? (
+                                        <MealCommercePanel
+                                            item={item}
+                                            signedIn={signedIn}
+                                            pending={addToBasket.isPending}
+                                            errored={addToBasket.isError}
+                                            onAdd={() => {
+                                                onAddToBasket(item);
+                                            }}
+                                        />
+                                    ) : null}
+                                </Stack>
+                            </View>
 
                             <Stack space="sm" testID="meal-detail-macros">
                                 <Text variant="label">{t('catalogue:meal.macrosTitle')}</Text>
@@ -312,24 +378,7 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                 ]}
                             />
 
-                            <Stack space="xs" testID="meal-detail-diets">
-                                <Text variant="label">{t('catalogue:meal.dietTagsTitle')}</Text>
-                                {/*
-                                 * Labels, not links. The classification is real information about
-                                 * the meal and stays on the page; `/diets/{diet}` has no backend,
-                                 * so a press would land on a redirect.
-                                 */}
-                                <Inline space="xs" wrap>
-                                    {item.dietClassifications.map((diet) => (
-                                        <Chip
-                                            key={diet}
-                                            testID={`meal-detail-diet-${diet}`}
-                                            tone="brand"
-                                            label={t(`marketplace:diets.${diet}`)}
-                                        />
-                                    ))}
-                                </Inline>
-                            </Stack>
+                            {wide ? null : <MealDietTags diets={item.dietClassifications} />}
 
                             <Stack space="xs" testID="meal-detail-availability">
                                 <Text variant="label">{t('catalogue:meal.availabilityTitle')}</Text>
@@ -381,98 +430,17 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                 )}
                             </Stack>
 
-                            <Card testID="meal-detail-commerce" padding="md" tone="sunken">
-                                <Stack space="md">
-                                    <Stack space="xs">
-                                        <Text variant="label">
-                                            {t('catalogue:meal.priceTitle')}
-                                        </Text>
-                                        <Text testID="meal-detail-price" variant="bodyStrong">
-                                            {t('catalogue:meal.priceEach', {
-                                                price: formatMoney(formatter, item.price),
-                                            })}
-                                        </Text>
-                                    </Stack>
-
-                                    <Stack space="xs" testID="meal-detail-channels">
-                                        <Text variant="label">
-                                            {t('catalogue:meal.channelsTitle')}
-                                        </Text>
-                                        <Inline space="xs" wrap>
-                                            <Badge
-                                                testID="meal-detail-b2c"
-                                                tone={item.channels.b2c ? 'success' : 'neutral'}
-                                                label={
-                                                    item.channels.b2c
-                                                        ? t('catalogue:meal.b2cAvailable')
-                                                        : t('catalogue:meal.b2cUnavailable')
-                                                }
-                                            />
-                                            <Badge
-                                                testID="meal-detail-subscription"
-                                                tone={
-                                                    item.channels.subscription
-                                                        ? 'success'
-                                                        : 'neutral'
-                                                }
-                                                label={
-                                                    item.channels.subscription
-                                                        ? t('catalogue:meal.subscriptionEligible')
-                                                        : t('catalogue:meal.subscriptionIneligible')
-                                                }
-                                            />
-                                            {item.channels.b2b ? (
-                                                <Badge
-                                                    testID="meal-detail-b2b"
-                                                    tone="info"
-                                                    label={t('catalogue:meal.b2bAvailable')}
-                                                />
-                                            ) : null}
-                                        </Inline>
-                                        {item.channels.b2b ? (
-                                            <Text
-                                                testID="meal-detail-b2b-no-price"
-                                                tone="secondary"
-                                                variant="caption"
-                                            >
-                                                {t('catalogue:meal.b2bNoPrice')}
-                                            </Text>
-                                        ) : null}
-                                    </Stack>
-
-                                    <Stack space="sm" testID="meal-detail-actions">
-                                        <Text variant="label">
-                                            {t('catalogue:meal.actionsTitle')}
-                                        </Text>
-                                        <Inline space="sm" wrap>
-                                            <Button
-                                                testID="meal-detail-add-to-basket"
-                                                label={
-                                                    !signedIn
-                                                        ? t('catalogue:meal.basketSignIn')
-                                                        : addToBasket.isPending
-                                                          ? t('catalogue:meal.addingToBasket')
-                                                          : t('catalogue:meal.addToBasket')
-                                                }
-                                                disabled={addToBasket.isPending}
-                                                onPress={() => {
-                                                    onAddToBasket(item);
-                                                }}
-                                            />
-                                        </Inline>
-
-                                        {addToBasket.isError ? (
-                                            <Callout
-                                                testID="meal-detail-action-error"
-                                                role="alert"
-                                                tone="danger"
-                                                title={t('catalogue:meal.actionErrorTitle')}
-                                                body={t('catalogue:meal.actionErrorBody')}
-                                            />
-                                        ) : null}
-                                    </Stack>
-                                </Stack>
-                            </Card>
+                            {wide ? null : (
+                                <MealCommercePanel
+                                    item={item}
+                                    signedIn={signedIn}
+                                    pending={addToBasket.isPending}
+                                    errored={addToBasket.isError}
+                                    onAdd={() => {
+                                        onAddToBasket(item);
+                                    }}
+                                />
+                            )}
 
                             <MedicalDisclaimer />
                         </Stack>
@@ -529,5 +497,132 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                 }
             />
         </Stack>
+    );
+}
+
+/**
+ * The dietary classification, as labels rather than links.
+ *
+ * The classification is real information about the meal and stays on the page; `/diets/{diet}` has
+ * no backend, so a press would land on a redirect.
+ *
+ * It is a component rather than inline JSX because it is rendered in one of two places — beside the
+ * photograph on a wide screen, under the composition accordion otherwise — and the two must not be
+ * allowed to drift apart.
+ */
+function MealDietTags({ diets }: { readonly diets: readonly DietClassification[] }) {
+    const { t } = useTranslation();
+
+    return (
+        <Stack space="xs" testID="meal-detail-diets">
+            <Text variant="label">{t('catalogue:meal.dietTagsTitle')}</Text>
+            <Inline space="xs" wrap>
+                {diets.map((diet) => (
+                    <Chip
+                        key={diet}
+                        testID={`meal-detail-diet-${diet}`}
+                        tone="brand"
+                        label={t(`marketplace:diets.${diet}`)}
+                    />
+                ))}
+            </Inline>
+        </Stack>
+    );
+}
+
+interface MealCommercePanelProps {
+    readonly item: MarketplaceMeal;
+    readonly signedIn: boolean;
+    readonly pending: boolean;
+    readonly errored: boolean;
+    readonly onAdd: () => void;
+}
+
+/**
+ * Price, the channels the meal is sold through, and the one real action on the page.
+ *
+ * Same reason as {@link MealDietTags} for being a component: it has two homes and one definition.
+ */
+function MealCommercePanel({ item, signedIn, pending, errored, onAdd }: MealCommercePanelProps) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+
+    return (
+        <Card testID="meal-detail-commerce" padding="md" tone="sunken">
+            <Stack space="md">
+                <Stack space="xs">
+                    <Text variant="label">{t('catalogue:meal.priceTitle')}</Text>
+                    <Text testID="meal-detail-price" variant="bodyStrong">
+                        {t('catalogue:meal.priceEach', {
+                            price: formatMoney(formatter, item.price),
+                        })}
+                    </Text>
+                </Stack>
+
+                <Stack space="xs" testID="meal-detail-channels">
+                    <Text variant="label">{t('catalogue:meal.channelsTitle')}</Text>
+                    <Inline space="xs" wrap>
+                        <Badge
+                            testID="meal-detail-b2c"
+                            tone={item.channels.b2c ? 'success' : 'neutral'}
+                            label={
+                                item.channels.b2c
+                                    ? t('catalogue:meal.b2cAvailable')
+                                    : t('catalogue:meal.b2cUnavailable')
+                            }
+                        />
+                        <Badge
+                            testID="meal-detail-subscription"
+                            tone={item.channels.subscription ? 'success' : 'neutral'}
+                            label={
+                                item.channels.subscription
+                                    ? t('catalogue:meal.subscriptionEligible')
+                                    : t('catalogue:meal.subscriptionIneligible')
+                            }
+                        />
+                        {item.channels.b2b ? (
+                            <Badge
+                                testID="meal-detail-b2b"
+                                tone="info"
+                                label={t('catalogue:meal.b2bAvailable')}
+                            />
+                        ) : null}
+                    </Inline>
+                    {item.channels.b2b ? (
+                        <Text testID="meal-detail-b2b-no-price" tone="secondary" variant="caption">
+                            {t('catalogue:meal.b2bNoPrice')}
+                        </Text>
+                    ) : null}
+                </Stack>
+
+                <Stack space="sm" testID="meal-detail-actions">
+                    <Text variant="label">{t('catalogue:meal.actionsTitle')}</Text>
+                    <Inline space="sm" wrap>
+                        <Button
+                            testID="meal-detail-add-to-basket"
+                            label={
+                                !signedIn
+                                    ? t('catalogue:meal.basketSignIn')
+                                    : pending
+                                      ? t('catalogue:meal.addingToBasket')
+                                      : t('catalogue:meal.addToBasket')
+                            }
+                            disabled={pending}
+                            onPress={onAdd}
+                        />
+                    </Inline>
+
+                    {errored ? (
+                        <Callout
+                            testID="meal-detail-action-error"
+                            role="alert"
+                            tone="danger"
+                            title={t('catalogue:meal.actionErrorTitle')}
+                            body={t('catalogue:meal.actionErrorBody')}
+                        />
+                    ) : null}
+                </Stack>
+            </Stack>
+        </Card>
     );
 }

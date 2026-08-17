@@ -1,4 +1,3 @@
-import { Spinner } from '@healthy360/design-system';
 import type { RouteArea } from '@healthy360/domain-types';
 import { can, evaluateGates, mergeRequirements, requirementForArea } from '@healthy360/permissions';
 import type { DenialReason, GateResult, RouteRequirement } from '@healthy360/permissions';
@@ -9,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { useAccessState, useSession } from '../session/session-provider.tsx';
+import { SproutMark } from '../ui/sprout-mark.tsx';
 import { useSettledCondition } from './use-settled-condition.ts';
 import { ForbiddenScreen } from '../screens/forbidden-screen.tsx';
 
@@ -69,10 +69,8 @@ export function Gate({ children, area, requirement, fallback, pending, testID }:
                     testID={testID === undefined ? `gate-pending` : `${testID}-pending`}
                     className="flex-1 items-center justify-center p-8"
                 >
-                    <Spinner
+                    <SproutMark
                         testID="session-restoring"
-                        size="large"
-                        showLabel
                         label={t('common:state.restoringSession')}
                     />
                 </View>
@@ -92,7 +90,7 @@ export function Gate({ children, area, requirement, fallback, pending, testID }:
                     testID={testID === undefined ? `gate-refreshing` : `${testID}-refreshing`}
                     className="flex-1 items-center justify-center p-8"
                 >
-                    <Spinner size="large" showLabel label={t('common:state.restoringSession')} />
+                    <SproutMark label={t('common:state.restoringSession')} />
                 </View>
             );
         }

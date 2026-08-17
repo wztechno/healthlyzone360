@@ -20,11 +20,16 @@ export interface LandingRoute {
     readonly reason: LandingReason;
 }
 
-/** Where each build family sends a fully hydrated user. */
+/**
+ * Where each build family sends a fully hydrated user.
+ *
+ * The kiosk family lands on the kitchen display: counter sales moved into the kitchen workspace with
+ * the order desk, leaving the ticket board as the only screen a kiosk actually compiles.
+ */
 export const MODE_LANDING_PATHS: Readonly<Record<AppMode, string>> = {
     customer: ROUTE_PATHS.customerHome,
     staff: ROUTE_PATHS.workspace,
-    kiosk: ROUTE_PATHS.posHome,
+    kiosk: ROUTE_PATHS.kdsHome,
     driver: ROUTE_PATHS.driverHome,
     'all-dev': ROUTE_PATHS.workspace,
 };

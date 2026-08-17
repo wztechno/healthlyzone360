@@ -212,6 +212,72 @@ final class PermissionRegistry
             'order.view_organisation' => ['domain' => 'order', 'description' => 'View the orders placed with the organisation'],
             'order.manage_organisation' => ['domain' => 'order', 'description' => 'Confirm, fulfil and cancel the orders placed with the organisation'],
 
+            // C2 (order desk). A third order code, and the narrowest thing in
+            // this registry: it opens no screen and permits no action. It adds
+            // **two fields** to one row — the customer's name and the number
+            // somebody can ring them on — and that is the whole of it.
+            //
+            // Its own code rather than a corner of `order.view_organisation`,
+            // for the reason the K1.3 cost split exists one domain over.
+            // Reading the day's work and reading the people behind it are
+            // different needs: a kitchen hand working the queue needs to know
+            // that four bowls go out at six, and does not thereby need a
+            // directory of everybody the kitchen has ever fed. Every other
+            // kitchen-facing projection on the platform already draws that line
+            // — `SubscriptionPresenter::schedule()` carries no name and no
+            // address, and `KitchenOrderIndexController` refuses to *search* on
+            // either — and the desk queue is the one surface where the number
+            // has a job: somebody is phoning a caller back about tonight's
+            // delivery, and a desk that cannot see the number cannot make the
+            // call.
+            //
+            // `view_customer_contact`, not `view_customer`. There is no
+            // address behind this code, no allergen declaration, no order
+            // history and no account: a name and a telephone number, which is
+            // the least somebody can be called back on. Widening it later would
+            // be a new code, not a quiet extension of this one.
+            'order.view_customer_contact_organisation' => ['domain' => 'order', 'description' => "View the customer's name and telephone number on the order desk queue"],
+
+            // C2 (order desk). A fourth order code, and the only one in the
+            // domain that brings an order into existence. `order.manage_
+            // organisation` confirms, fulfils and cancels what somebody else
+            // asked for; this is the authority to *be* the person who asked —
+            // to stand at a counter or answer a telephone and commit the
+            // kitchen to cooking something nobody placed themselves.
+            //
+            // Its own code rather than a corner of `order.manage_organisation`,
+            // for the C1 split's argument taken one step further. Confirming an
+            // order changes what a customer is already owed; placing one decides
+            // they are owed anything at all, and it is the single order action
+            // with nobody on the other side to have agreed to it. It is also the
+            // code that carries a real bypass: a staff placement skips the
+            // activation checklist entirely (`ComposedPlacement::
+            // $placedOnBehalfBy`), because the member of staff standing in front
+            // of the customer *is* the verification the checklist was asking
+            // for. Whoever holds this is that verification, and an authority
+            // that substitutes for a gate deserves to be named rather than
+            // inherited.
+            'order.create_on_behalf_organisation' => ['domain' => 'order', 'description' => "Place an order on a customer's behalf at the order desk"],
+
+            // C2 (order desk). The platform's first `customer.*` organisation
+            // code, and the reason it has to exist is the cold caller: somebody
+            // rings a kitchen having never used the platform, and there is no
+            // account for the order to be placed against. Every other way a
+            // customer account comes into being is the customer doing it —
+            // registering, checking out as a guest, being provisioned with a
+            // corporate buyer. This is the one path where a member of staff
+            // creates a record *about a member of the public* who is not sitting
+            // at a keyboard.
+            //
+            // Which is exactly why it is separate from placing the order.
+            // `order.create_on_behalf_organisation` sells somebody lunch;
+            // this one writes down who they are and where they live, and the
+            // account it opens outlives the sale. A desk that can take a
+            // telephone order for a caller already on file is a smaller
+            // authority than a desk that can add people to the file, and a
+            // kitchen may reasonably want the first without the second.
+            'customer.create_on_behalf_organisation' => ['domain' => 'customer', 'description' => 'Open a customer account at the order desk and record its contact details and delivery addresses'],
+
             // B1 (quotations). The buyer side of a quotation — drafting
             // lines, submitting, accepting, declining — needs no permission
             // beyond organisation membership (B7: org-shared server drafts).
@@ -483,6 +549,20 @@ final class PermissionRegistry
                     'order.view_organisation',
                     'order.manage_organisation',
 
+                    // C2. The desk, in full. A kitchen manager is the person a
+                    // desk agent escalates to, and an escalation the manager
+                    // cannot act on is a queue with nobody above it: the caller
+                    // who has to be rung back, the walk-in the agent could not
+                    // finish serving, the regular whose account was never
+                    // opened. Holding strictly more than the role it supervises
+                    // is the point — every one of these three is already
+                    // reachable by the owner and the administrator, and a
+                    // manager who had to borrow an agent's login to take one
+                    // order would be a control that had made itself unusable.
+                    'order.create_on_behalf_organisation',
+                    'customer.create_on_behalf_organisation',
+                    'order.view_customer_contact_organisation',
+
                     // B1 (quotations). The kitchen manager reads and prices
                     // what corporate buyers submit against this kitchen's
                     // programmes — the same pairing `price_list.*` gave them
@@ -621,6 +701,18 @@ final class PermissionRegistry
                     // belonging to whoever is standing in the kitchen.
                     'order.view_organisation',
 
+                    // C2. The contact pair, and *only* the contact pair. Who is
+                    // buying is commercial intelligence of the most ordinary
+                    // kind — a commercial manager reading the order book without
+                    // being able to tell a regular from a stranger is reading a
+                    // list of totals — and the number is what turns "this
+                    // account orders every Thursday" into a conversation. The
+                    // two desk *write* codes stay absent for the reason
+                    // `catalogue.manage_organisation` and
+                    // `inventory.manage_organisation` do: this role reads the
+                    // trade and owns the numbers; it does not work the counter.
+                    'order.view_customer_contact_organisation',
+
                     // S1. The forward book of standing arrangements is
                     // commercial intelligence of the sharpest kind — how much
                     // of next month is already sold, and at prices captured
@@ -646,6 +738,70 @@ final class PermissionRegistry
                     // owns the numbers; it does not move the stock.
                     'inventory.view_organisation',
                     'inventory.view_costs_organisation',
+                ],
+            ],
+
+            // ── The order desk (C2) ──────────────────────────────────────
+            //
+            // The ninth template role, and the first one that describes a
+            // *shift* rather than a discipline. The eight above are answers to
+            // "what is this person responsible for"; this one is an answer to
+            // "who is standing at the counter between eleven and three".
+            //
+            // A desk agent works one screen all day. The queue tells them what
+            // is still open and in what order it has to go out, and they read
+            // the caller's name and number off it because the job is largely
+            // telephones: ringing somebody about tonight's delivery, taking a
+            // repeat order from a regular, opening an account for a cold caller
+            // who has never used the platform and has no way to open one
+            // themselves. Then they sell — a walk-in at the counter, a phone
+            // order for collection, a delivery to an address they have just
+            // written down — and they confirm and close out what they sold,
+            // because a desk that could take an order but not tell the kitchen
+            // to cook it would need somebody standing behind it all afternoon.
+            //
+            // **What they deliberately cannot do is decide what the kitchen
+            // sells or what it charges.** No `catalogue.manage_organisation`,
+            // no `catalogue.publish_organisation`, no `price_list.*`, no
+            // `plan.*`, no `recipe.*`. An agent sells the range at the tariff,
+            // and the codes that would let them change either are the ones
+            // that would turn a busy counter into an unpriced one.
+            //
+            // `catalogue.view_organisation` **is** here, and it was missing
+            // when the role was first written. The sale wizard's item picker
+            // reads the kitchen's own catalogue to find out what there is to
+            // sell; without the view code that screen is a 403 and the role is
+            // a counter agent who cannot see the menu. The pair splits exactly
+            // where every other role in this table splits it — reading the
+            // range is not deciding it — and this is the same line
+            // `kitchen_staff` sits on, who read the catalogue and change
+            // nothing.
+            //
+            // `inventory.view_organisation` and **not**
+            // `inventory.view_costs_organisation`: an agent needs to know
+            // whether there are eight portions of the soup left before promising
+            // the ninth, which is a quantity on a shelf. What that soup cost the
+            // kitchen is the commercial side's, exactly as it is for
+            // `kitchen_staff` — the whole point of INV1's cost split is that
+            // somebody can count the shelf without ever seeing it in money, and
+            // a desk agent counts more than most.
+            //
+            // `subscription.view_organisation` is here for a smaller reason and
+            // a real one: a subscriber ringing to ask when Thursday's box
+            // arrives is the commonest call a desk takes, and an agent who
+            // cannot see the forward schedule can only say they will find out.
+            'order_desk_agent' => [
+                'name_en' => 'Order desk agent',
+                'name_ar' => 'موظف مكتب الطلبات',
+                'permissions' => [
+                    'catalogue.view_organisation',
+                    'order.view_organisation',
+                    'order.manage_organisation',
+                    'order.create_on_behalf_organisation',
+                    'customer.create_on_behalf_organisation',
+                    'order.view_customer_contact_organisation',
+                    'subscription.view_organisation',
+                    'inventory.view_organisation',
                 ],
             ],
         ];

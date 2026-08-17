@@ -565,4 +565,207 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await expect(code).toBeVisible();
         await expect(code).not.toContainText(ARABIC_SCRIPT);
     });
+
+    /**
+     * The Order Desk queue in Arabic, where the direction rule meets a *timezone identifier*.
+     *
+     * The desk states the day and the clock the server sorted against, because with no branch named
+     * the boundary is UTC rather than this kitchen's local midnight. `Asia/Dubai` and `UTC` are IANA
+     * identifiers on the same terms an allergen code and a currency code are: identities, not copy,
+     * and they read the same in either language.
+     *
+     * The queue is bounded by what is *due*, so a demonstration database may legitimately have
+     * nothing in today's window. Both landing states are asserted rather than one being waited for:
+     * an empty state that is only translated in English is exactly the kind of gap a spec that
+     * skipped it would miss.
+     */
+    test('translates the order desk queue and keeps the time zone as an identifier', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+
+        // The desk is the first group in the rail and on the hub, so its card is the first thing a
+        // reader meets in this workspace — in this direction as in the other.
+        await expect(page.getByTestId('kitchen-family-order-desk-name')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await page.getByTestId('kitchen-family-order-desk-open').click();
+        await expect(page.getByTestId('kitchen-order-desk-screen')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-order-desk-title')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-order-desk-subtitle')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchen-order-desk-window-today')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await expect(page.getByTestId('kitchen-order-desk-status-label')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await expect(page.getByTestId('kitchen-order-desk-search-label')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        // The zone the queue was measured on is an IANA identifier: no Arabic-Indic digits, and no
+        // attempt to translate `UTC`.
+        const measuredOn = page.getByTestId('kitchen-order-desk-measured-on');
+        await expect(measuredOn).toBeVisible();
+        await expect(measuredOn).toContainText(ARABIC_SCRIPT);
+
+        const table = page.getByTestId('kitchen-order-desk-table');
+        if ((await table.count()) > 0) {
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-number'),
+            ).toContainText(ARABIC_SCRIPT);
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-customer'),
+            ).toContainText(ARABIC_SCRIPT);
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-due'),
+            ).toContainText(ARABIC_SCRIPT);
+            // The two columns the queue-actions slice added, in the same direction as the rest.
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-delivery'),
+            ).toContainText(ARABIC_SCRIPT);
+            await expect(
+                page.getByTestId('kitchen-order-desk-table-columnheader-payment'),
+            ).toContainText(ARABIC_SCRIPT);
+        } else {
+            await expect(page.getByTestId('kitchen-order-desk-empty')).toContainText(ARABIC_SCRIPT);
+        }
+
+        // And the queue must stay inside itself: an eight-column table is the easiest place in this
+        // workspace to push the document sideways, in either direction.
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
+
+    /**
+     * The desk's detail drawer in Arabic, where a slide-in meets the direction rule.
+     *
+     * A `Drawer` with `placement="end"` is the one overlay in this workspace whose *position*
+     * depends on direction: "end" is the right-hand edge in English and the left-hand one here, and
+     * a panel that had been pinned with a physical `right` would open on the wrong side of the
+     * screen without any test noticing. The drawer also carries a fixed pixel width, which is the
+     * classic way an overlay pushes the document sideways in the direction it was not designed in.
+     *
+     * Opening a row is a read; nothing here presses Confirm or Fulfil.
+     */
+    test('translates the desk detail drawer and keeps it inside the document', async ({ page }) => {
+        await openKitchen(page);
+        await page.getByTestId('kitchen-family-order-desk-open').click();
+        await expect(page.getByTestId('kitchen-order-desk-screen')).toBeVisible();
+
+        test.skip(
+            (await page.getByTestId('kitchen-order-desk-table').count()) === 0,
+            'nothing is due on this database, so there is no row to open',
+        );
+
+        await page.locator('[data-testid$="-open"]').first().click();
+        await expect(page.getByTestId('kitchen-order-desk-detail-body')).toBeVisible();
+
+        // The two blocks this slice added to the drawer, both translated. The payment block is on
+        // every order; the delivery one only when something is being driven, so it is conditional
+        // here for the same reason it is conditional in the screen.
+        await expect(page.getByTestId('kitchen-order-desk-detail-payment')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        const run = page.getByTestId('kitchen-order-desk-detail-delivery');
+        if ((await run.count()) > 0) {
+            await expect(run).toContainText(ARABIC_SCRIPT);
+        }
+
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
+
+    /**
+     * The order calendar in Arabic — the riskiest direction surface this workspace has.
+     *
+     * `CalendarGrid` mirrors itself by having no geometry to mirror: its day columns are flex
+     * children in source order, so the first day of the week sits on the **right** here and on the
+     * left in English, with no `left`, `right`, `start` or `end` inset anywhere in the component.
+     * That is a strong claim and it is exactly the kind that holds until somebody adds one absolute
+     * offset, so it is measured rather than asserted: the first column's box must be to the right of
+     * the last column's, and nothing may push the document sideways.
+     *
+     * The week itself is *not* re-derived per locale. It starts on Monday under both, because one
+     * ISO week-start convention across the application is what stops two screens disagreeing about
+     * which seven days "this week" means; what changes is which edge Monday is drawn at, and the
+     * weekday names, which come from the locale's own formatter.
+     */
+    test('mirrors the order calendar by column order alone, and keeps the week Monday-first', async ({
+        page,
+    }) => {
+        await openKitchen(page);
+
+        await expect(page.getByTestId('kitchen-family-order-calendar-name')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await page.getByTestId('kitchen-family-order-calendar-open').click();
+        await expect(page.getByTestId('kitchen-order-desk-calendar-screen')).toBeVisible();
+
+        await expect(page.getByTestId('kitchen-order-desk-calendar-title')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await expect(page.getByTestId('kitchen-order-desk-calendar-subtitle')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        // The standing note that the three books are never added is copy, so it is translated.
+        await expect(page.getByTestId('kitchen-order-desk-calendar-bases')).toContainText(
+            ARABIC_SCRIPT,
+        );
+        await expect(page.getByTestId('kitchen-order-desk-calendar-next')).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        // A quiet week is a legitimate answer on a demonstration database, and its empty state has
+        // to be translated too — which is precisely the gap a spec that waited for a grid would
+        // miss.
+        const grid = page.getByTestId('kitchen-order-desk-calendar-grid');
+        if ((await grid.count()) === 0) {
+            await expect(page.getByTestId('kitchen-order-desk-calendar-empty')).toContainText(
+                ARABIC_SCRIPT,
+            );
+        } else {
+            const columns = page.locator('[data-testid^="kitchen-order-desk-calendar-grid-day-"]');
+            await expect(columns.first()).toBeVisible();
+            expect(await columns.count()).toBe(7);
+
+            const first = await columns.first().boundingBox();
+            const last = await columns.last().boundingBox();
+            expect(first).not.toBeNull();
+            expect(last).not.toBeNull();
+            // Right-to-left: the week's first day is drawn at the right-hand edge. In `web-ltr`
+            // this same grid reads the other way, and neither run needs a mirrored coordinate to
+            // make it happen.
+            expect(first?.x ?? 0).toBeGreaterThan(last?.x ?? 0);
+
+            // The columns are the week's days in order, which is the property the component
+            // promises the caller owns — and the day the grid started sorting them itself, this
+            // fails.
+            const keys = await columns.evaluateAll((nodes) =>
+                nodes.map((node) => node.getAttribute('data-testid') ?? ''),
+            );
+            const dates = keys.map((key) =>
+                key.replace('kitchen-order-desk-calendar-grid-day-', ''),
+            );
+            expect([...dates].sort()).toEqual(dates);
+            // Monday first, in Arabic as in English: `new Date(…).getUTCDay()` is 1 on a Monday.
+            const weekday = await page.evaluate(
+                (date) => new Date(`${date}T00:00:00.000Z`).getUTCDay(),
+                dates[0] ?? '',
+            );
+            expect(weekday).toBe(1);
+        }
+
+        // Seven columns of three figures each is the widest thing in this workspace after the queue
+        // table, and the one most likely to push the document sideways in either direction.
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+    });
 });

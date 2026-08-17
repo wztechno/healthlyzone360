@@ -61,7 +61,15 @@ export function PlanCard({ plan, onOpen, kitchenName, comparison, testID }: Plan
             testID={resolvedTestID}
             padding="none"
             tone="raised"
-            className="self-stretch overflow-hidden hover:shadow-elevation-2"
+            /*
+             * `grow` is what makes the card fill its grid cell, and it is the reason the price
+             * closes every card in a row at the same height. `self-stretch` beside it only ever
+             * governed the *width*: `CardGridItem` is a column, so stretch is its cross axis. Left
+             * at that, a plan with a longer name or a fourth band stood taller than its neighbour
+             * and the `mt-auto` price block below had nothing to pin against. See the same note in
+             * `meal-card.tsx`.
+             */
+            className="grow self-stretch overflow-hidden hover:shadow-elevation-2"
         >
             <EntityImage
                 testID={`${resolvedTestID}-image`}
