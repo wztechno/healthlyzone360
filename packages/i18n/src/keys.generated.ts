@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5863 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5930 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3406,36 +3406,88 @@ export interface NamespaceKeys {
     | 'ops.suppliers.whatsappHint'
     | 'ops.supplyOrders.addHint'
     | 'ops.supplyOrders.addLabel'
+    | 'ops.supplyOrders.addLineHint'
+    | 'ops.supplyOrders.addLineLabel'
+    | 'ops.supplyOrders.addLinePlaceholder'
     | 'ops.supplyOrders.addPlaceholder'
     | 'ops.supplyOrders.addSupplier'
     | 'ops.supplyOrders.addTitle'
     | 'ops.supplyOrders.andMore'
+    | 'ops.supplyOrders.backToOrders'
     | 'ops.supplyOrders.branchRequiredBody'
     | 'ops.supplyOrders.branchRequiredTitle'
     | 'ops.supplyOrders.builderCaption'
     | 'ops.supplyOrders.builderEmptyBody'
     | 'ops.supplyOrders.builderTitle'
+    | 'ops.supplyOrders.cancelConfirm'
+    | 'ops.supplyOrders.cancelConfirmBody'
+    | 'ops.supplyOrders.cancelConfirmTitle'
+    | 'ops.supplyOrders.cancelKeep'
+    | 'ops.supplyOrders.cancelOrder'
+    | 'ops.supplyOrders.cancelledNoticeBody'
+    | 'ops.supplyOrders.cancelledNoticeTitle'
+    | 'ops.supplyOrders.cancelledToast'
     | 'ops.supplyOrders.chooseSupplier'
     | 'ops.supplyOrders.columnFrom'
     | 'ops.supplyOrders.columnItem'
     | 'ops.supplyOrders.columnLevels'
+    | 'ops.supplyOrders.columnLines'
+    | 'ops.supplyOrders.columnMadeOn'
+    | 'ops.supplyOrders.columnNumber'
     | 'ops.supplyOrders.columnOnHand'
     | 'ops.supplyOrders.columnOrdering'
     | 'ops.supplyOrders.columnQuantity'
+    | 'ops.supplyOrders.columnRef'
     | 'ops.supplyOrders.columnReorderAt'
+    | 'ops.supplyOrders.columnStatus'
+    | 'ops.supplyOrders.columnSupplier'
+    | 'ops.supplyOrders.commitLeftBehind'
+    | 'ops.supplyOrders.commitLines'
+    | 'ops.supplyOrders.commitOrders'
+    | 'ops.supplyOrders.createCancel'
+    | 'ops.supplyOrders.createConfirm'
+    | 'ops.supplyOrders.createConfirmBody'
+    | 'ops.supplyOrders.createConfirmCounts'
+    | 'ops.supplyOrders.createConfirmTitle'
+    | 'ops.supplyOrders.createDrafts'
+    | 'ops.supplyOrders.createFailed'
+    | 'ops.supplyOrders.createdToast'
+    | 'ops.supplyOrders.detailSubtitle'
+    | 'ops.supplyOrders.detailTitle'
     | 'ops.supplyOrders.emptyBody'
     | 'ops.supplyOrders.emptyTitle'
     | 'ops.supplyOrders.excludedCount'
     | 'ops.supplyOrders.groupSummary'
+    | 'ops.supplyOrders.issue'
+    | 'ops.supplyOrders.issueConfirm'
+    | 'ops.supplyOrders.issueConfirmBody'
+    | 'ops.supplyOrders.issueConfirmTitle'
+    | 'ops.supplyOrders.issueKeepEditing'
+    | 'ops.supplyOrders.issuedNoticeBody'
+    | 'ops.supplyOrders.issuedNoticeTitle'
+    | 'ops.supplyOrders.issuedToast'
+    | 'ops.supplyOrders.linesCaption'
+    | 'ops.supplyOrders.linesTitle'
     | 'ops.supplyOrders.lowBadge'
     | 'ops.supplyOrders.metrics.low'
     | 'ops.supplyOrders.metrics.outOfStock'
     | 'ops.supplyOrders.needsCount'
+    | 'ops.supplyOrders.noLines'
+    | 'ops.supplyOrders.noNotes'
+    | 'ops.supplyOrders.notFoundBody'
+    | 'ops.supplyOrders.notFoundTitle'
     | 'ops.supplyOrders.notOrdering'
+    | 'ops.supplyOrders.notesHint'
+    | 'ops.supplyOrders.notesLabel'
+    | 'ops.supplyOrders.notesTitle'
     | 'ops.supplyOrders.nothingNeededBody'
     | 'ops.supplyOrders.nothingNeededTitle'
     | 'ops.supplyOrders.order'
     | 'ops.supplyOrders.orderAnyway'
+    | 'ops.supplyOrders.ordersCaption'
+    | 'ops.supplyOrders.ordersEmptyBody'
+    | 'ops.supplyOrders.ordersEmptyTitle'
+    | 'ops.supplyOrders.ordersTitle'
     | 'ops.supplyOrders.outBadge'
     | 'ops.supplyOrders.panelSubtitle'
     | 'ops.supplyOrders.panelTitle'
@@ -3443,10 +3495,12 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.prepare'
     | 'ops.supplyOrders.previewCaption'
     | 'ops.supplyOrders.previewTitle'
+    | 'ops.supplyOrders.quantityIssue.blank'
     | 'ops.supplyOrders.quantityIssue.negative'
     | 'ops.supplyOrders.quantityIssue.notANumber'
     | 'ops.supplyOrders.quantityIssue.tooLarge'
     | 'ops.supplyOrders.quantityIssue.tooPrecise'
+    | 'ops.supplyOrders.quantityIssue.zero'
     | 'ops.supplyOrders.quantityLabel'
     | 'ops.supplyOrders.quantityPlaceholder'
     | 'ops.supplyOrders.readAt'
@@ -3461,9 +3515,22 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.refreshConfirmBody'
     | 'ops.supplyOrders.refreshConfirmTitle'
     | 'ops.supplyOrders.rememberLink'
+    | 'ops.supplyOrders.removeLine'
+    | 'ops.supplyOrders.saveLines'
+    | 'ops.supplyOrders.savedToast'
+    | 'ops.supplyOrders.status.cancelled'
+    | 'ops.supplyOrders.status.draft'
+    | 'ops.supplyOrders.status.issued'
+    | 'ops.supplyOrders.status.partiallyReceived'
+    | 'ops.supplyOrders.status.received'
     | 'ops.supplyOrders.subtitle'
+    | 'ops.supplyOrders.supplierArchivedBody'
+    | 'ops.supplyOrders.supplierArchivedTitle'
     | 'ops.supplyOrders.supplierLabel'
+    | 'ops.supplyOrders.supplierLiveNote'
     | 'ops.supplyOrders.supplierPlaceholder'
+    | 'ops.supplyOrders.supplierSectionTitle'
+    | 'ops.supplyOrders.supplierSnapshotNote'
     | 'ops.supplyOrders.title'
     | 'ops.supplyOrders.unassignedCount'
     | 'ops.supplyOrders.unlinkedCaption'
@@ -9287,36 +9354,88 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.whatsappHint',
   'kitchen:ops.supplyOrders.addHint',
   'kitchen:ops.supplyOrders.addLabel',
+  'kitchen:ops.supplyOrders.addLineHint',
+  'kitchen:ops.supplyOrders.addLineLabel',
+  'kitchen:ops.supplyOrders.addLinePlaceholder',
   'kitchen:ops.supplyOrders.addPlaceholder',
   'kitchen:ops.supplyOrders.addSupplier',
   'kitchen:ops.supplyOrders.addTitle',
   'kitchen:ops.supplyOrders.andMore',
+  'kitchen:ops.supplyOrders.backToOrders',
   'kitchen:ops.supplyOrders.branchRequiredBody',
   'kitchen:ops.supplyOrders.branchRequiredTitle',
   'kitchen:ops.supplyOrders.builderCaption',
   'kitchen:ops.supplyOrders.builderEmptyBody',
   'kitchen:ops.supplyOrders.builderTitle',
+  'kitchen:ops.supplyOrders.cancelConfirm',
+  'kitchen:ops.supplyOrders.cancelConfirmBody',
+  'kitchen:ops.supplyOrders.cancelConfirmTitle',
+  'kitchen:ops.supplyOrders.cancelKeep',
+  'kitchen:ops.supplyOrders.cancelOrder',
+  'kitchen:ops.supplyOrders.cancelledNoticeBody',
+  'kitchen:ops.supplyOrders.cancelledNoticeTitle',
+  'kitchen:ops.supplyOrders.cancelledToast',
   'kitchen:ops.supplyOrders.chooseSupplier',
   'kitchen:ops.supplyOrders.columnFrom',
   'kitchen:ops.supplyOrders.columnItem',
   'kitchen:ops.supplyOrders.columnLevels',
+  'kitchen:ops.supplyOrders.columnLines',
+  'kitchen:ops.supplyOrders.columnMadeOn',
+  'kitchen:ops.supplyOrders.columnNumber',
   'kitchen:ops.supplyOrders.columnOnHand',
   'kitchen:ops.supplyOrders.columnOrdering',
   'kitchen:ops.supplyOrders.columnQuantity',
+  'kitchen:ops.supplyOrders.columnRef',
   'kitchen:ops.supplyOrders.columnReorderAt',
+  'kitchen:ops.supplyOrders.columnStatus',
+  'kitchen:ops.supplyOrders.columnSupplier',
+  'kitchen:ops.supplyOrders.commitLeftBehind',
+  'kitchen:ops.supplyOrders.commitLines',
+  'kitchen:ops.supplyOrders.commitOrders',
+  'kitchen:ops.supplyOrders.createCancel',
+  'kitchen:ops.supplyOrders.createConfirm',
+  'kitchen:ops.supplyOrders.createConfirmBody',
+  'kitchen:ops.supplyOrders.createConfirmCounts',
+  'kitchen:ops.supplyOrders.createConfirmTitle',
+  'kitchen:ops.supplyOrders.createDrafts',
+  'kitchen:ops.supplyOrders.createFailed',
+  'kitchen:ops.supplyOrders.createdToast',
+  'kitchen:ops.supplyOrders.detailSubtitle',
+  'kitchen:ops.supplyOrders.detailTitle',
   'kitchen:ops.supplyOrders.emptyBody',
   'kitchen:ops.supplyOrders.emptyTitle',
   'kitchen:ops.supplyOrders.excludedCount',
   'kitchen:ops.supplyOrders.groupSummary',
+  'kitchen:ops.supplyOrders.issue',
+  'kitchen:ops.supplyOrders.issueConfirm',
+  'kitchen:ops.supplyOrders.issueConfirmBody',
+  'kitchen:ops.supplyOrders.issueConfirmTitle',
+  'kitchen:ops.supplyOrders.issueKeepEditing',
+  'kitchen:ops.supplyOrders.issuedNoticeBody',
+  'kitchen:ops.supplyOrders.issuedNoticeTitle',
+  'kitchen:ops.supplyOrders.issuedToast',
+  'kitchen:ops.supplyOrders.linesCaption',
+  'kitchen:ops.supplyOrders.linesTitle',
   'kitchen:ops.supplyOrders.lowBadge',
   'kitchen:ops.supplyOrders.metrics.low',
   'kitchen:ops.supplyOrders.metrics.outOfStock',
   'kitchen:ops.supplyOrders.needsCount',
+  'kitchen:ops.supplyOrders.noLines',
+  'kitchen:ops.supplyOrders.noNotes',
+  'kitchen:ops.supplyOrders.notFoundBody',
+  'kitchen:ops.supplyOrders.notFoundTitle',
   'kitchen:ops.supplyOrders.notOrdering',
+  'kitchen:ops.supplyOrders.notesHint',
+  'kitchen:ops.supplyOrders.notesLabel',
+  'kitchen:ops.supplyOrders.notesTitle',
   'kitchen:ops.supplyOrders.nothingNeededBody',
   'kitchen:ops.supplyOrders.nothingNeededTitle',
   'kitchen:ops.supplyOrders.order',
   'kitchen:ops.supplyOrders.orderAnyway',
+  'kitchen:ops.supplyOrders.ordersCaption',
+  'kitchen:ops.supplyOrders.ordersEmptyBody',
+  'kitchen:ops.supplyOrders.ordersEmptyTitle',
+  'kitchen:ops.supplyOrders.ordersTitle',
   'kitchen:ops.supplyOrders.outBadge',
   'kitchen:ops.supplyOrders.panelSubtitle',
   'kitchen:ops.supplyOrders.panelTitle',
@@ -9324,10 +9443,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.prepare',
   'kitchen:ops.supplyOrders.previewCaption',
   'kitchen:ops.supplyOrders.previewTitle',
+  'kitchen:ops.supplyOrders.quantityIssue.blank',
   'kitchen:ops.supplyOrders.quantityIssue.negative',
   'kitchen:ops.supplyOrders.quantityIssue.notANumber',
   'kitchen:ops.supplyOrders.quantityIssue.tooLarge',
   'kitchen:ops.supplyOrders.quantityIssue.tooPrecise',
+  'kitchen:ops.supplyOrders.quantityIssue.zero',
   'kitchen:ops.supplyOrders.quantityLabel',
   'kitchen:ops.supplyOrders.quantityPlaceholder',
   'kitchen:ops.supplyOrders.readAt',
@@ -9342,9 +9463,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.refreshConfirmBody',
   'kitchen:ops.supplyOrders.refreshConfirmTitle',
   'kitchen:ops.supplyOrders.rememberLink',
+  'kitchen:ops.supplyOrders.removeLine',
+  'kitchen:ops.supplyOrders.saveLines',
+  'kitchen:ops.supplyOrders.savedToast',
+  'kitchen:ops.supplyOrders.status.cancelled',
+  'kitchen:ops.supplyOrders.status.draft',
+  'kitchen:ops.supplyOrders.status.issued',
+  'kitchen:ops.supplyOrders.status.partiallyReceived',
+  'kitchen:ops.supplyOrders.status.received',
   'kitchen:ops.supplyOrders.subtitle',
+  'kitchen:ops.supplyOrders.supplierArchivedBody',
+  'kitchen:ops.supplyOrders.supplierArchivedTitle',
   'kitchen:ops.supplyOrders.supplierLabel',
+  'kitchen:ops.supplyOrders.supplierLiveNote',
   'kitchen:ops.supplyOrders.supplierPlaceholder',
+  'kitchen:ops.supplyOrders.supplierSectionTitle',
+  'kitchen:ops.supplyOrders.supplierSnapshotNote',
   'kitchen:ops.supplyOrders.title',
   'kitchen:ops.supplyOrders.unassignedCount',
   'kitchen:ops.supplyOrders.unlinkedCaption',

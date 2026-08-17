@@ -1,4 +1,4 @@
-import type { OrderProposalItem } from '@healthy360/api-client/contracts';
+import type { OrderProposalItem, PurchaseOrder } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -21,13 +21,19 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useOrderProposalQuery,
+    usePurchaseOrdersQuery,
     useSupplyNeedsCountQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
-import { supplyOrderRowTestId } from '../ops-format.ts';
+import {
+    purchaseOrderRowTestId,
+    purchaseOrderStatusKey,
+    purchaseOrderStatusTone,
+    supplyOrderRowTestId,
+} from '../ops-format.ts';
 
 /**
  * `/kitchen/supply-orders` — what the branch is short of, and the way into ordering it (SUP3).
@@ -62,12 +68,18 @@ import { supplyOrderRowTestId } from '../ops-format.ts';
  * not exist. Adding a third variant to a component seven screens depend on, for one screen's tone,
  * would be the wrong direction of change.
  *
- * ## There is no orders list yet
+ * ## The orders you have made, between the panel and the preview
  *
- * Purchase orders arrive in a later slice. This screen renders **no placeholder furniture** for
- * them — no empty "Recent orders" card, no disabled tab — because a heading over nothing tells a
- * person a feature is broken rather than unbuilt. The layout is a `Stack` of sections, so the
- * section lands between the panel and the preview without anything moving.
+ * The order book's newest page, and it sits *above* the shortage preview on purpose: a person
+ * opening this screen most often wants to know what happened to the order they placed yesterday,
+ * not to start another one. An empty book is dressed as the beginning of something rather than as a
+ * failure — a kitchen that has never ordered through this screen has not lost anything.
+ *
+ * **The metrics row does not grow a "drafts" tile**, and the reason is arithmetic rather than taste.
+ * The list is a keyset page: `totalCount` is `null` by contract, so counting drafts from the rows in
+ * hand would answer "3" whether the kitchen has three drafts or thirty. A number that is right only
+ * on short lists is worse than no number, and the two shortage tiles beside it are exact. The status
+ * column on each row is where a person sees which orders are still drafts.
  */
 
 /** How much of the queue the landing page shows before it starts counting instead. */
@@ -97,6 +109,16 @@ function SupplyOrders() {
 
     const needs = useSupplyNeedsCountQuery(branchId);
     const proposal = useOrderProposalQuery(branchId);
+    /**
+     * The order book, unfiltered by branch — the endpoint takes no branch filter and does not need
+     * one. "What is short at this site" has no organisation-wide meaning; "what have we ordered"
+     * does, and an order placed for another branch is still this kitchen's.
+     *
+     * It is nonetheless held back until a branch is resolved, and only because of *rendering*: the
+     * whole body of this screen is replaced by the choose-a-branch state without one, so firing this
+     * would be a request for something nobody is about to look at.
+     */
+    const orders = usePurchaseOrdersQuery({}, branchId !== null);
 
     /**
      * `null` while pending, which `OpsMetric` renders as an em dash — the three-way collapse the
@@ -122,6 +144,74 @@ function SupplyOrders() {
     const failure = toFailure(needs.error ?? proposal.error);
     const isPending = needs.isPending || proposal.isPending;
     const isEmpty = !isPending && failure === null && rows.length === 0;
+
+    // Its own failure and its own empty state: the book failing to load is not a reason to hide the
+    // shortage queue, and a kitchen with nothing short may still have five orders out.
+    const orderRows = orders.data?.items ?? [];
+    const ordersFailure = toFailure(orders.error);
+
+    const orderColumns: readonly TableColumn<PurchaseOrder>[] = [
+        {
+            key: 'number',
+            header: t('kitchen:ops.supplyOrders.columnNumber'),
+            rowHeader: true,
+            render: (row) => (
+                <Text
+                    variant="bodyStrong"
+                    testID={`${purchaseOrderRowTestId(String(row.id))}-number`}
+                >
+                    {row.number}
+                </Text>
+            ),
+        },
+        {
+            key: 'supplier',
+            header: t('kitchen:ops.supplyOrders.columnSupplier'),
+            flex: 2,
+            render: (row) => (
+                <Text testID={`${purchaseOrderRowTestId(String(row.id))}-supplier`}>
+                    {/*
+                     * The **live** supplier, even on an issued order. The frozen snapshot is what a
+                     * reprint of the document reads; a book that a person scans to find an order is
+                     * looking for the supplier they know by name today.
+                     */}
+                    {row.supplier?.nameEn ?? EM_DASH}
+                </Text>
+            ),
+        },
+        {
+            key: 'madeOn',
+            header: t('kitchen:ops.supplyOrders.columnMadeOn'),
+            render: (row) => (
+                <Text tone="secondary" testID={`${purchaseOrderRowTestId(String(row.id))}-made-on`}>
+                    {row.createdAt === null
+                        ? EM_DASH
+                        : formatter.formatDate(row.createdAt, { dateStyle: 'medium' })}
+                </Text>
+            ),
+        },
+        {
+            key: 'lines',
+            header: t('kitchen:ops.supplyOrders.columnLines'),
+            numeric: true,
+            render: (row) => (
+                <Text testID={`${purchaseOrderRowTestId(String(row.id))}-lines`}>
+                    {formatter.formatNumber(row.lineCount)}
+                </Text>
+            ),
+        },
+        {
+            key: 'status',
+            header: t('kitchen:ops.supplyOrders.columnStatus'),
+            render: (row) => (
+                <Badge
+                    testID={`${purchaseOrderRowTestId(String(row.id))}-status`}
+                    tone={purchaseOrderStatusTone(row.status)}
+                    label={t(purchaseOrderStatusKey(row.status))}
+                />
+            ),
+        },
+    ];
 
     const columns: readonly TableColumn<OrderProposalItem>[] = [
         {
@@ -225,6 +315,63 @@ function SupplyOrders() {
                         emptyTitleKey="kitchen:ops.supplyOrders.emptyTitle"
                         emptyBodyKey="kitchen:ops.supplyOrders.emptyBody"
                     />
+
+                    <Stack space="sm" testID="kitchen-supply-orders-book">
+                        <Heading level={2} testID="kitchen-supply-orders-book-title">
+                            {t('kitchen:ops.supplyOrders.ordersTitle')}
+                        </Heading>
+
+                        {orders.isPending ? (
+                            <Card padding="md">
+                                <Skeleton
+                                    testID="kitchen-supply-orders-book-skeleton"
+                                    heightClassName="h-5"
+                                />
+                            </Card>
+                        ) : ordersFailure !== null ? (
+                            <ErrorState
+                                testID="kitchen-supply-orders-book-error"
+                                failure={ordersFailure}
+                                onRetry={() => {
+                                    void orders.refetch();
+                                }}
+                                retrying={orders.isFetching}
+                            />
+                        ) : orderRows.length === 0 ? (
+                            <EmptyState
+                                testID="kitchen-supply-orders-book-empty"
+                                title={t('kitchen:ops.supplyOrders.ordersEmptyTitle')}
+                                body={t('kitchen:ops.supplyOrders.ordersEmptyBody')}
+                            />
+                        ) : (
+                            <Table<PurchaseOrder>
+                                testID="kitchen-supply-orders-book-table"
+                                caption={t('kitchen:ops.supplyOrders.ordersCaption')}
+                                captionHidden
+                                columns={orderColumns}
+                                rows={orderRows}
+                                rowKey={(row) => String(row.id)}
+                                rowAction={{
+                                    header: t('kitchen:list.actionHeader'),
+                                    render: (row) => (
+                                        <Inline space="xs" wrap justify="end">
+                                            <Button
+                                                testID={`${purchaseOrderRowTestId(String(row.id))}-open`}
+                                                size="sm"
+                                                variant="secondary"
+                                                label={t('kitchen:list.open')}
+                                                onPress={() => {
+                                                    router.push(
+                                                        `/kitchen/supply-orders/${String(row.id)}` as never,
+                                                    );
+                                                }}
+                                            />
+                                        </Inline>
+                                    ),
+                                }}
+                            />
+                        )}
+                    </Stack>
 
                     <Inline space="sm" align="center" justify="between" wrap>
                         <Heading level={2} testID="kitchen-supply-orders-preview-title">

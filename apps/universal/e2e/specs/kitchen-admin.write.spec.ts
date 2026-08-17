@@ -1801,9 +1801,9 @@ test.describe('kitchen workspace (en)', () => {
             'kitchen-supply-orders-screen',
             'kitchen-supply-orders-panel',
         );
-        await expect(
-            page.getByTestId(`kitchen-supply-order-row-${stockItemId}-name`),
-        ).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await expect(page.getByTestId(`kitchen-supply-order-row-${stockItemId}-name`)).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
         await page.getByTestId('kitchen-supply-orders-prepare').click();
         await expect(page.getByTestId('kitchen-supply-order-builder-screen')).toBeVisible({
@@ -1824,6 +1824,58 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-supply-order-groups')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
+
+        /* ── SUP4: the preview becomes drafts, and one of them is issued ─────────────────────── */
+
+        // The commit bar exists only once something is ready to order, so its presence is already
+        // the assertion that the grouping produced a real payload.
+        await expect(page.getByTestId('kitchen-supply-order-commit')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId('kitchen-supply-order-create').click();
+        await expect(page.getByTestId('kitchen-supply-order-create-confirm')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId('kitchen-supply-order-create-confirm-action').click();
+        await expectToast(page, 'kitchen-supply-order-created-toast');
+
+        // The builder steps aside to the landing page, where the new draft is in the book.
+        await expect(page.getByTestId('kitchen-supply-orders-book-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const orderOpen = page
+            .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
+            .first();
+        await expect(orderOpen).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await orderOpen.click();
+
+        // A draft is a form: the save control and the quantity boxes are both present, and the
+        // supplier block reads the live record because the order is still being addressed.
+        await expect(page.getByTestId('kitchen-supply-order-detail-screen-save')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supply-order-detail-supplier-live')).toBeVisible();
+
+        await page.getByTestId('kitchen-supply-order-detail-issue').click();
+        await expect(page.getByTestId('kitchen-supply-order-detail-issue-confirm')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId('kitchen-supply-order-detail-issue-confirm-action').click();
+        await expectToast(page, 'kitchen-supply-order-issued-toast');
+
+        // Issued is a document: the notice appears, the save control is gone, and the supplier
+        // block now reads the snapshot frozen at the moment of issue rather than the live record.
+        await expect(page.getByTestId('kitchen-supply-order-detail-issued-notice')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supply-order-detail-screen-save')).toHaveCount(0);
+        await expect(
+            page.getByTestId('kitchen-supply-order-detail-supplier-snapshot'),
+        ).toBeVisible();
+
+        // Cancelling stays available on an issued order — nothing has been delivered against it.
+        await expect(page.getByTestId('kitchen-supply-order-detail-cancel')).toBeVisible();
     });
 
     test('adds a gazetteer area to a zone and the list reads the new coverage back', async ({

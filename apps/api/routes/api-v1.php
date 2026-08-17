@@ -226,6 +226,12 @@ use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\OrderProposalController;
 use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderCancelController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderIndexController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderIssueController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderShowController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderStoreController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderUpdateController;
 use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
 use Healthy360\Procurement\Http\Controllers\SupplierArchiveController;
 use Healthy360\Procurement\Http\Controllers\SupplierContactsReplaceController;
@@ -1567,6 +1573,36 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:inventory.order_supplies_organisation')->group(function (): void {
                 Route::get('/procurement/supply-needs/count', SupplyNeedsCountController::class)->name('catalogue.procurement.supply-needs.count');
                 Route::get('/procurement/order-proposal', OrderProposalController::class)->name('catalogue.procurement.order-proposal.index');
+
+                /*
+                | The order book itself (SUP4). Reads and writes on the one code,
+                | for the reason the group's header gives: there is no view-only
+                | reading of what a kitchen buys and from whom.
+                |
+                | The list carries an `ids[]` batch filter beside the ordinary
+                | `status`/`supplier_id` narrowing, and that is not decoration —
+                | slice 7's print preview lays several orders out as one document
+                | and would otherwise fetch them one round trip at a time.
+                |
+                | `issue` and `cancel` are POST actions rather than a writable
+                | `status` field, exactly as supplier archive/restore are:
+                | freezing a document a supplier will hold, or calling one off,
+                | is one deliberate request with its own audit event instead of
+                | something a form save can do by accident. There is no `send` —
+                | phase 1 dispatches nothing, and §2 refuses to name an event
+                | that did not happen.
+                |
+                | Receiving against these orders is still not here and still will
+                | not be: slice 5 posts receipts under
+                | `inventory.manage_organisation`, because the person unloading
+                | the van is rarely the person who decided to order it.
+                */
+                Route::get('/procurement/purchase-orders', PurchaseOrderIndexController::class)->name('catalogue.procurement.purchase-orders.index');
+                Route::post('/procurement/purchase-orders', PurchaseOrderStoreController::class)->name('catalogue.procurement.purchase-orders.store');
+                Route::get('/procurement/purchase-orders/{purchaseOrder}', PurchaseOrderShowController::class)->name('catalogue.procurement.purchase-orders.show');
+                Route::patch('/procurement/purchase-orders/{purchaseOrder}', PurchaseOrderUpdateController::class)->name('catalogue.procurement.purchase-orders.update');
+                Route::post('/procurement/purchase-orders/{purchaseOrder}/issue', PurchaseOrderIssueController::class)->name('catalogue.procurement.purchase-orders.issue');
+                Route::post('/procurement/purchase-orders/{purchaseOrder}/cancel', PurchaseOrderCancelController::class)->name('catalogue.procurement.purchase-orders.cancel');
             });
 
             /*

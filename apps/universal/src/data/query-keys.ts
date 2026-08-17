@@ -12,6 +12,7 @@ import type {
     OrderId,
     PriceListId,
     ProductId,
+    PurchaseOrderId,
     QuotationId,
     RecipeId,
     SubscriptionId,
@@ -439,6 +440,18 @@ export const queryKeys = {
          */
         orderProposal: (branchId: string, stockItemIds: readonly string[] = []) =>
             ['kitchenOps', 'order-proposal', branchId, [...stockItemIds].sort().join(',')] as const,
+        /**
+         * The order book, and one order (SUP4).
+         *
+         * `purchaseOrder` is the second row-by-identifier entry in this group, beside `supplier`
+         * and for the same reason: an order has its own page, carrying lines and a recipient
+         * snapshot no list row on any other screen shows. Every write in this workspace still
+         * invalidates the whole `kitchenOps` root, so issuing an order refreshes the book and the
+         * order together without either being written by hand.
+         */
+        purchaseOrders: (filter: object = {}) => ['kitchenOps', 'purchase-orders', filter] as const,
+        purchaseOrder: (purchaseOrderId: PurchaseOrderId) =>
+            ['kitchenOps', 'purchase-order', purchaseOrderId] as const,
         purchasesLedger: (filter: object = {}) =>
             ['kitchenOps', 'purchases-ledger', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,

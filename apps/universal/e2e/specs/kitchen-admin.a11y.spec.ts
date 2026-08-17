@@ -599,6 +599,34 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await expectNoSeriousViolations(page, 'kitchen-supply-order-refresh-confirm');
     });
 
+    /**
+     * One order's own page (SUP4) — a form on a draft, a document on an issued order, and the same
+     * table either way.
+     *
+     * Two risks it exists to catch. Every line's quantity box is labelled with the item's own name,
+     * for the reason the builder's are: forty inputs sharing one accessible name is a form a
+     * screen-reader user cannot navigate, and it is invisible by eye. And the status is a `Badge`
+     * plus a `Callout` rather than a colour, so the state of the order survives with colour off.
+     *
+     * The order is reached from the book on the landing page rather than by URL, because the
+     * identifier is not knowable in advance — and a seeded kitchen with no orders yet is a
+     * legitimate outcome that asserts nothing.
+     */
+    test('one purchase order', async ({ page }) => {
+        await openSupplyOrders(page);
+        await expect(page.getByTestId('kitchen-supply-orders-book')).toBeVisible();
+
+        const open = page
+            .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
+            .first();
+
+        if ((await open.count()) === 0) return;
+
+        await open.click();
+        await expect(page.getByTestId('kitchen-supply-order-detail-lines-table')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-order-detail');
+    });
+
     test('the delivery-zone list', async ({ page }) => {
         await openZones(page);
         await expectNoSeriousViolations(page, 'kitchen-zones');

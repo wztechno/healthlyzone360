@@ -1,29 +1,40 @@
 import type {
+    CursorPage,
     OrderProposal,
     OrderProposalItem,
+    PurchaseOrder,
+    PurchaseOrderLine,
+    RecipientSnapshot,
     StockItem,
     Supplier,
     SupplyNeedsCount,
 } from '@healthy360/api-client/contracts';
-import { BranchId, StockItemId, SupplierId } from '@healthy360/domain-types';
+import { BranchId, PurchaseOrderId, StockItemId, SupplierId } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { supplyOrderGroupTestId, supplyOrderRowTestId } from './ops-format.ts';
+import {
+    purchaseOrderLineTestId,
+    purchaseOrderRowTestId,
+    supplyOrderGroupTestId,
+    supplyOrderRowTestId,
+} from './ops-format.ts';
 import { SupplyOrderBuilderScreen } from './screens/supply-order-builder-screen.tsx';
+import { SupplyOrderDetailScreen } from './screens/supply-order-detail-screen.tsx';
 import { SupplyOrdersScreen } from './screens/supply-orders-screen.tsx';
 
 /**
- * The supply-orders landing page and the builder (SUP3), against a world this file authors.
+ * The supply-orders landing page, the builder and one order's own page (SUP3, SUP4), against a
+ * world this file authors.
  *
  * Nothing here stubs a hook: every proposal row below is declared in this file and handed to
  * `renderStubScreen`, so a repository method a screen reaches for and this file did not declare
  * rejects with `StubNotConfiguredError` naming it rather than rendering an empty state over a hole.
  *
- * Seven things this file exists to prove:
+ * Eleven things this file exists to prove:
  *
  * 1. **The union renders as one list in the server's order.** Out of stock first, then low, then
  *    requested — and a row that is both empty and below its threshold is one row wearing the Out
@@ -38,6 +49,14 @@ import { SupplyOrdersScreen } from './screens/supply-orders-screen.tsx';
  *    box ticked fires `upsertSupplierLink` standalone; unticking it fires nothing.
  * 6. **The grouping preview follows what is typed**, one block per supplier.
  * 7. **Refresh asks first only when there is something to lose.**
+ * 8. **The commit bar counts what is about to be created**, and the dialog it opens sends exactly
+ *    the payload the preview was built from — the same pure function, so the two cannot drift.
+ * 9. **A failed batch says nothing was saved**, in the dialog rather than as a toast, because the
+ *    create is atomic and there is no partial state to explain.
+ * 10. **The landing page lists the orders that exist**, with an Open action per row.
+ * 11. **The order page is three screens wearing one layout**, and which one is decided by the
+ *     closed capability records over all five statuses — including the two the receiving slice
+ *     will start producing.
  */
 
 jest.mock('expo-router', () => {
@@ -209,11 +228,99 @@ const LOW_ONLY = proposalRow(3, {
     suggestedSupplierId: supplierId(1),
 });
 
-function landingOverrides(items: readonly OrderProposalItem[]): RepositoryOverrides {
+function purchaseOrderId(ordinal: number): PurchaseOrderId {
+    return PurchaseOrderId.unsafe(`01935f6d-0000-7000-8000-00000000d00${String(ordinal)}`);
+}
+
+function orderLine(ordinal: number, quantity = '4.0000'): PurchaseOrderLine {
+    return {
+        id: `01935f6d-0000-7000-8000-00000000c00${String(ordinal)}`,
+        stockItemId: itemId(ordinal),
+        itemCode: `ITM-0${String(ordinal)}`,
+        itemNameEn: `Item ${String(ordinal)}`,
+        itemNameAr: null,
+        quantity,
+        unitCode: 'kg',
+        supplierItemRef: null,
+        notes: null,
+        displayOrder: ordinal - 1,
+    };
+}
+
+/** One order, defaulting to a draft. `overrides` is how each status case states its own shape. */
+function purchaseOrder(ordinal: number, overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
+    return {
+        id: purchaseOrderId(ordinal),
+        number: `PO-ABCDEF0${String(ordinal)}`,
+        status: 'draft',
+        branch: { id: BRANCH, name: 'Main kitchen' },
+        supplier: {
+            id: supplierId(1),
+            code: 'SUP-01',
+            nameEn: 'Supplier 1',
+            nameAr: null,
+            archivedAt: null,
+        },
+        recipientSnapshot: null,
+        notes: null,
+        lineCount: 1,
+        issuedAt: null,
+        cancelledAt: null,
+        createdAt: '2026-08-17T09:00:00+00:00',
+        lines: [orderLine(1)],
+        ...overrides,
+    };
+}
+
+/** The frozen document an issued order carries — deliberately different from the live supplier. */
+const SNAPSHOT: RecipientSnapshot = {
+    supplierId: supplierId(1),
+    code: 'SUP-01',
+    nameEn: 'Supplier 1 as it was',
+    nameAr: null,
+    address: 'Gate 4, behind the cold store',
+    paymentTerms: 'Net 30',
+    leadTimeDays: 2,
+    contactEmail: null,
+    contactPhone: null,
+    contacts: [
+        {
+            name: 'Samir',
+            roleTitle: 'Sales',
+            email: null,
+            phone: '+96171111111',
+            whatsappPhone: null,
+            isPrimary: true,
+        },
+    ],
+};
+
+function page(orders: readonly PurchaseOrder[]): CursorPage<PurchaseOrder> {
+    return { items: orders, nextCursor: null, hasMore: false, totalCount: null };
+}
+
+function landingOverrides(
+    items: readonly OrderProposalItem[],
+    orders: readonly PurchaseOrder[] = [],
+): RepositoryOverrides {
     return {
         kitchenOps: {
             countSupplyNeeds: async () => counts(items),
             getOrderProposal: async () => proposal(items),
+            listPurchaseOrders: async () => page(orders),
+        },
+    };
+}
+
+function detailOverrides(
+    order: PurchaseOrder,
+    extra: RepositoryOverrides['kitchenOps'] = {},
+): RepositoryOverrides {
+    return {
+        kitchenOps: {
+            getPurchaseOrder: async () => order,
+            listStockItems: async () => [stockItem(1), stockItem(2), stockItem(9)],
+            ...extra,
         },
     };
 }
@@ -493,6 +600,79 @@ describe('supply order builder', () => {
         await untilVisible('kitchen-supply-order-refresh-confirm');
     });
 
+    it('counts what it is about to create and sends exactly the plan the preview shows', async () => {
+        const unlinked = proposalRow(5, { itemNameEn: 'Dill', unassignedReason: 'noSupplier' });
+        const createPurchaseOrders = jest.fn(async () => [purchaseOrder(1)]);
+
+        const { repositories } = await renderStubScreen(<SupplyOrderBuilderScreen />, {
+            session: kitchenManagerSession(),
+            repositories: builderOverrides([LOW_ONLY, OUT_ONLY, unlinked], {
+                createPurchaseOrders,
+            }),
+        });
+
+        await untilVisible('kitchen-supply-order-commit');
+
+        // One supplier, one line — LOW_ONLY opened with a suggestion and a preferred supplier, and
+        // the other two rows carry no quantity.
+        expect(screen.getByTestId('kitchen-supply-order-commit-orders')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-supply-order-commit-lines')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-supply-order-commit-left-behind')).toHaveTextContent(
+            '2',
+        );
+
+        fireEvent.press(screen.getByTestId('kitchen-supply-order-create'));
+        await untilVisible('kitchen-supply-order-create-confirm');
+
+        // The two kinds of "left behind" are named apart in the confirmation (§4), because they
+        // have different fixes and lumping them together hides the one that matters.
+        expect(screen.getByTestId('kitchen-supply-order-create-excluded')).toHaveTextContent('2');
+
+        fireEvent.press(screen.getByTestId('kitchen-supply-order-create-confirm-action'));
+
+        // Exactly `toBatchPayload(plan)` — the same object the accordion above was built from.
+        await waitFor(() => {
+            expect(repositories.kitchenOps.createPurchaseOrders).toHaveBeenCalledWith({
+                orders: [
+                    {
+                        supplierId: supplierId(1),
+                        branchId: BRANCH,
+                        lines: [{ stockItemId: LOW_ONLY.stockItemId, quantity: '15.0000' }],
+                    },
+                ],
+            });
+        });
+
+        // The builder steps aside: leaving somebody on a form whose rows have just been ordered
+        // invites a second batch.
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/supply-orders');
+        });
+    });
+
+    it('says nothing was saved when the batch fails, in the dialog rather than as a toast', async () => {
+        const createPurchaseOrders = jest.fn(async () => {
+            throw new Error('nope');
+        });
+
+        await renderStubScreen(<SupplyOrderBuilderScreen />, {
+            session: kitchenManagerSession(),
+            repositories: builderOverrides([LOW_ONLY], { createPurchaseOrders }),
+        });
+
+        await untilVisible('kitchen-supply-order-commit');
+
+        fireEvent.press(screen.getByTestId('kitchen-supply-order-create'));
+        await untilVisible('kitchen-supply-order-create-confirm');
+        fireEvent.press(screen.getByTestId('kitchen-supply-order-create-confirm-action'));
+
+        // The batch is atomic, so there is no partial state to explain — and the dialog stays open
+        // because the honest offer is to try the same thing again.
+        await untilVisible('kitchen-supply-order-create-failed');
+        expect(screen.getByTestId('kitchen-supply-order-create-confirm')).toBeTruthy();
+        expect(routerMock.__replace).not.toHaveBeenCalled();
+    });
+
     it('adds a manually chosen shelf by re-asking the server rather than inventing a row', async () => {
         const { repositories } = await renderStubScreen(<SupplyOrderBuilderScreen />, {
             session: kitchenManagerSession(),
@@ -515,5 +695,209 @@ describe('supply order builder', () => {
                 itemId(9),
             ]);
         });
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The order book on the landing page
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('supply orders book', () => {
+    it('lists the orders that exist and opens one', async () => {
+        await renderStubScreen(<SupplyOrdersScreen />, {
+            session: kitchenManagerSession(),
+            repositories: landingOverrides(
+                [LOW_ONLY],
+                [purchaseOrder(1), purchaseOrder(2, { status: 'issued', lineCount: 3 })],
+            ),
+        });
+
+        await untilVisible('kitchen-supply-orders-book-table');
+
+        const first = purchaseOrderRowTestId(String(purchaseOrderId(1)));
+        expect(screen.getByTestId(`${first}-number`)).toHaveTextContent('PO-ABCDEF01');
+        expect(screen.getByTestId(`${first}-supplier`)).toHaveTextContent('Supplier 1');
+        expect(screen.getByTestId(`${first}-lines`)).toHaveTextContent('1');
+
+        // A word and a tone, never colour alone.
+        expect(screen.getByTestId(`${first}-status`)).toHaveTextContent('Draft');
+        expect(
+            screen.getByTestId(`${purchaseOrderRowTestId(String(purchaseOrderId(2)))}-status`),
+        ).toHaveTextContent('Issued');
+
+        fireEvent.press(screen.getByTestId(`${first}-open`));
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            `/kitchen/supply-orders/${String(purchaseOrderId(1))}`,
+        );
+    });
+
+    it('dresses an empty book as a beginning rather than a failure', async () => {
+        await renderStubScreen(<SupplyOrdersScreen />, {
+            session: kitchenManagerSession(),
+            repositories: landingOverrides([LOW_ONLY], []),
+        });
+
+        await untilVisible('kitchen-supply-orders-book-empty');
+
+        // No "drafts" metric tile is derived from the page: the list is a keyset walk with a null
+        // total, so a count from the rows in hand would be right only on short lists.
+        expect(screen.queryByTestId('kitchen-supply-orders-panel-metric-drafts')).toBeNull();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * One order's own page
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('purchase order detail', () => {
+    it('lets a draft be edited, adds and removes lines, and saves the whole set', async () => {
+        const updatePurchaseOrder = jest.fn(async () => purchaseOrder(1));
+
+        const { repositories } = await renderStubScreen(
+            <SupplyOrderDetailScreen order={String(purchaseOrderId(1))} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: detailOverrides(
+                    purchaseOrder(1, { lines: [orderLine(1), orderLine(2)], lineCount: 2 }),
+                    { updatePurchaseOrder },
+                ),
+            },
+        );
+
+        await untilVisible('kitchen-supply-order-detail-lines-table');
+
+        // A draft reads the live supplier, and says so: the order is still being addressed.
+        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-name')).toHaveTextContent(
+            'Supplier 1',
+        );
+        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-live')).toBeTruthy();
+
+        fireEvent.press(screen.getByTestId(`${purchaseOrderLineTestId(String(itemId(2)))}-remove`));
+
+        fireEvent.changeText(
+            screen.getByTestId(`${purchaseOrderLineTestId(String(itemId(1)))}-quantity-input`),
+            '7.5',
+        );
+
+        fireEvent.press(screen.getByTestId('kitchen-supply-order-detail-screen-save'));
+
+        // A full replace: the body states the whole desired set, because the endpoint is a replace
+        // and a diff would need an identity for a line the client does not name.
+        await waitFor(() => {
+            expect(repositories.kitchenOps.updatePurchaseOrder).toHaveBeenCalledWith(
+                purchaseOrderId(1),
+                { notes: null, lines: [{ stockItemId: itemId(1), quantity: '7.5' }] },
+            );
+        });
+    });
+
+    it('shows the frozen snapshot on an issued order and refuses every edit', async () => {
+        await renderStubScreen(<SupplyOrderDetailScreen order={String(purchaseOrderId(1))} />, {
+            session: kitchenManagerSession(),
+            repositories: detailOverrides(
+                purchaseOrder(1, {
+                    status: 'issued',
+                    issuedAt: '2026-08-17T10:00:00+00:00',
+                    recipientSnapshot: SNAPSHOT,
+                }),
+            ),
+        });
+
+        await untilVisible('kitchen-supply-order-detail-issued-notice');
+
+        // The document, not the live record (§3.5). A supplier that has since been renamed must not
+        // rewrite the copy they are holding.
+        expect(screen.getByTestId('kitchen-supply-order-detail-supplier-name')).toHaveTextContent(
+            'Supplier 1 as it was',
+        );
+        expect(
+            screen.getByTestId('kitchen-supply-order-detail-supplier-address'),
+        ).toHaveTextContent('Gate 4');
+        expect(screen.getByTestId('kitchen-supply-order-detail-contact-Samir')).toBeTruthy();
+
+        // Frozen: no save, no quantity box, no add picker, no issue — and cancel survives, because
+        // an issued order can still be called off.
+        expect(screen.queryByTestId('kitchen-supply-order-detail-screen-save')).toBeNull();
+        expect(
+            screen.queryByTestId(`${purchaseOrderLineTestId(String(itemId(1)))}-quantity-input`),
+        ).toBeNull();
+        expect(screen.queryByTestId('kitchen-supply-order-detail-add-line')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supply-order-detail-issue')).toBeNull();
+        expect(screen.getByTestId('kitchen-supply-order-detail-cancel')).toBeTruthy();
+    });
+
+    it.each([
+        ['draft', { save: true, issue: true, cancel: true }],
+        ['issued', { save: false, issue: false, cancel: true }],
+        ['partially_received', { save: false, issue: false, cancel: false }],
+        ['received', { save: false, issue: false, cancel: false }],
+        ['cancelled', { save: false, issue: false, cancel: false }],
+    ] as const)('offers exactly the controls a %s order permits', async (status, expected) => {
+        await renderStubScreen(<SupplyOrderDetailScreen order={String(purchaseOrderId(1))} />, {
+            session: kitchenManagerSession(),
+            repositories: detailOverrides(
+                purchaseOrder(1, {
+                    status,
+                    issuedAt: status === 'draft' ? null : '2026-08-17T10:00:00+00:00',
+                    cancelledAt: status === 'cancelled' ? '2026-08-18T10:00:00+00:00' : null,
+                    recipientSnapshot: status === 'draft' ? null : SNAPSHOT,
+                }),
+            ),
+        });
+
+        await untilVisible('kitchen-supply-order-detail-lines-table');
+
+        // The closed capability records, read through the screen. The two receiving rows are filled
+        // in ahead of the slice that produces them, and `cancel: false` on both is §3.5: an order
+        // with deliveries against it is never cancelled as though nothing happened.
+        const present = (testID: string) => screen.queryByTestId(testID) !== null;
+
+        expect(present('kitchen-supply-order-detail-screen-save')).toBe(expected.save);
+        expect(present('kitchen-supply-order-detail-issue')).toBe(expected.issue);
+        expect(present('kitchen-supply-order-detail-cancel')).toBe(expected.cancel);
+    });
+
+    it('confirms before issuing and sends the order identifier', async () => {
+        const issuePurchaseOrder = jest.fn(async () =>
+            purchaseOrder(1, {
+                status: 'issued',
+                issuedAt: '2026-08-17T10:00:00+00:00',
+                recipientSnapshot: SNAPSHOT,
+            }),
+        );
+
+        const { repositories } = await renderStubScreen(
+            <SupplyOrderDetailScreen order={String(purchaseOrderId(1))} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: detailOverrides(purchaseOrder(1), { issuePurchaseOrder }),
+            },
+        );
+
+        await untilVisible('kitchen-supply-order-detail-issue');
+
+        // No print affordance yet. "Issue and print" arrives with the print sheet, and a disabled
+        // button in the meantime would teach people that buttons do nothing.
+        fireEvent.press(screen.getByTestId('kitchen-supply-order-detail-issue'));
+        await untilVisible('kitchen-supply-order-detail-issue-confirm');
+        fireEvent.press(screen.getByTestId('kitchen-supply-order-detail-issue-confirm-action'));
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.issuePurchaseOrder).toHaveBeenCalledWith(
+                purchaseOrderId(1),
+            );
+        });
+    });
+
+    it('answers an identifier that is not one with the not-found state rather than a failure', async () => {
+        await renderStubScreen(<SupplyOrderDetailScreen order="not-an-identifier" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: {} },
+        });
+
+        await untilVisible('kitchen-supply-order-detail-not-found');
+
+        // Nothing was fetched: a hand-typed link is a client-side answer, not a round trip.
+        expect(screen.queryByTestId('kitchen-supply-order-detail-lines-table')).toBeNull();
     });
 });

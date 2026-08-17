@@ -5,6 +5,7 @@ import type {
     IsoDateTime,
     OrderId,
     ProductionOrderId,
+    PurchaseOrderId,
     QualityCheckId,
     RecipeVersionId,
     StockItemId,
@@ -484,6 +485,224 @@ export interface OrderProposal {
     /** Rows with an {@link OrderProposalItem.unassignedReason} — nobody to buy them from. */
     readonly unassignedCount: number;
     readonly requestedItemCount: number;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Purchase orders (SUP4) — the order book
+ * ---------------------------------------------------------------------------------------------- */
+
+export const PURCHASE_ORDER_STATUSES = [
+    'draft',
+    'issued',
+    'partially_received',
+    'received',
+    'cancelled',
+] as const;
+
+/**
+ * Where an order has got to (SUP4, §3.5).
+ *
+ * `draft → issued → partially_received → received`, with `cancelled` reachable from the two states
+ * in which nothing has arrived yet.
+ *
+ * **`issued`, never `sent`.** Phase 1 dispatches nothing through any channel: a person presses
+ * Issue, the lines freeze, and they print the sheet and hand it over. Calling that `sent` would
+ * claim an event the system did not perform.
+ *
+ * The two receiving states are reached by **posting a goods receipt**, never by an action of their
+ * own, and no endpoint produces them yet. They are in the union now so that the client's capability
+ * tables are closed over all five from the start — the day the receiving slice lands, nothing here
+ * has to widen.
+ */
+export type PurchaseOrderStatus = (typeof PURCHASE_ORDER_STATUSES)[number];
+
+/**
+ * One requested shelf, as the document says it (SUP4).
+ *
+ * Every display field is a **snapshot** taken when the line was written, not a live read of the
+ * stock item — that is what makes an issued order immutable in practice rather than only in status.
+ * A shelf renamed in March does not rename a line on an order issued in February, because the
+ * supplier is holding a printed copy of the February wording.
+ *
+ * `stockItemId` is a **pointer**: a client deep-links to the shelf with it, and the receiving slice
+ * matches a delivery line to this one with it. It is never the source of the label beside it.
+ *
+ * `id` is a plain string rather than a branded identifier: in this slice it is a React key and
+ * nothing else, and the slice that makes it a real cross-reference is the one that should brand it.
+ *
+ * **No price, no cost, no currency**, here or anywhere on a purchase order.
+ */
+export interface PurchaseOrderLine {
+    readonly id: string;
+    readonly stockItemId: StockItemId;
+    readonly itemCode: string;
+    readonly itemNameEn: string;
+    /**
+     * Resolved server-side from the backing ingredient or catalogue item, because stock items carry
+     * `nameEn` only. `null` when neither has one — an honest blank rather than English text printed
+     * under an Arabic heading.
+     */
+    readonly itemNameAr: string | null;
+    /** A decimal string, never a float. Always above zero. */
+    readonly quantity: string;
+    readonly unitCode: string;
+    /**
+     * The supplier's own catalogue reference, read from the saved link at write time so the sheet
+     * can quote it back at them. `null` for a one-off from somebody who does not normally sell this.
+     */
+    readonly supplierItemRef: string | null;
+    readonly notes: string | null;
+    /** The sequence the person building the order chose. Rendered as given, never re-sorted. */
+    readonly displayOrder: number;
+}
+
+/** One named person as they stood at issue time — a transcription, not a pointer at a live row. */
+export interface RecipientSnapshotContact {
+    readonly name: string;
+    readonly roleTitle: string | null;
+    readonly email: string | null;
+    readonly phone: string | null;
+    readonly whatsappPhone: string | null;
+    readonly isPrimary: boolean;
+}
+
+/**
+ * Who the order was addressed to, at the instant it was issued (SUP4, §3.5).
+ *
+ * Captured on issue and never touched again. A supplier that moves premises in March must not
+ * silently rewrite the February order it is holding a copy of — so a **draft** preview reads the
+ * live supplier and an **issued** reprint reads this.
+ */
+export interface RecipientSnapshot {
+    readonly supplierId: SupplierId;
+    readonly code: string;
+    readonly nameEn: string;
+    readonly nameAr: string | null;
+    /** Free text as the supplier gives it. Never geocoded. */
+    readonly address: string | null;
+    readonly paymentTerms: string | null;
+    readonly leadTimeDays: number | null;
+    /** The general office address, not the primary contact's. */
+    readonly contactEmail: string | null;
+    /** The general office line, not the primary contact's. */
+    readonly contactPhone: string | null;
+    /** Every named contact the supplier had at issue time, primary first. */
+    readonly contacts: readonly RecipientSnapshotContact[];
+}
+
+/** The branch an order is for. One name column, so no {@link LocalisedText} to compose. */
+export interface PurchaseOrderBranch {
+    readonly id: BranchId;
+    readonly name: string;
+}
+
+/**
+ * The **live** supplier an order names — not the snapshot.
+ *
+ * `archivedAt` is on it deliberately: an issued order for a since-archived supplier is an ordinary
+ * situation a detail screen has to explain, and a reference without the flag would leave the screen
+ * guessing why Issue is refused.
+ */
+export interface PurchaseOrderSupplier {
+    readonly id: SupplierId;
+    readonly code: string;
+    readonly nameEn: string;
+    readonly nameAr: string | null;
+    readonly archivedAt: IsoDateTime | null;
+}
+
+/**
+ * One request the kitchen makes of one supplier, for one branch (SUP4, §3.5).
+ *
+ * **Two suppliers on an issued order, and both are deliberate.** {@link supplier} is the live record
+ * with its archive flag, because a screen offering to issue needs to know whether the supplier is
+ * still in the book. {@link recipientSnapshot} is who the document was addressed to at the instant
+ * it was issued, and it is `null` on a draft because a draft has been addressed to nobody yet. A
+ * client renders the live supplier on a draft and the snapshot from `issued` onward.
+ *
+ * `number` is the human handle both sides quote — minted **random rather than sequential**, because
+ * a sequential number printed on a supplier's copy would tell them this kitchen's purchasing volume.
+ *
+ * **No money, at any depth**: not a price, an amount, a currency or a total, on the order, on a line
+ * or inside the snapshot. Actual prices belong to goods receipts, where each partial delivery
+ * carries the figure it was really invoiced at.
+ */
+export interface PurchaseOrder {
+    readonly id: PurchaseOrderId;
+    readonly number: string;
+    readonly status: PurchaseOrderStatus;
+    readonly branch: PurchaseOrderBranch | null;
+    readonly supplier: PurchaseOrderSupplier | null;
+    /** `null` on a draft; present from `issued` onward. */
+    readonly recipientSnapshot: RecipientSnapshot | null;
+    readonly notes: string | null;
+    readonly lineCount: number;
+    /** Survives cancellation — cancelling an issued order does not un-issue it. */
+    readonly issuedAt: IsoDateTime | null;
+    readonly cancelledAt: IsoDateTime | null;
+    readonly createdAt: IsoDateTime | null;
+    readonly lines: readonly PurchaseOrderLine[];
+}
+
+/** Narrows the order book (SUP4). */
+export interface PurchaseOrderFilter extends CursorPageRequest {
+    readonly status?: PurchaseOrderStatus | undefined;
+    readonly supplierId?: SupplierId | undefined;
+    /**
+     * A **batch read**, not a filter: the shape a print preview needs when somebody issues four
+     * orders and lays them out as one document. At most 50.
+     */
+    readonly ids?: readonly PurchaseOrderId[] | undefined;
+}
+
+/**
+ * Everything a client may say about a line, and it is deliberately two fields.
+ *
+ * The item code, both names, the unit and the supplier's own catalogue reference are all resolved
+ * server-side — a client that could name a line could put anything at all on a document a supplier
+ * reads. There is no price field and none is coming.
+ */
+export interface PurchaseOrderLineInput {
+    readonly stockItemId: StockItemId;
+    /**
+     * A decimal string above zero with at most four places. A string rather than a number because
+     * `0.125` kg of saffron must arrive as `0.125`, and a float round trip is how that becomes
+     * `0.12499999999999999`.
+     */
+    readonly quantity: string;
+}
+
+/** One draft, addressed to one supplier for one branch. */
+export interface CreatePurchaseOrderInput {
+    readonly supplierId: SupplierId;
+    readonly branchId: BranchId;
+    readonly lines: readonly PurchaseOrderLineInput[];
+}
+
+/**
+ * One draft per supplier, created together or not at all (SUP4).
+ *
+ * `branchId` sits on each order because every proposal row carries the branch it was read for, which
+ * is what makes a payload whose branch disagrees with its lines unrepresentable. The server then
+ * insists they all agree: a proposal is always *for one branch*, so two branches in one body is a
+ * refusal rather than a guess.
+ *
+ * This is exactly what the builder's grouping model emits, which is the point of it being a pure
+ * function: the preview a person confirms and the request that gets sent are the same object.
+ */
+export interface CreatePurchaseOrdersRequest {
+    readonly orders: readonly CreatePurchaseOrderInput[];
+}
+
+/**
+ * Edits a draft (SUP4). Presence-keyed: an omitted field is left alone, `notes: null` clears.
+ *
+ * `lines` is a **full replace** — the body states the whole desired set — because a diff would need
+ * an identity for a line the client does not name. Draft only; an issued order is refused.
+ */
+export interface UpdatePurchaseOrderRequest {
+    readonly notes?: string | null | undefined;
+    readonly lines?: readonly PurchaseOrderLineInput[] | undefined;
 }
 
 /** A supplier named on a receipt or ledger line (INV1.1). */
@@ -998,6 +1217,47 @@ export interface KitchenOpsRepository {
         branchId: BranchId,
         stockItemIds?: readonly StockItemId[],
     ): Promise<OrderProposal>;
+    /**
+     * The order book, newest first, cursor-paginated (SUP4).
+     *
+     * `filter.ids` is a **batch read** rather than a filter — the shape a print preview needs when
+     * several orders are laid out as one document, so that four orders cost one request. At most 50.
+     *
+     * Rows carry their full line sets, because there is one purchase-order shape rather than a list
+     * variant and a detail variant. Needs `inventory.order_supplies_organisation`: the **read** is
+     * gated too, because this names who the kitchen buys from rather than what is on a shelf.
+     */
+    listPurchaseOrders(filter?: PurchaseOrderFilter): Promise<CursorPage<PurchaseOrder>>;
+    /** One order, whole — the same shape the list serves. */
+    getPurchaseOrder(purchaseOrderId: PurchaseOrderId): Promise<PurchaseOrder>;
+    /**
+     * One draft per supplier, created together or not at all, **returned in request order** — the
+     * person confirmed a grouping preview and the answer has to line up with it row for row.
+     *
+     * A supplier that has been archived answers a conflict, not a validation failure: the identifier
+     * is fine, its state is not.
+     */
+    createPurchaseOrders(request: CreatePurchaseOrdersRequest): Promise<readonly PurchaseOrder[]>;
+    /**
+     * Rewrites a draft's notes, its lines, or both. Presence-keyed; `lines` is a full replace.
+     * An issued order is refused with `details.reason = purchase_order_not_draft`.
+     */
+    updatePurchaseOrder(
+        purchaseOrderId: PurchaseOrderId,
+        request: UpdatePurchaseOrderRequest,
+    ): Promise<PurchaseOrder>;
+    /**
+     * Freezes the document and captures who it was addressed to (SUP4).
+     *
+     * **Issue, not send** — nothing is dispatched through any channel. Refused for a non-draft or an
+     * archived supplier, each with its own `details.reason`.
+     */
+    issuePurchaseOrder(purchaseOrderId: PurchaseOrderId): Promise<PurchaseOrder>;
+    /**
+     * Stops a draft or issued order. Deletes nothing and keeps `issuedAt`: cancelling does not
+     * un-issue, and a reprint of a cancelled order should still say when it went out.
+     */
+    cancelPurchaseOrder(purchaseOrderId: PurchaseOrderId): Promise<PurchaseOrder>;
     /**
      * The goods-receipt form's reference data (INV1.1) — the currencies a price can be booked in, the
      * organisation's default currency, and the measurement units a line can be quoted in. Needs

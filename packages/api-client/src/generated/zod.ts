@@ -3204,6 +3204,237 @@ export const zOrderProposalCollection = z.object({
 });
 
 /**
+ * Where an order has got to (§3.5). `draft → issued →
+ * partially_received → received`, with `cancelled` reachable from the two
+ * states in which nothing has arrived yet.
+ *
+ * **`issued`, never `sent`** (§2). Phase 1 dispatches nothing through any
+ * channel — a person presses Issue, the lines freeze, and they print the
+ * sheet and hand it over. Calling that `sent` would claim an event the
+ * system did not perform.
+ *
+ * `partially_received` and `received` are reached by **posting a goods
+ * receipt**, never by an action of their own, and no endpoint in this
+ * version produces them yet. `received` and `cancelled` are terminal: a
+ * delivery that turned out wrong is a receipt correction or a return,
+ * which are different objects with different quantities attached.
+ *
+ */
+export const zPurchaseOrderStatus = z.enum([
+    'draft',
+    'issued',
+    'partially_received',
+    'received',
+    'cancelled'
+]);
+
+/**
+ * One requested shelf, as the document says it (§3.5).
+ *
+ * Every display field is a **snapshot** taken when the line was written,
+ * not a live read of the stock item — that is what makes an issued order
+ * immutable in practice rather than only in status. A shelf renamed in
+ * March does not silently rename a line on an order issued in February,
+ * because the supplier is holding a printed copy of the February wording.
+ *
+ * `stock_item_id` rides alongside as a **pointer**: a client deep-links to
+ * the shelf with it and the receiving slice matches a delivery line to
+ * this one with it. It is never the source of the label beside it.
+ *
+ * **No price, no amount, no currency**, here or anywhere on a purchase
+ * order. Actual prices belong to goods receipts.
+ *
+ */
+export const zPurchaseOrderLine = z.object({
+    id: zUuid,
+    stock_item_id: zUuid,
+    item_code: z.string().max(64),
+    item_name_en: z.string().max(160),
+    item_name_ar: z.string().max(160).nullable(),
+    quantity: z.string(),
+    unit_code: z.string().max(16),
+    supplier_item_ref: z.string().max(64).nullable(),
+    notes: z.string().max(255).nullable(),
+    display_order: z.int().gte(0)
+});
+
+/**
+ * One named person as they stood at issue time. No identifier: this is a
+ * transcription onto a document, not a pointer at a row that may since
+ * have been deleted.
+ *
+ */
+export const zRecipientSnapshotContact = z.object({
+    name: z.string(),
+    role_title: z.string().nullable(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    whatsapp_phone: z.string().nullable(),
+    is_primary: z.boolean()
+});
+
+/**
+ * Who the order was addressed to, at the instant it was issued (§3.5).
+ *
+ * Captured on issue and never touched again. A supplier that moves
+ * premises in March must not silently rewrite the February order it is
+ * holding a copy of — so a **draft** preview reads the live supplier and an
+ * **issued** reprint reads this.
+ *
+ * It is a document, not a reference: the fields are the ones a printed
+ * order sheet names, and the supplier may since have been archived,
+ * renamed or emptied of contacts without any of it changing here.
+ *
+ */
+export const zRecipientSnapshot = z.object({
+    supplier_id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    address: z.string().nullable(),
+    payment_terms: z.string().nullable(),
+    lead_time_days: z.int().nullable(),
+    contact_email: z.string().nullable(),
+    contact_phone: z.string().nullable(),
+    contacts: z.array(zRecipientSnapshotContact)
+});
+
+/**
+ * The branch an order is for. `name` rather than `name_en`:
+ * `organisation_branches` carries one name column, and a bilingual pair on
+ * the wire would promise an Arabic branch name the table has no room for.
+ *
+ */
+export const zPurchaseOrderBranch = z.object({
+    id: zUuid,
+    name: z.string()
+});
+
+/**
+ * The **live** supplier an order names — not the snapshot.
+ * `archived_at` is on it deliberately: an issued order for a
+ * since-archived supplier is an ordinary situation a detail screen has to
+ * explain, and a reference without the flag would leave it guessing why
+ * issuing is refused.
+ *
+ */
+export const zPurchaseOrderSupplier = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    archived_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * One request the kitchen makes of one supplier, for one branch (§3.5).
+ *
+ * **One shape for the list, the detail and the create response.** A second
+ * summary variant is the one that drifts, and the batch read a print
+ * preview makes wants the whole thing anyway.
+ *
+ * **Two suppliers on an issued order, and both are deliberate.**
+ * `supplier` is the live record with its archive flag, because a screen
+ * offering to issue needs to know whether the supplier is still in the
+ * book. `recipient_snapshot` is who the document was addressed to at the
+ * instant it was issued, and it is `null` on a draft because a draft has
+ * been addressed to nobody yet. A client renders the live supplier on a
+ * draft and the snapshot from `issued` onward.
+ *
+ * `number` is the human handle both sides quote — `PO-` plus eight
+ * Crockford base-32 characters, minted **random rather than sequential**
+ * because a sequential number printed on a supplier's copy would tell them
+ * this kitchen's purchasing volume.
+ *
+ * **No money, at any depth.** Not a price, an amount, a currency or a
+ * total, on the order, on a line or inside the snapshot.
+ *
+ */
+export const zPurchaseOrder = z.object({
+    id: zUuid,
+    number: z.string().max(32),
+    status: zPurchaseOrderStatus,
+    branch: zPurchaseOrderBranch.nullable(),
+    supplier: zPurchaseOrderSupplier.nullable(),
+    recipient_snapshot: zRecipientSnapshot.nullable(),
+    notes: z.string().nullable(),
+    line_count: z.int().gte(0),
+    issued_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    lines: z.array(zPurchaseOrderLine)
+});
+
+export const zPurchaseOrderEnvelope = z.object({
+    data: z.object({
+        purchase_order: zPurchaseOrder
+    }),
+    meta: zMeta
+});
+
+/**
+ * A page of the order book, newest first — and the same envelope the batch
+ * create answers with, where the orders are in **request order** rather
+ * than newest first, because the person confirmed a list and the answer
+ * has to line up with it.
+ *
+ */
+export const zPurchaseOrderCollection = z.object({
+    data: z.object({
+        purchase_orders: z.array(zPurchaseOrder)
+    }),
+    meta: zPaginationMeta
+});
+
+/**
+ * Everything a client may say about a line, and it is deliberately two
+ * fields. The item code, both names, the unit and the supplier's own
+ * catalogue reference are resolved server-side (§6) — a client that could
+ * name a line could put anything at all on a document a supplier reads.
+ * There is no price field and none is coming.
+ *
+ */
+export const zCreatePurchaseOrderLine = z.object({
+    stock_item_id: zUuid,
+    quantity: z.string().regex(/^\d+(\.\d{1,4})?$/)
+});
+
+export const zCreatePurchaseOrderRequest = z.object({
+    supplier_id: zUuid,
+    branch_id: zUuid,
+    lines: z.array(zCreatePurchaseOrderLine).min(1).max(200)
+});
+
+/**
+ * One draft per supplier, created together or not at all.
+ *
+ * `branch_id` sits on each order because every proposal row carries the
+ * branch it was read for, which is what makes a payload whose branch
+ * disagrees with its lines unrepresentable. The server then insists they
+ * all agree: §4 says a proposal is always *for one branch*, so two
+ * branches in one body is a `422` rather than a guess.
+ *
+ */
+export const zCreatePurchaseOrdersRequest = z.object({
+    orders: z.array(zCreatePurchaseOrderRequest).min(1).max(20)
+});
+
+/**
+ * Presence-keyed: an omitted field is left alone, `notes: null` clears the
+ * note. `lines` is a **full replace** — the body states the whole desired
+ * set — because a diff would need an identity for a line the client does
+ * not name.
+ *
+ * Draft only. An issued order answers `409` with
+ * `details.reason = purchase_order_not_draft`.
+ *
+ */
+export const zUpdatePurchaseOrderRequest = z.object({
+    notes: z.string().max(2000).nullish(),
+    lines: z.array(zCreatePurchaseOrderLine).min(1).max(200).optional()
+});
+
+/**
  * The pair that identifies the link, plus the two things about it a
  * kitchen edits. Idempotent: sending the same body twice leaves the same
  * row.
@@ -7790,6 +8021,14 @@ export const zXBranchIdRequired = zUuid;
 export const zSupplierPath = zUuid;
 
 /**
+ * The purchase-order identifier, never its `number`. The number is the
+ * human handle both sides quote down a phone line; the URL takes the
+ * identifier, on the same grounds a supplier's does.
+ *
+ */
+export const zPurchaseOrderPath = zUuid;
+
+/**
  * The delivery zone identifier, or its `code`.
  */
 export const zDeliveryZonePath = z.union([
@@ -10715,6 +10954,94 @@ export const zGetOrderProposalQuery = z.object({
  * The branch's proposal rows, queue first.
  */
 export const zGetOrderProposalResponse = zOrderProposalCollection;
+
+export const zListPurchaseOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPurchaseOrdersQuery = z.object({
+    status: zPurchaseOrderStatus.optional(),
+    supplier_id: zUuid.optional(),
+    ids: z.array(zUuid).max(50).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of purchase orders, newest first.
+ */
+export const zListPurchaseOrdersResponse = zPurchaseOrderCollection;
+
+export const zCreatePurchaseOrdersBody = zCreatePurchaseOrdersRequest;
+
+export const zCreatePurchaseOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The drafts created, in request order.
+ */
+export const zCreatePurchaseOrdersResponse = zPurchaseOrderCollection;
+
+export const zGetPurchaseOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetPurchaseOrderPath = z.object({
+    purchaseOrder: zUuid
+});
+
+/**
+ * The order, its lines and its recipient.
+ */
+export const zGetPurchaseOrderResponse = zPurchaseOrderEnvelope;
+
+export const zUpdatePurchaseOrderBody = zUpdatePurchaseOrderRequest;
+
+export const zUpdatePurchaseOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdatePurchaseOrderPath = z.object({
+    purchaseOrder: zUuid
+});
+
+/**
+ * The draft after the write.
+ */
+export const zUpdatePurchaseOrderResponse = zPurchaseOrderEnvelope;
+
+export const zIssuePurchaseOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zIssuePurchaseOrderPath = z.object({
+    purchaseOrder: zUuid
+});
+
+/**
+ * The issued order, with its recipient snapshot.
+ */
+export const zIssuePurchaseOrderResponse = zPurchaseOrderEnvelope;
+
+export const zCancelPurchaseOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelPurchaseOrderPath = z.object({
+    purchaseOrder: zUuid
+});
+
+/**
+ * The cancelled order, unchanged apart from its status and stamp.
+ */
+export const zCancelPurchaseOrderResponse = zPurchaseOrderEnvelope;
 
 export const zGetProcurementReferenceHeaders = z.object({
     'X-Organisation-Id': zUuid,

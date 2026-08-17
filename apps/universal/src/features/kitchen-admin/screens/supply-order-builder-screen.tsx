@@ -22,16 +22,19 @@ import {
     Table,
     Text,
     TextInputField,
+    useToast,
 } from '@healthy360/design-system';
 import type { AccordionItem, SelectOption, TableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    useCreatePurchaseOrdersMutation,
     useOrderProposalQuery,
     useStockItemsQuery,
     useSuppliersQuery,
@@ -47,6 +50,7 @@ import {
     initialChoices,
     readQuantity,
     supplierChoices,
+    toBatchPayload,
 } from '../supply-order-model.ts';
 import type {
     QuantityIssue,
@@ -105,12 +109,21 @@ import type {
  * with the time of the last read beside it, and it asks first **only when edits exist** — a
  * confirmation on an untouched screen is a dialog that teaches people to dismiss dialogs.
  *
- * ## There is no create button in this slice
+ * ## The commit bar, and why the thing confirmed is the thing sent
  *
- * The grouping preview is the terminal state, deliberately. Slice 4 adds the commit bar; the
- * grouping model already returns exactly the batch-create payload, so what a person confirms here
- * and what gets sent then are provably the same object. A button that did nothing would be worse
- * than no button.
+ * Below the preview, and only there: a person reads what they are about to ask for and then presses
+ * the one button under it. The payload is `toBatchPayload(plan)` — the same pure function that built
+ * the accordion above — so the grouping somebody looked at and the request that leaves the device
+ * are provably one object rather than two views that agree by inspection.
+ *
+ * The confirmation states the two numbers and the rows being left behind, and the two kinds of
+ * "left behind" are named separately (§4): a row with a quantity and nobody to buy it from is a job
+ * left undone, and a row somebody switched off is not. Lumping them together would let a person tick
+ * past four shelves they still need.
+ *
+ * **The batch is atomic**, so the failure message says so. There is no partial state to explain and
+ * no half-created list to reconcile — either every draft exists or none does, and "Nothing was
+ * saved" is the whole truth rather than a reassurance.
  */
 
 const EM_DASH = '—';
@@ -140,6 +153,7 @@ function SupplyOrderBuilder() {
     const { locale } = useLocale();
     const formatter = useFormatter();
     const router = useRouter();
+    const toast = useToast();
     const access = useAccessState();
 
     const branchId = access.branch?.id ?? null;
@@ -150,6 +164,9 @@ function SupplyOrderBuilder() {
     const [touched, setTouched] = useState(false);
     const [remember, setRemember] = useState<Readonly<Record<string, boolean>>>({});
     const [confirmingRefresh, setConfirmingRefresh] = useState(false);
+    const [confirmingCreate, setConfirmingCreate] = useState(false);
+    /** Dialog-level, not toast-level: the batch failed, so the dialog stays open to be retried. */
+    const [createFailed, setCreateFailed] = useState(false);
 
     const proposal = useOrderProposalQuery(branchId, requestedIds);
     // The whole live book, for region B's picker: a shelf with no links may still be assigned any
@@ -157,6 +174,7 @@ function SupplyOrderBuilder() {
     const suppliers = useSuppliersQuery();
     const stockItems = useStockItemsQuery();
     const linkSupplier = useUpsertSupplierLinkMutation();
+    const createOrders = useCreatePurchaseOrdersMutation();
 
     const rows = useMemo(() => proposal.data?.items ?? [], [proposal.data]);
 
@@ -191,6 +209,14 @@ function SupplyOrderBuilder() {
     const assigned = rows.filter((row: OrderProposalItem) => row.unassignedReason === null);
     const unlinked = rows.filter((row: OrderProposalItem) => row.unassignedReason !== null);
 
+    /**
+     * One number for the bar, two for the dialog.
+     *
+     * The bar says how many rows will not be ordered; the confirmation is where the two reasons are
+     * told apart, because that is the moment somebody can still do something about either.
+     */
+    const leftBehind = plan.unassigned.length + plan.excluded.length;
+
     function update(row: OrderProposalItem, patch: Partial<SupplyOrderRowChoice>): void {
         const key = String(row.stockItemId);
         setTouched(true);
@@ -215,6 +241,38 @@ function SupplyOrderBuilder() {
         setConfirmingRefresh(false);
         setTouched(false);
         void proposal.refetch();
+    }
+
+    /**
+     * The commit. `toBatchPayload(plan)` is the object the preview above was built from, so what a
+     * person confirmed and what leaves the device cannot drift.
+     *
+     * On success the builder is done and steps aside: the landing page is where the new orders live,
+     * and leaving somebody on a builder whose rows have just been ordered would invite a second
+     * batch. `replace` rather than `push`, so Back does not return to a stale form.
+     *
+     * On failure the dialog stays open with a danger line inside it. The batch is atomic — nothing
+     * was saved — so the honest offer is "try again" rather than an explanation of partial state.
+     */
+    function createDrafts(): void {
+        createOrders.mutate(toBatchPayload(plan), {
+            onSuccess: (created) => {
+                setConfirmingCreate(false);
+                setCreateFailed(false);
+                router.replace('/kitchen/supply-orders' as never);
+                toast.show({
+                    testID: 'kitchen-supply-order-created-toast',
+                    tone: 'success',
+                    message: t('kitchen:ops.supplyOrders.createdToast', {
+                        count: created.length,
+                        numbers: created.map((order) => order.number).join(', '),
+                    }),
+                });
+            },
+            onError: () => {
+                setCreateFailed(true);
+            },
+        });
     }
 
     const failure = toFailure(proposal.error);
@@ -696,8 +754,127 @@ function SupplyOrderBuilder() {
                             </Text>
                         )}
                     </Stack>
+
+                    {plan.groups.length === 0 ? null : (
+                        <View
+                            testID="kitchen-supply-order-commit"
+                            className="flex-row flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1"
+                        >
+                            {/*
+                             * Three counts as three complete phrases rather than one interpolated
+                             * sentence: each pluralises on its own number, which is the only shape
+                             * that survives a six-form language.
+                             */}
+                            <Inline space="sm" align="center" wrap>
+                                <Text
+                                    variant="bodyStrong"
+                                    testID="kitchen-supply-order-commit-orders"
+                                >
+                                    {t('kitchen:ops.supplyOrders.commitOrders', {
+                                        count: plan.groups.length,
+                                    })}
+                                </Text>
+                                <Text tone="secondary" testID="kitchen-supply-order-commit-lines">
+                                    {t('kitchen:ops.supplyOrders.commitLines', {
+                                        count: plan.lineCount,
+                                    })}
+                                </Text>
+                                {leftBehind === 0 ? null : (
+                                    <Text
+                                        tone="secondary"
+                                        testID="kitchen-supply-order-commit-left-behind"
+                                    >
+                                        {t('kitchen:ops.supplyOrders.commitLeftBehind', {
+                                            count: leftBehind,
+                                        })}
+                                    </Text>
+                                )}
+                            </Inline>
+                            <Button
+                                testID="kitchen-supply-order-create"
+                                label={t('kitchen:ops.supplyOrders.createDrafts', {
+                                    count: plan.groups.length,
+                                })}
+                                loading={createOrders.isPending}
+                                onPress={() => {
+                                    setCreateFailed(false);
+                                    setConfirmingCreate(true);
+                                }}
+                            />
+                        </View>
+                    )}
                 </>
             )}
+
+            <Dialog
+                open={confirmingCreate}
+                onClose={() => {
+                    setConfirmingCreate(false);
+                }}
+                title={t('kitchen:ops.supplyOrders.createConfirmTitle')}
+                description={t('kitchen:ops.supplyOrders.createConfirmBody')}
+                testID="kitchen-supply-order-create-confirm"
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-supply-order-create-cancel"
+                            variant="secondary"
+                            label={t('kitchen:ops.supplyOrders.createCancel')}
+                            onPress={() => {
+                                setConfirmingCreate(false);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-supply-order-create-confirm-action"
+                            label={t('kitchen:ops.supplyOrders.createConfirm', {
+                                count: plan.groups.length,
+                            })}
+                            loading={createOrders.isPending}
+                            onPress={createDrafts}
+                        />
+                    </>
+                }
+            >
+                <Stack space="xs">
+                    <Text testID="kitchen-supply-order-create-counts">
+                        {t('kitchen:ops.supplyOrders.createConfirmCounts', {
+                            count: plan.groups.length,
+                            lines: plan.lineCount,
+                        })}
+                    </Text>
+                    {/*
+                     * The two kinds of "left behind", named apart (§4). A row with a quantity and
+                     * nobody to buy it from is a job undone; a row somebody switched off is not.
+                     */}
+                    {plan.unassigned.length === 0 ? null : (
+                        <Text
+                            tone="warning"
+                            variant="caption"
+                            testID="kitchen-supply-order-create-unassigned"
+                        >
+                            {t('kitchen:ops.supplyOrders.unassignedCount', {
+                                count: plan.unassigned.length,
+                            })}
+                        </Text>
+                    )}
+                    {plan.excluded.length === 0 ? null : (
+                        <Text
+                            tone="secondary"
+                            variant="caption"
+                            testID="kitchen-supply-order-create-excluded"
+                        >
+                            {t('kitchen:ops.supplyOrders.excludedCount', {
+                                count: plan.excluded.length,
+                            })}
+                        </Text>
+                    )}
+                    {createFailed ? (
+                        <Text tone="danger" testID="kitchen-supply-order-create-failed">
+                            {t('kitchen:ops.supplyOrders.createFailed')}
+                        </Text>
+                    ) : null}
+                </Stack>
+            </Dialog>
 
             <Dialog
                 open={confirmingRefresh}

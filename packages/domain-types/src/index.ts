@@ -35,6 +35,7 @@ export {
     PriceListId,
     ProductId,
     ProductionOrderId,
+    PurchaseOrderId,
     QualityCheckId,
     QuotationId,
     RecipeId,

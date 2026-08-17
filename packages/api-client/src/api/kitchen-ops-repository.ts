@@ -4,6 +4,7 @@ import {
     IngredientId,
     OrderId,
     ProductionOrderId,
+    PurchaseOrderId,
     QualityCheckId,
     RecipeVersionId,
     StockItemId,
@@ -19,6 +20,7 @@ import type {
     ConsumptionExceptionFilter,
     ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,
+    CreatePurchaseOrdersRequest,
     CreateQualityCheckRequest,
     CreateSupplierRequest,
     DeleteSupplierLinkRequest,
@@ -39,8 +41,14 @@ import type {
     ProductionOrderResult,
     PurchaseLedgerFilter,
     PurchaseLedgerLine,
+    PurchaseOrder,
+    PurchaseOrderFilter,
+    PurchaseOrderLine,
+    PurchaseOrderLineInput,
     QualityCheck,
     QualityCheckResult,
+    RecipientSnapshot,
+    RecipientSnapshotContact,
     ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
     StockAdjustmentRequest,
@@ -59,6 +67,7 @@ import type {
     SupplierRef,
     SupplyNeedsCount,
     UnassignedReason,
+    UpdatePurchaseOrderRequest,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
 } from '../contracts/kitchen-ops.ts';
@@ -72,8 +81,12 @@ import type {
     OrderProposalItem as WireOrderProposalItem,
     ProcurementReference as WireProcurementReference,
     ProductionOrder as WireProductionOrder,
+    PurchaseOrder as WirePurchaseOrder,
+    PurchaseOrderLine as WirePurchaseOrderLine,
     PurchasesLedgerLine as WirePurchaseLedgerLine,
     QualityCheck as WireQualityCheck,
+    RecipientSnapshot as WireRecipientSnapshot,
+    RecipientSnapshotContact as WireRecipientSnapshotContact,
     StockItem as WireStockItem,
     StockLevel as WireStockLevel,
     StockMovement as WireStockMovement,
@@ -302,6 +315,95 @@ function mapOrderProposalItem(wire: WireOrderProposalItem): OrderProposalItem {
         unassignedReason:
             wire.unassigned_reason === null ? null : UNASSIGNED_REASONS[wire.unassigned_reason],
     };
+}
+
+/* ── purchase orders (SUP4) ──────────────────────────────────────────────────────────────────── */
+
+function mapPurchaseOrderLine(wire: WirePurchaseOrderLine): PurchaseOrderLine {
+    return {
+        id: wire.id,
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        itemCode: wire.item_code,
+        itemNameEn: wire.item_name_en,
+        itemNameAr: wire.item_name_ar,
+        // A string the whole way through, like every other quantity here: the wire's decimal is the
+        // precision guarantee, and a kitchen ordering 0.125 kg of saffron means it.
+        quantity: wire.quantity,
+        unitCode: wire.unit_code,
+        supplierItemRef: wire.supplier_item_ref,
+        notes: wire.notes,
+        displayOrder: wire.display_order,
+    };
+}
+
+function mapRecipientSnapshotContact(wire: WireRecipientSnapshotContact): RecipientSnapshotContact {
+    return {
+        name: wire.name,
+        roleTitle: wire.role_title,
+        email: wire.email,
+        phone: wire.phone,
+        whatsappPhone: wire.whatsapp_phone,
+        isPrimary: wire.is_primary,
+    };
+}
+
+function mapRecipientSnapshot(wire: WireRecipientSnapshot): RecipientSnapshot {
+    return {
+        supplierId: SupplierId.unsafe(wire.supplier_id),
+        code: wire.code,
+        nameEn: wire.name_en,
+        nameAr: wire.name_ar,
+        address: wire.address,
+        paymentTerms: wire.payment_terms,
+        leadTimeDays: wire.lead_time_days,
+        contactEmail: wire.contact_email,
+        contactPhone: wire.contact_phone,
+        contacts: wire.contacts.map(mapRecipientSnapshotContact),
+    };
+}
+
+/**
+ * The live supplier and the frozen snapshot are mapped separately and stay separate.
+ *
+ * Composing them into one "supplier" would lose the whole point of carrying both: a draft renders
+ * the live record because it is still being addressed, and an issued order renders the snapshot
+ * because that is what the supplier is holding a copy of.
+ */
+function mapPurchaseOrder(wire: WirePurchaseOrder): PurchaseOrder {
+    return {
+        id: PurchaseOrderId.unsafe(wire.id),
+        number: wire.number,
+        status: wire.status,
+        branch:
+            wire.branch === null
+                ? null
+                : { id: BranchId.unsafe(wire.branch.id), name: wire.branch.name },
+        supplier:
+            wire.supplier === null
+                ? null
+                : {
+                      id: SupplierId.unsafe(wire.supplier.id),
+                      code: wire.supplier.code,
+                      nameEn: wire.supplier.name_en,
+                      nameAr: wire.supplier.name_ar,
+                      archivedAt: wire.supplier.archived_at,
+                  },
+        recipientSnapshot:
+            wire.recipient_snapshot === null ? null : mapRecipientSnapshot(wire.recipient_snapshot),
+        notes: wire.notes,
+        lineCount: wire.line_count,
+        issuedAt: wire.issued_at,
+        cancelledAt: wire.cancelled_at,
+        createdAt: wire.created_at,
+        // Never re-sorted: the server's `display_order` is the sequence the person building the
+        // order chose, and the printed sheet has to be recognisably that list.
+        lines: wire.lines.map(mapPurchaseOrderLine),
+    };
+}
+
+/** One line as the create and replace endpoints want it — two fields, and the server fills the rest. */
+function wirePurchaseOrderLine(line: PurchaseOrderLineInput): Record<string, unknown> {
+    return { stock_item_id: String(line.stockItemId), quantity: line.quantity };
 }
 
 /**
@@ -741,6 +843,117 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 unassignedCount: meta.unassigned_count ?? 0,
                 requestedItemCount: meta.requested_item_count ?? 0,
             };
+        },
+
+        async listPurchaseOrders(
+            filter: PurchaseOrderFilter = {},
+        ): Promise<CursorPage<PurchaseOrder>> {
+            const params = new URLSearchParams();
+            if (filter.status !== undefined) params.set('status', filter.status);
+            if (filter.supplierId !== undefined) {
+                params.set('supplier_id', String(filter.supplierId));
+            }
+            // A batch read rather than a filter: several orders as one request, which is what a
+            // print preview of four issued orders needs.
+            for (const id of filter.ids ?? []) {
+                params.append('ids[]', String(id));
+            }
+            if (filter.cursor !== undefined) params.set('cursor', filter.cursor);
+            if (filter.limit !== undefined) params.set('limit', String(filter.limit));
+
+            const query = params.toString();
+            const envelope = await transport.requestEnvelope<{
+                readonly purchase_orders: readonly WirePurchaseOrder[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/purchase-orders${query === '' ? '' : `?${query}`}`,
+            });
+
+            // Keyset meta only. A keyset never counts its total, so `totalCount` stays null — and a
+            // screen that wants to say "12 orders" has to say "12 on this page" or say nothing.
+            const meta = (envelope.meta ?? {}) as {
+                readonly next_cursor?: string | null;
+                readonly has_more?: boolean;
+            };
+
+            return {
+                items: envelope.data.purchase_orders.map(mapPurchaseOrder),
+                nextCursor: meta.next_cursor ?? null,
+                hasMore: meta.has_more ?? false,
+                totalCount: null,
+            };
+        },
+
+        async getPurchaseOrder(purchaseOrderId): Promise<PurchaseOrder> {
+            const envelope = await transport.requestEnvelope<{
+                readonly purchase_order: WirePurchaseOrder;
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/purchase-orders/${encodeURIComponent(String(purchaseOrderId))}`,
+            });
+            return mapPurchaseOrder(envelope.data.purchase_order);
+        },
+
+        async createPurchaseOrders(
+            request: CreatePurchaseOrdersRequest,
+        ): Promise<readonly PurchaseOrder[]> {
+            const envelope = await transport.requestEnvelope<{
+                readonly purchase_orders: readonly WirePurchaseOrder[];
+            }>({
+                method: 'POST',
+                path: '/catalogue/procurement/purchase-orders',
+                body: {
+                    orders: request.orders.map((order) => ({
+                        supplier_id: String(order.supplierId),
+                        branch_id: String(order.branchId),
+                        lines: order.lines.map(wirePurchaseOrderLine),
+                    })),
+                },
+            });
+            // In request order, which is why this is a plain array rather than a page: the caller
+            // confirmed a grouping preview and the answer lines up with it row for row.
+            return envelope.data.purchase_orders.map(mapPurchaseOrder);
+        },
+
+        async updatePurchaseOrder(
+            purchaseOrderId,
+            request: UpdatePurchaseOrderRequest,
+        ): Promise<PurchaseOrder> {
+            const envelope = await transport.requestEnvelope<{
+                readonly purchase_order: WirePurchaseOrder;
+            }>({
+                method: 'PATCH',
+                path: `/catalogue/procurement/purchase-orders/${encodeURIComponent(String(purchaseOrderId))}`,
+                body: {
+                    // `undefined → omit` is what keeps "leave this alone" distinct from "clear
+                    // this": the server keys both fields on presence, not on null.
+                    ...(request.notes === undefined ? {} : { notes: request.notes }),
+                    ...(request.lines === undefined
+                        ? {}
+                        : { lines: request.lines.map(wirePurchaseOrderLine) }),
+                },
+            });
+            return mapPurchaseOrder(envelope.data.purchase_order);
+        },
+
+        async issuePurchaseOrder(purchaseOrderId): Promise<PurchaseOrder> {
+            const envelope = await transport.requestEnvelope<{
+                readonly purchase_order: WirePurchaseOrder;
+            }>({
+                method: 'POST',
+                path: `/catalogue/procurement/purchase-orders/${encodeURIComponent(String(purchaseOrderId))}/issue`,
+            });
+            return mapPurchaseOrder(envelope.data.purchase_order);
+        },
+
+        async cancelPurchaseOrder(purchaseOrderId): Promise<PurchaseOrder> {
+            const envelope = await transport.requestEnvelope<{
+                readonly purchase_order: WirePurchaseOrder;
+            }>({
+                method: 'POST',
+                path: `/catalogue/procurement/purchase-orders/${encodeURIComponent(String(purchaseOrderId))}/cancel`,
+            });
+            return mapPurchaseOrder(envelope.data.purchase_order);
         },
 
         async getProcurementReference(): Promise<ProcurementReference> {

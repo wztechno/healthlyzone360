@@ -3,6 +3,7 @@ import type {
     ConsumptionException,
     ConsumptionExceptionFilter,
     CreateProductionOrderRequest,
+    CreatePurchaseOrdersRequest,
     CreateQualityCheckRequest,
     CreateSupplierRequest,
     DeleteSupplierLinkRequest,
@@ -18,6 +19,8 @@ import type {
     ProductionOrderResult,
     PurchaseLedgerFilter,
     PurchaseLedgerLine,
+    PurchaseOrder,
+    PurchaseOrderFilter,
     QualityCheck,
     QualityCheckResult,
     ReplaceSupplierContactsRequest,
@@ -34,6 +37,7 @@ import type {
     SupplierFilter,
     SupplierLink,
     SupplyNeedsCount,
+    UpdatePurchaseOrderRequest,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
 } from '@healthy360/api-client/contracts';
@@ -41,6 +45,7 @@ import type { CursorPage } from '@healthy360/api-client/contracts';
 import type {
     BranchId,
     ProductionOrderId,
+    PurchaseOrderId,
     QualityCheckId,
     StockItemId,
     SupplierId,
@@ -475,6 +480,143 @@ export function useOrderProposalQuery(
             if (branchId === null) throw new Error('A branch identifier is required.');
             return repositories.kitchenOps.getOrderProposal(branchId, stockItemIds);
         },
+    });
+}
+
+/* ── purchase orders (SUP4) ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * The order book, newest first (SUP4).
+ *
+ * `filter.ids` is a batch read rather than a filter — the shape a print preview needs when several
+ * orders are laid out as one document. The filter is part of the key, so "everything" and "just
+ * these four" are two cache entries rather than one that keeps flipping.
+ *
+ * Behind `inventory.order_supplies_organisation` on the server: the **read** is gated, not just the
+ * writes, because the book names who the kitchen buys from rather than what is on a shelf. The
+ * screens gate their sections on the same code.
+ */
+export function usePurchaseOrdersQuery(
+    filter: PurchaseOrderFilter = {},
+    enabled = true,
+): UseQueryResult<CursorPage<PurchaseOrder>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.purchaseOrders(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listPurchaseOrders(filter);
+        },
+    });
+}
+
+/**
+ * One order with its lines and its recipient — the order's own page.
+ *
+ * Disabled until the route parameter parses as an identifier, on the same terms as
+ * {@link useSupplierQuery}: a hand-typed link produces the screen's designed not-found state rather
+ * than a repository failure.
+ */
+export function usePurchaseOrderQuery(
+    purchaseOrderId: PurchaseOrderId | null,
+    enabled = true,
+): UseQueryResult<PurchaseOrder> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.purchaseOrder(purchaseOrderId ?? ('' as PurchaseOrderId)),
+        enabled: enabled && purchaseOrderId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (purchaseOrderId === null)
+                throw new Error('A purchase order identifier is required.');
+            return repositories.kitchenOps.getPurchaseOrder(purchaseOrderId);
+        },
+    });
+}
+
+/**
+ * One draft per supplier, created together or not at all (SUP4) — the builder's commit.
+ *
+ * The whole ops root is invalidated afterwards rather than one entry, because a batch touches
+ * several: the book gains rows, and the supply-needs count behind the landing metrics is answered
+ * by the same shelves the order was built from.
+ *
+ * No optimistic update. A batch is atomic and the failure mode is *nothing was saved*, so a screen
+ * that had already drawn eight orders would have to un-draw all of them.
+ */
+export function useCreatePurchaseOrdersMutation(): UseMutationResult<
+    readonly PurchaseOrder[],
+    unknown,
+    CreatePurchaseOrdersRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreatePurchaseOrdersRequest) =>
+            repositories.kitchenOps.createPurchaseOrders(request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface UpdatePurchaseOrderVariables {
+    readonly purchaseOrderId: PurchaseOrderId;
+    readonly request: UpdatePurchaseOrderRequest;
+}
+
+/** Rewrites a draft's notes, its lines, or both. Draft only — an issued order is refused. */
+export function useUpdatePurchaseOrderMutation(): UseMutationResult<
+    PurchaseOrder,
+    unknown,
+    UpdatePurchaseOrderVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ purchaseOrderId, request }: UpdatePurchaseOrderVariables) =>
+            repositories.kitchenOps.updatePurchaseOrder(purchaseOrderId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * Freezes the document and captures who it was addressed to.
+ *
+ * **Issue, not send.** Nothing is dispatched through any channel — the lines stop moving and the
+ * person prints the sheet and hands it over.
+ */
+export function useIssuePurchaseOrderMutation(): UseMutationResult<
+    PurchaseOrder,
+    unknown,
+    PurchaseOrderId
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (purchaseOrderId: PurchaseOrderId) =>
+            repositories.kitchenOps.issuePurchaseOrder(purchaseOrderId),
+        onSuccess: onWritten,
+    });
+}
+
+/** Stops a draft or issued order. Deletes nothing — the lines and the snapshot stay. */
+export function useCancelPurchaseOrderMutation(): UseMutationResult<
+    PurchaseOrder,
+    unknown,
+    PurchaseOrderId
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (purchaseOrderId: PurchaseOrderId) =>
+            repositories.kitchenOps.cancelPurchaseOrder(purchaseOrderId),
+        onSuccess: onWritten,
     });
 }
 

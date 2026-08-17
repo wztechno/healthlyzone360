@@ -8731,6 +8731,354 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/procurement/purchase-orders:
+    get:
+      operationId: listPurchaseOrders
+      tags: [Kitchen inventory & production]
+      summary: The order book
+      description: |
+        Every purchase order this kitchen has made, newest first (SUP4).
+
+        **Three filters, and one of them is not a filter.** `status` and
+        `supplier_id` narrow the book the way a person asks about it — "what is
+        still out with the wholesaler". `ids` is a **batch read**: the shape a
+        print preview needs when somebody issues four orders and lays them out
+        as one document, so that four orders cost one request rather than four.
+        At most fifty identifiers, and an identifier from another kitchen simply
+        does not match rather than answering that it exists.
+
+        Rows carry their full line sets, because there is one purchase-order
+        shape rather than a list variant and a detail variant — a second shape
+        is the one that drifts, and the batch read wants all of it anyway.
+        Cursor-paginated over the platform's `(created_at, id)` keyset: an order
+        book is written to while somebody walks it, and offset pagination
+        silently skips and repeats rows when that happens.
+
+        **No money, at any depth** — no price, no amount, no currency, no total.
+        Actual prices belong to goods receipts, where each partial delivery
+        carries the figure it was really invoiced at.
+
+        Requires `inventory.order_supplies_organisation`. The **read** is gated
+        too (§5): this is not a list of shelves, it is the record of who this
+        kitchen buys from, how much of what, and how often.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: status
+          in: query
+          required: false
+          description: Only orders in this state.
+          schema:
+            $ref: '#/components/schemas/PurchaseOrderStatus'
+        - name: supplier_id
+          in: query
+          required: false
+          description: Only orders addressed to this supplier. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: ids
+          in: query
+          required: false
+          description: A batch read, repeated as `ids[]=…`. At most 50.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 50
+            items:
+              $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of purchase orders, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createPurchaseOrders
+      tags: [Kitchen inventory & production]
+      summary: Create one draft order per supplier
+      description: |
+        The supply-order builder's commit (SUP4). A person grouped a shortage
+        list by supplier, confirmed a preview, and this turns that preview into
+        drafts.
+
+        **All or nothing.** One transaction wraps the whole batch: eleven
+        suppliers' drafts commit together or none of them do. Six of eight
+        orders arriving with no way to tell which two are missing is the outcome
+        the single transaction exists to make impossible. The orders come back
+        **in request order**, because the person confirmed a list and the answer
+        has to line up with it row for row.
+
+        **One branch per batch.** Each order carries `branch_id` because every
+        proposal row does, which is what makes a payload whose branch disagrees
+        with its lines unrepresentable — and the server then insists they all
+        agree, because §4 says a proposal is always *for one branch*. Two
+        branches in one body is a `422`, not a guess.
+
+        **A line is `stock_item_id` and `quantity`, and nothing else.** The item
+        code, both names, the unit and the supplier's own catalogue reference are
+        all resolved server-side and frozen onto the row; a client that could
+        name a line could put anything at all on a document a supplier reads.
+        There is no price field and none is coming.
+
+        Quantities are decimal strings with at most four places — the stock
+        column's precision. `2.55555` earns a `422` naming the exact line rather
+        than being silently truncated.
+
+        An **archived** supplier answers `409` with
+        `details.reason = supplier_archived`, the same refusal issuing gives: a
+        draft that could never be issued is not a useful thing to have created.
+        A supplier, branch or shelf belonging to another kitchen answers `404`.
+
+        Each order created is audited as `procurement.purchase_order_created`.
+        Requires `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePurchaseOrdersRequest'
+      responses:
+        '201':
+          description: The drafts created, in request order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/purchase-orders/{purchaseOrder}:
+    get:
+      operationId: getPurchaseOrder
+      tags: [Kitchen inventory & production]
+      summary: One purchase order
+      description: |
+        The same shape the list serves, because there is one purchase-order
+        shape (SUP4).
+
+        Two suppliers appear on an issued order and both are deliberate.
+        `supplier` is the **live** record with its archive flag, because a
+        screen offering to issue needs to know whether the supplier is still in
+        the book. `recipient_snapshot` is who the document was **addressed to**
+        at the instant it was issued, and it is `null` on a draft because a
+        draft has been addressed to nobody yet. §3.5: draft previews use current
+        supplier data, issued reprints use the snapshot.
+
+        Requires `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PurchaseOrderPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order, its lines and its recipient.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updatePurchaseOrder
+      tags: [Kitchen inventory & production]
+      summary: Edit a draft order
+      description: |
+        Presence-keyed like every other partial write in this module: an omitted
+        field is left alone, `notes: null` clears the note.
+
+        `lines` is a **full replace** — the body states the whole desired set —
+        because the alternative is a diff, and a diff needs an identity for a
+        line the client does not name. Every line is re-snapshotted from the
+        database rather than carried over, so a shelf renamed since the draft was
+        made is renamed on the draft too. That is correct precisely because a
+        draft has not been handed to anybody yet.
+
+        **Draft only.** An issued, cancelled or received order answers `409`
+        with `details.reason = purchase_order_not_draft`, and that is §3.5's
+        immutability rather than a permission problem: the supplier is holding a
+        copy of what was issued, and an order that could still change would make
+        their copy a fiction.
+
+        Requires `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PurchaseOrderPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePurchaseOrderRequest'
+      responses:
+        '200':
+          description: The draft after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/purchase-orders/{purchaseOrder}/issue:
+    post:
+      operationId: issuePurchaseOrder
+      tags: [Kitchen inventory & production]
+      summary: Issue a draft order
+      description: |
+        **Issue, not send** (§2). Phase 1 dispatches nothing through any
+        channel: a person presses this, the lines freeze, and they print the
+        sheet and hand it over. There is deliberately no `send` endpoint and no
+        `sent_at`, because a later dispatch phase must have somewhere honest to
+        record the real event.
+
+        Two things happen and both are the point. The status moves `draft →
+        issued`, after which every further edit is refused — the supplier is
+        holding a copy, and an order that could still change would make their
+        copy a fiction. And `recipient_snapshot` captures the supplier exactly
+        as it stands now, so a reprint in June reproduces the document handed
+        over in February even though the supplier has since moved premises and
+        replaced its sales rep.
+
+        Two refusals, both `409` with an explicit `details.reason`: an order
+        that is not a draft (`purchase_order_not_draft`) and an archived
+        supplier (`supplier_archived`). The second is §3.1's rule at the moment
+        it matters — the supplier was live when the draft was made and has been
+        archived since, which is exactly when a kitchen should be stopped rather
+        than allowed to post an order to a shuttered warehouse.
+
+        An action rather than a writable status field, so freezing a document is
+        one deliberate request with its own audit event
+        (`procurement.purchase_order_issued`). Requires
+        `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PurchaseOrderPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The issued order, with its recipient snapshot.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/purchase-orders/{purchaseOrder}/cancel:
+    post:
+      operationId: cancelPurchaseOrder
+      tags: [Kitchen inventory & production]
+      summary: Cancel a draft or issued order
+      description: |
+        **Nothing is deleted** (§3.5). The order, its lines and — if it was
+        issued — its recipient snapshot all stay exactly where they are, and
+        `issued_at` is left in place: cancelling does not un-issue, and a
+        reprint of a cancelled order should still say when it went out. What
+        changes is the status and one new stamp.
+
+        Reachable from `draft` and `issued` and from nowhere else. An order with
+        deliveries against it cannot be cancelled as though nothing happened, so
+        a refusal answers `409` with
+        `details.reason = purchase_order_not_cancellable`.
+
+        Audited as `procurement.purchase_order_cancelled`. Requires
+        `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PurchaseOrderPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The cancelled order, unchanged apart from its status and stamp.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/procurement/reference:
     get:
       operationId: getProcurementReference
@@ -18322,6 +18670,17 @@ components:
         kitchen corrected one.
       schema:
         $ref: '#/components/schemas/Uuid'
+
+    PurchaseOrderPath:
+      name: purchaseOrder
+      in: path
+      required: true
+      description: |
+        The purchase-order identifier, never its `number`. The number is the
+        human handle both sides quote down a phone line; the URL takes the
+        identifier, on the same grounds a supplier's does.
+      schema:
+        $ref: '#/components/schemas/Uuid'
     DeliveryZonePath:
       name: zone
       in: path
@@ -18987,6 +19346,41 @@ components:
               message: This resource changed since you last read it. Reload it and reapply your change.
               details:
                 current_lock_version: 4
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    PurchaseOrderConflict:
+      description: |
+        The order's own state refuses the change (§3.5, §6). `details.reason`
+        names which rule, and there are four:
+
+        - `purchase_order_not_draft` — the order has been issued, cancelled or
+          received against, and issued orders are immutable. `details.status`
+          carries the state it is actually in.
+        - `purchase_order_not_cancellable` — cancellation is reachable from
+          `draft` and `issued` only; an order with deliveries against it cannot
+          be cancelled as though nothing happened.
+        - `supplier_archived` — the supplier has left the book. Restore it or
+          choose another; `details.supplier_id` names it.
+        - `purchase_order_received_against` — reserved for the receiving slice's
+          cancel guard.
+
+        No `current_lock_version`: purchase orders are not lock-versioned, so
+        there is no race to reload against. Re-reading the order is what tells a
+        client what happened to it.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: Only a draft purchase order can be edited.
+              details:
+                reason: purchase_order_not_draft
+                status: issued
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
 
     RefundRefused:
@@ -26369,6 +26763,410 @@ components:
                 $ref: '#/components/schemas/OrderProposalItem'
         meta:
           $ref: '#/components/schemas/Meta'
+
+    PurchaseOrderStatus:
+      type: string
+      enum: [draft, issued, partially_received, received, cancelled]
+      description: |
+        Where an order has got to (§3.5). `draft → issued →
+        partially_received → received`, with `cancelled` reachable from the two
+        states in which nothing has arrived yet.
+
+        **`issued`, never `sent`** (§2). Phase 1 dispatches nothing through any
+        channel — a person presses Issue, the lines freeze, and they print the
+        sheet and hand it over. Calling that `sent` would claim an event the
+        system did not perform.
+
+        `partially_received` and `received` are reached by **posting a goods
+        receipt**, never by an action of their own, and no endpoint in this
+        version produces them yet. `received` and `cancelled` are terminal: a
+        delivery that turned out wrong is a receipt correction or a return,
+        which are different objects with different quantities attached.
+
+    PurchaseOrderLine:
+      type: object
+      required:
+        - id
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - item_name_ar
+        - quantity
+        - unit_code
+        - supplier_item_ref
+        - notes
+        - display_order
+      description: |
+        One requested shelf, as the document says it (§3.5).
+
+        Every display field is a **snapshot** taken when the line was written,
+        not a live read of the stock item — that is what makes an issued order
+        immutable in practice rather than only in status. A shelf renamed in
+        March does not silently rename a line on an order issued in February,
+        because the supplier is holding a printed copy of the February wording.
+
+        `stock_item_id` rides alongside as a **pointer**: a client deep-links to
+        the shelf with it and the receiving slice matches a delivery line to
+        this one with it. It is never the source of the label beside it.
+
+        **No price, no amount, no currency**, here or anywhere on a purchase
+        order. Actual prices belong to goods receipts.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+          maxLength: 64
+          description: Snapshotted — the kitchen's own identifier for the shelf.
+        item_name_en:
+          type: string
+          maxLength: 160
+        item_name_ar:
+          type: ['string', 'null']
+          maxLength: 160
+          description: |
+            Snapshotted from the backing ingredient or catalogue item, because
+            `stock_items` carry `name_en` only. Null when neither has one — an
+            honest blank, rather than English text printed under an Arabic
+            heading.
+        quantity:
+          type: string
+          description: A decimal string at scale 4, never a float. Always above zero.
+        unit_code:
+          type: string
+          maxLength: 16
+          description: Snapshotted — the unit that prints on the order sheet.
+        supplier_item_ref:
+          type: ['string', 'null']
+          maxLength: 64
+          description: |
+            The supplier's own catalogue reference, read from the saved
+            supplier↔item link at write time so the sheet can quote it back at
+            them. Null when this supplier has no link for this shelf, which is
+            ordinary for a one-off purchase.
+        notes:
+          type: ['string', 'null']
+          maxLength: 255
+          description: Reserved for a per-line remark. Nothing writes it in this version.
+        display_order:
+          type: integer
+          minimum: 0
+          description: The sequence the person building the order chose. Clients render it and never re-sort.
+      additionalProperties: false
+
+    RecipientSnapshot:
+      type: object
+      required:
+        - supplier_id
+        - code
+        - name_en
+        - name_ar
+        - address
+        - payment_terms
+        - lead_time_days
+        - contact_email
+        - contact_phone
+        - contacts
+      description: |
+        Who the order was addressed to, at the instant it was issued (§3.5).
+
+        Captured on issue and never touched again. A supplier that moves
+        premises in March must not silently rewrite the February order it is
+        holding a copy of — so a **draft** preview reads the live supplier and an
+        **issued** reprint reads this.
+
+        It is a document, not a reference: the fields are the ones a printed
+        order sheet names, and the supplier may since have been archived,
+        renamed or emptied of contacts without any of it changing here.
+      properties:
+        supplier_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type: ['string', 'null']
+        address:
+          type: ['string', 'null']
+          description: Free text as the supplier gives it. Never geocoded.
+        payment_terms:
+          type: ['string', 'null']
+        lead_time_days:
+          type: ['integer', 'null']
+        contact_email:
+          type: ['string', 'null']
+          description: The general office address, not the primary contact's.
+        contact_phone:
+          type: ['string', 'null']
+          description: The general office line, not the primary contact's.
+        contacts:
+          type: array
+          description: Every named contact the supplier had at issue time, primary first.
+          items:
+            $ref: '#/components/schemas/RecipientSnapshotContact'
+      additionalProperties: false
+
+    RecipientSnapshotContact:
+      type: object
+      required: [name, role_title, email, phone, whatsapp_phone, is_primary]
+      description: |
+        One named person as they stood at issue time. No identifier: this is a
+        transcription onto a document, not a pointer at a row that may since
+        have been deleted.
+      properties:
+        name:
+          type: string
+        role_title:
+          type: ['string', 'null']
+        email:
+          type: ['string', 'null']
+        phone:
+          type: ['string', 'null']
+        whatsapp_phone:
+          type: ['string', 'null']
+        is_primary:
+          type: boolean
+      additionalProperties: false
+
+    PurchaseOrder:
+      type: object
+      required:
+        - id
+        - number
+        - status
+        - branch
+        - supplier
+        - recipient_snapshot
+        - notes
+        - line_count
+        - issued_at
+        - cancelled_at
+        - created_at
+        - lines
+      description: |
+        One request the kitchen makes of one supplier, for one branch (§3.5).
+
+        **One shape for the list, the detail and the create response.** A second
+        summary variant is the one that drifts, and the batch read a print
+        preview makes wants the whole thing anyway.
+
+        **Two suppliers on an issued order, and both are deliberate.**
+        `supplier` is the live record with its archive flag, because a screen
+        offering to issue needs to know whether the supplier is still in the
+        book. `recipient_snapshot` is who the document was addressed to at the
+        instant it was issued, and it is `null` on a draft because a draft has
+        been addressed to nobody yet. A client renders the live supplier on a
+        draft and the snapshot from `issued` onward.
+
+        `number` is the human handle both sides quote — `PO-` plus eight
+        Crockford base-32 characters, minted **random rather than sequential**
+        because a sequential number printed on a supplier's copy would tell them
+        this kitchen's purchasing volume.
+
+        **No money, at any depth.** Not a price, an amount, a currency or a
+        total, on the order, on a line or inside the snapshot.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+          maxLength: 32
+          description: Unique within the organisation. `PO-` plus eight Crockford base-32 characters.
+        status:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        branch:
+          oneOf:
+            - $ref: '#/components/schemas/PurchaseOrderBranch'
+            - type: 'null'
+          description: The site that is short of the goods.
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/PurchaseOrderSupplier'
+            - type: 'null'
+          description: The **live** supplier record, archive flag included.
+        recipient_snapshot:
+          oneOf:
+            - $ref: '#/components/schemas/RecipientSnapshot'
+            - type: 'null'
+          description: Null on a draft; present from `issued` onward.
+        notes:
+          type: ['string', 'null']
+          description: A remark for the whole order, printed on the sheet.
+        line_count:
+          type: integer
+          minimum: 0
+        issued_at:
+          type: ['string', 'null']
+          format: date-time
+          description: |
+            When the document was frozen. Survives cancellation — cancelling an
+            issued order does not un-issue it.
+        cancelled_at:
+          type: ['string', 'null']
+          format: date-time
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderLine'
+      additionalProperties: false
+
+    PurchaseOrderBranch:
+      type: object
+      required: [id, name]
+      description: |
+        The branch an order is for. `name` rather than `name_en`:
+        `organisation_branches` carries one name column, and a bilingual pair on
+        the wire would promise an Arabic branch name the table has no room for.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+      additionalProperties: false
+
+    PurchaseOrderSupplier:
+      type: object
+      required: [id, code, name_en, name_ar, archived_at]
+      description: |
+        The **live** supplier an order names — not the snapshot.
+        `archived_at` is on it deliberately: an issued order for a
+        since-archived supplier is an ordinary situation a detail screen has to
+        explain, and a reference without the flag would leave it guessing why
+        issuing is refused.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type: ['string', 'null']
+        archived_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    PurchaseOrderEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [purchase_order]
+          properties:
+            purchase_order:
+              $ref: '#/components/schemas/PurchaseOrder'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    PurchaseOrderCollection:
+      type: object
+      required: [data, meta]
+      description: |
+        A page of the order book, newest first — and the same envelope the batch
+        create answers with, where the orders are in **request order** rather
+        than newest first, because the person confirmed a list and the answer
+        has to line up with it.
+      properties:
+        data:
+          type: object
+          required: [purchase_orders]
+          properties:
+            purchase_orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/PurchaseOrder'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    CreatePurchaseOrderLine:
+      type: object
+      required: [stock_item_id, quantity]
+      description: |
+        Everything a client may say about a line, and it is deliberately two
+        fields. The item code, both names, the unit and the supplier's own
+        catalogue reference are resolved server-side (§6) — a client that could
+        name a line could put anything at all on a document a supplier reads.
+        There is no price field and none is coming.
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: string
+          pattern: '^\d+(\.\d{1,4})?$'
+          description: |
+            A decimal string above zero with at most four places — the stock
+            column's own precision. A string rather than a number because
+            `0.125` kg of saffron must arrive as `0.125`, and a float round trip
+            is how that becomes `0.12499999999999999`.
+      additionalProperties: false
+
+    CreatePurchaseOrdersRequest:
+      type: object
+      required: [orders]
+      description: |
+        One draft per supplier, created together or not at all.
+
+        `branch_id` sits on each order because every proposal row carries the
+        branch it was read for, which is what makes a payload whose branch
+        disagrees with its lines unrepresentable. The server then insists they
+        all agree: §4 says a proposal is always *for one branch*, so two
+        branches in one body is a `422` rather than a guess.
+      properties:
+        orders:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/CreatePurchaseOrderRequest'
+      additionalProperties: false
+
+    CreatePurchaseOrderRequest:
+      type: object
+      required: [supplier_id, branch_id, lines]
+      properties:
+        supplier_id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/CreatePurchaseOrderLine'
+      additionalProperties: false
+
+    UpdatePurchaseOrderRequest:
+      type: object
+      description: |
+        Presence-keyed: an omitted field is left alone, `notes: null` clears the
+        note. `lines` is a **full replace** — the body states the whole desired
+        set — because a diff would need an identity for a line the client does
+        not name.
+
+        Draft only. An issued order answers `409` with
+        `details.reason = purchase_order_not_draft`.
+      properties:
+        notes:
+          type: ['string', 'null']
+          maxLength: 2000
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/CreatePurchaseOrderLine'
+      additionalProperties: false
 
     UpsertSupplierLinkRequest:
       type: object

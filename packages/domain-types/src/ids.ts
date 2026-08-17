@@ -177,6 +177,17 @@ export type SupplierId = Brand<string, 'SupplierId'>;
 /** A named person at a supplier (SUP1) — its own brand, because a contact is edited by id. */
 export type SupplierContactId = Brand<string, 'SupplierContactId'>;
 export type GoodsReceiptId = Brand<string, 'GoodsReceiptId'>;
+/**
+ * A purchase order (SUP4) — the request a kitchen makes of one supplier.
+ *
+ * Its own brand because an order is read, edited, issued and cancelled by
+ * identifier and is deep-linked to from three screens. Its **lines** are
+ * deliberately not branded: a line id is a React key and nothing else in this
+ * slice, and a brand nothing checks is ceremony. The receiving slice is where
+ * one becomes a real cross-reference — a goods-receipt line points at an order
+ * line — and that is the slice that should pay for the brand.
+ */
+export type PurchaseOrderId = Brand<string, 'PurchaseOrderId'>;
 export type ProductionOrderId = Brand<string, 'ProductionOrderId'>;
 export type QualityCheckId = Brand<string, 'QualityCheckId'>;
 
@@ -186,6 +197,8 @@ export const SupplierContactId: IdCodec<SupplierContactId> =
     createIdCodec<SupplierContactId>('SupplierContactId');
 export const GoodsReceiptId: IdCodec<GoodsReceiptId> =
     createIdCodec<GoodsReceiptId>('GoodsReceiptId');
+export const PurchaseOrderId: IdCodec<PurchaseOrderId> =
+    createIdCodec<PurchaseOrderId>('PurchaseOrderId');
 export const ProductionOrderId: IdCodec<ProductionOrderId> =
     createIdCodec<ProductionOrderId>('ProductionOrderId');
 export const QualityCheckId: IdCodec<QualityCheckId> =
@@ -229,6 +242,7 @@ export const ID_CODECS = {
     SupplierId,
     SupplierContactId,
     GoodsReceiptId,
+    PurchaseOrderId,
     ProductionOrderId,
     QualityCheckId,
 } as const;

@@ -4477,6 +4477,299 @@ export type OrderProposalCollection = {
 };
 
 /**
+ * Where an order has got to (§3.5). `draft → issued →
+ * partially_received → received`, with `cancelled` reachable from the two
+ * states in which nothing has arrived yet.
+ *
+ * **`issued`, never `sent`** (§2). Phase 1 dispatches nothing through any
+ * channel — a person presses Issue, the lines freeze, and they print the
+ * sheet and hand it over. Calling that `sent` would claim an event the
+ * system did not perform.
+ *
+ * `partially_received` and `received` are reached by **posting a goods
+ * receipt**, never by an action of their own, and no endpoint in this
+ * version produces them yet. `received` and `cancelled` are terminal: a
+ * delivery that turned out wrong is a receipt correction or a return,
+ * which are different objects with different quantities attached.
+ *
+ */
+export type PurchaseOrderStatus = 'draft' | 'issued' | 'partially_received' | 'received' | 'cancelled';
+
+/**
+ * One requested shelf, as the document says it (§3.5).
+ *
+ * Every display field is a **snapshot** taken when the line was written,
+ * not a live read of the stock item — that is what makes an issued order
+ * immutable in practice rather than only in status. A shelf renamed in
+ * March does not silently rename a line on an order issued in February,
+ * because the supplier is holding a printed copy of the February wording.
+ *
+ * `stock_item_id` rides alongside as a **pointer**: a client deep-links to
+ * the shelf with it and the receiving slice matches a delivery line to
+ * this one with it. It is never the source of the label beside it.
+ *
+ * **No price, no amount, no currency**, here or anywhere on a purchase
+ * order. Actual prices belong to goods receipts.
+ *
+ */
+export type PurchaseOrderLine = {
+    id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * Snapshotted — the kitchen's own identifier for the shelf.
+     */
+    item_code: string;
+    item_name_en: string;
+    /**
+     * Snapshotted from the backing ingredient or catalogue item, because
+     * `stock_items` carry `name_en` only. Null when neither has one — an
+     * honest blank, rather than English text printed under an Arabic
+     * heading.
+     *
+     */
+    item_name_ar: string | null;
+    /**
+     * A decimal string at scale 4, never a float. Always above zero.
+     */
+    quantity: string;
+    /**
+     * Snapshotted — the unit that prints on the order sheet.
+     */
+    unit_code: string;
+    /**
+     * The supplier's own catalogue reference, read from the saved
+     * supplier↔item link at write time so the sheet can quote it back at
+     * them. Null when this supplier has no link for this shelf, which is
+     * ordinary for a one-off purchase.
+     *
+     */
+    supplier_item_ref: string | null;
+    /**
+     * Reserved for a per-line remark. Nothing writes it in this version.
+     */
+    notes: string | null;
+    /**
+     * The sequence the person building the order chose. Clients render it and never re-sort.
+     */
+    display_order: number;
+};
+
+/**
+ * Who the order was addressed to, at the instant it was issued (§3.5).
+ *
+ * Captured on issue and never touched again. A supplier that moves
+ * premises in March must not silently rewrite the February order it is
+ * holding a copy of — so a **draft** preview reads the live supplier and an
+ * **issued** reprint reads this.
+ *
+ * It is a document, not a reference: the fields are the ones a printed
+ * order sheet names, and the supplier may since have been archived,
+ * renamed or emptied of contacts without any of it changing here.
+ *
+ */
+export type RecipientSnapshot = {
+    supplier_id: Uuid;
+    code: string;
+    name_en: string;
+    name_ar: string | null;
+    /**
+     * Free text as the supplier gives it. Never geocoded.
+     */
+    address: string | null;
+    payment_terms: string | null;
+    lead_time_days: number | null;
+    /**
+     * The general office address, not the primary contact's.
+     */
+    contact_email: string | null;
+    /**
+     * The general office line, not the primary contact's.
+     */
+    contact_phone: string | null;
+    /**
+     * Every named contact the supplier had at issue time, primary first.
+     */
+    contacts: Array<RecipientSnapshotContact>;
+};
+
+/**
+ * One named person as they stood at issue time. No identifier: this is a
+ * transcription onto a document, not a pointer at a row that may since
+ * have been deleted.
+ *
+ */
+export type RecipientSnapshotContact = {
+    name: string;
+    role_title: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp_phone: string | null;
+    is_primary: boolean;
+};
+
+/**
+ * One request the kitchen makes of one supplier, for one branch (§3.5).
+ *
+ * **One shape for the list, the detail and the create response.** A second
+ * summary variant is the one that drifts, and the batch read a print
+ * preview makes wants the whole thing anyway.
+ *
+ * **Two suppliers on an issued order, and both are deliberate.**
+ * `supplier` is the live record with its archive flag, because a screen
+ * offering to issue needs to know whether the supplier is still in the
+ * book. `recipient_snapshot` is who the document was addressed to at the
+ * instant it was issued, and it is `null` on a draft because a draft has
+ * been addressed to nobody yet. A client renders the live supplier on a
+ * draft and the snapshot from `issued` onward.
+ *
+ * `number` is the human handle both sides quote — `PO-` plus eight
+ * Crockford base-32 characters, minted **random rather than sequential**
+ * because a sequential number printed on a supplier's copy would tell them
+ * this kitchen's purchasing volume.
+ *
+ * **No money, at any depth.** Not a price, an amount, a currency or a
+ * total, on the order, on a line or inside the snapshot.
+ *
+ */
+export type PurchaseOrder = {
+    id: Uuid;
+    /**
+     * Unique within the organisation. `PO-` plus eight Crockford base-32 characters.
+     */
+    number: string;
+    status: PurchaseOrderStatus;
+    /**
+     * The site that is short of the goods.
+     */
+    branch: PurchaseOrderBranch | null;
+    /**
+     * The **live** supplier record, archive flag included.
+     */
+    supplier: PurchaseOrderSupplier | null;
+    /**
+     * Null on a draft; present from `issued` onward.
+     */
+    recipient_snapshot: RecipientSnapshot | null;
+    /**
+     * A remark for the whole order, printed on the sheet.
+     */
+    notes: string | null;
+    line_count: number;
+    /**
+     * When the document was frozen. Survives cancellation — cancelling an
+     * issued order does not un-issue it.
+     *
+     */
+    issued_at: string | null;
+    cancelled_at: string | null;
+    created_at: string | null;
+    lines: Array<PurchaseOrderLine>;
+};
+
+/**
+ * The branch an order is for. `name` rather than `name_en`:
+ * `organisation_branches` carries one name column, and a bilingual pair on
+ * the wire would promise an Arabic branch name the table has no room for.
+ *
+ */
+export type PurchaseOrderBranch = {
+    id: Uuid;
+    name: string;
+};
+
+/**
+ * The **live** supplier an order names — not the snapshot.
+ * `archived_at` is on it deliberately: an issued order for a
+ * since-archived supplier is an ordinary situation a detail screen has to
+ * explain, and a reference without the flag would leave it guessing why
+ * issuing is refused.
+ *
+ */
+export type PurchaseOrderSupplier = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    name_ar: string | null;
+    archived_at: string | null;
+};
+
+export type PurchaseOrderEnvelope = {
+    data: {
+        purchase_order: PurchaseOrder;
+    };
+    meta: Meta;
+};
+
+/**
+ * A page of the order book, newest first — and the same envelope the batch
+ * create answers with, where the orders are in **request order** rather
+ * than newest first, because the person confirmed a list and the answer
+ * has to line up with it.
+ *
+ */
+export type PurchaseOrderCollection = {
+    data: {
+        purchase_orders: Array<PurchaseOrder>;
+    };
+    meta: PaginationMeta;
+};
+
+/**
+ * Everything a client may say about a line, and it is deliberately two
+ * fields. The item code, both names, the unit and the supplier's own
+ * catalogue reference are resolved server-side (§6) — a client that could
+ * name a line could put anything at all on a document a supplier reads.
+ * There is no price field and none is coming.
+ *
+ */
+export type CreatePurchaseOrderLine = {
+    stock_item_id: Uuid;
+    /**
+     * A decimal string above zero with at most four places — the stock
+     * column's own precision. A string rather than a number because
+     * `0.125` kg of saffron must arrive as `0.125`, and a float round trip
+     * is how that becomes `0.12499999999999999`.
+     *
+     */
+    quantity: string;
+};
+
+/**
+ * One draft per supplier, created together or not at all.
+ *
+ * `branch_id` sits on each order because every proposal row carries the
+ * branch it was read for, which is what makes a payload whose branch
+ * disagrees with its lines unrepresentable. The server then insists they
+ * all agree: §4 says a proposal is always *for one branch*, so two
+ * branches in one body is a `422` rather than a guess.
+ *
+ */
+export type CreatePurchaseOrdersRequest = {
+    orders: Array<CreatePurchaseOrderRequest>;
+};
+
+export type CreatePurchaseOrderRequest = {
+    supplier_id: Uuid;
+    branch_id: Uuid;
+    lines: Array<CreatePurchaseOrderLine>;
+};
+
+/**
+ * Presence-keyed: an omitted field is left alone, `notes: null` clears the
+ * note. `lines` is a **full replace** — the body states the whole desired
+ * set — because a diff would need an identity for a line the client does
+ * not name.
+ *
+ * Draft only. An issued order answers `409` with
+ * `details.reason = purchase_order_not_draft`.
+ *
+ */
+export type UpdatePurchaseOrderRequest = {
+    notes?: string | null;
+    lines?: Array<CreatePurchaseOrderLine>;
+};
+
+/**
  * The pair that identifies the link, plus the two things about it a
  * kitchen edits. Idempotent: sending the same body twice leaves the same
  * row.
@@ -10516,6 +10809,14 @@ export type XBranchIdRequired = Uuid;
  *
  */
 export type SupplierPath = Uuid;
+
+/**
+ * The purchase-order identifier, never its `number`. The number is the
+ * human handle both sides quote down a phone line; the URL takes the
+ * identifier, on the same grounds a supplier's does.
+ *
+ */
+export type PurchaseOrderPath = Uuid;
 
 /**
  * The delivery zone identifier, or its `code`.
@@ -21557,6 +21858,502 @@ export type GetOrderProposalResponses = {
 };
 
 export type GetOrderProposalResponse = GetOrderProposalResponses[keyof GetOrderProposalResponses];
+
+export type ListPurchaseOrdersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Only orders in this state.
+         */
+        status?: PurchaseOrderStatus;
+        /**
+         * Only orders addressed to this supplier. Must belong to the active organisation.
+         */
+        supplier_id?: Uuid;
+        /**
+         * A batch read, repeated as `ids[]=…`. At most 50.
+         */
+        ids?: Array<Uuid>;
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/catalogue/procurement/purchase-orders';
+};
+
+export type ListPurchaseOrdersErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPurchaseOrdersError = ListPurchaseOrdersErrors[keyof ListPurchaseOrdersErrors];
+
+export type ListPurchaseOrdersResponses = {
+    /**
+     * A page of purchase orders, newest first.
+     */
+    200: PurchaseOrderCollection;
+};
+
+export type ListPurchaseOrdersResponse = ListPurchaseOrdersResponses[keyof ListPurchaseOrdersResponses];
+
+export type CreatePurchaseOrdersData = {
+    body: CreatePurchaseOrdersRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders';
+};
+
+export type CreatePurchaseOrdersErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — reserved for the receiving slice's
+     * cancel guard.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreatePurchaseOrdersError = CreatePurchaseOrdersErrors[keyof CreatePurchaseOrdersErrors];
+
+export type CreatePurchaseOrdersResponses = {
+    /**
+     * The drafts created, in request order.
+     */
+    201: PurchaseOrderCollection;
+};
+
+export type CreatePurchaseOrdersResponse = CreatePurchaseOrdersResponses[keyof CreatePurchaseOrdersResponses];
+
+export type GetPurchaseOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The purchase-order identifier, never its `number`. The number is the
+         * human handle both sides quote down a phone line; the URL takes the
+         * identifier, on the same grounds a supplier's does.
+         *
+         */
+        purchaseOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders/{purchaseOrder}';
+};
+
+export type GetPurchaseOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetPurchaseOrderError = GetPurchaseOrderErrors[keyof GetPurchaseOrderErrors];
+
+export type GetPurchaseOrderResponses = {
+    /**
+     * The order, its lines and its recipient.
+     */
+    200: PurchaseOrderEnvelope;
+};
+
+export type GetPurchaseOrderResponse = GetPurchaseOrderResponses[keyof GetPurchaseOrderResponses];
+
+export type UpdatePurchaseOrderData = {
+    body: UpdatePurchaseOrderRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The purchase-order identifier, never its `number`. The number is the
+         * human handle both sides quote down a phone line; the URL takes the
+         * identifier, on the same grounds a supplier's does.
+         *
+         */
+        purchaseOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders/{purchaseOrder}';
+};
+
+export type UpdatePurchaseOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — reserved for the receiving slice's
+     * cancel guard.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdatePurchaseOrderError = UpdatePurchaseOrderErrors[keyof UpdatePurchaseOrderErrors];
+
+export type UpdatePurchaseOrderResponses = {
+    /**
+     * The draft after the write.
+     */
+    200: PurchaseOrderEnvelope;
+};
+
+export type UpdatePurchaseOrderResponse = UpdatePurchaseOrderResponses[keyof UpdatePurchaseOrderResponses];
+
+export type IssuePurchaseOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The purchase-order identifier, never its `number`. The number is the
+         * human handle both sides quote down a phone line; the URL takes the
+         * identifier, on the same grounds a supplier's does.
+         *
+         */
+        purchaseOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders/{purchaseOrder}/issue';
+};
+
+export type IssuePurchaseOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — reserved for the receiving slice's
+     * cancel guard.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type IssuePurchaseOrderError = IssuePurchaseOrderErrors[keyof IssuePurchaseOrderErrors];
+
+export type IssuePurchaseOrderResponses = {
+    /**
+     * The issued order, with its recipient snapshot.
+     */
+    200: PurchaseOrderEnvelope;
+};
+
+export type IssuePurchaseOrderResponse = IssuePurchaseOrderResponses[keyof IssuePurchaseOrderResponses];
+
+export type CancelPurchaseOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The purchase-order identifier, never its `number`. The number is the
+         * human handle both sides quote down a phone line; the URL takes the
+         * identifier, on the same grounds a supplier's does.
+         *
+         */
+        purchaseOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders/{purchaseOrder}/cancel';
+};
+
+export type CancelPurchaseOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — reserved for the receiving slice's
+     * cancel guard.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelPurchaseOrderError = CancelPurchaseOrderErrors[keyof CancelPurchaseOrderErrors];
+
+export type CancelPurchaseOrderResponses = {
+    /**
+     * The cancelled order, unchanged apart from its status and stamp.
+     */
+    200: PurchaseOrderEnvelope;
+};
+
+export type CancelPurchaseOrderResponse = CancelPurchaseOrderResponses[keyof CancelPurchaseOrderResponses];
 
 export type GetProcurementReferenceData = {
     body?: never;

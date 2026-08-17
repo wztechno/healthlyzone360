@@ -10,6 +10,7 @@ import type {
     OrderDeskDriver,
     OrderDeskQueueRow,
     ProductionOrderStatus,
+    PurchaseOrderStatus,
     QualityCheckStatus,
     QualityCheckSubjectType,
     StockItem,
@@ -402,6 +403,100 @@ export function filterDrivers(
     );
 }
 
+/* ── purchase orders (SUP4) ──────────────────────────────────────────────────────────────────── */
+
+const PURCHASE_ORDER_STATUS_KEYS: Readonly<Record<PurchaseOrderStatus, string>> = {
+    draft: 'kitchen:ops.supplyOrders.status.draft',
+    issued: 'kitchen:ops.supplyOrders.status.issued',
+    partially_received: 'kitchen:ops.supplyOrders.status.partiallyReceived',
+    received: 'kitchen:ops.supplyOrders.status.received',
+    cancelled: 'kitchen:ops.supplyOrders.status.cancelled',
+};
+
+export function purchaseOrderStatusKey(status: PurchaseOrderStatus): string {
+    return PURCHASE_ORDER_STATUS_KEYS[status];
+}
+
+/**
+ * The tone an order's status badge carries.
+ *
+ * `draft` is a warning on exactly the grounds `placed` is on a kitchen order: it is the only state
+ * on this list that is *somebody's job right now* — an order nobody has issued buys nothing — and
+ * neutral would read as settled. `cancelled` is neutral rather than danger: calling an order off is
+ * an outcome, not a fault, and colouring it as an error would ask a manager to treat a closed
+ * decision as a problem to fix.
+ *
+ * `partially_received` shares `issued`'s info tone rather than earning a louder one. A half
+ * delivery is the ordinary shape of a wholesale order, not an exception.
+ */
+const PURCHASE_ORDER_STATUS_TONES: Readonly<Record<PurchaseOrderStatus, BadgeTone>> = {
+    draft: 'warning',
+    issued: 'info',
+    partially_received: 'info',
+    received: 'success',
+    cancelled: 'neutral',
+};
+
+export function purchaseOrderStatusTone(status: PurchaseOrderStatus): BadgeTone {
+    return PURCHASE_ORDER_STATUS_TONES[status];
+}
+
+/**
+ * The three questions the detail screen's controls ask, as closed records over all five statuses.
+ *
+ * Closed rather than `status === 'draft'` tests for the reason `DELIVERY_JOB_ASSIGNABLE` is: the day
+ * the wire gains a sixth state this stops compiling and somebody decides what it means, which is
+ * exactly the decision a permissive default would make silently and wrongly. They mirror the
+ * server's own machine rather than restating it — a control offered on a state the service refuses
+ * would earn a `resource.conflict` the person did nothing to deserve.
+ *
+ * The two receiving rows are filled in **now**, ahead of the slice that can reach them, and the
+ * values are not placeholders:
+ *
+ * - **editing** is false from `issued` onward, because issuing freezes the document a supplier is
+ *   holding a copy of;
+ * - **issuing** is false everywhere but `draft` — there is one way in and it happens once;
+ * - **cancelling** is false from `partially_received` onward, and that is the interesting one.
+ *   §3.5: an order with deliveries against it cannot be cancelled as though nothing happened. The
+ *   receiving slice's backend refuses it, and hiding the control now means the button never appears
+ *   on a row the server would refuse.
+ */
+const PURCHASE_ORDER_LINES_EDITABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: true,
+    issued: false,
+    partially_received: false,
+    received: false,
+    cancelled: false,
+};
+
+export function canEditPurchaseOrderLines(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_LINES_EDITABLE[status];
+}
+
+const PURCHASE_ORDER_ISSUABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: true,
+    issued: false,
+    partially_received: false,
+    received: false,
+    cancelled: false,
+};
+
+export function canIssuePurchaseOrder(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_ISSUABLE[status];
+}
+
+const PURCHASE_ORDER_CANCELLABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: true,
+    issued: true,
+    partially_received: false,
+    received: false,
+    cancelled: false,
+};
+
+export function canCancelPurchaseOrder(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_CANCELLABLE[status];
+}
+
 /* ── B2B quotations (B4) ─────────────────────────────────────────────────────────────────────── */
 
 const KITCHEN_QUOTATION_STATUS_KEYS: Readonly<Record<KitchenQuotationStatus, string>> = {
@@ -515,6 +610,22 @@ export function supplyOrderRowTestId(stockItemId: string): string {
 /** One supplier's block in the builder's grouping preview (SUP3). */
 export function supplyOrderGroupTestId(supplierId: string): string {
     return `kitchen-supply-order-group-${supplierId}`;
+}
+
+/**
+ * One row of the order book (SUP4).
+ *
+ * Keyed by the order's identifier rather than by its `number`: the number is the handle a person
+ * quotes down a phone line and is minted per organisation, while a test id has to be unique in a
+ * page that may show two kitchens' fixtures in one Playwright run.
+ */
+export function purchaseOrderRowTestId(purchaseOrderId: string): string {
+    return `kitchen-purchase-order-${purchaseOrderId}`;
+}
+
+/** One line on the purchase-order detail (SUP4), keyed by the shelf the line names. */
+export function purchaseOrderLineTestId(stockItemId: string): string {
+    return `kitchen-purchase-order-line-${stockItemId}`;
 }
 
 export function goodsReceiptRowTestId(goodsReceiptId: string): string {
