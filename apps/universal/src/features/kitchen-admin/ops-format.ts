@@ -517,6 +517,30 @@ export function canReceivePurchaseOrder(status: PurchaseOrderStatus): boolean {
     return PURCHASE_ORDER_RECEIVABLE[status];
 }
 
+/**
+ * Whether an order has a document worth putting on paper (SUP7, §7).
+ *
+ * Four of the five, and the one exception is the interesting one. A **draft** prints as a preview
+ * carrying a Draft marker — §3.5 asks for exactly that, because checking the sheet before freezing
+ * it is the last chance to notice a wrong quantity. A **cancelled** order is the refusal: the whole
+ * purpose of the sheet is to be handed to a supplier, and printing one for an order that was called
+ * off is how a delivery arrives that nobody ordered. Its record stays readable on screen.
+ *
+ * `received` stays true because reprints are a Phase 1 outcome in their own right (§1 item 6): a
+ * receiver reconciling an invoice three weeks later needs the document that was handed over.
+ */
+const PURCHASE_ORDER_PRINTABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: true,
+    issued: true,
+    partially_received: true,
+    received: true,
+    cancelled: false,
+};
+
+export function canPrintPurchaseOrder(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_PRINTABLE[status];
+}
+
 /* ── receipt costing (SUP5) ──────────────────────────────────────────────────────────────────── */
 
 const RECEIPT_COST_STATUS_KEYS: Readonly<Record<ReceiptCostStatus, string>> = {
@@ -692,6 +716,27 @@ export function purchaseOrderRowTestId(purchaseOrderId: string): string {
 /** One line on the purchase-order detail (SUP4), keyed by the shelf the line names. */
 export function purchaseOrderLineTestId(stockItemId: string): string {
     return `kitchen-purchase-order-line-${stockItemId}`;
+}
+
+/**
+ * One printed sheet on the print route (SUP7), keyed by the **order** rather than the supplier.
+ *
+ * §7 says each supplier starts on a new page, and one order is addressed to exactly one supplier —
+ * but the two are not interchangeable as a key. A batch may legitimately name two orders for one
+ * supplier (a second draft raised after the first was issued), and a supplier-keyed id would then
+ * collide on the page where the page break lives.
+ *
+ * This prefix is also load-bearing outside TypeScript: the `@media print` block in
+ * `apps/universal/global.css` breaks the page after each sheet by selecting the element children of
+ * `[data-testid='kitchen-supply-print-sheets']` whose id starts with this stem. Renaming it here
+ * without renaming it there prints every supplier onto one continuous roll, which no test would
+ * catch by shape alone.
+ *
+ * The child selector is not fussiness: every id *inside* a sheet is built from this same stem, so a
+ * bare prefix match would break the page after the document title and after every item row.
+ */
+export function printSheetTestId(purchaseOrderId: string): string {
+    return `kitchen-supply-print-sheet-${purchaseOrderId}`;
 }
 
 export function goodsReceiptRowTestId(goodsReceiptId: string): string {

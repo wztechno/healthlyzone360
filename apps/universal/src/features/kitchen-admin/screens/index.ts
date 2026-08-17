@@ -61,5 +61,6 @@ export { SupplierDetailScreen } from './supplier-detail-screen.tsx';
 export { SuppliersScreen } from './suppliers-screen.tsx';
 export { SupplyOrderBuilderScreen } from './supply-order-builder-screen.tsx';
 export { SupplyOrderDetailScreen } from './supply-order-detail-screen.tsx';
+export { SupplyOrderPrintScreen } from './supply-order-print-screen.tsx';
 export { SupplyOrdersScreen } from './supply-orders-screen.tsx';
 export { UnpricedReceiptsScreen } from './unpriced-receipts-screen.tsx';

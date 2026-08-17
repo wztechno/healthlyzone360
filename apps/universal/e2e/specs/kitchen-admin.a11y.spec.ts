@@ -627,6 +627,58 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await expectNoSeriousViolations(page, 'kitchen-supply-order-detail');
     });
 
+    /**
+     * The print route (SUP7), swept in **screen** media with its toolbar on.
+     *
+     * Screen rather than print, deliberately. Print media hides the toolbar and everything around
+     * it, so a sweep there would exclude the controls a person actually operates and pass a page
+     * nobody can use. What paper does with the document is a layout question the write spec asks;
+     * what a screen reader does with it is this one.
+     *
+     * Two risks live here that no other kitchen screen carries. The item grid is **hand-built**
+     * rather than the design system's `Table` — the responsive component's stacked-card branch is
+     * wrong for a printed page — so its `table`/`row`/`columnheader`/`cell` roles are stated by
+     * hand, which is exactly where a row loses its parent or a header loses its scope. And the
+     * sheets are repeated: several documents on one page means several `h2`s and several identical
+     * column headings, which is the arrangement most likely to produce duplicate landmarks.
+     */
+    test('the print route, with its sheets and toolbar', async ({ page }) => {
+        await openSupplyOrders(page);
+        await expect(page.getByTestId('kitchen-supply-orders-book')).toBeVisible();
+
+        const open = page
+            .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
+            .first();
+
+        // A seeded kitchen that has never ordered has nothing to print, which is a legitimate
+        // outcome rather than a failure — and asserting a document into existence would be
+        // asserting the seed rather than the page.
+        if ((await open.count()) === 0) return;
+
+        const testId = await open.getAttribute('data-testid');
+        if (testId === null) throw new Error('The order row carries no test id.');
+        const orderId = testId.replace('kitchen-purchase-order-', '').replace(/-open$/, '');
+
+        await page.goto(`/kitchen/supply-orders/print?orders=${orderId}`);
+        await expect(page.getByTestId('kitchen-supply-print-sheets')).toBeVisible();
+        await expect(page.getByTestId('kitchen-supply-print-toolbar')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-print');
+    });
+
+    /**
+     * The nothing-to-print state, which is a `role="alert"` carrying its own way out.
+     *
+     * A callout that announces and a button inside it is the pattern most likely to be announced as
+     * a wall of text with an unreachable control, and it is reached the way a person reaches it: by
+     * following a link whose orders no longer exist.
+     */
+    test('the nothing-to-print state', async ({ page }) => {
+        await openSupplyOrders(page);
+        await page.goto('/kitchen/supply-orders/print?orders=');
+        await expect(page.getByTestId('kitchen-supply-print-nothing')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-print-nothing');
+    });
+
     test('the delivery-zone list', async ({ page }) => {
         await openZones(page);
         await expectNoSeriousViolations(page, 'kitchen-zones');

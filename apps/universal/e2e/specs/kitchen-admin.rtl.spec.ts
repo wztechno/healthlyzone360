@@ -768,4 +768,82 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         );
         expect(overflow).toBeLessThanOrEqual(1);
     });
+
+    /**
+     * The printed purchase order in Arabic (SUP7), which is the one surface in this workspace whose
+     * direction has to survive leaving the browser.
+     *
+     * §7 ends with "RTL inherited correctly for Arabic", and *inherited* is the operative word. The
+     * sheet states no direction of its own and no `rtl:` variant anywhere — `dir` is set on `<html>`
+     * by the pre-hydration script in `+html.tsx` and everything below it follows. That is what this
+     * asserts: not that somebody remembered to mirror the sheet, but that nothing on it broke the
+     * inheritance. A single physical margin or a `direction: ltr` on a wrapper would show up here
+     * and nowhere else, because every other screen in this suite is chrome that is mirrored anyway.
+     *
+     * The item grid is the specific risk. It is hand-built from flex rows rather than the design
+     * system's `Table` (a printed page is never a phone, so the responsive stacked-card branch is
+     * wrong here), which means its column order is `flex-direction: row` and mirrors only because
+     * the document does.
+     */
+    test('inherits right-to-left onto the printed order sheet', async ({ page }) => {
+        await openKitchen(page);
+        await page.goto('/kitchen/supply-orders');
+        await expect(page.getByTestId('kitchen-supply-orders-screen')).toBeVisible();
+
+        const open = page
+            .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
+            .first();
+
+        // A kitchen that has never ordered has nothing to print, which is a legitimate answer on a
+        // demonstration database rather than a failure of this screen.
+        if ((await open.count()) === 0) return;
+
+        const testId = await open.getAttribute('data-testid');
+        if (testId === null) throw new Error('The order row carries no test id.');
+        const orderId = testId.replace('kitchen-purchase-order-', '').replace(/-open$/, '');
+
+        await page.goto(`/kitchen/supply-orders/print?orders=${orderId}`);
+        await expect(page.getByTestId('kitchen-supply-print-sheets')).toBeVisible();
+
+        const sheet = page.locator('[data-testid="kitchen-supply-print-sheets"] > div').first();
+        await expect(sheet).toBeVisible();
+        // Inherited, not declared — the sheet sets no direction of its own.
+        await expect(sheet).toHaveCSS('direction', 'rtl');
+
+        // Its labels are translated, not merely mirrored: the document title, the column headings
+        // and the signature lines are all copy.
+        await expect(sheet).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId(`kitchen-supply-print-sheet-${orderId}-title`)).toContainText(
+            ARABIC_SCRIPT,
+        );
+
+        /*
+         * And where the server had an Arabic name to snapshot, the line leads with it. Under this
+         * locale the row prints `itemNameAr` first and the English beneath it, so the *presence of
+         * a second line* is itself the proof that a translated name existed — the alternate is
+         * suppressed when the two would be identical. `itemNameAr` is resolved from the backing
+         * ingredient or catalogue item and is legitimately null when neither carries one (an honest
+         * blank beats English under an Arabic heading), so this asserts the rendering when it is
+         * there and asserts nothing into existence when it is not.
+         */
+        const altIds = await page
+            .locator(
+                `[data-testid^="kitchen-supply-print-sheet-${orderId}-line-"][data-testid$="-name-alt"]`,
+            )
+            .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid') ?? ''));
+
+        const firstAlt = altIds[0];
+        if (firstAlt !== undefined && firstAlt !== '') {
+            await expect(page.getByTestId(firstAlt.replace(/-alt$/, ''))).toContainText(
+                ARABIC_SCRIPT,
+            );
+        }
+
+        // A five-column grid is the widest thing on this route, and the one most likely to push the
+        // document sideways in the direction it was not designed in.
+        const sheetOverflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(sheetOverflow).toBeLessThanOrEqual(1);
+    });
 });

@@ -37,6 +37,7 @@ import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { OpsRecordFrame } from '../ops-record-frame.tsx';
 import {
     canCancelPurchaseOrder,
+    canPrintPurchaseOrder,
     canReceivePurchaseOrder,
     canEditPurchaseOrderLines,
     canIssuePurchaseOrder,
@@ -76,11 +77,19 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * The live reference stays available on an issued order for one thing only: its archive flag, which
  * is why a screen can explain that the supplier has since left the book.
  *
- * ## Issue stands alone in this slice
+ * ## Issue and print is one action, and the order of the two halves matters
  *
- * §7's final shape is **Issue and print**, and printing arrives with the print sheet. Until then the
- * button says Issue and does exactly that — no disabled print control, no "coming soon" affordance.
- * A button that does nothing teaches people that buttons do nothing.
+ * §7's final shape is **Issue and print**, and SUP7 completes it: the confirmation freezes the
+ * order and *then* opens the print route. That sequence is the whole point — the sheet a supplier
+ * receives must be the one built from `recipientSnapshot`, which does not exist until the moment
+ * the order is issued. Printing first and issuing after would put a Draft-marked preview in
+ * somebody's hand and leave the real document unprinted.
+ *
+ * A draft also gets a quiet **Preview** beside it, and a non-draft order gets **Print**. They are
+ * one control with two labels rather than two controls: the destination is identical, and the only
+ * thing that differs is what the sheet will say about itself. A cancelled order gets neither —
+ * `canPrintPurchaseOrder` refuses it, because the sheet's purpose is to be handed over and handing
+ * over an order that was called off is how an unordered delivery arrives.
  *
  * ## Quantities are text fields, and lines are replaced whole
  *
@@ -187,6 +196,8 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     const editable = data !== undefined && canEditPurchaseOrderLines(status);
     const issuable = data !== undefined && canIssuePurchaseOrder(status);
     const cancellable = data !== undefined && canCancelPurchaseOrder(status);
+    // SUP7: four of the five statuses have a document worth printing; a draft's is a preview.
+    const printable = data !== undefined && canPrintPurchaseOrder(status);
     // SUP5: the two states a van can arrive against, read from the same closed record the server's
     // own machine is mirrored by, so the action never appears on a row the service would refuse.
     const receivable = data !== undefined && canReceivePurchaseOrder(status);
@@ -254,6 +265,14 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
         );
     }
 
+    /** `/kitchen/supply-orders/print?orders=…` for this one order. */
+    function openPrint(): void {
+        if (parsed === null) return;
+        router.push(
+            `/kitchen/supply-orders/print?orders=${encodeURIComponent(String(parsed))}` as never,
+        );
+    }
+
     function confirmIssue(): void {
         if (parsed === null) return;
 
@@ -267,6 +286,16 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                     tone: 'success',
                     message: t('kitchen:ops.supplyOrders.issuedToast'),
                 });
+                /*
+                 * §7's **Issue and print**, in that order. The navigation happens inside
+                 * `onSuccess` so the sheet is only ever reached once the server has frozen the
+                 * document — the print route re-reads the order, and reading it a moment early
+                 * would render the draft preview of an order that is no longer a draft.
+                 *
+                 * The unsaved guard is cleared first: leaving a screen that still believes it is
+                 * dirty is how a browser prompt lands on top of a successful action.
+                 */
+                openPrint();
             },
         });
     }
@@ -511,6 +540,24 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                                         `/kitchen/procurement/receive?order=${encodeURIComponent(String(data.id))}` as never,
                                     );
                                 }}
+                            />
+                        ) : null}
+                        {printable ? (
+                            /*
+                             * One control, two labels. A draft says **Preview** because what comes
+                             * back is marked Draft and is not the document anybody hands over; an
+                             * issued order says **Print** because it is. Two separate buttons for
+                             * one destination would be two things to keep in step for no gain.
+                             */
+                            <Button
+                                testID="kitchen-supply-order-detail-print"
+                                variant={issuable ? 'ghost' : 'secondary'}
+                                label={
+                                    issuable
+                                        ? t('kitchen:ops.supplyOrders.print.preview')
+                                        : t('kitchen:ops.supplyOrders.print.printOrder')
+                                }
+                                onPress={openPrint}
                             />
                         ) : null}
                         {cancellable ? (

@@ -251,6 +251,18 @@ function SupplyOrderBuilder() {
      * and leaving somebody on a builder whose rows have just been ordered would invite a second
      * batch. `replace` rather than `push`, so Back does not return to a stale form.
      *
+     * ## Why the print link travels in the URL rather than in the toast (SUP7, §7)
+     *
+     * §7 wants **Print them** offered the moment a batch exists — four drafts raised together are
+     * four sheets somebody wants to walk to the printer with. The design system's `ToastOptions`
+     * carries a message, a tone and a duration and no action slot, and growing one for a single
+     * caller would put a control inside a thing that disappears on a timer: a person who looks away
+     * loses the affordance and has no way back to it.
+     *
+     * So the identifiers ride to the landing page as `?created=`, which renders a standing success
+     * callout carrying the link. It survives a glance away, it survives a refresh, and it is
+     * addressable — the same query string is what the print route itself takes.
+     *
      * On failure the dialog stays open with a danger line inside it. The batch is atomic — nothing
      * was saved — so the honest offer is "try again" rather than an explanation of partial state.
      */
@@ -259,7 +271,12 @@ function SupplyOrderBuilder() {
             onSuccess: (created) => {
                 setConfirmingCreate(false);
                 setCreateFailed(false);
-                router.replace('/kitchen/supply-orders' as never);
+                // Returned in request order (§6), and passed on in that order: the sheets come out
+                // of the printer grouped the way the person grouped them.
+                const ids = created.map((order) => String(order.id)).join(',');
+                router.replace(
+                    `/kitchen/supply-orders?created=${encodeURIComponent(ids)}` as never,
+                );
                 toast.show({
                     testID: 'kitchen-supply-order-created-toast',
                     tone: 'success',

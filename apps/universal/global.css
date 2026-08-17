@@ -51,3 +51,149 @@
         font-family: var(--h360-font-family-arabic);
     }
 }
+
+/* ================================================================================================
+   Print / Save PDF — the Phase 1 export (supplier plan §7, SUP7).
+
+   Everything below bites only under print media, so the application on screen is untouched. It is
+   keyed on `data-testid` rather than on class names because react-native-web emits hashed atomic
+   classes that change between builds, while these test ids are already load-bearing for Playwright
+   and cannot be renamed silently. The ids are the real ones:
+
+     kitchen-shell-topbar / -sidebar / -navigation / -drawer  →  AppShell (variant `workspace`)
+     offline-indicator                                        →  AreaShell's banner
+     kitchen-breadcrumbs                                      →  KitchenOpsShell
+     toast-region-polite / -assertive                         →  ToastProvider
+     kitchen-supply-print-toolbar                             →  the print screen's own controls
+     kitchen-supply-print-sheets                              →  the box holding one sheet per order
+
+   ## One sheet is a child of the sheets box, not a prefix match
+
+   `printSheetTestId(id)` is the stem of every id *inside* a sheet too, so `^='…-sheet-'` matches
+   the title, the address and every item row as well as the sheet. The page-break rules therefore
+   select `[data-testid='kitchen-supply-print-sheets'] > [data-testid^='…-sheet-']` — which is why
+   the print screen puts nothing but sheets in that box.
+
+   ## The height reset is not optional
+
+   `expo-router/html`'s `ScrollViewStyleReset` gives `html, body, #root` a height of 100% and hides
+   the body's overflow so that ScrollViews behave as they do on native. Under print that means the
+   document is exactly one viewport tall and everything below the fold is simply not printed —
+   which looks like a four-page order that mysteriously prints one page. So the chain from the
+   document root down to the sheets is unwound: auto height, visible overflow, no flex.
+   ============================================================================================== */
+@media print {
+    @page {
+        size: A4;
+        margin: 14mm 12mm;
+    }
+
+    html,
+    body,
+    #root {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    /* Every ancestor of a sheet is a flex box with its own scroller. A scroller that keeps its
+       height clips the document at one page, so nothing inside the app root scrolls in print. */
+    #root * {
+        overflow: visible !important;
+    }
+
+    [data-testid='kitchen-shell'],
+    [data-testid='kitchen-shell-content'],
+    /* react-native-web's ScrollView renders an inner content-container div; it carries the flex
+       growth that would otherwise pin the document to one screen. */
+    [data-testid='kitchen-shell-content'] > div,
+    [data-testid='kitchen-ops-shell'],
+    [data-testid='kitchen-ops-content'],
+    [data-testid='kitchen-supply-print-screen'],
+    [data-testid='kitchen-supply-print-sheets'] {
+        display: block !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+        flex: none !important;
+        padding: 0 !important;
+    }
+
+    /* The same unwinding, stated structurally: *every* box between the body and the sheets,
+       whatever the shell puts in between. It is a separate rule on purpose — an engine without
+       `:has()` drops this block whole and keeps the explicit chain above as its fallback.
+
+       It matches on the **container**, never on `^='…-sheet-'`: every id inside a sheet shares the
+       sheet's own prefix, so `:has([data-testid^='…-sheet-'])` would also match the sheet and half
+       the boxes within it, flatten them all to `display: block` and take every gap on the page
+       with it. */
+    body :has([data-testid='kitchen-supply-print-sheets']) {
+        display: block !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+        flex: none !important;
+        overflow: visible !important;
+    }
+
+    /* The application around the document. §7: navigation and actions are hidden under print. */
+    [data-testid='kitchen-shell-topbar'],
+    [data-testid='kitchen-shell-sidebar'],
+    [data-testid='kitchen-shell-navigation'],
+    [data-testid='kitchen-shell-drawer'],
+    [data-testid='kitchen-breadcrumbs'],
+    [data-testid='offline-indicator'],
+    [data-testid='toast-region-polite'],
+    [data-testid='toast-region-assertive'],
+    [data-testid='kitchen-supply-print-toolbar'] {
+        display: none !important;
+    }
+
+    /* §7: each supplier's order starts on a new page — and only *between* sheets. A break after the
+       last one is a blank final page, which is how a four-order batch prints five sheets.
+
+       A **child** selector, never a bare prefix: `printSheetTestId` is the stem of every id inside
+       the sheet as well (`…-title`, `…-line-{item}`, `…-contact-0`), so `^=` alone would break the
+       page after the document title, after the address and after every single item row. The sheets
+       are exactly the element children of their container, which is why nothing else may be put
+       inside that box. */
+    [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'] {
+        break-after: page;
+        page-break-after: always; /* Legacy alias — Safari and older WebKit ignore `break-after`. */
+        break-inside: auto;
+        max-width: none !important;
+        margin: 0 !important;
+        /* The page box already provides the margin; the on-screen card padding would add to it. */
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+
+    [data-testid='kitchen-supply-print-sheets']
+        > [data-testid^='kitchen-supply-print-sheet-']:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    /* Monochrome by construction rather than by hoping the printer is colour. Borders stay black so
+       the item rules and the signature lines survive; backgrounds go, because a tinted surface
+       prints as grey wash and costs toner for nothing. Descendants are included by `*` because most
+       of the text on a sheet carries no test id of its own. */
+    [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'],
+    [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'] * {
+        color: #000 !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        border-color: #000 !important;
+        box-shadow: none !important;
+    }
+
+    /* Long orders continue onto further pages rather than being scaled down (§7), so a row must not
+       be split across the fold — half a quantity on each page is worse than a shorter page. */
+    [data-testid='kitchen-supply-print-sheets'] [role='row'] {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}

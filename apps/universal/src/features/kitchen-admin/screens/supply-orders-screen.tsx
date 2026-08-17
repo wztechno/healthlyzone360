@@ -2,6 +2,7 @@ import type { OrderProposalItem, PurchaseOrder } from '@healthy360/api-client/co
 import {
     Badge,
     Button,
+    Callout,
     Card,
     EmptyState,
     ErrorState,
@@ -75,6 +76,14 @@ import {
  * not to start another one. An empty book is dressed as the beginning of something rather than as a
  * failure — a kitchen that has never ordered through this screen has not lost anything.
  *
+ * ## The batch that was just created gets a standing notice, not a toast action (SUP7)
+ *
+ * The builder replaces itself with this page and passes `?created=`. §7 wants **Print them** offered
+ * the moment several drafts exist, and the design system's toast carries no action slot — so the
+ * link lives in a success callout above the panel, which survives a glance away and a refresh. It
+ * counts from the query string rather than from the book, because a keyset page cannot tell you how
+ * many orders were made.
+ *
  * **The metrics row does not grow a "drafts" tile**, and the reason is arithmetic rather than taste.
  * The list is a keyset page: `totalCount` is `null` by contract, so counting drafts from the rows in
  * hand would answer "3" whether the kitchen has three drafts or thirty. A number that is right only
@@ -87,19 +96,27 @@ const PREVIEW_ROWS = 8;
 
 const EM_DASH = '—';
 
-export function SupplyOrdersScreen() {
+export interface SupplyOrdersScreenProps {
+    /**
+     * The `created` query parameter the builder hands back — comma-separated identifiers of the
+     * drafts it has just raised (SUP7). Absent on every other way of arriving here.
+     */
+    readonly created?: string | undefined;
+}
+
+export function SupplyOrdersScreen({ created }: SupplyOrdersScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_ORDER_SUPPLIES_PERMISSION] }}
             testID="kitchen-supply-orders"
         >
-            <SupplyOrders />
+            <SupplyOrders created={created} />
         </Gate>
     );
 }
 
-function SupplyOrders() {
+function SupplyOrders({ created }: SupplyOrdersScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
@@ -149,6 +166,21 @@ function SupplyOrders() {
     // shortage queue, and a kitchen with nothing short may still have five orders out.
     const orderRows = orders.data?.items ?? [];
     const ordersFailure = toFailure(orders.error);
+
+    /*
+     * SUP7. The builder replaces itself with this page and passes the identifiers it just created;
+     * the callout below is where **Print them** lives. A standing notice rather than a toast action
+     * on purpose — see the builder's own note: a control inside something that vanishes on a timer
+     * is a control a person loses by looking away.
+     *
+     * Counted from the query string rather than from the order book, because the book is a keyset
+     * page whose `totalCount` is null by contract: "4 orders created" must be the number that was
+     * actually created, not the number of rows that happen to be on the first page.
+     */
+    const createdIds = (created ?? '')
+        .split(',')
+        .map((segment) => segment.trim())
+        .filter((segment) => segment !== '');
 
     const orderColumns: readonly TableColumn<PurchaseOrder>[] = [
         {
@@ -307,6 +339,34 @@ function SupplyOrders() {
                 />
             ) : (
                 <>
+                    {createdIds.length === 0 ? null : (
+                        <Callout
+                            testID="kitchen-supply-orders-created"
+                            tone="success"
+                            // `status`, not `alert`: it reports something that has already gone
+                            // well. An alert would interrupt a screen reader to say "done".
+                            role="status"
+                            title={t('kitchen:ops.supplyOrders.print.createdTitle', {
+                                count: createdIds.length,
+                            })}
+                            body={t('kitchen:ops.supplyOrders.print.createdBody')}
+                            actions={
+                                <Button
+                                    testID="kitchen-supply-orders-created-print"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.supplyOrders.print.printThem', {
+                                        count: createdIds.length,
+                                    })}
+                                    onPress={() => {
+                                        router.push(
+                                            `/kitchen/supply-orders/print?orders=${encodeURIComponent(createdIds.join(','))}` as never,
+                                        );
+                                    }}
+                                />
+                            }
+                        />
+                    )}
+
                     <OpsPanel
                         testID="kitchen-supply-orders-panel"
                         titleKey="kitchen:ops.supplyOrders.panelTitle"

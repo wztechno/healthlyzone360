@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6048 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6088 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3586,6 +3586,46 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.prepare'
     | 'ops.supplyOrders.previewCaption'
     | 'ops.supplyOrders.previewTitle'
+    | 'ops.supplyOrders.print.branch'
+    | 'ops.supplyOrders.print.columnIndex'
+    | 'ops.supplyOrders.print.columnItem'
+    | 'ops.supplyOrders.print.columnNotes'
+    | 'ops.supplyOrders.print.columnQuantity'
+    | 'ops.supplyOrders.print.columnRef'
+    | 'ops.supplyOrders.print.contactsHeading'
+    | 'ops.supplyOrders.print.createdBody'
+    | 'ops.supplyOrders.print.createdTitle'
+    | 'ops.supplyOrders.print.documentTitle'
+    | 'ops.supplyOrders.print.draftMarker'
+    | 'ops.supplyOrders.print.draftSupplierNote'
+    | 'ops.supplyOrders.print.generalContact'
+    | 'ops.supplyOrders.print.itemCount'
+    | 'ops.supplyOrders.print.itemsCaption'
+    | 'ops.supplyOrders.print.itemsHeading'
+    | 'ops.supplyOrders.print.missing'
+    | 'ops.supplyOrders.print.missingTitle'
+    | 'ops.supplyOrders.print.nativeUnavailableBody'
+    | 'ops.supplyOrders.print.nativeUnavailableTitle'
+    | 'ops.supplyOrders.print.noContacts'
+    | 'ops.supplyOrders.print.nothingFoundBody'
+    | 'ops.supplyOrders.print.nothingToPrintBody'
+    | 'ops.supplyOrders.print.nothingToPrintTitle'
+    | 'ops.supplyOrders.print.orderCount'
+    | 'ops.supplyOrders.print.orderDate'
+    | 'ops.supplyOrders.print.orderNotesHeading'
+    | 'ops.supplyOrders.print.orderNumber'
+    | 'ops.supplyOrders.print.orderedBy'
+    | 'ops.supplyOrders.print.paymentTerms'
+    | 'ops.supplyOrders.print.phoneWhatsapp'
+    | 'ops.supplyOrders.print.preview'
+    | 'ops.supplyOrders.print.printAction'
+    | 'ops.supplyOrders.print.printOrder'
+    | 'ops.supplyOrders.print.printThem'
+    | 'ops.supplyOrders.print.receivedBy'
+    | 'ops.supplyOrders.print.signatureDate'
+    | 'ops.supplyOrders.print.status'
+    | 'ops.supplyOrders.print.supplierHeading'
+    | 'ops.supplyOrders.print.title'
     | 'ops.supplyOrders.quantityIssue.blank'
     | 'ops.supplyOrders.quantityIssue.negative'
     | 'ops.supplyOrders.quantityIssue.notANumber'
@@ -9652,6 +9692,46 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.prepare',
   'kitchen:ops.supplyOrders.previewCaption',
   'kitchen:ops.supplyOrders.previewTitle',
+  'kitchen:ops.supplyOrders.print.branch',
+  'kitchen:ops.supplyOrders.print.columnIndex',
+  'kitchen:ops.supplyOrders.print.columnItem',
+  'kitchen:ops.supplyOrders.print.columnNotes',
+  'kitchen:ops.supplyOrders.print.columnQuantity',
+  'kitchen:ops.supplyOrders.print.columnRef',
+  'kitchen:ops.supplyOrders.print.contactsHeading',
+  'kitchen:ops.supplyOrders.print.createdBody',
+  'kitchen:ops.supplyOrders.print.createdTitle',
+  'kitchen:ops.supplyOrders.print.documentTitle',
+  'kitchen:ops.supplyOrders.print.draftMarker',
+  'kitchen:ops.supplyOrders.print.draftSupplierNote',
+  'kitchen:ops.supplyOrders.print.generalContact',
+  'kitchen:ops.supplyOrders.print.itemCount',
+  'kitchen:ops.supplyOrders.print.itemsCaption',
+  'kitchen:ops.supplyOrders.print.itemsHeading',
+  'kitchen:ops.supplyOrders.print.missing',
+  'kitchen:ops.supplyOrders.print.missingTitle',
+  'kitchen:ops.supplyOrders.print.nativeUnavailableBody',
+  'kitchen:ops.supplyOrders.print.nativeUnavailableTitle',
+  'kitchen:ops.supplyOrders.print.noContacts',
+  'kitchen:ops.supplyOrders.print.nothingFoundBody',
+  'kitchen:ops.supplyOrders.print.nothingToPrintBody',
+  'kitchen:ops.supplyOrders.print.nothingToPrintTitle',
+  'kitchen:ops.supplyOrders.print.orderCount',
+  'kitchen:ops.supplyOrders.print.orderDate',
+  'kitchen:ops.supplyOrders.print.orderNotesHeading',
+  'kitchen:ops.supplyOrders.print.orderNumber',
+  'kitchen:ops.supplyOrders.print.orderedBy',
+  'kitchen:ops.supplyOrders.print.paymentTerms',
+  'kitchen:ops.supplyOrders.print.phoneWhatsapp',
+  'kitchen:ops.supplyOrders.print.preview',
+  'kitchen:ops.supplyOrders.print.printAction',
+  'kitchen:ops.supplyOrders.print.printOrder',
+  'kitchen:ops.supplyOrders.print.printThem',
+  'kitchen:ops.supplyOrders.print.receivedBy',
+  'kitchen:ops.supplyOrders.print.signatureDate',
+  'kitchen:ops.supplyOrders.print.status',
+  'kitchen:ops.supplyOrders.print.supplierHeading',
+  'kitchen:ops.supplyOrders.print.title',
   'kitchen:ops.supplyOrders.quantityIssue.blank',
   'kitchen:ops.supplyOrders.quantityIssue.negative',
   'kitchen:ops.supplyOrders.quantityIssue.notANumber',

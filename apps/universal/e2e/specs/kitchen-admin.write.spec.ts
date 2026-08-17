@@ -1848,6 +1848,12 @@ test.describe('kitchen workspace (en)', () => {
             .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
             .first();
         await expect(orderOpen).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        // Kept, because **Issue and print** now leaves this screen for the sheet (SUP7) and the
+        // receiving half of this journey has to come back to precisely this order rather than to
+        // whichever one happens to be at the top of the book by then.
+        const orderTestId = await orderOpen.getAttribute('data-testid');
+        if (orderTestId === null) throw new Error('The order row carries no test id.');
+        const orderId = orderTestId.replace('kitchen-purchase-order-', '').replace(/-open$/, '');
         await orderOpen.click();
 
         // A draft is a form: the save control and the quantity boxes are both present, and the
@@ -1864,6 +1870,39 @@ test.describe('kitchen workspace (en)', () => {
         await page.getByTestId('kitchen-supply-order-detail-issue-confirm-action').click();
         await expectToast(page, 'kitchen-supply-order-issued-toast');
 
+        /*
+         * ── SUP7: **Issue and print**, in that order ───────────────────────────────────────────
+         *
+         * §7's primary final action does two things and the sequence is the claim: the order is
+         * frozen first and the sheet opens second, so the document on screen is built from
+         * `recipientSnapshot` rather than from a draft preview. If the navigation ever fired before
+         * the mutation settled, this lands on a Draft-marked page and the assertion below fails.
+         */
+        await expect(page.getByTestId('kitchen-supply-print-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supply-print-sheets')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Exactly the one order that was just issued, and it is a document rather than a preview.
+        const issuedSheets = page.locator('[data-testid="kitchen-supply-print-sheets"] > div');
+        await expect(issuedSheets).toHaveCount(1);
+        await expect(
+            page.getByTestId(`kitchen-supply-print-sheet-${orderId}-supplier-name`),
+        ).toBeVisible();
+        await expect(page.getByTestId(`kitchen-supply-print-sheet-${orderId}-draft`)).toHaveCount(
+            0,
+        );
+        // §7: quantity and unit are on the sheet; the supplier's own reference column is there too.
+        await expect(
+            page.locator(`[data-testid^="kitchen-supply-print-sheet-${orderId}-line-"]`).first(),
+        ).toBeVisible();
+
+        /* ── back to the order, for the receiving half ─────────────────────────────────────────── */
+
+        await page.goto(`/kitchen/supply-orders/${orderId}`);
+
         // Issued is a document: the notice appears, the save control is gone, and the supplier
         // block now reads the snapshot frozen at the moment of issue rather than the live record.
         await expect(page.getByTestId('kitchen-supply-order-detail-issued-notice')).toBeVisible({
@@ -1876,6 +1915,8 @@ test.describe('kitchen workspace (en)', () => {
 
         // Cancelling stays available on an issued order — nothing has been delivered against it.
         await expect(page.getByTestId('kitchen-supply-order-detail-cancel')).toBeVisible();
+        // And the reprint affordance is there and says Print rather than Preview (SUP7).
+        await expect(page.getByTestId('kitchen-supply-order-detail-print')).toBeVisible();
 
         /*
          * ── receiving the order, in two deliveries (SUP5) ──────────────────────────────────────
@@ -1945,6 +1986,115 @@ test.describe('kitchen workspace (en)', () => {
             /received/i,
             { timeout: JOURNEY_TIMEOUT },
         );
+    });
+
+    /**
+     * SUP7. The print route under **print media**, which is the only place §7's four hard promises
+     * can actually be checked: the application chrome is hidden, every order starts on a new page,
+     * the sheets are the whole document, and no money appears anywhere on any of them.
+     *
+     * `page.emulateMedia({ media: 'print' })` is what makes that possible without a printer — the
+     * browser evaluates the `@media print` block in `apps/universal/global.css` and reports the
+     * computed styles the printer would use. Asserting the CSS file's text instead would prove
+     * nothing about whether the selectors match the shell's real markup, which is exactly the half
+     * that breaks when a component is renamed.
+     *
+     * It runs after the journey above, so the order book has at least the order that journey issued.
+     * More than one is better — the page break between sheets is the interesting assertion and it
+     * needs two — so this takes up to three and states what it can at whatever count exists.
+     */
+    test('lays every order out as its own page, with no chrome and no money', async ({ page }) => {
+        await openWorkspace(page);
+        await openScreen(
+            page,
+            '/kitchen/supply-orders',
+            'kitchen-supply-orders-screen',
+            'kitchen-supply-orders-panel',
+        );
+
+        const opens = page.locator(
+            '[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]',
+        );
+        await expect(opens.first()).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+
+        const ids = (
+            await opens.evaluateAll((nodes) =>
+                nodes.map((node) => node.getAttribute('data-testid') ?? ''),
+            )
+        )
+            .map((testId) => testId.replace('kitchen-purchase-order-', '').replace(/-open$/, ''))
+            .filter((id) => id !== '')
+            .slice(0, 3);
+
+        expect(ids.length).toBeGreaterThan(0);
+
+        await page.goto(`/kitchen/supply-orders/print?orders=${ids.join(',')}`);
+        await expect(page.getByTestId('kitchen-supply-print-sheets')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Direct children of the container, never a `^=` prefix match: every id *inside* a sheet
+        // shares the sheet's own prefix, so a prefix locator would count the title and the branch
+        // and report a page full of sheets that has none.
+        const sheets = page.locator('[data-testid="kitchen-supply-print-sheets"] > div');
+        await expect(sheets).toHaveCount(ids.length);
+
+        // §7 and §3.5's structural boundary, stated where a person would actually see it break: a
+        // purchase order carries no price, amount, currency or total at any depth, so nothing on
+        // the paper may look like money.
+        const sheetText = await sheets.evaluateAll((nodes) =>
+            nodes.map((node) => node.textContent ?? '').join('\n'),
+        );
+        expect(sheetText).not.toMatch(/price|total|amount|USD|\$/i);
+
+        /* ── and now as the printer sees it ───────────────────────────────────────────────────── */
+
+        await page.emulateMedia({ media: 'print' });
+
+        // The application around the document, by the shell's real test ids. `toBeHidden` also
+        // passes for an element that is not in the DOM at all, which is what the sidebar is below
+        // the `lg` breakpoint — so this holds at every viewport the suite runs at.
+        for (const chrome of [
+            'kitchen-shell-topbar',
+            'kitchen-shell-sidebar',
+            'kitchen-shell-navigation',
+            'kitchen-breadcrumbs',
+            'kitchen-supply-print-toolbar',
+        ]) {
+            await expect(page.getByTestId(chrome)).toBeHidden();
+        }
+
+        // The sheets survive, and each one but the last ends its page.
+        await expect(sheets.first()).toBeVisible();
+        const breaks = await sheets.evaluateAll((nodes) =>
+            nodes.map((node) => window.getComputedStyle(node).breakAfter),
+        );
+        expect(breaks).toHaveLength(ids.length);
+        expect(breaks.slice(0, -1).every((value) => value === 'page')).toBe(true);
+        // A break after the last sheet is a blank final page — which is how a four-order batch
+        // comes out of the printer as five.
+        expect(breaks[breaks.length - 1]).toBe('auto');
+
+        /*
+         * And the document is not clipped to one screen. `ScrollViewStyleReset` (expo-router/html)
+         * pins `html`, `body` and `#root` to 100% height and hides the body's overflow so that
+         * ScrollViews behave as they do on native — under print that means everything below the
+         * fold simply is not printed, which looks like a four-page order that mysteriously prints
+         * one. The print block unwinds it, and these two assertions are what prove it did.
+         */
+        expect(await page.evaluate(() => window.getComputedStyle(document.body).overflow)).toBe(
+            'visible',
+        );
+        expect(
+            await sheets.last().evaluate((node) => {
+                const bottom = node.getBoundingClientRect().bottom + window.scrollY;
+                // Two pixels of tolerance for sub-pixel layout rounding.
+                return bottom <= document.documentElement.scrollHeight + 2;
+            }),
+        ).toBe(true);
+
+        await page.emulateMedia({ media: 'screen' });
+        await expect(page.getByTestId('kitchen-supply-print-toolbar')).toBeVisible();
     });
 
     test('refuses an over-receipt until it is confirmed and explained', async ({ page }) => {

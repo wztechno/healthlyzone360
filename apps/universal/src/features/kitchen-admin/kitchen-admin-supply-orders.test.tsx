@@ -656,10 +656,17 @@ describe('supply order builder', () => {
             });
         });
 
-        // The builder steps aside: leaving somebody on a form whose rows have just been ordered
-        // invites a second batch.
+        /*
+         * The builder steps aside: leaving somebody on a form whose rows have just been ordered
+         * invites a second batch. It carries the new identifiers with it (SUP7, §7) so the landing
+         * page can offer **Print them** — a standing callout rather than a toast action, because
+         * the design system's toast has no action slot and a control that vanishes on a timer is a
+         * control a person loses by looking away.
+         */
         await waitFor(() => {
-            expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/supply-orders');
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/kitchen/supply-orders?created=${encodeURIComponent(String(purchaseOrderId(1)))}`,
+            );
         });
     });
 
@@ -742,6 +749,40 @@ describe('supply orders book', () => {
         expect(routerMock.__push).toHaveBeenCalledWith(
             `/kitchen/supply-orders/${String(purchaseOrderId(1))}`,
         );
+    });
+
+    /**
+     * SUP7. The builder replaces itself with this page and hands over the identifiers it just
+     * created; **Print them** lives in the callout that reads them.
+     *
+     * The count comes from the query string rather than from the book on purpose: the list is a
+     * keyset page whose `totalCount` is null by contract, so counting the rows in hand would say
+     * "2 orders created" whether two were created or twenty.
+     */
+    it('offers to print the batch the builder just created', async () => {
+        const created = [purchaseOrderId(1), purchaseOrderId(2)].map(String);
+
+        await renderStubScreen(<SupplyOrdersScreen created={created.join(',')} />, {
+            session: kitchenManagerSession(),
+            repositories: landingOverrides([LOW_ONLY], [purchaseOrder(1), purchaseOrder(2)]),
+        });
+
+        await untilVisible('kitchen-supply-orders-created');
+
+        fireEvent.press(screen.getByTestId('kitchen-supply-orders-created-print'));
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            `/kitchen/supply-orders/print?orders=${encodeURIComponent(created.join(','))}`,
+        );
+    });
+
+    it('shows no created notice when the page was not reached from the builder', async () => {
+        await renderStubScreen(<SupplyOrdersScreen />, {
+            session: kitchenManagerSession(),
+            repositories: landingOverrides([LOW_ONLY], [purchaseOrder(1)]),
+        });
+
+        await untilVisible('kitchen-supply-orders-book-table');
+        expect(screen.queryByTestId('kitchen-supply-orders-created')).toBeNull();
     });
 
     it('dresses an empty book as a beginning rather than a failure', async () => {
@@ -840,11 +881,11 @@ describe('purchase order detail', () => {
     });
 
     it.each([
-        ['draft', { save: true, issue: true, cancel: true }],
-        ['issued', { save: false, issue: false, cancel: true }],
-        ['partially_received', { save: false, issue: false, cancel: false }],
-        ['received', { save: false, issue: false, cancel: false }],
-        ['cancelled', { save: false, issue: false, cancel: false }],
+        ['draft', { save: true, issue: true, cancel: true, print: true }],
+        ['issued', { save: false, issue: false, cancel: true, print: true }],
+        ['partially_received', { save: false, issue: false, cancel: false, print: true }],
+        ['received', { save: false, issue: false, cancel: false, print: true }],
+        ['cancelled', { save: false, issue: false, cancel: false, print: false }],
     ] as const)('offers exactly the controls a %s order permits', async (status, expected) => {
         await renderStubScreen(<SupplyOrderDetailScreen order={String(purchaseOrderId(1))} />, {
             session: kitchenManagerSession(),
@@ -868,9 +909,16 @@ describe('purchase order detail', () => {
         expect(present('kitchen-supply-order-detail-screen-save')).toBe(expected.save);
         expect(present('kitchen-supply-order-detail-issue')).toBe(expected.issue);
         expect(present('kitchen-supply-order-detail-cancel')).toBe(expected.cancel);
+        /*
+         * SUP7. Four of the five have a document worth putting on paper — a draft's is a preview
+         * carrying a Draft marker. `cancelled` is the exception and it is the interesting one: the
+         * sheet exists to be handed to a supplier, and handing over an order that was called off is
+         * how a delivery nobody ordered turns up at the door.
+         */
+        expect(present('kitchen-supply-order-detail-print')).toBe(expected.print);
     });
 
-    it('confirms before issuing and sends the order identifier', async () => {
+    it('confirms before issuing, then opens the sheet it just froze', async () => {
         const issuePurchaseOrder = jest.fn(async () =>
             purchaseOrder(1, {
                 status: 'issued',
@@ -889,8 +937,6 @@ describe('purchase order detail', () => {
 
         await untilVisible('kitchen-supply-order-detail-issue');
 
-        // No print affordance yet. "Issue and print" arrives with the print sheet, and a disabled
-        // button in the meantime would teach people that buttons do nothing.
         fireEvent.press(screen.getByTestId('kitchen-supply-order-detail-issue'));
         await untilVisible('kitchen-supply-order-detail-issue-confirm');
         fireEvent.press(screen.getByTestId('kitchen-supply-order-detail-issue-confirm-action'));
@@ -898,6 +944,18 @@ describe('purchase order detail', () => {
         await waitFor(() => {
             expect(repositories.kitchenOps.issuePurchaseOrder).toHaveBeenCalledWith(
                 purchaseOrderId(1),
+            );
+        });
+
+        /*
+         * §7's **Issue and print**, and the order of the two halves is the claim. The navigation
+         * happens inside `onSuccess`, so the sheet is only ever reached once the server has frozen
+         * the document — printing first would put a Draft-marked preview in somebody's hand and
+         * leave the real one unprinted.
+         */
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith(
+                `/kitchen/supply-orders/print?orders=${encodeURIComponent(String(purchaseOrderId(1)))}`,
             );
         });
     });
