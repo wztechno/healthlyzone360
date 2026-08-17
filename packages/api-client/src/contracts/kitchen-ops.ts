@@ -543,8 +543,21 @@ export interface PurchaseOrderLine {
      * under an Arabic heading.
      */
     readonly itemNameAr: string | null;
-    /** A decimal string, never a float. Always above zero. */
+    /** A decimal string, never a float. Always above zero. What was asked for. */
     readonly quantity: string;
+    /**
+     * How much has actually turned up, summed across every delivery against this line (SUP5).
+     * Expressed in this line's own {@link unitCode}: a delivery quoted per kilogram against a shelf
+     * counted in grams is converted server-side before it is summed, so the three quantities on one
+     * row always add up. A quantity, not money — there is still none of that here.
+     */
+    readonly receivedQuantity: string;
+    /**
+     * What is still to come, and what the receive screen prefills. Floored at zero: an over-receipt
+     * is a real event its variance note records, and a negative amount still to come would be an
+     * arithmetic curiosity rather than an instruction.
+     */
+    readonly outstandingQuantity: string;
     readonly unitCode: string;
     /**
      * The supplier's own catalogue reference, read from the saved link at write time so the sheet
@@ -639,9 +652,36 @@ export interface PurchaseOrder {
     readonly lineCount: number;
     /** Survives cancellation — cancelling an issued order does not un-issue it. */
     readonly issuedAt: IsoDateTime | null;
+    /**
+     * When the last outstanding line actually arrived (SUP5). An order closed short reaches
+     * `received` with this still `null` and {@link closedAt} set instead: nothing was last fulfilled,
+     * and a date here would be a small lie in the one place a person checks.
+     */
+    readonly receivedAt: IsoDateTime | null;
+    /** When the order stopped expecting anything more — set on both routes to `received`. */
+    readonly closedAt: IsoDateTime | null;
+    /** Why the rest was written off (SUP5). Only ever set on an order somebody closed short. */
+    readonly closeShortReason: string | null;
     readonly cancelledAt: IsoDateTime | null;
     readonly createdAt: IsoDateTime | null;
     readonly lines: readonly PurchaseOrderLine[];
+    /** Every delivery made against this order, oldest first (SUP5). */
+    readonly receipts: readonly PurchaseOrderReceiptRef[];
+}
+
+/**
+ * One delivery made against an order, as the order lists it (SUP5).
+ *
+ * A reference rather than the receipt itself: the date, the delivery note and the line count are
+ * what an order detail shows, and the money on those lines is behind a permission the order response
+ * does not check. A screen that wants the figures opens the receipt.
+ */
+export interface PurchaseOrderReceiptRef {
+    readonly id: GoodsReceiptId;
+    /** The branch-local business day the delivery was filed under, `YYYY-MM-DD`. */
+    readonly receivedOn: string | null;
+    readonly documentRef: string | null;
+    readonly lineCount: number;
 }
 
 /** Narrows the order book (SUP4). */
@@ -819,8 +859,34 @@ export interface ProcurementReference {
     readonly measurementUnits: readonly MeasurementUnitOption[];
 }
 
+/** Every costing state a receipt can be in, closed so a screen's records cannot miss one. */
+export const RECEIPT_COST_STATUSES = ['unpriced', 'partial', 'complete'] as const;
+
+/**
+ * Whether a receipt's costing is finished (SUP5, §3.6).
+ *
+ * Derived server-side from the lines and never set by hand: a line counts as settled when it carries
+ * `costedAt`, the receipt is `complete` when every line does, `unpriced` when none does, `partial`
+ * in between.
+ *
+ * A receipt whose only line is {@link GoodsReceiptLine.valuationPendingFx} therefore reads
+ * `unpriced` even though its price is recorded, because its costing genuinely is not finished. The
+ * pending count beside it is what tells a person which kind of unfinished it is.
+ *
+ * **Not redacted** without the cost permission: this says whether the paperwork needs attention, not
+ * what anything cost.
+ */
+export type ReceiptCostStatus = (typeof RECEIPT_COST_STATUSES)[number];
+
 export interface GoodsReceiptLine {
+    /** The line's own identifier — what price completion names when it fills in a missing figure. */
+    readonly id: string;
     readonly stockItemId: StockItemId;
+    /**
+     * The ordered line this delivery fulfils (SUP5). `null` for a direct market purchase and for an
+     * unplanned extra item on an ordered delivery, both of which are ordinary.
+     */
+    readonly purchaseOrderLineId: string | null;
     readonly quantity: string;
     /** The unit the price is quoted per (INV1.1); `null` on an unpriced line. */
     readonly unitId: string | null;
@@ -831,6 +897,19 @@ export interface GoodsReceiptLine {
     readonly unitPriceAmount: string | null;
     readonly lineTotalAmount: string | null;
     readonly costCurrencyCode: string | null;
+    /**
+     * When this line's money was settled (SUP5). `null` means the costing path has not run and price
+     * completion may still act on it — the guard that stops one quantity being costed twice. Never
+     * redacted: it is a work state, not a figure.
+     */
+    readonly costedAt: IsoDateTime | null;
+    /**
+     * The price is recorded exactly as the supplier wrote it and could not be blended into the
+     * ingredient's valuation currency (SUP5, §3.6). Physical receiving is never lost to a currency
+     * and no exchange rate is ever invented; a later accounting phase may resolve it. Until then the
+     * line is honestly incomplete rather than quietly wrong.
+     */
+    readonly valuationPendingFx: boolean;
 }
 
 export interface GoodsReceipt {
@@ -838,22 +917,185 @@ export interface GoodsReceipt {
     readonly branchId: BranchId;
     /** Who the stock was bought from (INV1.1), or `null`. */
     readonly supplier: SupplierRef | null;
-    /** The supplier delivery note or invoice number, as written (INV1.1). */
+    /** The supplier **delivery note**, as written (INV1.1) — the paper the driver handed over. */
     readonly documentRef: string | null;
-    /** Always `null` in v1 — there is no purchase-order surface yet to have created one. */
-    readonly purchaseOrderId: string | null;
+    /** The supplier's invoice number (SUP5) — a different document, often days later. */
+    readonly supplierInvoiceRef: string | null;
+    /** The invoice date, `YYYY-MM-DD`. */
+    readonly invoiceDate: string | null;
+    /**
+     * Why this delivery differs from what was ordered (SUP5). Required for an over-receipt and for
+     * an unplanned extra item — a required explanation that was then discarded would be the plainest
+     * kind of silent behaviour, so it is kept and shown.
+     */
+    readonly varianceNote: string | null;
+    /** The order this delivery settled (SUP5), or `null` for a direct market purchase. */
+    readonly purchaseOrderId: PurchaseOrderId | null;
     readonly receivedAt: IsoDateTime | null;
+    /**
+     * The branch-local business day this delivery is filed under, `YYYY-MM-DD` (SUP5). A different
+     * fact from {@link receivedAt}, not a formatting of it: a van unloaded at 21:30 in Dubai is a
+     * Tuesday delivery, and reading the UTC instant's date would file it on Monday.
+     */
+    readonly receivedOn: string | null;
+    readonly costStatus: ReceiptCostStatus;
+    /** Lines whose money is not settled — the work still outstanding on this receipt. */
+    readonly unpricedLineCount: number;
+    /** Lines whose price is recorded and whose valuation waits on an exchange-rate decision. */
+    readonly valuationPendingCount: number;
     /** The one currency the priced lines share, or `null` (mixed, unpriced, or redacted). */
     readonly currencyCode: string | null;
-    /** The sum of the priced lines, or `null` when mixed-currency, unpriced or redacted. */
+    /** The **item subtotal** — Σ line totals. Never includes the header charges below. */
     readonly receiptTotalAmount: string | null;
+    /** Sent positive and subtracted by the arithmetic; the sign convention lives server-side. */
+    readonly discountAmount: string | null;
+    readonly taxAmount: string | null;
+    readonly deliveryAmount: string | null;
+    readonly otherChargesAmount: string | null;
+    /** What the supplier invoiced in total, when it is known. */
+    readonly invoiceTotalAmount: string | null;
     /** `true` when the reader lacks the cost permission and every money field was nulled (INV1.1). */
     readonly costsRedacted: boolean;
     readonly lines: readonly GoodsReceiptLine[];
 }
 
+/**
+ * One receipt with the order it settled (SUP5) — what the receive confirmation and the unpriced
+ * queue's completion view read.
+ *
+ * The order block is a deliberate **manage-scoped subset** (§5): number, status and the per-line
+ * arithmetic somebody standing over a pallet compares against. It is `null` for a direct purchase,
+ * and it carries no money at any depth because a purchase order has none.
+ */
+export interface GoodsReceiptDetail extends GoodsReceipt {
+    readonly purchaseOrder: ReceiptPurchaseOrderMatch | null;
+}
+
+export interface ReceiptPurchaseOrderMatch {
+    readonly id: PurchaseOrderId;
+    readonly number: string;
+    readonly status: PurchaseOrderStatus;
+    readonly lines: readonly ReceiptPurchaseOrderMatchLine[];
+}
+
+/** One ordered line and how much of it has arrived, all three quantities in the line's own unit. */
+export interface ReceiptPurchaseOrderMatchLine {
+    readonly purchaseOrderLineId: string;
+    readonly stockItemId: StockItemId;
+    readonly itemCode: string;
+    readonly itemNameEn: string;
+    readonly unitCode: string;
+    readonly orderedQuantity: string;
+    readonly receivedQuantity: string;
+    readonly outstandingQuantity: string;
+}
+
+/**
+ * One order a delivery could be received against (SUP5, §4).
+ *
+ * A **manage-scoped subset** of the order book rather than the order book: §5 permits a receiver
+ * holding `inventory.manage_organisation` to see an issued order's supplier, outstanding items and
+ * quantities without the ordering code, because the person unloading the van is rarely the person
+ * who decided to order it. No notes, no recipient snapshot, no history, and no money.
+ */
+export interface ReceivableOrder {
+    readonly id: PurchaseOrderId;
+    readonly number: string;
+    readonly status: PurchaseOrderStatus;
+    readonly branchId: BranchId;
+    readonly supplier: SupplierRef | null;
+    readonly issuedAt: IsoDateTime | null;
+    readonly lineCount: number;
+    /**
+     * Lines with something still to come. Fully delivered lines stay in {@link lines} — a person
+     * checking a delivery against a sheet needs to see the row accounted for rather than missing.
+     */
+    readonly outstandingLineCount: number;
+    readonly lines: readonly ReceivableOrderLine[];
+}
+
+/**
+ * One ordered line with its outstanding quantity — what a receive row is prefilled from (§4).
+ *
+ * The unit is fixed from the order line, so a delivery cannot silently be counted in something else.
+ */
+export interface ReceivableOrderLine {
+    readonly purchaseOrderLineId: string;
+    readonly stockItemId: StockItemId;
+    readonly itemCode: string;
+    readonly itemNameEn: string;
+    readonly itemNameAr: string | null;
+    readonly unitCode: string;
+    readonly unitId: string | null;
+    readonly orderedQuantity: string;
+    readonly receivedQuantity: string;
+    readonly outstandingQuantity: string;
+}
+
+/** Narrows the receivable-orders picker. The branch is required — receiving is always at one site. */
+export interface ReceivableOrderFilter {
+    readonly branchId: BranchId;
+    readonly supplierId?: SupplierId | undefined;
+}
+
+/**
+ * One row of the unpriced-receipts work queue (SUP5, §3.6).
+ *
+ * Deliberately not the whole receipt: this is a list somebody scans to decide what to open next.
+ * The two counts are two different jobs — {@link unpricedLineCount} is "type these prices in",
+ * {@link valuationPendingCount} is "the prices are already here and an exchange-rate decision is not
+ * this screen's to make". A queue showing one number for both would send people to rows they cannot
+ * action. There is no money here at all; the amounts are on the detail, behind the same gate.
+ */
+export interface UnpricedReceipt {
+    readonly id: GoodsReceiptId;
+    readonly receivedOn: string | null;
+    readonly supplier: SupplierRef | null;
+    readonly documentRef: string | null;
+    readonly supplierInvoiceRef: string | null;
+    readonly purchaseOrderId: PurchaseOrderId | null;
+    readonly costStatus: ReceiptCostStatus;
+    readonly lineCount: number;
+    readonly unpricedLineCount: number;
+    readonly valuationPendingCount: number;
+}
+
+/** Narrows the unpriced queue, plus the cursor. */
+export interface UnpricedReceiptFilter extends CursorPageRequest {
+    readonly branchId?: BranchId | undefined;
+    readonly supplierId?: SupplierId | undefined;
+}
+
+/**
+ * One line's missing price (SUP5).
+ *
+ * `lineTotalAmount` is optional and is **checked** server-side against quantity × unit price rather
+ * than stored as given: the total and the price are two views of one fact, and a database holding
+ * two answers for it is worse than one that refuses.
+ */
+export interface CompleteReceiptPriceLine {
+    readonly goodsReceiptLineId: string;
+    readonly unitPriceAmount: number;
+    readonly lineTotalAmount?: number | null | undefined;
+    readonly costCurrencyCode: string;
+}
+
+/**
+ * Prices only (SUP5). The quantities are untouchable: posted quantities are never edited in place,
+ * and nothing on this request could change what arrived.
+ */
+export interface CompleteReceiptPricesRequest {
+    readonly lines: readonly CompleteReceiptPriceLine[];
+}
+
 export interface GoodsReceiptLineInput {
     readonly stockItemId: StockItemId;
+    /**
+     * The ordered line this delivery fulfils (SUP5). Only valid when the receipt names a
+     * `purchaseOrderId`, and it must belong to that order and stock the same item. Omitted on a
+     * direct purchase and on an unplanned extra item, which needs the receipt's `varianceNote`.
+     */
+    readonly purchaseOrderLineId?: string | null | undefined;
     readonly quantity: number;
     /** Required whenever a price is given: the unit the price is quoted per (INV1.1). */
     readonly unitId?: string | null | undefined;
@@ -864,17 +1106,67 @@ export interface GoodsReceiptLineInput {
 
 export interface PostGoodsReceiptRequest {
     readonly branchId: BranchId;
-    /** Who the stock was bought from (INV1.1). */
+    /**
+     * Who the stock was bought from (INV1.1). Required in practice alongside `purchaseOrderId`: a
+     * delivery against an order must name that order's supplier.
+     */
     readonly supplierId?: SupplierId | null | undefined;
-    /** The supplier delivery note or invoice number (INV1.1). */
+    /** The supplier **delivery note**, as written (INV1.1). */
     readonly documentRef?: string | null | undefined;
-    readonly purchaseOrderId?: string | null | undefined;
+    /** The supplier's invoice number (SUP5) — a different document from the delivery note. */
+    readonly supplierInvoiceRef?: string | null | undefined;
+    /** The invoice date, `YYYY-MM-DD`. */
+    readonly invoiceDate?: string | null | undefined;
+    /**
+     * The branch-local business day this delivery belongs to, `YYYY-MM-DD` (SUP5). Omit it and the
+     * server reads today at the receiving branch. A future date is refused.
+     */
+    readonly receivedOn?: string | null | undefined;
+    /**
+     * Why this delivery differs from what was ordered. Required for an over-receipt and for any line
+     * with no `purchaseOrderLineId` on a delivery against an order.
+     */
+    readonly varianceNote?: string | null | undefined;
+    /**
+     * The order this delivery settles (SUP5). It must be issued or partially received and must name
+     * this receipt's branch and supplier; its received state is updated in the same transaction.
+     */
+    readonly purchaseOrderId?: PurchaseOrderId | null | undefined;
+    /** Sent **positive** and subtracted by the arithmetic — the sign convention lives server-side. */
+    readonly discountAmount?: number | null | undefined;
+    readonly taxAmount?: number | null | undefined;
+    readonly deliveryAmount?: number | null | undefined;
+    readonly otherChargesAmount?: number | null | undefined;
+    /**
+     * When sent it must equal `Σ line totals − discount + tax + delivery + other charges`, else the
+     * post is refused with the difference named.
+     */
+    readonly invoiceTotalAmount?: number | null | undefined;
+    /**
+     * Confirms that more is arriving than the order still has outstanding. Required to record an
+     * over-receipt at all, and not sufficient on its own: §3.5 asks for an explicit confirmation
+     * **and** a variance note — one records that somebody clicked, the other what they knew.
+     */
+    readonly overReceiptConfirmed?: boolean | undefined;
+    /**
+     * Close the rest of this order (§3.5). Only valid with a `purchaseOrderId`. If the delivery
+     * turns out to complete the order anyway, no reason is stored — there is nothing to explain.
+     */
+    readonly closeShort?: boolean | undefined;
+    /** Required with `closeShort`. A blank is not an explicit reason. */
+    readonly closeShortReason?: string | null | undefined;
     readonly lines: readonly GoodsReceiptLineInput[];
 }
 
-/** The store's own reply to a post — an id only; the caller re-reads the list for the full row. */
+/**
+ * The store's own reply to a post — the id, plus the two facts a screen acts on straight away
+ * (SUP5): which day the delivery was filed under, and whether its paperwork is done. Everything
+ * else is a re-read.
+ */
 export interface GoodsReceiptResult {
     readonly id: GoodsReceiptId;
+    readonly receivedOn: string | null;
+    readonly costStatus: ReceiptCostStatus;
 }
 
 /**
@@ -887,8 +1179,13 @@ export interface PurchaseLedgerLine {
     readonly id: string;
     readonly goodsReceiptId: GoodsReceiptId;
     readonly receivedAt: IsoDateTime | null;
+    /** The branch-local business day the receipt is filed under (SUP5) — what week/month grouping reads. */
+    readonly receivedOn: string | null;
     readonly supplier: SupplierRef | null;
     readonly documentRef: string | null;
+    readonly purchaseOrderId: PurchaseOrderId | null;
+    /** The parent receipt's costing state (SUP5) — what the completeness filter reads. */
+    readonly costStatus: ReceiptCostStatus | null;
     readonly stockItemId: StockItemId;
     readonly itemCode: string | null;
     readonly itemNameEn: string | null;
@@ -898,6 +1195,8 @@ export interface PurchaseLedgerLine {
     readonly unitPriceAmount: string | null;
     readonly lineTotalAmount: string | null;
     readonly costCurrencyCode: string | null;
+    /** This line's price is recorded and its valuation waits on an exchange rate (SUP5). */
+    readonly valuationPendingFx: boolean;
     readonly costsRedacted: boolean;
 }
 
@@ -917,6 +1216,10 @@ export interface PurchaseLedgerFilter extends CursorPageRequest {
     readonly stockItemId?: StockItemId | undefined;
     /** Only lines whose receipt was posted at this branch (SUP2). */
     readonly branchId?: BranchId | undefined;
+    /** Only lines whose receipt was made against this order (SUP5). */
+    readonly purchaseOrderId?: PurchaseOrderId | undefined;
+    /** Only lines whose receipt is in this costing state (SUP5) — the completeness filter. */
+    readonly costStatus?: ReceiptCostStatus | undefined;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -1266,7 +1569,38 @@ export interface KitchenOpsRepository {
     getProcurementReference(): Promise<ProcurementReference>;
     /** The most recent fifty receipts, newest first. Costs redacted without the cost permission. */
     listGoodsReceipts(): Promise<readonly GoodsReceipt[]>;
+    /**
+     * One receipt with the order it settled, its cost status and its variance (SUP5).
+     *
+     * Needs `inventory.manage_organisation` — the same code that posted it. The money inside is
+     * redacted without `inventory.view_costs_organisation`; the work states are not.
+     */
+    getGoodsReceipt(goodsReceiptId: GoodsReceiptId): Promise<GoodsReceiptDetail>;
     postGoodsReceipt(request: PostGoodsReceiptRequest): Promise<GoodsReceiptResult>;
+    /**
+     * Orders a delivery could be received against at one branch, with each line's outstanding
+     * quantity (SUP5, §4).
+     *
+     * Needs `inventory.manage_organisation`, **not** the ordering code: §5 permits this
+     * manage-scoped subset so a receiver can book in a delivery without holding the order book.
+     */
+    listReceivableOrders(filter: ReceivableOrderFilter): Promise<readonly ReceivableOrder[]>;
+    /**
+     * The unpriced-receipts work queue, oldest first (SUP5, §3.6). Needs
+     * `inventory.view_costs_organisation`.
+     */
+    listUnpricedReceipts(filter?: UnpricedReceiptFilter): Promise<CursorPage<UnpricedReceipt>>;
+    /**
+     * Fills in the prices a receipt was posted without (SUP5, §3.6).
+     *
+     * Prices each line **once** — a line already costed is refused rather than silently skipped —
+     * and never moves stock. Needs `inventory.view_costs_organisation`: entering a price off the
+     * delivery note at the door is a warehouse job, going back over the money afterwards is not.
+     */
+    completeReceiptPrices(
+        goodsReceiptId: GoodsReceiptId,
+        request: CompleteReceiptPricesRequest,
+    ): Promise<GoodsReceiptDetail>;
     /** The purchases ledger — every receipt line, cursor-paginated. Needs `inventory.view_costs_organisation`. */
     listPurchasesLedger(filter?: PurchaseLedgerFilter): Promise<CursorPage<PurchaseLedgerLine>>;
     /**

@@ -22,11 +22,18 @@ import type {
     CreateProductionOrderRequest,
     CreatePurchaseOrdersRequest,
     CreateQualityCheckRequest,
+    CompleteReceiptPricesRequest,
     CreateSupplierRequest,
     DeleteSupplierLinkRequest,
     GoodsReceipt,
+    GoodsReceiptDetail,
     GoodsReceiptLine,
     GoodsReceiptResult,
+    ReceiptPurchaseOrderMatch,
+    ReceiptPurchaseOrderMatchLine,
+    ReceivableOrder,
+    ReceivableOrderFilter,
+    ReceivableOrderLine,
     ItemLatestPurchase,
     KitchenOpsRepository,
     LastPurchase,
@@ -45,6 +52,7 @@ import type {
     PurchaseOrderFilter,
     PurchaseOrderLine,
     PurchaseOrderLineInput,
+    PurchaseOrderReceiptRef,
     QualityCheck,
     QualityCheckResult,
     RecipientSnapshot,
@@ -67,6 +75,8 @@ import type {
     SupplierRef,
     SupplyNeedsCount,
     UnassignedReason,
+    UnpricedReceipt,
+    UnpricedReceiptFilter,
     UpdatePurchaseOrderRequest,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
@@ -74,6 +84,7 @@ import type {
 import type {
     ConsumptionException as WireConsumptionException,
     GoodsReceipt as WireGoodsReceipt,
+    GoodsReceiptDetail as WireGoodsReceiptDetail,
     GoodsReceiptLine as WireGoodsReceiptLine,
     ItemLatestPurchase as WireItemLatestPurchase,
     LastPurchase as WireLastPurchase,
@@ -83,8 +94,13 @@ import type {
     ProductionOrder as WireProductionOrder,
     PurchaseOrder as WirePurchaseOrder,
     PurchaseOrderLine as WirePurchaseOrderLine,
+    PurchaseOrderReceiptRef as WirePurchaseOrderReceiptRef,
     PurchasesLedgerLine as WirePurchaseLedgerLine,
     QualityCheck as WireQualityCheck,
+    ReceiptPurchaseOrderMatch as WireReceiptPurchaseOrderMatch,
+    ReceiptPurchaseOrderMatchLine as WireReceiptPurchaseOrderMatchLine,
+    ReceivableOrder as WireReceivableOrder,
+    ReceivableOrderLine as WireReceivableOrderLine,
     RecipientSnapshot as WireRecipientSnapshot,
     RecipientSnapshotContact as WireRecipientSnapshotContact,
     StockItem as WireStockItem,
@@ -97,6 +113,7 @@ import type {
     SupplierLink as WireSupplierLink,
     SupplierOption as WireSupplierOption,
     SupplierRef as WireSupplierRef,
+    UnpricedReceipt as WireUnpricedReceipt,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
 
@@ -329,6 +346,8 @@ function mapPurchaseOrderLine(wire: WirePurchaseOrderLine): PurchaseOrderLine {
         // A string the whole way through, like every other quantity here: the wire's decimal is the
         // precision guarantee, and a kitchen ordering 0.125 kg of saffron means it.
         quantity: wire.quantity,
+        receivedQuantity: wire.received_quantity,
+        outstandingQuantity: wire.outstanding_quantity,
         unitCode: wire.unit_code,
         supplierItemRef: wire.supplier_item_ref,
         notes: wire.notes,
@@ -393,11 +412,26 @@ function mapPurchaseOrder(wire: WirePurchaseOrder): PurchaseOrder {
         notes: wire.notes,
         lineCount: wire.line_count,
         issuedAt: wire.issued_at,
+        receivedAt: wire.received_at,
+        closedAt: wire.closed_at,
+        closeShortReason: wire.close_short_reason,
         cancelledAt: wire.cancelled_at,
         createdAt: wire.created_at,
         // Never re-sorted: the server's `display_order` is the sequence the person building the
         // order chose, and the printed sheet has to be recognisably that list.
         lines: wire.lines.map(mapPurchaseOrderLine),
+        // Oldest first, as the server ordered them: an order's detail tells the story of what
+        // happened in the sequence it happened, which is the opposite of the book's newest-first list.
+        receipts: wire.receipts.map(mapPurchaseOrderReceiptRef),
+    };
+}
+
+function mapPurchaseOrderReceiptRef(wire: WirePurchaseOrderReceiptRef): PurchaseOrderReceiptRef {
+    return {
+        id: GoodsReceiptId.unsafe(wire.id),
+        receivedOn: wire.received_on,
+        documentRef: wire.document_ref,
+        lineCount: wire.line_count,
     };
 }
 
@@ -474,12 +508,18 @@ function mapSupplierRef(wire: WireSupplierRef | null): SupplierRef | null {
 
 function mapGoodsReceiptLine(line: WireGoodsReceiptLine): GoodsReceiptLine {
     return {
+        id: line.id,
         stockItemId: StockItemId.unsafe(line.stock_item_id),
+        purchaseOrderLineId: line.purchase_order_line_id,
         quantity: line.quantity,
         unitId: line.unit_id,
         unitPriceAmount: line.unit_price_amount,
         lineTotalAmount: line.line_total_amount,
         costCurrencyCode: line.cost_currency_code,
+        // Work states, not money: they survive the cost redaction because whether a line still needs
+        // somebody's attention is not the same question as what it cost.
+        costedAt: line.costed_at,
+        valuationPendingFx: line.valuation_pending_fx,
     };
 }
 
@@ -489,12 +529,106 @@ function mapGoodsReceipt(wire: WireGoodsReceipt): GoodsReceipt {
         branchId: BranchId.unsafe(wire.branch_id),
         supplier: mapSupplierRef(wire.supplier),
         documentRef: wire.document_ref,
-        purchaseOrderId: wire.purchase_order_id,
+        supplierInvoiceRef: wire.supplier_invoice_ref,
+        invoiceDate: wire.invoice_date,
+        varianceNote: wire.variance_note,
+        purchaseOrderId:
+            wire.purchase_order_id === null ? null : PurchaseOrderId.unsafe(wire.purchase_order_id),
         receivedAt: wire.received_at,
+        receivedOn: wire.received_on,
+        costStatus: wire.cost_status,
+        unpricedLineCount: wire.unpriced_line_count,
+        valuationPendingCount: wire.valuation_pending_count,
         currencyCode: wire.currency_code,
         receiptTotalAmount: wire.receipt_total_amount,
+        discountAmount: wire.discount_amount,
+        taxAmount: wire.tax_amount,
+        deliveryAmount: wire.delivery_amount,
+        otherChargesAmount: wire.other_charges_amount,
+        invoiceTotalAmount: wire.invoice_total_amount,
         costsRedacted: wire.costs_redacted,
         lines: wire.lines.map(mapGoodsReceiptLine),
+    };
+}
+
+function mapReceiptPurchaseOrderMatchLine(
+    wire: WireReceiptPurchaseOrderMatchLine,
+): ReceiptPurchaseOrderMatchLine {
+    return {
+        purchaseOrderLineId: wire.purchase_order_line_id,
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        itemCode: wire.item_code,
+        itemNameEn: wire.item_name_en,
+        unitCode: wire.unit_code,
+        orderedQuantity: wire.ordered_quantity,
+        receivedQuantity: wire.received_quantity,
+        outstandingQuantity: wire.outstanding_quantity,
+    };
+}
+
+function mapReceiptPurchaseOrderMatch(
+    wire: WireReceiptPurchaseOrderMatch,
+): ReceiptPurchaseOrderMatch {
+    return {
+        id: PurchaseOrderId.unsafe(wire.id),
+        number: wire.number,
+        status: wire.status,
+        lines: wire.lines.map(mapReceiptPurchaseOrderMatchLine),
+    };
+}
+
+function mapGoodsReceiptDetail(wire: WireGoodsReceiptDetail): GoodsReceiptDetail {
+    return {
+        ...mapGoodsReceipt(wire),
+        purchaseOrder:
+            wire.purchase_order === null || wire.purchase_order === undefined
+                ? null
+                : mapReceiptPurchaseOrderMatch(wire.purchase_order),
+    };
+}
+
+function mapReceivableOrderLine(wire: WireReceivableOrderLine): ReceivableOrderLine {
+    return {
+        purchaseOrderLineId: wire.purchase_order_line_id,
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        itemCode: wire.item_code,
+        itemNameEn: wire.item_name_en,
+        itemNameAr: wire.item_name_ar,
+        unitCode: wire.unit_code,
+        unitId: wire.unit_id,
+        orderedQuantity: wire.ordered_quantity,
+        receivedQuantity: wire.received_quantity,
+        outstandingQuantity: wire.outstanding_quantity,
+    };
+}
+
+function mapReceivableOrder(wire: WireReceivableOrder): ReceivableOrder {
+    return {
+        id: PurchaseOrderId.unsafe(wire.id),
+        number: wire.number,
+        status: wire.status,
+        branchId: BranchId.unsafe(wire.branch_id),
+        supplier: mapSupplierRef(wire.supplier),
+        issuedAt: wire.issued_at,
+        lineCount: wire.line_count,
+        outstandingLineCount: wire.outstanding_line_count,
+        lines: wire.lines.map(mapReceivableOrderLine),
+    };
+}
+
+function mapUnpricedReceipt(wire: WireUnpricedReceipt): UnpricedReceipt {
+    return {
+        id: GoodsReceiptId.unsafe(wire.id),
+        receivedOn: wire.received_on,
+        supplier: mapSupplierRef(wire.supplier),
+        documentRef: wire.document_ref,
+        supplierInvoiceRef: wire.supplier_invoice_ref,
+        purchaseOrderId:
+            wire.purchase_order_id === null ? null : PurchaseOrderId.unsafe(wire.purchase_order_id),
+        costStatus: wire.cost_status,
+        lineCount: wire.line_count,
+        unpricedLineCount: wire.unpriced_line_count,
+        valuationPendingCount: wire.valuation_pending_count,
     };
 }
 
@@ -503,8 +637,12 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         id: wire.id,
         goodsReceiptId: GoodsReceiptId.unsafe(wire.goods_receipt_id),
         receivedAt: wire.received_at,
+        receivedOn: wire.received_on,
         supplier: mapSupplierRef(wire.supplier),
         documentRef: wire.document_ref,
+        purchaseOrderId:
+            wire.purchase_order_id === null ? null : PurchaseOrderId.unsafe(wire.purchase_order_id),
+        costStatus: wire.cost_status,
         stockItemId: StockItemId.unsafe(wire.stock_item_id),
         itemCode: wire.item_code,
         itemNameEn: wire.item_name_en,
@@ -514,6 +652,7 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         unitPriceAmount: wire.unit_price_amount,
         lineTotalAmount: wire.line_total_amount,
         costCurrencyCode: wire.cost_currency_code,
+        valuationPendingFx: wire.valuation_pending_fx,
         costsRedacted: wire.costs_redacted,
     };
 }
@@ -971,9 +1110,23 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return envelope.data.goods_receipts.map(mapGoodsReceipt);
         },
 
+        async getGoodsReceipt(goodsReceiptId: GoodsReceiptId): Promise<GoodsReceiptDetail> {
+            const envelope = await transport.requestEnvelope<{
+                readonly goods_receipt: WireGoodsReceiptDetail;
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/goods-receipts/${encodeURIComponent(String(goodsReceiptId))}`,
+            });
+            return mapGoodsReceiptDetail(envelope.data.goods_receipt);
+        },
+
         async postGoodsReceipt(request: PostGoodsReceiptRequest): Promise<GoodsReceiptResult> {
             const envelope = await transport.requestEnvelope<{
-                readonly goods_receipt: { readonly id: string };
+                readonly goods_receipt: {
+                    readonly id: string;
+                    readonly received_on: string | null;
+                    readonly cost_status: GoodsReceiptResult['costStatus'];
+                };
             }>({
                 method: 'POST',
                 path: '/catalogue/procurement/goods-receipts',
@@ -988,11 +1141,54 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     ...(request.documentRef === undefined
                         ? {}
                         : { document_ref: request.documentRef }),
+                    ...(request.supplierInvoiceRef === undefined
+                        ? {}
+                        : { supplier_invoice_ref: request.supplierInvoiceRef }),
+                    ...(request.invoiceDate === undefined
+                        ? {}
+                        : { invoice_date: request.invoiceDate }),
+                    ...(request.receivedOn === undefined
+                        ? {}
+                        : { received_on: request.receivedOn }),
+                    ...(request.varianceNote === undefined
+                        ? {}
+                        : { variance_note: request.varianceNote }),
                     ...(request.purchaseOrderId === undefined
                         ? {}
-                        : { purchase_order_id: request.purchaseOrderId }),
+                        : {
+                              purchase_order_id:
+                                  request.purchaseOrderId === null
+                                      ? null
+                                      : String(request.purchaseOrderId),
+                          }),
+                    ...(request.discountAmount === undefined
+                        ? {}
+                        : { discount_amount: request.discountAmount }),
+                    ...(request.taxAmount === undefined ? {} : { tax_amount: request.taxAmount }),
+                    ...(request.deliveryAmount === undefined
+                        ? {}
+                        : { delivery_amount: request.deliveryAmount }),
+                    ...(request.otherChargesAmount === undefined
+                        ? {}
+                        : { other_charges_amount: request.otherChargesAmount }),
+                    ...(request.invoiceTotalAmount === undefined
+                        ? {}
+                        : { invoice_total_amount: request.invoiceTotalAmount }),
+                    ...(request.overReceiptConfirmed === undefined
+                        ? {}
+                        : { over_receipt_confirmed: request.overReceiptConfirmed }),
+                    ...(request.closeShort === undefined
+                        ? {}
+                        : { close_short: request.closeShort }),
+                    ...(request.closeShortReason === undefined
+                        ? {}
+                        : { close_short_reason: request.closeShortReason }),
                     lines: request.lines.map((line) => ({
                         stock_item_id: String(line.stockItemId),
+                        ...(line.purchaseOrderLineId === undefined ||
+                        line.purchaseOrderLineId === null
+                            ? {}
+                            : { purchase_order_line_id: line.purchaseOrderLineId }),
                         quantity: line.quantity,
                         ...(line.unitId === undefined || line.unitId === null
                             ? {}
@@ -1006,7 +1202,83 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     })),
                 },
             });
-            return { id: GoodsReceiptId.unsafe(envelope.data.goods_receipt.id) };
+            return {
+                id: GoodsReceiptId.unsafe(envelope.data.goods_receipt.id),
+                receivedOn: envelope.data.goods_receipt.received_on,
+                costStatus: envelope.data.goods_receipt.cost_status,
+            };
+        },
+
+        async listReceivableOrders(
+            filter: ReceivableOrderFilter,
+        ): Promise<readonly ReceivableOrder[]> {
+            const params = new URLSearchParams({ branch_id: String(filter.branchId) });
+            if (filter.supplierId !== undefined) {
+                params.set('supplier_id', String(filter.supplierId));
+            }
+
+            const envelope = await transport.requestEnvelope<{
+                readonly receivable_orders: readonly WireReceivableOrder[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/receivable-orders?${params.toString()}`,
+            });
+            return envelope.data.receivable_orders.map(mapReceivableOrder);
+        },
+
+        async listUnpricedReceipts(
+            filter: UnpricedReceiptFilter = {},
+        ): Promise<CursorPage<UnpricedReceipt>> {
+            const params = new URLSearchParams();
+            if (filter.branchId !== undefined) params.set('branch_id', String(filter.branchId));
+            if (filter.supplierId !== undefined) {
+                params.set('supplier_id', String(filter.supplierId));
+            }
+            if (filter.cursor !== undefined) params.set('cursor', filter.cursor);
+            if (filter.limit !== undefined) params.set('limit', String(filter.limit));
+
+            const query = params.toString();
+            const envelope = await transport.requestEnvelope<{
+                readonly unpriced_receipts: readonly WireUnpricedReceipt[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/unpriced-receipts${query === '' ? '' : `?${query}`}`,
+            });
+
+            const meta = (envelope.meta ?? {}) as {
+                readonly next_cursor?: string | null;
+                readonly has_more?: boolean;
+            };
+
+            return {
+                items: envelope.data.unpriced_receipts.map(mapUnpricedReceipt),
+                nextCursor: meta.next_cursor ?? null,
+                hasMore: meta.has_more ?? false,
+                totalCount: null,
+            };
+        },
+
+        async completeReceiptPrices(
+            goodsReceiptId: GoodsReceiptId,
+            request: CompleteReceiptPricesRequest,
+        ): Promise<GoodsReceiptDetail> {
+            const envelope = await transport.requestEnvelope<{
+                readonly goods_receipt: WireGoodsReceiptDetail;
+            }>({
+                method: 'POST',
+                path: `/catalogue/procurement/goods-receipts/${encodeURIComponent(String(goodsReceiptId))}/complete-prices`,
+                body: {
+                    lines: request.lines.map((line) => ({
+                        goods_receipt_line_id: line.goodsReceiptLineId,
+                        unit_price_amount: line.unitPriceAmount,
+                        ...(line.lineTotalAmount === undefined || line.lineTotalAmount === null
+                            ? {}
+                            : { line_total_amount: line.lineTotalAmount }),
+                        cost_currency_code: line.costCurrencyCode,
+                    })),
+                },
+            });
+            return mapGoodsReceiptDetail(envelope.data.goods_receipt);
         },
 
         async listPurchasesLedger(
@@ -1024,6 +1296,10 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 params.set('stock_item_id', String(filter.stockItemId));
             }
             if (filter.branchId !== undefined) params.set('branch_id', String(filter.branchId));
+            if (filter.purchaseOrderId !== undefined) {
+                params.set('purchase_order_id', String(filter.purchaseOrderId));
+            }
+            if (filter.costStatus !== undefined) params.set('cost_status', filter.costStatus);
             if (filter.cursor !== undefined) params.set('cursor', filter.cursor);
             if (filter.limit !== undefined) params.set('limit', String(filter.limit));
 

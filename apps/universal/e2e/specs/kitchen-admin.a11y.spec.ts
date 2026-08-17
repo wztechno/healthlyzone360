@@ -974,3 +974,41 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await expectNoSeriousViolations(page, 'kitchen-review-quarantined-editor');
     });
 });
+
+/**
+ * Receiving and the prices queue (SUP5).
+ *
+ * Both are read-only sweeps, like every other test in this file: the receive screen is opened and
+ * its form is read, and the queue is opened and its table is read. Nothing is posted, because a
+ * write here would be a write to a shared database from a project that runs in parallel with three
+ * others.
+ *
+ * They are worth sweeping for a reason the other forms are not. The receive screen carries a
+ * repeated row of two inputs per delivered line, and a repeated input whose accessible name is the
+ * same on every row is a form a screen-reader user cannot navigate — the failure is invisible by
+ * eye and unmissable to axe. The queue carries badges beside counts, which is where a colour-only
+ * distinction hides.
+ */
+test.describe('kitchen receiving', () => {
+    test('the receive screen, with its prefilled rows and price inputs', async ({ page }) => {
+        await openKitchen(page);
+        await page.goto('/kitchen/procurement/receive');
+        await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-receive');
+    });
+
+    test('the receive screen on a phone, where the row collapses', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openKitchen(page);
+        await page.goto('/kitchen/procurement/receive');
+        await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-receive-narrow');
+    });
+
+    test('the prices-to-finish queue, with its state badges and counts', async ({ page }) => {
+        await openKitchen(page);
+        await page.goto('/kitchen/procurement/unpriced-receipts');
+        await expect(page.getByTestId('kitchen-unpriced-screen')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-unpriced-receipts');
+    });
+});

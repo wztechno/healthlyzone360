@@ -41,6 +41,14 @@ use Illuminate\Validation\Rule;
  * the displayed date read, so a manager filters by when stock arrived and walks
  * by the stable append order.
  *
+ * `purchase_order_id` and `cost_status` arrive with SUP5. §6 lists both among
+ * the ledger's filters, and they land in the slice that lands the columns rather
+ * than the slice that first draws a screen over them: the order filter is what
+ * an order detail's "everything delivered against this" link needs, and the
+ * price-completeness filter is what slice 6's Complete/Incomplete summary reads.
+ * A parameter that quietly did nothing until a later slice would be worse than
+ * its absence, so both filter for real from here.
+ *
  * The presenter never reads a recipe line, a formulation quantity or a
  * derivation — a purchases ledger is a record of what was bought, and nothing
  * confidential about how it is used passes through it.
@@ -71,6 +79,12 @@ final class PurchasesLedgerIndexController
                 'uuid',
                 Rule::exists('organisation_branches', 'id')->where('organisation_id', $organisationId),
             ],
+            'purchase_order_id' => [
+                'nullable',
+                'uuid',
+                Rule::exists('purchase_orders', 'id')->where('organisation_id', $organisationId),
+            ],
+            'cost_status' => ['nullable', Rule::in(['unpriced', 'partial', 'complete'])],
         ]);
 
         $query = GoodsReceiptLine::query()
@@ -92,6 +106,14 @@ final class PurchasesLedgerIndexController
 
                 if (isset($validated['to'])) {
                     $receipt->where('received_at', '<=', $validated['to']);
+                }
+
+                if (isset($validated['purchase_order_id'])) {
+                    $receipt->where('purchase_order_id', $validated['purchase_order_id']);
+                }
+
+                if (isset($validated['cost_status'])) {
+                    $receipt->where('cost_status', $validated['cost_status']);
                 }
             });
 

@@ -11,6 +11,7 @@ import type {
     OrderDeskQueueRow,
     ProductionOrderStatus,
     PurchaseOrderStatus,
+    ReceiptCostStatus,
     QualityCheckStatus,
     QualityCheckSubjectType,
     StockItem,
@@ -495,6 +496,71 @@ const PURCHASE_ORDER_CANCELLABLE: Readonly<Record<PurchaseOrderStatus, boolean>>
 
 export function canCancelPurchaseOrder(status: PurchaseOrderStatus): boolean {
     return PURCHASE_ORDER_CANCELLABLE[status];
+}
+
+/**
+ * Whether an order can still take a delivery (SUP5, §3.5).
+ *
+ * The two states a van can arrive against, and no others. A draft has been handed to nobody, and a
+ * received or cancelled order is terminal — the server refuses a delivery against any of the three,
+ * so offering the action would earn a `resource.conflict` the person did nothing to deserve.
+ */
+const PURCHASE_ORDER_RECEIVABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: false,
+    issued: true,
+    partially_received: true,
+    received: false,
+    cancelled: false,
+};
+
+export function canReceivePurchaseOrder(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_RECEIVABLE[status];
+}
+
+/* ── receipt costing (SUP5) ──────────────────────────────────────────────────────────────────── */
+
+const RECEIPT_COST_STATUS_KEYS: Readonly<Record<ReceiptCostStatus, string>> = {
+    unpriced: 'kitchen:ops.receiving.costStatus.unpriced',
+    partial: 'kitchen:ops.receiving.costStatus.partial',
+    complete: 'kitchen:ops.receiving.costStatus.complete',
+};
+
+export function receiptCostStatusKey(status: ReceiptCostStatus): string {
+    return RECEIPT_COST_STATUS_KEYS[status];
+}
+
+/**
+ * The tone a receipt's costing badge carries.
+ *
+ * Both unfinished states are `warning` and neither is `danger`: an invoice that has not arrived yet
+ * is somebody's job, not a fault, and colouring it as an error would ask a manager to treat the
+ * ordinary rhythm of wholesale paperwork as a problem to fix. They are the same tone because they
+ * are the same call to action — open this receipt — and the counts beside them are what distinguish
+ * "type these prices in" from "the prices are here and something else is blocking".
+ */
+const RECEIPT_COST_STATUS_TONES: Readonly<Record<ReceiptCostStatus, BadgeTone>> = {
+    unpriced: 'warning',
+    partial: 'warning',
+    complete: 'success',
+};
+
+export function receiptCostStatusTone(status: ReceiptCostStatus): BadgeTone {
+    return RECEIPT_COST_STATUS_TONES[status];
+}
+
+/**
+ * How much of an ordered line is still to come, as a display string.
+ *
+ * The server already floors it at zero and expresses all three quantities in the line's own unit, so
+ * this is a read rather than an arithmetic — deliberately. A screen that recomputed "ordered minus
+ * received" would be a second answer to a question the receiving guard has already answered, and the
+ * two would eventually disagree about a delivery quoted in a different unit.
+ */
+export function outstandingLabel(line: {
+    readonly outstandingQuantity: string;
+    readonly unitCode: string;
+}): string {
+    return `${line.outstandingQuantity} ${line.unitCode}`;
 }
 
 /* ── B2B quotations (B4) ─────────────────────────────────────────────────────────────────────── */

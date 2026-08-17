@@ -10,6 +10,7 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Procurement\Enums\PurchaseOrderStatus;
+use Healthy360\Procurement\Models\GoodsReceipt;
 use Healthy360\Procurement\Models\PurchaseOrder;
 use Healthy360\Procurement\Models\PurchaseOrderLine;
 use Healthy360\Procurement\Models\Supplier;
@@ -315,17 +316,26 @@ final readonly class PurchaseOrderService
      * does not un-issue it, and a reprint of a cancelled order should still show
      * when it went out.
      *
-     * **Slice 5 seam.** When receipts can point at an order, this gains one more
-     * guard before the transition: an order with any goods receipt against it
-     * cannot be cancelled as though nothing happened (§3.5). The enum already
+     * **An order with a delivery against it cannot be cancelled** (§3.5), and
+     * that is checked here rather than left to the status. The enum already
      * refuses `partially_received → cancelled`, which covers the ordinary case;
-     * what needs adding here is the edge where a receipt exists but the status
-     * has not caught up, and the refusal reason for it is `purchase_order_received_against`.
+     * this guard covers the edge the enum cannot see — a receipt exists and the
+     * status has not caught up — and it runs **first**, so that when both apply
+     * the caller gets the reason that explains the situation rather than the one
+     * that merely restates the status.
      *
      * @throws ApiException
      */
     public function cancel(PurchaseOrder $order): PurchaseOrder
     {
+        if (GoodsReceipt::query()->where('purchase_order_id', $order->getKey())->exists()) {
+            throw $this->conflict(
+                $order,
+                'purchase_order_received_against',
+                'Something has already been delivered against this order, so it cannot be cancelled as though nothing happened.',
+            );
+        }
+
         if (! $order->status->canTransitionTo(PurchaseOrderStatus::Cancelled)) {
             throw $this->conflict(
                 $order,

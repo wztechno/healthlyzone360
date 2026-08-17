@@ -34,6 +34,14 @@ use Healthy360\Tenancy\TenantContext;
 | filters are pinned here too — the ledger endpoint already lives in this file,
 | and the deep links that use those filters are cost-gated surfaces.
 |
+| SUP5 extends it once more, and the interesting part is the line it does **not**
+| move. The receipt gained header charges and an invoice total, which are money
+| and are redacted; it also gained `cost_status`, `unpriced_line_count`,
+| `valuation_pending_count` and per-line `costed_at`/`valuation_pending_fx`, which
+| are **not** and must not be. Those say whether a receipt still needs somebody's
+| attention; they do not say what anything cost, and hiding them would turn a work
+| state into a secret from the very clerk chasing the invoice.
+|
 */
 
 /**
@@ -130,7 +138,17 @@ it('serves the money when costs are visible and redacts it when they are not', f
         ->and($hidden['lines'][0]['line_total_amount'])->toBeNull()
         ->and($hidden['lines'][0]['cost_currency_code'])->toBeNull()
         // The quantity and unit are warehouse facts, never redacted.
-        ->and($hidden['lines'][0]['quantity'])->toBe('10.0000');
+        ->and($hidden['lines'][0]['quantity'])->toBe('10.0000')
+        // Nor are the work states SUP5 added. Whether this delivery's paperwork
+        // is finished is not a cost, and a clerk chasing an invoice has to be
+        // able to see it.
+        ->and($hidden['cost_status'])->toBe('complete')
+        ->and($hidden['unpriced_line_count'])->toBe(0)
+        ->and($hidden['valuation_pending_count'])->toBe(0)
+        ->and($hidden['lines'][0]['valuation_pending_fx'])->toBeFalse()
+        ->and($hidden['lines'][0]['costed_at'])->not->toBeNull()
+        // The business date is a fact about when, not about how much.
+        ->and($hidden['received_on'])->not->toBeNull();
 
     app(TenantContext::class)->clear();
 });
@@ -153,6 +171,24 @@ it('redacts receipt costs and forbids the ledger for a manager without the cost 
 
     $this->getJson('/api/v1/catalogue/procurement/purchases-ledger', $world->headers)
         ->assertForbidden();
+
+    // The receipt detail is theirs — it is the record they posted — with its
+    // money redacted inside the response rather than refused at the door.
+    $this->getJson("/api/v1/catalogue/procurement/goods-receipts/{$world->receiptId}", $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.goods_receipt.costs_redacted', true)
+        ->assertJsonPath('data.goods_receipt.invoice_total_amount', null)
+        ->assertJsonPath('data.goods_receipt.cost_status', 'complete')
+        ->assertJsonPath('data.goods_receipt.lines.0.quantity', '10.0000');
+
+    // Receivable orders are a manage-scoped subset (§5), so this caller may open
+    // the picker even without the order-book code.
+    $this->getJson(
+        '/api/v1/catalogue/procurement/receivable-orders?branch_id='.$world->branch->getKey(),
+        $world->headers,
+    )
+        ->assertOk()
+        ->assertJsonPath('data.receivable_orders', []);
 });
 
 it('shows the money and the ledger to a manager who holds the cost permission', function (): void {
@@ -169,6 +205,20 @@ it('shows the money and the ledger to a manager who holds the cost permission', 
     $this->getJson('/api/v1/catalogue/procurement/purchases-ledger', $world->headers)
         ->assertOk()
         ->assertJsonPath('data.purchases.0.unit_price_amount', '2.000000')
+        ->assertJsonPath('data.purchases.0.item_name_en', 'Flour')
+        // SUP5's ledger columns: the business date the summary will group by,
+        // and the completeness state its Complete/Incomplete flag reads.
+        ->assertJsonPath('data.purchases.0.cost_status', 'complete')
+        ->assertJsonPath('data.purchases.0.valuation_pending_fx', false);
+
+    // And the two filters §6 lists, filtering for real from the slice that
+    // landed the columns rather than the slice that first draws a screen.
+    $this->getJson('/api/v1/catalogue/procurement/purchases-ledger?cost_status=unpriced', $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.purchases', []);
+
+    $this->getJson('/api/v1/catalogue/procurement/purchases-ledger?cost_status=complete', $world->headers)
+        ->assertOk()
         ->assertJsonPath('data.purchases.0.item_name_en', 'Flour');
 });
 

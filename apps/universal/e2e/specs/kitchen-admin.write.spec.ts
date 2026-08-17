@@ -1876,6 +1876,118 @@ test.describe('kitchen workspace (en)', () => {
 
         // Cancelling stays available on an issued order — nothing has been delivered against it.
         await expect(page.getByTestId('kitchen-supply-order-detail-cancel')).toBeVisible();
+
+        /*
+         * ── receiving the order, in two deliveries (SUP5) ──────────────────────────────────────
+         *
+         * §9's acceptance journey, steps 7 and 8: receive part of the order at one actual price,
+         * verify the order becomes partially received, then receive the remainder at a different
+         * price and verify it becomes received. The two prices are deliberately different — §3.5
+         * says two deliveries against one order legitimately arrive at two prices, and both stay
+         * history rather than one correcting the other.
+         */
+        await page.getByTestId('kitchen-supply-order-detail-receive').click();
+        await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-receive-form')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // §4: the row opens with what is outstanding. The price box is here for **every** manage
+        // holder — §5's blind-write model, which the old receipt dialog hid behind the cost code.
+        const firstQuantity = page.getByTestId('kitchen-receive-line-0-quantity');
+        await expect(firstQuantity).toBeVisible();
+        const outstanding = (await firstQuantity.inputValue()).trim();
+        expect(Number(outstanding)).toBeGreaterThan(0);
+
+        await firstQuantity.fill('1');
+        await page.getByTestId('kitchen-receive-line-0-price').fill('2.00');
+
+        // A part delivery offers to close the rest, and does not take it.
+        await expect(page.getByTestId('kitchen-receive-close-short')).toBeVisible();
+
+        await page.getByTestId('kitchen-receive-submit').click();
+        await expect(page.getByTestId('kitchen-receive-confirm-dialog')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // §7: the confirmation separates the irreversible half from the financial one.
+        await expect(page.getByTestId('kitchen-receive-confirm-stock')).toBeVisible();
+        await expect(page.getByTestId('kitchen-receive-confirm-money')).toBeVisible();
+        await page.getByTestId('kitchen-receive-confirm-post').click();
+        await expectToast(page, 'kitchen-receive-posted-toast');
+
+        // Back on the order: partially received, with the three quantities reconciling on the row.
+        await expect(page.getByTestId('kitchen-supply-order-detail-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supply-order-detail-status')).toContainText(
+            /partially/i,
+            { timeout: JOURNEY_TIMEOUT },
+        );
+        await expect(page.getByTestId('kitchen-supply-order-detail-receipts')).toBeVisible();
+        // Cancelling is gone the moment something has been delivered (§3.5).
+        await expect(page.getByTestId('kitchen-supply-order-detail-cancel')).toHaveCount(0);
+
+        // The remainder, at a different price.
+        await page.getByTestId('kitchen-supply-order-detail-receive').click();
+        await expect(page.getByTestId('kitchen-receive-form')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        const remainder = page.getByTestId('kitchen-receive-line-0-quantity');
+        expect(Number((await remainder.inputValue()).trim())).toBeGreaterThan(0);
+        await page.getByTestId('kitchen-receive-line-0-price').fill('2.50');
+        await page.getByTestId('kitchen-receive-submit').click();
+        await page.getByTestId('kitchen-receive-confirm-post').click();
+        await expectToast(page, 'kitchen-receive-posted-toast');
+
+        await expect(page.getByTestId('kitchen-supply-order-detail-status')).toContainText(
+            /received/i,
+            { timeout: JOURNEY_TIMEOUT },
+        );
+    });
+
+    test('refuses an over-receipt until it is confirmed and explained', async ({ page }) => {
+        /*
+         * §3.5 asks for an explicit confirmation **and** a variance note, and the form asks for
+         * them in that order: the warning appears the moment a row goes past what is outstanding,
+         * the confirmation unlocks the note, and only then does the post become available.
+         */
+        await page.goto('/kitchen/procurement/receive');
+        await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const empty = page.getByTestId('kitchen-receive-empty');
+        if (await empty.isVisible().catch(() => false)) {
+            // Nothing is open for delivery at this branch, which is a legitimate state for the
+            // screen and not a failure of it.
+            return;
+        }
+
+        await page.getByTestId('kitchen-receive-order-picker').click();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('kitchen-receive-form')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const quantity = page.getByTestId('kitchen-receive-line-0-quantity');
+        const outstanding = Number((await quantity.inputValue()).trim());
+        await quantity.fill(String(outstanding + 5));
+
+        await expect(page.getByTestId('kitchen-receive-line-0-over')).toBeVisible();
+        await expect(page.getByTestId('kitchen-receive-over-receipt')).toBeVisible();
+        await expect(page.getByTestId('kitchen-receive-submit')).toBeDisabled();
+
+        await page.getByTestId('kitchen-receive-over-confirm').click();
+        // Confirmed but unexplained is still refused — the note is a separate answer.
+        await expect(page.getByTestId('kitchen-receive-variance-note')).toBeVisible();
+        await expect(page.getByTestId('kitchen-receive-submit')).toBeDisabled();
+
+        await page
+            .getByTestId('kitchen-receive-variance-note')
+            .fill('Supplier sent a larger pack.');
+        await expect(page.getByTestId('kitchen-receive-submit')).toBeEnabled();
     });
 
     test('adds a gazetteer area to a zone and the list reads the new coverage back', async ({

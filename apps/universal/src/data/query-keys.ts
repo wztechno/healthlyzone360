@@ -3,6 +3,7 @@ import type {
     CorporateProgrammeId,
     DeliveryZoneId,
     DietitianId,
+    GoodsReceiptId,
     IngredientId,
     KitchenBranchId,
     KitchenId,
@@ -452,6 +453,20 @@ export const queryKeys = {
         purchaseOrders: (filter: object = {}) => ['kitchenOps', 'purchase-orders', filter] as const,
         purchaseOrder: (purchaseOrderId: PurchaseOrderId) =>
             ['kitchenOps', 'purchase-order', purchaseOrderId] as const,
+        /**
+         * The receiving surfaces (SUP5).
+         *
+         * `receivableOrders` is keyed on the branch because receiving is always *at one site* and
+         * two branches' answers are two entries — the same reasoning `supplyNeedsCount` gives.
+         * `goodsReceipt` is a third row-by-identifier entry, beside `supplier` and `purchaseOrder`,
+         * because a receipt has its own detail carrying an order match no list row shows.
+         */
+        receivableOrders: (branchId: string, supplierId: string | null = null) =>
+            ['kitchenOps', 'receivable-orders', branchId, supplierId ?? ''] as const,
+        goodsReceipt: (goodsReceiptId: GoodsReceiptId) =>
+            ['kitchenOps', 'goods-receipt', goodsReceiptId] as const,
+        unpricedReceipts: (filter: object = {}) =>
+            ['kitchenOps', 'unpriced-receipts', filter] as const,
         purchasesLedger: (filter: object = {}) =>
             ['kitchenOps', 'purchases-ledger', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,

@@ -3214,10 +3214,17 @@ export const zOrderProposalCollection = z.object({
  * system did not perform.
  *
  * `partially_received` and `received` are reached by **posting a goods
- * receipt**, never by an action of their own, and no endpoint in this
- * version produces them yet. `received` and `cancelled` are terminal: a
- * delivery that turned out wrong is a receipt correction or a return,
- * which are different objects with different quantities attached.
+ * receipt**, never by an action of their own: the quantities received are
+ * summed per order line and the status is whatever that sum says it is.
+ * There is no "mark as received" action and there must not be one — it
+ * would let an order claim a delivery that never turned up. The one
+ * apparent exception proves the rule: closing a short delivery still goes
+ * through a receipt, and what the flag adds is a reason for writing off the
+ * remainder rather than a status change of its own.
+ *
+ * `received` and `cancelled` are terminal: a delivery that turned out wrong
+ * is a receipt correction or a return, which are different objects with
+ * different quantities attached.
  *
  */
 export const zPurchaseOrderStatus = z.enum([
@@ -3252,6 +3259,8 @@ export const zPurchaseOrderLine = z.object({
     item_name_en: z.string().max(160),
     item_name_ar: z.string().max(160).nullable(),
     quantity: z.string(),
+    received_quantity: z.string(),
+    outstanding_quantity: z.string(),
     unit_code: z.string().max(16),
     supplier_item_ref: z.string().max(64).nullable(),
     notes: z.string().max(255).nullable(),
@@ -3297,6 +3306,16 @@ export const zRecipientSnapshot = z.object({
     contact_email: z.string().nullable(),
     contact_phone: z.string().nullable(),
     contacts: z.array(zRecipientSnapshotContact)
+});
+
+/**
+ * One delivery made against an order, as the order lists it (SUP5).
+ */
+export const zPurchaseOrderReceiptRef = z.object({
+    id: zUuid,
+    received_on: z.iso.date().nullable(),
+    document_ref: z.string().nullable(),
+    line_count: z.int().gte(0)
 });
 
 /**
@@ -3360,9 +3379,13 @@ export const zPurchaseOrder = z.object({
     notes: z.string().nullable(),
     line_count: z.int().gte(0),
     issued_at: z.iso.datetime({ offset: true }).nullable(),
+    received_at: z.iso.datetime({ offset: true }).nullable(),
+    closed_at: z.iso.datetime({ offset: true }).nullable(),
+    close_short_reason: z.string().max(255).nullable(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     created_at: z.iso.datetime({ offset: true }).nullable(),
-    lines: z.array(zPurchaseOrderLine)
+    lines: z.array(zPurchaseOrderLine),
+    receipts: z.array(zPurchaseOrderReceiptRef)
 });
 
 export const zPurchaseOrderEnvelope = z.object({
@@ -3631,18 +3654,126 @@ export const zProcurementReferenceEnvelope = z.object({
 });
 
 /**
+ * Whether a receipt's costing is finished (§3.6). Derived from the lines
+ * and never set by hand: a line counts as settled when it carries
+ * `costed_at`, the receipt is `complete` when every line does, `unpriced`
+ * when none does and `partial` in between.
+ *
+ * `costed_at` is stamped when there is nothing further to do with a line's
+ * money — the blend went through, **or** there was no ingredient to blend
+ * into (packaging, cleaning supplies). Both are finished states, and
+ * leaving the second one null would park its receipt in the work queue
+ * forever with no action available.
+ *
+ * A receipt whose only line is `valuation_pending_fx` therefore reads
+ * `unpriced` even though its price is recorded, because its costing is
+ * genuinely not finished. `valuation_pending_count` beside it is what tells
+ * a person which kind of unfinished it is.
+ *
+ * Not redacted without the cost permission: this says whether the paperwork
+ * needs attention, not what anything cost.
+ *
+ */
+export const zReceiptCostStatus = z.enum([
+    'unpriced',
+    'partial',
+    'complete'
+]);
+
+/**
  * The money fields (INV1.1) are served as `null` when the reader lacks
  * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
- * `quantity` and `unit_id` are warehouse facts and are never redacted.
+ * `quantity` and `unit_id` are warehouse facts and are never redacted, and
+ * neither are `costed_at` and `valuation_pending_fx`, which say whether the
+ * line still needs somebody's attention rather than what it cost.
  *
  */
 export const zGoodsReceiptLine = z.object({
+    id: zUuid,
     stock_item_id: zUuid,
+    purchase_order_line_id: zUuid.nullable(),
     quantity: z.string(),
     unit_id: zUuid.nullable(),
     unit_price_amount: z.string().nullable(),
     line_total_amount: z.string().nullable(),
-    cost_currency_code: z.string().nullable()
+    cost_currency_code: z.string().nullable(),
+    costed_at: z.iso.datetime({ offset: true }).nullable(),
+    valuation_pending_fx: z.boolean()
+});
+
+/**
+ * One ordered line and how much of it has arrived, all three quantities in
+ * the line's own `unit_code`.
+ *
+ */
+export const zReceiptPurchaseOrderMatchLine = z.object({
+    purchase_order_line_id: zUuid,
+    stock_item_id: zUuid,
+    item_code: z.string(),
+    item_name_en: z.string(),
+    unit_code: z.string(),
+    ordered_quantity: z.string(),
+    received_quantity: z.string(),
+    outstanding_quantity: z.string()
+});
+
+/**
+ * The order a delivery settled, as the receipt shows it. No money at any
+ * depth, because there is none on a purchase order at all.
+ *
+ */
+export const zReceiptPurchaseOrderMatch = z.object({
+    id: zUuid,
+    number: z.string(),
+    status: zPurchaseOrderStatus,
+    lines: z.array(zReceiptPurchaseOrderMatchLine)
+});
+
+/**
+ * One ordered line with its outstanding quantity — what the receive screen
+ * prefills a row with (§4). The unit is fixed from the order line, so a
+ * delivery cannot silently be counted in something else.
+ *
+ */
+export const zReceivableOrderLine = z.object({
+    purchase_order_line_id: zUuid,
+    stock_item_id: zUuid,
+    item_code: z.string(),
+    item_name_en: z.string(),
+    item_name_ar: z.string().nullable(),
+    unit_code: z.string(),
+    unit_id: zUuid.nullable(),
+    ordered_quantity: z.string(),
+    received_quantity: z.string(),
+    outstanding_quantity: z.string()
+});
+
+/**
+ * One line's missing price. `line_total_amount` is optional and is
+ * **checked** against quantity × unit price rather than stored as given:
+ * the total and the price are two views of one fact, and a database holding
+ * two answers for it is worse than one that refuses.
+ *
+ */
+export const zCompleteReceiptPriceLine = z.object({
+    goods_receipt_line_id: zUuid,
+    unit_price_amount: z.number().gte(0),
+    line_total_amount: z.number().gte(0).nullish(),
+    cost_currency_code: z.string().length(3)
+});
+
+/**
+ * Prices only. The quantities are untouchable here — §3.6 is explicit that
+ * posted quantities are never edited in place, and nothing on this request
+ * could change what arrived.
+ *
+ * Every line named must still have a null `costed_at`, and every currency
+ * on the request must agree with itself and with the receipt's
+ * already-priced lines.
+ *
+ */
+export const zCompleteReceiptPricesRequest = z.object({
+    lines: z.array(zCompleteReceiptPriceLine).min(1)
 });
 
 /**
@@ -3688,13 +3819,29 @@ export const zItemLatestPurchaseCollection = z.object({
 });
 
 /**
- * A receipt still has no purchase-order surface in v1 (O2) —
- * `purchase_order_id` is always null. Since INV1.1 it also records who was
- * paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
- * in `currency_code`, offered only when every priced line shares one
- * currency (there is no exchange rate in this system, §4.4). When the
- * reader lacks `inventory.view_costs_organisation` every money field is
- * null and `costs_redacted` is true.
+ * What arrived, from whom, and what it cost (§3.6).
+ *
+ * **Two dates, and they are two different facts.** `received_at` is the
+ * exact instant; `received_on` is the branch-local calendar day the
+ * delivery belongs to, and it is what §3.7 groups spend by — a van unloaded
+ * at 21:30 in Dubai is a Tuesday delivery, and reading the UTC instant's
+ * date would file it on Monday.
+ *
+ * **Two document references, likewise.** `document_ref` is the delivery
+ * note the driver handed over; `supplier_invoice_ref` and `invoice_date`
+ * are the invoice, which often arrives days later.
+ *
+ * `receipt_total_amount` is the **item subtotal** in `currency_code`,
+ * offered only when every priced line shares one currency (there is no
+ * exchange rate in this system, §4.4). The header charges are reported
+ * **separately** for the reason §3.6 gives: tax and delivery are not an
+ * ingredient's purchase price, and a screen that added them into one figure
+ * would be mislabelling them. They carry no currency of their own — they
+ * are in the receipt's line currency, and the post refuses any other state.
+ *
+ * When the reader lacks `inventory.view_costs_organisation` every money
+ * field is null and `costs_redacted` is true. `cost_status` and the two
+ * counts are **not** redacted.
  *
  */
 export const zGoodsReceipt = z.object({
@@ -3702,12 +3849,93 @@ export const zGoodsReceipt = z.object({
     branch_id: zUuid,
     supplier: zSupplierRef.nullable(),
     document_ref: z.string().nullable(),
+    supplier_invoice_ref: z.string().nullable(),
+    invoice_date: z.iso.date().nullable(),
+    variance_note: z.string().max(255).nullable(),
     purchase_order_id: zUuid.nullable(),
     received_at: z.iso.datetime({ offset: true }).nullable(),
+    received_on: z.iso.date().nullable(),
+    cost_status: zReceiptCostStatus,
+    unpriced_line_count: z.int().gte(0),
+    valuation_pending_count: z.int().gte(0),
     currency_code: z.string().nullable(),
     receipt_total_amount: z.string().nullable(),
+    discount_amount: z.string().nullable(),
+    tax_amount: z.string().nullable(),
+    delivery_amount: z.string().nullable(),
+    other_charges_amount: z.string().nullable(),
+    invoice_total_amount: z.string().nullable(),
     costs_redacted: z.boolean(),
     lines: z.array(zGoodsReceiptLine)
+});
+
+export const zGoodsReceiptDetail = zGoodsReceipt.and(z.object({
+    purchase_order: zReceiptPurchaseOrderMatch.nullable()
+}));
+
+export const zGoodsReceiptDetailEnvelope = z.object({
+    data: z.object({
+        goods_receipt: zGoodsReceiptDetail
+    }),
+    meta: zMeta
+});
+
+/**
+ * One order a delivery could be received against (§4, §6) — a deliberate
+ * manage-scoped subset of the order book, not the order book. No notes, no
+ * recipient snapshot, no history, and no money at any depth.
+ *
+ */
+export const zReceivableOrder = z.object({
+    id: zUuid,
+    number: z.string(),
+    status: zPurchaseOrderStatus,
+    branch_id: zUuid,
+    supplier: zSupplierRef.nullable(),
+    issued_at: z.iso.datetime({ offset: true }).nullable(),
+    line_count: z.int().gte(0),
+    outstanding_line_count: z.int().gte(0),
+    lines: z.array(zReceivableOrderLine)
+});
+
+export const zReceivableOrderCollection = z.object({
+    data: z.object({
+        receivable_orders: z.array(zReceivableOrder)
+    }),
+    meta: zMeta
+});
+
+/**
+ * One row of the unpriced-receipts work queue (§3.6). Deliberately not the
+ * whole receipt: this is a list somebody scans to decide what to open next.
+ *
+ * The two counts are two different jobs. `unpriced_line_count` is "type
+ * these prices in"; `valuation_pending_count` is "the prices are already
+ * here and an exchange-rate decision is not this screen's to make". A queue
+ * showing one number for both would send people to rows they cannot action.
+ *
+ * No money at all — the amounts are on the receipt detail, behind the same
+ * gate this list sits on.
+ *
+ */
+export const zUnpricedReceipt = z.object({
+    id: zUuid,
+    received_on: z.iso.date().nullable(),
+    supplier: zSupplierRef.nullable(),
+    document_ref: z.string().nullable(),
+    supplier_invoice_ref: z.string().nullable(),
+    purchase_order_id: zUuid.nullable(),
+    cost_status: zReceiptCostStatus,
+    line_count: z.int().gte(0),
+    unpriced_line_count: z.int().gte(0),
+    valuation_pending_count: z.int().gte(0)
+});
+
+export const zUnpricedReceiptCollection = z.object({
+    data: z.object({
+        unpriced_receipts: z.array(zUnpricedReceipt)
+    }),
+    meta: zPaginationMeta
 });
 
 export const zGoodsReceiptCollection = z.object({
@@ -3728,6 +3956,7 @@ export const zGoodsReceiptCollection = z.object({
  */
 export const zGoodsReceiptLineInput = z.object({
     stock_item_id: zUuid,
+    purchase_order_line_id: zUuid.nullish(),
     quantity: z.number().gt(0),
     unit_id: zUuid.optional(),
     unit_price_amount: z.number().gte(0).optional(),
@@ -3738,21 +3967,40 @@ export const zGoodsReceiptLineInput = z.object({
  * Posting a receipt writes every line straight into the inventory
  * ledger (`reason: receipt`) inside one transaction — there is no
  * draft state to save and return to. Since INV1.1 it also records the
- * supplier and document reference and blends each priced line's cost.
+ * supplier and document reference and blends each priced line's cost, and
+ * since SUP5 it settles a purchase order in the same transaction.
+ *
+ * Amounts are non-negative magnitudes. A **discount** is sent positive and
+ * subtracted by the arithmetic rather than sent negative, so the sign
+ * convention lives in one place rather than in every client.
  *
  */
 export const zPostGoodsReceiptRequest = z.object({
     branch_id: zUuid,
     supplier_id: zUuid.nullish(),
     document_ref: z.string().nullish(),
+    supplier_invoice_ref: z.string().max(120).nullish(),
+    invoice_date: z.iso.date().nullish(),
+    received_on: z.iso.date().nullish(),
+    variance_note: z.string().max(255).nullish(),
     purchase_order_id: zUuid.nullish(),
+    discount_amount: z.number().gte(0).nullish(),
+    tax_amount: z.number().gte(0).nullish(),
+    delivery_amount: z.number().gte(0).nullish(),
+    other_charges_amount: z.number().gte(0).nullish(),
+    invoice_total_amount: z.number().gte(0).nullish(),
+    over_receipt_confirmed: z.boolean().nullish(),
+    close_short: z.boolean().nullish(),
+    close_short_reason: z.string().max(255).nullish(),
     lines: z.array(zGoodsReceiptLineInput).min(1)
 });
 
 export const zGoodsReceiptEnvelope = z.object({
     data: z.object({
         goods_receipt: z.object({
-            id: zUuid
+            id: zUuid,
+            received_on: z.iso.date().nullable(),
+            cost_status: zReceiptCostStatus
         })
     }),
     meta: zMeta
@@ -3765,8 +4013,11 @@ export const zPurchasesLedgerLine = z.object({
     id: zUuid,
     goods_receipt_id: zUuid,
     received_at: z.iso.datetime({ offset: true }).nullable(),
+    received_on: z.iso.date().nullable(),
     supplier: zSupplierRef.nullable(),
     document_ref: z.string().nullable(),
+    purchase_order_id: zUuid.nullable(),
+    cost_status: zReceiptCostStatus.nullable(),
     stock_item_id: zUuid,
     item_code: z.string().nullable(),
     item_name_en: z.string().nullable(),
@@ -3776,6 +4027,7 @@ export const zPurchasesLedgerLine = z.object({
     unit_price_amount: z.string().nullable(),
     line_total_amount: z.string().nullable(),
     cost_currency_code: z.string().nullable(),
+    valuation_pending_fx: z.boolean(),
     costs_redacted: z.boolean()
 });
 
@@ -8029,6 +8281,11 @@ export const zSupplierPath = zUuid;
 export const zPurchaseOrderPath = zUuid;
 
 /**
+ * The goods-receipt identifier.
+ */
+export const zGoodsReceiptPath = zUuid;
+
+/**
  * The delivery zone identifier, or its `code`.
  */
 export const zDeliveryZonePath = z.union([
@@ -11075,6 +11332,68 @@ export const zCreateGoodsReceiptHeaders = z.object({
  */
 export const zCreateGoodsReceiptResponse = zGoodsReceiptEnvelope;
 
+export const zGetGoodsReceiptHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetGoodsReceiptPath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The receipt, its lines and its order match.
+ */
+export const zGetGoodsReceiptResponse = zGoodsReceiptDetailEnvelope;
+
+export const zCompleteReceiptPricesBody = zCompleteReceiptPricesRequest;
+
+export const zCompleteReceiptPricesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCompleteReceiptPricesPath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The receipt after the prices were completed.
+ */
+export const zCompleteReceiptPricesResponse = zGoodsReceiptDetailEnvelope;
+
+export const zListReceivableOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListReceivableOrdersQuery = z.object({
+    branch_id: zUuid,
+    supplier_id: zUuid.optional()
+});
+
+/**
+ * Orders open for receiving at this branch, oldest first.
+ */
+export const zListReceivableOrdersResponse = zReceivableOrderCollection;
+
+export const zListUnpricedReceiptsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListUnpricedReceiptsQuery = z.object({
+    branch_id: zUuid.optional(),
+    supplier_id: zUuid.optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of receipts still waiting on their costing, oldest first.
+ */
+export const zListUnpricedReceiptsResponse = zUnpricedReceiptCollection;
+
 export const zListPurchasesLedgerHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -11087,6 +11406,8 @@ export const zListPurchasesLedgerQuery = z.object({
     ingredient_id: zUuid.optional(),
     stock_item_id: zUuid.optional(),
     branch_id: zUuid.optional(),
+    purchase_order_id: zUuid.optional(),
+    cost_status: zReceiptCostStatus.optional(),
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional()
 });

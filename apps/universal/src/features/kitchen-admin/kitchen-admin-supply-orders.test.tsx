@@ -232,7 +232,12 @@ function purchaseOrderId(ordinal: number): PurchaseOrderId {
     return PurchaseOrderId.unsafe(`01935f6d-0000-7000-8000-00000000d00${String(ordinal)}`);
 }
 
-function orderLine(ordinal: number, quantity = '4.0000'): PurchaseOrderLine {
+function orderLine(
+    ordinal: number,
+    quantity = '4.0000',
+    received = '0.0000',
+    outstanding?: string,
+): PurchaseOrderLine {
     return {
         id: `01935f6d-0000-7000-8000-00000000c00${String(ordinal)}`,
         stockItemId: itemId(ordinal),
@@ -240,6 +245,10 @@ function orderLine(ordinal: number, quantity = '4.0000'): PurchaseOrderLine {
         itemNameEn: `Item ${String(ordinal)}`,
         itemNameAr: null,
         quantity,
+        // SUP5: the three quantities on a row always add up, so a fixture that
+        // states one has to state the other two.
+        receivedQuantity: received,
+        outstandingQuantity: outstanding ?? quantity,
         unitCode: 'kg',
         supplierItemRef: null,
         notes: null,
@@ -265,9 +274,13 @@ function purchaseOrder(ordinal: number, overrides: Partial<PurchaseOrder> = {}):
         notes: null,
         lineCount: 1,
         issuedAt: null,
+        receivedAt: null,
+        closedAt: null,
+        closeShortReason: null,
         cancelledAt: null,
         createdAt: '2026-08-17T09:00:00+00:00',
         lines: [orderLine(1)],
+        receipts: [],
         ...overrides,
     };
 }

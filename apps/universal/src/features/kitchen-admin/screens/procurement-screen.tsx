@@ -1,6 +1,8 @@
 import type { GoodsReceipt, MeasurementUnitOption } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
+    DateField,
     Dialog,
     EmptyState,
     ErrorState,
@@ -39,7 +41,12 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
-import { goodsReceiptRowTestId, stockItemLabel } from '../ops-format.ts';
+import {
+    goodsReceiptRowTestId,
+    receiptCostStatusKey,
+    receiptCostStatusTone,
+    stockItemLabel,
+} from '../ops-format.ts';
 import {
     StockItemLineEditor,
     stockItemLinesToReceiptInputs,
@@ -48,13 +55,21 @@ import {
 import type { StockItemLineDraft } from '../ops-line-editor.tsx';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
+import { todayIsoDate } from '../receive-delivery-model.ts';
 
 /**
- * `/kitchen/procurement` — receipts-only procurement (O2).
+ * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
  *
- * There is no purchase-order surface in v1: `GoodsReceipt.purchaseOrderId` is always `null` until
- * one exists to point at (`contracts/kitchen-ops.ts`), so this screen never offers a picker for one
- * and the post form sends nothing for it.
+ * This dialog is the **market purchase**: somebody bought something without an order, and the
+ * quickest honest record of it is a supplier, a date and some lines. A delivery against an issued
+ * order goes to `/kitchen/procurement/receive` instead, which prefills outstanding quantities,
+ * matches order lines and handles over-receipts — none of which belongs in a dialog.
+ *
+ * SUP5 extends this one **minimally and deliberately**: a business date and an invoice reference,
+ * because those two are what the new columns make load-bearing (a receipt filed under today when
+ * the van came yesterday lands in the wrong week's spend). Everything else the receiving workflow
+ * needs stayed out, because a dialog that grew an order picker, a variance note and five charge
+ * fields would be the receive screen with worse ergonomics.
  *
  * ## What the receipt form actually needs to be usable (INV1.1)
  *
@@ -124,6 +139,14 @@ function Procurement() {
     const [lines, setLines] = useState<readonly StockItemLineDraft[]>([]);
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [documentRef, setDocumentRef] = useState('');
+    // SUP5, kept minimal on purpose: this dialog is the **direct** market-purchase path and stays
+    // the small thing it is. The business date and the invoice reference are the two fields the new
+    // columns make load-bearing — a receipt with no `receivedOn` would be filed under today even
+    // when the van came yesterday, and slice 6 groups spend by exactly that. The order matching,
+    // over-receipt confirmation and header charges belong to the receive screen, which is where an
+    // ordered delivery goes.
+    const [receivedOn, setReceivedOn] = useState(() => todayIsoDate());
+    const [invoiceRef, setInvoiceRef] = useState('');
 
     const [creatingSupplier, setCreatingSupplier] = useState(false);
     const [newSupplierName, setNewSupplierName] = useState('');
@@ -256,6 +279,8 @@ function Procurement() {
         setLines([]);
         setSupplierId(null);
         setDocumentRef('');
+        setReceivedOn(todayIsoDate());
+        setInvoiceRef('');
         postReceipt.reset();
     }
 
@@ -268,6 +293,8 @@ function Procurement() {
                 branchId,
                 supplierId: supplierId === null ? null : SupplierId.unsafe(supplierId),
                 documentRef: documentRef.trim() === '' ? null : documentRef.trim(),
+                supplierInvoiceRef: invoiceRef.trim() === '' ? null : invoiceRef.trim(),
+                receivedOn: receivedOn.trim() === '' ? null : receivedOn.trim(),
                 purchaseOrderId: null,
                 lines: stockItemLinesToReceiptInputs(lines, currencyCode).map((line) => ({
                     stockItemId: StockItemId.unsafe(line.stockItemId),
@@ -378,6 +405,26 @@ function Procurement() {
             ),
         },
         {
+            key: 'costStatus',
+            header: t('kitchen:ops.procurement.columnCostStatus'),
+            render: (row) => (
+                <Inline space="xs" align="center" wrap>
+                    <Badge
+                        tone={receiptCostStatusTone(row.costStatus)}
+                        testID={`${goodsReceiptRowTestId(String(row.id))}-cost-status`}
+                        label={t(receiptCostStatusKey(row.costStatus))}
+                    />
+                    {row.valuationPendingCount > 0 ? (
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:ops.procurement.pendingFxCount', {
+                                count: row.valuationPendingCount,
+                            })}
+                        </Text>
+                    ) : null}
+                </Inline>
+            ),
+        },
+        {
             key: 'total',
             header: t('kitchen:ops.procurement.columnTotal'),
             render: (row) => (
@@ -472,14 +519,29 @@ function Procurement() {
                                 <Heading level={2} testID="kitchen-procurement-receipts-title">
                                     {t('kitchen:ops.procurement.receiptsTitle')}
                                 </Heading>
-                                {canManage ? (
-                                    <Button
-                                        testID="kitchen-procurement-post-receipt"
-                                        size="sm"
-                                        label={t('kitchen:ops.procurement.postReceipt')}
-                                        onPress={openPosting}
-                                    />
-                                ) : null}
+                                <Inline space="xs" align="center" wrap>
+                                    {canViewCosts ? (
+                                        <Button
+                                            testID="kitchen-procurement-unpriced-link"
+                                            size="sm"
+                                            variant="ghost"
+                                            label={t('kitchen:ops.procurement.unpricedReceipts')}
+                                            onPress={() => {
+                                                router.push(
+                                                    '/kitchen/procurement/unpriced-receipts' as never,
+                                                );
+                                            }}
+                                        />
+                                    ) : null}
+                                    {canManage ? (
+                                        <Button
+                                            testID="kitchen-procurement-post-receipt"
+                                            size="sm"
+                                            label={t('kitchen:ops.procurement.postReceipt')}
+                                            onPress={openPosting}
+                                        />
+                                    ) : null}
+                                </Inline>
                             </Inline>
 
                             {receiptRows.length === 0 ? (
@@ -568,6 +630,24 @@ function Procurement() {
                             value={documentRef}
                             onChangeText={setDocumentRef}
                             className="min-w-[180px] flex-1"
+                        />
+                        <TextInputField
+                            testID="kitchen-procurement-post-invoice-ref"
+                            label={t('kitchen:ops.procurement.fieldInvoiceRef')}
+                            hint={t('kitchen:ops.procurement.fieldInvoiceRefHint')}
+                            value={invoiceRef}
+                            onChangeText={setInvoiceRef}
+                            className="min-w-[180px] flex-1"
+                        />
+                        <DateField
+                            testID="kitchen-procurement-post-received-on"
+                            label={t('kitchen:ops.procurement.fieldReceivedOn')}
+                            hint={t('kitchen:ops.procurement.fieldReceivedOnHint')}
+                            value={receivedOn}
+                            max={todayIsoDate()}
+                            onChange={(next) => {
+                                setReceivedOn(next ?? '');
+                            }}
                         />
                     </Inline>
                     <StockItemLineEditor

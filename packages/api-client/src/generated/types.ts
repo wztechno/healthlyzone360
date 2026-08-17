@@ -4487,10 +4487,17 @@ export type OrderProposalCollection = {
  * system did not perform.
  *
  * `partially_received` and `received` are reached by **posting a goods
- * receipt**, never by an action of their own, and no endpoint in this
- * version produces them yet. `received` and `cancelled` are terminal: a
- * delivery that turned out wrong is a receipt correction or a return,
- * which are different objects with different quantities attached.
+ * receipt**, never by an action of their own: the quantities received are
+ * summed per order line and the status is whatever that sum says it is.
+ * There is no "mark as received" action and there must not be one — it
+ * would let an order claim a delivery that never turned up. The one
+ * apparent exception proves the rule: closing a short delivery still goes
+ * through a receipt, and what the flag adds is a reason for writing off the
+ * remainder rather than a status change of its own.
+ *
+ * `received` and `cancelled` are terminal: a delivery that turned out wrong
+ * is a receipt correction or a return, which are different objects with
+ * different quantities attached.
  *
  */
 export type PurchaseOrderStatus = 'draft' | 'issued' | 'partially_received' | 'received' | 'cancelled';
@@ -4529,9 +4536,26 @@ export type PurchaseOrderLine = {
      */
     item_name_ar: string | null;
     /**
-     * A decimal string at scale 4, never a float. Always above zero.
+     * A decimal string at scale 4, never a float. Always above zero. What was asked for.
      */
     quantity: string;
+    /**
+     * How much of this line has actually turned up, summed across every
+     * delivery against it (SUP5). Expressed in this line's own `unit_code`:
+     * a delivery quoted per kilogram against a shelf counted in grams is
+     * converted before it is summed, so the three quantities on one row
+     * always add up. A quantity, not money.
+     *
+     */
+    received_quantity: string;
+    /**
+     * What is still to come, and what the receive screen prefills (§4).
+     * Floored at zero — an over-receipt is a real event its variance note
+     * records, and a negative amount still to come would be an arithmetic
+     * curiosity rather than an instruction.
+     *
+     */
+    outstanding_quantity: string;
     /**
      * Snapshotted — the unit that prints on the order sheet.
      */
@@ -4661,9 +4685,56 @@ export type PurchaseOrder = {
      *
      */
     issued_at: string | null;
+    /**
+     * When the last outstanding line actually arrived (SUP5). An order
+     * closed short reaches `received` with this still null and `closed_at`
+     * set instead: nothing was last fulfilled, and a date here would be a
+     * small lie in the one place a person checks.
+     *
+     */
+    received_at: string | null;
+    /**
+     * When the order stopped expecting anything more — set on both routes
+     * to `received`, whether every line arrived or the remainder was
+     * written off.
+     *
+     */
+    closed_at: string | null;
+    /**
+     * Why the rest of this order was written off (§3.5). Present only on an
+     * order somebody deliberately closed short; a delivery that completed
+     * the order has nothing to explain and carries none.
+     *
+     */
+    close_short_reason: string | null;
     cancelled_at: string | null;
     created_at: string | null;
     lines: Array<PurchaseOrderLine>;
+    /**
+     * Every delivery made against this order, oldest first (SUP5) — a
+     * reference rather than the receipt itself. The date, the delivery note
+     * and the line count are what an order detail lists; the money on those
+     * lines is behind a permission this response does not check, so a
+     * client that wants the figures opens the receipt.
+     *
+     */
+    receipts: Array<PurchaseOrderReceiptRef>;
+};
+
+/**
+ * One delivery made against an order, as the order lists it (SUP5).
+ */
+export type PurchaseOrderReceiptRef = {
+    id: Uuid;
+    /**
+     * The branch-local business day the delivery was filed under.
+     */
+    received_on: string | null;
+    /**
+     * The supplier delivery note, as written.
+     */
+    document_ref: string | null;
+    line_count: number;
 };
 
 /**
@@ -4975,13 +5046,46 @@ export type ProcurementReferenceEnvelope = {
 };
 
 /**
+ * Whether a receipt's costing is finished (§3.6). Derived from the lines
+ * and never set by hand: a line counts as settled when it carries
+ * `costed_at`, the receipt is `complete` when every line does, `unpriced`
+ * when none does and `partial` in between.
+ *
+ * `costed_at` is stamped when there is nothing further to do with a line's
+ * money — the blend went through, **or** there was no ingredient to blend
+ * into (packaging, cleaning supplies). Both are finished states, and
+ * leaving the second one null would park its receipt in the work queue
+ * forever with no action available.
+ *
+ * A receipt whose only line is `valuation_pending_fx` therefore reads
+ * `unpriced` even though its price is recorded, because its costing is
+ * genuinely not finished. `valuation_pending_count` beside it is what tells
+ * a person which kind of unfinished it is.
+ *
+ * Not redacted without the cost permission: this says whether the paperwork
+ * needs attention, not what anything cost.
+ *
+ */
+export type ReceiptCostStatus = 'unpriced' | 'partial' | 'complete';
+
+/**
  * The money fields (INV1.1) are served as `null` when the reader lacks
  * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
- * `quantity` and `unit_id` are warehouse facts and are never redacted.
+ * `quantity` and `unit_id` are warehouse facts and are never redacted, and
+ * neither are `costed_at` and `valuation_pending_fx`, which say whether the
+ * line still needs somebody's attention rather than what it cost.
  *
  */
 export type GoodsReceiptLine = {
+    id: Uuid;
     stock_item_id: Uuid;
+    /**
+     * The ordered line this delivery fulfils (SUP5). Null for a direct
+     * market purchase and for an unplanned extra item on an ordered
+     * delivery, both of which §4 treats as ordinary.
+     *
+     */
+    purchase_order_line_id: Uuid | null;
     quantity: string;
     /**
      * The unit the price is quoted per (INV1.1).
@@ -4993,16 +5097,47 @@ export type GoodsReceiptLine = {
     unit_price_amount: string | null;
     line_total_amount: string | null;
     cost_currency_code: string | null;
+    /**
+     * When this line's money was settled (§3.6). Null means the costing
+     * path has not run and price completion may still act on it — the guard
+     * that stops one quantity being costed twice.
+     *
+     */
+    costed_at: string | null;
+    /**
+     * The price is recorded exactly as the supplier wrote it and could not
+     * be blended into the ingredient's valuation currency (§3.6). Physical
+     * receiving is never lost to a currency, and no exchange rate is ever
+     * invented; a later accounting phase may resolve it.
+     *
+     */
+    valuation_pending_fx: boolean;
 };
 
 /**
- * A receipt still has no purchase-order surface in v1 (O2) —
- * `purchase_order_id` is always null. Since INV1.1 it also records who was
- * paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
- * in `currency_code`, offered only when every priced line shares one
- * currency (there is no exchange rate in this system, §4.4). When the
- * reader lacks `inventory.view_costs_organisation` every money field is
- * null and `costs_redacted` is true.
+ * What arrived, from whom, and what it cost (§3.6).
+ *
+ * **Two dates, and they are two different facts.** `received_at` is the
+ * exact instant; `received_on` is the branch-local calendar day the
+ * delivery belongs to, and it is what §3.7 groups spend by — a van unloaded
+ * at 21:30 in Dubai is a Tuesday delivery, and reading the UTC instant's
+ * date would file it on Monday.
+ *
+ * **Two document references, likewise.** `document_ref` is the delivery
+ * note the driver handed over; `supplier_invoice_ref` and `invoice_date`
+ * are the invoice, which often arrives days later.
+ *
+ * `receipt_total_amount` is the **item subtotal** in `currency_code`,
+ * offered only when every priced line shares one currency (there is no
+ * exchange rate in this system, §4.4). The header charges are reported
+ * **separately** for the reason §3.6 gives: tax and delivery are not an
+ * ingredient's purchase price, and a screen that added them into one figure
+ * would be mislabelling them. They carry no currency of their own — they
+ * are in the receipt's line currency, and the post refuses any other state.
+ *
+ * When the reader lacks `inventory.view_costs_organisation` every money
+ * field is null and `costs_redacted` is true. `cost_status` and the two
+ * counts are **not** redacted.
  *
  */
 export type GoodsReceipt = {
@@ -5010,18 +5145,209 @@ export type GoodsReceipt = {
     branch_id: Uuid;
     supplier: SupplierRef | null;
     /**
-     * The supplier delivery note or invoice number, as written (INV1.1).
+     * The supplier delivery note, as written (INV1.1).
      */
     document_ref: string | null;
+    /**
+     * The supplier's invoice number — a different document from the delivery note (SUP5).
+     */
+    supplier_invoice_ref: string | null;
+    invoice_date: string | null;
+    /**
+     * Why this delivery differs from what was ordered (§4). Required for an
+     * over-receipt and for an unplanned extra item — a required explanation
+     * that was then discarded would be the plainest kind of silent
+     * behaviour, so it is kept and shown.
+     *
+     */
+    variance_note: string | null;
     purchase_order_id: Uuid | null;
     received_at: string | null;
+    /**
+     * The branch-local business day this delivery is filed under (§3.6).
+     */
+    received_on: string | null;
+    cost_status: ReceiptCostStatus;
+    /**
+     * Lines whose money is not settled — the work still outstanding on this receipt.
+     */
+    unpriced_line_count: number;
+    /**
+     * Lines whose price is recorded and whose valuation is waiting on an exchange-rate decision.
+     */
+    valuation_pending_count: number;
     currency_code: string | null;
+    /**
+     * The item subtotal — Σ line totals. Never includes the header charges.
+     */
     receipt_total_amount: string | null;
+    discount_amount: string | null;
+    tax_amount: string | null;
+    delivery_amount: string | null;
+    other_charges_amount: string | null;
+    /**
+     * What the supplier invoiced in total, when it is known.
+     */
+    invoice_total_amount: string | null;
     /**
      * True when the reader lacks inventory.view_costs_organisation and money fields were nulled (INV1.1).
      */
     costs_redacted: boolean;
     lines: Array<GoodsReceiptLine>;
+};
+
+export type GoodsReceiptDetail = GoodsReceipt & {
+    purchase_order: ReceiptPurchaseOrderMatch | null;
+};
+
+/**
+ * The order a delivery settled, as the receipt shows it. No money at any
+ * depth, because there is none on a purchase order at all.
+ *
+ */
+export type ReceiptPurchaseOrderMatch = {
+    id: Uuid;
+    number: string;
+    status: PurchaseOrderStatus;
+    lines: Array<ReceiptPurchaseOrderMatchLine>;
+};
+
+/**
+ * One ordered line and how much of it has arrived, all three quantities in
+ * the line's own `unit_code`.
+ *
+ */
+export type ReceiptPurchaseOrderMatchLine = {
+    purchase_order_line_id: Uuid;
+    stock_item_id: Uuid;
+    item_code: string;
+    item_name_en: string;
+    unit_code: string;
+    ordered_quantity: string;
+    received_quantity: string;
+    outstanding_quantity: string;
+};
+
+export type GoodsReceiptDetailEnvelope = {
+    data: {
+        goods_receipt: GoodsReceiptDetail;
+    };
+    meta: Meta;
+};
+
+/**
+ * One order a delivery could be received against (§4, §6) — a deliberate
+ * manage-scoped subset of the order book, not the order book. No notes, no
+ * recipient snapshot, no history, and no money at any depth.
+ *
+ */
+export type ReceivableOrder = {
+    id: Uuid;
+    number: string;
+    status: PurchaseOrderStatus;
+    branch_id: Uuid;
+    supplier: SupplierRef | null;
+    issued_at: string | null;
+    line_count: number;
+    /**
+     * Lines with something still to come. Fully delivered lines stay in
+     * `lines` — a person checking a delivery against a sheet needs to see
+     * the row accounted for rather than missing — and this is the count a
+     * picker sorts and labels by.
+     *
+     */
+    outstanding_line_count: number;
+    lines: Array<ReceivableOrderLine>;
+};
+
+/**
+ * One ordered line with its outstanding quantity — what the receive screen
+ * prefills a row with (§4). The unit is fixed from the order line, so a
+ * delivery cannot silently be counted in something else.
+ *
+ */
+export type ReceivableOrderLine = {
+    purchase_order_line_id: Uuid;
+    stock_item_id: Uuid;
+    item_code: string;
+    item_name_en: string;
+    item_name_ar: string | null;
+    unit_code: string;
+    unit_id: Uuid | null;
+    ordered_quantity: string;
+    received_quantity: string;
+    outstanding_quantity: string;
+};
+
+export type ReceivableOrderCollection = {
+    data: {
+        receivable_orders: Array<ReceivableOrder>;
+    };
+    meta: Meta;
+};
+
+/**
+ * One row of the unpriced-receipts work queue (§3.6). Deliberately not the
+ * whole receipt: this is a list somebody scans to decide what to open next.
+ *
+ * The two counts are two different jobs. `unpriced_line_count` is "type
+ * these prices in"; `valuation_pending_count` is "the prices are already
+ * here and an exchange-rate decision is not this screen's to make". A queue
+ * showing one number for both would send people to rows they cannot action.
+ *
+ * No money at all — the amounts are on the receipt detail, behind the same
+ * gate this list sits on.
+ *
+ */
+export type UnpricedReceipt = {
+    id: Uuid;
+    received_on: string | null;
+    supplier: SupplierRef | null;
+    document_ref: string | null;
+    supplier_invoice_ref: string | null;
+    purchase_order_id: Uuid | null;
+    cost_status: ReceiptCostStatus;
+    line_count: number;
+    unpriced_line_count: number;
+    valuation_pending_count: number;
+};
+
+export type UnpricedReceiptCollection = {
+    data: {
+        unpriced_receipts: Array<UnpricedReceipt>;
+    };
+    meta: PaginationMeta;
+};
+
+/**
+ * One line's missing price. `line_total_amount` is optional and is
+ * **checked** against quantity × unit price rather than stored as given:
+ * the total and the price are two views of one fact, and a database holding
+ * two answers for it is worse than one that refuses.
+ *
+ */
+export type CompleteReceiptPriceLine = {
+    goods_receipt_line_id: Uuid;
+    /**
+     * Major currency units per the line's own unit (§4.4).
+     */
+    unit_price_amount: number;
+    line_total_amount?: number | null;
+    cost_currency_code: string;
+};
+
+/**
+ * Prices only. The quantities are untouchable here — §3.6 is explicit that
+ * posted quantities are never edited in place, and nothing on this request
+ * could change what arrived.
+ *
+ * Every line named must still have a null `costed_at`, and every currency
+ * on the request must agree with itself and with the receipt's
+ * already-priced lines.
+ *
+ */
+export type CompleteReceiptPricesRequest = {
+    lines: Array<CompleteReceiptPriceLine>;
 };
 
 /**
@@ -5051,6 +5377,15 @@ export type GoodsReceiptCollection = {
  */
 export type GoodsReceiptLineInput = {
     stock_item_id: Uuid;
+    /**
+     * The ordered line this delivery fulfils (SUP5). Only valid when the
+     * receipt names a `purchase_order_id`, and it must belong to that order
+     * and stock the same item. Omitted on a direct purchase and on an
+     * unplanned extra item, which needs the receipt's `variance_note`
+     * instead (§4).
+     *
+     */
+    purchase_order_line_id?: Uuid | null;
     quantity: number;
     unit_id?: Uuid;
     /**
@@ -5064,30 +5399,99 @@ export type GoodsReceiptLineInput = {
  * Posting a receipt writes every line straight into the inventory
  * ledger (`reason: receipt`) inside one transaction — there is no
  * draft state to save and return to. Since INV1.1 it also records the
- * supplier and document reference and blends each priced line's cost.
+ * supplier and document reference and blends each priced line's cost, and
+ * since SUP5 it settles a purchase order in the same transaction.
+ *
+ * Amounts are non-negative magnitudes. A **discount** is sent positive and
+ * subtracted by the arithmetic rather than sent negative, so the sign
+ * convention lives in one place rather than in every client.
  *
  */
 export type PostGoodsReceiptRequest = {
     branch_id: Uuid;
     /**
-     * Who the stock was bought from (INV1.1).
+     * Who the stock was bought from (INV1.1). Required in practice when
+     * `purchase_order_id` is sent, because §4 insists a delivery against an
+     * order names that order's supplier.
+     *
      */
     supplier_id?: Uuid | null;
     /**
-     * The supplier delivery note or invoice number (INV1.1).
+     * The supplier delivery note, as written (INV1.1).
      */
     document_ref?: string | null;
     /**
-     * Accepted for forward compatibility; no endpoint creates one yet (O2).
+     * The supplier's invoice number — a different document from the delivery note (SUP5).
+     */
+    supplier_invoice_ref?: string | null;
+    invoice_date?: string | null;
+    /**
+     * The branch-local business day this delivery belongs to (§3.6). Omit
+     * it and the server reads today in the receiving branch's own timezone.
+     * A future date is refused — a delivery that has not happened is not a
+     * delivery, and slice 6 would file its money in a period that has not
+     * started.
+     *
+     */
+    received_on?: string | null;
+    /**
+     * Why this delivery differs from what was ordered. Required for an
+     * over-receipt and for any line with no `purchase_order_line_id` on a
+     * delivery against an order (§3.5, §4).
+     *
+     */
+    variance_note?: string | null;
+    /**
+     * The order this delivery settles (SUP5). It must be `issued` or
+     * `partially_received` and must name this receipt's branch and
+     * supplier; its received state is updated in the same transaction.
+     *
      */
     purchase_order_id?: Uuid | null;
+    discount_amount?: number | null;
+    tax_amount?: number | null;
+    delivery_amount?: number | null;
+    other_charges_amount?: number | null;
+    /**
+     * When present it must equal `Σ line totals − discount + tax + delivery
+     * + other charges` (§3.6), else `422` naming the difference.
+     *
+     */
+    invoice_total_amount?: number | null;
+    /**
+     * Confirms that more is arriving than the order still has outstanding.
+     * Required to record an over-receipt at all, and not sufficient on its
+     * own: §3.5 asks for an explicit confirmation **and** a variance note.
+     *
+     */
+    over_receipt_confirmed?: boolean | null;
+    /**
+     * Close the rest of this order (§3.5). Only valid with a
+     * `purchase_order_id`, and the order becomes `received` with a
+     * `closed_at` stamp. If the delivery turns out to complete the order
+     * anyway, no reason is stored, because there is nothing left to explain.
+     *
+     */
+    close_short?: boolean | null;
+    /**
+     * Required with `close_short`. A blank is not an explicit reason.
+     */
+    close_short_reason?: string | null;
     lines: Array<GoodsReceiptLineInput>;
 };
 
 export type GoodsReceiptEnvelope = {
     data: {
+        /**
+         * The identifier, plus the two facts a client acts on straight
+         * away: which day this delivery was filed under, and whether its
+         * paperwork is done.
+         *
+         */
         goods_receipt: {
             id: Uuid;
+            received_on: string | null;
+            cost_status: ReceiptCostStatus;
         };
     };
     meta: Meta;
@@ -5100,8 +5504,17 @@ export type PurchasesLedgerLine = {
     id: Uuid;
     goods_receipt_id: Uuid;
     received_at: string | null;
+    /**
+     * The branch-local business day the receipt is filed under (SUP5).
+     */
+    received_on: string | null;
     supplier: SupplierRef | null;
     document_ref: string | null;
+    purchase_order_id: Uuid | null;
+    /**
+     * The parent receipt's costing state (SUP5) — what the completeness filter reads.
+     */
+    cost_status: ReceiptCostStatus | null;
     stock_item_id: Uuid;
     item_code: string | null;
     item_name_en: string | null;
@@ -5111,6 +5524,13 @@ export type PurchasesLedgerLine = {
     unit_price_amount: string | null;
     line_total_amount: string | null;
     cost_currency_code: string | null;
+    /**
+     * This line's price is recorded and its valuation is waiting on an
+     * exchange-rate decision (§3.6). A work state, not money, so it is
+     * never redacted.
+     *
+     */
+    valuation_pending_fx: boolean;
     costs_redacted: boolean;
 };
 
@@ -10817,6 +11237,11 @@ export type SupplierPath = Uuid;
  *
  */
 export type PurchaseOrderPath = Uuid;
+
+/**
+ * The goods-receipt identifier.
+ */
+export type GoodsReceiptPath = Uuid;
 
 /**
  * The delivery zone identifier, or its `code`.
@@ -22000,8 +22425,17 @@ export type CreatePurchaseOrdersErrors = {
      * be cancelled as though nothing happened.
      * - `supplier_archived` — the supplier has left the book. Restore it or
      * choose another; `details.supplier_id` names it.
-     * - `purchase_order_received_against` — reserved for the receiving slice's
-     * cancel guard.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
      *
      * No `current_lock_version`: purchase orders are not lock-versioned, so
      * there is no race to reload against. Re-reading the order is what tells a
@@ -22157,8 +22591,17 @@ export type UpdatePurchaseOrderErrors = {
      * be cancelled as though nothing happened.
      * - `supplier_archived` — the supplier has left the book. Restore it or
      * choose another; `details.supplier_id` names it.
-     * - `purchase_order_received_against` — reserved for the receiving slice's
-     * cancel guard.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
      *
      * No `current_lock_version`: purchase orders are not lock-versioned, so
      * there is no race to reload against. Re-reading the order is what tells a
@@ -22245,8 +22688,17 @@ export type IssuePurchaseOrderErrors = {
      * be cancelled as though nothing happened.
      * - `supplier_archived` — the supplier has left the book. Restore it or
      * choose another; `details.supplier_id` names it.
-     * - `purchase_order_received_against` — reserved for the receiving slice's
-     * cancel guard.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
      *
      * No `current_lock_version`: purchase orders are not lock-versioned, so
      * there is no race to reload against. Re-reading the order is what tells a
@@ -22329,8 +22781,17 @@ export type CancelPurchaseOrderErrors = {
      * be cancelled as though nothing happened.
      * - `supplier_archived` — the supplier has left the book. Restore it or
      * choose another; `details.supplier_id` names it.
-     * - `purchase_order_received_against` — reserved for the receiving slice's
-     * cancel guard.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
      *
      * No `current_lock_version`: purchase orders are not lock-versioned, so
      * there is no race to reload against. Re-reading the order is what tells a
@@ -22492,6 +22953,40 @@ export type CreateGoodsReceiptErrors = {
      */
     403: ErrorEnvelope;
     /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -22511,6 +23006,272 @@ export type CreateGoodsReceiptResponses = {
 };
 
 export type CreateGoodsReceiptResponse = CreateGoodsReceiptResponses[keyof CreateGoodsReceiptResponses];
+
+export type GetGoodsReceiptData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The goods-receipt identifier.
+         */
+        goodsReceipt: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/goods-receipts/{goodsReceipt}';
+};
+
+export type GetGoodsReceiptErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetGoodsReceiptError = GetGoodsReceiptErrors[keyof GetGoodsReceiptErrors];
+
+export type GetGoodsReceiptResponses = {
+    /**
+     * The receipt, its lines and its order match.
+     */
+    200: GoodsReceiptDetailEnvelope;
+};
+
+export type GetGoodsReceiptResponse = GetGoodsReceiptResponses[keyof GetGoodsReceiptResponses];
+
+export type CompleteReceiptPricesData = {
+    body: CompleteReceiptPricesRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The goods-receipt identifier.
+         */
+        goodsReceipt: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/goods-receipts/{goodsReceipt}/complete-prices';
+};
+
+export type CompleteReceiptPricesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CompleteReceiptPricesError = CompleteReceiptPricesErrors[keyof CompleteReceiptPricesErrors];
+
+export type CompleteReceiptPricesResponses = {
+    /**
+     * The receipt after the prices were completed.
+     */
+    200: GoodsReceiptDetailEnvelope;
+};
+
+export type CompleteReceiptPricesResponse = CompleteReceiptPricesResponses[keyof CompleteReceiptPricesResponses];
+
+export type ListReceivableOrdersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The branch taking delivery. Must belong to the active organisation.
+         */
+        branch_id: Uuid;
+        /**
+         * Only orders addressed to this supplier.
+         */
+        supplier_id?: Uuid;
+    };
+    url: '/catalogue/procurement/receivable-orders';
+};
+
+export type ListReceivableOrdersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListReceivableOrdersError = ListReceivableOrdersErrors[keyof ListReceivableOrdersErrors];
+
+export type ListReceivableOrdersResponses = {
+    /**
+     * Orders open for receiving at this branch, oldest first.
+     */
+    200: ReceivableOrderCollection;
+};
+
+export type ListReceivableOrdersResponse = ListReceivableOrdersResponses[keyof ListReceivableOrdersResponses];
+
+export type ListUnpricedReceiptsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Only receipts posted at this branch. Must belong to the active organisation.
+         */
+        branch_id?: Uuid;
+        supplier_id?: Uuid;
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/catalogue/procurement/unpriced-receipts';
+};
+
+export type ListUnpricedReceiptsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListUnpricedReceiptsError = ListUnpricedReceiptsErrors[keyof ListUnpricedReceiptsErrors];
+
+export type ListUnpricedReceiptsResponses = {
+    /**
+     * A page of receipts still waiting on their costing, oldest first.
+     */
+    200: UnpricedReceiptCollection;
+};
+
+export type ListUnpricedReceiptsResponse = ListUnpricedReceiptsResponses[keyof ListUnpricedReceiptsResponses];
 
 export type ListPurchasesLedgerData = {
     body?: never;
@@ -22551,6 +23312,21 @@ export type ListPurchasesLedgerData = {
          * Only lines whose receipt was posted at this branch. Must belong to the active organisation.
          */
         branch_id?: Uuid;
+        /**
+         * Only lines whose receipt was made against this order (SUP5) — what
+         * an order detail's "everything delivered against this" link lands on.
+         *
+         */
+        purchase_order_id?: Uuid;
+        /**
+         * Only lines whose receipt is in this costing state (SUP5). §3.4 lists
+         * price-completeness among the ledger's filters; it lands in the slice
+         * that lands the column rather than the slice that first draws a screen
+         * over it, because a parameter that quietly did nothing would be worse
+         * than its absence.
+         *
+         */
+        cost_status?: ReceiptCostStatus;
         /**
          * Page size.
          */

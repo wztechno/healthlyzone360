@@ -37,6 +37,7 @@ import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { OpsRecordFrame } from '../ops-record-frame.tsx';
 import {
     canCancelPurchaseOrder,
+    canReceivePurchaseOrder,
     canEditPurchaseOrderLines,
     canIssuePurchaseOrder,
     purchaseOrderLineTestId,
@@ -116,6 +117,14 @@ interface LineDraft {
     readonly itemNameEn: string;
     readonly unitCode: string;
     readonly supplierItemRef: string | null;
+    /**
+     * What has arrived and what is still to come (SUP5), both read from the server and never
+     * recomputed here. A screen that worked out "ordered minus received" for itself would be a
+     * second answer to a question the receiving guard has already answered, and the two would
+     * disagree the first time a delivery was quoted per kilogram against a shelf counted in grams.
+     */
+    readonly receivedQuantity: string;
+    readonly outstandingQuantity: string;
 }
 
 function lineDraft(line: PurchaseOrderLine): LineDraft {
@@ -126,6 +135,8 @@ function lineDraft(line: PurchaseOrderLine): LineDraft {
         itemNameEn: line.itemNameEn,
         unitCode: line.unitCode,
         supplierItemRef: line.supplierItemRef,
+        receivedQuantity: line.receivedQuantity,
+        outstandingQuantity: line.outstandingQuantity,
     };
 }
 
@@ -176,6 +187,9 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     const editable = data !== undefined && canEditPurchaseOrderLines(status);
     const issuable = data !== undefined && canIssuePurchaseOrder(status);
     const cancellable = data !== undefined && canCancelPurchaseOrder(status);
+    // SUP5: the two states a van can arrive against, read from the same closed record the server's
+    // own machine is mirrored by, so the action never appears on a row the service would refuse.
+    const receivable = data !== undefined && canReceivePurchaseOrder(status);
 
     // Only a draft can gain a line, so the shelf list is only fetched for one.
     const stockItems = useStockItemsQuery(editable);
@@ -350,6 +364,40 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
 
     /* ── the record ──────────────────────────────────────────────────────────────────────────── */
 
+    /*
+     * Ordered / Received / Outstanding (§3.5), and only from `issued` onward. On a draft every
+     * received figure is zero and every outstanding figure repeats the ordered one, so two columns
+     * of noise would push the quantity input off a narrow screen to say nothing at all.
+     */
+    const receivingColumns: readonly TableColumn<LineDraft>[] = editable
+        ? []
+        : [
+              {
+                  key: 'received',
+                  header: t('kitchen:ops.supplyOrders.columnReceived'),
+                  render: (line) => (
+                      <Text
+                          testID={`${purchaseOrderLineTestId(line.stockItemId)}-received`}
+                          tone={Number(line.receivedQuantity) > 0 ? 'primary' : 'secondary'}
+                      >
+                          {`${formatter.formatNumber(Number(line.receivedQuantity))} ${line.unitCode}`}
+                      </Text>
+                  ),
+              },
+              {
+                  key: 'outstanding',
+                  header: t('kitchen:ops.supplyOrders.columnOutstanding'),
+                  render: (line) => (
+                      <Text
+                          testID={`${purchaseOrderLineTestId(line.stockItemId)}-outstanding`}
+                          tone={Number(line.outstandingQuantity) > 0 ? 'warning' : 'secondary'}
+                      >
+                          {`${formatter.formatNumber(Number(line.outstandingQuantity))} ${line.unitCode}`}
+                      </Text>
+                  ),
+              },
+          ];
+
     const columns: readonly TableColumn<LineDraft>[] = [
         {
             key: 'item',
@@ -431,6 +479,7 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                 );
             },
         },
+        ...receivingColumns,
     ];
 
     const supplierName = data.supplier?.nameEn ?? EM_DASH;
@@ -453,6 +502,17 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                 hideSave={!editable}
                 primaryAction={
                     <>
+                        {receivable ? (
+                            <Button
+                                testID="kitchen-supply-order-detail-receive"
+                                label={t('kitchen:ops.supplyOrders.receiveDelivery')}
+                                onPress={() => {
+                                    router.push(
+                                        `/kitchen/procurement/receive?order=${encodeURIComponent(String(data.id))}` as never,
+                                    );
+                                }}
+                            />
+                        ) : null}
                         {cancellable ? (
                             <Button
                                 testID="kitchen-supply-order-detail-cancel"
@@ -520,6 +580,22 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                                 body={t('kitchen:ops.supplyOrders.issuedNoticeBody')}
                             />
                         ) : null}
+
+                        {data.closeShortReason === null ? null : (
+                            /*
+                             * §3.5 allows a short delivery to be closed "with an explicit reason",
+                             * and the reason is shown here rather than left in the audit log: the
+                             * person looking at this order can already see it was closed with a
+                             * shortfall, and being able to see *that* but not *why* would be the
+                             * worse half of the two.
+                             */
+                            <Callout
+                                testID="kitchen-supply-order-detail-close-short-notice"
+                                tone="warning"
+                                title={t('kitchen:ops.supplyOrders.closedShortTitle')}
+                                body={data.closeShortReason}
+                            />
+                        )}
 
                         {data.supplier?.archivedAt == null ? null : (
                             <Callout
@@ -679,12 +755,65 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                                             // Resolved server-side from the saved supplier link on
                                             // save — the client never invents one.
                                             supplierItemRef: null,
+                                            // A line nobody has ordered yet has nothing against it,
+                                            // and the whole of it is still to come.
+                                            receivedQuantity: '0',
+                                            outstandingQuantity: '',
                                         },
                                     ]);
                                 }}
                             />
                         ) : null}
                     </Stack>
+
+                    {data.receipts.length === 0 ? null : (
+                        <Stack space="sm" testID="kitchen-supply-order-detail-receipts">
+                            <Heading level={2}>
+                                {t('kitchen:ops.supplyOrders.receiptsTitle')}
+                            </Heading>
+                            {data.receipts.map((receipt) => (
+                                <Inline
+                                    key={String(receipt.id)}
+                                    space="sm"
+                                    align="center"
+                                    wrap
+                                    testID={`kitchen-supply-order-detail-receipt-${String(receipt.id)}`}
+                                >
+                                    <Text variant="bodyStrong">
+                                        {receipt.receivedOn === null
+                                            ? EM_DASH
+                                            : formatter.formatDate(receipt.receivedOn, {
+                                                  dateStyle: 'medium',
+                                              })}
+                                    </Text>
+                                    <Text variant="caption" tone="secondary">
+                                        {receipt.documentRef ??
+                                            t('kitchen:ops.supplyOrders.receiptNoDocumentRef')}
+                                    </Text>
+                                    <Text variant="caption" tone="secondary">
+                                        {t('kitchen:ops.supplyOrders.receiptLineCount', {
+                                            count: receipt.lineCount,
+                                        })}
+                                    </Text>
+                                </Inline>
+                            ))}
+                            {/*
+                             * A list, not a link to a receipt page. There is no receipt screen in
+                             * this slice, and a link to one that does not exist would be worse than
+                             * the three facts an order detail actually needs: when it arrived, which
+                             * delivery note it came on, and how many lines it carried. The money on
+                             * those lines is behind a permission this screen does not check — the
+                             * purchases ledger is where a cost holder reads it, already filtered.
+                             */}
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID="kitchen-supply-order-detail-receipts-note"
+                            >
+                                {t('kitchen:ops.supplyOrders.receiptsNote')}
+                            </Text>
+                        </Stack>
+                    )}
 
                     <Stack space="sm" testID="kitchen-supply-order-detail-notes">
                         <Heading level={2}>{t('kitchen:ops.supplyOrders.notesTitle')}</Heading>

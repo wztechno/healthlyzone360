@@ -7,6 +7,7 @@ namespace Healthy360\Procurement\Http\Controllers;
 use Healthy360\Procurement\Enums\PurchaseOrderStatus;
 use Healthy360\Procurement\Models\PurchaseOrder;
 use Healthy360\Procurement\Presenters\PurchaseOrderPresenter;
+use Healthy360\Procurement\Services\ReceivedQuantityQuery;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -47,7 +48,10 @@ final class PurchaseOrderIndexController
     /** The most orders one print batch may name. */
     private const int MAX_IDS = 50;
 
-    public function __construct(private readonly PurchaseOrderPresenter $presenter) {}
+    public function __construct(
+        private readonly PurchaseOrderPresenter $presenter,
+        private readonly ReceivedQuantityQuery $received,
+    ) {}
 
     /**
      * @throws ApiException
@@ -67,7 +71,7 @@ final class PurchaseOrderIndexController
             'ids.*' => ['uuid'],
         ]);
 
-        $query = PurchaseOrder::query()->with(['supplier', 'branch', 'lines']);
+        $query = PurchaseOrder::query()->with(['supplier', 'branch', 'lines', 'goodsReceipts.lines']);
 
         if (isset($validated['status'])) {
             $query->where('status', $validated['status']);
@@ -90,10 +94,17 @@ final class PurchaseOrderIndexController
         /** @var Builder<PurchaseOrder> $query */
         $page = CursorPage::page($query->get(), $limit);
 
+        // One received-quantity read for the whole page, never one per order:
+        // §3.4's no-N+1 rule applies just as much to a book of twenty-five
+        // orders as it does to a supplier with ninety items.
+        $progress = $this->received->progressForOrders(
+            array_values($page['items']->map(static fn (PurchaseOrder $order): string => (string) $order->getKey())->all()),
+        );
+
         return ApiResponse::data(
             [
                 'purchase_orders' => $page['items']
-                    ->map(fn (PurchaseOrder $order): array => $this->presenter->purchaseOrder($order))
+                    ->map(fn (PurchaseOrder $order): array => $this->presenter->purchaseOrder($order, $progress))
                     ->all(),
             ],
             $page['meta'],

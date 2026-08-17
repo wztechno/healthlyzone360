@@ -137,7 +137,7 @@ final class PurchaseOrderStoreController
         $ids = array_map(static fn (PurchaseOrder $order): string => (string) $order->getKey(), $created);
 
         $loaded = PurchaseOrder::query()
-            ->with(['supplier', 'branch', 'lines'])
+            ->with(['supplier', 'branch', 'lines', 'goodsReceipts.lines'])
             ->whereKey($ids)
             ->get()
             ->keyBy(static fn (PurchaseOrder $order): string => (string) $order->getKey());
@@ -151,6 +151,8 @@ final class PurchaseOrderStoreController
                 throw new ApiException(ErrorCode::ServerInternalError);
             }
 
+            // A freshly created draft has no deliveries against it, so the empty
+            // progress map is the truthful one rather than a saved query.
             $shaped[] = $this->presenter->purchaseOrder($order);
         }
 

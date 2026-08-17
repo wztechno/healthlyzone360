@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5930 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6022 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3034,6 +3034,7 @@ export interface NamespaceKeys {
     | 'ops.orders.total'
     | 'ops.orders.totalsHeading'
     | 'ops.procurement.addLine'
+    | 'ops.procurement.columnCostStatus'
     | 'ops.procurement.columnLines'
     | 'ops.procurement.columnReceivedAt'
     | 'ops.procurement.columnSupplier'
@@ -3042,10 +3043,14 @@ export interface NamespaceKeys {
     | 'ops.procurement.emptyBody'
     | 'ops.procurement.emptyTitle'
     | 'ops.procurement.fieldDocumentRef'
+    | 'ops.procurement.fieldInvoiceRef'
+    | 'ops.procurement.fieldInvoiceRefHint'
     | 'ops.procurement.fieldLineItem'
     | 'ops.procurement.fieldLineQuantity'
     | 'ops.procurement.fieldLineUnit'
     | 'ops.procurement.fieldLineUnitPrice'
+    | 'ops.procurement.fieldReceivedOn'
+    | 'ops.procurement.fieldReceivedOnHint'
     | 'ops.procurement.fieldSupplier'
     | 'ops.procurement.fieldSupplierCode'
     | 'ops.procurement.fieldSupplierEmail'
@@ -3061,6 +3066,7 @@ export interface NamespaceKeys {
     | 'ops.procurement.noSupplier'
     | 'ops.procurement.noSuppliers'
     | 'ops.procurement.notYetReceived'
+    | 'ops.procurement.pendingFxCount'
     | 'ops.procurement.postFailed'
     | 'ops.procurement.postReceipt'
     | 'ops.procurement.postTitle'
@@ -3071,6 +3077,7 @@ export interface NamespaceKeys {
     | 'ops.procurement.supplierCreatedToast'
     | 'ops.procurement.suppliersTitle'
     | 'ops.procurement.title'
+    | 'ops.procurement.unpricedReceipts'
     | 'ops.production.columnActions'
     | 'ops.production.columnId'
     | 'ops.production.columnStatus'
@@ -3196,6 +3203,61 @@ export interface NamespaceKeys {
     | 'ops.quotations.total'
     | 'ops.quotations.totalsHeading'
     | 'ops.readyForApi'
+    | 'ops.receiving.chargesHint'
+    | 'ops.receiving.closeShortHint'
+    | 'ops.receiving.closeShortLabel'
+    | 'ops.receiving.confirmCloseShort'
+    | 'ops.receiving.confirmComplete'
+    | 'ops.receiving.confirmDate'
+    | 'ops.receiving.confirmMoneyNone'
+    | 'ops.receiving.confirmMoneySome'
+    | 'ops.receiving.confirmOver'
+    | 'ops.receiving.confirmPartial'
+    | 'ops.receiving.confirmSkipped'
+    | 'ops.receiving.confirmStock'
+    | 'ops.receiving.confirmTitle'
+    | 'ops.receiving.costStatus.complete'
+    | 'ops.receiving.costStatus.partial'
+    | 'ops.receiving.costStatus.unpriced'
+    | 'ops.receiving.emptyBody'
+    | 'ops.receiving.emptyTitle'
+    | 'ops.receiving.fieldCloseShortReason'
+    | 'ops.receiving.fieldDelivery'
+    | 'ops.receiving.fieldDiscount'
+    | 'ops.receiving.fieldDocumentRef'
+    | 'ops.receiving.fieldDocumentRefHint'
+    | 'ops.receiving.fieldInvoiceDate'
+    | 'ops.receiving.fieldInvoiceRef'
+    | 'ops.receiving.fieldInvoiceRefHint'
+    | 'ops.receiving.fieldInvoiceTotal'
+    | 'ops.receiving.fieldLineQuantity'
+    | 'ops.receiving.fieldLineUnitPrice'
+    | 'ops.receiving.fieldLineUnitPriceHint'
+    | 'ops.receiving.fieldOrder'
+    | 'ops.receiving.fieldOtherCharges'
+    | 'ops.receiving.fieldReceivedOn'
+    | 'ops.receiving.fieldReceivedOnHint'
+    | 'ops.receiving.fieldTax'
+    | 'ops.receiving.fieldVarianceNote'
+    | 'ops.receiving.fieldVarianceNoteHint'
+    | 'ops.receiving.hideCharges'
+    | 'ops.receiving.lineOverReceipt'
+    | 'ops.receiving.linesTitle'
+    | 'ops.receiving.orderMissingBody'
+    | 'ops.receiving.orderMissingTitle'
+    | 'ops.receiving.outstandingLabel'
+    | 'ops.receiving.outstandingLineCount'
+    | 'ops.receiving.overReceiptBody'
+    | 'ops.receiving.overReceiptConfirm'
+    | 'ops.receiving.overReceiptTitle'
+    | 'ops.receiving.post'
+    | 'ops.receiving.postFailed'
+    | 'ops.receiving.postedToast'
+    | 'ops.receiving.showCharges'
+    | 'ops.receiving.subtitle'
+    | 'ops.receiving.summary'
+    | 'ops.receiving.title'
+    | 'ops.receiving.unpricedToast'
     | 'ops.requirements.branchRequiredBody'
     | 'ops.requirements.branchRequiredTitle'
     | 'ops.requirements.columnAvailable'
@@ -3428,6 +3490,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.cancelledNoticeTitle'
     | 'ops.supplyOrders.cancelledToast'
     | 'ops.supplyOrders.chooseSupplier'
+    | 'ops.supplyOrders.closedShortTitle'
     | 'ops.supplyOrders.columnFrom'
     | 'ops.supplyOrders.columnItem'
     | 'ops.supplyOrders.columnLevels'
@@ -3436,7 +3499,9 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.columnNumber'
     | 'ops.supplyOrders.columnOnHand'
     | 'ops.supplyOrders.columnOrdering'
+    | 'ops.supplyOrders.columnOutstanding'
     | 'ops.supplyOrders.columnQuantity'
+    | 'ops.supplyOrders.columnReceived'
     | 'ops.supplyOrders.columnRef'
     | 'ops.supplyOrders.columnReorderAt'
     | 'ops.supplyOrders.columnStatus'
@@ -3509,6 +3574,11 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.readyTitle'
     | 'ops.supplyOrders.reasonArchived'
     | 'ops.supplyOrders.reasonNoSupplier'
+    | 'ops.supplyOrders.receiptLineCount'
+    | 'ops.supplyOrders.receiptNoDocumentRef'
+    | 'ops.supplyOrders.receiptsNote'
+    | 'ops.supplyOrders.receiptsTitle'
+    | 'ops.supplyOrders.receiveDelivery'
     | 'ops.supplyOrders.refresh'
     | 'ops.supplyOrders.refreshCancel'
     | 'ops.supplyOrders.refreshConfirm'
@@ -3535,6 +3605,28 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.unassignedCount'
     | 'ops.supplyOrders.unlinkedCaption'
     | 'ops.supplyOrders.unlinkedTitle'
+    | 'ops.unpricedReceipts.columnAction'
+    | 'ops.unpricedReceipts.columnReceivedOn'
+    | 'ops.unpricedReceipts.columnRefs'
+    | 'ops.unpricedReceipts.columnState'
+    | 'ops.unpricedReceipts.columnSupplier'
+    | 'ops.unpricedReceipts.completeFailed'
+    | 'ops.unpricedReceipts.completeTitle'
+    | 'ops.unpricedReceipts.completedToast'
+    | 'ops.unpricedReceipts.emptyBody'
+    | 'ops.unpricedReceipts.emptyTitle'
+    | 'ops.unpricedReceipts.fieldUnitPrice'
+    | 'ops.unpricedReceipts.linesToPrice'
+    | 'ops.unpricedReceipts.metrics.receipts'
+    | 'ops.unpricedReceipts.noInvoiceRef'
+    | 'ops.unpricedReceipts.openLabel'
+    | 'ops.unpricedReceipts.pendingFxBadge'
+    | 'ops.unpricedReceipts.pendingFxBody'
+    | 'ops.unpricedReceipts.pendingFxTitle'
+    | 'ops.unpricedReceipts.quantitiesImmutable'
+    | 'ops.unpricedReceipts.receivedQuantity'
+    | 'ops.unpricedReceipts.subtitle'
+    | 'ops.unpricedReceipts.title'
     | 'plans.addCombination'
     | 'plans.addDuration'
     | 'plans.backToList'
@@ -8982,6 +9074,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.total',
   'kitchen:ops.orders.totalsHeading',
   'kitchen:ops.procurement.addLine',
+  'kitchen:ops.procurement.columnCostStatus',
   'kitchen:ops.procurement.columnLines',
   'kitchen:ops.procurement.columnReceivedAt',
   'kitchen:ops.procurement.columnSupplier',
@@ -8990,10 +9083,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.emptyBody',
   'kitchen:ops.procurement.emptyTitle',
   'kitchen:ops.procurement.fieldDocumentRef',
+  'kitchen:ops.procurement.fieldInvoiceRef',
+  'kitchen:ops.procurement.fieldInvoiceRefHint',
   'kitchen:ops.procurement.fieldLineItem',
   'kitchen:ops.procurement.fieldLineQuantity',
   'kitchen:ops.procurement.fieldLineUnit',
   'kitchen:ops.procurement.fieldLineUnitPrice',
+  'kitchen:ops.procurement.fieldReceivedOn',
+  'kitchen:ops.procurement.fieldReceivedOnHint',
   'kitchen:ops.procurement.fieldSupplier',
   'kitchen:ops.procurement.fieldSupplierCode',
   'kitchen:ops.procurement.fieldSupplierEmail',
@@ -9009,6 +9106,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.noSupplier',
   'kitchen:ops.procurement.noSuppliers',
   'kitchen:ops.procurement.notYetReceived',
+  'kitchen:ops.procurement.pendingFxCount',
   'kitchen:ops.procurement.postFailed',
   'kitchen:ops.procurement.postReceipt',
   'kitchen:ops.procurement.postTitle',
@@ -9019,6 +9117,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.supplierCreatedToast',
   'kitchen:ops.procurement.suppliersTitle',
   'kitchen:ops.procurement.title',
+  'kitchen:ops.procurement.unpricedReceipts',
   'kitchen:ops.production.columnActions',
   'kitchen:ops.production.columnId',
   'kitchen:ops.production.columnStatus',
@@ -9144,6 +9243,61 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.total',
   'kitchen:ops.quotations.totalsHeading',
   'kitchen:ops.readyForApi',
+  'kitchen:ops.receiving.chargesHint',
+  'kitchen:ops.receiving.closeShortHint',
+  'kitchen:ops.receiving.closeShortLabel',
+  'kitchen:ops.receiving.confirmCloseShort',
+  'kitchen:ops.receiving.confirmComplete',
+  'kitchen:ops.receiving.confirmDate',
+  'kitchen:ops.receiving.confirmMoneyNone',
+  'kitchen:ops.receiving.confirmMoneySome',
+  'kitchen:ops.receiving.confirmOver',
+  'kitchen:ops.receiving.confirmPartial',
+  'kitchen:ops.receiving.confirmSkipped',
+  'kitchen:ops.receiving.confirmStock',
+  'kitchen:ops.receiving.confirmTitle',
+  'kitchen:ops.receiving.costStatus.complete',
+  'kitchen:ops.receiving.costStatus.partial',
+  'kitchen:ops.receiving.costStatus.unpriced',
+  'kitchen:ops.receiving.emptyBody',
+  'kitchen:ops.receiving.emptyTitle',
+  'kitchen:ops.receiving.fieldCloseShortReason',
+  'kitchen:ops.receiving.fieldDelivery',
+  'kitchen:ops.receiving.fieldDiscount',
+  'kitchen:ops.receiving.fieldDocumentRef',
+  'kitchen:ops.receiving.fieldDocumentRefHint',
+  'kitchen:ops.receiving.fieldInvoiceDate',
+  'kitchen:ops.receiving.fieldInvoiceRef',
+  'kitchen:ops.receiving.fieldInvoiceRefHint',
+  'kitchen:ops.receiving.fieldInvoiceTotal',
+  'kitchen:ops.receiving.fieldLineQuantity',
+  'kitchen:ops.receiving.fieldLineUnitPrice',
+  'kitchen:ops.receiving.fieldLineUnitPriceHint',
+  'kitchen:ops.receiving.fieldOrder',
+  'kitchen:ops.receiving.fieldOtherCharges',
+  'kitchen:ops.receiving.fieldReceivedOn',
+  'kitchen:ops.receiving.fieldReceivedOnHint',
+  'kitchen:ops.receiving.fieldTax',
+  'kitchen:ops.receiving.fieldVarianceNote',
+  'kitchen:ops.receiving.fieldVarianceNoteHint',
+  'kitchen:ops.receiving.hideCharges',
+  'kitchen:ops.receiving.lineOverReceipt',
+  'kitchen:ops.receiving.linesTitle',
+  'kitchen:ops.receiving.orderMissingBody',
+  'kitchen:ops.receiving.orderMissingTitle',
+  'kitchen:ops.receiving.outstandingLabel',
+  'kitchen:ops.receiving.outstandingLineCount',
+  'kitchen:ops.receiving.overReceiptBody',
+  'kitchen:ops.receiving.overReceiptConfirm',
+  'kitchen:ops.receiving.overReceiptTitle',
+  'kitchen:ops.receiving.post',
+  'kitchen:ops.receiving.postFailed',
+  'kitchen:ops.receiving.postedToast',
+  'kitchen:ops.receiving.showCharges',
+  'kitchen:ops.receiving.subtitle',
+  'kitchen:ops.receiving.summary',
+  'kitchen:ops.receiving.title',
+  'kitchen:ops.receiving.unpricedToast',
   'kitchen:ops.requirements.branchRequiredBody',
   'kitchen:ops.requirements.branchRequiredTitle',
   'kitchen:ops.requirements.columnAvailable',
@@ -9376,6 +9530,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.cancelledNoticeTitle',
   'kitchen:ops.supplyOrders.cancelledToast',
   'kitchen:ops.supplyOrders.chooseSupplier',
+  'kitchen:ops.supplyOrders.closedShortTitle',
   'kitchen:ops.supplyOrders.columnFrom',
   'kitchen:ops.supplyOrders.columnItem',
   'kitchen:ops.supplyOrders.columnLevels',
@@ -9384,7 +9539,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.columnNumber',
   'kitchen:ops.supplyOrders.columnOnHand',
   'kitchen:ops.supplyOrders.columnOrdering',
+  'kitchen:ops.supplyOrders.columnOutstanding',
   'kitchen:ops.supplyOrders.columnQuantity',
+  'kitchen:ops.supplyOrders.columnReceived',
   'kitchen:ops.supplyOrders.columnRef',
   'kitchen:ops.supplyOrders.columnReorderAt',
   'kitchen:ops.supplyOrders.columnStatus',
@@ -9457,6 +9614,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.readyTitle',
   'kitchen:ops.supplyOrders.reasonArchived',
   'kitchen:ops.supplyOrders.reasonNoSupplier',
+  'kitchen:ops.supplyOrders.receiptLineCount',
+  'kitchen:ops.supplyOrders.receiptNoDocumentRef',
+  'kitchen:ops.supplyOrders.receiptsNote',
+  'kitchen:ops.supplyOrders.receiptsTitle',
+  'kitchen:ops.supplyOrders.receiveDelivery',
   'kitchen:ops.supplyOrders.refresh',
   'kitchen:ops.supplyOrders.refreshCancel',
   'kitchen:ops.supplyOrders.refreshConfirm',
@@ -9483,6 +9645,28 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.unassignedCount',
   'kitchen:ops.supplyOrders.unlinkedCaption',
   'kitchen:ops.supplyOrders.unlinkedTitle',
+  'kitchen:ops.unpricedReceipts.columnAction',
+  'kitchen:ops.unpricedReceipts.columnReceivedOn',
+  'kitchen:ops.unpricedReceipts.columnRefs',
+  'kitchen:ops.unpricedReceipts.columnState',
+  'kitchen:ops.unpricedReceipts.columnSupplier',
+  'kitchen:ops.unpricedReceipts.completeFailed',
+  'kitchen:ops.unpricedReceipts.completeTitle',
+  'kitchen:ops.unpricedReceipts.completedToast',
+  'kitchen:ops.unpricedReceipts.emptyBody',
+  'kitchen:ops.unpricedReceipts.emptyTitle',
+  'kitchen:ops.unpricedReceipts.fieldUnitPrice',
+  'kitchen:ops.unpricedReceipts.linesToPrice',
+  'kitchen:ops.unpricedReceipts.metrics.receipts',
+  'kitchen:ops.unpricedReceipts.noInvoiceRef',
+  'kitchen:ops.unpricedReceipts.openLabel',
+  'kitchen:ops.unpricedReceipts.pendingFxBadge',
+  'kitchen:ops.unpricedReceipts.pendingFxBody',
+  'kitchen:ops.unpricedReceipts.pendingFxTitle',
+  'kitchen:ops.unpricedReceipts.quantitiesImmutable',
+  'kitchen:ops.unpricedReceipts.receivedQuantity',
+  'kitchen:ops.unpricedReceipts.subtitle',
+  'kitchen:ops.unpricedReceipts.title',
   'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',
   'kitchen:plans.backToList',

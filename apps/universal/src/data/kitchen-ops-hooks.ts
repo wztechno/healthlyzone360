@@ -1,5 +1,6 @@
 import type {
     CompleteProductionOrderRequest,
+    CompleteReceiptPricesRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
     CreateProductionOrderRequest,
@@ -8,6 +9,7 @@ import type {
     CreateSupplierRequest,
     DeleteSupplierLinkRequest,
     GoodsReceipt,
+    GoodsReceiptDetail,
     GoodsReceiptResult,
     ItemLatestPurchase,
     MonthlyCostReportFilter,
@@ -23,6 +25,7 @@ import type {
     PurchaseOrderFilter,
     QualityCheck,
     QualityCheckResult,
+    ReceivableOrder,
     ReplaceSupplierContactsRequest,
     ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
@@ -37,6 +40,8 @@ import type {
     SupplierFilter,
     SupplierLink,
     SupplyNeedsCount,
+    UnpricedReceipt,
+    UnpricedReceiptFilter,
     UpdatePurchaseOrderRequest,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
@@ -44,6 +49,7 @@ import type {
 import type { CursorPage } from '@healthy360/api-client/contracts';
 import type {
     BranchId,
+    GoodsReceiptId,
     ProductionOrderId,
     PurchaseOrderId,
     QualityCheckId,
@@ -634,6 +640,80 @@ export function useGoodsReceiptsQuery(enabled = true): UseQueryResult<readonly G
     });
 }
 
+/**
+ * One receipt with the order it settled, its cost status and its variance (SUP5).
+ *
+ * Disabled until the caller has an identifier, the same way `usePurchaseOrderQuery` waits for its
+ * route param: a query keyed on an empty string would be a cache entry for a question nobody asked.
+ */
+export function useGoodsReceiptQuery(
+    goodsReceiptId: GoodsReceiptId | null,
+    enabled = true,
+): UseQueryResult<GoodsReceiptDetail> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.goodsReceipt(goodsReceiptId ?? ('' as GoodsReceiptId)),
+        enabled: enabled && goodsReceiptId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (goodsReceiptId === null) throw new Error('A goods receipt id is required.');
+            return repositories.kitchenOps.getGoodsReceipt(goodsReceiptId);
+        },
+    });
+}
+
+/**
+ * Orders a delivery could be received against at one branch (SUP5, §4).
+ *
+ * Behind `inventory.manage_organisation` rather than the ordering code — §5's manage-scoped subset,
+ * so a receiver can prefill a delivery without holding the order book. Disabled until a branch is
+ * known, because receiving is always at one site.
+ */
+export function useReceivableOrdersQuery(
+    branchId: BranchId | null,
+    supplierId: SupplierId | null = null,
+    enabled = true,
+): UseQueryResult<readonly ReceivableOrder[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.receivableOrders(
+            branchId === null ? '' : String(branchId),
+            supplierId === null ? null : String(supplierId),
+        ),
+        enabled: enabled && branchId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (branchId === null) throw new Error('A branch is required to receive a delivery.');
+            return repositories.kitchenOps.listReceivableOrders({
+                branchId,
+                ...(supplierId === null ? {} : { supplierId }),
+            });
+        },
+    });
+}
+
+/**
+ * The unpriced-receipts work queue, oldest first (SUP5, §3.6). Behind
+ * `inventory.view_costs_organisation` on the server; the screen gates itself on the same code.
+ */
+export function useUnpricedReceiptsQuery(
+    filter: UnpricedReceiptFilter = {},
+    enabled = true,
+): UseQueryResult<CursorPage<UnpricedReceipt>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.unpricedReceipts(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listUnpricedReceipts(filter);
+        },
+    });
+}
+
 /** Posts every line straight into the inventory ledger. There is no draft to save and return to. */
 export function usePostGoodsReceiptMutation(): UseMutationResult<
     GoodsReceiptResult,
@@ -646,6 +726,38 @@ export function usePostGoodsReceiptMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: PostGoodsReceiptRequest) =>
             repositories.kitchenOps.postGoodsReceipt(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** The variables one price completion needs: which receipt, and the prices for its unpriced lines. */
+export interface CompleteReceiptPricesVariables {
+    readonly goodsReceiptId: GoodsReceiptId;
+    readonly request: CompleteReceiptPricesRequest;
+}
+
+/**
+ * Fills in the prices a receipt was posted without (SUP5, §3.6).
+ *
+ * Never moves stock — that guarantee is structural on the server — and prices each line once: a
+ * line already costed is refused rather than silently skipped. Shares the workspace's write effects
+ * like every other mutation here, so a completed receipt leaves the queue without anyone writing
+ * cache surgery by hand.
+ */
+export function useCompleteReceiptPricesMutation(): UseMutationResult<
+    GoodsReceiptDetail,
+    unknown,
+    CompleteReceiptPricesVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (variables: CompleteReceiptPricesVariables) =>
+            repositories.kitchenOps.completeReceiptPrices(
+                variables.goodsReceiptId,
+                variables.request,
+            ),
         onSuccess: onWritten,
     });
 }

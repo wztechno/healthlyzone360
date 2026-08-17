@@ -17,22 +17,25 @@ namespace Healthy360\Procurement\Enums;
  * Calling that `sent` would claim an event the system did not perform, and a
  * later dispatch phase would then have nowhere honest to put the real one.
  *
- * ## What this slice permits, and what it does not
+ * ## The six edges, and who drives them
  *
- * Slice 4 owns exactly three edges: `draft → issued`, `draft → cancelled` and
- * `issued → cancelled`. The two receiving statuses exist in this enum and in the
- * database CHECK from the same migration, but **nothing can reach them yet** —
- * they are driven by goods receipts, which is slice 5's subject. Encoding them
- * as not-yet-allowed rather than leaving them out is what makes this file the
- * one place slice 5 edits: the constraint, the presenter, the wire contract and
- * the client's capability tables are all already five-valued.
+ * A person presses two of them. `draft → issued` and the two cancellations are
+ * deliberate acts with their own endpoints and audit events.
  *
- * When slice 5 lands, `Issued` gains `PartiallyReceived` and `Received`, and
- * `PartiallyReceived` gains `Received` — every one of them driven by a receipt
- * being posted rather than by a button. `Cancelled` is **not** among them:
- * §3.5 is explicit that an order with receipts cannot be cancelled as though
- * nothing happened, so cancellation stays reachable only from the two states in
- * which nothing has been delivered.
+ * **Nobody presses the other three.** `issued → partially_received`,
+ * `issued → received` and `partially_received → received` are all driven by a
+ * goods receipt being posted (§3.5): the quantities received are summed per
+ * order line, and the status is whatever that sum says it is. There is no
+ * "mark as received" button and there must not be one — it would let an order
+ * claim a delivery that never turned up. The one apparent exception proves the
+ * rule: closing a short delivery still goes through a receipt, and what the flag
+ * adds is a reason for writing off the remainder, not a status change on its own.
+ *
+ * **`cancelled` is deliberately absent from `PartiallyReceived`.** §3.5 is
+ * explicit that an order with receipts cannot be cancelled as though nothing
+ * happened. The enum expresses the ordinary case; `PurchaseOrderService::cancel`
+ * adds the guard for the edge where a receipt exists but the status has not
+ * caught up, refusing with `purchase_order_received_against`.
  *
  * `received` and `cancelled` are terminal and stay terminal. A delivery that
  * turned out wrong is a receipt correction or a return, which are different
@@ -62,13 +65,16 @@ enum PurchaseOrderStatus: string
     {
         return match ($this) {
             self::Draft => [self::Issued, self::Cancelled],
-            // Slice 5 adds self::PartiallyReceived and self::Received here, both
-            // driven by a posted goods receipt rather than by a user action.
-            self::Issued => [self::Cancelled],
-            // Slice 5 adds self::Received here (and the close-short path that
-            // reaches it with a reason). Cancellation is deliberately absent and
-            // stays absent: something has already been delivered against this.
-            self::PartiallyReceived => [],
+            // The two receiving edges are driven by a posted goods receipt, never
+            // by a user action: an incomplete delivery lands on
+            // `partially_received`, one that fulfils every line lands straight on
+            // `received`.
+            self::Issued => [self::PartiallyReceived, self::Received, self::Cancelled],
+            // Cancellation is deliberately absent and stays absent: something has
+            // already been delivered against this (§3.5). `received` is reached
+            // either by the last outstanding line arriving or by a short delivery
+            // being closed with a reason.
+            self::PartiallyReceived => [self::Received],
             self::Received, self::Cancelled => [],
         };
     }

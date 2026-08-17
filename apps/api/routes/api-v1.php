@@ -221,6 +221,7 @@ use Healthy360\Pricing\Http\Controllers\PriceListShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
+use Healthy360\Procurement\Http\Controllers\GoodsReceiptShowController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
 use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
@@ -233,6 +234,8 @@ use Healthy360\Procurement\Http\Controllers\PurchaseOrderShowController;
 use Healthy360\Procurement\Http\Controllers\PurchaseOrderStoreController;
 use Healthy360\Procurement\Http\Controllers\PurchaseOrderUpdateController;
 use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
+use Healthy360\Procurement\Http\Controllers\ReceiptPriceCompletionController;
+use Healthy360\Procurement\Http\Controllers\ReceivableOrderIndexController;
 use Healthy360\Procurement\Http\Controllers\SupplierArchiveController;
 use Healthy360\Procurement\Http\Controllers\SupplierContactsReplaceController;
 use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
@@ -243,6 +246,7 @@ use Healthy360\Procurement\Http\Controllers\SupplierShowController;
 use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
 use Healthy360\Procurement\Http\Controllers\SupplierUpdateController;
 use Healthy360\Procurement\Http\Controllers\SupplyNeedsCountController;
+use Healthy360\Procurement\Http\Controllers\UnpricedReceiptIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderStoreController;
@@ -1509,6 +1513,30 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/procurement/supplier-links', SupplierLinkUpsertController::class)->name('catalogue.procurement.supplier-links.upsert');
                 Route::delete('/procurement/supplier-links', SupplierLinkDeleteController::class)->name('catalogue.procurement.supplier-links.delete');
                 Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');
+
+                /*
+                | Receiving (SUP5) sits on the manage code, and §5 grants the two
+                | reads beside it in as many words: "the receiving endpoint may
+                | expose an issued order's supplier, outstanding items and
+                | quantities to a receiver holding `inventory.manage_organisation`
+                | without granting the full supply-order book". The person
+                | unloading the van is rarely the person who decided to order it,
+                | and making a receiver hold the chequebook to book in a delivery
+                | would be a control that had made itself unusable.
+                |
+                | So `receivable-orders` is a **deliberate manage-scoped subset**
+                | — number, supplier, outstanding lines — and not the order book,
+                | which stays on `inventory.order_supplies_organisation` below.
+                | The receipt detail is the same record the clerk just posted,
+                | with its money redacted inside the response rather than refused
+                | at the door: quantities, delivery note and cost status are
+                | theirs to read, prices are not.
+                |
+                | Completing prices afterwards is **not** here. That is the cost
+                | holder's job and lives in the cost group.
+                */
+                Route::get('/procurement/receivable-orders', ReceivableOrderIndexController::class)->name('catalogue.procurement.receivable-orders.index');
+                Route::get('/procurement/goods-receipts/{goodsReceipt}', GoodsReceiptShowController::class)->name('catalogue.procurement.goods-receipts.show');
                 Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
                 Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');
                 Route::post('/quality-control/checks', QualityCheckStoreController::class)->name('catalogue.quality-control.checks.store');
@@ -1525,6 +1553,23 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             */
             Route::middleware('permission:inventory.view_costs_organisation')->group(function (): void {
                 Route::get('/procurement/purchases-ledger', PurchasesLedgerIndexController::class)->name('catalogue.procurement.purchases-ledger.index');
+
+                /*
+                | The unpriced work queue and the price completion behind it
+                | (SUP5, §3.6). The boundary against the receipt post is the one
+                | §5 draws, and it is not the obvious one: entering a price off
+                | the delivery note **at the door** is a warehouse job under the
+                | manage code, and going back over the money afterwards — when
+                | the invoice is late, or disagrees — is the cost holder's.
+                |
+                | The completion is a POST sub-resource rather than a writable
+                | price field on the receipt, for the reason supplier archive and
+                | order issue are: it is one deliberate act with its own audit
+                | event, and it must never be something a form save can do by
+                | accident to a figure already booked.
+                */
+                Route::get('/procurement/unpriced-receipts', UnpricedReceiptIndexController::class)->name('catalogue.procurement.unpriced-receipts.index');
+                Route::post('/procurement/goods-receipts/{goodsReceipt}/complete-prices', ReceiptPriceCompletionController::class)->name('catalogue.procurement.goods-receipts.complete-prices');
 
                 /*
                 | The monthly cost report (INV1.4) sits beside the ledger on the
@@ -1558,11 +1603,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | whoever held the first. A cost-authorised screen fetches prices
             | from the endpoint that already gates them.
             |
-            | Receiving is **not** here and will not be. When slice 5 adds it, it
-            | takes `inventory.manage_organisation`: the person unloading the van
-            | is rarely the person who decided to order it, and making a receiver
-            | hold the chequebook to book in a delivery would be a control that
-            | had made itself unusable.
+            | Receiving is **not** here, and SUP5 kept it that way: it took
+            | `inventory.manage_organisation` in the group above, because the
+            | person unloading the van is rarely the person who decided to order
+            | it, and making a receiver hold the chequebook to book in a delivery
+            | would be a control that had made itself unusable.
             |
             | Both take `branch_id` as a required query parameter rather than
             | reading `X-Branch-Id`. A proposal is always *for one branch* (§4),
@@ -1592,10 +1637,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 | phase 1 dispatches nothing, and §2 refuses to name an event
                 | that did not happen.
                 |
-                | Receiving against these orders is still not here and still will
-                | not be: slice 5 posts receipts under
-                | `inventory.manage_organisation`, because the person unloading
-                | the van is rarely the person who decided to order it.
+                | Receiving against these orders is not here: SUP5 posts
+                | receipts, and reads the outstanding quantities that prefill
+                | them, under `inventory.manage_organisation` in the group above.
                 */
                 Route::get('/procurement/purchase-orders', PurchaseOrderIndexController::class)->name('catalogue.procurement.purchase-orders.index');
                 Route::post('/procurement/purchase-orders', PurchaseOrderStoreController::class)->name('catalogue.procurement.purchase-orders.store');

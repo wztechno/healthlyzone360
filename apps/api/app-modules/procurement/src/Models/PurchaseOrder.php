@@ -40,10 +40,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $received_at
  * @property CarbonImmutable|null $closed_at
  * @property CarbonImmutable|null $cancelled_at
+ * @property string|null $close_short_reason why the rest was written off (§3.5); only ever set on a `received` order
  * @property string|null $notes
  * @property array<string, mixed>|null $recipient_snapshot
  * @property CarbonImmutable|null $created_at
  * @property-read Collection<int, PurchaseOrderLine> $lines
+ * @property-read Collection<int, GoodsReceipt> $goodsReceipts
  * @property-read Supplier|null $supplier
  * @property-read OrganisationBranch|null $branch
  */
@@ -78,6 +80,23 @@ class PurchaseOrder extends BaseModel implements OrganisationScoped
         return $this->hasMany(PurchaseOrderLine::class)
             ->orderBy('display_order')
             ->orderBy('item_name_en');
+    }
+
+    /**
+     * Every delivery made against this order, oldest first (§3.5).
+     *
+     * Oldest first because the detail screen tells the story of an order in the
+     * sequence it happened — first the part delivery, then the remainder — which
+     * is the opposite of the order book's newest-first list.
+     *
+     * @return HasMany<GoodsReceipt, $this>
+     */
+    public function goodsReceipts(): HasMany
+    {
+        return $this->hasMany(GoodsReceipt::class)
+            ->orderBy('received_on')
+            ->orderBy('received_at')
+            ->orderBy('id');
     }
 
     /**

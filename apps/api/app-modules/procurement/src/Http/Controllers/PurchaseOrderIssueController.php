@@ -7,6 +7,7 @@ namespace Healthy360\Procurement\Http\Controllers;
 use Healthy360\Procurement\Models\PurchaseOrder;
 use Healthy360\Procurement\Presenters\PurchaseOrderPresenter;
 use Healthy360\Procurement\Services\PurchaseOrderService;
+use Healthy360\Procurement\Services\ReceivedQuantityQuery;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -36,7 +37,10 @@ use Illuminate\Http\JsonResponse;
  */
 final class PurchaseOrderIssueController
 {
-    public function __construct(private readonly PurchaseOrderPresenter $presenter) {}
+    public function __construct(
+        private readonly PurchaseOrderPresenter $presenter,
+        private readonly ReceivedQuantityQuery $received,
+    ) {}
 
     /**
      * @throws ApiException
@@ -52,10 +56,15 @@ final class PurchaseOrderIssueController
         $orders->issue($order);
 
         $fresh = PurchaseOrder::query()
-            ->with(['supplier', 'branch', 'lines'])
+            ->with(['supplier', 'branch', 'lines', 'goodsReceipts.lines'])
             ->whereKey($purchaseOrder)
             ->firstOrFail();
 
-        return ApiResponse::data(['purchase_order' => $this->presenter->purchaseOrder($fresh)]);
+        return ApiResponse::data([
+            'purchase_order' => $this->presenter->purchaseOrder(
+                $fresh,
+                $this->received->progressForOrders([(string) $fresh->getKey()]),
+            ),
+        ]);
     }
 }

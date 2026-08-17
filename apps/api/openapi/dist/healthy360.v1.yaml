@@ -9388,6 +9388,47 @@ paths:
         stock item's level at the branch. There is no draft state: posting
         a receipt is the same act as recording that the stock arrived.
 
+        **One endpoint for both kinds of delivery** (§6). A direct market
+        purchase sends lines and nothing else; a delivery against an issued
+        order adds `purchase_order_id` and a `purchase_order_line_id` per
+        matched line, and the order's received state is updated inside the same
+        transaction. There is deliberately no second receipt-writing service:
+        two writers would be two chances for the purchase ledger and the stock
+        ledger to disagree about one delivery.
+
+        **Prices are accepted under `inventory.manage_organisation`** and are
+        redacted from that same clerk's reads without
+        `inventory.view_costs_organisation` — §5's blind-write model. A line may
+        also be posted with no price at all when the invoice has not arrived,
+        which puts the receipt in the **Unpriced receipts** queue.
+
+        Four refusals are worth knowing about, all `422` unless stated:
+
+        - **over-receipt** — more arriving than the order still has outstanding
+          is refused until `over_receipt_confirmed` is true, and then still
+          needs a `variance_note`. §3.5 asks for an explicit confirmation *and*
+          a note: one records that somebody clicked, the other records what they
+          knew.
+        - **an unplanned item** — a line with no `purchase_order_line_id` on a
+          delivery against an order needs the same `variance_note` (§4).
+        - **the invoice arithmetic** — when `invoice_total_amount` is present it
+          must equal `Σ line totals − discount + tax + delivery + other`. The
+          refusal carries `details.expected_total_amount` and
+          `details.difference_amount`, because the person reading it has the
+          supplier's paper in their hand.
+        - **two currencies** — every priced line and every header charge on one
+          receipt shares one currency. There is no exchange rate in this system
+          (§4.4). A header charge on a receipt with no priced line has no
+          currency at all and is refused for the same reason.
+
+        A `409` names an order-level refusal in `details.reason`: the order is
+        not receivable, or its branch or supplier disagrees with the delivery.
+
+        A priced line whose ingredient holds its valuation in another currency
+        is **not** refused: the stock is posted, the supplier's price is kept
+        exactly as written, and the line is flagged `valuation_pending_fx` while
+        the receipt stays short of `complete` (§3.6).
+
         Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -9408,6 +9449,249 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GoodsReceiptEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/goods-receipts/{goodsReceipt}:
+    get:
+      operationId: getGoodsReceipt
+      tags:
+        - Kitchen inventory & production
+      summary: One goods receipt, with the order it settled
+      description: |
+        The delivery whole: its lines, its two document references, its business
+        date, its cost status — and, when it was made against a purchase order,
+        that order's per-line ordered/received/outstanding arithmetic (SUP5).
+
+        Behind `inventory.manage_organisation`, the same code that posted it: a
+        person who booked a delivery in has to be able to look at what they
+        booked. The **money** is behind `inventory.view_costs_organisation` and
+        is redacted inside the response rather than refused at the door, so a
+        receiving clerk still sees quantities, the delivery note and whether the
+        paperwork is outstanding.
+
+        `cost_status`, the unpriced counts and `valuation_pending_fx` are **not**
+        redacted, deliberately: they say whether this receipt still needs
+        somebody's attention, not what anything cost.
+
+        The `purchase_order` block is §5's manage-scoped subset — number, status
+        and the line arithmetic somebody standing over a pallet compares against.
+        There is no money on a purchase order at any depth, so nothing in it
+        needs a gate.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/GoodsReceiptPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The receipt, its lines and its order match.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoodsReceiptDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/goods-receipts/{goodsReceipt}/complete-prices:
+    post:
+      operationId: completeReceiptPrices
+      tags:
+        - Kitchen inventory & production
+      summary: Complete the missing prices on a receipt
+      description: |
+        The invoice that turned up a week after the van did (§3.6).
+
+        **It cannot move stock.** Completion "calls the costing path only for
+        lines whose `costed_at` is null and never creates a second stock
+        movement", and that is structural rather than a rule: neither the
+        completion service nor the costing collaborator it delegates to has an
+        inventory dependency at all.
+
+        **Each line is priced once.** A line that has already been costed answers
+        `422` naming it rather than being quietly skipped — a silent no-op would
+        leave somebody believing they had corrected a figure they had not.
+        Correcting a posted price is deliberately not this endpoint's job; §3.6
+        puts that behind a reasoned, audited adjustment.
+
+        A line already flagged `valuation_pending_fx` is refused with
+        `details.reason = line_valuation_pending_fx`. Its price is already
+        recorded exactly as the supplier wrote it; what is outstanding is an
+        exchange-rate decision this system does not make. The reverse case is
+        handled: a line priced here for the first time, in a currency the
+        ingredient's valuation cannot take, is flagged the same way the post
+        would have flagged it.
+
+        `line_total_amount` is optional and is **checked** rather than stored as
+        given: the total and the unit price are two views of one fact, and a
+        mismatch answers `422` with `details.expected_total_amount`.
+
+        Requires `inventory.view_costs_organisation`. Entering a price off the
+        delivery note at the door is a warehouse job under the manage code;
+        going back over the money afterwards is the cost holder's (§5). Audited
+        as `procurement.goods_receipt_priced`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/GoodsReceiptPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteReceiptPricesRequest'
+      responses:
+        '200':
+          description: The receipt after the prices were completed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoodsReceiptDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/receivable-orders:
+    get:
+      operationId: listReceivableOrders
+      tags:
+        - Kitchen inventory & production
+      summary: Orders a delivery could be received against
+      description: |
+        Every issued or partially received order for one branch, with each
+        line's ordered, received and outstanding quantity — so the receive
+        screen prefills a delivery with what is **still to come** rather than
+        what was originally asked for (§4).
+
+        Requires `inventory.manage_organisation`, not the ordering code, and §5
+        grants that in as many words: "the receiving endpoint may expose an
+        issued order's supplier, outstanding items and quantities to a receiver
+        holding `inventory.manage_organisation` without granting the full
+        supply-order book". The person unloading the van is rarely the person
+        who decided to order it.
+
+        So this is a **deliberate manage-scoped subset**: an order number, a
+        supplier, an issue date and the outstanding lines. No notes, no
+        recipient snapshot, no history — and, as everywhere on a purchase order,
+        no money at any depth. The order book itself stays behind
+        `inventory.order_supplies_organisation`.
+
+        `branch_id` is a required query parameter rather than the `X-Branch-Id`
+        header, for the reason the proposal endpoints give: a manager holding an
+        organisation-wide membership has no header branch, and receiving is
+        always at one site. At most fifty orders, oldest issue first.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: true
+          description: The branch taking delivery. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: supplier_id
+          in: query
+          required: false
+          description: Only orders addressed to this supplier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Orders open for receiving at this branch, oldest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivableOrderCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/unpriced-receipts:
+    get:
+      operationId: listUnpricedReceipts
+      tags:
+        - Kitchen inventory & production
+      summary: The unpriced-receipts work queue
+      description: |
+        Every receipt whose costing is not finished (§3.6): the delivery landed,
+        the stock rose, and the invoice has not been entered — or was entered
+        and could not be valued. The queue exists because the alternative is
+        quietly omitting those receipts from a financial total that then looks
+        complete.
+
+        **Two counts, because they are two different jobs.**
+        `unpriced_line_count` is "type these prices in".
+        `valuation_pending_count` is "the prices are already here and an
+        exchange-rate decision is not this screen's to make" — a row a person
+        cannot action, and one they need to tell apart at a glance rather than
+        by opening it.
+
+        There is no money in these rows; the amounts live on the receipt detail
+        behind the same gate. Ordered **oldest first**, the opposite of every
+        other list in this module and the point of a work queue: the oldest
+        outstanding invoice is the one that has been outstanding longest.
+
+        Requires `inventory.view_costs_organisation` (§5).
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: false
+          description: Only receipts posted at this branch. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: supplier_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of receipts still waiting on their costing, oldest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnpricedReceiptCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -9482,6 +9766,25 @@ paths:
           description: Only lines whose receipt was posted at this branch. Must belong to the active organisation.
           schema:
             $ref: '#/components/schemas/Uuid'
+        - name: purchase_order_id
+          in: query
+          required: false
+          description: |
+            Only lines whose receipt was made against this order (SUP5) — what
+            an order detail's "everything delivered against this" link lands on.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: cost_status
+          in: query
+          required: false
+          description: |
+            Only lines whose receipt is in this costing state (SUP5). §3.4 lists
+            price-completeness among the ledger's filters; it lands in the slice
+            that lands the column rather than the slice that first draws a screen
+            over it, because a parameter that quietly did nothing would be worse
+            than its absence.
+          schema:
+            $ref: '#/components/schemas/ReceiptCostStatus'
         - $ref: '#/components/parameters/CursorLimit'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -18998,6 +19301,13 @@ components:
         identifier, on the same grounds a supplier's does.
       schema:
         $ref: '#/components/schemas/Uuid'
+    GoodsReceiptPath:
+      name: goodsReceipt
+      in: path
+      required: true
+      description: The goods-receipt identifier.
+      schema:
+        $ref: '#/components/schemas/Uuid'
     DeliveryZonePath:
       name: zone
       in: path
@@ -19682,8 +19992,17 @@ components:
           be cancelled as though nothing happened.
         - `supplier_archived` — the supplier has left the book. Restore it or
           choose another; `details.supplier_id` names it.
-        - `purchase_order_received_against` — reserved for the receiving slice's
-          cancel guard.
+        - `purchase_order_received_against` — something has already been
+          delivered against this order (SUP5). Checked before the status, so
+          that when both apply a client is told what actually happened rather
+          than being told the status again.
+        - `purchase_order_not_receivable` — a delivery was posted against an
+          order that is not `issued` or `partially_received`.
+        - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+          — §4: a receipt against an order must use that order's branch and
+          supplier. Every identifier is well formed; what refuses is the
+          relationship between them, which is why this is a `409` and not a
+          `422`.
 
         No `current_lock_version`: purchase orders are not lock-versioned, so
         there is no race to reload against. Re-reading the order is what tells a
@@ -28535,10 +28854,17 @@ components:
         system did not perform.
 
         `partially_received` and `received` are reached by **posting a goods
-        receipt**, never by an action of their own, and no endpoint in this
-        version produces them yet. `received` and `cancelled` are terminal: a
-        delivery that turned out wrong is a receipt correction or a return,
-        which are different objects with different quantities attached.
+        receipt**, never by an action of their own: the quantities received are
+        summed per order line and the status is whatever that sum says it is.
+        There is no "mark as received" action and there must not be one — it
+        would let an order claim a delivery that never turned up. The one
+        apparent exception proves the rule: closing a short delivery still goes
+        through a receipt, and what the flag adds is a reason for writing off the
+        remainder rather than a status change of its own.
+
+        `received` and `cancelled` are terminal: a delivery that turned out wrong
+        is a receipt correction or a return, which are different objects with
+        different quantities attached.
     PurchaseOrderLine:
       type: object
       required:
@@ -28548,6 +28874,8 @@ components:
         - item_name_en
         - item_name_ar
         - quantity
+        - received_quantity
+        - outstanding_quantity
         - unit_code
         - supplier_item_ref
         - notes
@@ -28591,7 +28919,22 @@ components:
             heading.
         quantity:
           type: string
-          description: A decimal string at scale 4, never a float. Always above zero.
+          description: A decimal string at scale 4, never a float. Always above zero. What was asked for.
+        received_quantity:
+          type: string
+          description: |
+            How much of this line has actually turned up, summed across every
+            delivery against it (SUP5). Expressed in this line's own `unit_code`:
+            a delivery quoted per kilogram against a shelf counted in grams is
+            converted before it is summed, so the three quantities on one row
+            always add up. A quantity, not money.
+        outstanding_quantity:
+          type: string
+          description: |
+            What is still to come, and what the receive screen prefills (§4).
+            Floored at zero — an over-receipt is a real event its variance note
+            records, and a negative amount still to come would be an arithmetic
+            curiosity rather than an instruction.
         unit_code:
           type: string
           maxLength: 16
@@ -28728,9 +29071,13 @@ components:
         - notes
         - line_count
         - issued_at
+        - received_at
+        - closed_at
+        - close_short_reason
         - cancelled_at
         - created_at
         - lines
+        - receipts
       description: |
         One request the kitchen makes of one supplier, for one branch (§3.5).
 
@@ -28793,6 +29140,34 @@ components:
           description: |
             When the document was frozen. Survives cancellation — cancelling an
             issued order does not un-issue it.
+        received_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: |
+            When the last outstanding line actually arrived (SUP5). An order
+            closed short reaches `received` with this still null and `closed_at`
+            set instead: nothing was last fulfilled, and a date here would be a
+            small lie in the one place a person checks.
+        closed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: |
+            When the order stopped expecting anything more — set on both routes
+            to `received`, whether every line arrived or the remainder was
+            written off.
+        close_short_reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+          description: |
+            Why the rest of this order was written off (§3.5). Present only on an
+            order somebody deliberately closed short; a delivery that completed
+            the order has nothing to explain and carries none.
         cancelled_at:
           type:
             - string
@@ -28807,6 +29182,42 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PurchaseOrderLine'
+        receipts:
+          type: array
+          description: |
+            Every delivery made against this order, oldest first (SUP5) — a
+            reference rather than the receipt itself. The date, the delivery note
+            and the line count are what an order detail lists; the money on those
+            lines is behind a permission this response does not check, so a
+            client that wants the figures opens the receipt.
+          items:
+            $ref: '#/components/schemas/PurchaseOrderReceiptRef'
+      additionalProperties: false
+    PurchaseOrderReceiptRef:
+      type: object
+      required:
+        - id
+        - received_on
+        - document_ref
+        - line_count
+      description: One delivery made against an order, as the order lists it (SUP5).
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        received_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: The branch-local business day the delivery was filed under.
+        document_ref:
+          type:
+            - string
+            - 'null'
+          description: The supplier delivery note, as written.
+        line_count:
+          type: integer
+          minimum: 0
       additionalProperties: false
     PurchaseOrderBranch:
       type: object
@@ -29391,22 +29802,63 @@ components:
           $ref: '#/components/schemas/ProcurementReference'
         meta:
           $ref: '#/components/schemas/Meta'
+    ReceiptCostStatus:
+      type: string
+      enum:
+        - unpriced
+        - partial
+        - complete
+      description: |
+        Whether a receipt's costing is finished (§3.6). Derived from the lines
+        and never set by hand: a line counts as settled when it carries
+        `costed_at`, the receipt is `complete` when every line does, `unpriced`
+        when none does and `partial` in between.
+
+        `costed_at` is stamped when there is nothing further to do with a line's
+        money — the blend went through, **or** there was no ingredient to blend
+        into (packaging, cleaning supplies). Both are finished states, and
+        leaving the second one null would park its receipt in the work queue
+        forever with no action available.
+
+        A receipt whose only line is `valuation_pending_fx` therefore reads
+        `unpriced` even though its price is recorded, because its costing is
+        genuinely not finished. `valuation_pending_count` beside it is what tells
+        a person which kind of unfinished it is.
+
+        Not redacted without the cost permission: this says whether the paperwork
+        needs attention, not what anything cost.
     GoodsReceiptLine:
       type: object
       required:
+        - id
         - stock_item_id
+        - purchase_order_line_id
         - quantity
         - unit_id
         - unit_price_amount
         - line_total_amount
         - cost_currency_code
+        - costed_at
+        - valuation_pending_fx
       description: |
         The money fields (INV1.1) are served as `null` when the reader lacks
         `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
-        `quantity` and `unit_id` are warehouse facts and are never redacted.
+        `quantity` and `unit_id` are warehouse facts and are never redacted, and
+        neither are `costed_at` and `valuation_pending_fx`, which say whether the
+        line still needs somebody's attention rather than what it cost.
       properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
         stock_item_id:
           $ref: '#/components/schemas/Uuid'
+        purchase_order_line_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The ordered line this delivery fulfils (SUP5). Null for a direct
+            market purchase and for an unplanned extra item on an ordered
+            delivery, both of which §4 treats as ordinary.
         quantity:
           type: string
         unit_id:
@@ -29427,6 +29879,22 @@ components:
           type:
             - string
             - 'null'
+        costed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: |
+            When this line's money was settled (§3.6). Null means the costing
+            path has not run and price completion may still act on it — the guard
+            that stops one quantity being costed twice.
+        valuation_pending_fx:
+          type: boolean
+          description: |
+            The price is recorded exactly as the supplier wrote it and could not
+            be blended into the ingredient's valuation currency (§3.6). Physical
+            receiving is never lost to a currency, and no exchange rate is ever
+            invented; a later accounting phase may resolve it.
       additionalProperties: false
     GoodsReceipt:
       type: object
@@ -29435,20 +29903,48 @@ components:
         - branch_id
         - supplier
         - document_ref
+        - supplier_invoice_ref
+        - invoice_date
+        - variance_note
         - purchase_order_id
         - received_at
+        - received_on
+        - cost_status
+        - unpriced_line_count
+        - valuation_pending_count
         - currency_code
         - receipt_total_amount
+        - discount_amount
+        - tax_amount
+        - delivery_amount
+        - other_charges_amount
+        - invoice_total_amount
         - costs_redacted
         - lines
       description: |
-        A receipt still has no purchase-order surface in v1 (O2) —
-        `purchase_order_id` is always null. Since INV1.1 it also records who was
-        paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
-        in `currency_code`, offered only when every priced line shares one
-        currency (there is no exchange rate in this system, §4.4). When the
-        reader lacks `inventory.view_costs_organisation` every money field is
-        null and `costs_redacted` is true.
+        What arrived, from whom, and what it cost (§3.6).
+
+        **Two dates, and they are two different facts.** `received_at` is the
+        exact instant; `received_on` is the branch-local calendar day the
+        delivery belongs to, and it is what §3.7 groups spend by — a van unloaded
+        at 21:30 in Dubai is a Tuesday delivery, and reading the UTC instant's
+        date would file it on Monday.
+
+        **Two document references, likewise.** `document_ref` is the delivery
+        note the driver handed over; `supplier_invoice_ref` and `invoice_date`
+        are the invoice, which often arrives days later.
+
+        `receipt_total_amount` is the **item subtotal** in `currency_code`,
+        offered only when every priced line shares one currency (there is no
+        exchange rate in this system, §4.4). The header charges are reported
+        **separately** for the reason §3.6 gives: tax and delivery are not an
+        ingredient's purchase price, and a screen that added them into one figure
+        would be mislabelling them. They carry no currency of their own — they
+        are in the receipt's line currency, and the post refuses any other state.
+
+        When the reader lacks `inventory.view_costs_organisation` every money
+        field is null and `costs_redacted` is true. `cost_status` and the two
+        counts are **not** redacted.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -29462,7 +29958,27 @@ components:
           type:
             - string
             - 'null'
-          description: The supplier delivery note or invoice number, as written (INV1.1).
+          description: The supplier delivery note, as written (INV1.1).
+        supplier_invoice_ref:
+          type:
+            - string
+            - 'null'
+          description: The supplier's invoice number — a different document from the delivery note (SUP5).
+        invoice_date:
+          type:
+            - string
+            - 'null'
+          format: date
+        variance_note:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+          description: |
+            Why this delivery differs from what was ordered (§4). Required for an
+            over-receipt and for an unplanned extra item — a required explanation
+            that was then discarded would be the plainest kind of silent
+            behaviour, so it is kept and shown.
         purchase_order_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -29472,6 +29988,22 @@ components:
             - string
             - 'null'
           format: date-time
+        received_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: The branch-local business day this delivery is filed under (§3.6).
+        cost_status:
+          $ref: '#/components/schemas/ReceiptCostStatus'
+        unpriced_line_count:
+          type: integer
+          minimum: 0
+          description: Lines whose money is not settled — the work still outstanding on this receipt.
+        valuation_pending_count:
+          type: integer
+          minimum: 0
+          description: Lines whose price is recorded and whose valuation is waiting on an exchange-rate decision.
         currency_code:
           type:
             - string
@@ -29480,6 +30012,28 @@ components:
           type:
             - string
             - 'null'
+          description: The item subtotal — Σ line totals. Never includes the header charges.
+        discount_amount:
+          type:
+            - string
+            - 'null'
+        tax_amount:
+          type:
+            - string
+            - 'null'
+        delivery_amount:
+          type:
+            - string
+            - 'null'
+        other_charges_amount:
+          type:
+            - string
+            - 'null'
+        invoice_total_amount:
+          type:
+            - string
+            - 'null'
+          description: What the supplier invoiced in total, when it is known.
         costs_redacted:
           type: boolean
           description: True when the reader lacks inventory.view_costs_organisation and money fields were nulled (INV1.1).
@@ -29487,6 +30041,328 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GoodsReceiptLine'
+      additionalProperties: false
+    GoodsReceiptDetail:
+      allOf:
+        - $ref: '#/components/schemas/GoodsReceipt'
+        - type: object
+          required:
+            - purchase_order
+          description: |
+            The receipt, plus the order it settled (SUP5). The order block is
+            §5's manage-scoped subset — number, status and the per-line
+            arithmetic somebody standing over a pallet compares against — and is
+            null for a direct market purchase.
+          properties:
+            purchase_order:
+              oneOf:
+                - $ref: '#/components/schemas/ReceiptPurchaseOrderMatch'
+                - type: 'null'
+    ReceiptPurchaseOrderMatch:
+      type: object
+      required:
+        - id
+        - number
+        - status
+        - lines
+      description: |
+        The order a delivery settled, as the receipt shows it. No money at any
+        depth, because there is none on a purchase order at all.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+        status:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceiptPurchaseOrderMatchLine'
+      additionalProperties: false
+    ReceiptPurchaseOrderMatchLine:
+      type: object
+      required:
+        - purchase_order_line_id
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - unit_code
+        - ordered_quantity
+        - received_quantity
+        - outstanding_quantity
+      description: |
+        One ordered line and how much of it has arrived, all three quantities in
+        the line's own `unit_code`.
+      properties:
+        purchase_order_line_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        unit_code:
+          type: string
+        ordered_quantity:
+          type: string
+        received_quantity:
+          type: string
+        outstanding_quantity:
+          type: string
+      additionalProperties: false
+    GoodsReceiptDetailEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - goods_receipt
+          properties:
+            goods_receipt:
+              $ref: '#/components/schemas/GoodsReceiptDetail'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ReceivableOrder:
+      type: object
+      required:
+        - id
+        - number
+        - status
+        - branch_id
+        - supplier
+        - issued_at
+        - line_count
+        - outstanding_line_count
+        - lines
+      description: |
+        One order a delivery could be received against (§4, §6) — a deliberate
+        manage-scoped subset of the order book, not the order book. No notes, no
+        recipient snapshot, no history, and no money at any depth.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+        status:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierRef'
+            - type: 'null'
+        issued_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        line_count:
+          type: integer
+          minimum: 0
+        outstanding_line_count:
+          type: integer
+          minimum: 0
+          description: |
+            Lines with something still to come. Fully delivered lines stay in
+            `lines` — a person checking a delivery against a sheet needs to see
+            the row accounted for rather than missing — and this is the count a
+            picker sorts and labels by.
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceivableOrderLine'
+      additionalProperties: false
+    ReceivableOrderLine:
+      type: object
+      required:
+        - purchase_order_line_id
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - item_name_ar
+        - unit_code
+        - unit_id
+        - ordered_quantity
+        - received_quantity
+        - outstanding_quantity
+      description: |
+        One ordered line with its outstanding quantity — what the receive screen
+        prefills a row with (§4). The unit is fixed from the order line, so a
+        delivery cannot silently be counted in something else.
+      properties:
+        purchase_order_line_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        item_name_ar:
+          type:
+            - string
+            - 'null'
+        unit_code:
+          type: string
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        ordered_quantity:
+          type: string
+        received_quantity:
+          type: string
+        outstanding_quantity:
+          type: string
+      additionalProperties: false
+    ReceivableOrderCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - receivable_orders
+          properties:
+            receivable_orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReceivableOrder'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+    UnpricedReceipt:
+      type: object
+      required:
+        - id
+        - received_on
+        - supplier
+        - document_ref
+        - supplier_invoice_ref
+        - purchase_order_id
+        - cost_status
+        - line_count
+        - unpriced_line_count
+        - valuation_pending_count
+      description: |
+        One row of the unpriced-receipts work queue (§3.6). Deliberately not the
+        whole receipt: this is a list somebody scans to decide what to open next.
+
+        The two counts are two different jobs. `unpriced_line_count` is "type
+        these prices in"; `valuation_pending_count` is "the prices are already
+        here and an exchange-rate decision is not this screen's to make". A queue
+        showing one number for both would send people to rows they cannot action.
+
+        No money at all — the amounts are on the receipt detail, behind the same
+        gate this list sits on.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        received_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierRef'
+            - type: 'null'
+        document_ref:
+          type:
+            - string
+            - 'null'
+        supplier_invoice_ref:
+          type:
+            - string
+            - 'null'
+        purchase_order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        cost_status:
+          $ref: '#/components/schemas/ReceiptCostStatus'
+        line_count:
+          type: integer
+          minimum: 0
+        unpriced_line_count:
+          type: integer
+          minimum: 0
+        valuation_pending_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    UnpricedReceiptCollection:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - unpriced_receipts
+          properties:
+            unpriced_receipts:
+              type: array
+              items:
+                $ref: '#/components/schemas/UnpricedReceipt'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+    CompleteReceiptPriceLine:
+      type: object
+      required:
+        - goods_receipt_line_id
+        - unit_price_amount
+        - cost_currency_code
+      description: |
+        One line's missing price. `line_total_amount` is optional and is
+        **checked** against quantity × unit price rather than stored as given:
+        the total and the price are two views of one fact, and a database holding
+        two answers for it is worse than one that refuses.
+      properties:
+        goods_receipt_line_id:
+          $ref: '#/components/schemas/Uuid'
+        unit_price_amount:
+          type: number
+          minimum: 0
+          description: Major currency units per the line's own unit (§4.4).
+        line_total_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+        cost_currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+      additionalProperties: false
+    CompleteReceiptPricesRequest:
+      type: object
+      required:
+        - lines
+      description: |
+        Prices only. The quantities are untouchable here — §3.6 is explicit that
+        posted quantities are never edited in place, and nothing on this request
+        could change what arrived.
+
+        Every line named must still have a null `costed_at`, and every currency
+        on the request must agree with itself and with the receipt's
+        already-priced lines.
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CompleteReceiptPriceLine'
       additionalProperties: false
     SupplierRef:
       type: object
@@ -29535,6 +30411,16 @@ components:
       properties:
         stock_item_id:
           $ref: '#/components/schemas/Uuid'
+        purchase_order_line_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The ordered line this delivery fulfils (SUP5). Only valid when the
+            receipt names a `purchase_order_id`, and it must belong to that order
+            and stock the same item. Omitted on a direct purchase and on an
+            unplanned extra item, which needs the receipt's `variance_note`
+            instead (§4).
         quantity:
           type: number
           exclusiveMinimum: 0
@@ -29558,7 +30444,12 @@ components:
         Posting a receipt writes every line straight into the inventory
         ledger (`reason: receipt`) inside one transaction — there is no
         draft state to save and return to. Since INV1.1 it also records the
-        supplier and document reference and blends each priced line's cost.
+        supplier and document reference and blends each priced line's cost, and
+        since SUP5 it settles a purchase order in the same transaction.
+
+        Amounts are non-negative magnitudes. A **discount** is sent positive and
+        subtracted by the arithmetic rather than sent negative, so the sign
+        convention lives in one place rather than in every client.
       properties:
         branch_id:
           $ref: '#/components/schemas/Uuid'
@@ -29566,17 +30457,105 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
-          description: Who the stock was bought from (INV1.1).
+          description: |
+            Who the stock was bought from (INV1.1). Required in practice when
+            `purchase_order_id` is sent, because §4 insists a delivery against an
+            order names that order's supplier.
         document_ref:
           type:
             - string
             - 'null'
-          description: The supplier delivery note or invoice number (INV1.1).
+          description: The supplier delivery note, as written (INV1.1).
+        supplier_invoice_ref:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+          description: The supplier's invoice number — a different document from the delivery note (SUP5).
+        invoice_date:
+          type:
+            - string
+            - 'null'
+          format: date
+        received_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: |
+            The branch-local business day this delivery belongs to (§3.6). Omit
+            it and the server reads today in the receiving branch's own timezone.
+            A future date is refused — a delivery that has not happened is not a
+            delivery, and slice 6 would file its money in a period that has not
+            started.
+        variance_note:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+          description: |
+            Why this delivery differs from what was ordered. Required for an
+            over-receipt and for any line with no `purchase_order_line_id` on a
+            delivery against an order (§3.5, §4).
         purchase_order_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
-          description: Accepted for forward compatibility; no endpoint creates one yet (O2).
+          description: |
+            The order this delivery settles (SUP5). It must be `issued` or
+            `partially_received` and must name this receipt's branch and
+            supplier; its received state is updated in the same transaction.
+        discount_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+        tax_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+        delivery_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+        other_charges_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+        invoice_total_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          description: |
+            When present it must equal `Σ line totals − discount + tax + delivery
+            + other charges` (§3.6), else `422` naming the difference.
+        over_receipt_confirmed:
+          type:
+            - boolean
+            - 'null'
+          description: |
+            Confirms that more is arriving than the order still has outstanding.
+            Required to record an over-receipt at all, and not sufficient on its
+            own: §3.5 asks for an explicit confirmation **and** a variance note.
+        close_short:
+          type:
+            - boolean
+            - 'null'
+          description: |
+            Close the rest of this order (§3.5). Only valid with a
+            `purchase_order_id`, and the order becomes `received` with a
+            `closed_at` stamp. If the delivery turns out to complete the order
+            anyway, no reason is stored, because there is nothing left to explain.
+        close_short_reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+          description: Required with `close_short`. A blank is not an explicit reason.
         lines:
           type: array
           minItems: 1
@@ -29598,9 +30577,22 @@ components:
               type: object
               required:
                 - id
+                - received_on
+                - cost_status
+              description: |
+                The identifier, plus the two facts a client acts on straight
+                away: which day this delivery was filed under, and whether its
+                paperwork is done.
               properties:
                 id:
                   $ref: '#/components/schemas/Uuid'
+                received_on:
+                  type:
+                    - string
+                    - 'null'
+                  format: date
+                cost_status:
+                  $ref: '#/components/schemas/ReceiptCostStatus'
         meta:
           $ref: '#/components/schemas/Meta'
     PurchasesLedgerLine:
@@ -29609,8 +30601,11 @@ components:
         - id
         - goods_receipt_id
         - received_at
+        - received_on
         - supplier
         - document_ref
+        - purchase_order_id
+        - cost_status
         - stock_item_id
         - item_code
         - item_name_en
@@ -29620,6 +30615,7 @@ components:
         - unit_price_amount
         - line_total_amount
         - cost_currency_code
+        - valuation_pending_fx
         - costs_redacted
       description: One purchases-ledger row — a receipt line with its date, supplier and item (INV1.1).
       properties:
@@ -29632,6 +30628,12 @@ components:
             - string
             - 'null'
           format: date-time
+        received_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: The branch-local business day the receipt is filed under (SUP5).
         supplier:
           oneOf:
             - $ref: '#/components/schemas/SupplierRef'
@@ -29640,6 +30642,15 @@ components:
           type:
             - string
             - 'null'
+        purchase_order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        cost_status:
+          oneOf:
+            - $ref: '#/components/schemas/ReceiptCostStatus'
+            - type: 'null'
+          description: The parent receipt's costing state (SUP5) — what the completeness filter reads.
         stock_item_id:
           $ref: '#/components/schemas/Uuid'
         item_code:
@@ -29672,6 +30683,12 @@ components:
           type:
             - string
             - 'null'
+        valuation_pending_fx:
+          type: boolean
+          description: |
+            This line's price is recorded and its valuation is waiting on an
+            exchange-rate decision (§3.6). A work state, not money, so it is
+            never redacted.
         costs_redacted:
           type: boolean
       additionalProperties: false
