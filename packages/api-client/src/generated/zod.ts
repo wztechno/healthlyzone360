@@ -2969,14 +2969,80 @@ export const zStockWasteRequest = z.object({
     notes: z.string().max(255).nullish()
 });
 
+/**
+ * The "who do I call" summary a supplier list row shows.
+ */
+export const zSupplierPrimaryContact = z.object({
+    name: z.string(),
+    phone: z.string().nullable()
+});
+
+/**
+ * One named person at a supplier — distinct from the supplier's own office
+ * line. At least one of `email`, `phone` and `whatsapp_phone` is always
+ * present: a contact nobody can reach is not a contact.
+ *
+ * `whatsapp_phone` is its own field rather than a flag on `phone` because
+ * in this trade they genuinely differ — the landline takes the call, the
+ * mobile takes the order photo.
+ *
+ */
+export const zSupplierContact = z.object({
+    id: zUuid,
+    name: z.string(),
+    role_title: z.string().nullable(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    whatsapp_phone: z.string().nullable(),
+    is_primary: z.boolean(),
+    display_order: z.int().gte(0)
+});
+
+/**
+ * One supplier in the organisation's book. The same shape everywhere a
+ * supplier is served — list row and freshly created record alike — so a
+ * client writes one mapper rather than three.
+ *
+ * `contact_email`/`contact_phone` are the **general office** details, not
+ * a duplicate of the primary named person: when a sales rep leaves, the
+ * office line is still correct and their mobile is not.
+ *
+ */
 export const zSupplier = z.object({
     id: zUuid,
     code: z.string(),
     name_en: z.string(),
+    name_ar: z.string().nullable(),
     currency_code: z.string().nullable(),
     contact_email: z.string().nullable(),
-    contact_phone: z.string().nullable()
+    contact_phone: z.string().nullable(),
+    address: z.string().nullable(),
+    payment_terms: z.string().nullable(),
+    lead_time_days: z.int().gte(0).lte(365).nullable(),
+    notes: z.string().nullable(),
+    archived_at: z.iso.datetime({ offset: true }).nullable(),
+    contact_count: z.int().gte(0),
+    primary_contact: zSupplierPrimaryContact.nullable(),
+    contacts: z.array(zSupplierContact).optional()
 });
+
+/**
+ * A supplier with its full contact set — the supplier's own page.
+ *
+ * The canonical `Supplier` with `contacts` promoted from optional to
+ * required. Composed rather than restated so that a field added to the
+ * book cannot arrive on the list and go missing from the detail.
+ *
+ * `contacts` is restated in the second subschema rather than only listed
+ * as required: `Supplier` closes itself with `additionalProperties: false`
+ * (which is why the field is declared there too, optionally), and a
+ * `required`-only branch generates as an index signature rather than as
+ * the array a client needs.
+ *
+ */
+export const zSupplierDetail = zSupplier.and(z.object({
+    contacts: z.array(zSupplierContact)
+}));
 
 export const zSupplierCollection = z.object({
     data: z.object({
@@ -2990,18 +3056,104 @@ export const zSupplierCollection = z.object({
  * per-organisation code from the name. `currency_code` is a hint the
  * receipt form pre-selects and is never required.
  *
+ * Contacts are **not** accepted here: they are their own section-level
+ * replace, and a create that took them would give a kitchen two ways to
+ * write the same set. The lightweight create inside the goods-receipt
+ * dialog sends a name and nothing else.
+ *
  */
 export const zCreateSupplierRequest = z.object({
     name_en: z.string().min(1).max(160),
+    name_ar: z.string().max(160).nullish(),
     code: z.string().max(64).nullish(),
     currency_code: z.string().length(3).nullish(),
     contact_email: z.string().max(160).nullish(),
-    contact_phone: z.string().max(40).nullish()
+    contact_phone: z.string().max(40).nullish(),
+    address: z.string().max(2000).nullish(),
+    payment_terms: z.string().max(120).nullish(),
+    lead_time_days: z.int().gte(0).lte(365).nullish(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * Every field of the record, all optional — a partial write. A field the
+ * body omits is left alone; a field sent as `null` is cleared, so a
+ * kitchen can genuinely remove an address it typed by mistake.
+ *
+ * `code` **is** editable, unlike a delivery zone's or a price list's. The
+ * difference is who wrote it: those are minted by an operator who meant
+ * them, whereas a supplier code is frequently minted by the server from a
+ * name typed into a goods-receipt dialog at the loading bay, and refusing
+ * to correct `GULF-FRESH-TRADING-CO-2` would leave the kitchen stuck with
+ * an accident. Uniqueness ignores this supplier's own row.
+ *
+ * `archived_at` is not reachable from here — archiving is its own action
+ * with its own audit event, so a form save cannot retire a supplier by
+ * writing a field. Contacts are their own set-replace.
+ *
+ */
+export const zUpdateSupplierRequest = z.object({
+    name_en: z.string().min(1).max(160).optional(),
+    name_ar: z.string().max(160).nullish(),
+    code: z.string().min(1).max(64).optional(),
+    currency_code: z.string().length(3).nullish(),
+    contact_email: z.string().max(160).nullish(),
+    contact_phone: z.string().max(40).nullish(),
+    address: z.string().max(2000).nullish(),
+    payment_terms: z.string().max(120).nullish(),
+    lead_time_days: z.int().gte(0).lte(365).nullish(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * One contact in a replace request. `id` names an existing contact to update; omit it to create.
+ */
+export const zReplaceSupplierContact = z.object({
+    id: zUuid.nullish(),
+    name: z.string().min(1).max(120),
+    role_title: z.string().max(120).nullish(),
+    email: z.string().max(160).nullish(),
+    phone: z.string().max(40).nullish(),
+    whatsapp_phone: z.string().max(40).nullish(),
+    is_primary: z.boolean().nullish(),
+    display_order: z.int().gte(0).lte(65535).nullish()
+});
+
+/**
+ * The **whole desired contact set**. Contacts carrying an `id` are
+ * updated, contacts without one are created, and contacts absent from the
+ * body are deleted — one request, one transaction, one **Save contacts**
+ * button on the screen. Send `[]` to clear the set.
+ *
+ * Two rules are refused with `422` before the database can raise a
+ * constraint violation: at most one `is_primary` across the set, and at
+ * least one of `email`, `phone` and `whatsapp_phone` on every contact.
+ *
+ * Twenty is the cap. A supplier with more than twenty named people is not
+ * a supplier record, it is a directory.
+ *
+ */
+export const zReplaceSupplierContactsRequest = z.object({
+    contacts: z.array(zReplaceSupplierContact).max(20)
 });
 
 export const zSupplierEnvelope = z.object({
     data: z.object({
         supplier: zSupplier
+    }),
+    meta: zMeta
+});
+
+export const zSupplierDetailEnvelope = z.object({
+    data: z.object({
+        supplier: zSupplierDetail
+    }),
+    meta: zMeta
+});
+
+export const zSupplierContactCollection = z.object({
+    data: z.object({
+        contacts: z.array(zSupplierContact)
     }),
     meta: zMeta
 });
@@ -7394,6 +7546,15 @@ export const zPlanDurationPath = z.union([
 export const zXBranchIdRequired = zUuid;
 
 /**
+ * The supplier identifier. An identifier only, unlike a delivery zone's
+ * path: a supplier `code` is frequently minted by the server and is
+ * editable afterwards, so a URL that accepted it would break the moment a
+ * kitchen corrected one.
+ *
+ */
+export const zSupplierPath = zUuid;
+
+/**
  * The delivery zone identifier, or its `code`.
  */
 export const zDeliveryZonePath = z.union([
@@ -10155,6 +10316,10 @@ export const zListSuppliersHeaders = z.object({
     'X-Client-Request-Id': z.string().max(128).optional()
 });
 
+export const zListSuppliersQuery = z.object({
+    include_archived: z.boolean().optional().default(false)
+});
+
 /**
  * Every supplier, ordered by code.
  */
@@ -10171,6 +10336,80 @@ export const zCreateSupplierHeaders = z.object({
  * The supplier was created.
  */
 export const zCreateSupplierResponse = zSupplierEnvelope;
+
+export const zGetSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetSupplierPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The supplier and its contacts.
+ */
+export const zGetSupplierResponse = zSupplierDetailEnvelope;
+
+export const zUpdateSupplierBody = zUpdateSupplierRequest;
+
+export const zUpdateSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSupplierPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The supplier after the write.
+ */
+export const zUpdateSupplierResponse = zSupplierEnvelope;
+
+export const zArchiveSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveSupplierPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The archived supplier.
+ */
+export const zArchiveSupplierResponse = zSupplierEnvelope;
+
+export const zRestoreSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRestoreSupplierPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The restored supplier.
+ */
+export const zRestoreSupplierResponse = zSupplierEnvelope;
+
+export const zReplaceSupplierContactsBody = zReplaceSupplierContactsRequest;
+
+export const zReplaceSupplierContactsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceSupplierContactsPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The contact set after the replace, in display order.
+ */
+export const zReplaceSupplierContactsResponse = zSupplierContactCollection;
 
 export const zGetProcurementReferenceHeaders = z.object({
     'X-Organisation-Id': zUuid,

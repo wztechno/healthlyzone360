@@ -502,6 +502,16 @@ async function firstPlanBase(page: Page): Promise<string> {
     return testId.slice(0, testId.length - '-open'.length);
 }
 
+async function openSuppliers(page: Page) {
+    await openWorkspace(page);
+    await openScreen(
+        page,
+        '/kitchen/suppliers',
+        'kitchen-suppliers-screen',
+        'kitchen-suppliers-table',
+    );
+}
+
 async function openZones(page: Page) {
     await openWorkspace(page);
     await openScreen(
@@ -1554,6 +1564,125 @@ test.describe('kitchen workspace (en)', () => {
      * endpoint returns no areas (they are `GET /catalogue/delivery-zones/{zone}/areas`, a separate
      * call the editor makes), so that column says "no areas chosen" for every zone regardless.
      */
+    /* ── suppliers (SUP1) ────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The whole supplier lifecycle in one journey: create, edit, name a contact, archive, restore.
+     *
+     * One journey rather than five, because every step needs the row the step before it produced and
+     * this file runs one worker at a time — five journeys would mean five suppliers created against
+     * a shared database to assert five halves of one story.
+     *
+     * Three things it proves that a unit test cannot. The **code is minted by the server** when the
+     * create form leaves it blank, so the record comes back with something on it that the client
+     * never sent. The **contact set is one save**: the card is filled in and the section's own
+     * button is what writes it, and the record read back afterwards carries the person. And the
+     * **archive is a filter rather than a deletion** — the supplier leaves the default book, returns
+     * under the chip, and restores whole.
+     */
+    test('creates a supplier, edits it, names a contact, then archives and restores it', async ({
+        page,
+    }) => {
+        await openSuppliers(page);
+
+        const name = unique('Playwright Supplier');
+
+        await page.getByTestId('kitchen-suppliers-create').click();
+        await expect(page.getByTestId('kitchen-supplier-details')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await page.getByTestId('kitchen-supplier-name-en-input').fill(name);
+        await page.getByTestId('kitchen-supplier-name-ar-input').fill('مورّد الاختبار');
+        // Deliberately no code: the server mints one from the name, which is the whole reason a
+        // person at a loading bay can add a supplier without inventing an identifier.
+        await page.getByTestId('kitchen-supplier-payment-terms-input').fill('Net 30');
+        await page.getByTestId('kitchen-supplier-lead-time-input').fill('2');
+
+        await page.getByTestId('kitchen-supplier-screen-save').click();
+        await expectToast(page, 'kitchen-supplier-saved-toast');
+
+        // The create redirects onto the saved record, which is where contacts become possible.
+        await expect(page.getByTestId('kitchen-supplier-contacts')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supplier-code-input')).not.toHaveValue('', {
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Editing the record it just created — a second write against the same row.
+        await page.getByTestId('kitchen-supplier-address-input').fill('Gate 4, behind the store');
+        await expect(page.getByTestId('kitchen-supplier-screen-dirty')).toBeVisible();
+        await page.getByTestId('kitchen-supplier-screen-save').click();
+        await expectToast(page, 'kitchen-supplier-saved-toast');
+
+        /* ── contacts: one card, one save ────────────────────────────────────────────────────── */
+
+        await page.getByTestId('kitchen-supplier-contacts-add').click();
+
+        const card = page.locator('[data-testid^="kitchen-supplier-contact-new-"]').first();
+        await expect(card).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        const cardId = await card.getAttribute('data-testid');
+        if (cardId === null) throw new Error('The contact card carries no test id.');
+
+        await page.getByTestId(`${cardId}-name-input`).fill('Samir Haddad');
+        await page.getByTestId(`${cardId}-phone-input`).fill('+961 3 111 222');
+        await page.getByTestId(`${cardId}-make-primary`).click();
+
+        await page.getByTestId('kitchen-supplier-contacts-save').click();
+        await expectToast(page, 'kitchen-supplier-contacts-saved-toast');
+
+        // Read back off the record rather than off a list column: this is the row PostgreSQL
+        // returned, not a number the table derived.
+        await expect(page.getByTestId(`${cardId}-name-input`)).toHaveValue('Samir Haddad');
+
+        /* ── archive, and the book that stops offering it ────────────────────────────────────── */
+
+        await page.getByTestId('kitchen-supplier-archive').click();
+        await expect(page.getByTestId('kitchen-supplier-archive-dialog')).toBeVisible();
+        await page.getByTestId('kitchen-supplier-archive-confirm').click();
+        await expectToast(page, 'kitchen-supplier-archived-toast');
+
+        await expect(page.getByTestId('kitchen-supplier-archived')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // The form is locked rather than merely unsaveable.
+        await expect(page.getByTestId('kitchen-supplier-screen-save')).toHaveCount(0);
+
+        await page.getByTestId('kitchen-supplier-screen-back').click();
+        await expect(page.getByTestId('kitchen-suppliers-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Gone from the default book — every picker reads this list.
+        await page.getByTestId('kitchen-suppliers-search-input').fill(name);
+        await expect(page.getByTestId('kitchen-suppliers-empty')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Back under the chip, and flagged.
+        await page.getByTestId('kitchen-suppliers-archived-filter').click();
+        const row = page
+            .locator('[data-testid^="kitchen-supplier-"][data-testid$="-open"]')
+            .first();
+        await expect(row).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await row.click();
+
+        await expect(page.getByTestId('kitchen-supplier-restore')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId('kitchen-supplier-restore').click();
+        await expectToast(page, 'kitchen-supplier-restored-toast');
+
+        // Restored whole: writable again, with the contact and the address still on it.
+        await expect(page.getByTestId('kitchen-supplier-screen-save')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supplier-address-input')).toHaveValue(
+            'Gate 4, behind the store',
+        );
+    });
+
     test('adds a gazetteer area to a zone and the list reads the new coverage back', async ({
         page,
     }) => {

@@ -44,6 +44,7 @@ export {
     StockItemId,
     SubscriptionId,
     SubscriptionPlanId,
+    SupplierContactId,
     SupplierId,
     UserId,
     VdMessageId,

@@ -17,6 +17,7 @@ import type {
     PurchaseLedgerLine,
     QualityCheck,
     QualityCheckResult,
+    ReplaceSupplierContactsRequest,
     ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
     StockAdjustmentRequest,
@@ -25,9 +26,13 @@ import type {
     StockMovement,
     StockWasteRequest,
     Supplier,
+    SupplierContact,
+    SupplierDetail,
+    SupplierFilter,
+    UpdateSupplierRequest,
 } from '@healthy360/api-client/contracts';
 import type { CursorPage } from '@healthy360/api-client/contracts';
-import type { ProductionOrderId, QualityCheckId } from '@healthy360/domain-types';
+import type { ProductionOrderId, QualityCheckId, SupplierId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -39,8 +44,9 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *
  * One hook per repository operation, same as `./kitchen-admin-hooks.ts` — but simpler throughout,
  * for the reason `contracts/kitchen-ops.ts`'s header gives: nothing here is lock-versioned and
- * every list is either the whole table or the most recent fifty, so there is no per-row detail
- * query and no lock version to rebase after a write.
+ * every list is either the whole table or the most recent fifty, so there is no lock version to
+ * rebase after a write. `useSupplierQuery` is the one per-row detail read — a supplier has a page
+ * of its own, which no other ops row does (SUP1).
  *
  * ## Every mutation invalidates the whole root, and nothing writes a detail entry
  *
@@ -178,16 +184,49 @@ export function useSetStockThresholdMutation(): UseMutationResult<
 
 /* ── procurement (O2) — receipts-only ────────────────────────────────────────────────────────── */
 
-/** The supplier book. No writer — see `contracts/kitchen-ops.ts`'s header: receipts-only in v1. */
-export function useSuppliersQuery(enabled = true): UseQueryResult<readonly Supplier[]> {
+/**
+ * The supplier book, ordered by code.
+ *
+ * Archived suppliers are excluded unless `filter.includeArchived` asks for them: every other caller
+ * is a picker, and a picker offering a supplier the kitchen stopped buying from is how an order gets
+ * sent to a shuttered warehouse. The filter is part of the key, so the plain book and the book with
+ * its archive are two cache entries rather than one that keeps flipping.
+ */
+export function useSuppliersQuery(
+    filter: SupplierFilter = {},
+    enabled = true,
+): UseQueryResult<readonly Supplier[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenOps.suppliers(),
+        queryKey: queryKeys.kitchenOps.suppliers(filter),
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            return repositories.kitchenOps.listSuppliers();
+            return repositories.kitchenOps.listSuppliers(filter);
+        },
+    });
+}
+
+/**
+ * One supplier and its named contacts — the supplier's own page.
+ *
+ * Disabled until the route parameter parses as an identifier, so a hand-typed link produces the
+ * screen's designed not-found state rather than a repository failure.
+ */
+export function useSupplierQuery(
+    supplierId: SupplierId | null,
+    enabled = true,
+): UseQueryResult<SupplierDetail> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.supplier(supplierId ?? ('' as SupplierId)),
+        enabled: enabled && supplierId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (supplierId === null) throw new Error('A supplier identifier is required.');
+            return repositories.kitchenOps.getSupplier(supplierId);
         },
     });
 }
@@ -222,6 +261,75 @@ export function useCreateSupplierMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: CreateSupplierRequest) =>
             repositories.kitchenOps.createSupplier(request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface UpdateSupplierVariables {
+    readonly supplierId: SupplierId;
+    readonly request: UpdateSupplierRequest;
+}
+
+/** Edits the record, then re-reads the ops lists — the detail entry among them. */
+export function useUpdateSupplierMutation(): UseMutationResult<
+    Supplier,
+    unknown,
+    UpdateSupplierVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ supplierId, request }: UpdateSupplierVariables) =>
+            repositories.kitchenOps.updateSupplier(supplierId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Takes a supplier out of every picker. Reversible — see `useRestoreSupplierMutation`. */
+export function useArchiveSupplierMutation(): UseMutationResult<Supplier, unknown, SupplierId> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (supplierId: SupplierId) => repositories.kitchenOps.archiveSupplier(supplierId),
+        onSuccess: onWritten,
+    });
+}
+
+/** Puts an archived supplier back in the book. */
+export function useRestoreSupplierMutation(): UseMutationResult<Supplier, unknown, SupplierId> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (supplierId: SupplierId) => repositories.kitchenOps.restoreSupplier(supplierId),
+        onSuccess: onWritten,
+    });
+}
+
+export interface ReplaceSupplierContactsVariables {
+    readonly supplierId: SupplierId;
+    readonly request: ReplaceSupplierContactsRequest;
+}
+
+/**
+ * Replaces the whole contact set in one call — the screen's single **Save contacts** action.
+ *
+ * Deliberately not fired per card: a set-replace on a keystroke would delete the card the person
+ * was halfway through adding.
+ */
+export function useReplaceSupplierContactsMutation(): UseMutationResult<
+    readonly SupplierContact[],
+    unknown,
+    ReplaceSupplierContactsVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ supplierId, request }: ReplaceSupplierContactsVariables) =>
+            repositories.kitchenOps.replaceSupplierContacts(supplierId, request),
         onSuccess: onWritten,
     });
 }

@@ -40,6 +40,7 @@ import type { PublishedFamilySummary } from '../../../data/kitchen-admin-hooks.t
 import {
     useConsumptionExceptionCountQuery,
     useLowStockCountQuery,
+    useSuppliersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useOrderDeskShortfallCountQuery } from '../../../data/order-desk-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
@@ -428,6 +429,46 @@ function AllergenClassesCard({ family }: { readonly family: EntityFamily }) {
     );
 }
 
+/**
+ * The supplier book's card (SUP1) — a plain count of who this kitchen buys from.
+ *
+ * Counted from the live book rather than the whole table: the list this card leads to excludes
+ * archived suppliers by default, and a badge that counted them would disagree with the screen it
+ * opens. `useSuppliersQuery()` with no filter is exactly that book.
+ */
+function SuppliersCard({ family }: { readonly family: EntityFamily }) {
+    const { t } = useTranslation();
+    const suppliers = useSuppliersQuery();
+    const testID = `kitchen-family-${family.key}`;
+
+    return (
+        <FamilyCardShell family={family} testID={testID}>
+            {suppliers.isPending ? (
+                <Skeleton
+                    testID={`${testID}-loading`}
+                    heightClassName="h-6"
+                    widthClassName="w-1/2"
+                />
+            ) : (
+                <Inline space="xs" wrap testID={`${testID}-counts`}>
+                    <Badge
+                        testID={`${testID}-total`}
+                        tone="neutral"
+                        icon="dot"
+                        label={
+                            suppliers.data === undefined
+                                ? t('kitchen:hub.countUnavailable')
+                                : t('kitchen:ops.suppliers.supplierCount', {
+                                      count: suppliers.data.length,
+                                  })
+                        }
+                    />
+                </Inline>
+            )}
+        </FamilyCardShell>
+    );
+}
+
 function renderFamilyCard(
     family: EntityFamily,
     summaries: {
@@ -472,6 +513,9 @@ function renderFamilyCard(
     }
     if (family.key === 'allergen-classes') {
         return <AllergenClassesCard key={family.key} family={family} />;
+    }
+    if (family.key === 'suppliers') {
+        return <SuppliersCard key={family.key} family={family} />;
     }
     return (
         <FamilyCardShell key={family.key} family={family} testID={`kitchen-family-${family.key}`}>

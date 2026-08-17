@@ -7,6 +7,7 @@ import {
     QualityCheckId,
     RecipeVersionId,
     StockItemId,
+    SupplierContactId,
     SupplierId,
     UserId,
 } from '@healthy360/domain-types';
@@ -41,8 +42,13 @@ import type {
     StockLevel,
     StockMovement,
     StockWasteRequest,
+    ReplaceSupplierContactsRequest,
     Supplier,
+    SupplierContact,
+    SupplierDetail,
+    SupplierFilter,
     SupplierRef,
+    UpdateSupplierRequest,
 } from '../contracts/kitchen-ops.ts';
 import type {
     ConsumptionException as WireConsumptionException,
@@ -57,6 +63,8 @@ import type {
     StockLevel as WireStockLevel,
     StockMovement as WireStockMovement,
     Supplier as WireSupplier,
+    SupplierContact as WireSupplierContact,
+    SupplierDetail as WireSupplierDetail,
     SupplierRef as WireSupplierRef,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
@@ -110,14 +118,92 @@ function mapStockMovement(wire: WireStockMovement): StockMovement {
     };
 }
 
+/**
+ * The wire's flat `name_en`/`name_ar` composed into the bilingual name the screens edit (SUP1).
+ *
+ * `ar` falls back to `''` rather than staying null, because `LocalisedText` promises two strings
+ * and a form bound to `null` would render "null" in the Arabic box the first time somebody typed
+ * into it. Empty is what "not translated yet" looks like everywhere else in this workspace.
+ */
 function mapSupplier(wire: WireSupplier): Supplier {
     return {
         id: SupplierId.unsafe(wire.id),
         code: wire.code,
-        nameEn: wire.name_en,
+        name: { en: wire.name_en, ar: wire.name_ar ?? '' },
         currencyCode: wire.currency_code,
         contactEmail: wire.contact_email,
         contactPhone: wire.contact_phone,
+        address: wire.address,
+        paymentTerms: wire.payment_terms,
+        leadTimeDays: wire.lead_time_days,
+        notes: wire.notes,
+        archivedAt: wire.archived_at,
+        contactCount: wire.contact_count,
+        primaryContact:
+            wire.primary_contact === null
+                ? null
+                : { name: wire.primary_contact.name, phone: wire.primary_contact.phone },
+    };
+}
+
+function mapSupplierContact(wire: WireSupplierContact): SupplierContact {
+    return {
+        id: SupplierContactId.unsafe(wire.id),
+        name: wire.name,
+        roleTitle: wire.role_title,
+        email: wire.email,
+        phone: wire.phone,
+        whatsappPhone: wire.whatsapp_phone,
+        isPrimary: wire.is_primary,
+        displayOrder: wire.display_order,
+    };
+}
+
+function mapSupplierDetail(wire: WireSupplierDetail): SupplierDetail {
+    return { ...mapSupplier(wire), contacts: wire.contacts.map(mapSupplierContact) };
+}
+
+/**
+ * One contact as the replace endpoint wants it.
+ *
+ * `id` is sent only when the caller named one — a contact without it is a create, and an explicit
+ * `id: null` would say the same thing more noisily.
+ */
+function wireSupplierContact(
+    contact: ReplaceSupplierContactsRequest['contacts'][number],
+): Record<string, unknown> {
+    return {
+        ...(contact.id === undefined || contact.id === null ? {} : { id: String(contact.id) }),
+        name: contact.name,
+        ...(contact.roleTitle === undefined ? {} : { role_title: contact.roleTitle }),
+        ...(contact.email === undefined ? {} : { email: contact.email }),
+        ...(contact.phone === undefined ? {} : { phone: contact.phone }),
+        ...(contact.whatsappPhone === undefined ? {} : { whatsapp_phone: contact.whatsappPhone }),
+        ...(contact.isPrimary === undefined ? {} : { is_primary: contact.isPrimary }),
+        ...(contact.displayOrder === undefined ? {} : { display_order: contact.displayOrder }),
+    };
+}
+
+/**
+ * The writable half of a supplier, in wire spelling.
+ *
+ * Shared by create and update because the field list is the same one; the two differ only in which
+ * fields are required, and that is the contract's job rather than this function's. The
+ * `undefined → omit` idiom is what keeps "leave this alone" distinct from "clear this" on a PATCH.
+ */
+function wireSupplierFields(
+    request: CreateSupplierRequest | UpdateSupplierRequest,
+): Record<string, unknown> {
+    return {
+        ...(request.nameAr === undefined ? {} : { name_ar: request.nameAr }),
+        ...(request.code === undefined ? {} : { code: request.code }),
+        ...(request.currencyCode === undefined ? {} : { currency_code: request.currencyCode }),
+        ...(request.contactEmail === undefined ? {} : { contact_email: request.contactEmail }),
+        ...(request.contactPhone === undefined ? {} : { contact_phone: request.contactPhone }),
+        ...(request.address === undefined ? {} : { address: request.address }),
+        ...(request.paymentTerms === undefined ? {} : { payment_terms: request.paymentTerms }),
+        ...(request.leadTimeDays === undefined ? {} : { lead_time_days: request.leadTimeDays }),
+        ...(request.notes === undefined ? {} : { notes: request.notes }),
     };
 }
 
@@ -320,11 +406,28 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return envelope.data.count;
         },
 
-        async listSuppliers(): Promise<readonly Supplier[]> {
+        async listSuppliers(filter: SupplierFilter = {}): Promise<readonly Supplier[]> {
+            const params = new URLSearchParams();
+            if (filter.includeArchived === true) params.set('include_archived', 'true');
+
+            const query = params.toString();
             const envelope = await transport.requestEnvelope<{
                 readonly suppliers: readonly WireSupplier[];
-            }>({ method: 'GET', path: '/catalogue/procurement/suppliers' });
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/suppliers${query === '' ? '' : `?${query}`}`,
+            });
             return envelope.data.suppliers.map(mapSupplier);
+        },
+
+        async getSupplier(supplierId): Promise<SupplierDetail> {
+            const envelope = await transport.requestEnvelope<{
+                readonly supplier: WireSupplierDetail;
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/suppliers/${encodeURIComponent(String(supplierId))}`,
+            });
+            return mapSupplierDetail(envelope.data.supplier);
         },
 
         async createSupplier(request: CreateSupplierRequest): Promise<Supplier> {
@@ -333,21 +436,57 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             }>({
                 method: 'POST',
                 path: '/catalogue/procurement/suppliers',
+                body: { name_en: request.nameEn, ...wireSupplierFields(request) },
+            });
+            return mapSupplier(envelope.data.supplier);
+        },
+
+        async updateSupplier(supplierId, request: UpdateSupplierRequest): Promise<Supplier> {
+            const envelope = await transport.requestEnvelope<{
+                readonly supplier: WireSupplier;
+            }>({
+                method: 'PATCH',
+                path: `/catalogue/procurement/suppliers/${encodeURIComponent(String(supplierId))}`,
                 body: {
-                    name_en: request.nameEn,
-                    ...(request.code === undefined ? {} : { code: request.code }),
-                    ...(request.currencyCode === undefined
-                        ? {}
-                        : { currency_code: request.currencyCode }),
-                    ...(request.contactEmail === undefined
-                        ? {}
-                        : { contact_email: request.contactEmail }),
-                    ...(request.contactPhone === undefined
-                        ? {}
-                        : { contact_phone: request.contactPhone }),
+                    ...(request.nameEn === undefined ? {} : { name_en: request.nameEn }),
+                    ...wireSupplierFields(request),
                 },
             });
             return mapSupplier(envelope.data.supplier);
+        },
+
+        async archiveSupplier(supplierId): Promise<Supplier> {
+            const envelope = await transport.requestEnvelope<{
+                readonly supplier: WireSupplier;
+            }>({
+                method: 'POST',
+                path: `/catalogue/procurement/suppliers/${encodeURIComponent(String(supplierId))}/archive`,
+            });
+            return mapSupplier(envelope.data.supplier);
+        },
+
+        async restoreSupplier(supplierId): Promise<Supplier> {
+            const envelope = await transport.requestEnvelope<{
+                readonly supplier: WireSupplier;
+            }>({
+                method: 'POST',
+                path: `/catalogue/procurement/suppliers/${encodeURIComponent(String(supplierId))}/restore`,
+            });
+            return mapSupplier(envelope.data.supplier);
+        },
+
+        async replaceSupplierContacts(
+            supplierId,
+            request: ReplaceSupplierContactsRequest,
+        ): Promise<readonly SupplierContact[]> {
+            const envelope = await transport.requestEnvelope<{
+                readonly contacts: readonly WireSupplierContact[];
+            }>({
+                method: 'PUT',
+                path: `/catalogue/procurement/suppliers/${encodeURIComponent(String(supplierId))}/contacts`,
+                body: { contacts: request.contacts.map(wireSupplierContact) },
+            });
+            return envelope.data.contacts.map(mapSupplierContact);
         },
 
         async getProcurementReference(): Promise<ProcurementReference> {

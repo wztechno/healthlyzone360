@@ -8124,13 +8124,27 @@ paths:
       tags: [Kitchen inventory & production]
       summary: List suppliers
       description: |
-        Every supplier the organisation has on file. Receipts-only in v1
-        (O2): a supplier has no purchase orders and no terms behind it
-        yet, only the goods receipts posted against it by name.
+        The organisation's supplier book, ordered by code, each row carrying its
+        contact count and who to call.
+
+        **Archived suppliers are excluded by default.** Every caller is a picker
+        or a list, and a picker offering a supplier the kitchen stopped buying
+        from is how an order gets sent to a shuttered warehouse. Send
+        `include_archived=true` for the archive filter on the suppliers screen.
+
+        Not paginated: a kitchen's supplier book is a bounded set a person
+        maintains by hand.
 
         Requires `inventory.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: include_archived
+          in: query
+          required: false
+          description: Include archived suppliers. Omitted or false serves the live book only.
+          schema:
+            type: boolean
+            default: false
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -8182,6 +8196,216 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/suppliers/{supplierId}:
+    get:
+      operationId: getSupplier
+      tags: [Kitchen inventory & production]
+      summary: One supplier
+      description: |
+        The supplier record with its named contacts embedded. Unlike a delivery
+        zone's map, contacts are a bounded set a person maintains by hand — a
+        handful of people, not a hundred places — so the page that shows the
+        record is the page that edits them and one read serves both.
+
+        An archived supplier is served normally rather than hidden: a receipt
+        posted last month names it, and the screen explaining that receipt needs
+        the record. `archived_at` is what tells a client to render it read-only.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The supplier and its contacts.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    patch:
+      operationId: updateSupplier
+      tags: [Kitchen inventory & production]
+      summary: Edit a supplier
+      description: |
+        A partial write: a field the body omits is left alone, a field sent as
+        `null` is cleared. `code` is editable and its uniqueness check ignores
+        this supplier's own row, so re-saving an unchanged form is never a
+        conflict with itself.
+
+        No `If-Match`. A supplier record carries no lock version — two people
+        editing the same supplier's phone number is not the race a delivery
+        map's area claims are.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSupplierRequest'
+      responses:
+        '200':
+          description: The supplier after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/suppliers/{supplierId}/archive:
+    post:
+      operationId: archiveSupplier
+      tags: [Kitchen inventory & production]
+      summary: Archive a supplier
+      description: |
+        **Not a delete, and reversible.** The supplier leaves every picker and
+        every automatic suggestion and keeps every goods receipt posted against
+        it — a purchases ledger that forgets who it bought from is not a ledger.
+
+        An action rather than a writable `archived_at`, so retiring a supplier
+        is one deliberate request with its own audit event instead of something
+        a form save can do by accident. Idempotent: archiving an archived
+        supplier keeps the original timestamp.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The archived supplier.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/suppliers/{supplierId}/restore:
+    post:
+      operationId: restoreSupplier
+      tags: [Kitchen inventory & production]
+      summary: Restore an archived supplier
+      description: |
+        Puts an archived supplier back in the book — the counterpart to archive,
+        and the reason archiving is safe to offer. A kitchen that stopped buying
+        from somebody for a season starts again without re-typing the record or
+        its contacts. Idempotent: restoring a live supplier changes nothing.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The restored supplier.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/suppliers/{supplierId}/contacts:
+    put:
+      operationId: replaceSupplierContacts
+      tags: [Kitchen inventory & production]
+      summary: Replace a supplier's contacts
+      description: |
+        Set-replace: the body is the whole desired contact set, applied in one
+        transaction. Contacts carrying an `id` are updated, contacts without one
+        are created, and contacts absent from the body are deleted.
+
+        A `PUT` because the request is idempotent — sending it twice leaves the
+        same set rather than a doubled one. The screen has one **Save contacts**
+        action to match; a save fired per card would delete the card the user was
+        halfway through adding.
+
+        At most one contact may be primary, and every contact needs at least one
+        of an email address, a telephone number or a WhatsApp number. Both are
+        `422` before the database constraint behind them can fire.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceSupplierContactsRequest'
+      responses:
+        '200':
+          description: The contact set after the replace, in display order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierContactCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -17743,6 +17967,17 @@ components:
         endpoint refuses rather than guessing which location the caller meant.
       schema:
         $ref: '#/components/schemas/Uuid'
+    SupplierPath:
+      name: supplierId
+      in: path
+      required: true
+      description: |
+        The supplier identifier. An identifier only, unlike a delivery zone's
+        path: a supplier `code` is frequently minted by the server and is
+        editable afterwards, so a URL that accepted it would break the moment a
+        kitchen corrected one.
+      schema:
+        $ref: '#/components/schemas/Uuid'
     DeliveryZonePath:
       name: zone
       in: path
@@ -25265,7 +25500,29 @@ components:
 
     Supplier:
       type: object
-      required: [id, code, name_en, currency_code, contact_email, contact_phone]
+      required:
+        - id
+        - code
+        - name_en
+        - name_ar
+        - currency_code
+        - contact_email
+        - contact_phone
+        - address
+        - payment_terms
+        - lead_time_days
+        - notes
+        - archived_at
+        - contact_count
+        - primary_contact
+      description: |
+        One supplier in the organisation's book. The same shape everywhere a
+        supplier is served — list row and freshly created record alike — so a
+        client writes one mapper rather than three.
+
+        `contact_email`/`contact_phone` are the **general office** details, not
+        a duplicate of the primary named person: when a sales rep leaves, the
+        office line is still correct and their mobile is not.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -25273,14 +25530,130 @@ components:
           type: string
         name_en:
           type: string
+        name_ar:
+          type: ['string', 'null']
         currency_code:
           type: ['string', 'null']
           description: The currency this supplier usually invoices in (ISO 4217), or null (INV1.1).
         contact_email:
           type: ['string', 'null']
+          description: The general office address, not the primary contact's.
         contact_phone:
           type: ['string', 'null']
+          description: The general office line, not the primary contact's.
+        address:
+          type: ['string', 'null']
+          description: |
+            Free text, transcribed as the supplier gives it and printed on order
+            sheets — a building name, a market stall number, "gate 4, behind the
+            cold store". Never geocoded, so never structured.
+        payment_terms:
+          type: ['string', 'null']
+          description: Free text — "net 30", "cash on delivery", "50% up front". Never computed against.
+        lead_time_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+          description: Days between issuing an order and expecting it. 0 is a same-morning market run.
+        notes:
+          type: ['string', 'null']
+        archived_at:
+          type: ['string', 'null']
+          format: date-time
+          description: |
+            Set when the supplier was archived. An archived supplier keeps every
+            receipt posted against it and leaves every picker; clients render
+            the record read-only rather than hiding it.
+        contact_count:
+          type: integer
+          minimum: 0
+          description: How many named contacts this supplier has on file.
+        primary_contact:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierPrimaryContact'
+            - type: 'null'
+          description: |
+            Who to call, summarised for a list row — the contact flagged
+            primary, falling back to the first in display order. Null only when
+            the supplier has no named contacts at all.
+        contacts:
+          type: array
+          description: |
+            Every named contact, in the kitchen's own display order. Served on
+            the supplier **detail** response only, where `SupplierDetail`
+            requires it — a list row carries `contact_count` and
+            `primary_contact` instead, because fetching every contact of every
+            supplier to render a book is the N+1 that summary exists to avoid.
+          items:
+            $ref: '#/components/schemas/SupplierContact'
       additionalProperties: false
+
+    SupplierPrimaryContact:
+      type: object
+      required: [name, phone]
+      description: The "who do I call" summary a supplier list row shows.
+      properties:
+        name:
+          type: string
+        phone:
+          type: ['string', 'null']
+          description: The telephone number, falling back to the WhatsApp number — a contact reachable only on WhatsApp is still reachable.
+      additionalProperties: false
+
+    SupplierContact:
+      type: object
+      required: [id, name, role_title, email, phone, whatsapp_phone, is_primary, display_order]
+      description: |
+        One named person at a supplier — distinct from the supplier's own office
+        line. At least one of `email`, `phone` and `whatsapp_phone` is always
+        present: a contact nobody can reach is not a contact.
+
+        `whatsapp_phone` is its own field rather than a flag on `phone` because
+        in this trade they genuinely differ — the landline takes the call, the
+        mobile takes the order photo.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        role_title:
+          type: ['string', 'null']
+        email:
+          type: ['string', 'null']
+        phone:
+          type: ['string', 'null']
+        whatsapp_phone:
+          type: ['string', 'null']
+        is_primary:
+          type: boolean
+          description: At most one per supplier, enforced by a partial unique index.
+        display_order:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    SupplierDetail:
+      description: |
+        A supplier with its full contact set — the supplier's own page.
+
+        The canonical `Supplier` with `contacts` promoted from optional to
+        required. Composed rather than restated so that a field added to the
+        book cannot arrive on the list and go missing from the detail.
+
+        `contacts` is restated in the second subschema rather than only listed
+        as required: `Supplier` closes itself with `additionalProperties: false`
+        (which is why the field is declared there too, optionally), and a
+        `required`-only branch generates as an index signature rather than as
+        the array a client needs.
+      allOf:
+        - $ref: '#/components/schemas/Supplier'
+        - type: object
+          required: [contacts]
+          properties:
+            contacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/SupplierContact'
 
     SupplierCollection:
       type: object
@@ -25304,10 +25677,18 @@ components:
         `code` is optional — omit it and the server mints a unique
         per-organisation code from the name. `currency_code` is a hint the
         receipt form pre-selects and is never required.
+
+        Contacts are **not** accepted here: they are their own section-level
+        replace, and a create that took them would give a kitchen two ways to
+        write the same set. The lightweight create inside the goods-receipt
+        dialog sends a name and nothing else.
       properties:
         name_en:
           type: string
           minLength: 1
+          maxLength: 160
+        name_ar:
+          type: ['string', 'null']
           maxLength: 160
         code:
           type: ['string', 'null']
@@ -25322,6 +25703,132 @@ components:
         contact_phone:
           type: ['string', 'null']
           maxLength: 40
+        address:
+          type: ['string', 'null']
+          maxLength: 2000
+        payment_terms:
+          type: ['string', 'null']
+          maxLength: 120
+        lead_time_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+        notes:
+          type: ['string', 'null']
+          maxLength: 2000
+      additionalProperties: false
+
+    UpdateSupplierRequest:
+      type: object
+      description: |
+        Every field of the record, all optional — a partial write. A field the
+        body omits is left alone; a field sent as `null` is cleared, so a
+        kitchen can genuinely remove an address it typed by mistake.
+
+        `code` **is** editable, unlike a delivery zone's or a price list's. The
+        difference is who wrote it: those are minted by an operator who meant
+        them, whereas a supplier code is frequently minted by the server from a
+        name typed into a goods-receipt dialog at the loading bay, and refusing
+        to correct `GULF-FRESH-TRADING-CO-2` would leave the kitchen stuck with
+        an accident. Uniqueness ignores this supplier's own row.
+
+        `archived_at` is not reachable from here — archiving is its own action
+        with its own audit event, so a form save cannot retire a supplier by
+        writing a field. Contacts are their own set-replace.
+      properties:
+        name_en:
+          type: string
+          minLength: 1
+          maxLength: 160
+        name_ar:
+          type: ['string', 'null']
+          maxLength: 160
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        currency_code:
+          type: ['string', 'null']
+          minLength: 3
+          maxLength: 3
+        contact_email:
+          type: ['string', 'null']
+          maxLength: 160
+        contact_phone:
+          type: ['string', 'null']
+          maxLength: 40
+        address:
+          type: ['string', 'null']
+          maxLength: 2000
+        payment_terms:
+          type: ['string', 'null']
+          maxLength: 120
+        lead_time_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+        notes:
+          type: ['string', 'null']
+          maxLength: 2000
+      additionalProperties: false
+
+    ReplaceSupplierContactsRequest:
+      type: object
+      required: [contacts]
+      description: |
+        The **whole desired contact set**. Contacts carrying an `id` are
+        updated, contacts without one are created, and contacts absent from the
+        body are deleted — one request, one transaction, one **Save contacts**
+        button on the screen. Send `[]` to clear the set.
+
+        Two rules are refused with `422` before the database can raise a
+        constraint violation: at most one `is_primary` across the set, and at
+        least one of `email`, `phone` and `whatsapp_phone` on every contact.
+
+        Twenty is the cap. A supplier with more than twenty named people is not
+        a supplier record, it is a directory.
+      properties:
+        contacts:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ReplaceSupplierContact'
+      additionalProperties: false
+
+    ReplaceSupplierContact:
+      type: object
+      required: [name]
+      description: One contact in a replace request. `id` names an existing contact to update; omit it to create.
+      properties:
+        id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The contact to update. Omit or send null to create a new one.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role_title:
+          type: ['string', 'null']
+          maxLength: 120
+        email:
+          type: ['string', 'null']
+          maxLength: 160
+        phone:
+          type: ['string', 'null']
+          maxLength: 40
+        whatsapp_phone:
+          type: ['string', 'null']
+          maxLength: 40
+        is_primary:
+          type: ['boolean', 'null']
+          description: At most one contact in the set may set this.
+        display_order:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 65535
+          description: Defaults to the contact's position in the submitted array.
       additionalProperties: false
 
     SupplierEnvelope:
@@ -25334,6 +25841,34 @@ components:
           properties:
             supplier:
               $ref: '#/components/schemas/Supplier'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    SupplierDetailEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [supplier]
+          properties:
+            supplier:
+              $ref: '#/components/schemas/SupplierDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    SupplierContactCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [contacts]
+          properties:
+            contacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/SupplierContact'
         meta:
           $ref: '#/components/schemas/Meta'
 

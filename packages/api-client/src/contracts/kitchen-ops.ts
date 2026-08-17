@@ -8,10 +8,12 @@ import type {
     QualityCheckId,
     RecipeVersionId,
     StockItemId,
+    SupplierContactId,
     SupplierId,
     UserId,
 } from '@healthy360/domain-types';
 
+import type { LocalisedText } from './kitchen-admin.ts';
 import type { CursorPage, CursorPageRequest } from './pagination.ts';
 
 /**
@@ -22,10 +24,14 @@ import type { CursorPage, CursorPageRequest } from './pagination.ts';
  *
  * `KitchenAdminRepository` is the confidential *catalogue* — recipes, products, prices, margins —
  * and every one of its records is lock-versioned and bilingual (plan §4.13, §4.18). Nothing here is
- * either. A stock item, a supplier, a goods receipt, a production order and a quality check carry
- * one language (`name_en` only — there is no publication surface for a warehouse SKU) and no
- * `lockVersion`: the backend does not version these rows, and a contract that invented one would
- * promise a conflict response the server never sends.
+ * lock-versioned: the backend does not version these rows, and a contract that invented a
+ * `lockVersion` would promise a conflict response the server never sends.
+ *
+ * Nor is anything here bilingual, **with one exception SUP1 added**. A stock item, a goods receipt,
+ * a production order and a quality check carry `nameEn` only, because there is no publication
+ * surface for a warehouse SKU. A {@link Supplier} carries a {@link LocalisedText} name, because a
+ * supplier's name is printed on an order sheet handed to the supplier — a document read by somebody
+ * outside this system, in their own language. That makes it the one ops record with an audience.
  *
  * ## Four scopes, deliberately locked to v1
  *
@@ -145,14 +151,82 @@ export interface StockWasteRequest {
  * Procurement (O2) — receipts-only
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * A supplier in the organisation's book (SUP1).
+ *
+ * **The one bilingual record in this contract**, and the exception the file header above names. The
+ * rest of the ops surface is `nameEn` only because a warehouse SKU has no publication surface; a
+ * supplier's name is *printed on an order sheet handed to the supplier*, and a Lebanese wholesaler
+ * reading "Gulf Fresh Trading" off a document addressed to them in English is the case `name_ar`
+ * exists for. It still carries no `lockVersion` — the backend versions no ops row — so the shape is
+ * bilingual without being a publishable catalogue record.
+ *
+ * `contactEmail`/`contactPhone` are the **general office** details, deliberately not a duplicate of
+ * the primary named person: when a sales rep leaves, the office line is still correct and their
+ * mobile is not.
+ */
 export interface Supplier {
     readonly id: SupplierId;
     readonly code: string;
-    readonly nameEn: string;
+    /** Composed client-side from the flat `name_en`/`name_ar` wire fields. `ar` is `''` when unset. */
+    readonly name: LocalisedText;
     /** ISO 4217, the currency this supplier usually invoices in, or `null` (INV1.1). */
     readonly currencyCode: string | null;
+    /** The general office address, not the primary contact's. */
     readonly contactEmail: string | null;
+    /** The general office line, not the primary contact's. */
     readonly contactPhone: string | null;
+    /**
+     * Free text, transcribed as the supplier gives it and printed on order sheets — a building
+     * name, a market stall number, "gate 4, behind the cold store". Never geocoded.
+     */
+    readonly address: string | null;
+    /** Free text — "net 30", "cash on delivery". Never computed against. */
+    readonly paymentTerms: string | null;
+    /** Days between issuing an order and expecting it, 0–365. `0` is a same-morning market run. */
+    readonly leadTimeDays: number | null;
+    readonly notes: string | null;
+    /**
+     * When the supplier was archived, or `null` for a live one.
+     *
+     * An archived supplier keeps every receipt posted against it and leaves every picker. Screens
+     * render the record read-only rather than hiding it — a receipt posted last month names it.
+     */
+    readonly archivedAt: IsoDateTime | null;
+    readonly contactCount: number;
+    /** Who to call, for a list row. `null` only when the supplier has no named contacts at all. */
+    readonly primaryContact: SupplierPrimaryContact | null;
+}
+
+/** The "who do I call" summary a supplier list row shows (SUP1). */
+export interface SupplierPrimaryContact {
+    readonly name: string;
+    /** The telephone number, falling back to WhatsApp — a contact reachable only there still is. */
+    readonly phone: string | null;
+}
+
+/**
+ * One named person at a supplier (SUP1) — distinct from the supplier's own office line.
+ *
+ * At least one of `email`, `phone` and `whatsappPhone` is always present: a contact nobody can
+ * reach is not a contact, and the server refuses a set that contains one.
+ */
+export interface SupplierContact {
+    readonly id: SupplierContactId;
+    readonly name: string;
+    readonly roleTitle: string | null;
+    readonly email: string | null;
+    readonly phone: string | null;
+    /** Kept apart from `phone`: the landline takes the call, the mobile takes the order photo. */
+    readonly whatsappPhone: string | null;
+    /** At most one per supplier. */
+    readonly isPrimary: boolean;
+    readonly displayOrder: number;
+}
+
+/** A supplier with its full contact set — what the supplier's own page reads (SUP1). */
+export interface SupplierDetail extends Supplier {
+    readonly contacts: readonly SupplierContact[];
 }
 
 /** A supplier named on a receipt or ledger line (INV1.1). */
@@ -162,18 +236,81 @@ export interface SupplierRef {
     readonly nameEn: string;
 }
 
+/** Narrows `listSuppliers` (SUP1). Archived suppliers are excluded unless asked for. */
+export interface SupplierFilter {
+    /**
+     * Include archived suppliers. Omitted or `false` serves the live book only — every caller is a
+     * picker, and a picker offering a supplier the kitchen stopped buying from is how an order gets
+     * sent to a shuttered warehouse.
+     */
+    readonly includeArchived?: boolean | undefined;
+}
+
 /**
- * Adds a supplier to the organisation's book (INV1.1). `code` is optional — omit it and the server
- * mints a unique per-organisation code from the name, so a kitchen with an empty supplier book can
- * add one by name and immediately post a receipt against it. `currencyCode` is a hint the receipt
- * form pre-selects; it is never required and books nothing on its own.
+ * Adds a supplier to the organisation's book (INV1.1, extended by SUP1). `code` is optional — omit
+ * it and the server mints a unique per-organisation code from the name, so a kitchen with an empty
+ * supplier book can add one by name and immediately post a receipt against it. `currencyCode` is a
+ * hint the receipt form pre-selects; it is never required and books nothing on its own.
+ *
+ * Contacts are not accepted here — they are their own set-replace, and a create that took them
+ * would give a kitchen two ways to write the same set.
  */
 export interface CreateSupplierRequest {
     readonly nameEn: string;
+    readonly nameAr?: string | null | undefined;
     readonly code?: string | null | undefined;
     readonly currencyCode?: string | null | undefined;
     readonly contactEmail?: string | null | undefined;
     readonly contactPhone?: string | null | undefined;
+    readonly address?: string | null | undefined;
+    readonly paymentTerms?: string | null | undefined;
+    readonly leadTimeDays?: number | null | undefined;
+    readonly notes?: string | null | undefined;
+}
+
+/**
+ * Edits a supplier (SUP1). Every field optional: omitted is left alone, `null` clears.
+ *
+ * `code` **is** editable, unlike a catalogue record's. A supplier code is frequently minted by the
+ * server from a name typed into a goods-receipt dialog at the loading bay, and refusing to correct
+ * it would leave the kitchen stuck with an accident. `archivedAt` is absent — archiving is its own
+ * action, so a form save cannot retire a supplier by writing a field.
+ */
+export interface UpdateSupplierRequest {
+    readonly nameEn?: string | undefined;
+    readonly nameAr?: string | null | undefined;
+    readonly code?: string | undefined;
+    readonly currencyCode?: string | null | undefined;
+    readonly contactEmail?: string | null | undefined;
+    readonly contactPhone?: string | null | undefined;
+    readonly address?: string | null | undefined;
+    readonly paymentTerms?: string | null | undefined;
+    readonly leadTimeDays?: number | null | undefined;
+    readonly notes?: string | null | undefined;
+}
+
+/** One contact in a replace request. `id` names an existing contact to update; omit it to create. */
+export interface SupplierContactInput {
+    readonly id?: SupplierContactId | null | undefined;
+    readonly name: string;
+    readonly roleTitle?: string | null | undefined;
+    readonly email?: string | null | undefined;
+    readonly phone?: string | null | undefined;
+    readonly whatsappPhone?: string | null | undefined;
+    readonly isPrimary?: boolean | undefined;
+    readonly displayOrder?: number | undefined;
+}
+
+/**
+ * The whole desired contact set (SUP1). Contacts carrying an `id` are updated, contacts without one
+ * are created, and contacts absent from the array are deleted — one request, one transaction, one
+ * **Save contacts** button on the screen. Send `[]` to clear the set.
+ *
+ * Two rules are refused with a 422 before the database constraint behind them can fire: at most one
+ * `isPrimary` across the set, and at least one reachable channel on every contact.
+ */
+export interface ReplaceSupplierContactsRequest {
+    readonly contacts: readonly SupplierContactInput[];
 }
 
 /** One active currency a receipt price can be booked in (INV1.1). */
@@ -522,9 +659,32 @@ export interface KitchenOpsRepository {
      */
     countLowStockLevels(): Promise<number>;
 
-    listSuppliers(): Promise<readonly Supplier[]>;
+    /**
+     * The supplier book, ordered by code. Not paginated — a kitchen's suppliers are a bounded set a
+     * person maintains by hand. Archived rows are excluded unless `includeArchived` asks for them.
+     */
+    listSuppliers(filter?: SupplierFilter): Promise<readonly Supplier[]>;
+    /** One supplier with its named contacts — the supplier's own page. Needs `inventory.view_organisation`. */
+    getSupplier(supplierId: SupplierId): Promise<SupplierDetail>;
     /** Adds a supplier to the book, returning the created row. Needs `inventory.manage_organisation`. */
     createSupplier(request: CreateSupplierRequest): Promise<Supplier>;
+    /** Edits the record. A partial write: omitted fields are left alone, `null` clears. */
+    updateSupplier(supplierId: SupplierId, request: UpdateSupplierRequest): Promise<Supplier>;
+    /**
+     * Takes the supplier out of every picker without losing its history. Idempotent — archiving an
+     * archived supplier keeps the original timestamp.
+     */
+    archiveSupplier(supplierId: SupplierId): Promise<Supplier>;
+    /** Puts an archived supplier back in the book. Idempotent. */
+    restoreSupplier(supplierId: SupplierId): Promise<Supplier>;
+    /**
+     * Replaces the whole contact set in one transaction, returning it in display order. Refuses a
+     * second primary or an unreachable contact with a 422 before the constraint behind it fires.
+     */
+    replaceSupplierContacts(
+        supplierId: SupplierId,
+        request: ReplaceSupplierContactsRequest,
+    ): Promise<readonly SupplierContact[]>;
     /**
      * The goods-receipt form's reference data (INV1.1) — the currencies a price can be booked in, the
      * organisation's default currency, and the measurement units a line can be quoted in. Needs

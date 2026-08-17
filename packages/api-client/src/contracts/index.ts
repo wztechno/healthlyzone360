@@ -407,8 +407,15 @@ export type {
     StockMovement,
     StockMovementReason,
     StockWasteRequest,
+    ReplaceSupplierContactsRequest,
     Supplier,
+    SupplierContact,
+    SupplierContactInput,
+    SupplierDetail,
+    SupplierFilter,
+    SupplierPrimaryContact,
     SupplierRef,
+    UpdateSupplierRequest,
 } from './kitchen-ops.ts';
 
 export {

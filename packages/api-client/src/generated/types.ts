@@ -4045,16 +4045,129 @@ export type StockWasteRequest = {
     notes?: string | null;
 };
 
+/**
+ * One supplier in the organisation's book. The same shape everywhere a
+ * supplier is served — list row and freshly created record alike — so a
+ * client writes one mapper rather than three.
+ *
+ * `contact_email`/`contact_phone` are the **general office** details, not
+ * a duplicate of the primary named person: when a sales rep leaves, the
+ * office line is still correct and their mobile is not.
+ *
+ */
 export type Supplier = {
     id: Uuid;
     code: string;
     name_en: string;
+    name_ar: string | null;
     /**
      * The currency this supplier usually invoices in (ISO 4217), or null (INV1.1).
      */
     currency_code: string | null;
+    /**
+     * The general office address, not the primary contact's.
+     */
     contact_email: string | null;
+    /**
+     * The general office line, not the primary contact's.
+     */
     contact_phone: string | null;
+    /**
+     * Free text, transcribed as the supplier gives it and printed on order
+     * sheets — a building name, a market stall number, "gate 4, behind the
+     * cold store". Never geocoded, so never structured.
+     *
+     */
+    address: string | null;
+    /**
+     * Free text — "net 30", "cash on delivery", "50% up front". Never computed against.
+     */
+    payment_terms: string | null;
+    /**
+     * Days between issuing an order and expecting it. 0 is a same-morning market run.
+     */
+    lead_time_days: number | null;
+    notes: string | null;
+    /**
+     * Set when the supplier was archived. An archived supplier keeps every
+     * receipt posted against it and leaves every picker; clients render
+     * the record read-only rather than hiding it.
+     *
+     */
+    archived_at: string | null;
+    /**
+     * How many named contacts this supplier has on file.
+     */
+    contact_count: number;
+    /**
+     * Who to call, summarised for a list row — the contact flagged
+     * primary, falling back to the first in display order. Null only when
+     * the supplier has no named contacts at all.
+     *
+     */
+    primary_contact: SupplierPrimaryContact | null;
+    /**
+     * Every named contact, in the kitchen's own display order. Served on
+     * the supplier **detail** response only, where `SupplierDetail`
+     * requires it — a list row carries `contact_count` and
+     * `primary_contact` instead, because fetching every contact of every
+     * supplier to render a book is the N+1 that summary exists to avoid.
+     *
+     */
+    contacts?: Array<SupplierContact>;
+};
+
+/**
+ * The "who do I call" summary a supplier list row shows.
+ */
+export type SupplierPrimaryContact = {
+    name: string;
+    /**
+     * The telephone number, falling back to the WhatsApp number — a contact reachable only on WhatsApp is still reachable.
+     */
+    phone: string | null;
+};
+
+/**
+ * One named person at a supplier — distinct from the supplier's own office
+ * line. At least one of `email`, `phone` and `whatsapp_phone` is always
+ * present: a contact nobody can reach is not a contact.
+ *
+ * `whatsapp_phone` is its own field rather than a flag on `phone` because
+ * in this trade they genuinely differ — the landline takes the call, the
+ * mobile takes the order photo.
+ *
+ */
+export type SupplierContact = {
+    id: Uuid;
+    name: string;
+    role_title: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp_phone: string | null;
+    /**
+     * At most one per supplier, enforced by a partial unique index.
+     */
+    is_primary: boolean;
+    display_order: number;
+};
+
+/**
+ * A supplier with its full contact set — the supplier's own page.
+ *
+ * The canonical `Supplier` with `contacts` promoted from optional to
+ * required. Composed rather than restated so that a field added to the
+ * book cannot arrive on the list and go missing from the detail.
+ *
+ * `contacts` is restated in the second subschema rather than only listed
+ * as required: `Supplier` closes itself with `additionalProperties: false`
+ * (which is why the field is declared there too, optionally), and a
+ * `required`-only branch generates as an index signature rather than as
+ * the array a client needs.
+ *
+ */
+export type SupplierDetail = Supplier & {
+    contacts: Array<SupplierContact>;
 };
 
 export type SupplierCollection = {
@@ -4069,18 +4182,113 @@ export type SupplierCollection = {
  * per-organisation code from the name. `currency_code` is a hint the
  * receipt form pre-selects and is never required.
  *
+ * Contacts are **not** accepted here: they are their own section-level
+ * replace, and a create that took them would give a kitchen two ways to
+ * write the same set. The lightweight create inside the goods-receipt
+ * dialog sends a name and nothing else.
+ *
  */
 export type CreateSupplierRequest = {
     name_en: string;
+    name_ar?: string | null;
     code?: string | null;
     currency_code?: string | null;
     contact_email?: string | null;
     contact_phone?: string | null;
+    address?: string | null;
+    payment_terms?: string | null;
+    lead_time_days?: number | null;
+    notes?: string | null;
+};
+
+/**
+ * Every field of the record, all optional — a partial write. A field the
+ * body omits is left alone; a field sent as `null` is cleared, so a
+ * kitchen can genuinely remove an address it typed by mistake.
+ *
+ * `code` **is** editable, unlike a delivery zone's or a price list's. The
+ * difference is who wrote it: those are minted by an operator who meant
+ * them, whereas a supplier code is frequently minted by the server from a
+ * name typed into a goods-receipt dialog at the loading bay, and refusing
+ * to correct `GULF-FRESH-TRADING-CO-2` would leave the kitchen stuck with
+ * an accident. Uniqueness ignores this supplier's own row.
+ *
+ * `archived_at` is not reachable from here — archiving is its own action
+ * with its own audit event, so a form save cannot retire a supplier by
+ * writing a field. Contacts are their own set-replace.
+ *
+ */
+export type UpdateSupplierRequest = {
+    name_en?: string;
+    name_ar?: string | null;
+    code?: string;
+    currency_code?: string | null;
+    contact_email?: string | null;
+    contact_phone?: string | null;
+    address?: string | null;
+    payment_terms?: string | null;
+    lead_time_days?: number | null;
+    notes?: string | null;
+};
+
+/**
+ * The **whole desired contact set**. Contacts carrying an `id` are
+ * updated, contacts without one are created, and contacts absent from the
+ * body are deleted — one request, one transaction, one **Save contacts**
+ * button on the screen. Send `[]` to clear the set.
+ *
+ * Two rules are refused with `422` before the database can raise a
+ * constraint violation: at most one `is_primary` across the set, and at
+ * least one of `email`, `phone` and `whatsapp_phone` on every contact.
+ *
+ * Twenty is the cap. A supplier with more than twenty named people is not
+ * a supplier record, it is a directory.
+ *
+ */
+export type ReplaceSupplierContactsRequest = {
+    contacts: Array<ReplaceSupplierContact>;
+};
+
+/**
+ * One contact in a replace request. `id` names an existing contact to update; omit it to create.
+ */
+export type ReplaceSupplierContact = {
+    /**
+     * The contact to update. Omit or send null to create a new one.
+     */
+    id?: Uuid | null;
+    name: string;
+    role_title?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    whatsapp_phone?: string | null;
+    /**
+     * At most one contact in the set may set this.
+     */
+    is_primary?: boolean | null;
+    /**
+     * Defaults to the contact's position in the submitted array.
+     */
+    display_order?: number | null;
 };
 
 export type SupplierEnvelope = {
     data: {
         supplier: Supplier;
+    };
+    meta: Meta;
+};
+
+export type SupplierDetailEnvelope = {
+    data: {
+        supplier: SupplierDetail;
+    };
+    meta: Meta;
+};
+
+export type SupplierContactCollection = {
+    data: {
+        contacts: Array<SupplierContact>;
     };
     meta: Meta;
 };
@@ -9950,6 +10158,15 @@ export type PlanDurationPath = Uuid | string;
  *
  */
 export type XBranchIdRequired = Uuid;
+
+/**
+ * The supplier identifier. An identifier only, unlike a delivery zone's
+ * path: a supplier `code` is frequently minted by the server and is
+ * editable afterwards, so a URL that accepted it would break the moment a
+ * kitchen corrected one.
+ *
+ */
+export type SupplierPath = Uuid;
 
 /**
  * The delivery zone identifier, or its `code`.
@@ -20259,7 +20476,12 @@ export type ListSuppliersData = {
         'X-Client-Request-Id'?: string;
     };
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Include archived suppliers. Omitted or false serves the live book only.
+         */
+        include_archived?: boolean;
+    };
     url: '/catalogue/procurement/suppliers';
 };
 
@@ -20347,6 +20569,334 @@ export type CreateSupplierResponses = {
 };
 
 export type CreateSupplierResponse = CreateSupplierResponses[keyof CreateSupplierResponses];
+
+export type GetSupplierData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}';
+};
+
+export type GetSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetSupplierError = GetSupplierErrors[keyof GetSupplierErrors];
+
+export type GetSupplierResponses = {
+    /**
+     * The supplier and its contacts.
+     */
+    200: SupplierDetailEnvelope;
+};
+
+export type GetSupplierResponse = GetSupplierResponses[keyof GetSupplierResponses];
+
+export type UpdateSupplierData = {
+    body: UpdateSupplierRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}';
+};
+
+export type UpdateSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateSupplierError = UpdateSupplierErrors[keyof UpdateSupplierErrors];
+
+export type UpdateSupplierResponses = {
+    /**
+     * The supplier after the write.
+     */
+    200: SupplierEnvelope;
+};
+
+export type UpdateSupplierResponse = UpdateSupplierResponses[keyof UpdateSupplierResponses];
+
+export type ArchiveSupplierData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}/archive';
+};
+
+export type ArchiveSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchiveSupplierError = ArchiveSupplierErrors[keyof ArchiveSupplierErrors];
+
+export type ArchiveSupplierResponses = {
+    /**
+     * The archived supplier.
+     */
+    200: SupplierEnvelope;
+};
+
+export type ArchiveSupplierResponse = ArchiveSupplierResponses[keyof ArchiveSupplierResponses];
+
+export type RestoreSupplierData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}/restore';
+};
+
+export type RestoreSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RestoreSupplierError = RestoreSupplierErrors[keyof RestoreSupplierErrors];
+
+export type RestoreSupplierResponses = {
+    /**
+     * The restored supplier.
+     */
+    200: SupplierEnvelope;
+};
+
+export type RestoreSupplierResponse = RestoreSupplierResponses[keyof RestoreSupplierResponses];
+
+export type ReplaceSupplierContactsData = {
+    body: ReplaceSupplierContactsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}/contacts';
+};
+
+export type ReplaceSupplierContactsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceSupplierContactsError = ReplaceSupplierContactsErrors[keyof ReplaceSupplierContactsErrors];
+
+export type ReplaceSupplierContactsResponses = {
+    /**
+     * The contact set after the replace, in display order.
+     */
+    200: SupplierContactCollection;
+};
+
+export type ReplaceSupplierContactsResponse = ReplaceSupplierContactsResponses[keyof ReplaceSupplierContactsResponses];
 
 export type GetProcurementReferenceData = {
     body?: never;

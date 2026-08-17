@@ -16,6 +16,7 @@ import type {
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
+    SupplierId,
     UserId,
     VdSessionId,
 } from '@healthy360/domain-types';
@@ -389,10 +390,14 @@ export const queryKeys = {
      *
      * Its own root rather than a branch of `kitchenAdmin` for the same reason `KitchenOpsRepository`
      * is a sibling contract rather than a branch of it (`contracts/kitchen-ops.ts`'s header): none
-     * of these rows is lock-versioned or bilingual, and every list here is either the whole table
-     * (stock items, suppliers) or the most recent fifty (goods receipts, production orders, quality
-     * checks) — there is no row-by-identifier entry because no ops screen reads a single row on its
-     * own; each mutation form re-reads the list it just changed.
+     * of these rows is lock-versioned, and every list here is either the whole table (stock items,
+     * suppliers) or the most recent fifty (goods receipts, production orders, quality checks).
+     *
+     * **`supplier` is the one row-by-identifier entry**, added by SUP1 and the exception to what
+     * this group used to say. Every other ops mutation form re-reads the list it just changed,
+     * because there is nothing to a stock level a list row does not already show. A supplier has
+     * its own page — a record form plus a contact set no list row carries — so it is read by id,
+     * and it is the only entry here that needs a key of its own.
      *
      * **Never persisted**, on the same terms as `kitchenAdmin`: a stock level and a goods receipt
      * are exactly as tied to one kitchen's costs as a technical-sheet line is, and this workspace
@@ -403,7 +408,8 @@ export const queryKeys = {
         stockItems: () => ['kitchenOps', 'stock-items'] as const,
         stockLevels: () => ['kitchenOps', 'stock-levels'] as const,
         lowStockCount: () => ['kitchenOps', 'low-stock-count'] as const,
-        suppliers: () => ['kitchenOps', 'suppliers'] as const,
+        suppliers: (filter: object = {}) => ['kitchenOps', 'suppliers', filter] as const,
+        supplier: (supplierId: SupplierId) => ['kitchenOps', 'supplier', supplierId] as const,
         procurementReference: () => ['kitchenOps', 'procurement-reference'] as const,
         goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
         purchasesLedger: (filter: object = {}) =>

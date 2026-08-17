@@ -13,7 +13,7 @@ import {
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
 import { SupplierId } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -21,6 +21,7 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { usePurchasesLedgerQuery, useSuppliersQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
+import { displayName } from '../format.ts';
 import { OpsPanel } from '../ops-panel.tsx';
 
 /**
@@ -49,6 +50,7 @@ export function PurchasesLedgerScreen() {
 function PurchasesLedger() {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const { locale } = useLocale();
 
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [from, setFrom] = useState('');
@@ -67,15 +69,17 @@ function PurchasesLedger() {
     );
     const ledger = usePurchasesLedgerQuery(filter);
 
+    // Suppliers are bilingual since SUP1, so the filter labels them in the reader's own language
+    // and falls back to the other side rather than offering a blank option.
     const supplierOptions = useMemo(
         () => [
             { value: '', label: t('kitchen:ops.ledger.allSuppliers') },
             ...(suppliers.data ?? []).map((row) => ({
                 value: String(row.id),
-                label: `${row.code} — ${row.nameEn}`,
+                label: `${row.code} — ${displayName(row.name, locale).value}`,
             })),
         ],
-        [suppliers.data, t],
+        [suppliers.data, locale, t],
     );
 
     function resetCursor() {

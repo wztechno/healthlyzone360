@@ -479,6 +479,17 @@ export function supplierRowTestId(supplierId: string): string {
     return `kitchen-supplier-${supplierId}`;
 }
 
+/**
+ * One contact card in the supplier contact editor (SUP1).
+ *
+ * Keyed by the editor's own local key rather than by the contact's identifier, because a card
+ * a person has just added has no identifier yet — the set-replace mints one on save. A test id
+ * that only existed for saved rows would be missing from exactly the card a test wants to fill in.
+ */
+export function supplierContactRowTestId(localKey: string): string {
+    return `kitchen-supplier-contact-${localKey}`;
+}
+
 export function goodsReceiptRowTestId(goodsReceiptId: string): string {
     return `kitchen-goods-receipt-${goodsReceiptId}`;
 }

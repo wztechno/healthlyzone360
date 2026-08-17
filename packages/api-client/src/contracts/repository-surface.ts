@@ -243,6 +243,7 @@ export const REPOSITORY_SURFACE = {
         'updateZone',
     ],
     kitchenOps: [
+        'archiveSupplier',
         'completeProductionOrder',
         'countLowStockLevels',
         'countUnresolvedConsumptionExceptions',
@@ -250,6 +251,7 @@ export const REPOSITORY_SURFACE = {
         'createQualityCheck',
         'createSupplier',
         'getProcurementReference',
+        'getSupplier',
         'holdQualityCheck',
         'listConsumptionExceptions',
         'listCostReport',
@@ -264,9 +266,12 @@ export const REPOSITORY_SURFACE = {
         'recordStockAdjustment',
         'recordStockWaste',
         'releaseQualityCheck',
+        'replaceSupplierContacts',
         'resolveConsumptionException',
+        'restoreSupplier',
         'retryConsumptionException',
         'setStockThreshold',
+        'updateSupplier',
     ],
     kitchenOrders: [
         'cancelOrder',

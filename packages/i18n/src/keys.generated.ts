@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5669 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5750 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2692,6 +2692,8 @@ export interface NamespaceKeys {
     | 'families.review.name'
     | 'families.stock.description'
     | 'families.stock.name'
+    | 'families.suppliers.description'
+    | 'families.suppliers.name'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
@@ -3044,6 +3046,7 @@ export interface NamespaceKeys {
     | 'ops.procurement.fieldSupplierEmail'
     | 'ops.procurement.fieldSupplierName'
     | 'ops.procurement.fieldSupplierPhone'
+    | 'ops.procurement.manageSuppliers'
     | 'ops.procurement.metrics.lines'
     | 'ops.procurement.metrics.receipts'
     | 'ops.procurement.metrics.suppliers'
@@ -3274,6 +3277,84 @@ export interface NamespaceKeys {
     | 'ops.stock.waste'
     | 'ops.stock.wasteTitle'
     | 'ops.stock.wastedToast'
+    | 'ops.suppliers.addContact'
+    | 'ops.suppliers.addressHint'
+    | 'ops.suppliers.archiveBody'
+    | 'ops.suppliers.archiveConfirm'
+    | 'ops.suppliers.archiveConsequence'
+    | 'ops.suppliers.archiveTitle'
+    | 'ops.suppliers.archivedBadge'
+    | 'ops.suppliers.archivedBody'
+    | 'ops.suppliers.archivedTitle'
+    | 'ops.suppliers.archivedToast'
+    | 'ops.suppliers.backToList'
+    | 'ops.suppliers.caption'
+    | 'ops.suppliers.codeEditHint'
+    | 'ops.suppliers.codeMintHint'
+    | 'ops.suppliers.columnContact'
+    | 'ops.suppliers.columnName'
+    | 'ops.suppliers.columnTerms'
+    | 'ops.suppliers.contactNeedsChannel'
+    | 'ops.suppliers.contactPosition'
+    | 'ops.suppliers.contactsAfterSaveBody'
+    | 'ops.suppliers.contactsAfterSaveTitle'
+    | 'ops.suppliers.contactsHint'
+    | 'ops.suppliers.contactsSavedToast'
+    | 'ops.suppliers.create'
+    | 'ops.suppliers.createTitle'
+    | 'ops.suppliers.createdToast'
+    | 'ops.suppliers.currencyHint'
+    | 'ops.suppliers.editTitle'
+    | 'ops.suppliers.emptyBody'
+    | 'ops.suppliers.emptyTitle'
+    | 'ops.suppliers.fieldAddress'
+    | 'ops.suppliers.fieldCode'
+    | 'ops.suppliers.fieldContactEmail'
+    | 'ops.suppliers.fieldContactName'
+    | 'ops.suppliers.fieldContactPhone'
+    | 'ops.suppliers.fieldContactRole'
+    | 'ops.suppliers.fieldContactWhatsapp'
+    | 'ops.suppliers.fieldCurrency'
+    | 'ops.suppliers.fieldEmail'
+    | 'ops.suppliers.fieldLeadTime'
+    | 'ops.suppliers.fieldName'
+    | 'ops.suppliers.fieldNotes'
+    | 'ops.suppliers.fieldPaymentTerms'
+    | 'ops.suppliers.fieldPhone'
+    | 'ops.suppliers.filteredEmptyBody'
+    | 'ops.suppliers.filteredEmptyTitle'
+    | 'ops.suppliers.generalContact'
+    | 'ops.suppliers.generalContactHint'
+    | 'ops.suppliers.leadTimeDays'
+    | 'ops.suppliers.leadTimeHint'
+    | 'ops.suppliers.leadTimeInvalid'
+    | 'ops.suppliers.loadErrorTitle'
+    | 'ops.suppliers.makePrimary'
+    | 'ops.suppliers.nameRequired'
+    | 'ops.suppliers.noContact'
+    | 'ops.suppliers.noContactPhone'
+    | 'ops.suppliers.noContacts'
+    | 'ops.suppliers.noCurrency'
+    | 'ops.suppliers.noLeadTime'
+    | 'ops.suppliers.noTerms'
+    | 'ops.suppliers.notFoundBody'
+    | 'ops.suppliers.notFoundTitle'
+    | 'ops.suppliers.paymentTermsHint'
+    | 'ops.suppliers.primaryContact'
+    | 'ops.suppliers.restore'
+    | 'ops.suppliers.restoredToast'
+    | 'ops.suppliers.saveContacts'
+    | 'ops.suppliers.saveDetails'
+    | 'ops.suppliers.savedToast'
+    | 'ops.suppliers.searchHint'
+    | 'ops.suppliers.searchLabel'
+    | 'ops.suppliers.sectionContacts'
+    | 'ops.suppliers.sectionDetails'
+    | 'ops.suppliers.showArchived'
+    | 'ops.suppliers.subtitle'
+    | 'ops.suppliers.supplierCount'
+    | 'ops.suppliers.title'
+    | 'ops.suppliers.whatsappHint'
     | 'plans.addCombination'
     | 'plans.addDuration'
     | 'plans.backToList'
@@ -8379,6 +8460,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.review.name',
   'kitchen:families.stock.description',
   'kitchen:families.stock.name',
+  'kitchen:families.suppliers.description',
+  'kitchen:families.suppliers.name',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
@@ -8731,6 +8814,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.fieldSupplierEmail',
   'kitchen:ops.procurement.fieldSupplierName',
   'kitchen:ops.procurement.fieldSupplierPhone',
+  'kitchen:ops.procurement.manageSuppliers',
   'kitchen:ops.procurement.metrics.lines',
   'kitchen:ops.procurement.metrics.receipts',
   'kitchen:ops.procurement.metrics.suppliers',
@@ -8961,6 +9045,84 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.waste',
   'kitchen:ops.stock.wasteTitle',
   'kitchen:ops.stock.wastedToast',
+  'kitchen:ops.suppliers.addContact',
+  'kitchen:ops.suppliers.addressHint',
+  'kitchen:ops.suppliers.archiveBody',
+  'kitchen:ops.suppliers.archiveConfirm',
+  'kitchen:ops.suppliers.archiveConsequence',
+  'kitchen:ops.suppliers.archiveTitle',
+  'kitchen:ops.suppliers.archivedBadge',
+  'kitchen:ops.suppliers.archivedBody',
+  'kitchen:ops.suppliers.archivedTitle',
+  'kitchen:ops.suppliers.archivedToast',
+  'kitchen:ops.suppliers.backToList',
+  'kitchen:ops.suppliers.caption',
+  'kitchen:ops.suppliers.codeEditHint',
+  'kitchen:ops.suppliers.codeMintHint',
+  'kitchen:ops.suppliers.columnContact',
+  'kitchen:ops.suppliers.columnName',
+  'kitchen:ops.suppliers.columnTerms',
+  'kitchen:ops.suppliers.contactNeedsChannel',
+  'kitchen:ops.suppliers.contactPosition',
+  'kitchen:ops.suppliers.contactsAfterSaveBody',
+  'kitchen:ops.suppliers.contactsAfterSaveTitle',
+  'kitchen:ops.suppliers.contactsHint',
+  'kitchen:ops.suppliers.contactsSavedToast',
+  'kitchen:ops.suppliers.create',
+  'kitchen:ops.suppliers.createTitle',
+  'kitchen:ops.suppliers.createdToast',
+  'kitchen:ops.suppliers.currencyHint',
+  'kitchen:ops.suppliers.editTitle',
+  'kitchen:ops.suppliers.emptyBody',
+  'kitchen:ops.suppliers.emptyTitle',
+  'kitchen:ops.suppliers.fieldAddress',
+  'kitchen:ops.suppliers.fieldCode',
+  'kitchen:ops.suppliers.fieldContactEmail',
+  'kitchen:ops.suppliers.fieldContactName',
+  'kitchen:ops.suppliers.fieldContactPhone',
+  'kitchen:ops.suppliers.fieldContactRole',
+  'kitchen:ops.suppliers.fieldContactWhatsapp',
+  'kitchen:ops.suppliers.fieldCurrency',
+  'kitchen:ops.suppliers.fieldEmail',
+  'kitchen:ops.suppliers.fieldLeadTime',
+  'kitchen:ops.suppliers.fieldName',
+  'kitchen:ops.suppliers.fieldNotes',
+  'kitchen:ops.suppliers.fieldPaymentTerms',
+  'kitchen:ops.suppliers.fieldPhone',
+  'kitchen:ops.suppliers.filteredEmptyBody',
+  'kitchen:ops.suppliers.filteredEmptyTitle',
+  'kitchen:ops.suppliers.generalContact',
+  'kitchen:ops.suppliers.generalContactHint',
+  'kitchen:ops.suppliers.leadTimeDays',
+  'kitchen:ops.suppliers.leadTimeHint',
+  'kitchen:ops.suppliers.leadTimeInvalid',
+  'kitchen:ops.suppliers.loadErrorTitle',
+  'kitchen:ops.suppliers.makePrimary',
+  'kitchen:ops.suppliers.nameRequired',
+  'kitchen:ops.suppliers.noContact',
+  'kitchen:ops.suppliers.noContactPhone',
+  'kitchen:ops.suppliers.noContacts',
+  'kitchen:ops.suppliers.noCurrency',
+  'kitchen:ops.suppliers.noLeadTime',
+  'kitchen:ops.suppliers.noTerms',
+  'kitchen:ops.suppliers.notFoundBody',
+  'kitchen:ops.suppliers.notFoundTitle',
+  'kitchen:ops.suppliers.paymentTermsHint',
+  'kitchen:ops.suppliers.primaryContact',
+  'kitchen:ops.suppliers.restore',
+  'kitchen:ops.suppliers.restoredToast',
+  'kitchen:ops.suppliers.saveContacts',
+  'kitchen:ops.suppliers.saveDetails',
+  'kitchen:ops.suppliers.savedToast',
+  'kitchen:ops.suppliers.searchHint',
+  'kitchen:ops.suppliers.searchLabel',
+  'kitchen:ops.suppliers.sectionContacts',
+  'kitchen:ops.suppliers.sectionDetails',
+  'kitchen:ops.suppliers.showArchived',
+  'kitchen:ops.suppliers.subtitle',
+  'kitchen:ops.suppliers.supplierCount',
+  'kitchen:ops.suppliers.title',
+  'kitchen:ops.suppliers.whatsappHint',
   'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',
   'kitchen:plans.backToList',

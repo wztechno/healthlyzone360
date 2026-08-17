@@ -174,12 +174,16 @@ export const ServiceAreaId: IdCodec<ServiceAreaId> = createIdCodec<ServiceAreaId
 
 export type StockItemId = Brand<string, 'StockItemId'>;
 export type SupplierId = Brand<string, 'SupplierId'>;
+/** A named person at a supplier (SUP1) — its own brand, because a contact is edited by id. */
+export type SupplierContactId = Brand<string, 'SupplierContactId'>;
 export type GoodsReceiptId = Brand<string, 'GoodsReceiptId'>;
 export type ProductionOrderId = Brand<string, 'ProductionOrderId'>;
 export type QualityCheckId = Brand<string, 'QualityCheckId'>;
 
 export const StockItemId: IdCodec<StockItemId> = createIdCodec<StockItemId>('StockItemId');
 export const SupplierId: IdCodec<SupplierId> = createIdCodec<SupplierId>('SupplierId');
+export const SupplierContactId: IdCodec<SupplierContactId> =
+    createIdCodec<SupplierContactId>('SupplierContactId');
 export const GoodsReceiptId: IdCodec<GoodsReceiptId> =
     createIdCodec<GoodsReceiptId>('GoodsReceiptId');
 export const ProductionOrderId: IdCodec<ProductionOrderId> =
@@ -223,6 +227,7 @@ export const ID_CODECS = {
     ServiceAreaId,
     StockItemId,
     SupplierId,
+    SupplierContactId,
     GoodsReceiptId,
     ProductionOrderId,
     QualityCheckId,

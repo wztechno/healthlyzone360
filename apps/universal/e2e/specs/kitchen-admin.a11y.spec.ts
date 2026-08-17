@@ -134,6 +134,18 @@ async function openPlans(page: Page) {
     await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
 }
 
+async function openSuppliers(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-suppliers-open').click();
+    await expect(page.getByTestId('kitchen-suppliers-table')).toBeVisible();
+}
+
+async function openFirstSupplier(page: Page) {
+    await openSuppliers(page);
+    await page.locator('[data-testid^="kitchen-supplier-"][data-testid$="-open"]').first().click();
+    await expect(page.getByTestId('kitchen-supplier-details')).toBeVisible();
+}
+
 async function openZones(page: Page) {
     await openKitchen(page);
     await page.getByTestId('kitchen-family-delivery-zones-open').click();
@@ -476,6 +488,41 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.getByTestId('kitchen-plan-publish').click();
         await expect(page.getByTestId('kitchen-plan-publish-dialog')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-plan-publish-dialog');
+    });
+
+    /* ── suppliers (SUP1) ────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The supplier book, with its search field and its archive chip.
+     *
+     * The toolbar here is hand-rolled rather than `ListToolbar` (a supplier has no publication
+     * status for that component's filters to carry), so it is the one place in this workspace where
+     * a search field's label and a filter chip's pressed state are not inherited from a component
+     * seven other screens already prove. That is exactly the kind of one-off that loses an
+     * accessible name unnoticed.
+     */
+    test('the supplier book, with its search and archive filter', async ({ page }) => {
+        await openSuppliers(page);
+        await expect(page.getByTestId('kitchen-suppliers-search')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-suppliers');
+
+        // The archived rows arrive under a chip whose pressed state is announced, not coloured.
+        await page.getByTestId('kitchen-suppliers-archived-filter').click();
+        await expectNoSeriousViolations(page, 'kitchen-suppliers-archived');
+    });
+
+    /**
+     * The supplier record, swept with **both** of its section forms on screen.
+     *
+     * Two risks live here. The page carries two independent saves — the frame's and the contact
+     * section's — and two submit controls on one form is where a button loses the relationship to
+     * the fields it writes. And each contact card renders its "needs a channel" refusal as a
+     * `role="alert"` inside a card, which is the pattern most likely to announce nothing at all.
+     */
+    test('the supplier record, with its details and contact sections', async ({ page }) => {
+        await openFirstSupplier(page);
+        await expect(page.getByTestId('kitchen-supplier-contacts')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supplier-detail');
     });
 
     test('the delivery-zone list', async ({ page }) => {

@@ -1,8 +1,4 @@
-import type {
-    GoodsReceipt,
-    MeasurementUnitOption,
-    Supplier,
-} from '@healthy360/api-client/contracts';
+import type { GoodsReceipt, MeasurementUnitOption } from '@healthy360/api-client/contracts';
 import {
     Button,
     Dialog,
@@ -21,7 +17,8 @@ import {
 } from '@healthy360/design-system';
 import type { SelectOption, TableColumn } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -41,7 +38,8 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { goodsReceiptRowTestId, stockItemLabel, supplierRowTestId } from '../ops-format.ts';
+import { displayName } from '../format.ts';
+import { goodsReceiptRowTestId, stockItemLabel } from '../ops-format.ts';
 import {
     StockItemLineEditor,
     stockItemLinesToReceiptInputs,
@@ -107,6 +105,8 @@ export function ProcurementScreen() {
 function Procurement() {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const { locale } = useLocale();
+    const router = useRouter();
     const toast = useToast();
     const access = useAccessState();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
@@ -137,13 +137,15 @@ function Procurement() {
 
     const referenceData = reference.data ?? null;
 
+    // Suppliers are bilingual since SUP1, so the picker labels them in the reader's own language
+    // and falls back to the other side rather than showing an empty option.
     const supplierOptions = useMemo(
         () =>
             (suppliers.data ?? []).map((row) => ({
                 value: String(row.id),
-                label: `${row.code} — ${row.nameEn}`,
+                label: `${row.code} — ${displayName(row.name, locale).value}`,
             })),
-        [suppliers.data],
+        [suppliers.data, locale],
     );
 
     // Prices are booked in RECEIPT_CURRENCY, never silently dropped for want of a supplier
@@ -329,25 +331,6 @@ function Procurement() {
         );
     }
 
-    const supplierColumns: readonly TableColumn<Supplier>[] = [
-        {
-            key: 'name',
-            header: t('kitchen:ops.procurement.columnSupplier'),
-            rowHeader: true,
-            flex: 2,
-            render: (row) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" testID={`${supplierRowTestId(String(row.id))}-name`}>
-                        {row.nameEn}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {row.code}
-                    </Text>
-                </Stack>
-            ),
-        },
-    ];
-
     const receiptColumns: readonly TableColumn<GoodsReceipt>[] = [
         {
             key: 'receivedAt',
@@ -446,37 +429,42 @@ function Procurement() {
                     />
                 ) : (
                     <Stack space="lg" testID="kitchen-procurement-content">
-                        <Stack space="sm">
+                        {/*
+                         * A count and a way through, not a second supplier table (SUP1). Suppliers
+                         * have their own screen now — with contacts, an archive and a search — and
+                         * a read-only copy of their names here would be a list that could not do
+                         * any of it. The inline create inside the receipt dialog stays exactly
+                         * where it was: a kitchen with an empty book still must not be stuck at the
+                         * loading bay.
+                         */}
+                        <Stack space="sm" testID="kitchen-procurement-suppliers">
                             <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2} testID="kitchen-procurement-suppliers-title">
-                                    {t('kitchen:ops.procurement.suppliersTitle')}
-                                </Heading>
-                                {canManage ? (
-                                    <Button
-                                        testID="kitchen-procurement-new-supplier"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:ops.procurement.newSupplier')}
-                                        onPress={() => {
-                                            setCreatingSupplier(true);
-                                        }}
-                                    />
-                                ) : null}
-                            </Inline>
-                            {supplierRows.length === 0 ? (
-                                <Text tone="secondary" testID="kitchen-procurement-suppliers-empty">
-                                    {t('kitchen:ops.procurement.noSuppliers')}
-                                </Text>
-                            ) : (
-                                <Table<Supplier>
-                                    testID="kitchen-procurement-suppliers-table"
-                                    caption={t('kitchen:ops.procurement.suppliersTitle')}
-                                    captionHidden
-                                    columns={supplierColumns}
-                                    rows={supplierRows}
-                                    rowKey={(row) => String(row.id)}
+                                <Stack space="none">
+                                    <Heading level={2} testID="kitchen-procurement-suppliers-title">
+                                        {t('kitchen:ops.procurement.suppliersTitle')}
+                                    </Heading>
+                                    <Text
+                                        tone="secondary"
+                                        variant="caption"
+                                        testID="kitchen-procurement-supplier-count"
+                                    >
+                                        {supplierRows.length === 0
+                                            ? t('kitchen:ops.procurement.noSuppliers')
+                                            : t('kitchen:ops.suppliers.supplierCount', {
+                                                  count: supplierRows.length,
+                                              })}
+                                    </Text>
+                                </Stack>
+                                <Button
+                                    testID="kitchen-procurement-manage-suppliers"
+                                    size="sm"
+                                    variant="ghost"
+                                    label={t('kitchen:ops.procurement.manageSuppliers')}
+                                    onPress={() => {
+                                        router.push('/kitchen/suppliers' as never);
+                                    }}
                                 />
-                            )}
+                            </Inline>
                         </Stack>
 
                         <Stack space="sm">

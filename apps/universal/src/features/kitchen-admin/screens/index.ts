@@ -56,3 +56,5 @@ export { RecipeEditScreen } from './recipe-edit-screen.tsx';
 export { RecipesScreen } from './recipes-screen.tsx';
 export { ReviewScreen } from './review-screen.tsx';
 export { StockScreen } from './stock-screen.tsx';
+export { SupplierDetailScreen } from './supplier-detail-screen.tsx';
+export { SuppliersScreen } from './suppliers-screen.tsx';

@@ -225,8 +225,13 @@ use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
 use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
+use Healthy360\Procurement\Http\Controllers\SupplierArchiveController;
+use Healthy360\Procurement\Http\Controllers\SupplierContactsReplaceController;
 use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
+use Healthy360\Procurement\Http\Controllers\SupplierRestoreController;
+use Healthy360\Procurement\Http\Controllers\SupplierShowController;
 use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
+use Healthy360\Procurement\Http\Controllers\SupplierUpdateController;
 use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderStoreController;
@@ -1414,6 +1419,16 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/inventory/consumption-exceptions', ConsumptionExceptionIndexController::class)->name('catalogue.inventory.consumption-exceptions.index');
                 Route::get('/inventory/consumption-exceptions/unresolved-count', ConsumptionExceptionCountController::class)->name('catalogue.inventory.consumption-exceptions.count');
                 Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
+
+                /*
+                | The supplier record and its named contacts read on the plain
+                | view code (SUP1). A supplier carries no money — the currency
+                | it invoices in is a hint the receipt form pre-selects, not an
+                | amount — so there is nothing here for the cost permission to
+                | gate, and a kitchen hand looking up who to phone about a late
+                | delivery should not need the code that opens the ledger.
+                */
+                Route::get('/procurement/suppliers/{supplierId}', SupplierShowController::class)->name('catalogue.procurement.suppliers.show');
                 Route::get('/procurement/reference', ProcurementReferenceController::class)->name('catalogue.procurement.reference.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
@@ -1435,6 +1450,23 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/inventory/consumption-exceptions/{exception}/resolve', ConsumptionExceptionResolveController::class)->name('catalogue.inventory.consumption-exceptions.resolve');
                 Route::post('/inventory/consumption-exceptions/{exception}/retry', ConsumptionExceptionRetryController::class)->name('catalogue.inventory.consumption-exceptions.retry');
                 Route::post('/procurement/suppliers', SupplierStoreController::class)->name('catalogue.procurement.suppliers.store');
+
+                /*
+                | Supplier administration (SUP1) sits on the same manage code as
+                | the receipt post beside it: naming who stock is bought from is
+                | the same warehouse job as recording that it arrived.
+                |
+                | Archive and restore are POST actions rather than a writable
+                | `archived_at`, so retiring a supplier is one deliberate request
+                | with its own audit event instead of something a form save can
+                | do by accident. Contacts are a PUT set-replace — the body is
+                | the whole desired set, and sending it twice leaves the same
+                | set rather than a doubled one.
+                */
+                Route::patch('/procurement/suppliers/{supplierId}', SupplierUpdateController::class)->name('catalogue.procurement.suppliers.update');
+                Route::post('/procurement/suppliers/{supplierId}/archive', SupplierArchiveController::class)->name('catalogue.procurement.suppliers.archive');
+                Route::post('/procurement/suppliers/{supplierId}/restore', SupplierRestoreController::class)->name('catalogue.procurement.suppliers.restore');
+                Route::put('/procurement/suppliers/{supplierId}/contacts', SupplierContactsReplaceController::class)->name('catalogue.procurement.suppliers.contacts.replace');
                 Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');
                 Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
                 Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');

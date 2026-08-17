@@ -550,6 +550,27 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: INVENTORY_MANAGE_PERMISSION,
     },
     {
+        key: 'suppliers',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.suppliers.name',
+        descriptionKey: 'kitchen:families.suppliers.description',
+        // `◍`, a figure in outline — a person, which is what a supplier record is mostly *about*
+        // once it has named contacts on it. The compromise every card in this workspace records
+        // applies: the icon set is a table of typographic characters with no van, warehouse or
+        // handshake in it, and the character is registered as `user` because a person was wanted
+        // first. A real icon set retires it.
+        icon: 'user',
+        href: '/kitchen/suppliers',
+        // Immediately before procurement, and deliberately: a receipt is posted *against* a
+        // supplier, so the book of who this kitchen buys from is the thing procurement points at.
+        // Reading the book is `inventory.view_organisation` — a kitchen hand looking up who to
+        // phone about a late delivery should not need the code that opens the ledger — and every
+        // write to it is `inventory.manage_organisation`, matching the receipt post beside it.
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
         key: 'procurement',
         kind: 'managed',
         group: 'operations',
