@@ -1564,21 +1564,23 @@ test.describe('kitchen workspace (en)', () => {
      * endpoint returns no areas (they are `GET /catalogue/delivery-zones/{zone}/areas`, a separate
      * call the editor makes), so that column says "no areas chosen" for every zone regardless.
      */
-    /* ── suppliers (SUP1) ────────────────────────────────────────────────────────────────────── */
+    /* ── suppliers (SUP1, SUP2) ──────────────────────────────────────────────────────────────── */
 
     /**
-     * The whole supplier lifecycle in one journey: create, edit, name a contact, archive, restore.
+     * The whole supplier lifecycle in one journey: create, edit, name a contact, link an item and
+     * make it preferred, then archive and restore.
      *
      * One journey rather than five, because every step needs the row the step before it produced and
      * this file runs one worker at a time — five journeys would mean five suppliers created against
      * a shared database to assert five halves of one story.
      *
-     * Three things it proves that a unit test cannot. The **code is minted by the server** when the
+     * Four things it proves that a unit test cannot. The **code is minted by the server** when the
      * create form leaves it blank, so the record comes back with something on it that the client
      * never sent. The **contact set is one save**: the card is filled in and the section's own
-     * button is what writes it, and the record read back afterwards carries the person. And the
-     * **archive is a filter rather than a deletion** — the supplier leaves the default book, returns
-     * under the chip, and restores whole.
+     * button is what writes it, and the record read back afterwards carries the person. A **link
+     * writes on its own press** and the preferred handover survives a real round trip against the
+     * partial unique index behind it. And the **archive is a filter rather than a deletion** — the
+     * supplier leaves the default book, returns under the chip, and restores whole.
      */
     test('creates a supplier, edits it, names a contact, then archives and restores it', async ({
         page,
@@ -1635,6 +1637,50 @@ test.describe('kitchen workspace (en)', () => {
         // Read back off the record rather than off a list column: this is the row PostgreSQL
         // returned, not a number the table derived.
         await expect(page.getByTestId(`${cardId}-name-input`)).toHaveValue('Samir Haddad');
+
+        /* ── supplied items: link, then prefer (SUP2) ────────────────────────────────────────── */
+
+        /*
+         * The third section has no Save, and that is the thing to watch here: a link is one fact
+         * about a (supplier, item) pair rather than a document, so **Link item** writes it and the
+         * record read back afterwards carries the row. The preferred flag then moves on its own
+         * press — a handover the server performs inside one transaction so the partial unique index
+         * behind "at most one preferred supplier per item" never surfaces as a 500.
+         */
+
+        await page.getByTestId('kitchen-supplier-item-picker').click();
+
+        const option = page
+            .locator('[data-testid^="kitchen-supplier-item-picker-option-"]')
+            .first();
+        await expect(option).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        const optionId = await option.getAttribute('data-testid');
+        if (optionId === null) throw new Error('The item picker option carries no test id.');
+
+        // `kitchen-supplier-item-picker-option-{stockItemId}` — the row's own prefix follows.
+        const stockItemId = optionId.replace('kitchen-supplier-item-picker-option-', '');
+        await option.click();
+
+        await page.getByTestId('kitchen-supplier-link-ref-input').fill('GF-REF-1');
+        await page.getByTestId('kitchen-supplier-item-link').click();
+        await expectToast(page, 'kitchen-supplier-item-linked-toast');
+
+        const itemRow = `kitchen-supplier-item-${stockItemId}`;
+        await expect(page.getByTestId(`${itemRow}-ref`)).toHaveText('GF-REF-1', {
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // Linked but never bought from this supplier — a distinct cell from a hidden price.
+        await expect(page.getByTestId(`${itemRow}-never-bought`)).toBeVisible();
+
+        await page.getByTestId(`${itemRow}-make-preferred`).click();
+        await expectToast(page, 'kitchen-supplier-item-preferred-toast');
+
+        // Read back off the re-fetched record: the badge is the server's row, not local state.
+        await expect(page.getByTestId(`${itemRow}-preferred`)).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // And the action that set it stops being offered, because it would change nothing.
+        await expect(page.getByTestId(`${itemRow}-make-preferred`)).toHaveCount(0);
 
         /* ── archive, and the book that stops offering it ────────────────────────────────────── */
 

@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $notes
  * @property CarbonImmutable|null $archived_at
  * @property-read Collection<int, SupplierContact> $contacts
+ * @property-read Collection<int, SupplierStockItem> $suppliedItems
  */
 class Supplier extends BaseModel implements OrganisationScoped
 {
@@ -54,6 +55,26 @@ class Supplier extends BaseModel implements OrganisationScoped
         return $this->hasMany(SupplierContact::class)
             ->orderBy('display_order')
             ->orderBy('name');
+    }
+
+    /**
+     * What this supplier sells this kitchen (§3.3).
+     *
+     * Ordered so the preferred link comes first and the rest follow their
+     * shelf's name — a supplied-items table wants the item you would actually
+     * order from them at the top, and a set saved in any order still comes back
+     * the same way twice. The join is what lets the name sort happen in SQL
+     * rather than over a collection the presenter would have to re-sort.
+     *
+     * @return HasMany<SupplierStockItem, $this>
+     */
+    public function suppliedItems(): HasMany
+    {
+        return $this->hasMany(SupplierStockItem::class)
+            ->join('stock_items', 'stock_items.id', '=', 'supplier_stock_items.stock_item_id')
+            ->orderByDesc('supplier_stock_items.is_preferred')
+            ->orderBy('stock_items.name_en')
+            ->select('supplier_stock_items.*');
     }
 
     /**

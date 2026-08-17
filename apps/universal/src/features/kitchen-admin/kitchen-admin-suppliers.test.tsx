@@ -1,17 +1,29 @@
 import type {
+    LastPurchase,
+    StockItem,
+    SuppliedItem,
     Supplier,
     SupplierContact,
     SupplierDetail,
     SupplierFilter,
 } from '@healthy360/api-client/contracts';
-import { SupplierContactId, SupplierId } from '@healthy360/domain-types';
+import {
+    GoodsReceiptId,
+    StockItemId,
+    SupplierContactId,
+    SupplierId,
+} from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { supplierContactRowTestId, supplierRowTestId } from './ops-format.ts';
+import {
+    suppliedItemRowTestId,
+    supplierContactRowTestId,
+    supplierRowTestId,
+} from './ops-format.ts';
 import { SupplierDetailScreen } from './screens/supplier-detail-screen.tsx';
 import { SuppliersScreen } from './screens/suppliers-screen.tsx';
 
@@ -36,6 +48,9 @@ import { SuppliersScreen } from './screens/suppliers-screen.tsx';
  *    per-card save would delete the card beside it.
  * 5. **An archived supplier is read-only and offers Restore.** Locking the form is what stops a
  *    person from typing into a record the server would refuse to write.
+ * 6. **The three price states stay three** (SUP2). Hidden, an actual price and *not bought here
+ *    yet* are three different facts; collapsing the first two would tell somebody without the cost
+ *    permission that a weekly supplier has never sold them anything.
  */
 
 jest.mock('expo-router', () => {
@@ -106,7 +121,57 @@ function supplier(ordinal: number, overrides: Partial<Supplier> = {}): Supplier 
         notes: null,
         archivedAt: null,
         contactCount: 0,
+        suppliedItemCount: 0,
         primaryContact: null,
+        ...overrides,
+    };
+}
+
+function stockItemId(ordinal: number): StockItemId {
+    return StockItemId.unsafe(`01935f6d-0000-7000-8000-00000000d00${String(ordinal)}`);
+}
+
+function stockItem(ordinal: number, overrides: Partial<StockItem> = {}): StockItem {
+    return {
+        id: stockItemId(ordinal),
+        code: `ITM-0${String(ordinal)}`,
+        nameEn: `Item ${String(ordinal)}`,
+        unitCode: 'kg',
+        ingredientId: null,
+        catalogueItemId: null,
+        backing: 'ingredient',
+        isStocked: false,
+        hasHistory: false,
+        ...overrides,
+    };
+}
+
+function lastPurchase(overrides: Partial<LastPurchase> = {}): LastPurchase {
+    return {
+        goodsReceiptId: GoodsReceiptId.unsafe('01935f6d-0000-7000-8000-00000000e001'),
+        documentRef: 'DN-2001',
+        receivedAt: '2026-08-10T09:00:00.000Z',
+        quantity: '10.0000',
+        unitId: null,
+        unitCode: 'kg',
+        unitPriceAmount: '2.500000',
+        costCurrencyCode: 'USD',
+        ...overrides,
+    };
+}
+
+function suppliedItem(ordinal: number, overrides: Partial<SuppliedItem> = {}): SuppliedItem {
+    return {
+        stockItem: {
+            id: stockItemId(ordinal),
+            code: `ITM-0${String(ordinal)}`,
+            nameEn: `Item ${String(ordinal)}`,
+            unitCode: 'kg',
+            backing: 'ingredient',
+        },
+        isPreferred: false,
+        supplierItemRef: null,
+        lastPurchase: null,
         ...overrides,
     };
 }
@@ -150,6 +215,29 @@ const GULF_DETAIL: SupplierDetail = {
     ...GULF,
     address: 'Gate 4, behind the cold store',
     contacts: [contact(1, { name: 'Samir Haddad', phone: '+961 3 111 222', isPrimary: true })],
+    suppliedItems: [],
+    costsRedacted: false,
+};
+
+/**
+ * The three price states in one detail, so one render can prove they render three different ways:
+ * a priced preferred link, a link this supplier has never sold at a price, and a link whose money
+ * the server redacted.
+ */
+const GULF_WITH_ITEMS: SupplierDetail = {
+    ...GULF_DETAIL,
+    suppliedItemCount: 3,
+    suppliedItems: [
+        suppliedItem(1, {
+            isPreferred: true,
+            supplierItemRef: 'GF-FLOUR-25',
+            lastPurchase: lastPurchase(),
+        }),
+        suppliedItem(2),
+        suppliedItem(3, {
+            lastPurchase: lastPurchase({ unitPriceAmount: null, costCurrencyCode: null }),
+        }),
+    ],
 };
 
 /**
@@ -397,6 +485,8 @@ describe('supplier detail', () => {
         const archivedDetail: SupplierDetail = {
             ...RETIRED,
             contacts: [contact(1)],
+            suppliedItems: [],
+            costsRedacted: false,
         };
 
         await renderStubScreen(<SupplierDetailScreen supplier={String(RETIRED.id)} />, {
@@ -422,5 +512,196 @@ describe('supplier detail', () => {
         });
 
         await untilVisible('kitchen-supplier-not-found');
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * What you buy here (SUP2)
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('supplied items', () => {
+    /** The links, the shelves the picker offers, and a stubbed upsert/delete pair. */
+    function itemOverrides(extra: RepositoryOverrides['kitchenOps'] = {}): RepositoryOverrides {
+        return {
+            kitchenOps: {
+                getSupplier: async () => GULF_WITH_ITEMS,
+                listStockItems: async () => [
+                    stockItem(1),
+                    stockItem(2),
+                    stockItem(3),
+                    stockItem(4),
+                ],
+                ...extra,
+            },
+        };
+    }
+
+    it('renders the three price states as three different cells', async () => {
+        await renderStubScreen(<SupplierDetailScreen supplier={String(GULF.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: itemOverrides(),
+        });
+
+        await untilVisible('kitchen-supplier-items-table');
+
+        // 1. A real price, with its currency and its unit — 2.50 alone is not a price.
+        const priced = suppliedItemRowTestId(String(stockItemId(1)));
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent('2.50');
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent('USD');
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent('kg');
+        expect(screen.getByTestId(`${priced}-preferred`)).toBeTruthy();
+        expect(screen.getByTestId(`${priced}-ref`)).toHaveTextContent('GF-FLOUR-25');
+
+        // 2. Linked but never bought here — not the same cell as hidden.
+        const unbought = suppliedItemRowTestId(String(stockItemId(2)));
+        expect(screen.getByTestId(`${unbought}-never-bought`)).toBeTruthy();
+        expect(screen.queryByTestId(`${unbought}-price-hidden`)).toBeNull();
+
+        // 3. Bought, but the money was redacted — the date survives, the amount does not.
+        const hidden = suppliedItemRowTestId(String(stockItemId(3)));
+        expect(screen.getByTestId(`${hidden}-price-hidden`)).toBeTruthy();
+        expect(screen.queryByTestId(`${hidden}-price`)).toBeNull();
+        expect(screen.queryByTestId(`${hidden}-never-bought`)).toBeNull();
+    });
+
+    it('offers Make preferred only where it would change something, and sends the flag', async () => {
+        const { repositories } = await renderStubScreen(
+            <SupplierDetailScreen supplier={String(GULF.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: itemOverrides({
+                    upsertSupplierLink: async () => ({
+                        supplierId: GULF.id,
+                        stockItemId: stockItemId(2),
+                        isPreferred: true,
+                        supplierItemRef: null,
+                    }),
+                }),
+            },
+        );
+
+        await untilVisible('kitchen-supplier-items-table');
+
+        // The row that already holds the flag does not offer to set it again.
+        expect(
+            screen.queryByTestId(`${suppliedItemRowTestId(String(stockItemId(1)))}-make-preferred`),
+        ).toBeNull();
+
+        fireEvent.press(
+            screen.getByTestId(`${suppliedItemRowTestId(String(stockItemId(2)))}-make-preferred`),
+        );
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.upsertSupplierLink).toHaveBeenCalledWith({
+                supplierId: GULF.id,
+                stockItemId: stockItemId(2),
+                isPreferred: true,
+            });
+        });
+
+        // The reference was not touched: an omitted field is left alone, never cleared.
+        expect(repositories.kitchenOps.upsertSupplierLink).not.toHaveBeenCalledWith(
+            expect.objectContaining({ supplierItemRef: expect.anything() }),
+        );
+    });
+
+    it('leaves already-linked items out of the picker and links the one chosen', async () => {
+        const { repositories } = await renderStubScreen(
+            <SupplierDetailScreen supplier={String(GULF.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: itemOverrides({
+                    upsertSupplierLink: async () => ({
+                        supplierId: GULF.id,
+                        stockItemId: stockItemId(4),
+                        isPreferred: false,
+                        supplierItemRef: 'GF-4',
+                    }),
+                }),
+            },
+        );
+
+        await untilVisible('kitchen-supplier-item-picker');
+
+        fireEvent.press(screen.getByTestId('kitchen-supplier-item-picker'));
+
+        // Items 1–3 are already linked; only the fourth is offerable.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`kitchen-supplier-item-picker-option-${String(stockItemId(4))}`),
+            ).toBeTruthy();
+        });
+        expect(
+            screen.queryByTestId(`kitchen-supplier-item-picker-option-${String(stockItemId(1))}`),
+        ).toBeNull();
+
+        fireEvent.press(
+            screen.getByTestId(`kitchen-supplier-item-picker-option-${String(stockItemId(4))}`),
+        );
+
+        fireEvent.changeText(screen.getByTestId('kitchen-supplier-link-ref-input'), 'GF-4');
+        fireEvent.press(screen.getByTestId('kitchen-supplier-item-link'));
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.upsertSupplierLink).toHaveBeenCalledWith({
+                supplierId: GULF.id,
+                stockItemId: stockItemId(4),
+                supplierItemRef: 'GF-4',
+            });
+        });
+    });
+
+    it('unlinks only after the confirmation, and by the identifying pair', async () => {
+        const { repositories } = await renderStubScreen(
+            <SupplierDetailScreen supplier={String(GULF.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: itemOverrides({ deleteSupplierLink: async () => undefined }),
+            },
+        );
+
+        await untilVisible('kitchen-supplier-items-table');
+
+        fireEvent.press(
+            screen.getByTestId(`${suppliedItemRowTestId(String(stockItemId(2)))}-unlink`),
+        );
+
+        await untilVisible('kitchen-supplier-unlink-dialog');
+        expect(repositories.kitchenOps.deleteSupplierLink).not.toHaveBeenCalled();
+
+        fireEvent.press(screen.getByTestId('kitchen-supplier-unlink-confirm'));
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.deleteSupplierLink).toHaveBeenCalledWith({
+                supplierId: GULF.id,
+                stockItemId: stockItemId(2),
+            });
+        });
+    });
+
+    it('hides the ledger link and the writes from a reader who holds neither code', async () => {
+        await renderStubScreen(<SupplierDetailScreen supplier={String(GULF.id)} />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: ['organisation.view_current', 'inventory.view_organisation'],
+                }),
+            }),
+            repositories: { kitchenOps: { getSupplier: async () => GULF_WITH_ITEMS } },
+        });
+
+        await untilVisible('kitchen-supplier-items-table');
+
+        // Read-only: no picker, no row actions, and no link into a ledger that would refuse them.
+        expect(screen.queryByTestId('kitchen-supplier-item-picker')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supplier-item-link')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supplier-see-ledger')).toBeNull();
+        expect(
+            screen.queryByTestId(`${suppliedItemRowTestId(String(stockItemId(2)))}-unlink`),
+        ).toBeNull();
+
+        // And every price reads as hidden rather than as a price or as never bought.
+        expect(
+            screen.getByTestId(`${suppliedItemRowTestId(String(stockItemId(1)))}-price-hidden`),
+        ).toBeTruthy();
     });
 });

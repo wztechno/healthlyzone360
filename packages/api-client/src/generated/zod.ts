@@ -2999,6 +2999,71 @@ export const zSupplierContact = z.object({
 });
 
 /**
+ * The shelf a supplier link points at, summarised for the row that renders it.
+ */
+export const zSuppliedStockItem = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    unit_code: z.string(),
+    backing: z.enum(['ingredient', 'product'])
+});
+
+/**
+ * What this was last bought for (§3.4) — derived live from the newest
+ * priced `goods_receipt_lines` row, never stored.
+ *
+ * Unpriced deliveries are skipped entirely, so this is always a real
+ * price: an item received only on unpriced receipts has no
+ * `last_purchase` at all rather than one with a null amount.
+ *
+ * **The money is the only redacted part.** Without
+ * `inventory.view_costs_organisation`, `unit_price_amount` and
+ * `cost_currency_code` are `null` and the enclosing response flags
+ * `costs_redacted`. The date, quantity and unit survive: those are
+ * warehouse facts a receiving clerk entered, not the valuation the cost
+ * permission gates.
+ *
+ * The amount is always quoted **per `unit_code`** and always beside its
+ * own currency. A bare `6.90` without "USD per kg" is not a price, and
+ * currencies are never converted — there is no exchange rate in this
+ * system.
+ *
+ */
+export const zLastPurchase = z.object({
+    goods_receipt_id: zUuid,
+    document_ref: z.string().nullable(),
+    received_at: z.iso.datetime({ offset: true }).nullable(),
+    quantity: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_code: z.string().nullable(),
+    unit_price_amount: z.string().nullable(),
+    cost_currency_code: z.string().nullable()
+});
+
+/**
+ * One "we buy this from them" row on the supplier's page (SUP2).
+ *
+ * The stock item is embedded rather than referenced by id alone because
+ * the table beside it shows a name, a code and a unit; a client resolving
+ * three fields per row against a separate list would be doing a join the
+ * server already has open.
+ *
+ * `last_purchase` is `null` when this supplier has never been recorded
+ * selling this item at a price — a distinct state from a *present*
+ * `last_purchase` whose money is redacted. **Never bought here** and
+ * **Hidden** are two different facts and clients must render them
+ * differently (§3.4).
+ *
+ */
+export const zSuppliedItem = z.object({
+    stock_item: zSuppliedStockItem.nullable(),
+    is_preferred: z.boolean(),
+    supplier_item_ref: z.string().max(64).nullable(),
+    last_purchase: zLastPurchase.nullable()
+});
+
+/**
  * One supplier in the organisation's book. The same shape everywhere a
  * supplier is served — list row and freshly created record alike — so a
  * client writes one mapper rather than three.
@@ -3022,27 +3087,77 @@ export const zSupplier = z.object({
     notes: z.string().nullable(),
     archived_at: z.iso.datetime({ offset: true }).nullable(),
     contact_count: z.int().gte(0),
+    supplied_item_count: z.int().gte(0),
     primary_contact: zSupplierPrimaryContact.nullable(),
-    contacts: z.array(zSupplierContact).optional()
+    contacts: z.array(zSupplierContact).optional(),
+    supplied_items: z.array(zSuppliedItem).optional(),
+    costs_redacted: z.boolean().optional()
 });
 
 /**
- * A supplier with its full contact set — the supplier's own page.
+ * A supplier with its full contact set and everything it supplies — the
+ * supplier's own page.
  *
- * The canonical `Supplier` with `contacts` promoted from optional to
- * required. Composed rather than restated so that a field added to the
- * book cannot arrive on the list and go missing from the detail.
+ * The canonical `Supplier` with `contacts`, `supplied_items` and
+ * `costs_redacted` promoted from optional to required. Composed rather
+ * than restated so that a field added to the book cannot arrive on the
+ * list and go missing from the detail.
  *
- * `contacts` is restated in the second subschema rather than only listed
+ * All three are restated in the second subschema rather than only listed
  * as required: `Supplier` closes itself with `additionalProperties: false`
- * (which is why the field is declared there too, optionally), and a
+ * (which is why the fields are declared there too, optionally), and a
  * `required`-only branch generates as an index signature rather than as
  * the array a client needs.
  *
  */
 export const zSupplierDetail = zSupplier.and(z.object({
-    contacts: z.array(zSupplierContact)
+    contacts: z.array(zSupplierContact),
+    supplied_items: z.array(zSuppliedItem),
+    costs_redacted: z.boolean()
 }));
+
+/**
+ * The pair that identifies the link, plus the two things about it a
+ * kitchen edits. Idempotent: sending the same body twice leaves the same
+ * row.
+ *
+ * `is_preferred` and `supplier_item_ref` are keyed on **presence**. An
+ * omitted field is left alone; `supplier_item_ref: null` clears a
+ * reference typed by mistake. `is_preferred: true` takes the flag off
+ * whichever supplier held it for this item; `false` clears this link's own
+ * flag and promotes nobody.
+ *
+ */
+export const zUpsertSupplierLinkRequest = z.object({
+    supplier_id: zUuid,
+    stock_item_id: zUuid,
+    is_preferred: z.boolean().nullish(),
+    supplier_item_ref: z.string().max(64).nullish()
+});
+
+/**
+ * The link after a write, and nothing more.
+ *
+ * Every ops write in this workspace answers the minimum and lets the
+ * screen re-read what it changed. A supplied item's last purchase price is
+ * derived from the receipt ledger and cannot change because somebody saved
+ * a link, so returning it here would invent a read the caller did not ask
+ * for.
+ *
+ */
+export const zSupplierLink = z.object({
+    supplier_id: zUuid,
+    stock_item_id: zUuid,
+    is_preferred: z.boolean(),
+    supplier_item_ref: z.string().nullable()
+});
+
+export const zSupplierLinkEnvelope = z.object({
+    data: z.object({
+        supplier_link: zSupplierLink
+    }),
+    meta: zMeta
+});
 
 export const zSupplierCollection = z.object({
     data: z.object({
@@ -3219,6 +3334,39 @@ export const zSupplierRef = z.object({
     id: zUuid,
     code: z.string(),
     name_en: z.string()
+});
+
+/**
+ * One stock item's newest purchase **across every supplier** (SUP2), with
+ * the supplier that sold it.
+ *
+ * `LastPurchase` plus the two fields that make it answerable outside a
+ * supplier's own page: the item it belongs to, so a client can join it to
+ * the stock list, and who sold it, because a price without the vendor
+ * beside it is not actionable.
+ *
+ * The supplier is nullable: a direct market-run receipt records no
+ * supplier, and the price it captured is still the last price of that
+ * item.
+ *
+ */
+export const zItemLatestPurchase = zLastPurchase.and(z.object({
+    stock_item_id: zUuid,
+    supplier: zSupplierRef.nullable()
+}));
+
+/**
+ * Requested items with no priced receipt are **absent** rather than
+ * present with nulls, so `meta.count` may be smaller than
+ * `meta.requested_count`. `meta.costs_redacted` says whether the money
+ * was served at all.
+ *
+ */
+export const zItemLatestPurchaseCollection = z.object({
+    data: z.object({
+        purchases: z.array(zItemLatestPurchase)
+    }),
+    meta: zMeta
 });
 
 /**
@@ -10411,6 +10559,47 @@ export const zReplaceSupplierContactsPath = z.object({
  */
 export const zReplaceSupplierContactsResponse = zSupplierContactCollection;
 
+export const zDeleteSupplierLinkHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeleteSupplierLinkQuery = z.object({
+    supplier_id: zUuid,
+    stock_item_id: zUuid
+});
+
+/**
+ * The link is gone — or was never there.
+ */
+export const zDeleteSupplierLinkResponse = z.void();
+
+export const zUpsertSupplierLinkBody = zUpsertSupplierLinkRequest;
+
+export const zUpsertSupplierLinkHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The link after the write.
+ */
+export const zUpsertSupplierLinkResponse = zSupplierLinkEnvelope;
+
+export const zListItemLatestPurchasesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListItemLatestPurchasesQuery = z.object({
+    stock_item_ids: z.array(zUuid).min(1).max(200)
+});
+
+/**
+ * The latest purchase of each requested item that has one.
+ */
+export const zListItemLatestPurchasesResponse = zItemLatestPurchaseCollection;
+
 export const zGetProcurementReferenceHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -10453,6 +10642,8 @@ export const zListPurchasesLedgerQuery = z.object({
     to: z.iso.date().optional(),
     supplier_id: zUuid.optional(),
     ingredient_id: zUuid.optional(),
+    stock_item_id: zUuid.optional(),
+    branch_id: zUuid.optional(),
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional()
 });

@@ -8411,6 +8411,177 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/procurement/supplier-links:
+    put:
+      operationId: upsertSupplierLink
+      tags: [Kitchen inventory & production]
+      summary: Link a stock item to a supplier
+      description: |
+        Records "we buy this from them" (SUP2), or updates the link that is
+        already there. Idempotent on the `(supplier_id, stock_item_id)` pair —
+        sending the same body twice leaves the same row, which is why this is a
+        `PUT`.
+
+        **One mutation surface, not two mirrored replaces.** A supplier's
+        supplied items and a stock item's suppliers are one table read from two
+        ends; a set-replace at either end would silently undo what the other
+        end had just written.
+
+        `is_preferred: true` **moves** the flag — whichever supplier held it for
+        this stock item loses it in the same transaction, because at most one
+        preferred supplier per item is a database rule and a straight handover
+        would otherwise collide with it mid-swap. `false` clears this link's own
+        flag and promotes nobody.
+
+        `supplier_item_ref` is the supplier's own catalogue reference, quoted
+        back on an order sheet. Omitting it leaves the stored value alone;
+        sending `null` clears it.
+
+        Cross-organisation identifiers — either end — answer `404`, never a
+        silent link. Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertSupplierLinkRequest'
+      responses:
+        '200':
+          description: The link after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierLinkEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: deleteSupplierLink
+      tags: [Kitchen inventory & production]
+      summary: Unlink a stock item from a supplier
+      description: |
+        Removes one supplier↔item link (SUP2). The identifying pair travels in
+        query parameters rather than a body, because that is where every other
+        delete in this API names its subject.
+
+        A real delete, unlike a supplier's own record, which only archives: a
+        link is current configuration, and every goods receipt posted against
+        the supplier stays exactly as it is either way.
+
+        Idempotent — unlinking something that is not linked answers `204`,
+        because the caller's intention is already true. Cross-organisation
+        identifiers still answer `404`. Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: supplier_id
+          in: query
+          required: true
+          description: The supplier half of the link.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: stock_item_id
+          in: query
+          required: true
+          description: The stock item half of the link.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The link is gone — or was never there.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/item-purchases/latest:
+    get:
+      operationId: listItemLatestPurchases
+      tags: [Kitchen inventory & production]
+      summary: Latest purchase per stock item
+      description: |
+        The newest priced purchase of each named shelf, **across every
+        supplier**, with the supplier that sold it (SUP2).
+
+        This endpoint exists because of a module boundary and it is worth
+        saying plainly: the stock screen wants a "last purchase" column, but
+        the stock list is served by Inventory and Inventory may not import
+        Procurement. The price is therefore served here, keyed by
+        `stock_item_id`, and the client joins the two lists it already holds. A
+        batch read for the same reason the supplier page has one — sixty
+        visible shelves must cost one request, not sixty.
+
+        Derived live from `goods_receipt_lines`, never stored. Unpriced
+        deliveries are skipped entirely rather than answered as a price of
+        nothing, so an item received only on unpriced receipts is **absent**
+        from the response — "never bought" is the absence of a purchase, and a
+        row of nulls would be a purchase-shaped object claiming otherwise.
+
+        Behind `inventory.view_organisation`, with the money behind
+        `inventory.view_costs_organisation`: without the cost permission
+        `unit_price_amount` and `cost_currency_code` are `null` and
+        `meta.costs_redacted` is `true`, while the date, quantity, unit and
+        supplier remain. A `403` would blank the column for somebody entitled
+        to know *that* an item was last bought on Tuesday, and would make
+        "hidden" and "never bought" indistinguishable.
+
+        Two hundred identifiers is the cap.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: stock_item_ids
+          in: query
+          required: true
+          description: The shelves to price, repeated as `stock_item_ids[]=…`. At most 200.
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The latest purchase of each requested item that has one.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemLatestPurchaseCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/procurement/reference:
     get:
       operationId: getProcurementReference
@@ -8523,8 +8694,17 @@ paths:
       description: |
         Every goods-receipt line, newest first, flattened with the date,
         supplier and item it belongs to — the browsable record behind the
-        monthly spend figure (INV1.1). Filterable by date range, supplier and
-        ingredient.
+        monthly spend figure (INV1.1). Filterable by date range, supplier,
+        branch, stock item and ingredient.
+
+        `stock_item_id` and `branch_id` arrive with SUP2 and are what the
+        supplier page's "everything bought from this supplier" and the stock
+        screen's per-row "History" land on. `stock_item_id` sits beside
+        `ingredient_id` rather than replacing it: one ingredient can back both a
+        shelf and a resold product, so "this ingredient" and "this shelf" are
+        different questions. Both new filters are validated against the active
+        organisation, so an identifier from another kitchen is a `422` rather
+        than an empty page that reads like a fact.
 
         Behind `inventory.view_costs_organisation`: this surface exists to read
         the valuation, so a person without the cost permission gets a 403 here
@@ -8556,6 +8736,19 @@ paths:
         - name: ingredient_id
           in: query
           required: false
+          description: Only lines whose stock item is backed by this ingredient.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: stock_item_id
+          in: query
+          required: false
+          description: Only lines that received this shelf. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: branch_id
+          in: query
+          required: false
+          description: Only lines whose receipt was posted at this branch. Must belong to the active organisation.
           schema:
             $ref: '#/components/schemas/Uuid'
         - $ref: '#/components/parameters/CursorLimit'
@@ -8577,6 +8770,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -25514,6 +25709,7 @@ components:
         - notes
         - archived_at
         - contact_count
+        - supplied_item_count
         - primary_contact
       description: |
         One supplier in the organisation's book. The same shape everywhere a
@@ -25568,6 +25764,13 @@ components:
           type: integer
           minimum: 0
           description: How many named contacts this supplier has on file.
+        supplied_item_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many stock items this supplier is linked to (SUP2). Counted on
+            the list query rather than derived from `supplied_items`, which a
+            list row does not carry.
         primary_contact:
           oneOf:
             - $ref: '#/components/schemas/SupplierPrimaryContact'
@@ -25586,6 +25789,20 @@ components:
             supplier to render a book is the N+1 that summary exists to avoid.
           items:
             $ref: '#/components/schemas/SupplierContact'
+        supplied_items:
+          type: array
+          description: |
+            What this supplier sells the kitchen, preferred link first then by
+            item name (SUP2). Detail response only, on the same terms as
+            `contacts` — a list row carries `supplied_item_count` instead.
+          items:
+            $ref: '#/components/schemas/SuppliedItem'
+        costs_redacted:
+          type: boolean
+          description: |
+            `true` when the reader lacks `inventory.view_costs_organisation`
+            and every `supplied_items[].last_purchase` money field was served
+            as `null`. Detail response only.
       additionalProperties: false
 
     SupplierPrimaryContact:
@@ -25634,26 +25851,255 @@ components:
 
     SupplierDetail:
       description: |
-        A supplier with its full contact set — the supplier's own page.
+        A supplier with its full contact set and everything it supplies — the
+        supplier's own page.
 
-        The canonical `Supplier` with `contacts` promoted from optional to
-        required. Composed rather than restated so that a field added to the
-        book cannot arrive on the list and go missing from the detail.
+        The canonical `Supplier` with `contacts`, `supplied_items` and
+        `costs_redacted` promoted from optional to required. Composed rather
+        than restated so that a field added to the book cannot arrive on the
+        list and go missing from the detail.
 
-        `contacts` is restated in the second subschema rather than only listed
+        All three are restated in the second subschema rather than only listed
         as required: `Supplier` closes itself with `additionalProperties: false`
-        (which is why the field is declared there too, optionally), and a
+        (which is why the fields are declared there too, optionally), and a
         `required`-only branch generates as an index signature rather than as
         the array a client needs.
       allOf:
         - $ref: '#/components/schemas/Supplier'
         - type: object
-          required: [contacts]
+          required: [contacts, supplied_items, costs_redacted]
           properties:
             contacts:
               type: array
               items:
                 $ref: '#/components/schemas/SupplierContact'
+            supplied_items:
+              type: array
+              items:
+                $ref: '#/components/schemas/SuppliedItem'
+            costs_redacted:
+              type: boolean
+
+    SuppliedItem:
+      type: object
+      required: [stock_item, is_preferred, supplier_item_ref, last_purchase]
+      description: |
+        One "we buy this from them" row on the supplier's page (SUP2).
+
+        The stock item is embedded rather than referenced by id alone because
+        the table beside it shows a name, a code and a unit; a client resolving
+        three fields per row against a separate list would be doing a join the
+        server already has open.
+
+        `last_purchase` is `null` when this supplier has never been recorded
+        selling this item at a price — a distinct state from a *present*
+        `last_purchase` whose money is redacted. **Never bought here** and
+        **Hidden** are two different facts and clients must render them
+        differently (§3.4).
+      properties:
+        stock_item:
+          oneOf:
+            - $ref: '#/components/schemas/SuppliedStockItem'
+            - type: 'null'
+          description: The shelf this link points at. Null only if it vanished between the read and the render.
+        is_preferred:
+          type: boolean
+          description: At most one supplier per stock item may hold this, enforced by a partial unique index.
+        supplier_item_ref:
+          type: ['string', 'null']
+          maxLength: 64
+          description: |
+            The supplier's own catalogue reference, transcribed from their
+            price list so an order sheet can quote it back. Named `_ref` rather
+            than `_code`: it is their identifier, not this kitchen's.
+        last_purchase:
+          oneOf:
+            - $ref: '#/components/schemas/LastPurchase'
+            - type: 'null'
+          description: The newest priced receipt line from this supplier for this item, or null if there is none.
+      additionalProperties: false
+
+    SuppliedStockItem:
+      type: object
+      required: [id, code, name_en, unit_code, backing]
+      description: The shelf a supplier link points at, summarised for the row that renders it.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        unit_code:
+          type: string
+        backing:
+          type: string
+          enum: [ingredient, product]
+          description: Which of the two books this shelf belongs to — the same field the inventory list publishes.
+      additionalProperties: false
+
+    LastPurchase:
+      type: object
+      required:
+        - goods_receipt_id
+        - document_ref
+        - received_at
+        - quantity
+        - unit_id
+        - unit_code
+        - unit_price_amount
+        - cost_currency_code
+      description: |
+        What this was last bought for (§3.4) — derived live from the newest
+        priced `goods_receipt_lines` row, never stored.
+
+        Unpriced deliveries are skipped entirely, so this is always a real
+        price: an item received only on unpriced receipts has no
+        `last_purchase` at all rather than one with a null amount.
+
+        **The money is the only redacted part.** Without
+        `inventory.view_costs_organisation`, `unit_price_amount` and
+        `cost_currency_code` are `null` and the enclosing response flags
+        `costs_redacted`. The date, quantity and unit survive: those are
+        warehouse facts a receiving clerk entered, not the valuation the cost
+        permission gates.
+
+        The amount is always quoted **per `unit_code`** and always beside its
+        own currency. A bare `6.90` without "USD per kg" is not a price, and
+        currencies are never converted — there is no exchange rate in this
+        system.
+      properties:
+        goods_receipt_id:
+          $ref: '#/components/schemas/Uuid'
+        document_ref:
+          type: ['string', 'null']
+          description: The supplier delivery note or invoice number the price came from, as written.
+        received_at:
+          type: ['string', 'null']
+          format: date-time
+        quantity:
+          type: string
+          description: The quantity that line received, as a decimal string. Never redacted.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The unit the price is quoted per; null means the stock item's own unit.
+        unit_code:
+          type: ['string', 'null']
+          description: That unit's code, resolved for display — `kg`, `l`, `piece`.
+        unit_price_amount:
+          type: ['string', 'null']
+          description: Major-unit decimal string per `unit_code`, or null when costs are redacted.
+        cost_currency_code:
+          type: ['string', 'null']
+          description: ISO 4217, or null when costs are redacted.
+      additionalProperties: false
+
+    ItemLatestPurchase:
+      description: |
+        One stock item's newest purchase **across every supplier** (SUP2), with
+        the supplier that sold it.
+
+        `LastPurchase` plus the two fields that make it answerable outside a
+        supplier's own page: the item it belongs to, so a client can join it to
+        the stock list, and who sold it, because a price without the vendor
+        beside it is not actionable.
+
+        The supplier is nullable: a direct market-run receipt records no
+        supplier, and the price it captured is still the last price of that
+        item.
+      allOf:
+        - $ref: '#/components/schemas/LastPurchase'
+        - type: object
+          required: [stock_item_id, supplier]
+          properties:
+            stock_item_id:
+              $ref: '#/components/schemas/Uuid'
+            supplier:
+              oneOf:
+                - $ref: '#/components/schemas/SupplierRef'
+                - type: 'null'
+
+    ItemLatestPurchaseCollection:
+      type: object
+      required: [data, meta]
+      description: |
+        Requested items with no priced receipt are **absent** rather than
+        present with nulls, so `meta.count` may be smaller than
+        `meta.requested_count`. `meta.costs_redacted` says whether the money
+        was served at all.
+      properties:
+        data:
+          type: object
+          required: [purchases]
+          properties:
+            purchases:
+              type: array
+              items:
+                $ref: '#/components/schemas/ItemLatestPurchase'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    UpsertSupplierLinkRequest:
+      type: object
+      required: [supplier_id, stock_item_id]
+      description: |
+        The pair that identifies the link, plus the two things about it a
+        kitchen edits. Idempotent: sending the same body twice leaves the same
+        row.
+
+        `is_preferred` and `supplier_item_ref` are keyed on **presence**. An
+        omitted field is left alone; `supplier_item_ref: null` clears a
+        reference typed by mistake. `is_preferred: true` takes the flag off
+        whichever supplier held it for this item; `false` clears this link's own
+        flag and promotes nobody.
+      properties:
+        supplier_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        is_preferred:
+          type: ['boolean', 'null']
+        supplier_item_ref:
+          type: ['string', 'null']
+          maxLength: 64
+      additionalProperties: false
+
+    SupplierLink:
+      type: object
+      required: [supplier_id, stock_item_id, is_preferred, supplier_item_ref]
+      description: |
+        The link after a write, and nothing more.
+
+        Every ops write in this workspace answers the minimum and lets the
+        screen re-read what it changed. A supplied item's last purchase price is
+        derived from the receipt ledger and cannot change because somebody saved
+        a link, so returning it here would invent a read the caller did not ask
+        for.
+      properties:
+        supplier_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        is_preferred:
+          type: boolean
+        supplier_item_ref:
+          type: ['string', 'null']
+      additionalProperties: false
+
+    SupplierLinkEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [supplier_link]
+          properties:
+            supplier_link:
+              $ref: '#/components/schemas/SupplierLink'
+        meta:
+          $ref: '#/components/schemas/Meta'
 
     SupplierCollection:
       type: object

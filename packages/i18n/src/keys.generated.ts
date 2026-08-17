@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 5750 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 5796 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2937,6 +2937,7 @@ export interface NamespaceKeys {
     | 'ops.exceptions.unknownItem'
     | 'ops.exceptions.unknownOrder'
     | 'ops.exceptions.unresolvedCount'
+    | 'ops.ledger.allItems'
     | 'ops.ledger.allSuppliers'
     | 'ops.ledger.columnDate'
     | 'ops.ledger.columnItem'
@@ -2946,6 +2947,7 @@ export interface NamespaceKeys {
     | 'ops.ledger.emptyBody'
     | 'ops.ledger.emptyTitle'
     | 'ops.ledger.filterFrom'
+    | 'ops.ledger.filterItem'
     | 'ops.ledger.filterSupplier'
     | 'ops.ledger.filterTo'
     | 'ops.ledger.nextPage'
@@ -3233,6 +3235,7 @@ export interface NamespaceKeys {
     | 'ops.stock.columnActions'
     | 'ops.stock.columnHeld'
     | 'ops.stock.columnItem'
+    | 'ops.stock.columnLastPurchase'
     | 'ops.stock.columnQuantity'
     | 'ops.stock.columnThreshold'
     | 'ops.stock.columnUnit'
@@ -3248,11 +3251,16 @@ export interface NamespaceKeys {
     | 'ops.stock.fieldThreshold'
     | 'ops.stock.fieldThresholdHint'
     | 'ops.stock.fieldWasteQuantity'
+    | 'ops.stock.history'
     | 'ops.stock.inStockBadge'
     | 'ops.stock.ingredientsEmptyBody'
     | 'ops.stock.ingredientsEmptyTitle'
     | 'ops.stock.ingredientsHint'
     | 'ops.stock.ingredientsTitle'
+    | 'ops.stock.lastPurchaseFrom'
+    | 'ops.stock.lastPurchaseHidden'
+    | 'ops.stock.lastPurchaseLoading'
+    | 'ops.stock.lastPurchasePrice'
     | 'ops.stock.levelsTitle'
     | 'ops.stock.lowBadge'
     | 'ops.stock.lowStockCount'
@@ -3261,8 +3269,10 @@ export interface NamespaceKeys {
     | 'ops.stock.metrics.lowStock'
     | 'ops.stock.metrics.outOfStock'
     | 'ops.stock.metrics.products'
+    | 'ops.stock.neverBought'
     | 'ops.stock.neverStocked'
     | 'ops.stock.noLevels'
+    | 'ops.stock.noPurchaseSupplier'
     | 'ops.stock.noThreshold'
     | 'ops.stock.productsEmptyBody'
     | 'ops.stock.productsEmptyTitle'
@@ -3279,6 +3289,7 @@ export interface NamespaceKeys {
     | 'ops.stock.wastedToast'
     | 'ops.suppliers.addContact'
     | 'ops.suppliers.addressHint'
+    | 'ops.suppliers.allItemsLinked'
     | 'ops.suppliers.archiveBody'
     | 'ops.suppliers.archiveConfirm'
     | 'ops.suppliers.archiveConsequence'
@@ -3292,7 +3303,11 @@ export interface NamespaceKeys {
     | 'ops.suppliers.codeEditHint'
     | 'ops.suppliers.codeMintHint'
     | 'ops.suppliers.columnContact'
+    | 'ops.suppliers.columnItem'
+    | 'ops.suppliers.columnItems'
+    | 'ops.suppliers.columnLastPrice'
     | 'ops.suppliers.columnName'
+    | 'ops.suppliers.columnRef'
     | 'ops.suppliers.columnTerms'
     | 'ops.suppliers.contactNeedsChannel'
     | 'ops.suppliers.contactPosition'
@@ -3304,6 +3319,9 @@ export interface NamespaceKeys {
     | 'ops.suppliers.createTitle'
     | 'ops.suppliers.createdToast'
     | 'ops.suppliers.currencyHint'
+    | 'ops.suppliers.editRef'
+    | 'ops.suppliers.editRefBody'
+    | 'ops.suppliers.editRefTitle'
     | 'ops.suppliers.editTitle'
     | 'ops.suppliers.emptyBody'
     | 'ops.suppliers.emptyTitle'
@@ -3316,6 +3334,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.fieldContactWhatsapp'
     | 'ops.suppliers.fieldCurrency'
     | 'ops.suppliers.fieldEmail'
+    | 'ops.suppliers.fieldItemRef'
     | 'ops.suppliers.fieldLeadTime'
     | 'ops.suppliers.fieldName'
     | 'ops.suppliers.fieldNotes'
@@ -3325,22 +3344,42 @@ export interface NamespaceKeys {
     | 'ops.suppliers.filteredEmptyTitle'
     | 'ops.suppliers.generalContact'
     | 'ops.suppliers.generalContactHint'
+    | 'ops.suppliers.itemCount'
+    | 'ops.suppliers.itemRefHint'
+    | 'ops.suppliers.itemsEmptyBody'
+    | 'ops.suppliers.itemsHint'
+    | 'ops.suppliers.itemsTitle'
     | 'ops.suppliers.leadTimeDays'
     | 'ops.suppliers.leadTimeHint'
     | 'ops.suppliers.leadTimeInvalid'
+    | 'ops.suppliers.linkItem'
+    | 'ops.suppliers.linkItemHint'
+    | 'ops.suppliers.linkItemLabel'
+    | 'ops.suppliers.linkedToast'
     | 'ops.suppliers.loadErrorTitle'
+    | 'ops.suppliers.makePreferred'
     | 'ops.suppliers.makePrimary'
     | 'ops.suppliers.nameRequired'
+    | 'ops.suppliers.neverBoughtHere'
     | 'ops.suppliers.noContact'
     | 'ops.suppliers.noContactPhone'
     | 'ops.suppliers.noContacts'
     | 'ops.suppliers.noCurrency'
+    | 'ops.suppliers.noItemRef'
+    | 'ops.suppliers.noItemsLinked'
     | 'ops.suppliers.noLeadTime'
+    | 'ops.suppliers.noPurchaseDate'
     | 'ops.suppliers.noTerms'
     | 'ops.suppliers.notFoundBody'
     | 'ops.suppliers.notFoundTitle'
     | 'ops.suppliers.paymentTermsHint'
+    | 'ops.suppliers.pickItem'
+    | 'ops.suppliers.preferredBadge'
+    | 'ops.suppliers.preferredToast'
+    | 'ops.suppliers.priceHidden'
+    | 'ops.suppliers.pricePerUnit'
     | 'ops.suppliers.primaryContact'
+    | 'ops.suppliers.refSavedToast'
     | 'ops.suppliers.restore'
     | 'ops.suppliers.restoredToast'
     | 'ops.suppliers.saveContacts'
@@ -3350,10 +3389,17 @@ export interface NamespaceKeys {
     | 'ops.suppliers.searchLabel'
     | 'ops.suppliers.sectionContacts'
     | 'ops.suppliers.sectionDetails'
+    | 'ops.suppliers.seeLedger'
     | 'ops.suppliers.showArchived'
     | 'ops.suppliers.subtitle'
     | 'ops.suppliers.supplierCount'
     | 'ops.suppliers.title'
+    | 'ops.suppliers.unlink'
+    | 'ops.suppliers.unlinkBody'
+    | 'ops.suppliers.unlinkConfirm'
+    | 'ops.suppliers.unlinkConsequence'
+    | 'ops.suppliers.unlinkTitle'
+    | 'ops.suppliers.unlinkedToast'
     | 'ops.suppliers.whatsappHint'
     | 'plans.addCombination'
     | 'plans.addDuration'
@@ -8705,6 +8751,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.unknownItem',
   'kitchen:ops.exceptions.unknownOrder',
   'kitchen:ops.exceptions.unresolvedCount',
+  'kitchen:ops.ledger.allItems',
   'kitchen:ops.ledger.allSuppliers',
   'kitchen:ops.ledger.columnDate',
   'kitchen:ops.ledger.columnItem',
@@ -8714,6 +8761,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
   'kitchen:ops.ledger.filterFrom',
+  'kitchen:ops.ledger.filterItem',
   'kitchen:ops.ledger.filterSupplier',
   'kitchen:ops.ledger.filterTo',
   'kitchen:ops.ledger.nextPage',
@@ -9001,6 +9049,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.columnActions',
   'kitchen:ops.stock.columnHeld',
   'kitchen:ops.stock.columnItem',
+  'kitchen:ops.stock.columnLastPurchase',
   'kitchen:ops.stock.columnQuantity',
   'kitchen:ops.stock.columnThreshold',
   'kitchen:ops.stock.columnUnit',
@@ -9016,11 +9065,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.fieldThreshold',
   'kitchen:ops.stock.fieldThresholdHint',
   'kitchen:ops.stock.fieldWasteQuantity',
+  'kitchen:ops.stock.history',
   'kitchen:ops.stock.inStockBadge',
   'kitchen:ops.stock.ingredientsEmptyBody',
   'kitchen:ops.stock.ingredientsEmptyTitle',
   'kitchen:ops.stock.ingredientsHint',
   'kitchen:ops.stock.ingredientsTitle',
+  'kitchen:ops.stock.lastPurchaseFrom',
+  'kitchen:ops.stock.lastPurchaseHidden',
+  'kitchen:ops.stock.lastPurchaseLoading',
+  'kitchen:ops.stock.lastPurchasePrice',
   'kitchen:ops.stock.levelsTitle',
   'kitchen:ops.stock.lowBadge',
   'kitchen:ops.stock.lowStockCount',
@@ -9029,8 +9083,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.metrics.lowStock',
   'kitchen:ops.stock.metrics.outOfStock',
   'kitchen:ops.stock.metrics.products',
+  'kitchen:ops.stock.neverBought',
   'kitchen:ops.stock.neverStocked',
   'kitchen:ops.stock.noLevels',
+  'kitchen:ops.stock.noPurchaseSupplier',
   'kitchen:ops.stock.noThreshold',
   'kitchen:ops.stock.productsEmptyBody',
   'kitchen:ops.stock.productsEmptyTitle',
@@ -9047,6 +9103,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.wastedToast',
   'kitchen:ops.suppliers.addContact',
   'kitchen:ops.suppliers.addressHint',
+  'kitchen:ops.suppliers.allItemsLinked',
   'kitchen:ops.suppliers.archiveBody',
   'kitchen:ops.suppliers.archiveConfirm',
   'kitchen:ops.suppliers.archiveConsequence',
@@ -9060,7 +9117,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.codeEditHint',
   'kitchen:ops.suppliers.codeMintHint',
   'kitchen:ops.suppliers.columnContact',
+  'kitchen:ops.suppliers.columnItem',
+  'kitchen:ops.suppliers.columnItems',
+  'kitchen:ops.suppliers.columnLastPrice',
   'kitchen:ops.suppliers.columnName',
+  'kitchen:ops.suppliers.columnRef',
   'kitchen:ops.suppliers.columnTerms',
   'kitchen:ops.suppliers.contactNeedsChannel',
   'kitchen:ops.suppliers.contactPosition',
@@ -9072,6 +9133,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.createTitle',
   'kitchen:ops.suppliers.createdToast',
   'kitchen:ops.suppliers.currencyHint',
+  'kitchen:ops.suppliers.editRef',
+  'kitchen:ops.suppliers.editRefBody',
+  'kitchen:ops.suppliers.editRefTitle',
   'kitchen:ops.suppliers.editTitle',
   'kitchen:ops.suppliers.emptyBody',
   'kitchen:ops.suppliers.emptyTitle',
@@ -9084,6 +9148,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.fieldContactWhatsapp',
   'kitchen:ops.suppliers.fieldCurrency',
   'kitchen:ops.suppliers.fieldEmail',
+  'kitchen:ops.suppliers.fieldItemRef',
   'kitchen:ops.suppliers.fieldLeadTime',
   'kitchen:ops.suppliers.fieldName',
   'kitchen:ops.suppliers.fieldNotes',
@@ -9093,22 +9158,42 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.filteredEmptyTitle',
   'kitchen:ops.suppliers.generalContact',
   'kitchen:ops.suppliers.generalContactHint',
+  'kitchen:ops.suppliers.itemCount',
+  'kitchen:ops.suppliers.itemRefHint',
+  'kitchen:ops.suppliers.itemsEmptyBody',
+  'kitchen:ops.suppliers.itemsHint',
+  'kitchen:ops.suppliers.itemsTitle',
   'kitchen:ops.suppliers.leadTimeDays',
   'kitchen:ops.suppliers.leadTimeHint',
   'kitchen:ops.suppliers.leadTimeInvalid',
+  'kitchen:ops.suppliers.linkItem',
+  'kitchen:ops.suppliers.linkItemHint',
+  'kitchen:ops.suppliers.linkItemLabel',
+  'kitchen:ops.suppliers.linkedToast',
   'kitchen:ops.suppliers.loadErrorTitle',
+  'kitchen:ops.suppliers.makePreferred',
   'kitchen:ops.suppliers.makePrimary',
   'kitchen:ops.suppliers.nameRequired',
+  'kitchen:ops.suppliers.neverBoughtHere',
   'kitchen:ops.suppliers.noContact',
   'kitchen:ops.suppliers.noContactPhone',
   'kitchen:ops.suppliers.noContacts',
   'kitchen:ops.suppliers.noCurrency',
+  'kitchen:ops.suppliers.noItemRef',
+  'kitchen:ops.suppliers.noItemsLinked',
   'kitchen:ops.suppliers.noLeadTime',
+  'kitchen:ops.suppliers.noPurchaseDate',
   'kitchen:ops.suppliers.noTerms',
   'kitchen:ops.suppliers.notFoundBody',
   'kitchen:ops.suppliers.notFoundTitle',
   'kitchen:ops.suppliers.paymentTermsHint',
+  'kitchen:ops.suppliers.pickItem',
+  'kitchen:ops.suppliers.preferredBadge',
+  'kitchen:ops.suppliers.preferredToast',
+  'kitchen:ops.suppliers.priceHidden',
+  'kitchen:ops.suppliers.pricePerUnit',
   'kitchen:ops.suppliers.primaryContact',
+  'kitchen:ops.suppliers.refSavedToast',
   'kitchen:ops.suppliers.restore',
   'kitchen:ops.suppliers.restoredToast',
   'kitchen:ops.suppliers.saveContacts',
@@ -9118,10 +9203,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.searchLabel',
   'kitchen:ops.suppliers.sectionContacts',
   'kitchen:ops.suppliers.sectionDetails',
+  'kitchen:ops.suppliers.seeLedger',
   'kitchen:ops.suppliers.showArchived',
   'kitchen:ops.suppliers.subtitle',
   'kitchen:ops.suppliers.supplierCount',
   'kitchen:ops.suppliers.title',
+  'kitchen:ops.suppliers.unlink',
+  'kitchen:ops.suppliers.unlinkBody',
+  'kitchen:ops.suppliers.unlinkConfirm',
+  'kitchen:ops.suppliers.unlinkConsequence',
+  'kitchen:ops.suppliers.unlinkTitle',
+  'kitchen:ops.suppliers.unlinkedToast',
   'kitchen:ops.suppliers.whatsappHint',
   'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',

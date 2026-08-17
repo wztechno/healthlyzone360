@@ -5,8 +5,10 @@ import type {
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateSupplierRequest,
+    DeleteSupplierLinkRequest,
     GoodsReceipt,
     GoodsReceiptResult,
+    ItemLatestPurchase,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
     PostGoodsReceiptRequest,
@@ -29,10 +31,17 @@ import type {
     SupplierContact,
     SupplierDetail,
     SupplierFilter,
+    SupplierLink,
     UpdateSupplierRequest,
+    UpsertSupplierLinkRequest,
 } from '@healthy360/api-client/contracts';
 import type { CursorPage } from '@healthy360/api-client/contracts';
-import type { ProductionOrderId, QualityCheckId, SupplierId } from '@healthy360/domain-types';
+import type {
+    ProductionOrderId,
+    QualityCheckId,
+    StockItemId,
+    SupplierId,
+} from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -331,6 +340,76 @@ export function useReplaceSupplierContactsMutation(): UseMutationResult<
         mutationFn: ({ supplierId, request }: ReplaceSupplierContactsVariables) =>
             repositories.kitchenOps.replaceSupplierContacts(supplierId, request),
         onSuccess: onWritten,
+    });
+}
+
+/**
+ * Records "we buy this from them", or edits the link already there (SUP2).
+ *
+ * Idempotent on the `(supplierId, stockItemId)` pair, so the same press twice is the same row.
+ * Sending `isPreferred: true` also demotes whichever supplier held the flag for that item, which
+ * is why the whole ops root is invalidated afterwards rather than one supplier's entry: the
+ * *other* supplier's page changed too.
+ */
+export function useUpsertSupplierLinkMutation(): UseMutationResult<
+    SupplierLink,
+    unknown,
+    UpsertSupplierLinkRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: UpsertSupplierLinkRequest) =>
+            repositories.kitchenOps.upsertSupplierLink(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Removes one supplier↔item link. Idempotent — unlinking what is not linked is not an error. */
+export function useDeleteSupplierLinkMutation(): UseMutationResult<
+    void,
+    unknown,
+    DeleteSupplierLinkRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: DeleteSupplierLinkRequest) =>
+            repositories.kitchenOps.deleteSupplierLink(request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * The newest purchase of each named shelf, across every supplier (SUP2) — the stock screen's
+ * last-price column.
+ *
+ * A Procurement read joined client-side to the Inventory list, because Inventory may not import
+ * Procurement and the price therefore cannot ride on the stock rows themselves. One request for
+ * the whole visible page, never one per row.
+ *
+ * Items with no priced receipt are **absent** from the answer rather than present with nulls, so a
+ * caller keys the result and treats a miss as *never bought* — which is a different cell from a
+ * redacted price, and must stay one.
+ *
+ * Held back while the id list is empty: an unfiltered request for nothing is a round trip that can
+ * only answer nothing.
+ */
+export function useItemLatestPurchasesQuery(
+    stockItemIds: readonly StockItemId[],
+    enabled = true,
+): UseQueryResult<readonly ItemLatestPurchase[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.itemLatestPurchases(stockItemIds.map(String)),
+        enabled: enabled && stockItemIds.length > 0 && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listItemLatestPurchases(stockItemIds);
+        },
     });
 }
 

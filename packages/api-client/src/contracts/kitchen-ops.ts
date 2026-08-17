@@ -194,6 +194,14 @@ export interface Supplier {
      */
     readonly archivedAt: IsoDateTime | null;
     readonly contactCount: number;
+    /**
+     * How many stock items this supplier is linked to (SUP2) — the book's "Items supplied" column.
+     *
+     * Counted on the list query rather than derived from {@link SupplierDetail.suppliedItems},
+     * which a list row does not carry: loading every link of every supplier to length an array is
+     * the N+1 the count exists to avoid.
+     */
+    readonly suppliedItemCount: number;
     /** Who to call, for a list row. `null` only when the supplier has no named contacts at all. */
     readonly primaryContact: SupplierPrimaryContact | null;
 }
@@ -224,9 +232,135 @@ export interface SupplierContact {
     readonly displayOrder: number;
 }
 
-/** A supplier with its full contact set — what the supplier's own page reads (SUP1). */
+/**
+ * A supplier with its full contact set and everything it supplies — what the supplier's own page
+ * reads (SUP1, extended by SUP2).
+ */
 export interface SupplierDetail extends Supplier {
     readonly contacts: readonly SupplierContact[];
+    /** What this supplier sells the kitchen, preferred link first then by item name (SUP2). */
+    readonly suppliedItems: readonly SuppliedItem[];
+    /**
+     * `true` when the reader lacks `inventory.view_costs_organisation` and every
+     * `suppliedItems[].lastPurchase` money field was served as `null` (SUP2).
+     */
+    readonly costsRedacted: boolean;
+}
+
+/** The shelf a supplier link points at, summarised for the row that renders it (SUP2). */
+export interface SuppliedStockItem {
+    readonly id: StockItemId;
+    readonly code: string;
+    readonly nameEn: string;
+    readonly unitCode: string;
+    /** Which of the two books this shelf belongs to — the same field {@link StockItem} publishes. */
+    readonly backing: StockItemBacking;
+}
+
+/**
+ * One "we buy this from them" row on the supplier's page (SUP2).
+ *
+ * `lastPurchase` being `null` is **not** the same as a `lastPurchase` whose money is redacted, and
+ * a screen must render the two differently: null is *never bought here yet*, redacted is *Hidden*.
+ * Collapsing them would tell a person without the cost permission that a supplier they buy from
+ * weekly has never sold them anything.
+ */
+export interface SuppliedItem {
+    /** `null` only if the shelf vanished between the read and the render. */
+    readonly stockItem: SuppliedStockItem | null;
+    /** At most one supplier per stock item holds this, enforced by a partial unique index. */
+    readonly isPreferred: boolean;
+    /**
+     * The supplier's own catalogue reference, transcribed from their price list so an order sheet
+     * can quote it back. `ref` rather than `code`: it is their identifier, not this kitchen's.
+     */
+    readonly supplierItemRef: string | null;
+    readonly lastPurchase: LastPurchase | null;
+}
+
+/**
+ * What something was last bought for (§3.4) — derived live from the newest priced goods-receipt
+ * line, never stored.
+ *
+ * Unpriced deliveries are skipped entirely on the server, so this is always a real purchase: an
+ * item received only on unpriced receipts has no `LastPurchase` at all rather than one with a null
+ * amount.
+ *
+ * **The money is the only redacted part.** Without `inventory.view_costs_organisation`,
+ * `unitPriceAmount` and `costCurrencyCode` are `null` while the date, quantity and unit remain —
+ * those are warehouse facts a receiving clerk entered, not the valuation the cost permission gates.
+ * The amount is quoted **per `unitCode`** and always beside its own currency: a bare `6.90` without
+ * "USD per kg" is not a price, and nothing here is ever converted.
+ */
+export interface LastPurchase {
+    readonly goodsReceiptId: GoodsReceiptId;
+    /** The supplier delivery note or invoice number the price came from, as written. */
+    readonly documentRef: string | null;
+    readonly receivedAt: IsoDateTime | null;
+    /** A decimal string. Never redacted. */
+    readonly quantity: string;
+    /** The unit the price is quoted per; `null` means the stock item's own unit. */
+    readonly unitId: string | null;
+    /** That unit's code, resolved for display — `kg`, `l`, `piece`. */
+    readonly unitCode: string | null;
+    /** Major-unit decimal string per {@link unitCode}, or `null` when costs are redacted. */
+    readonly unitPriceAmount: string | null;
+    readonly costCurrencyCode: string | null;
+}
+
+/**
+ * One stock item's newest purchase **across every supplier** (SUP2), with the supplier that sold it.
+ *
+ * Served by a Procurement endpoint rather than beside the stock item itself, and the reason is a
+ * module boundary: the stock list comes from Inventory, and Inventory may not import Procurement.
+ * The client holds both lists and joins them on `stockItemId`, which is why this row carries one.
+ *
+ * `supplier` is nullable — a direct market-run receipt records none, and the price it captured is
+ * still the last price of that item.
+ */
+export interface ItemLatestPurchase extends LastPurchase {
+    readonly stockItemId: StockItemId;
+    readonly supplier: SupplierRef | null;
+}
+
+/**
+ * Records "we buy this from them", or updates the link that is already there (SUP2). Idempotent on
+ * the `(supplierId, stockItemId)` pair.
+ *
+ * **One mutation surface, not two mirrored set-replaces.** A supplier's supplied items and a stock
+ * item's suppliers are one table read from two ends; a replace at either end would silently undo
+ * what the other had just written.
+ *
+ * `isPreferred` and `supplierItemRef` are keyed on presence: omitting one leaves the stored value
+ * alone, `supplierItemRef: null` clears a reference typed by mistake. `isPreferred: true` **moves**
+ * the flag off whichever supplier held it for this item; `false` clears this link's own flag and
+ * promotes nobody.
+ */
+export interface UpsertSupplierLinkRequest {
+    readonly supplierId: SupplierId;
+    readonly stockItemId: StockItemId;
+    readonly isPreferred?: boolean | undefined;
+    readonly supplierItemRef?: string | null | undefined;
+}
+
+/** The pair that identifies one link, for the unlink (SUP2). */
+export interface DeleteSupplierLinkRequest {
+    readonly supplierId: SupplierId;
+    readonly stockItemId: StockItemId;
+}
+
+/**
+ * The link after a write, and nothing more (SUP2).
+ *
+ * Every ops write in this workspace answers the minimum and lets the screen re-read what it
+ * changed. A supplied item's last purchase price comes from the receipt ledger and cannot change
+ * because somebody saved a link, so returning it here would invent a read nobody asked for.
+ */
+export interface SupplierLink {
+    readonly supplierId: SupplierId;
+    readonly stockItemId: StockItemId;
+    readonly isPreferred: boolean;
+    readonly supplierItemRef: string | null;
 }
 
 /** A supplier named on a receipt or ledger line (INV1.1). */
@@ -425,7 +559,7 @@ export interface PurchaseLedgerLine {
     readonly costsRedacted: boolean;
 }
 
-/** Date range / supplier / ingredient filters over the purchases ledger, plus the cursor. */
+/** Date range / supplier / branch / item filters over the purchases ledger, plus the cursor. */
 export interface PurchaseLedgerFilter extends CursorPageRequest {
     /** Inclusive lower bound on the receipt date, as `YYYY-MM-DD`. */
     readonly from?: string | undefined;
@@ -433,6 +567,14 @@ export interface PurchaseLedgerFilter extends CursorPageRequest {
     readonly to?: string | undefined;
     readonly supplierId?: SupplierId | undefined;
     readonly ingredientId?: IngredientId | undefined;
+    /**
+     * Only lines that received this shelf (SUP2) — what the stock screen's per-row **History**
+     * link lands on. Beside `ingredientId` rather than replacing it: one ingredient can back both
+     * a shelf and a resold product, so "this ingredient" and "this shelf" are different questions.
+     */
+    readonly stockItemId?: StockItemId | undefined;
+    /** Only lines whose receipt was posted at this branch (SUP2). */
+    readonly branchId?: BranchId | undefined;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -685,6 +827,28 @@ export interface KitchenOpsRepository {
         supplierId: SupplierId,
         request: ReplaceSupplierContactsRequest,
     ): Promise<readonly SupplierContact[]>;
+    /**
+     * Records "we buy this from them", or updates the link already there (SUP2). Idempotent on the
+     * pair. Needs `inventory.manage_organisation` — there is no separate link permission.
+     */
+    upsertSupplierLink(request: UpsertSupplierLinkRequest): Promise<SupplierLink>;
+    /**
+     * Removes one supplier↔item link. Idempotent — unlinking something that is not linked succeeds,
+     * because the caller's intention is already true. Needs `inventory.manage_organisation`.
+     */
+    deleteSupplierLink(request: DeleteSupplierLinkRequest): Promise<void>;
+    /**
+     * The newest purchase of each named shelf across every supplier (SUP2), for the stock screen's
+     * last-price column. At most 200 ids per call.
+     *
+     * Items with no priced receipt are **absent** from the answer rather than present with nulls,
+     * so a caller keys the result by `stockItemId` and treats a miss as *never bought*. Needs
+     * `inventory.view_organisation`; without `inventory.view_costs_organisation` the money is null
+     * rather than the request refused.
+     */
+    listItemLatestPurchases(
+        stockItemIds: readonly StockItemId[],
+    ): Promise<readonly ItemLatestPurchase[]>;
     /**
      * The goods-receipt form's reference data (INV1.1) — the currencies a price can be booked in, the
      * organisation's default currency, and the measurement units a line can be quoted in. Needs

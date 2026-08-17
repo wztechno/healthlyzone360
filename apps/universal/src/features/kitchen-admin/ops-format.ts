@@ -490,6 +490,17 @@ export function supplierContactRowTestId(localKey: string): string {
     return `kitchen-supplier-contact-${localKey}`;
 }
 
+/**
+ * One supplied-item row on the supplier's page (SUP2).
+ *
+ * Keyed by the *stock item*, not by a link identifier: the API identifies a link by its
+ * `(supplier, item)` pair and never publishes a row id, and the supplier is already fixed by the
+ * page the row is on.
+ */
+export function suppliedItemRowTestId(stockItemId: string): string {
+    return `kitchen-supplier-item-${stockItemId}`;
+}
+
 export function goodsReceiptRowTestId(goodsReceiptId: string): string {
     return `kitchen-goods-receipt-${goodsReceiptId}`;
 }

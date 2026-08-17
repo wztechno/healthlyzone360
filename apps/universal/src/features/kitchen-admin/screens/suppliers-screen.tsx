@@ -46,11 +46,12 @@ import { supplierRowTestId } from '../ops-format.ts';
  * the book rather than replacing it: a person looking for the supplier they retired last month wants
  * to see it *among* the live ones, so they can tell which is which.
  *
- * ## Why there is no supplied-items column yet
+ * ## The supplied-items count is a count, not a list
  *
- * Slice 2 adds supplier↔item links. A column of zeroes today would be a promise the data cannot
- * keep, so the table has the two columns it can actually fill and gains the third when there is
- * something to put in it.
+ * SUP2 added supplier↔item links, and the column that shows them shows a **number** taken from the
+ * list row's own `suppliedItemCount`. The links themselves live on the supplier's page: fetching
+ * every link of every supplier to render a book would be exactly the N+1 the contact summary
+ * beside it already exists to avoid.
  */
 
 export function SuppliersScreen() {
@@ -160,6 +161,21 @@ function SuppliersList() {
             header: t('kitchen:ops.suppliers.columnContact'),
             flex: 2,
             render: (row) => <ContactCell row={row} />,
+        },
+        {
+            key: 'suppliedItems',
+            header: t('kitchen:ops.suppliers.columnItems'),
+            numeric: true,
+            render: (row) => (
+                <Text
+                    tone={row.suppliedItemCount === 0 ? 'secondary' : 'primary'}
+                    testID={`${supplierRowTestId(String(row.id))}-supplied-items`}
+                >
+                    {row.suppliedItemCount === 0
+                        ? t('kitchen:ops.suppliers.noItemsLinked')
+                        : t('kitchen:ops.suppliers.itemCount', { count: row.suppliedItemCount })}
+                </Text>
+            ),
         },
         {
             key: 'terms',

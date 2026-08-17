@@ -21,7 +21,10 @@ use Illuminate\Http\Request;
  *
  * Contacts are counted in one query rather than fetched per row: the list shows
  * "who do I call" beside each supplier, and that summary is exactly the thing a
- * naive implementation turns into an N+1.
+ * naive implementation turns into an N+1. Supplied items are counted by
+ * `withCount` rather than loaded at all (SUP2) — the book shows a number, and
+ * loading every link of every supplier to length an array would be the same
+ * mistake in a second place.
  */
 final class SupplierIndexController
 {
@@ -33,6 +36,7 @@ final class SupplierIndexController
 
         $suppliers = Supplier::query()
             ->with('contacts')
+            ->withCount('suppliedItems')
             ->unless($includeArchived, fn ($query) => $query->notArchived())
             ->orderBy('code')
             ->get();

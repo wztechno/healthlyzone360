@@ -222,12 +222,15 @@ use Healthy360\Pricing\Http\Controllers\PriceListStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
+use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
 use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
 use Healthy360\Procurement\Http\Controllers\SupplierArchiveController;
 use Healthy360\Procurement\Http\Controllers\SupplierContactsReplaceController;
 use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
+use Healthy360\Procurement\Http\Controllers\SupplierLinkDeleteController;
+use Healthy360\Procurement\Http\Controllers\SupplierLinkUpsertController;
 use Healthy360\Procurement\Http\Controllers\SupplierRestoreController;
 use Healthy360\Procurement\Http\Controllers\SupplierShowController;
 use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
@@ -1429,6 +1432,21 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 | delivery should not need the code that opens the ledger.
                 */
                 Route::get('/procurement/suppliers/{supplierId}', SupplierShowController::class)->name('catalogue.procurement.suppliers.show');
+
+                /*
+                | The item-level last purchase (SUP2) reads on the plain view
+                | code, with the *money* redacted inside the response without
+                | the cost code — the same split the goods-receipts index draws.
+                | A 403 here would blank the stock screen's whole column for a
+                | person entitled to know that something was last bought on
+                | Tuesday, and would make "hidden" and "never bought"
+                | indistinguishable on screen, which §3.4 keeps apart.
+                |
+                | It lives in Procurement rather than beside the stock list
+                | because Inventory may not import Procurement; the client joins
+                | the two lists on `stock_item_id`.
+                */
+                Route::get('/procurement/item-purchases/latest', ItemLatestPurchaseIndexController::class)->name('catalogue.procurement.item-purchases.latest');
                 Route::get('/procurement/reference', ProcurementReferenceController::class)->name('catalogue.procurement.reference.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
@@ -1467,6 +1485,21 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/procurement/suppliers/{supplierId}/archive', SupplierArchiveController::class)->name('catalogue.procurement.suppliers.archive');
                 Route::post('/procurement/suppliers/{supplierId}/restore', SupplierRestoreController::class)->name('catalogue.procurement.suppliers.restore');
                 Route::put('/procurement/suppliers/{supplierId}/contacts', SupplierContactsReplaceController::class)->name('catalogue.procurement.suppliers.contacts.replace');
+
+                /*
+                | Supplier↔item links (SUP2) take the same manage code and no
+                | new one: naming who sells the kitchen its flour is the same
+                | configuration job as writing the supplier record itself.
+                |
+                | One idempotent upsert and one idempotent delete over a *pair*,
+                | rather than two mirrored set-replaces — the supplier page and
+                | (later) the item page read one table from two ends, and a
+                | replace at either end would silently undo the other's work.
+                | The delete carries its pair in query parameters because that
+                | is where every other delete in this API names its subject.
+                */
+                Route::put('/procurement/supplier-links', SupplierLinkUpsertController::class)->name('catalogue.procurement.supplier-links.upsert');
+                Route::delete('/procurement/supplier-links', SupplierLinkDeleteController::class)->name('catalogue.procurement.supplier-links.delete');
                 Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');
                 Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
                 Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');

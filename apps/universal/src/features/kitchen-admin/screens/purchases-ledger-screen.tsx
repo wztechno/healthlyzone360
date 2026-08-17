@@ -12,14 +12,18 @@ import {
     TextInputField,
 } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
-import { SupplierId } from '@healthy360/domain-types';
+import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { usePurchasesLedgerQuery, useSuppliersQuery } from '../../../data/kitchen-ops-hooks.ts';
+import {
+    usePurchasesLedgerQuery,
+    useStockItemsQuery,
+    useSuppliersQuery,
+} from '../../../data/kitchen-ops-hooks.ts';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { OpsPanel } from '../ops-panel.tsx';
@@ -31,41 +35,62 @@ import { OpsPanel } from '../ops-panel.tsx';
  * line total. Behind `inventory.view_costs_organisation`: this screen *is* the valuation, so a
  * person without the cost permission never reaches it (the card is hidden and the `<Gate>` refuses).
  *
- * Filters are the three questions a manager reconciling a month asks — date range and supplier — and
- * the page walks forward by cursor. The screen shows what was bought and what it cost, and nothing
- * about how any of it is used: no recipe, no formulation, no derivation passes through the ledger.
+ * Filters are the questions a manager reconciling a month asks — date range, supplier and, since
+ * SUP2, stock item — and the page walks forward by cursor. The screen shows what was bought and
+ * what it cost, and nothing about how any of it is used: no recipe, no formulation, no derivation
+ * passes through the ledger.
+ *
+ * ## Deep links seed the filters, they do not lock them
+ *
+ * The supplier page and the stock screen both link in here pre-filtered (`?supplier=`, `?item=`).
+ * Those arrive as {@link PurchasesLedgerScreenProps} and seed the filter state **once**, so the
+ * person who followed the link lands on the answer they asked for and can then widen it — a filter
+ * driven by the URL for the life of the screen would be a page they could not use.
  */
-export function PurchasesLedgerScreen() {
+
+export interface PurchasesLedgerScreenProps {
+    /** Pre-select a supplier, from `/kitchen/purchases-ledger?supplier=…`. */
+    readonly supplier?: string | undefined;
+    /** Pre-select a stock item, from `/kitchen/purchases-ledger?item=…`. */
+    readonly item?: string | undefined;
+}
+
+export function PurchasesLedgerScreen({ supplier, item }: PurchasesLedgerScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_COSTS_PERMISSION] }}
             testID="kitchen-purchases-ledger"
         >
-            <PurchasesLedger />
+            <PurchasesLedger supplier={supplier} item={item} />
         </Gate>
     );
 }
 
-function PurchasesLedger() {
+function PurchasesLedger({ supplier, item }: PurchasesLedgerScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
 
-    const [supplierId, setSupplierId] = useState<string | null>(null);
+    // Seeded from the deep link, then owned by the screen. A parameter that kept overriding the
+    // state would make the filter unclearable for anybody who arrived through a link.
+    const [supplierId, setSupplierId] = useState<string | null>(supplier ?? null);
+    const [stockItemId, setStockItemId] = useState<string | null>(item ?? null);
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
     const [cursor, setCursor] = useState<string | undefined>(undefined);
 
     const suppliers = useSuppliersQuery();
+    const stockItems = useStockItemsQuery();
     const filter = useMemo(
         () => ({
             ...(supplierId === null ? {} : { supplierId: SupplierId.unsafe(supplierId) }),
+            ...(stockItemId === null ? {} : { stockItemId: StockItemId.unsafe(stockItemId) }),
             ...(from.trim() === '' ? {} : { from: from.trim() }),
             ...(to.trim() === '' ? {} : { to: to.trim() }),
             ...(cursor === undefined ? {} : { cursor }),
         }),
-        [supplierId, from, to, cursor],
+        [supplierId, stockItemId, from, to, cursor],
     );
     const ledger = usePurchasesLedgerQuery(filter);
 
@@ -80,6 +105,19 @@ function PurchasesLedger() {
             })),
         ],
         [suppliers.data, locale, t],
+    );
+
+    // Server order kept — stocked first, then ever-moved, then by name. Re-sorting alphabetically
+    // would put two hundred never-received shelves above the dozen this kitchen actually buys.
+    const stockItemOptions = useMemo(
+        () => [
+            { value: '', label: t('kitchen:ops.ledger.allItems') },
+            ...(stockItems.data ?? []).map((row) => ({
+                value: String(row.id),
+                label: `${row.code} — ${row.nameEn}`,
+            })),
+        ],
+        [stockItems.data, t],
     );
 
     function resetCursor() {
@@ -172,6 +210,18 @@ function PurchasesLedger() {
                             value={supplierId ?? ''}
                             onChange={(value) => {
                                 setSupplierId(value === '' ? null : value);
+                                resetCursor();
+                            }}
+                            searchable
+                            className="min-w-[200px] flex-1"
+                        />
+                        <Select
+                            testID="kitchen-ledger-filter-item"
+                            label={t('kitchen:ops.ledger.filterItem')}
+                            options={stockItemOptions}
+                            value={stockItemId ?? ''}
+                            onChange={(value) => {
+                                setStockItemId(value === '' ? null : value);
                                 resetCursor();
                             }}
                             searchable

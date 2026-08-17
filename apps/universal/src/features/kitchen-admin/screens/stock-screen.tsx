@@ -1,4 +1,4 @@
-import type { StockItem, StockLevel } from '@healthy360/api-client/contracts';
+import type { ItemLatestPurchase, StockItem, StockLevel } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -20,9 +20,12 @@ import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useRouter } from 'expo-router';
+
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    useItemLatestPurchasesQuery,
     useRecordStockAdjustmentMutation,
     useRecordStockWasteMutation,
     useSetStockThresholdMutation,
@@ -30,7 +33,11 @@ import {
     useStockLevelsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    INVENTORY_MANAGE_PERMISSION,
+    INVENTORY_VIEW_COSTS_PERMISSION,
+    INVENTORY_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { parseQuantity } from '../format.ts';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
@@ -66,6 +73,18 @@ import {
  * `recordStockAdjustment` and `recordStockWaste` both create the level row if none exists yet, so
  * the row actions live on the *item* tables — the complete set of things that can be adjusted —
  * rather than on the levels table, which is only the subset that already has a quantity.
+ *
+ * ## The last-purchase column is a second read, joined here
+ *
+ * SUP2 adds "what did this last cost, and who from" to both item books. It cannot ride on the
+ * stock rows: those come from Inventory, and Inventory may not import Procurement. So the price is
+ * a separate Procurement read over the visible items' ids, joined on `stockItemId` in this screen.
+ * One request for both books rather than one per row, and the join is a `Map` rather than a `find`
+ * per cell for the same reason.
+ *
+ * Three cells, kept three: **Hidden** without the cost permission, an actual price with it, and
+ * *never bought* when no priced receipt exists. The last two are not the same fact, and a person
+ * who may not read costs still gets to see that something was bought.
  */
 
 export function StockScreen() {
@@ -82,12 +101,17 @@ export function StockScreen() {
 
 type MovementMode = 'adjust' | 'waste';
 
+/** The latest-purchase endpoint's own cap. Asking for more than it accepts would fail the lot. */
+const MAX_PRICED_ITEMS = 200;
+
 function Stock() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const toast = useToast();
+    const router = useRouter();
     const access = useAccessState();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
+    const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
     const branchId = access.branch?.id ?? null;
 
     const items = useStockItemsQuery();
@@ -121,6 +145,25 @@ function Stock() {
         () => (items.data ?? []).filter((row) => row.backing === 'product'),
         [items.data],
     );
+
+    // Both books at once, capped at the endpoint's own limit. A kitchen with more shelves than
+    // that gets prices for the ranked head of the list — which is the part somebody scrolling
+    // actually reads — rather than a refused request and no column at all.
+    const pricedItemIds = useMemo(
+        () => (items.data ?? []).slice(0, MAX_PRICED_ITEMS).map((row) => row.id),
+        [items.data],
+    );
+    const latestPurchases = useItemLatestPurchasesQuery(pricedItemIds);
+
+    // A map rather than a `find` per cell: the tables render every shelf, and a linear scan inside
+    // a column renderer is the quiet O(n²) that only shows up on a real library.
+    const purchaseByItem = useMemo(() => {
+        const byItem = new Map<string, ItemLatestPurchase>();
+        for (const purchase of latestPurchases.data ?? []) {
+            byItem.set(String(purchase.stockItemId), purchase);
+        }
+        return byItem;
+    }, [latestPurchases.data]);
 
     const metrics: readonly OpsMetric[] = [
         {
@@ -338,6 +381,71 @@ function Stock() {
             render: (row) => <Text tone="secondary">{row.unitCode}</Text>,
         },
         {
+            key: 'lastPurchase',
+            header: t('kitchen:ops.stock.columnLastPurchase'),
+            flex: 2,
+            render: (row) => {
+                const testID = stockItemRowTestId(String(row.id));
+                const purchase = purchaseByItem.get(String(row.id));
+
+                // Absent means never bought at a price — the endpoint omits such items rather
+                // than answering a purchase-shaped object with nulls in it.
+                if (purchase === undefined) {
+                    return (
+                        <Text tone="secondary" testID={`${testID}-never-bought`}>
+                            {latestPurchases.isPending
+                                ? t('kitchen:ops.stock.lastPurchaseLoading')
+                                : t('kitchen:ops.stock.neverBought')}
+                        </Text>
+                    );
+                }
+
+                const supplierLine =
+                    purchase.supplier === null
+                        ? t('kitchen:ops.stock.noPurchaseSupplier')
+                        : purchase.supplier.nameEn;
+
+                if (!canViewCosts || purchase.unitPriceAmount === null) {
+                    return (
+                        <Stack space="none">
+                            <Text tone="secondary" testID={`${testID}-price-hidden`}>
+                                {t('kitchen:ops.stock.lastPurchaseHidden')}
+                            </Text>
+                            <Text variant="caption" tone="secondary">
+                                {supplierLine}
+                            </Text>
+                        </Stack>
+                    );
+                }
+
+                return (
+                    <Stack space="none">
+                        <Text variant="bodyStrong" testID={`${testID}-price`}>
+                            {/* Currency and unit come off the wire — never assumed. */}
+                            {t('kitchen:ops.stock.lastPurchasePrice', {
+                                amount: formatter.formatNumber(Number(purchase.unitPriceAmount), {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                }),
+                                currency: purchase.costCurrencyCode ?? '',
+                                unit: purchase.unitCode ?? '',
+                            })}
+                        </Text>
+                        <Text variant="caption" tone="secondary" testID={`${testID}-price-source`}>
+                            {purchase.receivedAt === null
+                                ? supplierLine
+                                : t('kitchen:ops.stock.lastPurchaseFrom', {
+                                      supplier: supplierLine,
+                                      date: formatter.formatDate(purchase.receivedAt, {
+                                          dateStyle: 'medium',
+                                      }),
+                                  })}
+                        </Text>
+                    </Stack>
+                );
+            },
+        },
+        {
             key: 'held',
             header: t('kitchen:ops.stock.columnHeld'),
             /*
@@ -367,43 +475,67 @@ function Stock() {
         },
     ];
 
-    /** Adjust / waste / threshold, offered identically on both books. */
-    const itemRowAction = canManage
-        ? {
-              header: t('kitchen:ops.stock.columnActions'),
-              render: (row: StockItem) => (
-                  <Inline space="xs" wrap justify="end">
-                      <Button
-                          testID={`${stockItemRowTestId(String(row.id))}-adjust`}
-                          size="sm"
-                          variant="secondary"
-                          label={t('kitchen:ops.stock.adjust')}
-                          onPress={() => {
-                              setMovement({ item: row, mode: 'adjust' });
-                          }}
-                      />
-                      <Button
-                          testID={`${stockItemRowTestId(String(row.id))}-waste`}
-                          size="sm"
-                          variant="ghost"
-                          label={t('kitchen:ops.stock.waste')}
-                          onPress={() => {
-                              setMovement({ item: row, mode: 'waste' });
-                          }}
-                      />
-                      <Button
-                          testID={`${stockItemRowTestId(String(row.id))}-threshold`}
-                          size="sm"
-                          variant="ghost"
-                          label={t('kitchen:ops.stock.threshold')}
-                          onPress={() => {
-                              openThreshold(row);
-                          }}
-                      />
-                  </Inline>
-              ),
-          }
-        : undefined;
+    /**
+     * Adjust / waste / threshold for a manager, plus **History** for anyone who may read costs.
+     *
+     * The two halves are gated separately rather than the column being one permission's: the
+     * ledger this links into is behind `inventory.view_costs_organisation`, and a person who may
+     * count a shelf without reading its valuation would otherwise get a link to a forbidden page.
+     */
+    const itemRowAction =
+        canManage || canViewCosts
+            ? {
+                  header: t('kitchen:ops.stock.columnActions'),
+                  render: (row: StockItem) => (
+                      <Inline space="xs" wrap justify="end">
+                          {canManage ? (
+                              <>
+                                  <Button
+                                      testID={`${stockItemRowTestId(String(row.id))}-adjust`}
+                                      size="sm"
+                                      variant="secondary"
+                                      label={t('kitchen:ops.stock.adjust')}
+                                      onPress={() => {
+                                          setMovement({ item: row, mode: 'adjust' });
+                                      }}
+                                  />
+                                  <Button
+                                      testID={`${stockItemRowTestId(String(row.id))}-waste`}
+                                      size="sm"
+                                      variant="ghost"
+                                      label={t('kitchen:ops.stock.waste')}
+                                      onPress={() => {
+                                          setMovement({ item: row, mode: 'waste' });
+                                      }}
+                                  />
+                                  <Button
+                                      testID={`${stockItemRowTestId(String(row.id))}-threshold`}
+                                      size="sm"
+                                      variant="ghost"
+                                      label={t('kitchen:ops.stock.threshold')}
+                                      onPress={() => {
+                                          openThreshold(row);
+                                      }}
+                                  />
+                              </>
+                          ) : null}
+                          {canViewCosts ? (
+                              <Button
+                                  testID={`${stockItemRowTestId(String(row.id))}-history`}
+                                  size="sm"
+                                  variant="ghost"
+                                  label={t('kitchen:ops.stock.history')}
+                                  onPress={() => {
+                                      router.push(
+                                          `/kitchen/purchases-ledger?item=${String(row.id)}` as never,
+                                      );
+                                  }}
+                              />
+                          ) : null}
+                      </Inline>
+                  ),
+              }
+            : undefined;
 
     const failure = toFailure(items.error) ?? toFailure(levels.error);
 

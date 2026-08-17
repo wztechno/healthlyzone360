@@ -12,6 +12,7 @@ use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * GET /catalogue/procurement/purchases-ledger — the browsable record behind the
@@ -19,8 +20,17 @@ use Illuminate\Http\Request;
  *
  * Every goods-receipt line, newest first, flattened with the date, supplier and
  * item it belongs to: date, supplier, item, quantity, unit, unit price, line
- * total. Filterable by date range, supplier and ingredient — the three
- * questions a manager reconciling a month's spend actually asks.
+ * total. Filterable by date range, supplier, branch, stock item and ingredient —
+ * the questions a manager reconciling a month's spend actually asks.
+ *
+ * `stock_item_id` and `branch_id` arrive with SUP2 and are what the two new
+ * deep links land on: the supplier page's "everything bought from this
+ * supplier" and the stock screen's per-row "History". Both are validated
+ * against the active organisation with `exists`, so a hand-typed id from
+ * another kitchen is a `422` rather than an empty page that looks like a fact.
+ * `stock_item_id` sits beside `ingredient_id` rather than replacing it: one
+ * ingredient can back a shelf and a resold product, so "this ingredient" and
+ * "this shelf" are genuinely different questions.
  *
  * Behind `inventory.view_costs_organisation` at the route: this surface exists
  * to read the valuation, so someone without the cost permission gets a 403
@@ -44,20 +54,36 @@ final class PurchasesLedgerIndexController
      */
     public function __invoke(Request $request, TenantContext $context): JsonResponse
     {
+        $organisationId = $context->organisationId();
+
         $validated = $request->validate([
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
             'supplier_id' => ['nullable', 'uuid'],
             'ingredient_id' => ['nullable', 'uuid'],
+            'stock_item_id' => [
+                'nullable',
+                'uuid',
+                Rule::exists('stock_items', 'id')->where('organisation_id', $organisationId),
+            ],
+            'branch_id' => [
+                'nullable',
+                'uuid',
+                Rule::exists('organisation_branches', 'id')->where('organisation_id', $organisationId),
+            ],
         ]);
 
         $query = GoodsReceiptLine::query()
             ->with(['goodsReceipt.supplier', 'stockItem'])
-            ->whereHas('goodsReceipt', function ($receipt) use ($context, $validated): void {
-                $receipt->where('organisation_id', $context->organisationId());
+            ->whereHas('goodsReceipt', function ($receipt) use ($organisationId, $validated): void {
+                $receipt->where('organisation_id', $organisationId);
 
                 if (isset($validated['supplier_id'])) {
                     $receipt->where('supplier_id', $validated['supplier_id']);
+                }
+
+                if (isset($validated['branch_id'])) {
+                    $receipt->where('branch_id', $validated['branch_id']);
                 }
 
                 if (isset($validated['from'])) {
@@ -68,6 +94,10 @@ final class PurchasesLedgerIndexController
                     $receipt->where('received_at', '<=', $validated['to']);
                 }
             });
+
+        if (isset($validated['stock_item_id'])) {
+            $query->where('stock_item_id', $validated['stock_item_id']);
+        }
 
         if (isset($validated['ingredient_id'])) {
             $ingredientId = $validated['ingredient_id'];

@@ -21,10 +21,13 @@ import type {
     CreateProductionOrderRequest,
     CreateQualityCheckRequest,
     CreateSupplierRequest,
+    DeleteSupplierLinkRequest,
     GoodsReceipt,
     GoodsReceiptLine,
     GoodsReceiptResult,
+    ItemLatestPurchase,
     KitchenOpsRepository,
+    LastPurchase,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
     PostGoodsReceiptRequest,
@@ -43,17 +46,22 @@ import type {
     StockMovement,
     StockWasteRequest,
     ReplaceSupplierContactsRequest,
+    SuppliedItem,
     Supplier,
     SupplierContact,
     SupplierDetail,
     SupplierFilter,
+    SupplierLink,
     SupplierRef,
     UpdateSupplierRequest,
+    UpsertSupplierLinkRequest,
 } from '../contracts/kitchen-ops.ts';
 import type {
     ConsumptionException as WireConsumptionException,
     GoodsReceipt as WireGoodsReceipt,
     GoodsReceiptLine as WireGoodsReceiptLine,
+    ItemLatestPurchase as WireItemLatestPurchase,
+    LastPurchase as WireLastPurchase,
     MonthlyCostReportRow as WireMonthlyCostReportRow,
     ProcurementReference as WireProcurementReference,
     ProductionOrder as WireProductionOrder,
@@ -62,9 +70,11 @@ import type {
     StockItem as WireStockItem,
     StockLevel as WireStockLevel,
     StockMovement as WireStockMovement,
+    SuppliedItem as WireSuppliedItem,
     Supplier as WireSupplier,
     SupplierContact as WireSupplierContact,
     SupplierDetail as WireSupplierDetail,
+    SupplierLink as WireSupplierLink,
     SupplierRef as WireSupplierRef,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
@@ -139,6 +149,7 @@ function mapSupplier(wire: WireSupplier): Supplier {
         notes: wire.notes,
         archivedAt: wire.archived_at,
         contactCount: wire.contact_count,
+        suppliedItemCount: wire.supplied_item_count,
         primaryContact:
             wire.primary_contact === null
                 ? null
@@ -159,8 +170,65 @@ function mapSupplierContact(wire: WireSupplierContact): SupplierContact {
     };
 }
 
+function mapLastPurchase(wire: WireLastPurchase): LastPurchase {
+    return {
+        goodsReceiptId: GoodsReceiptId.unsafe(wire.goods_receipt_id),
+        documentRef: wire.document_ref,
+        receivedAt: wire.received_at,
+        quantity: wire.quantity,
+        unitId: wire.unit_id,
+        unitCode: wire.unit_code,
+        // Money stays a string all the way through: the wire's decimals are the precision
+        // guarantee, and `Number()` here would round a real price before anything formatted it.
+        unitPriceAmount: wire.unit_price_amount,
+        costCurrencyCode: wire.cost_currency_code,
+    };
+}
+
+function mapSuppliedItem(wire: WireSuppliedItem): SuppliedItem {
+    return {
+        stockItem:
+            wire.stock_item === null
+                ? null
+                : {
+                      id: StockItemId.unsafe(wire.stock_item.id),
+                      code: wire.stock_item.code,
+                      nameEn: wire.stock_item.name_en,
+                      unitCode: wire.stock_item.unit_code,
+                      backing: wire.stock_item.backing,
+                  },
+        isPreferred: wire.is_preferred,
+        supplierItemRef: wire.supplier_item_ref,
+        // Null here is "never bought here yet" and is never conflated with a redacted amount —
+        // the two are different facts and the screen renders them differently.
+        lastPurchase: wire.last_purchase === null ? null : mapLastPurchase(wire.last_purchase),
+    };
+}
+
+function mapItemLatestPurchase(wire: WireItemLatestPurchase): ItemLatestPurchase {
+    return {
+        ...mapLastPurchase(wire),
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        supplier: mapSupplierRef(wire.supplier),
+    };
+}
+
 function mapSupplierDetail(wire: WireSupplierDetail): SupplierDetail {
-    return { ...mapSupplier(wire), contacts: wire.contacts.map(mapSupplierContact) };
+    return {
+        ...mapSupplier(wire),
+        contacts: wire.contacts.map(mapSupplierContact),
+        suppliedItems: wire.supplied_items.map(mapSuppliedItem),
+        costsRedacted: wire.costs_redacted,
+    };
+}
+
+function mapSupplierLink(wire: WireSupplierLink): SupplierLink {
+    return {
+        supplierId: SupplierId.unsafe(wire.supplier_id),
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        isPreferred: wire.is_preferred,
+        supplierItemRef: wire.supplier_item_ref,
+    };
 }
 
 /**
@@ -489,6 +557,61 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return envelope.data.contacts.map(mapSupplierContact);
         },
 
+        async upsertSupplierLink(request: UpsertSupplierLinkRequest): Promise<SupplierLink> {
+            const envelope = await transport.requestEnvelope<{
+                readonly supplier_link: WireSupplierLink;
+            }>({
+                method: 'PUT',
+                path: '/catalogue/procurement/supplier-links',
+                body: {
+                    supplier_id: String(request.supplierId),
+                    stock_item_id: String(request.stockItemId),
+                    // `undefined → omit` is what keeps "leave this alone" distinct from "clear
+                    // this": the server keys both fields on presence, not on null.
+                    ...(request.isPreferred === undefined
+                        ? {}
+                        : { is_preferred: request.isPreferred }),
+                    ...(request.supplierItemRef === undefined
+                        ? {}
+                        : { supplier_item_ref: request.supplierItemRef }),
+                },
+            });
+            return mapSupplierLink(envelope.data.supplier_link);
+        },
+
+        async deleteSupplierLink(request: DeleteSupplierLinkRequest): Promise<void> {
+            // The identifying pair travels in the query string, where every other delete in this
+            // API names its subject — a `DELETE` body is the one shape the platform never uses.
+            const params = new URLSearchParams({
+                supplier_id: String(request.supplierId),
+                stock_item_id: String(request.stockItemId),
+            });
+
+            await transport.requestVoid({
+                method: 'DELETE',
+                path: `/catalogue/procurement/supplier-links?${params.toString()}`,
+            });
+        },
+
+        async listItemLatestPurchases(
+            stockItemIds: readonly StockItemId[],
+        ): Promise<readonly ItemLatestPurchase[]> {
+            if (stockItemIds.length === 0) return [];
+
+            const params = new URLSearchParams();
+            for (const stockItemId of stockItemIds) {
+                params.append('stock_item_ids[]', String(stockItemId));
+            }
+
+            const envelope = await transport.requestEnvelope<{
+                readonly purchases: readonly WireItemLatestPurchase[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/procurement/item-purchases/latest?${params.toString()}`,
+            });
+            return envelope.data.purchases.map(mapItemLatestPurchase);
+        },
+
         async getProcurementReference(): Promise<ProcurementReference> {
             const envelope = await transport.requestEnvelope<WireProcurementReference>({
                 method: 'GET',
@@ -553,6 +676,10 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             if (filter.ingredientId !== undefined) {
                 params.set('ingredient_id', String(filter.ingredientId));
             }
+            if (filter.stockItemId !== undefined) {
+                params.set('stock_item_id', String(filter.stockItemId));
+            }
+            if (filter.branchId !== undefined) params.set('branch_id', String(filter.branchId));
             if (filter.cursor !== undefined) params.set('cursor', filter.cursor);
             if (filter.limit !== undefined) params.set('limit', String(filter.limit));
 

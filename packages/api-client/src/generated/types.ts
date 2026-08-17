@@ -4100,6 +4100,13 @@ export type Supplier = {
      */
     contact_count: number;
     /**
+     * How many stock items this supplier is linked to (SUP2). Counted on
+     * the list query rather than derived from `supplied_items`, which a
+     * list row does not carry.
+     *
+     */
+    supplied_item_count: number;
+    /**
      * Who to call, summarised for a list row — the contact flagged
      * primary, falling back to the first in display order. Null only when
      * the supplier has no named contacts at all.
@@ -4115,6 +4122,20 @@ export type Supplier = {
      *
      */
     contacts?: Array<SupplierContact>;
+    /**
+     * What this supplier sells the kitchen, preferred link first then by
+     * item name (SUP2). Detail response only, on the same terms as
+     * `contacts` — a list row carries `supplied_item_count` instead.
+     *
+     */
+    supplied_items?: Array<SuppliedItem>;
+    /**
+     * `true` when the reader lacks `inventory.view_costs_organisation`
+     * and every `supplied_items[].last_purchase` money field was served
+     * as `null`. Detail response only.
+     *
+     */
+    costs_redacted?: boolean;
 };
 
 /**
@@ -4153,21 +4174,202 @@ export type SupplierContact = {
 };
 
 /**
- * A supplier with its full contact set — the supplier's own page.
+ * A supplier with its full contact set and everything it supplies — the
+ * supplier's own page.
  *
- * The canonical `Supplier` with `contacts` promoted from optional to
- * required. Composed rather than restated so that a field added to the
- * book cannot arrive on the list and go missing from the detail.
+ * The canonical `Supplier` with `contacts`, `supplied_items` and
+ * `costs_redacted` promoted from optional to required. Composed rather
+ * than restated so that a field added to the book cannot arrive on the
+ * list and go missing from the detail.
  *
- * `contacts` is restated in the second subschema rather than only listed
+ * All three are restated in the second subschema rather than only listed
  * as required: `Supplier` closes itself with `additionalProperties: false`
- * (which is why the field is declared there too, optionally), and a
+ * (which is why the fields are declared there too, optionally), and a
  * `required`-only branch generates as an index signature rather than as
  * the array a client needs.
  *
  */
 export type SupplierDetail = Supplier & {
     contacts: Array<SupplierContact>;
+    supplied_items: Array<SuppliedItem>;
+    costs_redacted: boolean;
+};
+
+/**
+ * One "we buy this from them" row on the supplier's page (SUP2).
+ *
+ * The stock item is embedded rather than referenced by id alone because
+ * the table beside it shows a name, a code and a unit; a client resolving
+ * three fields per row against a separate list would be doing a join the
+ * server already has open.
+ *
+ * `last_purchase` is `null` when this supplier has never been recorded
+ * selling this item at a price — a distinct state from a *present*
+ * `last_purchase` whose money is redacted. **Never bought here** and
+ * **Hidden** are two different facts and clients must render them
+ * differently (§3.4).
+ *
+ */
+export type SuppliedItem = {
+    /**
+     * The shelf this link points at. Null only if it vanished between the read and the render.
+     */
+    stock_item: SuppliedStockItem | null;
+    /**
+     * At most one supplier per stock item may hold this, enforced by a partial unique index.
+     */
+    is_preferred: boolean;
+    /**
+     * The supplier's own catalogue reference, transcribed from their
+     * price list so an order sheet can quote it back. Named `_ref` rather
+     * than `_code`: it is their identifier, not this kitchen's.
+     *
+     */
+    supplier_item_ref: string | null;
+    /**
+     * The newest priced receipt line from this supplier for this item, or null if there is none.
+     */
+    last_purchase: LastPurchase | null;
+};
+
+/**
+ * The shelf a supplier link points at, summarised for the row that renders it.
+ */
+export type SuppliedStockItem = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    unit_code: string;
+    /**
+     * Which of the two books this shelf belongs to — the same field the inventory list publishes.
+     */
+    backing: 'ingredient' | 'product';
+};
+
+/**
+ * What this was last bought for (§3.4) — derived live from the newest
+ * priced `goods_receipt_lines` row, never stored.
+ *
+ * Unpriced deliveries are skipped entirely, so this is always a real
+ * price: an item received only on unpriced receipts has no
+ * `last_purchase` at all rather than one with a null amount.
+ *
+ * **The money is the only redacted part.** Without
+ * `inventory.view_costs_organisation`, `unit_price_amount` and
+ * `cost_currency_code` are `null` and the enclosing response flags
+ * `costs_redacted`. The date, quantity and unit survive: those are
+ * warehouse facts a receiving clerk entered, not the valuation the cost
+ * permission gates.
+ *
+ * The amount is always quoted **per `unit_code`** and always beside its
+ * own currency. A bare `6.90` without "USD per kg" is not a price, and
+ * currencies are never converted — there is no exchange rate in this
+ * system.
+ *
+ */
+export type LastPurchase = {
+    goods_receipt_id: Uuid;
+    /**
+     * The supplier delivery note or invoice number the price came from, as written.
+     */
+    document_ref: string | null;
+    received_at: string | null;
+    /**
+     * The quantity that line received, as a decimal string. Never redacted.
+     */
+    quantity: string;
+    /**
+     * The unit the price is quoted per; null means the stock item's own unit.
+     */
+    unit_id: Uuid | null;
+    /**
+     * That unit's code, resolved for display — `kg`, `l`, `piece`.
+     */
+    unit_code: string | null;
+    /**
+     * Major-unit decimal string per `unit_code`, or null when costs are redacted.
+     */
+    unit_price_amount: string | null;
+    /**
+     * ISO 4217, or null when costs are redacted.
+     */
+    cost_currency_code: string | null;
+};
+
+/**
+ * One stock item's newest purchase **across every supplier** (SUP2), with
+ * the supplier that sold it.
+ *
+ * `LastPurchase` plus the two fields that make it answerable outside a
+ * supplier's own page: the item it belongs to, so a client can join it to
+ * the stock list, and who sold it, because a price without the vendor
+ * beside it is not actionable.
+ *
+ * The supplier is nullable: a direct market-run receipt records no
+ * supplier, and the price it captured is still the last price of that
+ * item.
+ *
+ */
+export type ItemLatestPurchase = LastPurchase & {
+    stock_item_id: Uuid;
+    supplier: SupplierRef | null;
+};
+
+/**
+ * Requested items with no priced receipt are **absent** rather than
+ * present with nulls, so `meta.count` may be smaller than
+ * `meta.requested_count`. `meta.costs_redacted` says whether the money
+ * was served at all.
+ *
+ */
+export type ItemLatestPurchaseCollection = {
+    data: {
+        purchases: Array<ItemLatestPurchase>;
+    };
+    meta: Meta;
+};
+
+/**
+ * The pair that identifies the link, plus the two things about it a
+ * kitchen edits. Idempotent: sending the same body twice leaves the same
+ * row.
+ *
+ * `is_preferred` and `supplier_item_ref` are keyed on **presence**. An
+ * omitted field is left alone; `supplier_item_ref: null` clears a
+ * reference typed by mistake. `is_preferred: true` takes the flag off
+ * whichever supplier held it for this item; `false` clears this link's own
+ * flag and promotes nobody.
+ *
+ */
+export type UpsertSupplierLinkRequest = {
+    supplier_id: Uuid;
+    stock_item_id: Uuid;
+    is_preferred?: boolean | null;
+    supplier_item_ref?: string | null;
+};
+
+/**
+ * The link after a write, and nothing more.
+ *
+ * Every ops write in this workspace answers the minimum and lets the
+ * screen re-read what it changed. A supplied item's last purchase price is
+ * derived from the receipt ledger and cannot change because somebody saved
+ * a link, so returning it here would invent a read the caller did not ask
+ * for.
+ *
+ */
+export type SupplierLink = {
+    supplier_id: Uuid;
+    stock_item_id: Uuid;
+    is_preferred: boolean;
+    supplier_item_ref: string | null;
+};
+
+export type SupplierLinkEnvelope = {
+    data: {
+        supplier_link: SupplierLink;
+    };
+    meta: Meta;
 };
 
 export type SupplierCollection = {
@@ -20898,6 +21100,193 @@ export type ReplaceSupplierContactsResponses = {
 
 export type ReplaceSupplierContactsResponse = ReplaceSupplierContactsResponses[keyof ReplaceSupplierContactsResponses];
 
+export type DeleteSupplierLinkData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The supplier half of the link.
+         */
+        supplier_id: Uuid;
+        /**
+         * The stock item half of the link.
+         */
+        stock_item_id: Uuid;
+    };
+    url: '/catalogue/procurement/supplier-links';
+};
+
+export type DeleteSupplierLinkErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DeleteSupplierLinkError = DeleteSupplierLinkErrors[keyof DeleteSupplierLinkErrors];
+
+export type DeleteSupplierLinkResponses = {
+    /**
+     * The link is gone — or was never there.
+     */
+    204: void;
+};
+
+export type DeleteSupplierLinkResponse = DeleteSupplierLinkResponses[keyof DeleteSupplierLinkResponses];
+
+export type UpsertSupplierLinkData = {
+    body: UpsertSupplierLinkRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/supplier-links';
+};
+
+export type UpsertSupplierLinkErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpsertSupplierLinkError = UpsertSupplierLinkErrors[keyof UpsertSupplierLinkErrors];
+
+export type UpsertSupplierLinkResponses = {
+    /**
+     * The link after the write.
+     */
+    200: SupplierLinkEnvelope;
+};
+
+export type UpsertSupplierLinkResponse = UpsertSupplierLinkResponses[keyof UpsertSupplierLinkResponses];
+
+export type ListItemLatestPurchasesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The shelves to price, repeated as `stock_item_ids[]=…`. At most 200.
+         */
+        stock_item_ids: Array<Uuid>;
+    };
+    url: '/catalogue/procurement/item-purchases/latest';
+};
+
+export type ListItemLatestPurchasesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListItemLatestPurchasesError = ListItemLatestPurchasesErrors[keyof ListItemLatestPurchasesErrors];
+
+export type ListItemLatestPurchasesResponses = {
+    /**
+     * The latest purchase of each requested item that has one.
+     */
+    200: ItemLatestPurchaseCollection;
+};
+
+export type ListItemLatestPurchasesResponse = ListItemLatestPurchasesResponses[keyof ListItemLatestPurchasesResponses];
+
 export type GetProcurementReferenceData = {
     body?: never;
     headers: {
@@ -21082,7 +21471,18 @@ export type ListPurchasesLedgerData = {
          */
         to?: string;
         supplier_id?: Uuid;
+        /**
+         * Only lines whose stock item is backed by this ingredient.
+         */
         ingredient_id?: Uuid;
+        /**
+         * Only lines that received this shelf. Must belong to the active organisation.
+         */
+        stock_item_id?: Uuid;
+        /**
+         * Only lines whose receipt was posted at this branch. Must belong to the active organisation.
+         */
+        branch_id?: Uuid;
         /**
          * Page size.
          */
@@ -21117,6 +21517,10 @@ export type ListPurchasesLedgerErrors = {
      *
      */
     403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
     /**
      * The rate limit for this endpoint was exceeded.
      */

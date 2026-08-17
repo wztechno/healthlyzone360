@@ -412,6 +412,15 @@ export const queryKeys = {
         supplier: (supplierId: SupplierId) => ['kitchenOps', 'supplier', supplierId] as const,
         procurementReference: () => ['kitchenOps', 'procurement-reference'] as const,
         goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
+        /**
+         * The latest purchase of a specific set of shelves (SUP2).
+         *
+         * Keyed on the sorted, joined identifier list rather than on the array itself: the stock
+         * screen derives the ids from a memoised list, and two renders that produced the same set
+         * in a different order must be one cache entry rather than two requests for one answer.
+         */
+        itemLatestPurchases: (stockItemIds: readonly string[]) =>
+            ['kitchenOps', 'item-latest-purchases', [...stockItemIds].sort().join(',')] as const,
         purchasesLedger: (filter: object = {}) =>
             ['kitchenOps', 'purchases-ledger', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
