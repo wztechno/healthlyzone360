@@ -13,7 +13,7 @@ import {
     SupplierContactId,
     SupplierId,
 } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
@@ -90,7 +90,7 @@ function untilVisible(testID: string) {
         () => {
             expect(screen.getByTestId(testID)).toBeTruthy();
         },
-        { timeout: 20_000 },
+        { timeout: 10_000 },
     );
 }
 
@@ -291,26 +291,34 @@ describe('suppliers list', () => {
         await untilVisible('kitchen-suppliers-table');
         const search = screen.getByTestId('kitchen-suppliers-search-input');
 
-        fireEvent.changeText(search, 'bekaa');
+        await act(async () => {
+            fireEvent.changeText(search, 'bekaa');
+        });
         await waitFor(() => {
             expect(screen.queryByTestId(`${supplierRowTestId(String(GULF.id))}-name`)).toBeNull();
         });
         expect(screen.getByTestId(`${supplierRowTestId(String(BEKAA.id))}-name`)).toBeTruthy();
 
         // The Arabic name, typed by somebody reading the English interface.
-        fireEvent.changeText(search, 'الخليج');
+        await act(async () => {
+            fireEvent.changeText(search, 'الخليج');
+        });
         await waitFor(() => {
             expect(screen.getByTestId(`${supplierRowTestId(String(GULF.id))}-name`)).toBeTruthy();
         });
         expect(screen.queryByTestId(`${supplierRowTestId(String(BEKAA.id))}-name`)).toBeNull();
 
         // And the code.
-        fireEvent.changeText(search, 'GULF-01');
+        await act(async () => {
+            fireEvent.changeText(search, 'GULF-01');
+        });
         await waitFor(() => {
             expect(screen.getByTestId(`${supplierRowTestId(String(GULF.id))}-name`)).toBeTruthy();
         });
 
-        fireEvent.changeText(search, 'nothing matches this');
+        await act(async () => {
+            fireEvent.changeText(search, 'nothing matches this');
+        });
         await untilVisible('kitchen-suppliers-empty');
     });
 
@@ -323,7 +331,9 @@ describe('suppliers list', () => {
         await untilVisible('kitchen-suppliers-table');
         expect(repositories.kitchenOps.listSuppliers).toHaveBeenCalledWith({});
 
-        fireEvent.press(screen.getByTestId('kitchen-suppliers-archived-filter'));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-suppliers-archived-filter'));
+        });
 
         await waitFor(() => {
             expect(repositories.kitchenOps.listSuppliers).toHaveBeenCalledWith({
@@ -377,7 +387,9 @@ describe('supplier detail', () => {
 
         await untilVisible('kitchen-supplier-details');
 
-        fireEvent.changeText(screen.getByTestId('kitchen-supplier-lead-time-input'), '400');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-supplier-lead-time-input'), '400');
+        });
         await waitFor(() => {
             expect(
                 screen.getByTestId('kitchen-supplier-screen-save').props.accessibilityState,
@@ -401,8 +413,15 @@ describe('supplier detail', () => {
 
         await untilVisible('kitchen-supplier-details');
 
-        fireEvent.changeText(screen.getByTestId('kitchen-supplier-payment-terms-input'), 'Net 45');
-        fireEvent.press(screen.getByTestId('kitchen-supplier-screen-save'));
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-supplier-payment-terms-input'),
+                'Net 45',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-screen-save'));
+        });
 
         await waitFor(() => {
             expect(repositories.kitchenOps.updateSupplier).toHaveBeenCalledWith(
@@ -436,23 +455,33 @@ describe('supplier detail', () => {
 
         await untilVisible('kitchen-supplier-contacts');
 
-        fireEvent.press(screen.getByTestId('kitchen-supplier-contacts-add'));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-contacts-add'));
+        });
 
         const added = supplierContactRowTestId('new-1');
         await untilVisible(`${added}-name-input`);
 
         // A card with no channel is refused here, where it can still be fixed.
-        fireEvent.changeText(screen.getByTestId(`${added}-name-input`), 'Nadia Aoun');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-name-input`), 'Nadia Aoun');
+        });
         await untilVisible(`${added}-error`);
 
-        fireEvent.changeText(screen.getByTestId(`${added}-phone-input`), '+961 70 999 888');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-phone-input`), '+961 70 999 888');
+        });
         await waitFor(() => {
             expect(screen.queryByTestId(`${added}-error`)).toBeNull();
         });
 
-        fireEvent.press(screen.getByTestId(`${added}-make-primary`));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${added}-make-primary`));
+        });
 
-        fireEvent.press(screen.getByTestId('kitchen-supplier-contacts-save'));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-contacts-save'));
+        });
 
         await waitFor(() => {
             expect(repositories.kitchenOps.replaceSupplierContacts).toHaveBeenCalledTimes(1);
@@ -544,11 +573,13 @@ describe('supplied items', () => {
 
         await untilVisible('kitchen-supplier-items-table');
 
-        // 1. A real price, with its currency and its unit — 2.50 alone is not a price.
+        // 1. A real price, with its currency and its unit — 2.50 alone is not a price. Regexes,
+        // because the claim is that all three parts share the one cell: a bare string would ask
+        // `toHaveTextContent` for an exact match and each of the three would fail on the other two.
         const priced = suppliedItemRowTestId(String(stockItemId(1)));
-        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent('2.50');
-        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent('USD');
-        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent('kg');
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/2\.50/);
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/USD/);
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/kg/);
         expect(screen.getByTestId(`${priced}-preferred`)).toBeTruthy();
         expect(screen.getByTestId(`${priced}-ref`)).toHaveTextContent('GF-FLOUR-25');
 
@@ -587,9 +618,13 @@ describe('supplied items', () => {
             screen.queryByTestId(`${suppliedItemRowTestId(String(stockItemId(1)))}-make-preferred`),
         ).toBeNull();
 
-        fireEvent.press(
-            screen.getByTestId(`${suppliedItemRowTestId(String(stockItemId(2)))}-make-preferred`),
-        );
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(
+                    `${suppliedItemRowTestId(String(stockItemId(2)))}-make-preferred`,
+                ),
+            );
+        });
 
         await waitFor(() => {
             expect(repositories.kitchenOps.upsertSupplierLink).toHaveBeenCalledWith({
@@ -623,7 +658,10 @@ describe('supplied items', () => {
 
         await untilVisible('kitchen-supplier-item-picker');
 
-        fireEvent.press(screen.getByTestId('kitchen-supplier-item-picker'));
+        // `-trigger` is the button; the bare testID is the field wrapper, which opens nothing.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-item-picker-trigger'));
+        });
 
         // Items 1–3 are already linked; only the fourth is offerable.
         await waitFor(() => {
@@ -635,12 +673,18 @@ describe('supplied items', () => {
             screen.queryByTestId(`kitchen-supplier-item-picker-option-${String(stockItemId(1))}`),
         ).toBeNull();
 
-        fireEvent.press(
-            screen.getByTestId(`kitchen-supplier-item-picker-option-${String(stockItemId(4))}`),
-        );
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(`kitchen-supplier-item-picker-option-${String(stockItemId(4))}`),
+            );
+        });
 
-        fireEvent.changeText(screen.getByTestId('kitchen-supplier-link-ref-input'), 'GF-4');
-        fireEvent.press(screen.getByTestId('kitchen-supplier-item-link'));
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-supplier-link-ref-input'), 'GF-4');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-item-link'));
+        });
 
         await waitFor(() => {
             expect(repositories.kitchenOps.upsertSupplierLink).toHaveBeenCalledWith({
@@ -662,14 +706,18 @@ describe('supplied items', () => {
 
         await untilVisible('kitchen-supplier-items-table');
 
-        fireEvent.press(
-            screen.getByTestId(`${suppliedItemRowTestId(String(stockItemId(2)))}-unlink`),
-        );
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(`${suppliedItemRowTestId(String(stockItemId(2)))}-unlink`),
+            );
+        });
 
         await untilVisible('kitchen-supplier-unlink-dialog');
         expect(repositories.kitchenOps.deleteSupplierLink).not.toHaveBeenCalled();
 
-        fireEvent.press(screen.getByTestId('kitchen-supplier-unlink-confirm'));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-unlink-confirm'));
+        });
 
         await waitFor(() => {
             expect(repositories.kitchenOps.deleteSupplierLink).toHaveBeenCalledWith({

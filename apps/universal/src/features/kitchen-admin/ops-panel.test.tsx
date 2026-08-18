@@ -197,10 +197,18 @@ describe('ops panels', () => {
         ]);
 
         // 1. A price, with the currency and unit that make it mean something.
+        //
+        // The join is its own request, one behind the table: until it lands every row honestly says
+        // so, so the wait is for the cell this test is about rather than for the table that arrived
+        // a request earlier. The assertions are regexes because all three facts share one cell —
+        // `toHaveTextContent` matches a bare string exactly, so each would fail on the other two.
         const priced = stockItemRowTestId(String(stockItem(1).id));
-        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent('3.20');
-        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent('USD');
-        expect(screen.getByTestId(`${priced}-price-source`)).toHaveTextContent('Gulf Fresh');
+        await waitFor(() => {
+            expect(screen.getByTestId(`${priced}-price`)).toBeTruthy();
+        });
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/3\.20/);
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/USD/);
+        expect(screen.getByTestId(`${priced}-price-source`)).toHaveTextContent(/Gulf Fresh/);
 
         // 2. Absent from the answer means never bought at a price at all.
         expect(
@@ -240,7 +248,10 @@ describe('ops panels', () => {
         });
 
         const testID = stockItemRowTestId(String(stockItem(1).id));
-        expect(screen.getByTestId(`${testID}-price-hidden`)).toBeTruthy();
+        // Same one-request lag as above: the row reports "loading" until the join lands.
+        await waitFor(() => {
+            expect(screen.getByTestId(`${testID}-price-hidden`)).toBeTruthy();
+        });
         expect(screen.queryByTestId(`${testID}-price`)).toBeNull();
         // A link into a ledger this reader may not open would be a promise it refuses.
         expect(screen.queryByTestId(`${testID}-history`)).toBeNull();

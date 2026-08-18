@@ -8,7 +8,7 @@ import type {
     Supplier,
 } from '@healthy360/api-client/contracts';
 import { GoodsReceiptId, StockItemId, SupplierId } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
@@ -34,6 +34,27 @@ import { PurchasesLedgerScreen } from './screens/purchases-ledger-screen.tsx';
  *    quantity history and not to money, and a zero there would read as a quiet week.
  * 6. **An empty range is a good state**, not an error and not a blank card.
  */
+
+/*
+ * The screen renders inside `Gate`, which imports `Redirect` from `expo-router`, which pulls in
+ * `standard-navigation` — untranspiled ESM that this app's `transformIgnorePatterns` does not let
+ * through, so the whole suite failed to load with "Cannot use import statement outside a module"
+ * before a single test ran. Every other screen suite in the repo mocks the router for the same
+ * reason; this one was the only one that did not.
+ */
+jest.mock('expo-router', () => ({
+    __esModule: true,
+    useRouter: () => ({
+        push: jest.fn(),
+        replace: jest.fn(),
+        setParams: jest.fn(),
+        back: jest.fn(),
+        prefetch: jest.fn(),
+    }),
+    usePathname: () => '/kitchen/purchases',
+    useLocalSearchParams: () => ({}),
+    Redirect: () => null,
+}));
 
 const SUPPLIER_A = SupplierId.unsafe('01935f6d-0000-7000-8000-0000000000a1');
 const ITEM_A = StockItemId.unsafe('01935f6d-0000-7000-8000-0000000000b1');
@@ -153,7 +174,7 @@ function untilVisible(testID: string) {
         () => {
             expect(screen.getByTestId(testID)).toBeTruthy();
         },
-        { timeout: 20_000 },
+        { timeout: 10_000 },
     );
 }
 
@@ -182,7 +203,9 @@ describe('purchases ledger detail mode', () => {
         expect(screen.getByTestId('kitchen-ledger-cost-status-partial')).toBeTruthy();
         expect(screen.getByTestId('kitchen-ledger-cost-status-complete')).toBeTruthy();
 
-        fireEvent.press(screen.getByTestId('kitchen-ledger-cost-status-unpriced'));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ledger-cost-status-unpriced'));
+        });
 
         await waitFor(() => {
             expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
@@ -204,7 +227,9 @@ describe('purchases ledger summary modes', () => {
 
         await untilVisible('kitchen-purchases-ledger-table');
 
-        fireEvent.press(screen.getByTestId('kitchen-ledger-mode-weekly'));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-weekly'));
+        });
 
         await untilVisible('kitchen-ledger-period-2026-W31');
 
@@ -215,8 +240,10 @@ describe('purchases ledger summary modes', () => {
             );
         });
 
+        // A regex, not a bare string: the badge carries its own icon glyph beside the word (which is
+        // the point of §3 — never colour alone), and `toHaveTextContent` matches a string exactly.
         expect(screen.getByTestId('kitchen-ledger-period-2026-W31-state')).toHaveTextContent(
-            'Complete',
+            /Complete/,
         );
         expect(screen.getByTestId('kitchen-ledger-period-2026-W31-USD-subtotal')).toHaveTextContent(
             '30.00 USD',
@@ -228,10 +255,16 @@ describe('purchases ledger summary modes', () => {
 
         // The charges behind the difference are one press away, not on by default.
         expect(screen.queryByTestId('kitchen-ledger-period-2026-W31-USD-charges')).toBeNull();
-        fireEvent.press(screen.getByTestId('kitchen-ledger-period-2026-W31-USD-charges-toggle'));
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ledger-period-2026-W31-USD-charges-toggle'),
+            );
+        });
         await untilVisible('kitchen-ledger-period-2026-W31-USD-charges');
 
-        fireEvent.press(screen.getByTestId('kitchen-ledger-mode-monthly'));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-monthly'));
+        });
 
         await waitFor(() => {
             expect(harness.repositories.kitchenOps.getSpendSummary).toHaveBeenCalledWith(
@@ -293,7 +326,7 @@ describe('purchases ledger summary modes', () => {
         await untilVisible('kitchen-ledger-period-2026-W31');
 
         expect(screen.getByTestId('kitchen-ledger-period-2026-W31-state')).toHaveTextContent(
-            'Incomplete',
+            /Incomplete/,
         );
         // The two counts are two different jobs and are said separately.
         expect(screen.getByTestId('kitchen-ledger-period-2026-W31-unpriced')).toBeTruthy();
