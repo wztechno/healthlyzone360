@@ -105,6 +105,13 @@ function costWorld(string $email, array $permissions): object
         'tenant' => $tenant,
         'organisation' => $organisation,
         'branch' => $branch,
+        // Handed back rather than re-found by `sole()`. INV2.0's
+        // `DerivedStockObserver` gives the ingredient above a shelf of its own
+        // the instant it is created, so this world holds *two* stock items — the
+        // derived one and the flour the receipt is posted against — and a test
+        // that asks for the only one gets a fatal instead of a failure.
+        'supplier' => $supplier,
+        'item' => $item,
         'receiptId' => (string) $receipt->getKey(),
         'headers' => PricingWorld::headers($tenant) + ['X-Branch-Id' => (string) $branch->getKey()],
     ];
@@ -237,8 +244,8 @@ it('redacts a supplied item\'s last price while keeping the date, quantity and u
     ]);
 
     app(TenantContext::class)->setOrganisation((string) $world->tenant->user->getKey(), (string) $world->organisation->getKey());
-    $supplier = Supplier::query()->sole();
-    $item = StockItem::query()->sole();
+    $supplier = $world->supplier;
+    $item = $world->item;
     SupplierStockItem::query()->create([
         'organisation_id' => (string) $world->organisation->getKey(),
         'supplier_id' => (string) $supplier->getKey(),
@@ -280,8 +287,8 @@ it('serves the supplied item\'s money and the item-level price to a cost holder'
     $world = costWorld('supplied-viewer@kitchen.test', PricingWorld::FULL_PERMISSIONS);
 
     app(TenantContext::class)->setOrganisation((string) $world->tenant->user->getKey(), (string) $world->organisation->getKey());
-    $supplier = Supplier::query()->sole();
-    $item = StockItem::query()->sole();
+    $supplier = $world->supplier;
+    $item = $world->item;
     SupplierStockItem::query()->create([
         'organisation_id' => (string) $world->organisation->getKey(),
         'supplier_id' => (string) $supplier->getKey(),
@@ -316,7 +323,7 @@ it('filters the ledger by stock item and by branch, and refuses another kitchen\
     $world = costWorld('ledger-filters@kitchen.test', PricingWorld::FULL_PERMISSIONS);
 
     app(TenantContext::class)->setOrganisation((string) $world->tenant->user->getKey(), (string) $world->organisation->getKey());
-    $flour = StockItem::query()->sole();
+    $flour = $world->item;
 
     // A second shelf and a second branch, so a filter that did nothing would be
     // visible rather than accidentally right.

@@ -22,6 +22,7 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\TenantContext;
 
 /*
 |--------------------------------------------------------------------------
@@ -174,6 +175,15 @@ beforeEach(function (): void {
     $this->seed([ReferenceDataSeeder::class, OrganisationTypeSeeder::class, AccessControlSeeder::class]);
     $this->world = poWorld('orders@kitchen.test');
     $this->actingAs($this->world->user);
+
+    // The service is called directly here, so nothing has resolved a tenant
+    // context the way `org.context` does on the HTTP path — and the isolation
+    // these tests assert *is* that scope: `PurchaseOrderService::branch()` and
+    // `::supplier()` look a row up unqualified and let the global scope decide
+    // whether this kitchen may see it. Without a context the models fail closed
+    // and every case dies of `MissingTenantContext` before reaching its claim.
+    // `actingAs` is not that resolution; it authenticates and nothing more.
+    app(TenantContext::class)->setOrganisation((string) $this->world->user->getKey(), $this->world->organisationId);
 });
 
 /* ── the number ──────────────────────────────────────────────────────────── */
@@ -342,7 +352,10 @@ it('refuses a batch whose orders name two different branches through the endpoin
         ],
     ], $this->world->headers)->assertStatus(422);
 
-    expect(PurchaseOrder::query()->count())->toBe(0);
+    // `withoutTenancy()` because the request cycle resolved and then released
+    // its own context: the only case in this file that goes through HTTP is the
+    // only one whose assertion runs with no context left behind it.
+    expect(PurchaseOrder::withoutTenancy()->count())->toBe(0);
 });
 
 /* ── snapshots ───────────────────────────────────────────────────────────── */
@@ -465,7 +478,7 @@ it('refuses an order that names the same shelf twice', function (): void {
 
 /* ── the transition matrix ───────────────────────────────────────────────── */
 
-it('permits exactly this slice\'s three edges and refuses the rest', function (): void {
+it('permits exactly the six edges and refuses the rest', function (): void {
     $draft = PurchaseOrderStatus::Draft;
     $issued = PurchaseOrderStatus::Issued;
 
@@ -473,9 +486,13 @@ it('permits exactly this slice\'s three edges and refuses the rest', function ()
         ->and($draft->canTransitionTo(PurchaseOrderStatus::Cancelled))->toBeTrue()
         ->and($issued->canTransitionTo(PurchaseOrderStatus::Cancelled))->toBeTrue();
 
-    // Slice 5 opens these two, driven by a posted receipt rather than a button.
-    expect($issued->canTransitionTo(PurchaseOrderStatus::PartiallyReceived))->toBeFalse()
-        ->and($issued->canTransitionTo(PurchaseOrderStatus::Received))->toBeFalse();
+    // The three receiving edges, opened by SUP5 and driven by a posted receipt
+    // rather than by a button — which is why this file asserts only that the
+    // enum permits them, and `GoodsReceiptReceivingTest` asserts that nothing
+    // but a delivery walks them.
+    expect($issued->canTransitionTo(PurchaseOrderStatus::PartiallyReceived))->toBeTrue()
+        ->and($issued->canTransitionTo(PurchaseOrderStatus::Received))->toBeTrue()
+        ->and(PurchaseOrderStatus::PartiallyReceived->canTransitionTo(PurchaseOrderStatus::Received))->toBeTrue();
 
     // No route back. An issued order that could return to draft would make the
     // copy the supplier is holding a fiction.

@@ -39,6 +39,8 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Inventory\Models\StockItem;
+use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
@@ -49,6 +51,11 @@ use Healthy360\Pricing\Enums\PriceListStatus;
 use Healthy360\Pricing\Models\ChannelPriceList;
 use Healthy360\Pricing\Models\PriceList;
 use Healthy360\Pricing\Models\PriceListItem;
+use Healthy360\Procurement\Models\GoodsReceipt;
+use Healthy360\Procurement\Models\PurchaseOrder;
+use Healthy360\Procurement\Models\Supplier;
+use Healthy360\Procurement\Models\SupplierContact;
+use Healthy360\Procurement\Models\SupplierStockItem;
 use Healthy360\ReferenceData\Database\Seeders\CountrySeeder;
 use Healthy360\ReferenceData\Models\Country;
 use Healthy360\ReferenceData\Models\Currency;
@@ -1072,6 +1079,126 @@ it('scopes the demonstration chef membership to the Al Quoz branch', function ()
         ->and($role->code)->toBe('branch_manager');
 });
 
+it('sets the demonstration kitchen up to be bought for, without buying anything for it', function (): void {
+    // SUP8. The demonstration world gains purchasing *configuration* — who the
+    // kitchen buys from, who to ask for, what they sell and when to reorder it —
+    // and gains no purchasing *history* at all. A seeded receipt would be stock
+    // that arrived with no movement behind it; a seeded order would be a
+    // document nobody issued. Both are left for the demonstrator to create
+    // through the real path, which is the only way the ledgers agree.
+    $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+    $branch = OrganisationBranch::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->where('name', 'Al Quoz')
+        ->sole();
+
+    $suppliers = Supplier::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->orderBy('code')
+        ->get();
+
+    expect($suppliers->pluck('code')->all())->toBe(['freshmart', 'gulf-foods']);
+
+    // The slice-1 columns stay null on a seeded supplier. The demonstration is
+    // of an editable record, and a pre-filled address and payment term would
+    // hide the empty state every real supplier starts in.
+    foreach ($suppliers as $supplier) {
+        expect($supplier->name_ar)->toBeNull()
+            ->and($supplier->address)->toBeNull()
+            ->and($supplier->payment_terms)->toBeNull()
+            ->and($supplier->lead_time_days)->toBeNull()
+            ->and($supplier->notes)->toBeNull()
+            ->and($supplier->archived_at)->toBeNull();
+    }
+
+    $gulfFoods = $suppliers->firstOrFail(static fn (Supplier $s): bool => $s->code === 'gulf-foods');
+    $freshmart = $suppliers->firstOrFail(static fn (Supplier $s): bool => $s->code === 'freshmart');
+
+    $contacts = SupplierContact::withoutTenancy()
+        ->whereIn('supplier_id', $suppliers->modelKeys())
+        ->orderBy('name')
+        ->get();
+
+    expect($contacts->pluck('name')->all())->toBe(['Omar Said', 'Rana Accounts', 'Samir Haddad'])
+        // One primary each, which is all the partial unique index permits.
+        ->and($contacts->where('is_primary', true)->pluck('name')->all())
+        ->toEqualCanonicalizing(['Samir Haddad', 'Omar Said']);
+
+    $samir = $contacts->firstOrFail(static fn (SupplierContact $c): bool => $c->name === 'Samir Haddad');
+    $omar = $contacts->firstOrFail(static fn (SupplierContact $c): bool => $c->name === 'Omar Said');
+    $rana = $contacts->firstOrFail(static fn (SupplierContact $c): bool => $c->name === 'Rana Accounts');
+
+    // The two shapes the separate `whatsapp_phone` column exists for: a landline
+    // that is not the mobile, and a mobile that is also the WhatsApp number.
+    expect($samir->whatsapp_phone)->not->toBe($samir->phone)
+        ->and($omar->whatsapp_phone)->toBe($omar->phone)
+        // A contact with only an email still satisfies the channel CHECK.
+        ->and($rana->phone)->toBeNull()
+        ->and($rana->whatsapp_phone)->toBeNull()
+        ->and($rana->email)->not->toBeNull();
+
+    $items = StockItem::withoutTenancy()
+        ->where('organisation_id', $verdant->getKey())
+        ->whereIn('code', ['chicken-breast', 'red-lentils', 'basmati-rice', 'olive-oil'])
+        ->get()
+        ->keyBy('code');
+
+    $links = SupplierStockItem::withoutTenancy()
+        ->whereIn('supplier_id', $suppliers->modelKeys())
+        ->get();
+
+    $linked = static fn (Supplier $supplier, string $itemCode): ?SupplierStockItem => $links
+        ->first(static fn (SupplierStockItem $link): bool => $link->supplier_id === $supplier->getKey()
+            && $link->stock_item_id === $items[$itemCode]->getKey());
+
+    expect($links)->toHaveCount(5)
+        ->and($linked($gulfFoods, 'chicken-breast')?->is_preferred)->toBeTrue()
+        ->and($linked($gulfFoods, 'chicken-breast')?->supplier_item_ref)->toBe('GF-CHKN-01')
+        ->and($linked($gulfFoods, 'red-lentils')?->is_preferred)->toBeTrue()
+        ->and($linked($gulfFoods, 'basmati-rice')?->is_preferred)->toBeFalse()
+        ->and($linked($freshmart, 'basmati-rice')?->is_preferred)->toBeTrue()
+        ->and($linked($freshmart, 'red-lentils')?->is_preferred)->toBeFalse()
+        // Olive oil is deliberately nobody's: the builder's unassigned bucket
+        // needs a row in it, and a demonstration where every shortage already
+        // knows its supplier never shows the case that needs a human.
+        ->and($linked($gulfFoods, 'olive-oil'))->toBeNull()
+        ->and($linked($freshmart, 'olive-oil'))->toBeNull();
+
+    // Exactly one preferred supplier per linked item, three times over.
+    foreach (['chicken-breast', 'red-lentils', 'basmati-rice'] as $code) {
+        expect($links->where('stock_item_id', $items[$code]->getKey())->where('is_preferred', true))
+            ->toHaveCount(1);
+    }
+
+    $levels = StockLevel::withoutTenancy()
+        ->where('branch_id', $branch->getKey())
+        ->whereIn('stock_item_id', $items->pluck('id')->all())
+        ->get()
+        ->keyBy('stock_item_id');
+
+    $level = static fn (string $code): StockLevel => $levels[$items[$code]->getKey()];
+
+    // Quantities are the O8 opening figures, untouched by SUP8. The thresholds
+    // beside them are chosen so the four shelves demonstrate the four §4 cases:
+    // plainly low, low at the inclusive boundary, comfortably stocked, and low
+    // with no par — which is the one that has to ask a person for a quantity.
+    expect($level('chicken-breast')->quantity)->toBe('40.0000')
+        ->and($level('chicken-breast')->reorder_threshold)->toBe('50.0000')
+        ->and($level('chicken-breast')->par_level)->toBe('120.0000')
+        ->and($level('red-lentils')->quantity)->toBe('60.0000')
+        ->and($level('red-lentils')->reorder_threshold)->toBe('60.0000')
+        ->and($level('red-lentils')->par_level)->toBe('100.0000')
+        ->and($level('basmati-rice')->quantity)->toBe('120.0000')
+        ->and($level('basmati-rice')->reorder_threshold)->toBe('40.0000')
+        ->and($level('basmati-rice')->par_level)->toBe('200.0000')
+        ->and($level('olive-oil')->quantity)->toBe('25.0000')
+        ->and($level('olive-oil')->reorder_threshold)->toBe('25.0000')
+        ->and($level('olive-oil')->par_level)->toBeNull();
+
+    expect(GoodsReceipt::withoutTenancy()->count())->toBe(0)
+        ->and(PurchaseOrder::withoutTenancy()->count())->toBe(0);
+});
+
 it('converges instead of duplicating when run a second time', function (): void {
     $counts = static fn (): array => [
         Country::query()->count(),
@@ -1098,6 +1225,15 @@ it('converges instead of duplicating when run a second time', function (): void 
         DeliveryZoneArea::withoutTenancy()->count(),
         DeliveryWindow::withoutTenancy()->count(),
         BranchOpeningHour::withoutTenancy()->count(),
+        // The purchasing configuration SUP8 added to the demonstration world.
+        // Contacts key on (supplier, name) and links on (supplier, item), so a
+        // second run finds both and writes neither — the counts are here because
+        // that is a property of the seeder, not of the keys it happens to use.
+        Supplier::withoutTenancy()->count(),
+        SupplierContact::withoutTenancy()->count(),
+        SupplierStockItem::withoutTenancy()->count(),
+        StockItem::withoutTenancy()->count(),
+        StockLevel::withoutTenancy()->count(),
     ];
 
     $before = $counts();

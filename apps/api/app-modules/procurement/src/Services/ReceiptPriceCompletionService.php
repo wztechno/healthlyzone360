@@ -62,6 +62,11 @@ use RuntimeException;
  * receipt's already-priced lines carry. There is no exchange rate in this system
  * (§4.4), and a receipt with two currencies has a subtotal nobody could compute.
  *
+ * That guard runs **after** line eligibility, not before it: the person most
+ * likely to send a second currency is the one trying to re-price an
+ * exchange-rate-blocked line into the valuation currency, and telling them their
+ * receipt has two currencies answers a question they did not ask.
+ *
  * Gated by `inventory.view_costs_organisation` at the route: entering a price
  * off a delivery note is a warehouse job, but going back over the money
  * afterwards is the cost holder's (§5).
@@ -114,6 +119,21 @@ final readonly class ReceiptPriceCompletionService
                 ->get()
                 ->keyBy(static fn (GoodsReceiptLine $line): string => (string) $line->getKey());
 
+            // Eligibility before currency, and the order is the answer to a real
+            // question. A person looking at a line that is waiting on an
+            // exchange rate will try to unblock it by re-entering the price in
+            // the valuation currency — which is both "this line may not be
+            // priced here" and "that is a second currency on this receipt", and
+            // only the first of those tells them anything they can act on.
+            // Refusing the ineligible line first means the reason a screen shows
+            // is the reason the request was actually wrong.
+            /** @var array<int, GoodsReceiptLine> $records */
+            $records = [];
+
+            foreach ($lines as $index => $line) {
+                $records[$index] = $this->eligibleLine($existing, (string) $line['goods_receipt_line_id'], $index);
+            }
+
             $currency = $this->guardOneCurrency($existing, $lines);
 
             $organisationId = (string) $receipt->organisation_id;
@@ -121,7 +141,7 @@ final readonly class ReceiptPriceCompletionService
             $pendingCount = 0;
 
             foreach ($lines as $index => $line) {
-                $record = $this->eligibleLine($existing, (string) $line['goods_receipt_line_id'], $index);
+                $record = $records[$index];
 
                 $unitPrice = $this->numeric((string) $line['unit_price_amount']);
                 $lineTotal = $this->roundMoney(bcmul((string) $record->quantity, $unitPrice, 12));
