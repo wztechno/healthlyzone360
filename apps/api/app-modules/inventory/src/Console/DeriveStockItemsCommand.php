@@ -94,6 +94,6 @@ final class DeriveStockItemsCommand extends Command
             });
         }
 
-        return $query->orderBy('slug')->get()->all();
+        return array_values($query->orderBy('slug')->get()->all());
     }
 }
