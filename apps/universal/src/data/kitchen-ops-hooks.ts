@@ -1,34 +1,64 @@
 import type {
     CompleteProductionOrderRequest,
+    CompleteReceiptPricesRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
     CreateProductionOrderRequest,
+    CreatePurchaseOrdersRequest,
     CreateQualityCheckRequest,
     CreateSupplierRequest,
+    DeleteSupplierLinkRequest,
     GoodsReceipt,
+    GoodsReceiptDetail,
     GoodsReceiptResult,
+    ItemLatestPurchase,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
+    OrderProposal,
     PostGoodsReceiptRequest,
     ProcurementReference,
     ProductionOrder,
     ProductionOrderResult,
     PurchaseLedgerFilter,
     PurchaseLedgerLine,
+    PurchaseOrder,
+    PurchaseOrderFilter,
     QualityCheck,
     QualityCheckResult,
+    ReceivableOrder,
+    ReplaceSupplierContactsRequest,
     ResolveConsumptionExceptionRequest,
     SetStockThresholdRequest,
+    SpendSummary,
+    SpendSummaryFilter,
     StockAdjustmentRequest,
     StockItem,
     StockLevel,
     StockMovement,
     StockWasteRequest,
     Supplier,
+    SupplierContact,
+    SupplierDetail,
+    SupplierFilter,
+    SupplierLink,
+    SupplyNeedsCount,
+    UnpricedReceipt,
+    UnpricedReceiptFilter,
+    UpdatePurchaseOrderRequest,
+    UpdateSupplierRequest,
+    UpsertSupplierLinkRequest,
 } from '@healthy360/api-client/contracts';
 import type { CursorPage } from '@healthy360/api-client/contracts';
-import type { ProductionOrderId, QualityCheckId } from '@healthy360/domain-types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+    BranchId,
+    GoodsReceiptId,
+    ProductionOrderId,
+    PurchaseOrderId,
+    QualityCheckId,
+    StockItemId,
+    SupplierId,
+} from '@healthy360/domain-types';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
 import { queryKeys } from './query-keys.ts';
@@ -39,8 +69,9 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *
  * One hook per repository operation, same as `./kitchen-admin-hooks.ts` — but simpler throughout,
  * for the reason `contracts/kitchen-ops.ts`'s header gives: nothing here is lock-versioned and
- * every list is either the whole table or the most recent fifty, so there is no per-row detail
- * query and no lock version to rebase after a write.
+ * every list is either the whole table or the most recent fifty, so there is no lock version to
+ * rebase after a write. `useSupplierQuery` is the one per-row detail read — a supplier has a page
+ * of its own, which no other ops row does (SUP1).
  *
  * ## Every mutation invalidates the whole root, and nothing writes a detail entry
  *
@@ -178,16 +209,49 @@ export function useSetStockThresholdMutation(): UseMutationResult<
 
 /* ── procurement (O2) — receipts-only ────────────────────────────────────────────────────────── */
 
-/** The supplier book. No writer — see `contracts/kitchen-ops.ts`'s header: receipts-only in v1. */
-export function useSuppliersQuery(enabled = true): UseQueryResult<readonly Supplier[]> {
+/**
+ * The supplier book, ordered by code.
+ *
+ * Archived suppliers are excluded unless `filter.includeArchived` asks for them: every other caller
+ * is a picker, and a picker offering a supplier the kitchen stopped buying from is how an order gets
+ * sent to a shuttered warehouse. The filter is part of the key, so the plain book and the book with
+ * its archive are two cache entries rather than one that keeps flipping.
+ */
+export function useSuppliersQuery(
+    filter: SupplierFilter = {},
+    enabled = true,
+): UseQueryResult<readonly Supplier[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenOps.suppliers(),
+        queryKey: queryKeys.kitchenOps.suppliers(filter),
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            return repositories.kitchenOps.listSuppliers();
+            return repositories.kitchenOps.listSuppliers(filter);
+        },
+    });
+}
+
+/**
+ * One supplier and its named contacts — the supplier's own page.
+ *
+ * Disabled until the route parameter parses as an identifier, so a hand-typed link produces the
+ * screen's designed not-found state rather than a repository failure.
+ */
+export function useSupplierQuery(
+    supplierId: SupplierId | null,
+    enabled = true,
+): UseQueryResult<SupplierDetail> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.supplier(supplierId ?? ('' as SupplierId)),
+        enabled: enabled && supplierId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (supplierId === null) throw new Error('A supplier identifier is required.');
+            return repositories.kitchenOps.getSupplier(supplierId);
         },
     });
 }
@@ -226,6 +290,344 @@ export function useCreateSupplierMutation(): UseMutationResult<
     });
 }
 
+export interface UpdateSupplierVariables {
+    readonly supplierId: SupplierId;
+    readonly request: UpdateSupplierRequest;
+}
+
+/** Edits the record, then re-reads the ops lists — the detail entry among them. */
+export function useUpdateSupplierMutation(): UseMutationResult<
+    Supplier,
+    unknown,
+    UpdateSupplierVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ supplierId, request }: UpdateSupplierVariables) =>
+            repositories.kitchenOps.updateSupplier(supplierId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Takes a supplier out of every picker. Reversible — see `useRestoreSupplierMutation`. */
+export function useArchiveSupplierMutation(): UseMutationResult<Supplier, unknown, SupplierId> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (supplierId: SupplierId) => repositories.kitchenOps.archiveSupplier(supplierId),
+        onSuccess: onWritten,
+    });
+}
+
+/** Puts an archived supplier back in the book. */
+export function useRestoreSupplierMutation(): UseMutationResult<Supplier, unknown, SupplierId> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (supplierId: SupplierId) => repositories.kitchenOps.restoreSupplier(supplierId),
+        onSuccess: onWritten,
+    });
+}
+
+export interface ReplaceSupplierContactsVariables {
+    readonly supplierId: SupplierId;
+    readonly request: ReplaceSupplierContactsRequest;
+}
+
+/**
+ * Replaces the whole contact set in one call — the screen's single **Save contacts** action.
+ *
+ * Deliberately not fired per card: a set-replace on a keystroke would delete the card the person
+ * was halfway through adding.
+ */
+export function useReplaceSupplierContactsMutation(): UseMutationResult<
+    readonly SupplierContact[],
+    unknown,
+    ReplaceSupplierContactsVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ supplierId, request }: ReplaceSupplierContactsVariables) =>
+            repositories.kitchenOps.replaceSupplierContacts(supplierId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * Records "we buy this from them", or edits the link already there (SUP2).
+ *
+ * Idempotent on the `(supplierId, stockItemId)` pair, so the same press twice is the same row.
+ * Sending `isPreferred: true` also demotes whichever supplier held the flag for that item, which
+ * is why the whole ops root is invalidated afterwards rather than one supplier's entry: the
+ * *other* supplier's page changed too.
+ */
+export function useUpsertSupplierLinkMutation(): UseMutationResult<
+    SupplierLink,
+    unknown,
+    UpsertSupplierLinkRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: UpsertSupplierLinkRequest) =>
+            repositories.kitchenOps.upsertSupplierLink(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Removes one supplier↔item link. Idempotent — unlinking what is not linked is not an error. */
+export function useDeleteSupplierLinkMutation(): UseMutationResult<
+    void,
+    unknown,
+    DeleteSupplierLinkRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: DeleteSupplierLinkRequest) =>
+            repositories.kitchenOps.deleteSupplierLink(request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * The newest purchase of each named shelf, across every supplier (SUP2) — the stock screen's
+ * last-price column.
+ *
+ * A Procurement read joined client-side to the Inventory list, because Inventory may not import
+ * Procurement and the price therefore cannot ride on the stock rows themselves. One request for
+ * the whole visible page, never one per row.
+ *
+ * Items with no priced receipt are **absent** from the answer rather than present with nulls, so a
+ * caller keys the result and treats a miss as *never bought* — which is a different cell from a
+ * redacted price, and must stay one.
+ *
+ * Held back while the id list is empty: an unfiltered request for nothing is a round trip that can
+ * only answer nothing.
+ */
+export function useItemLatestPurchasesQuery(
+    stockItemIds: readonly StockItemId[],
+    enabled = true,
+): UseQueryResult<readonly ItemLatestPurchase[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.itemLatestPurchases(stockItemIds.map(String)),
+        enabled: enabled && stockItemIds.length > 0 && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listItemLatestPurchases(stockItemIds);
+        },
+    });
+}
+
+/**
+ * How many shelves at one branch need ordering (SUP3) — the hub badge and the landing metrics.
+ *
+ * Disabled until a branch is resolved, on the same terms as every other branch-shaped read here: a
+ * request without one is a `422` the screen has no useful way to render, and the landing page's
+ * own branch-required state is the honest answer instead.
+ *
+ * Wider than {@link useLowStockCountQuery}, and the difference is the point. That one is a stock
+ * *warning* and ignores shelves nobody set a threshold on; this one is a *purchasing* prompt and
+ * counts an empty shelf whether or not anybody asked to be told about it.
+ */
+export function useSupplyNeedsCountQuery(
+    branchId: BranchId | null,
+    enabled = true,
+): UseQueryResult<SupplyNeedsCount> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.supplyNeedsCount(String(branchId ?? '')),
+        enabled: enabled && branchId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (branchId === null) throw new Error('A branch identifier is required.');
+            return repositories.kitchenOps.countSupplyNeeds(branchId);
+        },
+    });
+}
+
+/**
+ * What one branch should order, and who from (SUP3) — the supply-order builder's whole read.
+ *
+ * `stockItemIds` are the **Add another item** picks. Adding one re-queries rather than appending a
+ * row client-side, so that one place decides what a proposal row looks like: the shelf somebody
+ * typed in comes back the same shape as the shelf that ran out, suppliers resolved and all.
+ *
+ * `placeholderData: keepPreviousData` is what makes that bearable. Without it the whole table would
+ * blank on every addition and the person would lose their place — and the quantities they have
+ * typed live in screen state keyed by stock item, so the previous rows staying on screen while the
+ * new answer arrives is exactly right rather than a stale-data risk.
+ */
+export function useOrderProposalQuery(
+    branchId: BranchId | null,
+    stockItemIds: readonly StockItemId[] = [],
+    enabled = true,
+): UseQueryResult<OrderProposal> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.orderProposal(
+            String(branchId ?? ''),
+            stockItemIds.map(String),
+        ),
+        enabled: enabled && branchId !== null && repositories !== null,
+        placeholderData: keepPreviousData,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (branchId === null) throw new Error('A branch identifier is required.');
+            return repositories.kitchenOps.getOrderProposal(branchId, stockItemIds);
+        },
+    });
+}
+
+/* ── purchase orders (SUP4) ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * The order book, newest first (SUP4).
+ *
+ * `filter.ids` is a batch read rather than a filter — the shape a print preview needs when several
+ * orders are laid out as one document. The filter is part of the key, so "everything" and "just
+ * these four" are two cache entries rather than one that keeps flipping.
+ *
+ * Behind `inventory.order_supplies_organisation` on the server: the **read** is gated, not just the
+ * writes, because the book names who the kitchen buys from rather than what is on a shelf. The
+ * screens gate their sections on the same code.
+ */
+export function usePurchaseOrdersQuery(
+    filter: PurchaseOrderFilter = {},
+    enabled = true,
+): UseQueryResult<CursorPage<PurchaseOrder>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.purchaseOrders(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listPurchaseOrders(filter);
+        },
+    });
+}
+
+/**
+ * One order with its lines and its recipient — the order's own page.
+ *
+ * Disabled until the route parameter parses as an identifier, on the same terms as
+ * {@link useSupplierQuery}: a hand-typed link produces the screen's designed not-found state rather
+ * than a repository failure.
+ */
+export function usePurchaseOrderQuery(
+    purchaseOrderId: PurchaseOrderId | null,
+    enabled = true,
+): UseQueryResult<PurchaseOrder> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.purchaseOrder(purchaseOrderId ?? ('' as PurchaseOrderId)),
+        enabled: enabled && purchaseOrderId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (purchaseOrderId === null)
+                throw new Error('A purchase order identifier is required.');
+            return repositories.kitchenOps.getPurchaseOrder(purchaseOrderId);
+        },
+    });
+}
+
+/**
+ * One draft per supplier, created together or not at all (SUP4) — the builder's commit.
+ *
+ * The whole ops root is invalidated afterwards rather than one entry, because a batch touches
+ * several: the book gains rows, and the supply-needs count behind the landing metrics is answered
+ * by the same shelves the order was built from.
+ *
+ * No optimistic update. A batch is atomic and the failure mode is *nothing was saved*, so a screen
+ * that had already drawn eight orders would have to un-draw all of them.
+ */
+export function useCreatePurchaseOrdersMutation(): UseMutationResult<
+    readonly PurchaseOrder[],
+    unknown,
+    CreatePurchaseOrdersRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CreatePurchaseOrdersRequest) =>
+            repositories.kitchenOps.createPurchaseOrders(request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface UpdatePurchaseOrderVariables {
+    readonly purchaseOrderId: PurchaseOrderId;
+    readonly request: UpdatePurchaseOrderRequest;
+}
+
+/** Rewrites a draft's notes, its lines, or both. Draft only — an issued order is refused. */
+export function useUpdatePurchaseOrderMutation(): UseMutationResult<
+    PurchaseOrder,
+    unknown,
+    UpdatePurchaseOrderVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ purchaseOrderId, request }: UpdatePurchaseOrderVariables) =>
+            repositories.kitchenOps.updatePurchaseOrder(purchaseOrderId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * Freezes the document and captures who it was addressed to.
+ *
+ * **Issue, not send.** Nothing is dispatched through any channel — the lines stop moving and the
+ * person prints the sheet and hands it over.
+ */
+export function useIssuePurchaseOrderMutation(): UseMutationResult<
+    PurchaseOrder,
+    unknown,
+    PurchaseOrderId
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (purchaseOrderId: PurchaseOrderId) =>
+            repositories.kitchenOps.issuePurchaseOrder(purchaseOrderId),
+        onSuccess: onWritten,
+    });
+}
+
+/** Stops a draft or issued order. Deletes nothing — the lines and the snapshot stay. */
+export function useCancelPurchaseOrderMutation(): UseMutationResult<
+    PurchaseOrder,
+    unknown,
+    PurchaseOrderId
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (purchaseOrderId: PurchaseOrderId) =>
+            repositories.kitchenOps.cancelPurchaseOrder(purchaseOrderId),
+        onSuccess: onWritten,
+    });
+}
+
 /** The most recent fifty goods receipts, newest first. */
 export function useGoodsReceiptsQuery(enabled = true): UseQueryResult<readonly GoodsReceipt[]> {
     const { repositories } = useRepositoryContext();
@@ -236,6 +638,80 @@ export function useGoodsReceiptsQuery(enabled = true): UseQueryResult<readonly G
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listGoodsReceipts();
+        },
+    });
+}
+
+/**
+ * One receipt with the order it settled, its cost status and its variance (SUP5).
+ *
+ * Disabled until the caller has an identifier, the same way `usePurchaseOrderQuery` waits for its
+ * route param: a query keyed on an empty string would be a cache entry for a question nobody asked.
+ */
+export function useGoodsReceiptQuery(
+    goodsReceiptId: GoodsReceiptId | null,
+    enabled = true,
+): UseQueryResult<GoodsReceiptDetail> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.goodsReceipt(goodsReceiptId ?? ('' as GoodsReceiptId)),
+        enabled: enabled && goodsReceiptId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (goodsReceiptId === null) throw new Error('A goods receipt id is required.');
+            return repositories.kitchenOps.getGoodsReceipt(goodsReceiptId);
+        },
+    });
+}
+
+/**
+ * Orders a delivery could be received against at one branch (SUP5, §4).
+ *
+ * Behind `inventory.manage_organisation` rather than the ordering code — §5's manage-scoped subset,
+ * so a receiver can prefill a delivery without holding the order book. Disabled until a branch is
+ * known, because receiving is always at one site.
+ */
+export function useReceivableOrdersQuery(
+    branchId: BranchId | null,
+    supplierId: SupplierId | null = null,
+    enabled = true,
+): UseQueryResult<readonly ReceivableOrder[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.receivableOrders(
+            branchId === null ? '' : String(branchId),
+            supplierId === null ? null : String(supplierId),
+        ),
+        enabled: enabled && branchId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (branchId === null) throw new Error('A branch is required to receive a delivery.');
+            return repositories.kitchenOps.listReceivableOrders({
+                branchId,
+                ...(supplierId === null ? {} : { supplierId }),
+            });
+        },
+    });
+}
+
+/**
+ * The unpriced-receipts work queue, oldest first (SUP5, §3.6). Behind
+ * `inventory.view_costs_organisation` on the server; the screen gates itself on the same code.
+ */
+export function useUnpricedReceiptsQuery(
+    filter: UnpricedReceiptFilter = {},
+    enabled = true,
+): UseQueryResult<CursorPage<UnpricedReceipt>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.unpricedReceipts(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listUnpricedReceipts(filter);
         },
     });
 }
@@ -252,6 +728,38 @@ export function usePostGoodsReceiptMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: PostGoodsReceiptRequest) =>
             repositories.kitchenOps.postGoodsReceipt(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** The variables one price completion needs: which receipt, and the prices for its unpriced lines. */
+export interface CompleteReceiptPricesVariables {
+    readonly goodsReceiptId: GoodsReceiptId;
+    readonly request: CompleteReceiptPricesRequest;
+}
+
+/**
+ * Fills in the prices a receipt was posted without (SUP5, §3.6).
+ *
+ * Never moves stock — that guarantee is structural on the server — and prices each line once: a
+ * line already costed is refused rather than silently skipped. Shares the workspace's write effects
+ * like every other mutation here, so a completed receipt leaves the queue without anyone writing
+ * cache surgery by hand.
+ */
+export function useCompleteReceiptPricesMutation(): UseMutationResult<
+    GoodsReceiptDetail,
+    unknown,
+    CompleteReceiptPricesVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (variables: CompleteReceiptPricesVariables) =>
+            repositories.kitchenOps.completeReceiptPrices(
+                variables.goodsReceiptId,
+                variables.request,
+            ),
         onSuccess: onWritten,
     });
 }
@@ -273,6 +781,31 @@ export function usePurchasesLedgerQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listPurchasesLedger(filter);
+        },
+    });
+}
+
+/**
+ * The weekly or monthly purchase check (SUP6, §3.7) — the same ledger rolled up into periods, per
+ * currency, with the unpriced work counted rather than quietly omitted.
+ *
+ * Behind `inventory.view_costs_organisation` on the server; the ledger screen gates itself on the
+ * same code, so both of its modes are already inside one `<Gate>`. `enabled` is what keeps the
+ * summary from firing while the screen is in detail mode — two modes of one screen should not cost
+ * two requests when only one of them is on screen.
+ */
+export function useSpendSummaryQuery(
+    filter: SpendSummaryFilter,
+    enabled = true,
+): UseQueryResult<SpendSummary> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.spendSummary(filter),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getSpendSummary(filter);
         },
     });
 }

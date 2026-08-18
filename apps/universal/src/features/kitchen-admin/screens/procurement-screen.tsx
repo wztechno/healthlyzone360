@@ -1,10 +1,8 @@
-import type {
-    GoodsReceipt,
-    MeasurementUnitOption,
-    Supplier,
-} from '@healthy360/api-client/contracts';
+import type { GoodsReceipt, MeasurementUnitOption } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
+    DateField,
     Dialog,
     EmptyState,
     ErrorState,
@@ -21,7 +19,8 @@ import {
 } from '@healthy360/design-system';
 import type { SelectOption, TableColumn } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -41,7 +40,13 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { goodsReceiptRowTestId, stockItemLabel, supplierRowTestId } from '../ops-format.ts';
+import { displayName } from '../format.ts';
+import {
+    goodsReceiptRowTestId,
+    receiptCostStatusKey,
+    receiptCostStatusTone,
+    stockItemLabel,
+} from '../ops-format.ts';
 import {
     StockItemLineEditor,
     stockItemLinesToReceiptInputs,
@@ -50,13 +55,21 @@ import {
 import type { StockItemLineDraft } from '../ops-line-editor.tsx';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
+import { todayIsoDate } from '../receive-delivery-model.ts';
 
 /**
- * `/kitchen/procurement` — receipts-only procurement (O2).
+ * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
  *
- * There is no purchase-order surface in v1: `GoodsReceipt.purchaseOrderId` is always `null` until
- * one exists to point at (`contracts/kitchen-ops.ts`), so this screen never offers a picker for one
- * and the post form sends nothing for it.
+ * This dialog is the **market purchase**: somebody bought something without an order, and the
+ * quickest honest record of it is a supplier, a date and some lines. A delivery against an issued
+ * order goes to `/kitchen/procurement/receive` instead, which prefills outstanding quantities,
+ * matches order lines and handles over-receipts — none of which belongs in a dialog.
+ *
+ * SUP5 extends this one **minimally and deliberately**: a business date and an invoice reference,
+ * because those two are what the new columns make load-bearing (a receipt filed under today when
+ * the van came yesterday lands in the wrong week's spend). Everything else the receiving workflow
+ * needs stayed out, because a dialog that grew an order picker, a variance note and five charge
+ * fields would be the receive screen with worse ergonomics.
  *
  * ## What the receipt form actually needs to be usable (INV1.1)
  *
@@ -107,6 +120,8 @@ export function ProcurementScreen() {
 function Procurement() {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const { locale } = useLocale();
+    const router = useRouter();
     const toast = useToast();
     const access = useAccessState();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
@@ -124,6 +139,14 @@ function Procurement() {
     const [lines, setLines] = useState<readonly StockItemLineDraft[]>([]);
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [documentRef, setDocumentRef] = useState('');
+    // SUP5, kept minimal on purpose: this dialog is the **direct** market-purchase path and stays
+    // the small thing it is. The business date and the invoice reference are the two fields the new
+    // columns make load-bearing — a receipt with no `receivedOn` would be filed under today even
+    // when the van came yesterday, and slice 6 groups spend by exactly that. The order matching,
+    // over-receipt confirmation and header charges belong to the receive screen, which is where an
+    // ordered delivery goes.
+    const [receivedOn, setReceivedOn] = useState(() => todayIsoDate());
+    const [invoiceRef, setInvoiceRef] = useState('');
 
     const [creatingSupplier, setCreatingSupplier] = useState(false);
     const [newSupplierName, setNewSupplierName] = useState('');
@@ -137,13 +160,15 @@ function Procurement() {
 
     const referenceData = reference.data ?? null;
 
+    // Suppliers are bilingual since SUP1, so the picker labels them in the reader's own language
+    // and falls back to the other side rather than showing an empty option.
     const supplierOptions = useMemo(
         () =>
             (suppliers.data ?? []).map((row) => ({
                 value: String(row.id),
-                label: `${row.code} — ${row.nameEn}`,
+                label: `${row.code} — ${displayName(row.name, locale).value}`,
             })),
-        [suppliers.data],
+        [suppliers.data, locale],
     );
 
     // Prices are booked in RECEIPT_CURRENCY, never silently dropped for want of a supplier
@@ -254,6 +279,8 @@ function Procurement() {
         setLines([]);
         setSupplierId(null);
         setDocumentRef('');
+        setReceivedOn(todayIsoDate());
+        setInvoiceRef('');
         postReceipt.reset();
     }
 
@@ -266,6 +293,8 @@ function Procurement() {
                 branchId,
                 supplierId: supplierId === null ? null : SupplierId.unsafe(supplierId),
                 documentRef: documentRef.trim() === '' ? null : documentRef.trim(),
+                supplierInvoiceRef: invoiceRef.trim() === '' ? null : invoiceRef.trim(),
+                receivedOn: receivedOn.trim() === '' ? null : receivedOn.trim(),
                 purchaseOrderId: null,
                 lines: stockItemLinesToReceiptInputs(lines, currencyCode).map((line) => ({
                     stockItemId: StockItemId.unsafe(line.stockItemId),
@@ -329,25 +358,6 @@ function Procurement() {
         );
     }
 
-    const supplierColumns: readonly TableColumn<Supplier>[] = [
-        {
-            key: 'name',
-            header: t('kitchen:ops.procurement.columnSupplier'),
-            rowHeader: true,
-            flex: 2,
-            render: (row) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" testID={`${supplierRowTestId(String(row.id))}-name`}>
-                        {row.nameEn}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {row.code}
-                    </Text>
-                </Stack>
-            ),
-        },
-    ];
-
     const receiptColumns: readonly TableColumn<GoodsReceipt>[] = [
         {
             key: 'receivedAt',
@@ -392,6 +402,26 @@ function Procurement() {
                         </Text>
                     ))}
                 </Stack>
+            ),
+        },
+        {
+            key: 'costStatus',
+            header: t('kitchen:ops.procurement.columnCostStatus'),
+            render: (row) => (
+                <Inline space="xs" align="center" wrap>
+                    <Badge
+                        tone={receiptCostStatusTone(row.costStatus)}
+                        testID={`${goodsReceiptRowTestId(String(row.id))}-cost-status`}
+                        label={t(receiptCostStatusKey(row.costStatus))}
+                    />
+                    {row.valuationPendingCount > 0 ? (
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:ops.procurement.pendingFxCount', {
+                                count: row.valuationPendingCount,
+                            })}
+                        </Text>
+                    ) : null}
+                </Inline>
             ),
         },
         {
@@ -446,37 +476,42 @@ function Procurement() {
                     />
                 ) : (
                     <Stack space="lg" testID="kitchen-procurement-content">
-                        <Stack space="sm">
+                        {/*
+                         * A count and a way through, not a second supplier table (SUP1). Suppliers
+                         * have their own screen now — with contacts, an archive and a search — and
+                         * a read-only copy of their names here would be a list that could not do
+                         * any of it. The inline create inside the receipt dialog stays exactly
+                         * where it was: a kitchen with an empty book still must not be stuck at the
+                         * loading bay.
+                         */}
+                        <Stack space="sm" testID="kitchen-procurement-suppliers">
                             <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2} testID="kitchen-procurement-suppliers-title">
-                                    {t('kitchen:ops.procurement.suppliersTitle')}
-                                </Heading>
-                                {canManage ? (
-                                    <Button
-                                        testID="kitchen-procurement-new-supplier"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:ops.procurement.newSupplier')}
-                                        onPress={() => {
-                                            setCreatingSupplier(true);
-                                        }}
-                                    />
-                                ) : null}
-                            </Inline>
-                            {supplierRows.length === 0 ? (
-                                <Text tone="secondary" testID="kitchen-procurement-suppliers-empty">
-                                    {t('kitchen:ops.procurement.noSuppliers')}
-                                </Text>
-                            ) : (
-                                <Table<Supplier>
-                                    testID="kitchen-procurement-suppliers-table"
-                                    caption={t('kitchen:ops.procurement.suppliersTitle')}
-                                    captionHidden
-                                    columns={supplierColumns}
-                                    rows={supplierRows}
-                                    rowKey={(row) => String(row.id)}
+                                <Stack space="none">
+                                    <Heading level={2} testID="kitchen-procurement-suppliers-title">
+                                        {t('kitchen:ops.procurement.suppliersTitle')}
+                                    </Heading>
+                                    <Text
+                                        tone="secondary"
+                                        variant="caption"
+                                        testID="kitchen-procurement-supplier-count"
+                                    >
+                                        {supplierRows.length === 0
+                                            ? t('kitchen:ops.procurement.noSuppliers')
+                                            : t('kitchen:ops.suppliers.supplierCount', {
+                                                  count: supplierRows.length,
+                                              })}
+                                    </Text>
+                                </Stack>
+                                <Button
+                                    testID="kitchen-procurement-manage-suppliers"
+                                    size="sm"
+                                    variant="ghost"
+                                    label={t('kitchen:ops.procurement.manageSuppliers')}
+                                    onPress={() => {
+                                        router.push('/kitchen/suppliers' as never);
+                                    }}
                                 />
-                            )}
+                            </Inline>
                         </Stack>
 
                         <Stack space="sm">
@@ -484,14 +519,29 @@ function Procurement() {
                                 <Heading level={2} testID="kitchen-procurement-receipts-title">
                                     {t('kitchen:ops.procurement.receiptsTitle')}
                                 </Heading>
-                                {canManage ? (
-                                    <Button
-                                        testID="kitchen-procurement-post-receipt"
-                                        size="sm"
-                                        label={t('kitchen:ops.procurement.postReceipt')}
-                                        onPress={openPosting}
-                                    />
-                                ) : null}
+                                <Inline space="xs" align="center" wrap>
+                                    {canViewCosts ? (
+                                        <Button
+                                            testID="kitchen-procurement-unpriced-link"
+                                            size="sm"
+                                            variant="ghost"
+                                            label={t('kitchen:ops.procurement.unpricedReceipts')}
+                                            onPress={() => {
+                                                router.push(
+                                                    '/kitchen/procurement/unpriced-receipts' as never,
+                                                );
+                                            }}
+                                        />
+                                    ) : null}
+                                    {canManage ? (
+                                        <Button
+                                            testID="kitchen-procurement-post-receipt"
+                                            size="sm"
+                                            label={t('kitchen:ops.procurement.postReceipt')}
+                                            onPress={openPosting}
+                                        />
+                                    ) : null}
+                                </Inline>
                             </Inline>
 
                             {receiptRows.length === 0 ? (
@@ -580,6 +630,24 @@ function Procurement() {
                             value={documentRef}
                             onChangeText={setDocumentRef}
                             className="min-w-[180px] flex-1"
+                        />
+                        <TextInputField
+                            testID="kitchen-procurement-post-invoice-ref"
+                            label={t('kitchen:ops.procurement.fieldInvoiceRef')}
+                            hint={t('kitchen:ops.procurement.fieldInvoiceRefHint')}
+                            value={invoiceRef}
+                            onChangeText={setInvoiceRef}
+                            className="min-w-[180px] flex-1"
+                        />
+                        <DateField
+                            testID="kitchen-procurement-post-received-on"
+                            label={t('kitchen:ops.procurement.fieldReceivedOn')}
+                            hint={t('kitchen:ops.procurement.fieldReceivedOnHint')}
+                            value={receivedOn}
+                            max={todayIsoDate()}
+                            onChange={(next) => {
+                                setReceivedOn(next ?? '');
+                            }}
                         />
                     </Inline>
                     <StockItemLineEditor

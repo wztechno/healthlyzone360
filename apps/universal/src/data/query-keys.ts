@@ -3,6 +3,7 @@ import type {
     CorporateProgrammeId,
     DeliveryZoneId,
     DietitianId,
+    GoodsReceiptId,
     IngredientId,
     KitchenBranchId,
     KitchenId,
@@ -12,10 +13,12 @@ import type {
     OrderId,
     PriceListId,
     ProductId,
+    PurchaseOrderId,
     QuotationId,
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
+    SupplierId,
     UserId,
     VdSessionId,
 } from '@healthy360/domain-types';
@@ -389,10 +392,14 @@ export const queryKeys = {
      *
      * Its own root rather than a branch of `kitchenAdmin` for the same reason `KitchenOpsRepository`
      * is a sibling contract rather than a branch of it (`contracts/kitchen-ops.ts`'s header): none
-     * of these rows is lock-versioned or bilingual, and every list here is either the whole table
-     * (stock items, suppliers) or the most recent fifty (goods receipts, production orders, quality
-     * checks) — there is no row-by-identifier entry because no ops screen reads a single row on its
-     * own; each mutation form re-reads the list it just changed.
+     * of these rows is lock-versioned, and every list here is either the whole table (stock items,
+     * suppliers) or the most recent fifty (goods receipts, production orders, quality checks).
+     *
+     * **`supplier` is the one row-by-identifier entry**, added by SUP1 and the exception to what
+     * this group used to say. Every other ops mutation form re-reads the list it just changed,
+     * because there is nothing to a stock level a list row does not already show. A supplier has
+     * its own page — a record form plus a contact set no list row carries — so it is read by id,
+     * and it is the only entry here that needs a key of its own.
      *
      * **Never persisted**, on the same terms as `kitchenAdmin`: a stock level and a goods receipt
      * are exactly as tied to one kitchen's costs as a technical-sheet line is, and this workspace
@@ -403,11 +410,72 @@ export const queryKeys = {
         stockItems: () => ['kitchenOps', 'stock-items'] as const,
         stockLevels: () => ['kitchenOps', 'stock-levels'] as const,
         lowStockCount: () => ['kitchenOps', 'low-stock-count'] as const,
-        suppliers: () => ['kitchenOps', 'suppliers'] as const,
+        suppliers: (filter: object = {}) => ['kitchenOps', 'suppliers', filter] as const,
+        supplier: (supplierId: SupplierId) => ['kitchenOps', 'supplier', supplierId] as const,
         procurementReference: () => ['kitchenOps', 'procurement-reference'] as const,
         goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
+        /**
+         * The latest purchase of a specific set of shelves (SUP2).
+         *
+         * Keyed on the sorted, joined identifier list rather than on the array itself: the stock
+         * screen derives the ids from a memoised list, and two renders that produced the same set
+         * in a different order must be one cache entry rather than two requests for one answer.
+         */
+        itemLatestPurchases: (stockItemIds: readonly string[]) =>
+            ['kitchenOps', 'item-latest-purchases', [...stockItemIds].sort().join(',')] as const,
+        /**
+         * How many shelves at one branch need ordering (SUP3).
+         *
+         * Keyed on the branch, unlike `lowStockCount` beside it. That one narrows through the
+         * `X-Branch-Id` header, so switching branch changes the whole context and the cache with
+         * it; this one takes the branch as a *question*, and two branches' answers are two entries.
+         */
+        supplyNeedsCount: (branchId: string) =>
+            ['kitchenOps', 'supply-needs-count', branchId] as const,
+        /**
+         * One branch's order proposal, plus whatever was manually added to it (SUP3).
+         *
+         * The id list is sorted and joined for the same reason `itemLatestPurchases` sorts its own:
+         * the builder derives the set from row state, and two renders that produced the same shelves
+         * in a different order must be one cache entry rather than two requests for one answer.
+         */
+        orderProposal: (branchId: string, stockItemIds: readonly string[] = []) =>
+            ['kitchenOps', 'order-proposal', branchId, [...stockItemIds].sort().join(',')] as const,
+        /**
+         * The order book, and one order (SUP4).
+         *
+         * `purchaseOrder` is the second row-by-identifier entry in this group, beside `supplier`
+         * and for the same reason: an order has its own page, carrying lines and a recipient
+         * snapshot no list row on any other screen shows. Every write in this workspace still
+         * invalidates the whole `kitchenOps` root, so issuing an order refreshes the book and the
+         * order together without either being written by hand.
+         */
+        purchaseOrders: (filter: object = {}) => ['kitchenOps', 'purchase-orders', filter] as const,
+        purchaseOrder: (purchaseOrderId: PurchaseOrderId) =>
+            ['kitchenOps', 'purchase-order', purchaseOrderId] as const,
+        /**
+         * The receiving surfaces (SUP5).
+         *
+         * `receivableOrders` is keyed on the branch because receiving is always *at one site* and
+         * two branches' answers are two entries — the same reasoning `supplyNeedsCount` gives.
+         * `goodsReceipt` is a third row-by-identifier entry, beside `supplier` and `purchaseOrder`,
+         * because a receipt has its own detail carrying an order match no list row shows.
+         */
+        receivableOrders: (branchId: string, supplierId: string | null = null) =>
+            ['kitchenOps', 'receivable-orders', branchId, supplierId ?? ''] as const,
+        goodsReceipt: (goodsReceiptId: GoodsReceiptId) =>
+            ['kitchenOps', 'goods-receipt', goodsReceiptId] as const,
+        unpricedReceipts: (filter: object = {}) =>
+            ['kitchenOps', 'unpriced-receipts', filter] as const,
         purchasesLedger: (filter: object = {}) =>
             ['kitchenOps', 'purchases-ledger', filter] as const,
+        /**
+         * The weekly/monthly purchase check (SUP6). Its own entry beside `purchasesLedger` rather
+         * than a variant of it: the ledger walks lines by cursor and this answers whole periods, so
+         * two modes of one screen are two cached answers and switching between them does not evict
+         * the other. The grouping is inside the filter object, so week and month are two entries.
+         */
+        spendSummary: (filter: object = {}) => ['kitchenOps', 'spend-summary', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,

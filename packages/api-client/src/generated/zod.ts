@@ -2969,13 +2969,535 @@ export const zStockWasteRequest = z.object({
     notes: z.string().max(255).nullish()
 });
 
+/**
+ * The "who do I call" summary a supplier list row shows.
+ */
+export const zSupplierPrimaryContact = z.object({
+    name: z.string(),
+    phone: z.string().nullable()
+});
+
+/**
+ * One named person at a supplier — distinct from the supplier's own office
+ * line. At least one of `email`, `phone` and `whatsapp_phone` is always
+ * present: a contact nobody can reach is not a contact.
+ *
+ * `whatsapp_phone` is its own field rather than a flag on `phone` because
+ * in this trade they genuinely differ — the landline takes the call, the
+ * mobile takes the order photo.
+ *
+ */
+export const zSupplierContact = z.object({
+    id: zUuid,
+    name: z.string(),
+    role_title: z.string().nullable(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    whatsapp_phone: z.string().nullable(),
+    is_primary: z.boolean(),
+    display_order: z.int().gte(0)
+});
+
+/**
+ * The shelf a supplier link points at, summarised for the row that renders it.
+ */
+export const zSuppliedStockItem = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    unit_code: z.string(),
+    backing: z.enum(['ingredient', 'product'])
+});
+
+/**
+ * What this was last bought for (§3.4) — derived live from the newest
+ * priced `goods_receipt_lines` row, never stored.
+ *
+ * Unpriced deliveries are skipped entirely, so this is always a real
+ * price: an item received only on unpriced receipts has no
+ * `last_purchase` at all rather than one with a null amount.
+ *
+ * **The money is the only redacted part.** Without
+ * `inventory.view_costs_organisation`, `unit_price_amount` and
+ * `cost_currency_code` are `null` and the enclosing response flags
+ * `costs_redacted`. The date, quantity and unit survive: those are
+ * warehouse facts a receiving clerk entered, not the valuation the cost
+ * permission gates.
+ *
+ * The amount is always quoted **per `unit_code`** and always beside its
+ * own currency. A bare `6.90` without "USD per kg" is not a price, and
+ * currencies are never converted — there is no exchange rate in this
+ * system.
+ *
+ */
+export const zLastPurchase = z.object({
+    goods_receipt_id: zUuid,
+    document_ref: z.string().nullable(),
+    received_at: z.iso.datetime({ offset: true }).nullable(),
+    quantity: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_code: z.string().nullable(),
+    unit_price_amount: z.string().nullable(),
+    cost_currency_code: z.string().nullable()
+});
+
+/**
+ * One "we buy this from them" row on the supplier's page (SUP2).
+ *
+ * The stock item is embedded rather than referenced by id alone because
+ * the table beside it shows a name, a code and a unit; a client resolving
+ * three fields per row against a separate list would be doing a join the
+ * server already has open.
+ *
+ * `last_purchase` is `null` when this supplier has never been recorded
+ * selling this item at a price — a distinct state from a *present*
+ * `last_purchase` whose money is redacted. **Never bought here** and
+ * **Hidden** are two different facts and clients must render them
+ * differently (§3.4).
+ *
+ */
+export const zSuppliedItem = z.object({
+    stock_item: zSuppliedStockItem.nullable(),
+    is_preferred: z.boolean(),
+    supplier_item_ref: z.string().max(64).nullable(),
+    last_purchase: zLastPurchase.nullable()
+});
+
+/**
+ * One supplier in the organisation's book. The same shape everywhere a
+ * supplier is served — list row and freshly created record alike — so a
+ * client writes one mapper rather than three.
+ *
+ * `contact_email`/`contact_phone` are the **general office** details, not
+ * a duplicate of the primary named person: when a sales rep leaves, the
+ * office line is still correct and their mobile is not.
+ *
+ */
 export const zSupplier = z.object({
     id: zUuid,
     code: z.string(),
     name_en: z.string(),
+    name_ar: z.string().nullable(),
     currency_code: z.string().nullable(),
     contact_email: z.string().nullable(),
-    contact_phone: z.string().nullable()
+    contact_phone: z.string().nullable(),
+    address: z.string().nullable(),
+    payment_terms: z.string().nullable(),
+    lead_time_days: z.int().gte(0).lte(365).nullable(),
+    notes: z.string().nullable(),
+    archived_at: z.iso.datetime({ offset: true }).nullable(),
+    contact_count: z.int().gte(0),
+    supplied_item_count: z.int().gte(0),
+    primary_contact: zSupplierPrimaryContact.nullable(),
+    contacts: z.array(zSupplierContact).optional(),
+    supplied_items: z.array(zSuppliedItem).optional(),
+    costs_redacted: z.boolean().optional()
+});
+
+/**
+ * A supplier with its full contact set and everything it supplies — the
+ * supplier's own page.
+ *
+ * The canonical `Supplier` with `contacts`, `supplied_items` and
+ * `costs_redacted` promoted from optional to required. Composed rather
+ * than restated so that a field added to the book cannot arrive on the
+ * list and go missing from the detail.
+ *
+ * All three are restated in the second subschema rather than only listed
+ * as required: `Supplier` closes itself with `additionalProperties: false`
+ * (which is why the fields are declared there too, optionally), and a
+ * `required`-only branch generates as an index signature rather than as
+ * the array a client needs.
+ *
+ */
+export const zSupplierDetail = zSupplier.and(z.object({
+    contacts: z.array(zSupplierContact),
+    supplied_items: z.array(zSuppliedItem),
+    costs_redacted: z.boolean()
+}));
+
+/**
+ * The three tallies partition each other: `out_of_stock_count` plus
+ * `low_stock_count` equals `count`, because a level that is both empty and
+ * below its threshold is counted once, as out of stock.
+ *
+ */
+export const zSupplyNeedsCountEnvelope = z.object({
+    data: z.object({
+        count: z.int().gte(0),
+        out_of_stock_count: z.int().gte(0),
+        low_stock_count: z.int().gte(0)
+    }),
+    meta: zMeta
+});
+
+/**
+ * One active supplier a proposal row could be bought from. Archived
+ * suppliers never appear here — a picker offering a shuttered warehouse is
+ * how an order gets sent to one.
+ *
+ * No price, and none is coming: this object exists so a person can choose
+ * who to buy from, not to compare what they charge.
+ *
+ */
+export const zSupplierOption = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    is_preferred: z.boolean(),
+    lead_time_days: z.int().nullable()
+});
+
+/**
+ * One row of the supply-order builder (SUP3).
+ *
+ * `is_out_of_stock` and `is_low` are independent readings of the numbers
+ * beside them — a shelf at zero with a threshold set is genuinely both.
+ * `origin` is the single label the union produces, and it is where the
+ * "counted once, as out of stock" rule lives.
+ *
+ * A `requested` row's `is_out_of_stock` still follows from its
+ * `quantity_on_hand`: a shelf that has never moved at this branch reports
+ * `"0.0000"`, and reporting `false` beside it would be a flag a client
+ * could not reconcile with the number it describes.
+ *
+ * No field here carries a price, a cost or a currency, at any depth.
+ *
+ */
+export const zOrderProposalItem = z.object({
+    stock_item_id: zUuid,
+    item_code: z.string(),
+    item_name_en: z.string(),
+    unit_id: zUuid.nullable(),
+    unit_code: z.string(),
+    branch_id: zUuid,
+    quantity_on_hand: z.string(),
+    reorder_threshold: z.string().nullable(),
+    par_level: z.string().nullable(),
+    is_out_of_stock: z.boolean(),
+    is_low: z.boolean(),
+    origin: z.enum([
+        'out_of_stock',
+        'low_stock',
+        'requested'
+    ]),
+    suggested_quantity: z.string().nullable(),
+    suggested_quantity_basis: z.enum(['par', 'none']),
+    supplier_options: z.array(zSupplierOption),
+    suggested_supplier_id: zUuid.nullable(),
+    unassigned_reason: z.enum(['no_supplier', 'suppliers_archived']).nullable()
+});
+
+/**
+ * Rows in the order they must be rendered: out of stock, then low, then
+ * requested. `meta` counts the queue only — `out_of_stock_count` and
+ * `low_stock_count` exclude requested rows, so they agree exactly with
+ * `/catalogue/procurement/supply-needs/count` for the same branch.
+ *
+ */
+export const zOrderProposalCollection = z.object({
+    data: z.object({
+        items: z.array(zOrderProposalItem)
+    }),
+    meta: zMeta
+});
+
+/**
+ * Where an order has got to (§3.5). `draft → issued →
+ * partially_received → received`, with `cancelled` reachable from the two
+ * states in which nothing has arrived yet.
+ *
+ * **`issued`, never `sent`** (§2). Phase 1 dispatches nothing through any
+ * channel — a person presses Issue, the lines freeze, and they print the
+ * sheet and hand it over. Calling that `sent` would claim an event the
+ * system did not perform.
+ *
+ * `partially_received` and `received` are reached by **posting a goods
+ * receipt**, never by an action of their own: the quantities received are
+ * summed per order line and the status is whatever that sum says it is.
+ * There is no "mark as received" action and there must not be one — it
+ * would let an order claim a delivery that never turned up. The one
+ * apparent exception proves the rule: closing a short delivery still goes
+ * through a receipt, and what the flag adds is a reason for writing off the
+ * remainder rather than a status change of its own.
+ *
+ * `received` and `cancelled` are terminal: a delivery that turned out wrong
+ * is a receipt correction or a return, which are different objects with
+ * different quantities attached.
+ *
+ */
+export const zPurchaseOrderStatus = z.enum([
+    'draft',
+    'issued',
+    'partially_received',
+    'received',
+    'cancelled'
+]);
+
+/**
+ * One requested shelf, as the document says it (§3.5).
+ *
+ * Every display field is a **snapshot** taken when the line was written,
+ * not a live read of the stock item — that is what makes an issued order
+ * immutable in practice rather than only in status. A shelf renamed in
+ * March does not silently rename a line on an order issued in February,
+ * because the supplier is holding a printed copy of the February wording.
+ *
+ * `stock_item_id` rides alongside as a **pointer**: a client deep-links to
+ * the shelf with it and the receiving slice matches a delivery line to
+ * this one with it. It is never the source of the label beside it.
+ *
+ * **No price, no amount, no currency**, here or anywhere on a purchase
+ * order. Actual prices belong to goods receipts.
+ *
+ */
+export const zPurchaseOrderLine = z.object({
+    id: zUuid,
+    stock_item_id: zUuid,
+    item_code: z.string().max(64),
+    item_name_en: z.string().max(160),
+    item_name_ar: z.string().max(160).nullable(),
+    quantity: z.string(),
+    received_quantity: z.string(),
+    outstanding_quantity: z.string(),
+    unit_code: z.string().max(16),
+    supplier_item_ref: z.string().max(64).nullable(),
+    notes: z.string().max(255).nullable(),
+    display_order: z.int().gte(0)
+});
+
+/**
+ * One named person as they stood at issue time. No identifier: this is a
+ * transcription onto a document, not a pointer at a row that may since
+ * have been deleted.
+ *
+ */
+export const zRecipientSnapshotContact = z.object({
+    name: z.string(),
+    role_title: z.string().nullable(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    whatsapp_phone: z.string().nullable(),
+    is_primary: z.boolean()
+});
+
+/**
+ * Who the order was addressed to, at the instant it was issued (§3.5).
+ *
+ * Captured on issue and never touched again. A supplier that moves
+ * premises in March must not silently rewrite the February order it is
+ * holding a copy of — so a **draft** preview reads the live supplier and an
+ * **issued** reprint reads this.
+ *
+ * It is a document, not a reference: the fields are the ones a printed
+ * order sheet names, and the supplier may since have been archived,
+ * renamed or emptied of contacts without any of it changing here.
+ *
+ */
+export const zRecipientSnapshot = z.object({
+    supplier_id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    address: z.string().nullable(),
+    payment_terms: z.string().nullable(),
+    lead_time_days: z.int().nullable(),
+    contact_email: z.string().nullable(),
+    contact_phone: z.string().nullable(),
+    contacts: z.array(zRecipientSnapshotContact)
+});
+
+/**
+ * One delivery made against an order, as the order lists it (SUP5).
+ */
+export const zPurchaseOrderReceiptRef = z.object({
+    id: zUuid,
+    received_on: z.iso.date().nullable(),
+    document_ref: z.string().nullable(),
+    line_count: z.int().gte(0)
+});
+
+/**
+ * The branch an order is for. `name` rather than `name_en`:
+ * `organisation_branches` carries one name column, and a bilingual pair on
+ * the wire would promise an Arabic branch name the table has no room for.
+ *
+ */
+export const zPurchaseOrderBranch = z.object({
+    id: zUuid,
+    name: z.string()
+});
+
+/**
+ * The **live** supplier an order names — not the snapshot.
+ * `archived_at` is on it deliberately: an issued order for a
+ * since-archived supplier is an ordinary situation a detail screen has to
+ * explain, and a reference without the flag would leave it guessing why
+ * issuing is refused.
+ *
+ */
+export const zPurchaseOrderSupplier = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    archived_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * One request the kitchen makes of one supplier, for one branch (§3.5).
+ *
+ * **One shape for the list, the detail and the create response.** A second
+ * summary variant is the one that drifts, and the batch read a print
+ * preview makes wants the whole thing anyway.
+ *
+ * **Two suppliers on an issued order, and both are deliberate.**
+ * `supplier` is the live record with its archive flag, because a screen
+ * offering to issue needs to know whether the supplier is still in the
+ * book. `recipient_snapshot` is who the document was addressed to at the
+ * instant it was issued, and it is `null` on a draft because a draft has
+ * been addressed to nobody yet. A client renders the live supplier on a
+ * draft and the snapshot from `issued` onward.
+ *
+ * `number` is the human handle both sides quote — `PO-` plus eight
+ * Crockford base-32 characters, minted **random rather than sequential**
+ * because a sequential number printed on a supplier's copy would tell them
+ * this kitchen's purchasing volume.
+ *
+ * **No money, at any depth.** Not a price, an amount, a currency or a
+ * total, on the order, on a line or inside the snapshot.
+ *
+ */
+export const zPurchaseOrder = z.object({
+    id: zUuid,
+    number: z.string().max(32),
+    status: zPurchaseOrderStatus,
+    branch: zPurchaseOrderBranch.nullable(),
+    supplier: zPurchaseOrderSupplier.nullable(),
+    recipient_snapshot: zRecipientSnapshot.nullable(),
+    notes: z.string().nullable(),
+    line_count: z.int().gte(0),
+    issued_at: z.iso.datetime({ offset: true }).nullable(),
+    received_at: z.iso.datetime({ offset: true }).nullable(),
+    closed_at: z.iso.datetime({ offset: true }).nullable(),
+    close_short_reason: z.string().max(255).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    lines: z.array(zPurchaseOrderLine),
+    receipts: z.array(zPurchaseOrderReceiptRef)
+});
+
+export const zPurchaseOrderEnvelope = z.object({
+    data: z.object({
+        purchase_order: zPurchaseOrder
+    }),
+    meta: zMeta
+});
+
+/**
+ * A page of the order book, newest first — and the same envelope the batch
+ * create answers with, where the orders are in **request order** rather
+ * than newest first, because the person confirmed a list and the answer
+ * has to line up with it.
+ *
+ */
+export const zPurchaseOrderCollection = z.object({
+    data: z.object({
+        purchase_orders: z.array(zPurchaseOrder)
+    }),
+    meta: zPaginationMeta
+});
+
+/**
+ * Everything a client may say about a line, and it is deliberately two
+ * fields. The item code, both names, the unit and the supplier's own
+ * catalogue reference are resolved server-side (§6) — a client that could
+ * name a line could put anything at all on a document a supplier reads.
+ * There is no price field and none is coming.
+ *
+ */
+export const zCreatePurchaseOrderLine = z.object({
+    stock_item_id: zUuid,
+    quantity: z.string().regex(/^\d+(\.\d{1,4})?$/)
+});
+
+export const zCreatePurchaseOrderRequest = z.object({
+    supplier_id: zUuid,
+    branch_id: zUuid,
+    lines: z.array(zCreatePurchaseOrderLine).min(1).max(200)
+});
+
+/**
+ * One draft per supplier, created together or not at all.
+ *
+ * `branch_id` sits on each order because every proposal row carries the
+ * branch it was read for, which is what makes a payload whose branch
+ * disagrees with its lines unrepresentable. The server then insists they
+ * all agree: §4 says a proposal is always *for one branch*, so two
+ * branches in one body is a `422` rather than a guess.
+ *
+ */
+export const zCreatePurchaseOrdersRequest = z.object({
+    orders: z.array(zCreatePurchaseOrderRequest).min(1).max(20)
+});
+
+/**
+ * Presence-keyed: an omitted field is left alone, `notes: null` clears the
+ * note. `lines` is a **full replace** — the body states the whole desired
+ * set — because a diff would need an identity for a line the client does
+ * not name.
+ *
+ * Draft only. An issued order answers `409` with
+ * `details.reason = purchase_order_not_draft`.
+ *
+ */
+export const zUpdatePurchaseOrderRequest = z.object({
+    notes: z.string().max(2000).nullish(),
+    lines: z.array(zCreatePurchaseOrderLine).min(1).max(200).optional()
+});
+
+/**
+ * The pair that identifies the link, plus the two things about it a
+ * kitchen edits. Idempotent: sending the same body twice leaves the same
+ * row.
+ *
+ * `is_preferred` and `supplier_item_ref` are keyed on **presence**. An
+ * omitted field is left alone; `supplier_item_ref: null` clears a
+ * reference typed by mistake. `is_preferred: true` takes the flag off
+ * whichever supplier held it for this item; `false` clears this link's own
+ * flag and promotes nobody.
+ *
+ */
+export const zUpsertSupplierLinkRequest = z.object({
+    supplier_id: zUuid,
+    stock_item_id: zUuid,
+    is_preferred: z.boolean().nullish(),
+    supplier_item_ref: z.string().max(64).nullish()
+});
+
+/**
+ * The link after a write, and nothing more.
+ *
+ * Every ops write in this workspace answers the minimum and lets the
+ * screen re-read what it changed. A supplied item's last purchase price is
+ * derived from the receipt ledger and cannot change because somebody saved
+ * a link, so returning it here would invent a read the caller did not ask
+ * for.
+ *
+ */
+export const zSupplierLink = z.object({
+    supplier_id: zUuid,
+    stock_item_id: zUuid,
+    is_preferred: z.boolean(),
+    supplier_item_ref: z.string().nullable()
+});
+
+export const zSupplierLinkEnvelope = z.object({
+    data: z.object({
+        supplier_link: zSupplierLink
+    }),
+    meta: zMeta
 });
 
 export const zSupplierCollection = z.object({
@@ -2990,18 +3512,104 @@ export const zSupplierCollection = z.object({
  * per-organisation code from the name. `currency_code` is a hint the
  * receipt form pre-selects and is never required.
  *
+ * Contacts are **not** accepted here: they are their own section-level
+ * replace, and a create that took them would give a kitchen two ways to
+ * write the same set. The lightweight create inside the goods-receipt
+ * dialog sends a name and nothing else.
+ *
  */
 export const zCreateSupplierRequest = z.object({
     name_en: z.string().min(1).max(160),
+    name_ar: z.string().max(160).nullish(),
     code: z.string().max(64).nullish(),
     currency_code: z.string().length(3).nullish(),
     contact_email: z.string().max(160).nullish(),
-    contact_phone: z.string().max(40).nullish()
+    contact_phone: z.string().max(40).nullish(),
+    address: z.string().max(2000).nullish(),
+    payment_terms: z.string().max(120).nullish(),
+    lead_time_days: z.int().gte(0).lte(365).nullish(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * Every field of the record, all optional — a partial write. A field the
+ * body omits is left alone; a field sent as `null` is cleared, so a
+ * kitchen can genuinely remove an address it typed by mistake.
+ *
+ * `code` **is** editable, unlike a delivery zone's or a price list's. The
+ * difference is who wrote it: those are minted by an operator who meant
+ * them, whereas a supplier code is frequently minted by the server from a
+ * name typed into a goods-receipt dialog at the loading bay, and refusing
+ * to correct `GULF-FRESH-TRADING-CO-2` would leave the kitchen stuck with
+ * an accident. Uniqueness ignores this supplier's own row.
+ *
+ * `archived_at` is not reachable from here — archiving is its own action
+ * with its own audit event, so a form save cannot retire a supplier by
+ * writing a field. Contacts are their own set-replace.
+ *
+ */
+export const zUpdateSupplierRequest = z.object({
+    name_en: z.string().min(1).max(160).optional(),
+    name_ar: z.string().max(160).nullish(),
+    code: z.string().min(1).max(64).optional(),
+    currency_code: z.string().length(3).nullish(),
+    contact_email: z.string().max(160).nullish(),
+    contact_phone: z.string().max(40).nullish(),
+    address: z.string().max(2000).nullish(),
+    payment_terms: z.string().max(120).nullish(),
+    lead_time_days: z.int().gte(0).lte(365).nullish(),
+    notes: z.string().max(2000).nullish()
+});
+
+/**
+ * One contact in a replace request. `id` names an existing contact to update; omit it to create.
+ */
+export const zReplaceSupplierContact = z.object({
+    id: zUuid.nullish(),
+    name: z.string().min(1).max(120),
+    role_title: z.string().max(120).nullish(),
+    email: z.string().max(160).nullish(),
+    phone: z.string().max(40).nullish(),
+    whatsapp_phone: z.string().max(40).nullish(),
+    is_primary: z.boolean().nullish(),
+    display_order: z.int().gte(0).lte(65535).nullish()
+});
+
+/**
+ * The **whole desired contact set**. Contacts carrying an `id` are
+ * updated, contacts without one are created, and contacts absent from the
+ * body are deleted — one request, one transaction, one **Save contacts**
+ * button on the screen. Send `[]` to clear the set.
+ *
+ * Two rules are refused with `422` before the database can raise a
+ * constraint violation: at most one `is_primary` across the set, and at
+ * least one of `email`, `phone` and `whatsapp_phone` on every contact.
+ *
+ * Twenty is the cap. A supplier with more than twenty named people is not
+ * a supplier record, it is a directory.
+ *
+ */
+export const zReplaceSupplierContactsRequest = z.object({
+    contacts: z.array(zReplaceSupplierContact).max(20)
 });
 
 export const zSupplierEnvelope = z.object({
     data: z.object({
         supplier: zSupplier
+    }),
+    meta: zMeta
+});
+
+export const zSupplierDetailEnvelope = z.object({
+    data: z.object({
+        supplier: zSupplierDetail
+    }),
+    meta: zMeta
+});
+
+export const zSupplierContactCollection = z.object({
+    data: z.object({
+        contacts: z.array(zSupplierContact)
     }),
     meta: zMeta
 });
@@ -3046,18 +3654,126 @@ export const zProcurementReferenceEnvelope = z.object({
 });
 
 /**
+ * Whether a receipt's costing is finished (§3.6). Derived from the lines
+ * and never set by hand: a line counts as settled when it carries
+ * `costed_at`, the receipt is `complete` when every line does, `unpriced`
+ * when none does and `partial` in between.
+ *
+ * `costed_at` is stamped when there is nothing further to do with a line's
+ * money — the blend went through, **or** there was no ingredient to blend
+ * into (packaging, cleaning supplies). Both are finished states, and
+ * leaving the second one null would park its receipt in the work queue
+ * forever with no action available.
+ *
+ * A receipt whose only line is `valuation_pending_fx` therefore reads
+ * `unpriced` even though its price is recorded, because its costing is
+ * genuinely not finished. `valuation_pending_count` beside it is what tells
+ * a person which kind of unfinished it is.
+ *
+ * Not redacted without the cost permission: this says whether the paperwork
+ * needs attention, not what anything cost.
+ *
+ */
+export const zReceiptCostStatus = z.enum([
+    'unpriced',
+    'partial',
+    'complete'
+]);
+
+/**
  * The money fields (INV1.1) are served as `null` when the reader lacks
  * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
- * `quantity` and `unit_id` are warehouse facts and are never redacted.
+ * `quantity` and `unit_id` are warehouse facts and are never redacted, and
+ * neither are `costed_at` and `valuation_pending_fx`, which say whether the
+ * line still needs somebody's attention rather than what it cost.
  *
  */
 export const zGoodsReceiptLine = z.object({
+    id: zUuid,
     stock_item_id: zUuid,
+    purchase_order_line_id: zUuid.nullable(),
     quantity: z.string(),
     unit_id: zUuid.nullable(),
     unit_price_amount: z.string().nullable(),
     line_total_amount: z.string().nullable(),
-    cost_currency_code: z.string().nullable()
+    cost_currency_code: z.string().nullable(),
+    costed_at: z.iso.datetime({ offset: true }).nullable(),
+    valuation_pending_fx: z.boolean()
+});
+
+/**
+ * One ordered line and how much of it has arrived, all three quantities in
+ * the line's own `unit_code`.
+ *
+ */
+export const zReceiptPurchaseOrderMatchLine = z.object({
+    purchase_order_line_id: zUuid,
+    stock_item_id: zUuid,
+    item_code: z.string(),
+    item_name_en: z.string(),
+    unit_code: z.string(),
+    ordered_quantity: z.string(),
+    received_quantity: z.string(),
+    outstanding_quantity: z.string()
+});
+
+/**
+ * The order a delivery settled, as the receipt shows it. No money at any
+ * depth, because there is none on a purchase order at all.
+ *
+ */
+export const zReceiptPurchaseOrderMatch = z.object({
+    id: zUuid,
+    number: z.string(),
+    status: zPurchaseOrderStatus,
+    lines: z.array(zReceiptPurchaseOrderMatchLine)
+});
+
+/**
+ * One ordered line with its outstanding quantity — what the receive screen
+ * prefills a row with (§4). The unit is fixed from the order line, so a
+ * delivery cannot silently be counted in something else.
+ *
+ */
+export const zReceivableOrderLine = z.object({
+    purchase_order_line_id: zUuid,
+    stock_item_id: zUuid,
+    item_code: z.string(),
+    item_name_en: z.string(),
+    item_name_ar: z.string().nullable(),
+    unit_code: z.string(),
+    unit_id: zUuid.nullable(),
+    ordered_quantity: z.string(),
+    received_quantity: z.string(),
+    outstanding_quantity: z.string()
+});
+
+/**
+ * One line's missing price. `line_total_amount` is optional and is
+ * **checked** against quantity × unit price rather than stored as given:
+ * the total and the price are two views of one fact, and a database holding
+ * two answers for it is worse than one that refuses.
+ *
+ */
+export const zCompleteReceiptPriceLine = z.object({
+    goods_receipt_line_id: zUuid,
+    unit_price_amount: z.number().gte(0),
+    line_total_amount: z.number().gte(0).nullish(),
+    cost_currency_code: z.string().length(3)
+});
+
+/**
+ * Prices only. The quantities are untouchable here — §3.6 is explicit that
+ * posted quantities are never edited in place, and nothing on this request
+ * could change what arrived.
+ *
+ * Every line named must still have a null `costed_at`, and every currency
+ * on the request must agree with itself and with the receipt's
+ * already-priced lines.
+ *
+ */
+export const zCompleteReceiptPricesRequest = z.object({
+    lines: z.array(zCompleteReceiptPriceLine).min(1)
 });
 
 /**
@@ -3070,13 +3786,62 @@ export const zSupplierRef = z.object({
 });
 
 /**
- * A receipt still has no purchase-order surface in v1 (O2) —
- * `purchase_order_id` is always null. Since INV1.1 it also records who was
- * paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
- * in `currency_code`, offered only when every priced line shares one
- * currency (there is no exchange rate in this system, §4.4). When the
- * reader lacks `inventory.view_costs_organisation` every money field is
- * null and `costs_redacted` is true.
+ * One stock item's newest purchase **across every supplier** (SUP2), with
+ * the supplier that sold it.
+ *
+ * `LastPurchase` plus the two fields that make it answerable outside a
+ * supplier's own page: the item it belongs to, so a client can join it to
+ * the stock list, and who sold it, because a price without the vendor
+ * beside it is not actionable.
+ *
+ * The supplier is nullable: a direct market-run receipt records no
+ * supplier, and the price it captured is still the last price of that
+ * item.
+ *
+ */
+export const zItemLatestPurchase = zLastPurchase.and(z.object({
+    stock_item_id: zUuid,
+    supplier: zSupplierRef.nullable()
+}));
+
+/**
+ * Requested items with no priced receipt are **absent** rather than
+ * present with nulls, so `meta.count` may be smaller than
+ * `meta.requested_count`. `meta.costs_redacted` says whether the money
+ * was served at all.
+ *
+ */
+export const zItemLatestPurchaseCollection = z.object({
+    data: z.object({
+        purchases: z.array(zItemLatestPurchase)
+    }),
+    meta: zMeta
+});
+
+/**
+ * What arrived, from whom, and what it cost (§3.6).
+ *
+ * **Two dates, and they are two different facts.** `received_at` is the
+ * exact instant; `received_on` is the branch-local calendar day the
+ * delivery belongs to, and it is what §3.7 groups spend by — a van unloaded
+ * at 21:30 in Dubai is a Tuesday delivery, and reading the UTC instant's
+ * date would file it on Monday.
+ *
+ * **Two document references, likewise.** `document_ref` is the delivery
+ * note the driver handed over; `supplier_invoice_ref` and `invoice_date`
+ * are the invoice, which often arrives days later.
+ *
+ * `receipt_total_amount` is the **item subtotal** in `currency_code`,
+ * offered only when every priced line shares one currency (there is no
+ * exchange rate in this system, §4.4). The header charges are reported
+ * **separately** for the reason §3.6 gives: tax and delivery are not an
+ * ingredient's purchase price, and a screen that added them into one figure
+ * would be mislabelling them. They carry no currency of their own — they
+ * are in the receipt's line currency, and the post refuses any other state.
+ *
+ * When the reader lacks `inventory.view_costs_organisation` every money
+ * field is null and `costs_redacted` is true. `cost_status` and the two
+ * counts are **not** redacted.
  *
  */
 export const zGoodsReceipt = z.object({
@@ -3084,12 +3849,93 @@ export const zGoodsReceipt = z.object({
     branch_id: zUuid,
     supplier: zSupplierRef.nullable(),
     document_ref: z.string().nullable(),
+    supplier_invoice_ref: z.string().nullable(),
+    invoice_date: z.iso.date().nullable(),
+    variance_note: z.string().max(255).nullable(),
     purchase_order_id: zUuid.nullable(),
     received_at: z.iso.datetime({ offset: true }).nullable(),
+    received_on: z.iso.date().nullable(),
+    cost_status: zReceiptCostStatus,
+    unpriced_line_count: z.int().gte(0),
+    valuation_pending_count: z.int().gte(0),
     currency_code: z.string().nullable(),
     receipt_total_amount: z.string().nullable(),
+    discount_amount: z.string().nullable(),
+    tax_amount: z.string().nullable(),
+    delivery_amount: z.string().nullable(),
+    other_charges_amount: z.string().nullable(),
+    invoice_total_amount: z.string().nullable(),
     costs_redacted: z.boolean(),
     lines: z.array(zGoodsReceiptLine)
+});
+
+export const zGoodsReceiptDetail = zGoodsReceipt.and(z.object({
+    purchase_order: zReceiptPurchaseOrderMatch.nullable()
+}));
+
+export const zGoodsReceiptDetailEnvelope = z.object({
+    data: z.object({
+        goods_receipt: zGoodsReceiptDetail
+    }),
+    meta: zMeta
+});
+
+/**
+ * One order a delivery could be received against (§4, §6) — a deliberate
+ * manage-scoped subset of the order book, not the order book. No notes, no
+ * recipient snapshot, no history, and no money at any depth.
+ *
+ */
+export const zReceivableOrder = z.object({
+    id: zUuid,
+    number: z.string(),
+    status: zPurchaseOrderStatus,
+    branch_id: zUuid,
+    supplier: zSupplierRef.nullable(),
+    issued_at: z.iso.datetime({ offset: true }).nullable(),
+    line_count: z.int().gte(0),
+    outstanding_line_count: z.int().gte(0),
+    lines: z.array(zReceivableOrderLine)
+});
+
+export const zReceivableOrderCollection = z.object({
+    data: z.object({
+        receivable_orders: z.array(zReceivableOrder)
+    }),
+    meta: zMeta
+});
+
+/**
+ * One row of the unpriced-receipts work queue (§3.6). Deliberately not the
+ * whole receipt: this is a list somebody scans to decide what to open next.
+ *
+ * The two counts are two different jobs. `unpriced_line_count` is "type
+ * these prices in"; `valuation_pending_count` is "the prices are already
+ * here and an exchange-rate decision is not this screen's to make". A queue
+ * showing one number for both would send people to rows they cannot action.
+ *
+ * No money at all — the amounts are on the receipt detail, behind the same
+ * gate this list sits on.
+ *
+ */
+export const zUnpricedReceipt = z.object({
+    id: zUuid,
+    received_on: z.iso.date().nullable(),
+    supplier: zSupplierRef.nullable(),
+    document_ref: z.string().nullable(),
+    supplier_invoice_ref: z.string().nullable(),
+    purchase_order_id: zUuid.nullable(),
+    cost_status: zReceiptCostStatus,
+    line_count: z.int().gte(0),
+    unpriced_line_count: z.int().gte(0),
+    valuation_pending_count: z.int().gte(0)
+});
+
+export const zUnpricedReceiptCollection = z.object({
+    data: z.object({
+        unpriced_receipts: z.array(zUnpricedReceipt)
+    }),
+    meta: zPaginationMeta
 });
 
 export const zGoodsReceiptCollection = z.object({
@@ -3110,6 +3956,7 @@ export const zGoodsReceiptCollection = z.object({
  */
 export const zGoodsReceiptLineInput = z.object({
     stock_item_id: zUuid,
+    purchase_order_line_id: zUuid.nullish(),
     quantity: z.number().gt(0),
     unit_id: zUuid.optional(),
     unit_price_amount: z.number().gte(0).optional(),
@@ -3120,21 +3967,40 @@ export const zGoodsReceiptLineInput = z.object({
  * Posting a receipt writes every line straight into the inventory
  * ledger (`reason: receipt`) inside one transaction — there is no
  * draft state to save and return to. Since INV1.1 it also records the
- * supplier and document reference and blends each priced line's cost.
+ * supplier and document reference and blends each priced line's cost, and
+ * since SUP5 it settles a purchase order in the same transaction.
+ *
+ * Amounts are non-negative magnitudes. A **discount** is sent positive and
+ * subtracted by the arithmetic rather than sent negative, so the sign
+ * convention lives in one place rather than in every client.
  *
  */
 export const zPostGoodsReceiptRequest = z.object({
     branch_id: zUuid,
     supplier_id: zUuid.nullish(),
     document_ref: z.string().nullish(),
+    supplier_invoice_ref: z.string().max(120).nullish(),
+    invoice_date: z.iso.date().nullish(),
+    received_on: z.iso.date().nullish(),
+    variance_note: z.string().max(255).nullish(),
     purchase_order_id: zUuid.nullish(),
+    discount_amount: z.number().gte(0).nullish(),
+    tax_amount: z.number().gte(0).nullish(),
+    delivery_amount: z.number().gte(0).nullish(),
+    other_charges_amount: z.number().gte(0).nullish(),
+    invoice_total_amount: z.number().gte(0).nullish(),
+    over_receipt_confirmed: z.boolean().nullish(),
+    close_short: z.boolean().nullish(),
+    close_short_reason: z.string().max(255).nullish(),
     lines: z.array(zGoodsReceiptLineInput).min(1)
 });
 
 export const zGoodsReceiptEnvelope = z.object({
     data: z.object({
         goods_receipt: z.object({
-            id: zUuid
+            id: zUuid,
+            received_on: z.iso.date().nullable(),
+            cost_status: zReceiptCostStatus
         })
     }),
     meta: zMeta
@@ -3147,8 +4013,11 @@ export const zPurchasesLedgerLine = z.object({
     id: zUuid,
     goods_receipt_id: zUuid,
     received_at: z.iso.datetime({ offset: true }).nullable(),
+    received_on: z.iso.date().nullable(),
     supplier: zSupplierRef.nullable(),
     document_ref: z.string().nullable(),
+    purchase_order_id: zUuid.nullable(),
+    cost_status: zReceiptCostStatus.nullable(),
     stock_item_id: zUuid,
     item_code: z.string().nullable(),
     item_name_en: z.string().nullable(),
@@ -3158,6 +4027,7 @@ export const zPurchasesLedgerLine = z.object({
     unit_price_amount: z.string().nullable(),
     line_total_amount: z.string().nullable(),
     cost_currency_code: z.string().nullable(),
+    valuation_pending_fx: z.boolean(),
     costs_redacted: z.boolean()
 });
 
@@ -3169,7 +4039,97 @@ export const zPurchasesLedgerCollection = z.object({
 });
 
 /**
- * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
+ * One supplier's item spend inside one period and currency (§3.7). Money
+ * and counts only — the receipt-level charges are a fact about a whole
+ * delivery and are reported once at the currency level rather than divided
+ * up here. A `null` supplier is a direct market purchase.
+ *
+ */
+export const zSpendSummarySupplierBreakdown = z.object({
+    supplier: zSupplierRef.nullable(),
+    received_line_count: z.int().gte(0),
+    item_subtotal: z.string()
+});
+
+/**
+ * One shelf's item spend inside one period and currency (§3.7).
+ */
+export const zSpendSummaryStockItemBreakdown = z.object({
+    stock_item_id: zUuid,
+    item_code: z.string(),
+    item_name_en: z.string(),
+    received_line_count: z.int().gte(0),
+    item_subtotal: z.string()
+});
+
+/**
+ * One currency's money inside one period (§3.7). Figures are never summed
+ * across currencies; every amount is a major-unit decimal string.
+ *
+ * `item_subtotal` is Σ receipt-line totals — what the goods themselves
+ * cost, and the figure that reconciles line for line to the purchases
+ * ledger. The four charge totals and `invoice_total` are receipt-level and
+ * deliberately separate: tax and delivery are not an ingredient's purchase
+ * price. A charge nobody recorded is `0`; an absent `invoice_total` is
+ * `null`, because an unknown invoice total is not a zero one.
+ *
+ * The two breakdowns are `null` when they were not requested and a list
+ * (possibly empty) when they were.
+ *
+ */
+export const zSpendSummaryCurrencyTotals = z.object({
+    currency_code: z.string(),
+    receipt_count: z.int().gte(0),
+    received_line_count: z.int().gte(0),
+    item_subtotal: z.string(),
+    discount_total: z.string(),
+    tax_total: z.string(),
+    delivery_total: z.string(),
+    other_charges_total: z.string(),
+    invoice_total: z.string().nullable(),
+    invoiced_receipt_count: z.int().gte(0),
+    by_supplier: z.array(zSpendSummarySupplierBreakdown).nullable(),
+    by_stock_item: z.array(zSpendSummaryStockItemBreakdown).nullable()
+});
+
+/**
+ * One ISO week or calendar month of purchasing (§3.7).
+ *
+ * The completeness facts sit here rather than inside a currency row because
+ * an unpriced line has no currency to belong to. A period with only
+ * unpriced deliveries therefore carries an empty `totals_by_currency` and
+ * `is_complete: false`.
+ *
+ * `unpriced_line_count` and `valuation_pending_line_count` are disjoint and
+ * both keep `is_complete` false: the first is "type these prices in", the
+ * second is "the price is recorded and its valuation waits on an
+ * exchange-rate decision" (§3.6).
+ *
+ */
+export const zSpendSummaryPeriod = z.object({
+    period: z.string(),
+    period_start: z.iso.date(),
+    period_end: z.iso.date(),
+    receipt_count: z.int().gte(0),
+    unpriced_receipt_count: z.int().gte(0),
+    unpriced_line_count: z.int().gte(0),
+    valuation_pending_line_count: z.int().gte(0),
+    is_complete: z.boolean(),
+    totals_by_currency: z.array(zSpendSummaryCurrencyTotals)
+});
+
+export const zSpendSummaryCollection = z.object({
+    data: z.object({
+        group_by: z.enum(['week', 'month']),
+        from: z.iso.date(),
+        to: z.iso.date(),
+        periods: z.array(zSpendSummaryPeriod)
+    }),
+    meta: zMeta
+});
+
+/**
+ * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies. Two data-quality flags, never merged: one says the month's COGS is understated by unresolved consumption exceptions, the other says its spend is understated because a delivery's invoice has not been entered (SUP6, §3.6). The three spend-completeness fields are month facts rather than currency facts — an unpriced line has no currency — so, like waste_quantity, they repeat across a month's currency rows.
  */
 export const zMonthlyCostReportRow = z.object({
     month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
@@ -3188,7 +4148,10 @@ export const zMonthlyCostReportRow = z.object({
     product_cogs_amount: z.string(),
     other_cogs_amount: z.string(),
     has_data_quality_flag: z.boolean(),
-    exception_count: z.int()
+    exception_count: z.int(),
+    is_spend_complete: z.boolean(),
+    unpriced_line_count: z.int().gte(0),
+    valuation_pending_line_count: z.int().gte(0)
 });
 
 export const zMonthlyCostReportCollection = z.object({
@@ -7394,6 +8357,28 @@ export const zPlanDurationPath = z.union([
 export const zXBranchIdRequired = zUuid;
 
 /**
+ * The supplier identifier. An identifier only, unlike a delivery zone's
+ * path: a supplier `code` is frequently minted by the server and is
+ * editable afterwards, so a URL that accepted it would break the moment a
+ * kitchen corrected one.
+ *
+ */
+export const zSupplierPath = zUuid;
+
+/**
+ * The purchase-order identifier, never its `number`. The number is the
+ * human handle both sides quote down a phone line; the URL takes the
+ * identifier, on the same grounds a supplier's does.
+ *
+ */
+export const zPurchaseOrderPath = zUuid;
+
+/**
+ * The goods-receipt identifier.
+ */
+export const zGoodsReceiptPath = zUuid;
+
+/**
  * The delivery zone identifier, or its `code`.
  */
 export const zDeliveryZonePath = z.union([
@@ -10155,6 +11140,10 @@ export const zListSuppliersHeaders = z.object({
     'X-Client-Request-Id': z.string().max(128).optional()
 });
 
+export const zListSuppliersQuery = z.object({
+    include_archived: z.boolean().optional().default(false)
+});
+
 /**
  * Every supplier, ordered by code.
  */
@@ -10171,6 +11160,238 @@ export const zCreateSupplierHeaders = z.object({
  * The supplier was created.
  */
 export const zCreateSupplierResponse = zSupplierEnvelope;
+
+export const zGetSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetSupplierPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The supplier and its contacts.
+ */
+export const zGetSupplierResponse = zSupplierDetailEnvelope;
+
+export const zUpdateSupplierBody = zUpdateSupplierRequest;
+
+export const zUpdateSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateSupplierPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The supplier after the write.
+ */
+export const zUpdateSupplierResponse = zSupplierEnvelope;
+
+export const zArchiveSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveSupplierPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The archived supplier.
+ */
+export const zArchiveSupplierResponse = zSupplierEnvelope;
+
+export const zRestoreSupplierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRestoreSupplierPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The restored supplier.
+ */
+export const zRestoreSupplierResponse = zSupplierEnvelope;
+
+export const zReplaceSupplierContactsBody = zReplaceSupplierContactsRequest;
+
+export const zReplaceSupplierContactsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceSupplierContactsPath = z.object({
+    supplierId: zUuid
+});
+
+/**
+ * The contact set after the replace, in display order.
+ */
+export const zReplaceSupplierContactsResponse = zSupplierContactCollection;
+
+export const zDeleteSupplierLinkHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeleteSupplierLinkQuery = z.object({
+    supplier_id: zUuid,
+    stock_item_id: zUuid
+});
+
+/**
+ * The link is gone — or was never there.
+ */
+export const zDeleteSupplierLinkResponse = z.void();
+
+export const zUpsertSupplierLinkBody = zUpsertSupplierLinkRequest;
+
+export const zUpsertSupplierLinkHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The link after the write.
+ */
+export const zUpsertSupplierLinkResponse = zSupplierLinkEnvelope;
+
+export const zListItemLatestPurchasesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListItemLatestPurchasesQuery = z.object({
+    stock_item_ids: z.array(zUuid).min(1).max(200)
+});
+
+/**
+ * The latest purchase of each requested item that has one.
+ */
+export const zListItemLatestPurchasesResponse = zItemLatestPurchaseCollection;
+
+export const zCountSupplyNeedsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCountSupplyNeedsQuery = z.object({
+    branch_id: zUuid
+});
+
+/**
+ * The branch's shortage tallies.
+ */
+export const zCountSupplyNeedsResponse = zSupplyNeedsCountEnvelope;
+
+export const zGetOrderProposalHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderProposalQuery = z.object({
+    branch_id: zUuid,
+    stock_item_ids: z.array(zUuid).max(100).optional()
+});
+
+/**
+ * The branch's proposal rows, queue first.
+ */
+export const zGetOrderProposalResponse = zOrderProposalCollection;
+
+export const zListPurchaseOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPurchaseOrdersQuery = z.object({
+    status: zPurchaseOrderStatus.optional(),
+    supplier_id: zUuid.optional(),
+    ids: z.array(zUuid).max(50).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of purchase orders, newest first.
+ */
+export const zListPurchaseOrdersResponse = zPurchaseOrderCollection;
+
+export const zCreatePurchaseOrdersBody = zCreatePurchaseOrdersRequest;
+
+export const zCreatePurchaseOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The drafts created, in request order.
+ */
+export const zCreatePurchaseOrdersResponse = zPurchaseOrderCollection;
+
+export const zGetPurchaseOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetPurchaseOrderPath = z.object({
+    purchaseOrder: zUuid
+});
+
+/**
+ * The order, its lines and its recipient.
+ */
+export const zGetPurchaseOrderResponse = zPurchaseOrderEnvelope;
+
+export const zUpdatePurchaseOrderBody = zUpdatePurchaseOrderRequest;
+
+export const zUpdatePurchaseOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdatePurchaseOrderPath = z.object({
+    purchaseOrder: zUuid
+});
+
+/**
+ * The draft after the write.
+ */
+export const zUpdatePurchaseOrderResponse = zPurchaseOrderEnvelope;
+
+export const zIssuePurchaseOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zIssuePurchaseOrderPath = z.object({
+    purchaseOrder: zUuid
+});
+
+/**
+ * The issued order, with its recipient snapshot.
+ */
+export const zIssuePurchaseOrderResponse = zPurchaseOrderEnvelope;
+
+export const zCancelPurchaseOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelPurchaseOrderPath = z.object({
+    purchaseOrder: zUuid
+});
+
+/**
+ * The cancelled order, unchanged apart from its status and stamp.
+ */
+export const zCancelPurchaseOrderResponse = zPurchaseOrderEnvelope;
 
 export const zGetProcurementReferenceHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -10204,6 +11425,68 @@ export const zCreateGoodsReceiptHeaders = z.object({
  */
 export const zCreateGoodsReceiptResponse = zGoodsReceiptEnvelope;
 
+export const zGetGoodsReceiptHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetGoodsReceiptPath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The receipt, its lines and its order match.
+ */
+export const zGetGoodsReceiptResponse = zGoodsReceiptDetailEnvelope;
+
+export const zCompleteReceiptPricesBody = zCompleteReceiptPricesRequest;
+
+export const zCompleteReceiptPricesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCompleteReceiptPricesPath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The receipt after the prices were completed.
+ */
+export const zCompleteReceiptPricesResponse = zGoodsReceiptDetailEnvelope;
+
+export const zListReceivableOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListReceivableOrdersQuery = z.object({
+    branch_id: zUuid,
+    supplier_id: zUuid.optional()
+});
+
+/**
+ * Orders open for receiving at this branch, oldest first.
+ */
+export const zListReceivableOrdersResponse = zReceivableOrderCollection;
+
+export const zListUnpricedReceiptsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListUnpricedReceiptsQuery = z.object({
+    branch_id: zUuid.optional(),
+    supplier_id: zUuid.optional(),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: z.string().max(200).optional()
+});
+
+/**
+ * A page of receipts still waiting on their costing, oldest first.
+ */
+export const zListUnpricedReceiptsResponse = zUnpricedReceiptCollection;
+
 export const zListPurchasesLedgerHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -10214,6 +11497,10 @@ export const zListPurchasesLedgerQuery = z.object({
     to: z.iso.date().optional(),
     supplier_id: zUuid.optional(),
     ingredient_id: zUuid.optional(),
+    stock_item_id: zUuid.optional(),
+    branch_id: zUuid.optional(),
+    purchase_order_id: zUuid.optional(),
+    cost_status: zReceiptCostStatus.optional(),
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional()
 });
@@ -10222,6 +11509,26 @@ export const zListPurchasesLedgerQuery = z.object({
  * A page of purchases-ledger lines, newest first.
  */
 export const zListPurchasesLedgerResponse = zPurchasesLedgerCollection;
+
+export const zGetProcurementSpendSummaryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetProcurementSpendSummaryQuery = z.object({
+    group_by: z.enum(['week', 'month']),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    branch_id: zUuid.optional(),
+    supplier_id: zUuid.optional(),
+    stock_item_id: zUuid.optional(),
+    include: z.string().optional()
+});
+
+/**
+ * The spend summary, newest period first.
+ */
+export const zGetProcurementSpendSummaryResponse = zSpendSummaryCollection;
 
 export const zGetMonthlyCostReportHeaders = z.object({
     'X-Organisation-Id': zUuid,

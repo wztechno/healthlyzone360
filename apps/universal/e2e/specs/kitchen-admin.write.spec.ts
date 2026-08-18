@@ -502,6 +502,16 @@ async function firstPlanBase(page: Page): Promise<string> {
     return testId.slice(0, testId.length - '-open'.length);
 }
 
+async function openSuppliers(page: Page) {
+    await openWorkspace(page);
+    await openScreen(
+        page,
+        '/kitchen/suppliers',
+        'kitchen-suppliers-screen',
+        'kitchen-suppliers-table',
+    );
+}
+
 async function openZones(page: Page) {
     await openWorkspace(page);
     await openScreen(
@@ -1554,6 +1564,582 @@ test.describe('kitchen workspace (en)', () => {
      * endpoint returns no areas (they are `GET /catalogue/delivery-zones/{zone}/areas`, a separate
      * call the editor makes), so that column says "no areas chosen" for every zone regardless.
      */
+    /* ── suppliers (SUP1, SUP2) ──────────────────────────────────────────────────────────────── */
+
+    /**
+     * The whole supplier lifecycle in one journey: create, edit, name a contact, link an item and
+     * make it preferred, then archive and restore.
+     *
+     * One journey rather than five, because every step needs the row the step before it produced and
+     * this file runs one worker at a time — five journeys would mean five suppliers created against
+     * a shared database to assert five halves of one story.
+     *
+     * Four things it proves that a unit test cannot. The **code is minted by the server** when the
+     * create form leaves it blank, so the record comes back with something on it that the client
+     * never sent. The **contact set is one save**: the card is filled in and the section's own
+     * button is what writes it, and the record read back afterwards carries the person. A **link
+     * writes on its own press** and the preferred handover survives a real round trip against the
+     * partial unique index behind it. And the **archive is a filter rather than a deletion** — the
+     * supplier leaves the default book, returns under the chip, and restores whole.
+     */
+    test('creates a supplier, edits it, names a contact, then archives and restores it', async ({
+        page,
+    }) => {
+        await openSuppliers(page);
+
+        const name = unique('Playwright Supplier');
+
+        await page.getByTestId('kitchen-suppliers-create').click();
+        await expect(page.getByTestId('kitchen-supplier-details')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await page.getByTestId('kitchen-supplier-name-en-input').fill(name);
+        await page.getByTestId('kitchen-supplier-name-ar-input').fill('مورّد الاختبار');
+        // Deliberately no code: the server mints one from the name, which is the whole reason a
+        // person at a loading bay can add a supplier without inventing an identifier.
+        await page.getByTestId('kitchen-supplier-payment-terms-input').fill('Net 30');
+        await page.getByTestId('kitchen-supplier-lead-time-input').fill('2');
+
+        await page.getByTestId('kitchen-supplier-screen-save').click();
+        await expectToast(page, 'kitchen-supplier-saved-toast');
+
+        // The create redirects onto the saved record, which is where contacts become possible.
+        await expect(page.getByTestId('kitchen-supplier-contacts')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supplier-code-input')).not.toHaveValue('', {
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Editing the record it just created — a second write against the same row.
+        await page.getByTestId('kitchen-supplier-address-input').fill('Gate 4, behind the store');
+        await expect(page.getByTestId('kitchen-supplier-screen-dirty')).toBeVisible();
+        await page.getByTestId('kitchen-supplier-screen-save').click();
+        await expectToast(page, 'kitchen-supplier-saved-toast');
+
+        /* ── contacts: one card, one save ────────────────────────────────────────────────────── */
+
+        await page.getByTestId('kitchen-supplier-contacts-add').click();
+
+        const card = page.locator('[data-testid^="kitchen-supplier-contact-new-"]').first();
+        await expect(card).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        const cardId = await card.getAttribute('data-testid');
+        if (cardId === null) throw new Error('The contact card carries no test id.');
+
+        await page.getByTestId(`${cardId}-name-input`).fill('Samir Haddad');
+        await page.getByTestId(`${cardId}-phone-input`).fill('+961 3 111 222');
+        await page.getByTestId(`${cardId}-make-primary`).click();
+
+        await page.getByTestId('kitchen-supplier-contacts-save').click();
+        await expectToast(page, 'kitchen-supplier-contacts-saved-toast');
+
+        // Read back off the record rather than off a list column: this is the row PostgreSQL
+        // returned, not a number the table derived.
+        await expect(page.getByTestId(`${cardId}-name-input`)).toHaveValue('Samir Haddad');
+
+        /* ── supplied items: link, then prefer (SUP2) ────────────────────────────────────────── */
+
+        /*
+         * The third section has no Save, and that is the thing to watch here: a link is one fact
+         * about a (supplier, item) pair rather than a document, so **Link item** writes it and the
+         * record read back afterwards carries the row. The preferred flag then moves on its own
+         * press — a handover the server performs inside one transaction so the partial unique index
+         * behind "at most one preferred supplier per item" never surfaces as a 500.
+         */
+
+        await page.getByTestId('kitchen-supplier-item-picker').click();
+
+        const option = page
+            .locator('[data-testid^="kitchen-supplier-item-picker-option-"]')
+            .first();
+        await expect(option).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        const optionId = await option.getAttribute('data-testid');
+        if (optionId === null) throw new Error('The item picker option carries no test id.');
+
+        // `kitchen-supplier-item-picker-option-{stockItemId}` — the row's own prefix follows.
+        const stockItemId = optionId.replace('kitchen-supplier-item-picker-option-', '');
+        await option.click();
+
+        await page.getByTestId('kitchen-supplier-link-ref-input').fill('GF-REF-1');
+        await page.getByTestId('kitchen-supplier-item-link').click();
+        await expectToast(page, 'kitchen-supplier-item-linked-toast');
+
+        const itemRow = `kitchen-supplier-item-${stockItemId}`;
+        await expect(page.getByTestId(`${itemRow}-ref`)).toHaveText('GF-REF-1', {
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // Linked but never bought from this supplier — a distinct cell from a hidden price.
+        await expect(page.getByTestId(`${itemRow}-never-bought`)).toBeVisible();
+
+        await page.getByTestId(`${itemRow}-make-preferred`).click();
+        await expectToast(page, 'kitchen-supplier-item-preferred-toast');
+
+        // Read back off the re-fetched record: the badge is the server's row, not local state.
+        await expect(page.getByTestId(`${itemRow}-preferred`)).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // And the action that set it stops being offered, because it would change nothing.
+        await expect(page.getByTestId(`${itemRow}-make-preferred`)).toHaveCount(0);
+
+        /* ── archive, and the book that stops offering it ────────────────────────────────────── */
+
+        await page.getByTestId('kitchen-supplier-archive').click();
+        await expect(page.getByTestId('kitchen-supplier-archive-dialog')).toBeVisible();
+        await page.getByTestId('kitchen-supplier-archive-confirm').click();
+        await expectToast(page, 'kitchen-supplier-archived-toast');
+
+        await expect(page.getByTestId('kitchen-supplier-archived')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // The form is locked rather than merely unsaveable.
+        await expect(page.getByTestId('kitchen-supplier-screen-save')).toHaveCount(0);
+
+        await page.getByTestId('kitchen-supplier-screen-back').click();
+        await expect(page.getByTestId('kitchen-suppliers-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Gone from the default book — every picker reads this list.
+        await page.getByTestId('kitchen-suppliers-search-input').fill(name);
+        await expect(page.getByTestId('kitchen-suppliers-empty')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Back under the chip, and flagged.
+        await page.getByTestId('kitchen-suppliers-archived-filter').click();
+        const row = page
+            .locator('[data-testid^="kitchen-supplier-"][data-testid$="-open"]')
+            .first();
+        await expect(row).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await row.click();
+
+        await expect(page.getByTestId('kitchen-supplier-restore')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId('kitchen-supplier-restore').click();
+        await expectToast(page, 'kitchen-supplier-restored-toast');
+
+        // Restored whole: writable again, with the contact and the address still on it.
+        await expect(page.getByTestId('kitchen-supplier-screen-save')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supplier-address-input')).toHaveValue(
+            'Gate 4, behind the store',
+        );
+    });
+
+    /**
+     * SUP3. The shortage the kitchen created on the stock screen has to reach the order builder
+     * with a supplier already beside it, and that is the whole claim: the threshold dialog, the
+     * union predicate, the supplier link and the resolution rule are four separate pieces of the
+     * stack, and this is the only place all four are exercised together against real Postgres.
+     *
+     * It drives a *linked* item on purpose. An arbitrary row would prove the queue works and prove
+     * nothing about `suggested_supplier_id`, which is the half of the proposal a mock can most
+     * easily get wrong.
+     */
+    test('a threshold raised above stock reaches the order builder with its supplier chosen', async ({
+        page,
+    }) => {
+        await openWorkspace(page);
+        await openScreen(
+            page,
+            '/kitchen/suppliers',
+            'kitchen-suppliers-screen',
+            'kitchen-suppliers-table',
+        );
+
+        // Any supplier already carrying a supplied item — the link is what the proposal resolves.
+        const supplierOpen = page
+            .locator('[data-testid^="kitchen-supplier-"][data-testid$="-open"]')
+            .first();
+        await expect(supplierOpen).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await supplierOpen.click();
+        await expect(page.getByTestId('kitchen-supplier-items')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await page.getByTestId('kitchen-supplier-item-picker').click();
+        const pick = page.locator('[data-testid^="kitchen-supplier-item-picker-option-"]').first();
+        await expect(pick).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        const pickId = await pick.getAttribute('data-testid');
+        if (pickId === null) throw new Error('The item picker option carries no test id.');
+        const stockItemId = pickId.replace('kitchen-supplier-item-picker-option-', '');
+        await pick.click();
+        await page.getByTestId('kitchen-supplier-item-link').click();
+        await expectToast(page, 'kitchen-supplier-item-linked-toast');
+
+        // Preferred, so the proposal has an unambiguous answer rather than a "choose one" cell.
+        await page.getByTestId(`kitchen-supplier-item-${stockItemId}-prefer`).click();
+        await expectToast(page, 'kitchen-supplier-item-preferred-toast');
+
+        /* ── make it low, through the threshold dialog the stock screen already owns ─────────── */
+
+        await openScreen(page, '/kitchen/stock', 'kitchen-stock-screen', 'kitchen-stock-panel');
+        await expect(page.getByTestId('kitchen-stock-items-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await page.getByTestId(`kitchen-stock-item-${stockItemId}-threshold`).click();
+        await expect(page.getByTestId('kitchen-stock-threshold-dialog')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Comfortably above whatever is on the shelf, and a par above that: the first puts the row
+        // in the queue, the second is what makes the builder able to suggest a quantity at all.
+        await page.getByTestId('kitchen-stock-threshold-value-input').fill('100000');
+        await page.getByTestId('kitchen-stock-threshold-par-input').fill('100001');
+        await page.getByTestId('kitchen-stock-threshold-confirm').click();
+        await expectToast(page, 'kitchen-stock-threshold-toast');
+
+        /* ── and it is waiting in the builder, with the supplier already on it ───────────────── */
+
+        await openScreen(
+            page,
+            '/kitchen/supply-orders',
+            'kitchen-supply-orders-screen',
+            'kitchen-supply-orders-panel',
+        );
+        await expect(page.getByTestId(`kitchen-supply-order-row-${stockItemId}-name`)).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        await page.getByTestId('kitchen-supply-orders-prepare').click();
+        await expect(page.getByTestId('kitchen-supply-order-builder-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const row = `kitchen-supply-order-row-${stockItemId}`;
+        await expect(page.getByTestId(`${row}-name`)).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+
+        // The preferred link resolved server-side — not a placeholder asking for a choice.
+        await expect(page.getByTestId(`${row}-preferred`)).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // A par above the on-hand quantity, so the box opens with a number rather than blank.
+        await expect(page.getByTestId(`${row}-quantity-input`)).not.toHaveValue('');
+
+        // And the grouping preview picked it up without anything being pressed.
+        await expect(page.getByTestId('kitchen-supply-order-groups')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        /* ── SUP4: the preview becomes drafts, and one of them is issued ─────────────────────── */
+
+        // The commit bar exists only once something is ready to order, so its presence is already
+        // the assertion that the grouping produced a real payload.
+        await expect(page.getByTestId('kitchen-supply-order-commit')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId('kitchen-supply-order-create').click();
+        await expect(page.getByTestId('kitchen-supply-order-create-confirm')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId('kitchen-supply-order-create-confirm-action').click();
+        await expectToast(page, 'kitchen-supply-order-created-toast');
+
+        // The builder steps aside to the landing page, where the new draft is in the book.
+        await expect(page.getByTestId('kitchen-supply-orders-book-table')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const orderOpen = page
+            .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
+            .first();
+        await expect(orderOpen).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        // Kept, because **Issue and print** now leaves this screen for the sheet (SUP7) and the
+        // receiving half of this journey has to come back to precisely this order rather than to
+        // whichever one happens to be at the top of the book by then.
+        const orderTestId = await orderOpen.getAttribute('data-testid');
+        if (orderTestId === null) throw new Error('The order row carries no test id.');
+        const orderId = orderTestId.replace('kitchen-purchase-order-', '').replace(/-open$/, '');
+        await orderOpen.click();
+
+        // A draft is a form: the save control and the quantity boxes are both present, and the
+        // supplier block reads the live record because the order is still being addressed.
+        await expect(page.getByTestId('kitchen-supply-order-detail-screen-save')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supply-order-detail-supplier-live')).toBeVisible();
+
+        await page.getByTestId('kitchen-supply-order-detail-issue').click();
+        await expect(page.getByTestId('kitchen-supply-order-detail-issue-confirm')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await page.getByTestId('kitchen-supply-order-detail-issue-confirm-action').click();
+        await expectToast(page, 'kitchen-supply-order-issued-toast');
+
+        /*
+         * ── SUP7: **Issue and print**, in that order ───────────────────────────────────────────
+         *
+         * §7's primary final action does two things and the sequence is the claim: the order is
+         * frozen first and the sheet opens second, so the document on screen is built from
+         * `recipientSnapshot` rather than from a draft preview. If the navigation ever fired before
+         * the mutation settled, this lands on a Draft-marked page and the assertion below fails.
+         */
+        await expect(page.getByTestId('kitchen-supply-print-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supply-print-sheets')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Exactly the one order that was just issued, and it is a document rather than a preview.
+        const issuedSheets = page.locator('[data-testid="kitchen-supply-print-sheets"] > div');
+        await expect(issuedSheets).toHaveCount(1);
+        await expect(
+            page.getByTestId(`kitchen-supply-print-sheet-${orderId}-supplier-name`),
+        ).toBeVisible();
+        await expect(page.getByTestId(`kitchen-supply-print-sheet-${orderId}-draft`)).toHaveCount(
+            0,
+        );
+        // §7: quantity and unit are on the sheet; the supplier's own reference column is there too.
+        await expect(
+            page.locator(`[data-testid^="kitchen-supply-print-sheet-${orderId}-line-"]`).first(),
+        ).toBeVisible();
+
+        /* ── back to the order, for the receiving half ─────────────────────────────────────────── */
+
+        await page.goto(`/kitchen/supply-orders/${orderId}`);
+
+        // Issued is a document: the notice appears, the save control is gone, and the supplier
+        // block now reads the snapshot frozen at the moment of issue rather than the live record.
+        await expect(page.getByTestId('kitchen-supply-order-detail-issued-notice')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supply-order-detail-screen-save')).toHaveCount(0);
+        await expect(
+            page.getByTestId('kitchen-supply-order-detail-supplier-snapshot'),
+        ).toBeVisible();
+
+        // Cancelling stays available on an issued order — nothing has been delivered against it.
+        await expect(page.getByTestId('kitchen-supply-order-detail-cancel')).toBeVisible();
+        // And the reprint affordance is there and says Print rather than Preview (SUP7).
+        await expect(page.getByTestId('kitchen-supply-order-detail-print')).toBeVisible();
+
+        /*
+         * ── receiving the order, in two deliveries (SUP5) ──────────────────────────────────────
+         *
+         * §9's acceptance journey, steps 7 and 8: receive part of the order at one actual price,
+         * verify the order becomes partially received, then receive the remainder at a different
+         * price and verify it becomes received. The two prices are deliberately different — §3.5
+         * says two deliveries against one order legitimately arrive at two prices, and both stay
+         * history rather than one correcting the other.
+         */
+        await page.getByTestId('kitchen-supply-order-detail-receive').click();
+        await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-receive-form')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // §4: the row opens with what is outstanding. The price box is here for **every** manage
+        // holder — §5's blind-write model, which the old receipt dialog hid behind the cost code.
+        const firstQuantity = page.getByTestId('kitchen-receive-line-0-quantity');
+        await expect(firstQuantity).toBeVisible();
+        const outstanding = (await firstQuantity.inputValue()).trim();
+        expect(Number(outstanding)).toBeGreaterThan(0);
+
+        await firstQuantity.fill('1');
+        await page.getByTestId('kitchen-receive-line-0-price').fill('2.00');
+
+        // A part delivery offers to close the rest, and does not take it.
+        await expect(page.getByTestId('kitchen-receive-close-short')).toBeVisible();
+
+        await page.getByTestId('kitchen-receive-submit').click();
+        await expect(page.getByTestId('kitchen-receive-confirm-dialog')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        // §7: the confirmation separates the irreversible half from the financial one.
+        await expect(page.getByTestId('kitchen-receive-confirm-stock')).toBeVisible();
+        await expect(page.getByTestId('kitchen-receive-confirm-money')).toBeVisible();
+        await page.getByTestId('kitchen-receive-confirm-post').click();
+        await expectToast(page, 'kitchen-receive-posted-toast');
+
+        // Back on the order: partially received, with the three quantities reconciling on the row.
+        await expect(page.getByTestId('kitchen-supply-order-detail-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        await expect(page.getByTestId('kitchen-supply-order-detail-status')).toContainText(
+            /partially/i,
+            { timeout: JOURNEY_TIMEOUT },
+        );
+        await expect(page.getByTestId('kitchen-supply-order-detail-receipts')).toBeVisible();
+        // Cancelling is gone the moment something has been delivered (§3.5).
+        await expect(page.getByTestId('kitchen-supply-order-detail-cancel')).toHaveCount(0);
+
+        // The remainder, at a different price.
+        await page.getByTestId('kitchen-supply-order-detail-receive').click();
+        await expect(page.getByTestId('kitchen-receive-form')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+        const remainder = page.getByTestId('kitchen-receive-line-0-quantity');
+        expect(Number((await remainder.inputValue()).trim())).toBeGreaterThan(0);
+        await page.getByTestId('kitchen-receive-line-0-price').fill('2.50');
+        await page.getByTestId('kitchen-receive-submit').click();
+        await page.getByTestId('kitchen-receive-confirm-post').click();
+        await expectToast(page, 'kitchen-receive-posted-toast');
+
+        await expect(page.getByTestId('kitchen-supply-order-detail-status')).toContainText(
+            /received/i,
+            { timeout: JOURNEY_TIMEOUT },
+        );
+    });
+
+    /**
+     * SUP7. The print route under **print media**, which is the only place §7's four hard promises
+     * can actually be checked: the application chrome is hidden, every order starts on a new page,
+     * the sheets are the whole document, and no money appears anywhere on any of them.
+     *
+     * `page.emulateMedia({ media: 'print' })` is what makes that possible without a printer — the
+     * browser evaluates the `@media print` block in `apps/universal/global.css` and reports the
+     * computed styles the printer would use. Asserting the CSS file's text instead would prove
+     * nothing about whether the selectors match the shell's real markup, which is exactly the half
+     * that breaks when a component is renamed.
+     *
+     * It runs after the journey above, so the order book has at least the order that journey issued.
+     * More than one is better — the page break between sheets is the interesting assertion and it
+     * needs two — so this takes up to three and states what it can at whatever count exists.
+     */
+    test('lays every order out as its own page, with no chrome and no money', async ({ page }) => {
+        await openWorkspace(page);
+        await openScreen(
+            page,
+            '/kitchen/supply-orders',
+            'kitchen-supply-orders-screen',
+            'kitchen-supply-orders-panel',
+        );
+
+        const opens = page.locator(
+            '[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]',
+        );
+        await expect(opens.first()).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+
+        const ids = (
+            await opens.evaluateAll((nodes) =>
+                nodes.map((node) => node.getAttribute('data-testid') ?? ''),
+            )
+        )
+            .map((testId) => testId.replace('kitchen-purchase-order-', '').replace(/-open$/, ''))
+            .filter((id) => id !== '')
+            .slice(0, 3);
+
+        expect(ids.length).toBeGreaterThan(0);
+
+        await page.goto(`/kitchen/supply-orders/print?orders=${ids.join(',')}`);
+        await expect(page.getByTestId('kitchen-supply-print-sheets')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        // Direct children of the container, never a `^=` prefix match: every id *inside* a sheet
+        // shares the sheet's own prefix, so a prefix locator would count the title and the branch
+        // and report a page full of sheets that has none.
+        const sheets = page.locator('[data-testid="kitchen-supply-print-sheets"] > div');
+        await expect(sheets).toHaveCount(ids.length);
+
+        // §7 and §3.5's structural boundary, stated where a person would actually see it break: a
+        // purchase order carries no price, amount, currency or total at any depth, so nothing on
+        // the paper may look like money.
+        const sheetText = await sheets.evaluateAll((nodes) =>
+            nodes.map((node) => node.textContent ?? '').join('\n'),
+        );
+        expect(sheetText).not.toMatch(/price|total|amount|USD|\$/i);
+
+        /* ── and now as the printer sees it ───────────────────────────────────────────────────── */
+
+        await page.emulateMedia({ media: 'print' });
+
+        // The application around the document, by the shell's real test ids. `toBeHidden` also
+        // passes for an element that is not in the DOM at all, which is what the sidebar is below
+        // the `lg` breakpoint — so this holds at every viewport the suite runs at.
+        for (const chrome of [
+            'kitchen-shell-topbar',
+            'kitchen-shell-sidebar',
+            'kitchen-shell-navigation',
+            'kitchen-breadcrumbs',
+            'kitchen-supply-print-toolbar',
+        ]) {
+            await expect(page.getByTestId(chrome)).toBeHidden();
+        }
+
+        // The sheets survive, and each one but the last ends its page.
+        await expect(sheets.first()).toBeVisible();
+        const breaks = await sheets.evaluateAll((nodes) =>
+            nodes.map((node) => window.getComputedStyle(node).breakAfter),
+        );
+        expect(breaks).toHaveLength(ids.length);
+        expect(breaks.slice(0, -1).every((value) => value === 'page')).toBe(true);
+        // A break after the last sheet is a blank final page — which is how a four-order batch
+        // comes out of the printer as five.
+        expect(breaks[breaks.length - 1]).toBe('auto');
+
+        /*
+         * And the document is not clipped to one screen. `ScrollViewStyleReset` (expo-router/html)
+         * pins `html`, `body` and `#root` to 100% height and hides the body's overflow so that
+         * ScrollViews behave as they do on native — under print that means everything below the
+         * fold simply is not printed, which looks like a four-page order that mysteriously prints
+         * one. The print block unwinds it, and these two assertions are what prove it did.
+         */
+        expect(await page.evaluate(() => window.getComputedStyle(document.body).overflow)).toBe(
+            'visible',
+        );
+        expect(
+            await sheets.last().evaluate((node) => {
+                const bottom = node.getBoundingClientRect().bottom + window.scrollY;
+                // Two pixels of tolerance for sub-pixel layout rounding.
+                return bottom <= document.documentElement.scrollHeight + 2;
+            }),
+        ).toBe(true);
+
+        await page.emulateMedia({ media: 'screen' });
+        await expect(page.getByTestId('kitchen-supply-print-toolbar')).toBeVisible();
+    });
+
+    test('refuses an over-receipt until it is confirmed and explained', async ({ page }) => {
+        /*
+         * §3.5 asks for an explicit confirmation **and** a variance note, and the form asks for
+         * them in that order: the warning appears the moment a row goes past what is outstanding,
+         * the confirmation unlocks the note, and only then does the post become available.
+         */
+        await page.goto('/kitchen/procurement/receive');
+        await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const empty = page.getByTestId('kitchen-receive-empty');
+        if (await empty.isVisible().catch(() => false)) {
+            // Nothing is open for delivery at this branch, which is a legitimate state for the
+            // screen and not a failure of it.
+            return;
+        }
+
+        await page.getByTestId('kitchen-receive-order-picker').click();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('kitchen-receive-form')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const quantity = page.getByTestId('kitchen-receive-line-0-quantity');
+        const outstanding = Number((await quantity.inputValue()).trim());
+        await quantity.fill(String(outstanding + 5));
+
+        await expect(page.getByTestId('kitchen-receive-line-0-over')).toBeVisible();
+        await expect(page.getByTestId('kitchen-receive-over-receipt')).toBeVisible();
+        await expect(page.getByTestId('kitchen-receive-submit')).toBeDisabled();
+
+        await page.getByTestId('kitchen-receive-over-confirm').click();
+        // Confirmed but unexplained is still refused — the note is a separate answer.
+        await expect(page.getByTestId('kitchen-receive-variance-note')).toBeVisible();
+        await expect(page.getByTestId('kitchen-receive-submit')).toBeDisabled();
+
+        await page
+            .getByTestId('kitchen-receive-variance-note')
+            .fill('Supplier sent a larger pack.');
+        await expect(page.getByTestId('kitchen-receive-submit')).toBeEnabled();
+    });
+
     test('adds a gazetteer area to a zone and the list reads the new coverage back', async ({
         page,
     }) => {

@@ -32,8 +32,14 @@ import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
  * the margin reconstructable from it, so a person without the cost permission never reaches it.
  *
  * Figures are never summed across currencies (there is no exchange rate — §4.4), so the screen picks
- * one currency at a time; every amount is a major-unit decimal. A month whose COGS is understated by
- * unresolved consumption exceptions is flagged honestly rather than shown as complete.
+ * one currency at a time; every amount is a major-unit decimal.
+ *
+ * **Two honesty notes, because two different figures can be short.** A month whose COGS is
+ * understated by unresolved consumption exceptions is flagged rather than shown as complete
+ * (INV1.2); and since SUP6 a month whose *spend* is understated — a delivery whose invoice has not
+ * been entered, or a price that could not be valued in the ingredient's currency (§3.6) — says so on
+ * its own note. Merging them would leave a manager unable to tell which number to distrust. The
+ * purchases ledger's weekly and monthly summary is where the affected deliveries are found.
  */
 export function CostReportScreen() {
     return (
@@ -109,6 +115,23 @@ function CostReport() {
     );
     const latest = currencyRows[0] ?? null;
     const flaggedCount = currencyRows.filter((row) => row.hasDataQualityFlag).length;
+
+    // The spend side's own completeness (SUP6, §3.6), read separately from the COGS flag above
+    // because the two undermine different figures. The lines are counted once per month rather than
+    // once per row: they are a month fact repeated across a month's currencies, so summing the rows
+    // would double-count a month that traded in two currencies.
+    const incompleteSpend = useMemo(() => {
+        const byMonth = new Map<string, number>();
+        for (const row of currencyRows) {
+            if (row.isSpendComplete) continue;
+            byMonth.set(row.month, row.unpricedLineCount + row.valuationPendingLineCount);
+        }
+        const months = [...byMonth.keys()].sort((left, right) => right.localeCompare(left));
+        return {
+            months,
+            lineCount: [...byMonth.values()].reduce((sum, count) => sum + count, 0),
+        };
+    }, [currencyRows]);
 
     const money = (amount: string | null): string => {
         if (amount === null || activeCurrency === null) return '—';
@@ -341,6 +364,30 @@ function CostReport() {
                                 <Text tone="secondary" variant="caption">
                                     {t('kitchen:ops.costReport.dataQualityBody', {
                                         count: flaggedCount,
+                                    })}
+                                </Text>
+                            </Stack>
+                        </View>
+                    ) : null}
+
+                    {incompleteSpend.months.length > 0 ? (
+                        <View
+                            testID="kitchen-cost-report-spend-quality"
+                            className="flex-row items-start gap-3 rounded-panel border border-warning/40 bg-warning/10 p-4"
+                        >
+                            <Badge
+                                tone="warning"
+                                icon="warning"
+                                label={t('kitchen:ops.costReport.spendIncomplete')}
+                            />
+                            <Stack space="none" className="min-w-0 flex-1">
+                                <Text variant="bodyStrong">
+                                    {t('kitchen:ops.costReport.spendIncompleteTitle')}
+                                </Text>
+                                <Text tone="secondary" variant="caption">
+                                    {t('kitchen:ops.costReport.spendIncompleteBody', {
+                                        count: incompleteSpend.lineCount,
+                                        months: incompleteSpend.months.join(', '),
                                     })}
                                 </Text>
                             </Stack>

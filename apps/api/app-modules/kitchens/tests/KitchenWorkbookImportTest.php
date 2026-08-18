@@ -213,8 +213,20 @@ it('creates only the tenant ingredients the curated dictionary declares, unverif
     runImport();
 
     inWorkbookKitchenContext(function (string $organisationId): void {
+        // Stock derivation (INV2) anchors an org-owned ingredient behind every
+        // resold product's shelf so its cost has somewhere to live. Those rows
+        // are derivation's, not the importer's — never surfaced as an
+        // ingredient a kitchen manages — and a shelf owned by a catalogue item
+        // is what marks one.
+        $anchorIngredientIds = DB::table('stock_items')
+            ->where('organisation_id', $organisationId)
+            ->whereNotNull('catalogue_item_id')
+            ->whereNotNull('ingredient_id')
+            ->pluck('ingredient_id');
+
         $tenantIngredients = Ingredient::withoutTenancy()
             ->where('organisation_id', $organisationId)
+            ->whereNotIn('id', $anchorIngredientIds)
             ->get();
 
         expect($tenantIngredients)->not->toBeEmpty();

@@ -30,6 +30,21 @@ use Healthy360\Tenancy\TenantContext;
 | unit, the refusal to blend a second currency or cross a dimension, and the
 | honest no-ingredient-link case where a receipt raises stock but costs nothing.
 |
+| **SUP5 changed the flow around this service and deliberately not the service.**
+| §3.6 now says a receipt whose currency cannot be blended must still post its
+| stock and keep its price, flagged `valuation_pending_fx`. The obvious reading
+| would be to soften `recordPurchase` into something that returns rather than
+| throws — and that would put the decision to mix currencies inside the
+| arithmetic, where nobody would see it, and would give this service two
+| contracts for one operation so that a future caller could pick the quiet one by
+| accident.
+|
+| So the refusal below stays exactly as it was, and it is now load-bearing: it is
+| the signal `ReceiptLineCosting` catches to decide that a line's valuation is
+| outstanding. What that catch then does — stock posted, price kept, line
+| flagged, receipt short of `complete` — is asserted in `ValuationPendingFxTest`,
+| which is where the new behaviour belongs.
+|
 */
 
 beforeEach(function (): void {
@@ -100,7 +115,7 @@ it('blends a second purchase measured in a different unit into one weighted aver
         ->and((string) $latest->resulting_average_amount)->toBe('2.166667');
 });
 
-it('refuses to blend a second currency into an existing average', function (): void {
+it('refuses to blend a second currency into an existing average, which is the signal receiving catches', function (): void {
     $this->service->recordPurchase((string) $this->organisation->getKey(), $this->ingredient, '10', $this->kg, '2.00', 'USD');
 
     $blendEuro = fn () => $this->service->recordPurchase(
@@ -114,7 +129,11 @@ it('refuses to blend a second currency into an existing average', function (): v
 
     expect($blendEuro)->toThrow(MixedIngredientCostCurrency::class);
 
-    // The refusal left the average and its ledger untouched.
+    // The refusal left the average and its ledger untouched. SUP5 relies on
+    // precisely this: the receiving path catches the exception knowing that
+    // nothing was written, so it can post the stock, keep the supplier's price
+    // and mark the line as awaiting an exchange-rate decision without any
+    // half-applied blend behind it.
     expect((string) IngredientStockCost::withoutTenancy()->sole()->moving_average_cost_amount)->toBe('2.000000')
         ->and(IngredientCostEvent::withoutTenancy()->count())->toBe(1);
 });

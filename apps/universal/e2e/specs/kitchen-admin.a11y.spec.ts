@@ -134,6 +134,29 @@ async function openPlans(page: Page) {
     await expect(page.getByTestId('kitchen-plans-table')).toBeVisible();
 }
 
+async function openSuppliers(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-suppliers-open').click();
+    await expect(page.getByTestId('kitchen-suppliers-table')).toBeVisible();
+}
+
+async function openFirstSupplier(page: Page) {
+    await openSuppliers(page);
+    await page.locator('[data-testid^="kitchen-supplier-"][data-testid$="-open"]').first().click();
+    await expect(page.getByTestId('kitchen-supplier-details')).toBeVisible();
+}
+
+async function openSupplyOrders(page: Page) {
+    await openKitchen(page);
+    await page.getByTestId('kitchen-family-supplyOrders-open').click();
+    await expect(page.getByTestId('kitchen-supply-orders-screen')).toBeVisible();
+}
+
+async function openSupplyOrderBuilder(page: Page) {
+    await page.goto('/kitchen/supply-orders/new');
+    await expect(page.getByTestId('kitchen-supply-order-builder-screen')).toBeVisible();
+}
+
 async function openZones(page: Page) {
     await openKitchen(page);
     await page.getByTestId('kitchen-family-delivery-zones-open').click();
@@ -476,6 +499,184 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.getByTestId('kitchen-plan-publish').click();
         await expect(page.getByTestId('kitchen-plan-publish-dialog')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-plan-publish-dialog');
+    });
+
+    /* ── suppliers (SUP1) ────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The supplier book, with its search field and its archive chip.
+     *
+     * The toolbar here is hand-rolled rather than `ListToolbar` (a supplier has no publication
+     * status for that component's filters to carry), so it is the one place in this workspace where
+     * a search field's label and a filter chip's pressed state are not inherited from a component
+     * seven other screens already prove. That is exactly the kind of one-off that loses an
+     * accessible name unnoticed.
+     */
+    test('the supplier book, with its search and archive filter', async ({ page }) => {
+        await openSuppliers(page);
+        await expect(page.getByTestId('kitchen-suppliers-search')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-suppliers');
+
+        // The archived rows arrive under a chip whose pressed state is announced, not coloured.
+        await page.getByTestId('kitchen-suppliers-archived-filter').click();
+        await expectNoSeriousViolations(page, 'kitchen-suppliers-archived');
+    });
+
+    /**
+     * The supplier record, swept with **both** of its section forms on screen.
+     *
+     * Two risks live here. The page carries two independent saves — the frame's and the contact
+     * section's — and two submit controls on one form is where a button loses the relationship to
+     * the fields it writes. And each contact card renders its "needs a channel" refusal as a
+     * `role="alert"` inside a card, which is the pattern most likely to announce nothing at all.
+     */
+    test('the supplier record, with its details and contact sections', async ({ page }) => {
+        await openFirstSupplier(page);
+        await expect(page.getByTestId('kitchen-supplier-contacts')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supplier-detail');
+    });
+
+    /* ── supply orders (SUP3) ────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The supply-orders landing page.
+     *
+     * Two things here are the kind that lose an accessible name unnoticed: the ops panel's metric
+     * tiles, which are numbers with visually-associated labels, and the Out/Low badges, which carry
+     * meaning that must survive with colour switched off — hence a word in each rather than a dot.
+     *
+     * Both of its states are swept, because they are genuinely different pages: a queue with rows
+     * renders a table, and an empty queue renders a positive empty state carrying an action, which
+     * is the arrangement `EmptyState` only permits on one of its two variants.
+     */
+    test('the supply-orders landing page', async ({ page }) => {
+        await openSupplyOrders(page);
+        await expect(page.getByTestId('kitchen-supply-orders-panel')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-orders');
+    });
+
+    /**
+     * The builder, which is the densest form in this workspace: a quantity field, a supplier select
+     * and a toggle **per row**, plus a second table below it whose selects carry a checkbox each.
+     *
+     * The risk it exists to catch is duplicated accessible names. Every row's quantity box and
+     * every row's supplier picker is labelled with the item's own name for exactly that reason —
+     * forty inputs all labelled "Order quantity" is a form a screen-reader user cannot navigate,
+     * and it is invisible by eye because the label is hidden.
+     *
+     * The grouping preview is an accordion whose panels are regions named by their headers, and it
+     * is swept expanded because a collapsed panel proves nothing about what is inside it.
+     */
+    test('the supply-order builder, with its per-row inputs and grouping preview', async ({
+        page,
+    }) => {
+        await openSupplyOrders(page);
+        await openSupplyOrderBuilder(page);
+        await expect(page.getByTestId('kitchen-supply-order-add-select')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-order-builder');
+    });
+
+    /**
+     * The refresh confirmation, which is a dialog in its own right — and one that only exists once
+     * something has been typed, so it is reached the way a person reaches it.
+     */
+    test('the builder refresh confirmation', async ({ page }) => {
+        await openSupplyOrders(page);
+        await openSupplyOrderBuilder(page);
+
+        const quantity = page
+            .locator('[data-testid^="kitchen-supply-order-row-"][data-testid$="-quantity-input"]')
+            .first();
+
+        // No rows means nothing to type into and no dialog to reach — a fully stocked seeded
+        // kitchen is a legitimate outcome, and asserting a dialog into existence would be
+        // asserting the seed rather than the page.
+        if ((await quantity.count()) === 0) return;
+
+        await quantity.fill('3');
+        await page.getByTestId('kitchen-supply-order-refresh').click();
+        await expect(page.getByTestId('kitchen-supply-order-refresh-confirm')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-order-refresh-confirm');
+    });
+
+    /**
+     * One order's own page (SUP4) — a form on a draft, a document on an issued order, and the same
+     * table either way.
+     *
+     * Two risks it exists to catch. Every line's quantity box is labelled with the item's own name,
+     * for the reason the builder's are: forty inputs sharing one accessible name is a form a
+     * screen-reader user cannot navigate, and it is invisible by eye. And the status is a `Badge`
+     * plus a `Callout` rather than a colour, so the state of the order survives with colour off.
+     *
+     * The order is reached from the book on the landing page rather than by URL, because the
+     * identifier is not knowable in advance — and a seeded kitchen with no orders yet is a
+     * legitimate outcome that asserts nothing.
+     */
+    test('one purchase order', async ({ page }) => {
+        await openSupplyOrders(page);
+        await expect(page.getByTestId('kitchen-supply-orders-book')).toBeVisible();
+
+        const open = page
+            .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
+            .first();
+
+        if ((await open.count()) === 0) return;
+
+        await open.click();
+        await expect(page.getByTestId('kitchen-supply-order-detail-lines-table')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-order-detail');
+    });
+
+    /**
+     * The print route (SUP7), swept in **screen** media with its toolbar on.
+     *
+     * Screen rather than print, deliberately. Print media hides the toolbar and everything around
+     * it, so a sweep there would exclude the controls a person actually operates and pass a page
+     * nobody can use. What paper does with the document is a layout question the write spec asks;
+     * what a screen reader does with it is this one.
+     *
+     * Two risks live here that no other kitchen screen carries. The item grid is **hand-built**
+     * rather than the design system's `Table` — the responsive component's stacked-card branch is
+     * wrong for a printed page — so its `table`/`row`/`columnheader`/`cell` roles are stated by
+     * hand, which is exactly where a row loses its parent or a header loses its scope. And the
+     * sheets are repeated: several documents on one page means several `h2`s and several identical
+     * column headings, which is the arrangement most likely to produce duplicate landmarks.
+     */
+    test('the print route, with its sheets and toolbar', async ({ page }) => {
+        await openSupplyOrders(page);
+        await expect(page.getByTestId('kitchen-supply-orders-book')).toBeVisible();
+
+        const open = page
+            .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
+            .first();
+
+        // A seeded kitchen that has never ordered has nothing to print, which is a legitimate
+        // outcome rather than a failure — and asserting a document into existence would be
+        // asserting the seed rather than the page.
+        if ((await open.count()) === 0) return;
+
+        const testId = await open.getAttribute('data-testid');
+        if (testId === null) throw new Error('The order row carries no test id.');
+        const orderId = testId.replace('kitchen-purchase-order-', '').replace(/-open$/, '');
+
+        await page.goto(`/kitchen/supply-orders/print?orders=${orderId}`);
+        await expect(page.getByTestId('kitchen-supply-print-sheets')).toBeVisible();
+        await expect(page.getByTestId('kitchen-supply-print-toolbar')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-print');
+    });
+
+    /**
+     * The nothing-to-print state, which is a `role="alert"` carrying its own way out.
+     *
+     * A callout that announces and a button inside it is the pattern most likely to be announced as
+     * a wall of text with an unreachable control, and it is reached the way a person reaches it: by
+     * following a link whose orders no longer exist.
+     */
+    test('the nothing-to-print state', async ({ page }) => {
+        await openSupplyOrders(page);
+        await page.goto('/kitchen/supply-orders/print?orders=');
+        await expect(page.getByTestId('kitchen-supply-print-nothing')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-supply-print-nothing');
     });
 
     test('the delivery-zone list', async ({ page }) => {
@@ -823,5 +1024,63 @@ test.describe('kitchen workspace accessibility (axe)', () => {
             .click();
         await expect(page.getByTestId('kitchen-ingredient-quarantine')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-review-quarantined-editor');
+    });
+});
+
+/**
+ * Receiving and the prices queue (SUP5).
+ *
+ * Both are read-only sweeps, like every other test in this file: the receive screen is opened and
+ * its form is read, and the queue is opened and its table is read. Nothing is posted, because a
+ * write here would be a write to a shared database from a project that runs in parallel with three
+ * others.
+ *
+ * They are worth sweeping for a reason the other forms are not. The receive screen carries a
+ * repeated row of two inputs per delivered line, and a repeated input whose accessible name is the
+ * same on every row is a form a screen-reader user cannot navigate — the failure is invisible by
+ * eye and unmissable to axe. The queue carries badges beside counts, which is where a colour-only
+ * distinction hides.
+ */
+test.describe('kitchen receiving', () => {
+    test('the receive screen, with its prefilled rows and price inputs', async ({ page }) => {
+        await openKitchen(page);
+        await page.goto('/kitchen/procurement/receive');
+        await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-receive');
+    });
+
+    test('the receive screen on a phone, where the row collapses', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await openKitchen(page);
+        await page.goto('/kitchen/procurement/receive');
+        await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-receive-narrow');
+    });
+
+    test('the prices-to-finish queue, with its state badges and counts', async ({ page }) => {
+        await openKitchen(page);
+        await page.goto('/kitchen/procurement/unpriced-receipts');
+        await expect(page.getByTestId('kitchen-unpriced-screen')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-unpriced-receipts');
+    });
+
+    /**
+     * The ledger's weekly summary (SUP6).
+     *
+     * Worth its own sweep rather than riding on the detail table's, and for a reason the detail
+     * table does not have: the summary is a repeated card carrying a repeated Complete/Incomplete
+     * badge and a repeated disclosure button, and a repeated control whose accessible name is the
+     * same on every card is a page a screen-reader user cannot navigate. The mode control itself is
+     * a `tablist` with a roving tab stop, which is exactly where an unnamed landmark hides.
+     *
+     * Reached through the deep link rather than by pressing the segment, so the sweep stays
+     * read-only like every other test in this file.
+     */
+    test('the ledger week summary, with its period cards and state badges', async ({ page }) => {
+        await openKitchen(page);
+        await page.goto('/kitchen/purchases-ledger?mode=weekly');
+        await expect(page.getByTestId('kitchen-purchases-ledger-screen')).toBeVisible();
+        await expect(page.getByTestId('kitchen-ledger-mode')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-purchases-ledger-weekly');
     });
 });

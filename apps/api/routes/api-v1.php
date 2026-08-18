@@ -221,12 +221,33 @@ use Healthy360\Pricing\Http\Controllers\PriceListShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListStoreController;
 use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
+use Healthy360\Procurement\Http\Controllers\GoodsReceiptShowController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
+use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
+use Healthy360\Procurement\Http\Controllers\OrderProposalController;
 use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
+use Healthy360\Procurement\Http\Controllers\ProcurementSpendSummaryController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderCancelController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderIndexController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderIssueController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderShowController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderStoreController;
+use Healthy360\Procurement\Http\Controllers\PurchaseOrderUpdateController;
 use Healthy360\Procurement\Http\Controllers\PurchasesLedgerIndexController;
+use Healthy360\Procurement\Http\Controllers\ReceiptPriceCompletionController;
+use Healthy360\Procurement\Http\Controllers\ReceivableOrderIndexController;
+use Healthy360\Procurement\Http\Controllers\SupplierArchiveController;
+use Healthy360\Procurement\Http\Controllers\SupplierContactsReplaceController;
 use Healthy360\Procurement\Http\Controllers\SupplierIndexController;
+use Healthy360\Procurement\Http\Controllers\SupplierLinkDeleteController;
+use Healthy360\Procurement\Http\Controllers\SupplierLinkUpsertController;
+use Healthy360\Procurement\Http\Controllers\SupplierRestoreController;
+use Healthy360\Procurement\Http\Controllers\SupplierShowController;
 use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
+use Healthy360\Procurement\Http\Controllers\SupplierUpdateController;
+use Healthy360\Procurement\Http\Controllers\SupplyNeedsCountController;
+use Healthy360\Procurement\Http\Controllers\UnpricedReceiptIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderStoreController;
@@ -1414,6 +1435,31 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/inventory/consumption-exceptions', ConsumptionExceptionIndexController::class)->name('catalogue.inventory.consumption-exceptions.index');
                 Route::get('/inventory/consumption-exceptions/unresolved-count', ConsumptionExceptionCountController::class)->name('catalogue.inventory.consumption-exceptions.count');
                 Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
+
+                /*
+                | The supplier record and its named contacts read on the plain
+                | view code (SUP1). A supplier carries no money — the currency
+                | it invoices in is a hint the receipt form pre-selects, not an
+                | amount — so there is nothing here for the cost permission to
+                | gate, and a kitchen hand looking up who to phone about a late
+                | delivery should not need the code that opens the ledger.
+                */
+                Route::get('/procurement/suppliers/{supplierId}', SupplierShowController::class)->name('catalogue.procurement.suppliers.show');
+
+                /*
+                | The item-level last purchase (SUP2) reads on the plain view
+                | code, with the *money* redacted inside the response without
+                | the cost code — the same split the goods-receipts index draws.
+                | A 403 here would blank the stock screen's whole column for a
+                | person entitled to know that something was last bought on
+                | Tuesday, and would make "hidden" and "never bought"
+                | indistinguishable on screen, which §3.4 keeps apart.
+                |
+                | It lives in Procurement rather than beside the stock list
+                | because Inventory may not import Procurement; the client joins
+                | the two lists on `stock_item_id`.
+                */
+                Route::get('/procurement/item-purchases/latest', ItemLatestPurchaseIndexController::class)->name('catalogue.procurement.item-purchases.latest');
                 Route::get('/procurement/reference', ProcurementReferenceController::class)->name('catalogue.procurement.reference.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
@@ -1435,7 +1481,63 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/inventory/consumption-exceptions/{exception}/resolve', ConsumptionExceptionResolveController::class)->name('catalogue.inventory.consumption-exceptions.resolve');
                 Route::post('/inventory/consumption-exceptions/{exception}/retry', ConsumptionExceptionRetryController::class)->name('catalogue.inventory.consumption-exceptions.retry');
                 Route::post('/procurement/suppliers', SupplierStoreController::class)->name('catalogue.procurement.suppliers.store');
+
+                /*
+                | Supplier administration (SUP1) sits on the same manage code as
+                | the receipt post beside it: naming who stock is bought from is
+                | the same warehouse job as recording that it arrived.
+                |
+                | Archive and restore are POST actions rather than a writable
+                | `archived_at`, so retiring a supplier is one deliberate request
+                | with its own audit event instead of something a form save can
+                | do by accident. Contacts are a PUT set-replace — the body is
+                | the whole desired set, and sending it twice leaves the same
+                | set rather than a doubled one.
+                */
+                Route::patch('/procurement/suppliers/{supplierId}', SupplierUpdateController::class)->name('catalogue.procurement.suppliers.update');
+                Route::post('/procurement/suppliers/{supplierId}/archive', SupplierArchiveController::class)->name('catalogue.procurement.suppliers.archive');
+                Route::post('/procurement/suppliers/{supplierId}/restore', SupplierRestoreController::class)->name('catalogue.procurement.suppliers.restore');
+                Route::put('/procurement/suppliers/{supplierId}/contacts', SupplierContactsReplaceController::class)->name('catalogue.procurement.suppliers.contacts.replace');
+
+                /*
+                | Supplier↔item links (SUP2) take the same manage code and no
+                | new one: naming who sells the kitchen its flour is the same
+                | configuration job as writing the supplier record itself.
+                |
+                | One idempotent upsert and one idempotent delete over a *pair*,
+                | rather than two mirrored set-replaces — the supplier page and
+                | (later) the item page read one table from two ends, and a
+                | replace at either end would silently undo the other's work.
+                | The delete carries its pair in query parameters because that
+                | is where every other delete in this API names its subject.
+                */
+                Route::put('/procurement/supplier-links', SupplierLinkUpsertController::class)->name('catalogue.procurement.supplier-links.upsert');
+                Route::delete('/procurement/supplier-links', SupplierLinkDeleteController::class)->name('catalogue.procurement.supplier-links.delete');
                 Route::post('/procurement/goods-receipts', GoodsReceiptStoreController::class)->name('catalogue.procurement.goods-receipts.store');
+
+                /*
+                | Receiving (SUP5) sits on the manage code, and §5 grants the two
+                | reads beside it in as many words: "the receiving endpoint may
+                | expose an issued order's supplier, outstanding items and
+                | quantities to a receiver holding `inventory.manage_organisation`
+                | without granting the full supply-order book". The person
+                | unloading the van is rarely the person who decided to order it,
+                | and making a receiver hold the chequebook to book in a delivery
+                | would be a control that had made itself unusable.
+                |
+                | So `receivable-orders` is a **deliberate manage-scoped subset**
+                | — number, supplier, outstanding lines — and not the order book,
+                | which stays on `inventory.order_supplies_organisation` below.
+                | The receipt detail is the same record the clerk just posted,
+                | with its money redacted inside the response rather than refused
+                | at the door: quantities, delivery note and cost status are
+                | theirs to read, prices are not.
+                |
+                | Completing prices afterwards is **not** here. That is the cost
+                | holder's job and lives in the cost group.
+                */
+                Route::get('/procurement/receivable-orders', ReceivableOrderIndexController::class)->name('catalogue.procurement.receivable-orders.index');
+                Route::get('/procurement/goods-receipts/{goodsReceipt}', GoodsReceiptShowController::class)->name('catalogue.procurement.goods-receipts.show');
                 Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
                 Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');
                 Route::post('/quality-control/checks', QualityCheckStoreController::class)->name('catalogue.quality-control.checks.store');
@@ -1454,12 +1556,112 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/procurement/purchases-ledger', PurchasesLedgerIndexController::class)->name('catalogue.procurement.purchases-ledger.index');
 
                 /*
+                | The unpriced work queue and the price completion behind it
+                | (SUP5, §3.6). The boundary against the receipt post is the one
+                | §5 draws, and it is not the obvious one: entering a price off
+                | the delivery note **at the door** is a warehouse job under the
+                | manage code, and going back over the money afterwards — when
+                | the invoice is late, or disagrees — is the cost holder's.
+                |
+                | The completion is a POST sub-resource rather than a writable
+                | price field on the receipt, for the reason supplier archive and
+                | order issue are: it is one deliberate act with its own audit
+                | event, and it must never be something a form save can do by
+                | accident to a figure already booked.
+                */
+                Route::get('/procurement/unpriced-receipts', UnpricedReceiptIndexController::class)->name('catalogue.procurement.unpriced-receipts.index');
+                Route::post('/procurement/goods-receipts/{goodsReceipt}/complete-prices', ReceiptPriceCompletionController::class)->name('catalogue.procurement.goods-receipts.complete-prices');
+
+                /*
+                | The weekly and monthly purchase check (SUP6, §3.7) — the same
+                | ledger rolled up into the periods a manager reconciles in. §5
+                | lists "weekly/monthly purchase financials" beside price history
+                | and the unpriced queue under the cost code, so it sits in this
+                | group rather than beside the receiving endpoints: a clerk who
+                | posts deliveries may not read what the kitchen spent.
+                |
+                | It reads `ProcurementSpendQuery`, which the monthly cost report
+                | below now also reads — §3.7's own instruction, so the two
+                | surfaces cannot disagree about a month's spend.
+                */
+                Route::get('/procurement/spend-summary', ProcurementSpendSummaryController::class)->name('catalogue.procurement.spend-summary.index');
+
+                /*
                 | The monthly cost report (INV1.4) sits beside the ledger on the
                 | same cost permission: it exposes spend, COGS and the margin
                 | reconstructable from cost and revenue, so it takes the code that
                 | gates money everywhere in this domain, not the plain view code.
                 */
                 Route::get('/reports/monthly-cost', MonthlyCostReportController::class)->name('catalogue.reports.monthly-cost.index');
+            });
+
+            /*
+            | Supply ordering (SUP3) — a fourth inventory code, and its own
+            | group, because the boundary is not the one either group above
+            | draws.
+            |
+            | **Reads sit here, not on `inventory.view_organisation`**, and that
+            | is the deliberate part (§5). The rest of this surface publishes
+            | quantities: how much flour is on the shelf is operational, and
+            | every kitchen hand who counts it may read it. The order book is
+            | different in kind — it names who the kitchen buys from, in what
+            | quantity and how often — and a kitchen hand with the plain view
+            | code has no business reading the purchasing relationship. So the
+            | supply-needs count and the proposal take
+            | `inventory.order_supplies_organisation` for their *reads*, which is
+            | the same code slice 4's writes will take.
+            |
+            | Nor is it the cost code. There is no money anywhere in either
+            | response, on purpose: deciding what to buy and being entitled to
+            | the valuation ledger are different authorities, and a proposal
+            | carrying "last price, for reference" would hand the second to
+            | whoever held the first. A cost-authorised screen fetches prices
+            | from the endpoint that already gates them.
+            |
+            | Receiving is **not** here, and SUP5 kept it that way: it took
+            | `inventory.manage_organisation` in the group above, because the
+            | person unloading the van is rarely the person who decided to order
+            | it, and making a receiver hold the chequebook to book in a delivery
+            | would be a control that had made itself unusable.
+            |
+            | Both take `branch_id` as a required query parameter rather than
+            | reading `X-Branch-Id`. A proposal is always *for one branch* (§4),
+            | and a manager holding an organisation-wide membership has no header
+            | branch at all — making the site part of the question is what lets
+            | them prepare an order for one.
+            */
+            Route::middleware('permission:inventory.order_supplies_organisation')->group(function (): void {
+                Route::get('/procurement/supply-needs/count', SupplyNeedsCountController::class)->name('catalogue.procurement.supply-needs.count');
+                Route::get('/procurement/order-proposal', OrderProposalController::class)->name('catalogue.procurement.order-proposal.index');
+
+                /*
+                | The order book itself (SUP4). Reads and writes on the one code,
+                | for the reason the group's header gives: there is no view-only
+                | reading of what a kitchen buys and from whom.
+                |
+                | The list carries an `ids[]` batch filter beside the ordinary
+                | `status`/`supplier_id` narrowing, and that is not decoration —
+                | slice 7's print preview lays several orders out as one document
+                | and would otherwise fetch them one round trip at a time.
+                |
+                | `issue` and `cancel` are POST actions rather than a writable
+                | `status` field, exactly as supplier archive/restore are:
+                | freezing a document a supplier will hold, or calling one off,
+                | is one deliberate request with its own audit event instead of
+                | something a form save can do by accident. There is no `send` —
+                | phase 1 dispatches nothing, and §2 refuses to name an event
+                | that did not happen.
+                |
+                | Receiving against these orders is not here: SUP5 posts
+                | receipts, and reads the outstanding quantities that prefill
+                | them, under `inventory.manage_organisation` in the group above.
+                */
+                Route::get('/procurement/purchase-orders', PurchaseOrderIndexController::class)->name('catalogue.procurement.purchase-orders.index');
+                Route::post('/procurement/purchase-orders', PurchaseOrderStoreController::class)->name('catalogue.procurement.purchase-orders.store');
+                Route::get('/procurement/purchase-orders/{purchaseOrder}', PurchaseOrderShowController::class)->name('catalogue.procurement.purchase-orders.show');
+                Route::patch('/procurement/purchase-orders/{purchaseOrder}', PurchaseOrderUpdateController::class)->name('catalogue.procurement.purchase-orders.update');
+                Route::post('/procurement/purchase-orders/{purchaseOrder}/issue', PurchaseOrderIssueController::class)->name('catalogue.procurement.purchase-orders.issue');
+                Route::post('/procurement/purchase-orders/{purchaseOrder}/cancel', PurchaseOrderCancelController::class)->name('catalogue.procurement.purchase-orders.cancel');
             });
 
             /*

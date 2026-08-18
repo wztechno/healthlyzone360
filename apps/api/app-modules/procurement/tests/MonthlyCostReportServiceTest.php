@@ -32,6 +32,13 @@ use Healthy360\Tenancy\TenantContext;
 | order's COGS, summing two currencies, mis-scaling minor against major units, or
 | presenting an understated month as complete. These tests pin exactly those.
 |
+| SUP6 moved the purchasing side onto the shared `ProcurementSpendQuery` (§3.7)
+| so the report and the weekly/monthly summary cannot disagree. Every figure here
+| is unchanged by that, which is the point of the tests above staying as they
+| were; the three tests at the foot of this file pin what it *did* change — the
+| bucket is now the receipt's branch-local business date, and a month whose
+| deliveries are not fully priced says so.
+|
 */
 
 beforeEach(function (): void {
@@ -149,13 +156,34 @@ function reportWaste(object $test, string $quantity, ?string $cost, string $crea
     ]));
 }
 
-/** A priced goods-receipt line, received in a given month. */
-function reportReceiptLine(object $test, string $lineTotal, string $currency, string $receivedAt): void
-{
+/**
+ * A priced goods-receipt line, received in a given month.
+ *
+ * `received_on` is the branch-local business date SUP5 added and SUP6 groups
+ * spend by; `received_at` stays the instant. The two are kept consistent here —
+ * the day of the instant — exactly as `GoodsReceiptService` keeps them, so this
+ * fixture cannot express a receipt the real posting path could not produce.
+ *
+ * `costedAt` is what tells the report whether a month's spend is finished. It
+ * defaults to the receipt instant, which is what the posting path stamps for a
+ * priced line; pass `null` for a line whose invoice has not arrived, and no
+ * `lineTotal` with it — money and settlement arrive together.
+ */
+function reportReceiptLine(
+    object $test,
+    ?string $lineTotal,
+    ?string $currency,
+    string $receivedAt,
+    ?string $receivedOn = null,
+    ?string $costedAt = null,
+    bool $valuationPendingFx = false,
+): void {
     $receipt = GoodsReceipt::query()->create([
         'organisation_id' => $test->orgId,
         'branch_id' => $test->branchId,
         'received_at' => $receivedAt,
+        'received_on' => $receivedOn ?? substr($receivedAt, 0, 10),
+        'cost_status' => $lineTotal === null ? 'unpriced' : 'complete',
     ]);
 
     GoodsReceiptLine::query()->create([
@@ -164,6 +192,8 @@ function reportReceiptLine(object $test, string $lineTotal, string $currency, st
         'quantity' => '1.0000',
         'line_total_amount' => $lineTotal,
         'cost_currency_code' => $currency,
+        'costed_at' => $lineTotal === null || $valuationPendingFx ? $costedAt : ($costedAt ?? $receivedAt),
+        'valuation_pending_fx' => $valuationPendingFx,
     ]);
 }
 
@@ -350,4 +380,53 @@ it('bounds the report to an inclusive month range', function (): void {
     expect($rows)->toHaveCount(1);
     expect($rows[0]['month'])->toBe('2026-07')
         ->and($rows[0]['spend_amount'])->toBe('20.000000');
+});
+
+/* ── what the shared aggregation changed (SUP6) ──────────────────────────── */
+
+it('files spend under the receipt business date rather than the instant', function (): void {
+    // A delivery whose branch-local day is the last of July and whose UTC
+    // instant has already tipped into August — the exact case SUP5 added
+    // `received_on` for, and the one place this refactor moves a figure.
+    reportReceiptLine($this, '40.000000', 'USD', '2026-08-01 02:00:00', receivedOn: '2026-07-31');
+
+    $rows = $this->service->forOrganisation($this->orgId);
+
+    expect(rowFor($rows, '2026-08', 'USD'))->toBeNull();
+    expect(rowFor($rows, '2026-07', 'USD')['spend_amount'])->toBe('40.000000');
+});
+
+it('flags a month whose spend is understated by a delivery nobody has priced yet', function (): void {
+    reportReceiptLine($this, '80.000000', 'USD', '2026-07-03 09:00:00');
+    // The goods are on the shelf and the invoice is in the post (§3.6).
+    reportReceiptLine($this, null, null, '2026-07-04 09:00:00');
+    reportReceiptLine($this, '20.000000', 'USD', '2026-06-03 09:00:00');
+
+    $rows = $this->service->forOrganisation($this->orgId);
+    $july = rowFor($rows, '2026-07', 'USD');
+    $june = rowFor($rows, '2026-06', 'USD');
+
+    expect($july['spend_amount'])->toBe('80.000000')
+        ->and($july['is_spend_complete'])->toBeFalse()
+        ->and($july['unpriced_line_count'])->toBe(1)
+        ->and($july['valuation_pending_line_count'])->toBe(0)
+        // A different figure fails for a different reason: the COGS flag is
+        // untouched by an unpriced receipt, and merging the two would leave a
+        // reader unable to tell which number to distrust.
+        ->and($july['has_data_quality_flag'])->toBeFalse()
+        ->and($june['is_spend_complete'])->toBeTrue()
+        ->and($june['unpriced_line_count'])->toBe(0);
+});
+
+it('counts a price waiting on an exchange rate as spend, and still calls the month incomplete', function (): void {
+    // The supplier's price is recorded exactly as written; what is outstanding
+    // is the kitchen's valuation of it, and no rate is ever invented (§3.6).
+    reportReceiptLine($this, '60.000000', 'EUR', '2026-08-03 09:00:00', valuationPendingFx: true);
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'EUR');
+
+    expect($row['spend_amount'])->toBe('60.000000')
+        ->and($row['is_spend_complete'])->toBeFalse()
+        ->and($row['unpriced_line_count'])->toBe(0)
+        ->and($row['valuation_pending_line_count'])->toBe(1);
 });

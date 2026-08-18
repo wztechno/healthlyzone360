@@ -8124,13 +8124,27 @@ paths:
       tags: [Kitchen inventory & production]
       summary: List suppliers
       description: |
-        Every supplier the organisation has on file. Receipts-only in v1
-        (O2): a supplier has no purchase orders and no terms behind it
-        yet, only the goods receipts posted against it by name.
+        The organisation's supplier book, ordered by code, each row carrying its
+        contact count and who to call.
+
+        **Archived suppliers are excluded by default.** Every caller is a picker
+        or a list, and a picker offering a supplier the kitchen stopped buying
+        from is how an order gets sent to a shuttered warehouse. Send
+        `include_archived=true` for the archive filter on the suppliers screen.
+
+        Not paginated: a kitchen's supplier book is a bounded set a person
+        maintains by hand.
 
         Requires `inventory.view_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: include_archived
+          in: query
+          required: false
+          description: Include archived suppliers. Omitted or false serves the live book only.
+          schema:
+            type: boolean
+            default: false
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -8184,6 +8198,884 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/suppliers/{supplierId}:
+    get:
+      operationId: getSupplier
+      tags: [Kitchen inventory & production]
+      summary: One supplier
+      description: |
+        The supplier record with its named contacts embedded. Unlike a delivery
+        zone's map, contacts are a bounded set a person maintains by hand — a
+        handful of people, not a hundred places — so the page that shows the
+        record is the page that edits them and one read serves both.
+
+        An archived supplier is served normally rather than hidden: a receipt
+        posted last month names it, and the screen explaining that receipt needs
+        the record. `archived_at` is what tells a client to render it read-only.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The supplier and its contacts.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    patch:
+      operationId: updateSupplier
+      tags: [Kitchen inventory & production]
+      summary: Edit a supplier
+      description: |
+        A partial write: a field the body omits is left alone, a field sent as
+        `null` is cleared. `code` is editable and its uniqueness check ignores
+        this supplier's own row, so re-saving an unchanged form is never a
+        conflict with itself.
+
+        No `If-Match`. A supplier record carries no lock version — two people
+        editing the same supplier's phone number is not the race a delivery
+        map's area claims are.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSupplierRequest'
+      responses:
+        '200':
+          description: The supplier after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/suppliers/{supplierId}/archive:
+    post:
+      operationId: archiveSupplier
+      tags: [Kitchen inventory & production]
+      summary: Archive a supplier
+      description: |
+        **Not a delete, and reversible.** The supplier leaves every picker and
+        every automatic suggestion and keeps every goods receipt posted against
+        it — a purchases ledger that forgets who it bought from is not a ledger.
+
+        An action rather than a writable `archived_at`, so retiring a supplier
+        is one deliberate request with its own audit event instead of something
+        a form save can do by accident. Idempotent: archiving an archived
+        supplier keeps the original timestamp.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The archived supplier.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/suppliers/{supplierId}/restore:
+    post:
+      operationId: restoreSupplier
+      tags: [Kitchen inventory & production]
+      summary: Restore an archived supplier
+      description: |
+        Puts an archived supplier back in the book — the counterpart to archive,
+        and the reason archiving is safe to offer. A kitchen that stopped buying
+        from somebody for a season starts again without re-typing the record or
+        its contacts. Idempotent: restoring a live supplier changes nothing.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The restored supplier.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/suppliers/{supplierId}/contacts:
+    put:
+      operationId: replaceSupplierContacts
+      tags: [Kitchen inventory & production]
+      summary: Replace a supplier's contacts
+      description: |
+        Set-replace: the body is the whole desired contact set, applied in one
+        transaction. Contacts carrying an `id` are updated, contacts without one
+        are created, and contacts absent from the body are deleted.
+
+        A `PUT` because the request is idempotent — sending it twice leaves the
+        same set rather than a doubled one. The screen has one **Save contacts**
+        action to match; a save fired per card would delete the card the user was
+        halfway through adding.
+
+        At most one contact may be primary, and every contact needs at least one
+        of an email address, a telephone number or a WhatsApp number. Both are
+        `422` before the database constraint behind them can fire.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/SupplierPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceSupplierContactsRequest'
+      responses:
+        '200':
+          description: The contact set after the replace, in display order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierContactCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/supplier-links:
+    put:
+      operationId: upsertSupplierLink
+      tags: [Kitchen inventory & production]
+      summary: Link a stock item to a supplier
+      description: |
+        Records "we buy this from them" (SUP2), or updates the link that is
+        already there. Idempotent on the `(supplier_id, stock_item_id)` pair —
+        sending the same body twice leaves the same row, which is why this is a
+        `PUT`.
+
+        **One mutation surface, not two mirrored replaces.** A supplier's
+        supplied items and a stock item's suppliers are one table read from two
+        ends; a set-replace at either end would silently undo what the other
+        end had just written.
+
+        `is_preferred: true` **moves** the flag — whichever supplier held it for
+        this stock item loses it in the same transaction, because at most one
+        preferred supplier per item is a database rule and a straight handover
+        would otherwise collide with it mid-swap. `false` clears this link's own
+        flag and promotes nobody.
+
+        `supplier_item_ref` is the supplier's own catalogue reference, quoted
+        back on an order sheet. Omitting it leaves the stored value alone;
+        sending `null` clears it.
+
+        Cross-organisation identifiers — either end — answer `404`, never a
+        silent link. Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertSupplierLinkRequest'
+      responses:
+        '200':
+          description: The link after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierLinkEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: deleteSupplierLink
+      tags: [Kitchen inventory & production]
+      summary: Unlink a stock item from a supplier
+      description: |
+        Removes one supplier↔item link (SUP2). The identifying pair travels in
+        query parameters rather than a body, because that is where every other
+        delete in this API names its subject.
+
+        A real delete, unlike a supplier's own record, which only archives: a
+        link is current configuration, and every goods receipt posted against
+        the supplier stays exactly as it is either way.
+
+        Idempotent — unlinking something that is not linked answers `204`,
+        because the caller's intention is already true. Cross-organisation
+        identifiers still answer `404`. Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: supplier_id
+          in: query
+          required: true
+          description: The supplier half of the link.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: stock_item_id
+          in: query
+          required: true
+          description: The stock item half of the link.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The link is gone — or was never there.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/item-purchases/latest:
+    get:
+      operationId: listItemLatestPurchases
+      tags: [Kitchen inventory & production]
+      summary: Latest purchase per stock item
+      description: |
+        The newest priced purchase of each named shelf, **across every
+        supplier**, with the supplier that sold it (SUP2).
+
+        This endpoint exists because of a module boundary and it is worth
+        saying plainly: the stock screen wants a "last purchase" column, but
+        the stock list is served by Inventory and Inventory may not import
+        Procurement. The price is therefore served here, keyed by
+        `stock_item_id`, and the client joins the two lists it already holds. A
+        batch read for the same reason the supplier page has one — sixty
+        visible shelves must cost one request, not sixty.
+
+        Derived live from `goods_receipt_lines`, never stored. Unpriced
+        deliveries are skipped entirely rather than answered as a price of
+        nothing, so an item received only on unpriced receipts is **absent**
+        from the response — "never bought" is the absence of a purchase, and a
+        row of nulls would be a purchase-shaped object claiming otherwise.
+
+        Behind `inventory.view_organisation`, with the money behind
+        `inventory.view_costs_organisation`: without the cost permission
+        `unit_price_amount` and `cost_currency_code` are `null` and
+        `meta.costs_redacted` is `true`, while the date, quantity, unit and
+        supplier remain. A `403` would blank the column for somebody entitled
+        to know *that* an item was last bought on Tuesday, and would make
+        "hidden" and "never bought" indistinguishable.
+
+        Two hundred identifiers is the cap.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: stock_item_ids
+          in: query
+          required: true
+          description: The shelves to price, repeated as `stock_item_ids[]=…`. At most 200.
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The latest purchase of each requested item that has one.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemLatestPurchaseCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/supply-needs/count:
+    get:
+      operationId: countSupplyNeeds
+      tags: [Kitchen inventory & production]
+      summary: Supply-needs count for one branch
+      description: |
+        How many shelves at one branch need ordering (SUP3) — the hub badge and
+        the Supply orders landing metrics, in one read.
+
+        The queue is the distinct union of two rules over the branch's existing
+        levels: **out of stock** (`quantity <= 0`) and **low stock**
+        (`reorder_threshold` set and `quantity` at or below it). A level meeting
+        both is counted **once**, as out of stock, so `out_of_stock_count` plus
+        `low_stock_count` always equals `count`.
+
+        This is deliberately wider than `/catalogue/inventory/low-stock-count`,
+        which is a *warning* and ignores levels with no threshold set. A kitchen
+        that never set a threshold on olive oil and has run out of olive oil
+        still needs to order olive oil, so emptiness joins lowness here.
+
+        Answered by the same predicate the order proposal lists, so a badge can
+        never disagree with the list it opens. A stock item with no level row at
+        this branch has never moved here and is **not** a shortage; it reaches an
+        order through the proposal's `stock_item_ids`.
+
+        `branch_id` is required and is a query parameter rather than the
+        `X-Branch-Id` header: stock is a quantity on a shelf at a site, there is
+        no honest organisation-wide answer, and a manager holding an
+        organisation-wide membership has no header branch yet must still be able
+        to prepare an order for one.
+
+        Requires `inventory.order_supplies_organisation`. Not the plain view
+        code — this number is the front door of the order book.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: true
+          description: The branch whose shelves are counted. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The branch's shortage tallies.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplyNeedsCountEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/order-proposal:
+    get:
+      operationId: getOrderProposal
+      tags: [Kitchen inventory & production]
+      summary: What one branch should order
+      description: |
+        The supply-order builder's whole read (SUP3): the shortage queue in the
+        order it should be worked, the quantity the system is willing to suggest
+        for each row, and the suppliers each shortage could be bought from.
+
+        **Nothing is created.** A `GET`, and it stays one: the builder re-reads
+        this whenever an item is added or Refresh is pressed, and a screen that
+        minted draft orders by being opened would fill a kitchen's order book
+        with purchases nobody decided to make. Creating the drafts is a separate
+        transactional write.
+
+        **Row order is the answer, not a hint.** Out-of-stock rows come first,
+        then low-stock rows, then explicitly requested ones; each group is
+        ordered by item name with the item code as tie-break. Clients render the
+        order they are given and never re-sort.
+
+        `suggested_quantity` is `par_level - quantity_on_hand`, and only that.
+        Never `reorder_threshold - quantity_on_hand`: the threshold is the
+        *trigger* and is compared inclusively, so restocking exactly to it lands
+        the shelf back on the boundary that raised the alarm. With no usable par
+        the suggestion is `null` and `suggested_quantity_basis` is `none` — an
+        honest blank the person fills in rather than a plausible wrong number.
+
+        Supplier resolution is: the active preferred supplier, else the sole
+        active linked supplier, else nobody. `supplier_options` carries every
+        active candidate regardless, because the person may disagree with all
+        three outcomes. Archived suppliers are excluded from the options but not
+        from the diagnosis: `unassigned_reason` distinguishes `no_supplier`
+        (nobody was ever linked) from `suppliers_archived` (links exist and every
+        one of them is archived), because those have different fixes.
+
+        `stock_item_ids` is the **Add another item** list — shelves that join the
+        proposal whatever their level says, deduped against the queue so an item
+        that was already short is one row rather than two. An id whose shelf has
+        never moved at this branch answers `quantity_on_hand: "0.0000"` with null
+        thresholds rather than a fabricated level row. At most 100.
+
+        **There is no money in this response**, at any depth: no price, no cost,
+        no currency. The supply-order permission is not the cost permission, and
+        a payload carrying last prices "for reference" would hand the valuation
+        ledger to whoever could open the builder. Cost-authorised screens fetch
+        prices from the endpoint that gates them.
+
+        Requires `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: true
+          description: The branch the proposal is for. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: stock_item_ids
+          in: query
+          required: false
+          description: Manually added shelves, repeated as `stock_item_ids[]=…`. At most 100.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 100
+            items:
+              $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The branch's proposal rows, queue first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderProposalCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/purchase-orders:
+    get:
+      operationId: listPurchaseOrders
+      tags: [Kitchen inventory & production]
+      summary: The order book
+      description: |
+        Every purchase order this kitchen has made, newest first (SUP4).
+
+        **Three filters, and one of them is not a filter.** `status` and
+        `supplier_id` narrow the book the way a person asks about it — "what is
+        still out with the wholesaler". `ids` is a **batch read**: the shape a
+        print preview needs when somebody issues four orders and lays them out
+        as one document, so that four orders cost one request rather than four.
+        At most fifty identifiers, and an identifier from another kitchen simply
+        does not match rather than answering that it exists.
+
+        Rows carry their full line sets, because there is one purchase-order
+        shape rather than a list variant and a detail variant — a second shape
+        is the one that drifts, and the batch read wants all of it anyway.
+        Cursor-paginated over the platform's `(created_at, id)` keyset: an order
+        book is written to while somebody walks it, and offset pagination
+        silently skips and repeats rows when that happens.
+
+        **No money, at any depth** — no price, no amount, no currency, no total.
+        Actual prices belong to goods receipts, where each partial delivery
+        carries the figure it was really invoiced at.
+
+        Requires `inventory.order_supplies_organisation`. The **read** is gated
+        too (§5): this is not a list of shelves, it is the record of who this
+        kitchen buys from, how much of what, and how often.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: status
+          in: query
+          required: false
+          description: Only orders in this state.
+          schema:
+            $ref: '#/components/schemas/PurchaseOrderStatus'
+        - name: supplier_id
+          in: query
+          required: false
+          description: Only orders addressed to this supplier. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: ids
+          in: query
+          required: false
+          description: A batch read, repeated as `ids[]=…`. At most 50.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 50
+            items:
+              $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of purchase orders, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createPurchaseOrders
+      tags: [Kitchen inventory & production]
+      summary: Create one draft order per supplier
+      description: |
+        The supply-order builder's commit (SUP4). A person grouped a shortage
+        list by supplier, confirmed a preview, and this turns that preview into
+        drafts.
+
+        **All or nothing.** One transaction wraps the whole batch: eleven
+        suppliers' drafts commit together or none of them do. Six of eight
+        orders arriving with no way to tell which two are missing is the outcome
+        the single transaction exists to make impossible. The orders come back
+        **in request order**, because the person confirmed a list and the answer
+        has to line up with it row for row.
+
+        **One branch per batch.** Each order carries `branch_id` because every
+        proposal row does, which is what makes a payload whose branch disagrees
+        with its lines unrepresentable — and the server then insists they all
+        agree, because §4 says a proposal is always *for one branch*. Two
+        branches in one body is a `422`, not a guess.
+
+        **A line is `stock_item_id` and `quantity`, and nothing else.** The item
+        code, both names, the unit and the supplier's own catalogue reference are
+        all resolved server-side and frozen onto the row; a client that could
+        name a line could put anything at all on a document a supplier reads.
+        There is no price field and none is coming.
+
+        Quantities are decimal strings with at most four places — the stock
+        column's precision. `2.55555` earns a `422` naming the exact line rather
+        than being silently truncated.
+
+        An **archived** supplier answers `409` with
+        `details.reason = supplier_archived`, the same refusal issuing gives: a
+        draft that could never be issued is not a useful thing to have created.
+        A supplier, branch or shelf belonging to another kitchen answers `404`.
+
+        Each order created is audited as `procurement.purchase_order_created`.
+        Requires `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePurchaseOrdersRequest'
+      responses:
+        '201':
+          description: The drafts created, in request order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/purchase-orders/{purchaseOrder}:
+    get:
+      operationId: getPurchaseOrder
+      tags: [Kitchen inventory & production]
+      summary: One purchase order
+      description: |
+        The same shape the list serves, because there is one purchase-order
+        shape (SUP4).
+
+        Two suppliers appear on an issued order and both are deliberate.
+        `supplier` is the **live** record with its archive flag, because a
+        screen offering to issue needs to know whether the supplier is still in
+        the book. `recipient_snapshot` is who the document was **addressed to**
+        at the instant it was issued, and it is `null` on a draft because a
+        draft has been addressed to nobody yet. §3.5: draft previews use current
+        supplier data, issued reprints use the snapshot.
+
+        Requires `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PurchaseOrderPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order, its lines and its recipient.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updatePurchaseOrder
+      tags: [Kitchen inventory & production]
+      summary: Edit a draft order
+      description: |
+        Presence-keyed like every other partial write in this module: an omitted
+        field is left alone, `notes: null` clears the note.
+
+        `lines` is a **full replace** — the body states the whole desired set —
+        because the alternative is a diff, and a diff needs an identity for a
+        line the client does not name. Every line is re-snapshotted from the
+        database rather than carried over, so a shelf renamed since the draft was
+        made is renamed on the draft too. That is correct precisely because a
+        draft has not been handed to anybody yet.
+
+        **Draft only.** An issued, cancelled or received order answers `409`
+        with `details.reason = purchase_order_not_draft`, and that is §3.5's
+        immutability rather than a permission problem: the supplier is holding a
+        copy of what was issued, and an order that could still change would make
+        their copy a fiction.
+
+        Requires `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PurchaseOrderPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePurchaseOrderRequest'
+      responses:
+        '200':
+          description: The draft after the write.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/purchase-orders/{purchaseOrder}/issue:
+    post:
+      operationId: issuePurchaseOrder
+      tags: [Kitchen inventory & production]
+      summary: Issue a draft order
+      description: |
+        **Issue, not send** (§2). Phase 1 dispatches nothing through any
+        channel: a person presses this, the lines freeze, and they print the
+        sheet and hand it over. There is deliberately no `send` endpoint and no
+        `sent_at`, because a later dispatch phase must have somewhere honest to
+        record the real event.
+
+        Two things happen and both are the point. The status moves `draft →
+        issued`, after which every further edit is refused — the supplier is
+        holding a copy, and an order that could still change would make their
+        copy a fiction. And `recipient_snapshot` captures the supplier exactly
+        as it stands now, so a reprint in June reproduces the document handed
+        over in February even though the supplier has since moved premises and
+        replaced its sales rep.
+
+        Two refusals, both `409` with an explicit `details.reason`: an order
+        that is not a draft (`purchase_order_not_draft`) and an archived
+        supplier (`supplier_archived`). The second is §3.1's rule at the moment
+        it matters — the supplier was live when the draft was made and has been
+        archived since, which is exactly when a kitchen should be stopped rather
+        than allowed to post an order to a shuttered warehouse.
+
+        An action rather than a writable status field, so freezing a document is
+        one deliberate request with its own audit event
+        (`procurement.purchase_order_issued`). Requires
+        `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PurchaseOrderPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The issued order, with its recipient snapshot.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/purchase-orders/{purchaseOrder}/cancel:
+    post:
+      operationId: cancelPurchaseOrder
+      tags: [Kitchen inventory & production]
+      summary: Cancel a draft or issued order
+      description: |
+        **Nothing is deleted** (§3.5). The order, its lines and — if it was
+        issued — its recipient snapshot all stay exactly where they are, and
+        `issued_at` is left in place: cancelling does not un-issue, and a
+        reprint of a cancelled order should still say when it went out. What
+        changes is the status and one new stamp.
+
+        Reachable from `draft` and `issued` and from nowhere else. An order with
+        deliveries against it cannot be cancelled as though nothing happened, so
+        a refusal answers `409` with
+        `details.reason = purchase_order_not_cancellable`.
+
+        Audited as `procurement.purchase_order_cancelled`. Requires
+        `inventory.order_supplies_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/PurchaseOrderPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The cancelled order, unchanged apart from its status and stamp.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -8262,6 +9154,47 @@ paths:
         stock item's level at the branch. There is no draft state: posting
         a receipt is the same act as recording that the stock arrived.
 
+        **One endpoint for both kinds of delivery** (§6). A direct market
+        purchase sends lines and nothing else; a delivery against an issued
+        order adds `purchase_order_id` and a `purchase_order_line_id` per
+        matched line, and the order's received state is updated inside the same
+        transaction. There is deliberately no second receipt-writing service:
+        two writers would be two chances for the purchase ledger and the stock
+        ledger to disagree about one delivery.
+
+        **Prices are accepted under `inventory.manage_organisation`** and are
+        redacted from that same clerk's reads without
+        `inventory.view_costs_organisation` — §5's blind-write model. A line may
+        also be posted with no price at all when the invoice has not arrived,
+        which puts the receipt in the **Unpriced receipts** queue.
+
+        Four refusals are worth knowing about, all `422` unless stated:
+
+        - **over-receipt** — more arriving than the order still has outstanding
+          is refused until `over_receipt_confirmed` is true, and then still
+          needs a `variance_note`. §3.5 asks for an explicit confirmation *and*
+          a note: one records that somebody clicked, the other records what they
+          knew.
+        - **an unplanned item** — a line with no `purchase_order_line_id` on a
+          delivery against an order needs the same `variance_note` (§4).
+        - **the invoice arithmetic** — when `invoice_total_amount` is present it
+          must equal `Σ line totals − discount + tax + delivery + other`. The
+          refusal carries `details.expected_total_amount` and
+          `details.difference_amount`, because the person reading it has the
+          supplier's paper in their hand.
+        - **two currencies** — every priced line and every header charge on one
+          receipt shares one currency. There is no exchange rate in this system
+          (§4.4). A header charge on a receipt with no priced line has no
+          currency at all and is refused for the same reason.
+
+        A `409` names an order-level refusal in `details.reason`: the order is
+        not receivable, or its branch or supplier disagrees with the delivery.
+
+        A priced line whose ingredient holds its valuation in another currency
+        is **not** refused: the stock is posted, the supplier's price is kept
+        exactly as written, and the line is flagged `valuation_pending_fx` while
+        the receipt stays short of `complete` (§3.6).
+
         Requires `inventory.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -8286,6 +9219,249 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PurchaseOrderConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/goods-receipts/{goodsReceipt}:
+    get:
+      operationId: getGoodsReceipt
+      tags: [Kitchen inventory & production]
+      summary: One goods receipt, with the order it settled
+      description: |
+        The delivery whole: its lines, its two document references, its business
+        date, its cost status — and, when it was made against a purchase order,
+        that order's per-line ordered/received/outstanding arithmetic (SUP5).
+
+        Behind `inventory.manage_organisation`, the same code that posted it: a
+        person who booked a delivery in has to be able to look at what they
+        booked. The **money** is behind `inventory.view_costs_organisation` and
+        is redacted inside the response rather than refused at the door, so a
+        receiving clerk still sees quantities, the delivery note and whether the
+        paperwork is outstanding.
+
+        `cost_status`, the unpriced counts and `valuation_pending_fx` are **not**
+        redacted, deliberately: they say whether this receipt still needs
+        somebody's attention, not what anything cost.
+
+        The `purchase_order` block is §5's manage-scoped subset — number, status
+        and the line arithmetic somebody standing over a pallet compares against.
+        There is no money on a purchase order at any depth, so nothing in it
+        needs a gate.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/GoodsReceiptPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The receipt, its lines and its order match.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoodsReceiptDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/goods-receipts/{goodsReceipt}/complete-prices:
+    post:
+      operationId: completeReceiptPrices
+      tags: [Kitchen inventory & production]
+      summary: Complete the missing prices on a receipt
+      description: |
+        The invoice that turned up a week after the van did (§3.6).
+
+        **It cannot move stock.** Completion "calls the costing path only for
+        lines whose `costed_at` is null and never creates a second stock
+        movement", and that is structural rather than a rule: neither the
+        completion service nor the costing collaborator it delegates to has an
+        inventory dependency at all.
+
+        **Each line is priced once.** A line that has already been costed answers
+        `422` naming it rather than being quietly skipped — a silent no-op would
+        leave somebody believing they had corrected a figure they had not.
+        Correcting a posted price is deliberately not this endpoint's job; §3.6
+        puts that behind a reasoned, audited adjustment.
+
+        A line already flagged `valuation_pending_fx` is refused with
+        `details.reason = line_valuation_pending_fx`. Its price is already
+        recorded exactly as the supplier wrote it; what is outstanding is an
+        exchange-rate decision this system does not make. The reverse case is
+        handled: a line priced here for the first time, in a currency the
+        ingredient's valuation cannot take, is flagged the same way the post
+        would have flagged it.
+
+        `line_total_amount` is optional and is **checked** rather than stored as
+        given: the total and the unit price are two views of one fact, and a
+        mismatch answers `422` with `details.expected_total_amount`.
+
+        Requires `inventory.view_costs_organisation`. Entering a price off the
+        delivery note at the door is a warehouse job under the manage code;
+        going back over the money afterwards is the cost holder's (§5). Audited
+        as `procurement.goods_receipt_priced`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/GoodsReceiptPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteReceiptPricesRequest'
+      responses:
+        '200':
+          description: The receipt after the prices were completed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoodsReceiptDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/receivable-orders:
+    get:
+      operationId: listReceivableOrders
+      tags: [Kitchen inventory & production]
+      summary: Orders a delivery could be received against
+      description: |
+        Every issued or partially received order for one branch, with each
+        line's ordered, received and outstanding quantity — so the receive
+        screen prefills a delivery with what is **still to come** rather than
+        what was originally asked for (§4).
+
+        Requires `inventory.manage_organisation`, not the ordering code, and §5
+        grants that in as many words: "the receiving endpoint may expose an
+        issued order's supplier, outstanding items and quantities to a receiver
+        holding `inventory.manage_organisation` without granting the full
+        supply-order book". The person unloading the van is rarely the person
+        who decided to order it.
+
+        So this is a **deliberate manage-scoped subset**: an order number, a
+        supplier, an issue date and the outstanding lines. No notes, no
+        recipient snapshot, no history — and, as everywhere on a purchase order,
+        no money at any depth. The order book itself stays behind
+        `inventory.order_supplies_organisation`.
+
+        `branch_id` is a required query parameter rather than the `X-Branch-Id`
+        header, for the reason the proposal endpoints give: a manager holding an
+        organisation-wide membership has no header branch, and receiving is
+        always at one site. At most fifty orders, oldest issue first.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: true
+          description: The branch taking delivery. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: supplier_id
+          in: query
+          required: false
+          description: Only orders addressed to this supplier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Orders open for receiving at this branch, oldest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivableOrderCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/unpriced-receipts:
+    get:
+      operationId: listUnpricedReceipts
+      tags: [Kitchen inventory & production]
+      summary: The unpriced-receipts work queue
+      description: |
+        Every receipt whose costing is not finished (§3.6): the delivery landed,
+        the stock rose, and the invoice has not been entered — or was entered
+        and could not be valued. The queue exists because the alternative is
+        quietly omitting those receipts from a financial total that then looks
+        complete.
+
+        **Two counts, because they are two different jobs.**
+        `unpriced_line_count` is "type these prices in".
+        `valuation_pending_count` is "the prices are already here and an
+        exchange-rate decision is not this screen's to make" — a row a person
+        cannot action, and one they need to tell apart at a glance rather than
+        by opening it.
+
+        There is no money in these rows; the amounts live on the receipt detail
+        behind the same gate. Ordered **oldest first**, the opposite of every
+        other list in this module and the point of a work queue: the oldest
+        outstanding invoice is the one that has been outstanding longest.
+
+        Requires `inventory.view_costs_organisation` (§5).
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: false
+          description: Only receipts posted at this branch. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: supplier_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/CursorLimit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of receipts still waiting on their costing, oldest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnpricedReceiptCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -8299,8 +9475,17 @@ paths:
       description: |
         Every goods-receipt line, newest first, flattened with the date,
         supplier and item it belongs to — the browsable record behind the
-        monthly spend figure (INV1.1). Filterable by date range, supplier and
-        ingredient.
+        monthly spend figure (INV1.1). Filterable by date range, supplier,
+        branch, stock item and ingredient.
+
+        `stock_item_id` and `branch_id` arrive with SUP2 and are what the
+        supplier page's "everything bought from this supplier" and the stock
+        screen's per-row "History" land on. `stock_item_id` sits beside
+        `ingredient_id` rather than replacing it: one ingredient can back both a
+        shelf and a resold product, so "this ingredient" and "this shelf" are
+        different questions. Both new filters are validated against the active
+        organisation, so an identifier from another kitchen is a `422` rather
+        than an empty page that reads like a fact.
 
         Behind `inventory.view_costs_organisation`: this surface exists to read
         the valuation, so a person without the cost permission gets a 403 here
@@ -8332,8 +9517,40 @@ paths:
         - name: ingredient_id
           in: query
           required: false
+          description: Only lines whose stock item is backed by this ingredient.
           schema:
             $ref: '#/components/schemas/Uuid'
+        - name: stock_item_id
+          in: query
+          required: false
+          description: Only lines that received this shelf. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: branch_id
+          in: query
+          required: false
+          description: Only lines whose receipt was posted at this branch. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: purchase_order_id
+          in: query
+          required: false
+          description: |
+            Only lines whose receipt was made against this order (SUP5) — what
+            an order detail's "everything delivered against this" link lands on.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: cost_status
+          in: query
+          required: false
+          description: |
+            Only lines whose receipt is in this costing state (SUP5). §3.4 lists
+            price-completeness among the ledger's filters; it lands in the slice
+            that lands the column rather than the slice that first draws a screen
+            over it, because a parameter that quietly did nothing would be worse
+            than its absence.
+          schema:
+            $ref: '#/components/schemas/ReceiptCostStatus'
         - $ref: '#/components/parameters/CursorLimit'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -8353,6 +9570,129 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/spend-summary:
+    get:
+      operationId: getProcurementSpendSummary
+      tags: [Kitchen inventory & production]
+      summary: Weekly or monthly purchase financials
+      description: |
+        The same goods-receipt ledger the purchases screen browses line by line,
+        rolled up into the periods a manager reconciles in (§3.7): ISO weeks or
+        calendar months over the branch-local `received_on`. The aggregation is
+        shared with the monthly cost report, exactly as §3.7 requires, so the
+        two surfaces cannot disagree about a month's spend.
+
+        **A period, then currencies inside it — never one total across them.**
+        There is no exchange rate in this system (§4.4). An unpriced line has no
+        currency at all, so the completeness facts live on the *period* and the
+        money lives in `totals_by_currency`. A period whose deliveries are all
+        unpriced answers an empty `totals_by_currency` with `is_complete: false`
+        — §3.7's **Incomplete** made structural rather than a flag somebody has
+        to remember to read.
+
+        `unpriced_line_count` and `valuation_pending_line_count` are disjoint. A
+        line with no price recorded contributes no money and is unpriced; a line
+        whose price *is* recorded and whose valuation was refused for currency
+        contributes its money and waits on an exchange-rate decision (§3.6).
+        Either one keeps the period incomplete.
+
+        **Item subtotal and invoice total stay separate named values**, on §3.7's
+        own instruction: tax and delivery are not an ingredient's purchase price.
+        The four charge totals are zero when nothing was recorded; `invoice_total`
+        is `null` when no receipt in the bucket carried one, because an unknown
+        invoice total is not a zero one.
+
+        A `stock_item_id` filter narrows *lines*. A receipt's header charges are
+        a fact about the whole delivery and are not apportioned to one shelf: the
+        charges reported under that filter are those of the receipts the matching
+        lines came from, counted once each. `item_subtotal` is unaffected and
+        reconciles line for line to the purchases ledger under the same filters.
+
+        **The window is always bounded.** Omit `from`/`to` and the answer covers
+        the most recent 53 weeks or 24 months; an explicit range wider than that
+        is refused with the cap named rather than silently truncated. The
+        resolved bounds are echoed in `data.from`/`data.to`.
+
+        Breakdowns are opt-in (`include=suppliers,items`) and cost exactly one
+        query each, so the default payload stays a period list a screen can
+        render whole. Requires `inventory.view_costs_organisation` (§5).
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: group_by
+          in: query
+          required: true
+          description: |
+            `week` groups by ISO week over `received_on` (Monday-started,
+            labelled `2026-W34`); `month` groups by calendar month (`2026-08`).
+          schema:
+            type: string
+            enum: [week, month]
+        - name: from
+          in: query
+          required: false
+          description: Inclusive lower bound on the receipt's business date, `YYYY-MM-DD`.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Inclusive upper bound on the receipt's business date, `YYYY-MM-DD`. Must not precede `from`.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: false
+          description: Only receipts posted at this branch. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: supplier_id
+          in: query
+          required: false
+          description: Only receipts from this supplier. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: stock_item_id
+          in: query
+          required: false
+          description: Only lines that received this shelf. Must belong to the active organisation.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: include
+          in: query
+          required: false
+          description: |
+            Comma-separated breakdowns to compute — `suppliers`, `items`, or
+            both. An unrecognised token is refused rather than ignored, so a
+            typo cannot look like an empty result.
+          schema:
+            type: string
+            example: suppliers,items
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The spend summary, newest period first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendSummaryCollection'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -17743,6 +19083,35 @@ components:
         endpoint refuses rather than guessing which location the caller meant.
       schema:
         $ref: '#/components/schemas/Uuid'
+    SupplierPath:
+      name: supplierId
+      in: path
+      required: true
+      description: |
+        The supplier identifier. An identifier only, unlike a delivery zone's
+        path: a supplier `code` is frequently minted by the server and is
+        editable afterwards, so a URL that accepted it would break the moment a
+        kitchen corrected one.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    PurchaseOrderPath:
+      name: purchaseOrder
+      in: path
+      required: true
+      description: |
+        The purchase-order identifier, never its `number`. The number is the
+        human handle both sides quote down a phone line; the URL takes the
+        identifier, on the same grounds a supplier's does.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    GoodsReceiptPath:
+      name: goodsReceipt
+      in: path
+      required: true
+      description: The goods-receipt identifier.
+      schema:
+        $ref: '#/components/schemas/Uuid'
     DeliveryZonePath:
       name: zone
       in: path
@@ -18408,6 +19777,50 @@ components:
               message: This resource changed since you last read it. Reload it and reapply your change.
               details:
                 current_lock_version: 4
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    PurchaseOrderConflict:
+      description: |
+        The order's own state refuses the change (§3.5, §6). `details.reason`
+        names which rule, and there are four:
+
+        - `purchase_order_not_draft` — the order has been issued, cancelled or
+          received against, and issued orders are immutable. `details.status`
+          carries the state it is actually in.
+        - `purchase_order_not_cancellable` — cancellation is reachable from
+          `draft` and `issued` only; an order with deliveries against it cannot
+          be cancelled as though nothing happened.
+        - `supplier_archived` — the supplier has left the book. Restore it or
+          choose another; `details.supplier_id` names it.
+        - `purchase_order_received_against` — something has already been
+          delivered against this order (SUP5). Checked before the status, so
+          that when both apply a client is told what actually happened rather
+          than being told the status again.
+        - `purchase_order_not_receivable` — a delivery was posted against an
+          order that is not `issued` or `partially_received`.
+        - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+          — §4: a receipt against an order must use that order's branch and
+          supplier. Every identifier is well formed; what refuses is the
+          relationship between them, which is why this is a `409` and not a
+          `422`.
+
+        No `current_lock_version`: purchase orders are not lock-versioned, so
+        there is no race to reload against. Re-reading the order is what tells a
+        client what happened to it.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: Only a draft purchase order can be edited.
+              details:
+                reason: purchase_order_not_draft
+                status: issued
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
 
     RefundRefused:
@@ -25265,7 +26678,30 @@ components:
 
     Supplier:
       type: object
-      required: [id, code, name_en, currency_code, contact_email, contact_phone]
+      required:
+        - id
+        - code
+        - name_en
+        - name_ar
+        - currency_code
+        - contact_email
+        - contact_phone
+        - address
+        - payment_terms
+        - lead_time_days
+        - notes
+        - archived_at
+        - contact_count
+        - supplied_item_count
+        - primary_contact
+      description: |
+        One supplier in the organisation's book. The same shape everywhere a
+        supplier is served — list row and freshly created record alike — so a
+        client writes one mapper rather than three.
+
+        `contact_email`/`contact_phone` are the **general office** details, not
+        a duplicate of the primary named person: when a sales rep leaves, the
+        office line is still correct and their mobile is not.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -25273,14 +26709,1043 @@ components:
           type: string
         name_en:
           type: string
+        name_ar:
+          type: ['string', 'null']
         currency_code:
           type: ['string', 'null']
           description: The currency this supplier usually invoices in (ISO 4217), or null (INV1.1).
         contact_email:
           type: ['string', 'null']
+          description: The general office address, not the primary contact's.
         contact_phone:
           type: ['string', 'null']
+          description: The general office line, not the primary contact's.
+        address:
+          type: ['string', 'null']
+          description: |
+            Free text, transcribed as the supplier gives it and printed on order
+            sheets — a building name, a market stall number, "gate 4, behind the
+            cold store". Never geocoded, so never structured.
+        payment_terms:
+          type: ['string', 'null']
+          description: Free text — "net 30", "cash on delivery", "50% up front". Never computed against.
+        lead_time_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+          description: Days between issuing an order and expecting it. 0 is a same-morning market run.
+        notes:
+          type: ['string', 'null']
+        archived_at:
+          type: ['string', 'null']
+          format: date-time
+          description: |
+            Set when the supplier was archived. An archived supplier keeps every
+            receipt posted against it and leaves every picker; clients render
+            the record read-only rather than hiding it.
+        contact_count:
+          type: integer
+          minimum: 0
+          description: How many named contacts this supplier has on file.
+        supplied_item_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many stock items this supplier is linked to (SUP2). Counted on
+            the list query rather than derived from `supplied_items`, which a
+            list row does not carry.
+        primary_contact:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierPrimaryContact'
+            - type: 'null'
+          description: |
+            Who to call, summarised for a list row — the contact flagged
+            primary, falling back to the first in display order. Null only when
+            the supplier has no named contacts at all.
+        contacts:
+          type: array
+          description: |
+            Every named contact, in the kitchen's own display order. Served on
+            the supplier **detail** response only, where `SupplierDetail`
+            requires it — a list row carries `contact_count` and
+            `primary_contact` instead, because fetching every contact of every
+            supplier to render a book is the N+1 that summary exists to avoid.
+          items:
+            $ref: '#/components/schemas/SupplierContact'
+        supplied_items:
+          type: array
+          description: |
+            What this supplier sells the kitchen, preferred link first then by
+            item name (SUP2). Detail response only, on the same terms as
+            `contacts` — a list row carries `supplied_item_count` instead.
+          items:
+            $ref: '#/components/schemas/SuppliedItem'
+        costs_redacted:
+          type: boolean
+          description: |
+            `true` when the reader lacks `inventory.view_costs_organisation`
+            and every `supplied_items[].last_purchase` money field was served
+            as `null`. Detail response only.
       additionalProperties: false
+
+    SupplierPrimaryContact:
+      type: object
+      required: [name, phone]
+      description: The "who do I call" summary a supplier list row shows.
+      properties:
+        name:
+          type: string
+        phone:
+          type: ['string', 'null']
+          description: The telephone number, falling back to the WhatsApp number — a contact reachable only on WhatsApp is still reachable.
+      additionalProperties: false
+
+    SupplierContact:
+      type: object
+      required: [id, name, role_title, email, phone, whatsapp_phone, is_primary, display_order]
+      description: |
+        One named person at a supplier — distinct from the supplier's own office
+        line. At least one of `email`, `phone` and `whatsapp_phone` is always
+        present: a contact nobody can reach is not a contact.
+
+        `whatsapp_phone` is its own field rather than a flag on `phone` because
+        in this trade they genuinely differ — the landline takes the call, the
+        mobile takes the order photo.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        role_title:
+          type: ['string', 'null']
+        email:
+          type: ['string', 'null']
+        phone:
+          type: ['string', 'null']
+        whatsapp_phone:
+          type: ['string', 'null']
+        is_primary:
+          type: boolean
+          description: At most one per supplier, enforced by a partial unique index.
+        display_order:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    SupplierDetail:
+      description: |
+        A supplier with its full contact set and everything it supplies — the
+        supplier's own page.
+
+        The canonical `Supplier` with `contacts`, `supplied_items` and
+        `costs_redacted` promoted from optional to required. Composed rather
+        than restated so that a field added to the book cannot arrive on the
+        list and go missing from the detail.
+
+        All three are restated in the second subschema rather than only listed
+        as required: `Supplier` closes itself with `additionalProperties: false`
+        (which is why the fields are declared there too, optionally), and a
+        `required`-only branch generates as an index signature rather than as
+        the array a client needs.
+      allOf:
+        - $ref: '#/components/schemas/Supplier'
+        - type: object
+          required: [contacts, supplied_items, costs_redacted]
+          properties:
+            contacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/SupplierContact'
+            supplied_items:
+              type: array
+              items:
+                $ref: '#/components/schemas/SuppliedItem'
+            costs_redacted:
+              type: boolean
+
+    SuppliedItem:
+      type: object
+      required: [stock_item, is_preferred, supplier_item_ref, last_purchase]
+      description: |
+        One "we buy this from them" row on the supplier's page (SUP2).
+
+        The stock item is embedded rather than referenced by id alone because
+        the table beside it shows a name, a code and a unit; a client resolving
+        three fields per row against a separate list would be doing a join the
+        server already has open.
+
+        `last_purchase` is `null` when this supplier has never been recorded
+        selling this item at a price — a distinct state from a *present*
+        `last_purchase` whose money is redacted. **Never bought here** and
+        **Hidden** are two different facts and clients must render them
+        differently (§3.4).
+      properties:
+        stock_item:
+          oneOf:
+            - $ref: '#/components/schemas/SuppliedStockItem'
+            - type: 'null'
+          description: The shelf this link points at. Null only if it vanished between the read and the render.
+        is_preferred:
+          type: boolean
+          description: At most one supplier per stock item may hold this, enforced by a partial unique index.
+        supplier_item_ref:
+          type: ['string', 'null']
+          maxLength: 64
+          description: |
+            The supplier's own catalogue reference, transcribed from their
+            price list so an order sheet can quote it back. Named `_ref` rather
+            than `_code`: it is their identifier, not this kitchen's.
+        last_purchase:
+          oneOf:
+            - $ref: '#/components/schemas/LastPurchase'
+            - type: 'null'
+          description: The newest priced receipt line from this supplier for this item, or null if there is none.
+      additionalProperties: false
+
+    SuppliedStockItem:
+      type: object
+      required: [id, code, name_en, unit_code, backing]
+      description: The shelf a supplier link points at, summarised for the row that renders it.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        unit_code:
+          type: string
+        backing:
+          type: string
+          enum: [ingredient, product]
+          description: Which of the two books this shelf belongs to — the same field the inventory list publishes.
+      additionalProperties: false
+
+    LastPurchase:
+      type: object
+      required:
+        - goods_receipt_id
+        - document_ref
+        - received_at
+        - quantity
+        - unit_id
+        - unit_code
+        - unit_price_amount
+        - cost_currency_code
+      description: |
+        What this was last bought for (§3.4) — derived live from the newest
+        priced `goods_receipt_lines` row, never stored.
+
+        Unpriced deliveries are skipped entirely, so this is always a real
+        price: an item received only on unpriced receipts has no
+        `last_purchase` at all rather than one with a null amount.
+
+        **The money is the only redacted part.** Without
+        `inventory.view_costs_organisation`, `unit_price_amount` and
+        `cost_currency_code` are `null` and the enclosing response flags
+        `costs_redacted`. The date, quantity and unit survive: those are
+        warehouse facts a receiving clerk entered, not the valuation the cost
+        permission gates.
+
+        The amount is always quoted **per `unit_code`** and always beside its
+        own currency. A bare `6.90` without "USD per kg" is not a price, and
+        currencies are never converted — there is no exchange rate in this
+        system.
+      properties:
+        goods_receipt_id:
+          $ref: '#/components/schemas/Uuid'
+        document_ref:
+          type: ['string', 'null']
+          description: The supplier delivery note or invoice number the price came from, as written.
+        received_at:
+          type: ['string', 'null']
+          format: date-time
+        quantity:
+          type: string
+          description: The quantity that line received, as a decimal string. Never redacted.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The unit the price is quoted per; null means the stock item's own unit.
+        unit_code:
+          type: ['string', 'null']
+          description: That unit's code, resolved for display — `kg`, `l`, `piece`.
+        unit_price_amount:
+          type: ['string', 'null']
+          description: Major-unit decimal string per `unit_code`, or null when costs are redacted.
+        cost_currency_code:
+          type: ['string', 'null']
+          description: ISO 4217, or null when costs are redacted.
+      additionalProperties: false
+
+    ItemLatestPurchase:
+      description: |
+        One stock item's newest purchase **across every supplier** (SUP2), with
+        the supplier that sold it.
+
+        `LastPurchase` plus the two fields that make it answerable outside a
+        supplier's own page: the item it belongs to, so a client can join it to
+        the stock list, and who sold it, because a price without the vendor
+        beside it is not actionable.
+
+        The supplier is nullable: a direct market-run receipt records no
+        supplier, and the price it captured is still the last price of that
+        item.
+      allOf:
+        - $ref: '#/components/schemas/LastPurchase'
+        - type: object
+          required: [stock_item_id, supplier]
+          properties:
+            stock_item_id:
+              $ref: '#/components/schemas/Uuid'
+            supplier:
+              oneOf:
+                - $ref: '#/components/schemas/SupplierRef'
+                - type: 'null'
+
+    ItemLatestPurchaseCollection:
+      type: object
+      required: [data, meta]
+      description: |
+        Requested items with no priced receipt are **absent** rather than
+        present with nulls, so `meta.count` may be smaller than
+        `meta.requested_count`. `meta.costs_redacted` says whether the money
+        was served at all.
+      properties:
+        data:
+          type: object
+          required: [purchases]
+          properties:
+            purchases:
+              type: array
+              items:
+                $ref: '#/components/schemas/ItemLatestPurchase'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    SupplyNeedsCountEnvelope:
+      type: object
+      required: [data, meta]
+      description: |
+        The three tallies partition each other: `out_of_stock_count` plus
+        `low_stock_count` equals `count`, because a level that is both empty and
+        below its threshold is counted once, as out of stock.
+      properties:
+        data:
+          type: object
+          required: [count, out_of_stock_count, low_stock_count]
+          properties:
+            count:
+              type: integer
+              minimum: 0
+              description: Shelves at this branch that need ordering.
+            out_of_stock_count:
+              type: integer
+              minimum: 0
+              description: Of those, the ones with nothing left (`quantity <= 0`).
+            low_stock_count:
+              type: integer
+              minimum: 0
+              description: Of those, the ones at or below a set reorder threshold but not yet empty.
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    SupplierOption:
+      type: object
+      required: [id, code, name_en, name_ar, is_preferred, lead_time_days]
+      description: |
+        One active supplier a proposal row could be bought from. Archived
+        suppliers never appear here — a picker offering a shuttered warehouse is
+        how an order gets sent to one.
+
+        No price, and none is coming: this object exists so a person can choose
+        who to buy from, not to compare what they charge.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type: ['string', 'null']
+        is_preferred:
+          type: boolean
+          description: This supplier holds the preferred flag for this stock item.
+        lead_time_days:
+          type: ['integer', 'null']
+          description: Typical days from order to delivery, when the kitchen recorded one.
+      additionalProperties: false
+
+    OrderProposalItem:
+      type: object
+      required:
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - unit_id
+        - unit_code
+        - branch_id
+        - quantity_on_hand
+        - reorder_threshold
+        - par_level
+        - is_out_of_stock
+        - is_low
+        - origin
+        - suggested_quantity
+        - suggested_quantity_basis
+        - supplier_options
+        - suggested_supplier_id
+        - unassigned_reason
+      description: |
+        One row of the supply-order builder (SUP3).
+
+        `is_out_of_stock` and `is_low` are independent readings of the numbers
+        beside them — a shelf at zero with a threshold set is genuinely both.
+        `origin` is the single label the union produces, and it is where the
+        "counted once, as out of stock" rule lives.
+
+        A `requested` row's `is_out_of_stock` still follows from its
+        `quantity_on_hand`: a shelf that has never moved at this branch reports
+        `"0.0000"`, and reporting `false` beside it would be a flag a client
+        could not reconcile with the number it describes.
+
+        No field here carries a price, a cost or a currency, at any depth.
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        unit_code:
+          type: string
+          description: The unit the quantity is counted in — `kg`, `l`, `piece`.
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity_on_hand:
+          type: string
+          description: A decimal string at scale 4, never a float. `"0.0000"` when the shelf has no level row at this branch.
+        reorder_threshold:
+          type: ['string', 'null']
+          description: The reorder point as a decimal string, or null when none is set.
+        par_level:
+          type: ['string', 'null']
+          description: The level to restock back up to, as a decimal string, or null when none is set.
+        is_out_of_stock:
+          type: boolean
+          description: Computed — `quantity_on_hand` is at or below zero.
+        is_low:
+          type: boolean
+          description: Computed — a threshold is set and `quantity_on_hand` is at or below it.
+        origin:
+          type: string
+          enum: [out_of_stock, low_stock, requested]
+          description: Why this row is in the proposal. A row satisfying both shortage rules is labelled `out_of_stock`.
+        suggested_quantity:
+          type: ['string', 'null']
+          description: |
+            `par_level - quantity_on_hand` as a decimal string when a par is set
+            and the difference is positive; null otherwise, meaning the person
+            must type a quantity.
+        suggested_quantity_basis:
+          type: string
+          enum: [par, none]
+          description: |
+            How the suggestion was reached. `none` accompanies a null
+            suggestion. There is deliberately no `threshold` basis — see the
+            endpoint description.
+        supplier_options:
+          type: array
+          description: Every active linked supplier, preferred first then by name.
+          items:
+            $ref: '#/components/schemas/SupplierOption'
+        suggested_supplier_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The active preferred supplier, else the sole active option, else
+            null. Null with two or more options means the person must choose,
+            which is not the same as `unassigned_reason` being set.
+        unassigned_reason:
+          type: ['string', 'null']
+          enum: [no_supplier, suppliers_archived, null]
+          description: |
+            Why this row has no supplier to offer at all. `no_supplier`: nothing
+            was ever linked. `suppliers_archived`: links exist and every one of
+            them is archived, which is a different problem with a different fix.
+            Null whenever at least one active option exists.
+      additionalProperties: false
+
+    OrderProposalCollection:
+      type: object
+      required: [data, meta]
+      description: |
+        Rows in the order they must be rendered: out of stock, then low, then
+        requested. `meta` counts the queue only — `out_of_stock_count` and
+        `low_stock_count` exclude requested rows, so they agree exactly with
+        `/catalogue/procurement/supply-needs/count` for the same branch.
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderProposalItem'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    PurchaseOrderStatus:
+      type: string
+      enum: [draft, issued, partially_received, received, cancelled]
+      description: |
+        Where an order has got to (§3.5). `draft → issued →
+        partially_received → received`, with `cancelled` reachable from the two
+        states in which nothing has arrived yet.
+
+        **`issued`, never `sent`** (§2). Phase 1 dispatches nothing through any
+        channel — a person presses Issue, the lines freeze, and they print the
+        sheet and hand it over. Calling that `sent` would claim an event the
+        system did not perform.
+
+        `partially_received` and `received` are reached by **posting a goods
+        receipt**, never by an action of their own: the quantities received are
+        summed per order line and the status is whatever that sum says it is.
+        There is no "mark as received" action and there must not be one — it
+        would let an order claim a delivery that never turned up. The one
+        apparent exception proves the rule: closing a short delivery still goes
+        through a receipt, and what the flag adds is a reason for writing off the
+        remainder rather than a status change of its own.
+
+        `received` and `cancelled` are terminal: a delivery that turned out wrong
+        is a receipt correction or a return, which are different objects with
+        different quantities attached.
+
+    PurchaseOrderLine:
+      type: object
+      required:
+        - id
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - item_name_ar
+        - quantity
+        - received_quantity
+        - outstanding_quantity
+        - unit_code
+        - supplier_item_ref
+        - notes
+        - display_order
+      description: |
+        One requested shelf, as the document says it (§3.5).
+
+        Every display field is a **snapshot** taken when the line was written,
+        not a live read of the stock item — that is what makes an issued order
+        immutable in practice rather than only in status. A shelf renamed in
+        March does not silently rename a line on an order issued in February,
+        because the supplier is holding a printed copy of the February wording.
+
+        `stock_item_id` rides alongside as a **pointer**: a client deep-links to
+        the shelf with it and the receiving slice matches a delivery line to
+        this one with it. It is never the source of the label beside it.
+
+        **No price, no amount, no currency**, here or anywhere on a purchase
+        order. Actual prices belong to goods receipts.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+          maxLength: 64
+          description: Snapshotted — the kitchen's own identifier for the shelf.
+        item_name_en:
+          type: string
+          maxLength: 160
+        item_name_ar:
+          type: ['string', 'null']
+          maxLength: 160
+          description: |
+            Snapshotted from the backing ingredient or catalogue item, because
+            `stock_items` carry `name_en` only. Null when neither has one — an
+            honest blank, rather than English text printed under an Arabic
+            heading.
+        quantity:
+          type: string
+          description: A decimal string at scale 4, never a float. Always above zero. What was asked for.
+        received_quantity:
+          type: string
+          description: |
+            How much of this line has actually turned up, summed across every
+            delivery against it (SUP5). Expressed in this line's own `unit_code`:
+            a delivery quoted per kilogram against a shelf counted in grams is
+            converted before it is summed, so the three quantities on one row
+            always add up. A quantity, not money.
+        outstanding_quantity:
+          type: string
+          description: |
+            What is still to come, and what the receive screen prefills (§4).
+            Floored at zero — an over-receipt is a real event its variance note
+            records, and a negative amount still to come would be an arithmetic
+            curiosity rather than an instruction.
+        unit_code:
+          type: string
+          maxLength: 16
+          description: Snapshotted — the unit that prints on the order sheet.
+        supplier_item_ref:
+          type: ['string', 'null']
+          maxLength: 64
+          description: |
+            The supplier's own catalogue reference, read from the saved
+            supplier↔item link at write time so the sheet can quote it back at
+            them. Null when this supplier has no link for this shelf, which is
+            ordinary for a one-off purchase.
+        notes:
+          type: ['string', 'null']
+          maxLength: 255
+          description: Reserved for a per-line remark. Nothing writes it in this version.
+        display_order:
+          type: integer
+          minimum: 0
+          description: The sequence the person building the order chose. Clients render it and never re-sort.
+      additionalProperties: false
+
+    RecipientSnapshot:
+      type: object
+      required:
+        - supplier_id
+        - code
+        - name_en
+        - name_ar
+        - address
+        - payment_terms
+        - lead_time_days
+        - contact_email
+        - contact_phone
+        - contacts
+      description: |
+        Who the order was addressed to, at the instant it was issued (§3.5).
+
+        Captured on issue and never touched again. A supplier that moves
+        premises in March must not silently rewrite the February order it is
+        holding a copy of — so a **draft** preview reads the live supplier and an
+        **issued** reprint reads this.
+
+        It is a document, not a reference: the fields are the ones a printed
+        order sheet names, and the supplier may since have been archived,
+        renamed or emptied of contacts without any of it changing here.
+      properties:
+        supplier_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type: ['string', 'null']
+        address:
+          type: ['string', 'null']
+          description: Free text as the supplier gives it. Never geocoded.
+        payment_terms:
+          type: ['string', 'null']
+        lead_time_days:
+          type: ['integer', 'null']
+        contact_email:
+          type: ['string', 'null']
+          description: The general office address, not the primary contact's.
+        contact_phone:
+          type: ['string', 'null']
+          description: The general office line, not the primary contact's.
+        contacts:
+          type: array
+          description: Every named contact the supplier had at issue time, primary first.
+          items:
+            $ref: '#/components/schemas/RecipientSnapshotContact'
+      additionalProperties: false
+
+    RecipientSnapshotContact:
+      type: object
+      required: [name, role_title, email, phone, whatsapp_phone, is_primary]
+      description: |
+        One named person as they stood at issue time. No identifier: this is a
+        transcription onto a document, not a pointer at a row that may since
+        have been deleted.
+      properties:
+        name:
+          type: string
+        role_title:
+          type: ['string', 'null']
+        email:
+          type: ['string', 'null']
+        phone:
+          type: ['string', 'null']
+        whatsapp_phone:
+          type: ['string', 'null']
+        is_primary:
+          type: boolean
+      additionalProperties: false
+
+    PurchaseOrder:
+      type: object
+      required:
+        - id
+        - number
+        - status
+        - branch
+        - supplier
+        - recipient_snapshot
+        - notes
+        - line_count
+        - issued_at
+        - received_at
+        - closed_at
+        - close_short_reason
+        - cancelled_at
+        - created_at
+        - lines
+        - receipts
+      description: |
+        One request the kitchen makes of one supplier, for one branch (§3.5).
+
+        **One shape for the list, the detail and the create response.** A second
+        summary variant is the one that drifts, and the batch read a print
+        preview makes wants the whole thing anyway.
+
+        **Two suppliers on an issued order, and both are deliberate.**
+        `supplier` is the live record with its archive flag, because a screen
+        offering to issue needs to know whether the supplier is still in the
+        book. `recipient_snapshot` is who the document was addressed to at the
+        instant it was issued, and it is `null` on a draft because a draft has
+        been addressed to nobody yet. A client renders the live supplier on a
+        draft and the snapshot from `issued` onward.
+
+        `number` is the human handle both sides quote — `PO-` plus eight
+        Crockford base-32 characters, minted **random rather than sequential**
+        because a sequential number printed on a supplier's copy would tell them
+        this kitchen's purchasing volume.
+
+        **No money, at any depth.** Not a price, an amount, a currency or a
+        total, on the order, on a line or inside the snapshot.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+          maxLength: 32
+          description: Unique within the organisation. `PO-` plus eight Crockford base-32 characters.
+        status:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        branch:
+          oneOf:
+            - $ref: '#/components/schemas/PurchaseOrderBranch'
+            - type: 'null'
+          description: The site that is short of the goods.
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/PurchaseOrderSupplier'
+            - type: 'null'
+          description: The **live** supplier record, archive flag included.
+        recipient_snapshot:
+          oneOf:
+            - $ref: '#/components/schemas/RecipientSnapshot'
+            - type: 'null'
+          description: Null on a draft; present from `issued` onward.
+        notes:
+          type: ['string', 'null']
+          description: A remark for the whole order, printed on the sheet.
+        line_count:
+          type: integer
+          minimum: 0
+        issued_at:
+          type: ['string', 'null']
+          format: date-time
+          description: |
+            When the document was frozen. Survives cancellation — cancelling an
+            issued order does not un-issue it.
+        received_at:
+          type: ['string', 'null']
+          format: date-time
+          description: |
+            When the last outstanding line actually arrived (SUP5). An order
+            closed short reaches `received` with this still null and `closed_at`
+            set instead: nothing was last fulfilled, and a date here would be a
+            small lie in the one place a person checks.
+        closed_at:
+          type: ['string', 'null']
+          format: date-time
+          description: |
+            When the order stopped expecting anything more — set on both routes
+            to `received`, whether every line arrived or the remainder was
+            written off.
+        close_short_reason:
+          type: ['string', 'null']
+          maxLength: 255
+          description: |
+            Why the rest of this order was written off (§3.5). Present only on an
+            order somebody deliberately closed short; a delivery that completed
+            the order has nothing to explain and carries none.
+        cancelled_at:
+          type: ['string', 'null']
+          format: date-time
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderLine'
+        receipts:
+          type: array
+          description: |
+            Every delivery made against this order, oldest first (SUP5) — a
+            reference rather than the receipt itself. The date, the delivery note
+            and the line count are what an order detail lists; the money on those
+            lines is behind a permission this response does not check, so a
+            client that wants the figures opens the receipt.
+          items:
+            $ref: '#/components/schemas/PurchaseOrderReceiptRef'
+      additionalProperties: false
+
+    PurchaseOrderReceiptRef:
+      type: object
+      required: [id, received_on, document_ref, line_count]
+      description: One delivery made against an order, as the order lists it (SUP5).
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        received_on:
+          type: ['string', 'null']
+          format: date
+          description: The branch-local business day the delivery was filed under.
+        document_ref:
+          type: ['string', 'null']
+          description: The supplier delivery note, as written.
+        line_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    PurchaseOrderBranch:
+      type: object
+      required: [id, name]
+      description: |
+        The branch an order is for. `name` rather than `name_en`:
+        `organisation_branches` carries one name column, and a bilingual pair on
+        the wire would promise an Arabic branch name the table has no room for.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+      additionalProperties: false
+
+    PurchaseOrderSupplier:
+      type: object
+      required: [id, code, name_en, name_ar, archived_at]
+      description: |
+        The **live** supplier an order names — not the snapshot.
+        `archived_at` is on it deliberately: an issued order for a
+        since-archived supplier is an ordinary situation a detail screen has to
+        explain, and a reference without the flag would leave it guessing why
+        issuing is refused.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type: ['string', 'null']
+        archived_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    PurchaseOrderEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [purchase_order]
+          properties:
+            purchase_order:
+              $ref: '#/components/schemas/PurchaseOrder'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    PurchaseOrderCollection:
+      type: object
+      required: [data, meta]
+      description: |
+        A page of the order book, newest first — and the same envelope the batch
+        create answers with, where the orders are in **request order** rather
+        than newest first, because the person confirmed a list and the answer
+        has to line up with it.
+      properties:
+        data:
+          type: object
+          required: [purchase_orders]
+          properties:
+            purchase_orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/PurchaseOrder'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    CreatePurchaseOrderLine:
+      type: object
+      required: [stock_item_id, quantity]
+      description: |
+        Everything a client may say about a line, and it is deliberately two
+        fields. The item code, both names, the unit and the supplier's own
+        catalogue reference are resolved server-side (§6) — a client that could
+        name a line could put anything at all on a document a supplier reads.
+        There is no price field and none is coming.
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: string
+          pattern: '^\d+(\.\d{1,4})?$'
+          description: |
+            A decimal string above zero with at most four places — the stock
+            column's own precision. A string rather than a number because
+            `0.125` kg of saffron must arrive as `0.125`, and a float round trip
+            is how that becomes `0.12499999999999999`.
+      additionalProperties: false
+
+    CreatePurchaseOrdersRequest:
+      type: object
+      required: [orders]
+      description: |
+        One draft per supplier, created together or not at all.
+
+        `branch_id` sits on each order because every proposal row carries the
+        branch it was read for, which is what makes a payload whose branch
+        disagrees with its lines unrepresentable. The server then insists they
+        all agree: §4 says a proposal is always *for one branch*, so two
+        branches in one body is a `422` rather than a guess.
+      properties:
+        orders:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/CreatePurchaseOrderRequest'
+      additionalProperties: false
+
+    CreatePurchaseOrderRequest:
+      type: object
+      required: [supplier_id, branch_id, lines]
+      properties:
+        supplier_id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/CreatePurchaseOrderLine'
+      additionalProperties: false
+
+    UpdatePurchaseOrderRequest:
+      type: object
+      description: |
+        Presence-keyed: an omitted field is left alone, `notes: null` clears the
+        note. `lines` is a **full replace** — the body states the whole desired
+        set — because a diff would need an identity for a line the client does
+        not name.
+
+        Draft only. An issued order answers `409` with
+        `details.reason = purchase_order_not_draft`.
+      properties:
+        notes:
+          type: ['string', 'null']
+          maxLength: 2000
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/CreatePurchaseOrderLine'
+      additionalProperties: false
+
+    UpsertSupplierLinkRequest:
+      type: object
+      required: [supplier_id, stock_item_id]
+      description: |
+        The pair that identifies the link, plus the two things about it a
+        kitchen edits. Idempotent: sending the same body twice leaves the same
+        row.
+
+        `is_preferred` and `supplier_item_ref` are keyed on **presence**. An
+        omitted field is left alone; `supplier_item_ref: null` clears a
+        reference typed by mistake. `is_preferred: true` takes the flag off
+        whichever supplier held it for this item; `false` clears this link's own
+        flag and promotes nobody.
+      properties:
+        supplier_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        is_preferred:
+          type: ['boolean', 'null']
+        supplier_item_ref:
+          type: ['string', 'null']
+          maxLength: 64
+      additionalProperties: false
+
+    SupplierLink:
+      type: object
+      required: [supplier_id, stock_item_id, is_preferred, supplier_item_ref]
+      description: |
+        The link after a write, and nothing more.
+
+        Every ops write in this workspace answers the minimum and lets the
+        screen re-read what it changed. A supplied item's last purchase price is
+        derived from the receipt ledger and cannot change because somebody saved
+        a link, so returning it here would invent a read the caller did not ask
+        for.
+      properties:
+        supplier_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        is_preferred:
+          type: boolean
+        supplier_item_ref:
+          type: ['string', 'null']
+      additionalProperties: false
+
+    SupplierLinkEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [supplier_link]
+          properties:
+            supplier_link:
+              $ref: '#/components/schemas/SupplierLink'
+        meta:
+          $ref: '#/components/schemas/Meta'
 
     SupplierCollection:
       type: object
@@ -25304,10 +27769,18 @@ components:
         `code` is optional — omit it and the server mints a unique
         per-organisation code from the name. `currency_code` is a hint the
         receipt form pre-selects and is never required.
+
+        Contacts are **not** accepted here: they are their own section-level
+        replace, and a create that took them would give a kitchen two ways to
+        write the same set. The lightweight create inside the goods-receipt
+        dialog sends a name and nothing else.
       properties:
         name_en:
           type: string
           minLength: 1
+          maxLength: 160
+        name_ar:
+          type: ['string', 'null']
           maxLength: 160
         code:
           type: ['string', 'null']
@@ -25322,6 +27795,132 @@ components:
         contact_phone:
           type: ['string', 'null']
           maxLength: 40
+        address:
+          type: ['string', 'null']
+          maxLength: 2000
+        payment_terms:
+          type: ['string', 'null']
+          maxLength: 120
+        lead_time_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+        notes:
+          type: ['string', 'null']
+          maxLength: 2000
+      additionalProperties: false
+
+    UpdateSupplierRequest:
+      type: object
+      description: |
+        Every field of the record, all optional — a partial write. A field the
+        body omits is left alone; a field sent as `null` is cleared, so a
+        kitchen can genuinely remove an address it typed by mistake.
+
+        `code` **is** editable, unlike a delivery zone's or a price list's. The
+        difference is who wrote it: those are minted by an operator who meant
+        them, whereas a supplier code is frequently minted by the server from a
+        name typed into a goods-receipt dialog at the loading bay, and refusing
+        to correct `GULF-FRESH-TRADING-CO-2` would leave the kitchen stuck with
+        an accident. Uniqueness ignores this supplier's own row.
+
+        `archived_at` is not reachable from here — archiving is its own action
+        with its own audit event, so a form save cannot retire a supplier by
+        writing a field. Contacts are their own set-replace.
+      properties:
+        name_en:
+          type: string
+          minLength: 1
+          maxLength: 160
+        name_ar:
+          type: ['string', 'null']
+          maxLength: 160
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        currency_code:
+          type: ['string', 'null']
+          minLength: 3
+          maxLength: 3
+        contact_email:
+          type: ['string', 'null']
+          maxLength: 160
+        contact_phone:
+          type: ['string', 'null']
+          maxLength: 40
+        address:
+          type: ['string', 'null']
+          maxLength: 2000
+        payment_terms:
+          type: ['string', 'null']
+          maxLength: 120
+        lead_time_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+        notes:
+          type: ['string', 'null']
+          maxLength: 2000
+      additionalProperties: false
+
+    ReplaceSupplierContactsRequest:
+      type: object
+      required: [contacts]
+      description: |
+        The **whole desired contact set**. Contacts carrying an `id` are
+        updated, contacts without one are created, and contacts absent from the
+        body are deleted — one request, one transaction, one **Save contacts**
+        button on the screen. Send `[]` to clear the set.
+
+        Two rules are refused with `422` before the database can raise a
+        constraint violation: at most one `is_primary` across the set, and at
+        least one of `email`, `phone` and `whatsapp_phone` on every contact.
+
+        Twenty is the cap. A supplier with more than twenty named people is not
+        a supplier record, it is a directory.
+      properties:
+        contacts:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ReplaceSupplierContact'
+      additionalProperties: false
+
+    ReplaceSupplierContact:
+      type: object
+      required: [name]
+      description: One contact in a replace request. `id` names an existing contact to update; omit it to create.
+      properties:
+        id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The contact to update. Omit or send null to create a new one.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role_title:
+          type: ['string', 'null']
+          maxLength: 120
+        email:
+          type: ['string', 'null']
+          maxLength: 160
+        phone:
+          type: ['string', 'null']
+          maxLength: 40
+        whatsapp_phone:
+          type: ['string', 'null']
+          maxLength: 40
+        is_primary:
+          type: ['boolean', 'null']
+          description: At most one contact in the set may set this.
+        display_order:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 65535
+          description: Defaults to the contact's position in the submitted array.
       additionalProperties: false
 
     SupplierEnvelope:
@@ -25334,6 +27933,34 @@ components:
           properties:
             supplier:
               $ref: '#/components/schemas/Supplier'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    SupplierDetailEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [supplier]
+          properties:
+            supplier:
+              $ref: '#/components/schemas/SupplierDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    SupplierContactCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [contacts]
+          properties:
+            contacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/SupplierContact'
         meta:
           $ref: '#/components/schemas/Meta'
 
@@ -25400,16 +28027,61 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    ReceiptCostStatus:
+      type: string
+      enum: [unpriced, partial, complete]
+      description: |
+        Whether a receipt's costing is finished (§3.6). Derived from the lines
+        and never set by hand: a line counts as settled when it carries
+        `costed_at`, the receipt is `complete` when every line does, `unpriced`
+        when none does and `partial` in between.
+
+        `costed_at` is stamped when there is nothing further to do with a line's
+        money — the blend went through, **or** there was no ingredient to blend
+        into (packaging, cleaning supplies). Both are finished states, and
+        leaving the second one null would park its receipt in the work queue
+        forever with no action available.
+
+        A receipt whose only line is `valuation_pending_fx` therefore reads
+        `unpriced` even though its price is recorded, because its costing is
+        genuinely not finished. `valuation_pending_count` beside it is what tells
+        a person which kind of unfinished it is.
+
+        Not redacted without the cost permission: this says whether the paperwork
+        needs attention, not what anything cost.
+
     GoodsReceiptLine:
       type: object
-      required: [stock_item_id, quantity, unit_id, unit_price_amount, line_total_amount, cost_currency_code]
+      required:
+        - id
+        - stock_item_id
+        - purchase_order_line_id
+        - quantity
+        - unit_id
+        - unit_price_amount
+        - line_total_amount
+        - cost_currency_code
+        - costed_at
+        - valuation_pending_fx
       description: |
         The money fields (INV1.1) are served as `null` when the reader lacks
         `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
-        `quantity` and `unit_id` are warehouse facts and are never redacted.
+        `quantity` and `unit_id` are warehouse facts and are never redacted, and
+        neither are `costed_at` and `valuation_pending_fx`, which say whether the
+        line still needs somebody's attention rather than what it cost.
       properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
         stock_item_id:
           $ref: '#/components/schemas/Uuid'
+        purchase_order_line_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The ordered line this delivery fulfils (SUP5). Null for a direct
+            market purchase and for an unplanned extra item on an ordered
+            delivery, both of which §4 treats as ordinary.
         quantity:
           type: string
         unit_id:
@@ -25424,19 +28096,71 @@ components:
           type: ['string', 'null']
         cost_currency_code:
           type: ['string', 'null']
+        costed_at:
+          type: ['string', 'null']
+          format: date-time
+          description: |
+            When this line's money was settled (§3.6). Null means the costing
+            path has not run and price completion may still act on it — the guard
+            that stops one quantity being costed twice.
+        valuation_pending_fx:
+          type: boolean
+          description: |
+            The price is recorded exactly as the supplier wrote it and could not
+            be blended into the ingredient's valuation currency (§3.6). Physical
+            receiving is never lost to a currency, and no exchange rate is ever
+            invented; a later accounting phase may resolve it.
       additionalProperties: false
 
     GoodsReceipt:
       type: object
-      required: [id, branch_id, supplier, document_ref, purchase_order_id, received_at, currency_code, receipt_total_amount, costs_redacted, lines]
+      required:
+        - id
+        - branch_id
+        - supplier
+        - document_ref
+        - supplier_invoice_ref
+        - invoice_date
+        - variance_note
+        - purchase_order_id
+        - received_at
+        - received_on
+        - cost_status
+        - unpriced_line_count
+        - valuation_pending_count
+        - currency_code
+        - receipt_total_amount
+        - discount_amount
+        - tax_amount
+        - delivery_amount
+        - other_charges_amount
+        - invoice_total_amount
+        - costs_redacted
+        - lines
       description: |
-        A receipt still has no purchase-order surface in v1 (O2) —
-        `purchase_order_id` is always null. Since INV1.1 it also records who was
-        paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
-        in `currency_code`, offered only when every priced line shares one
-        currency (there is no exchange rate in this system, §4.4). When the
-        reader lacks `inventory.view_costs_organisation` every money field is
-        null and `costs_redacted` is true.
+        What arrived, from whom, and what it cost (§3.6).
+
+        **Two dates, and they are two different facts.** `received_at` is the
+        exact instant; `received_on` is the branch-local calendar day the
+        delivery belongs to, and it is what §3.7 groups spend by — a van unloaded
+        at 21:30 in Dubai is a Tuesday delivery, and reading the UTC instant's
+        date would file it on Monday.
+
+        **Two document references, likewise.** `document_ref` is the delivery
+        note the driver handed over; `supplier_invoice_ref` and `invoice_date`
+        are the invoice, which often arrives days later.
+
+        `receipt_total_amount` is the **item subtotal** in `currency_code`,
+        offered only when every priced line shares one currency (there is no
+        exchange rate in this system, §4.4). The header charges are reported
+        **separately** for the reason §3.6 gives: tax and delivery are not an
+        ingredient's purchase price, and a screen that added them into one figure
+        would be mislabelling them. They carry no currency of their own — they
+        are in the receipt's line currency, and the post refuses any other state.
+
+        When the reader lacks `inventory.view_costs_organisation` every money
+        field is null and `costs_redacted` is true. `cost_status` and the two
+        counts are **not** redacted.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -25448,7 +28172,21 @@ components:
             - type: 'null'
         document_ref:
           type: ['string', 'null']
-          description: The supplier delivery note or invoice number, as written (INV1.1).
+          description: The supplier delivery note, as written (INV1.1).
+        supplier_invoice_ref:
+          type: ['string', 'null']
+          description: The supplier's invoice number — a different document from the delivery note (SUP5).
+        invoice_date:
+          type: ['string', 'null']
+          format: date
+        variance_note:
+          type: ['string', 'null']
+          maxLength: 255
+          description: |
+            Why this delivery differs from what was ordered (§4). Required for an
+            over-receipt and for an unplanned extra item — a required explanation
+            that was then discarded would be the plainest kind of silent
+            behaviour, so it is kept and shown.
         purchase_order_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -25456,10 +28194,36 @@ components:
         received_at:
           type: ['string', 'null']
           format: date-time
+        received_on:
+          type: ['string', 'null']
+          format: date
+          description: The branch-local business day this delivery is filed under (§3.6).
+        cost_status:
+          $ref: '#/components/schemas/ReceiptCostStatus'
+        unpriced_line_count:
+          type: integer
+          minimum: 0
+          description: Lines whose money is not settled — the work still outstanding on this receipt.
+        valuation_pending_count:
+          type: integer
+          minimum: 0
+          description: Lines whose price is recorded and whose valuation is waiting on an exchange-rate decision.
         currency_code:
           type: ['string', 'null']
         receipt_total_amount:
           type: ['string', 'null']
+          description: The item subtotal — Σ line totals. Never includes the header charges.
+        discount_amount:
+          type: ['string', 'null']
+        tax_amount:
+          type: ['string', 'null']
+        delivery_amount:
+          type: ['string', 'null']
+        other_charges_amount:
+          type: ['string', 'null']
+        invoice_total_amount:
+          type: ['string', 'null']
+          description: What the supplier invoiced in total, when it is known.
         costs_redacted:
           type: boolean
           description: True when the reader lacks inventory.view_costs_organisation and money fields were nulled (INV1.1).
@@ -25467,6 +28231,309 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GoodsReceiptLine'
+      additionalProperties: false
+
+    GoodsReceiptDetail:
+      allOf:
+        - $ref: '#/components/schemas/GoodsReceipt'
+        - type: object
+          required: [purchase_order]
+          description: |
+            The receipt, plus the order it settled (SUP5). The order block is
+            §5's manage-scoped subset — number, status and the per-line
+            arithmetic somebody standing over a pallet compares against — and is
+            null for a direct market purchase.
+          properties:
+            purchase_order:
+              oneOf:
+                - $ref: '#/components/schemas/ReceiptPurchaseOrderMatch'
+                - type: 'null'
+
+    ReceiptPurchaseOrderMatch:
+      type: object
+      required: [id, number, status, lines]
+      description: |
+        The order a delivery settled, as the receipt shows it. No money at any
+        depth, because there is none on a purchase order at all.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+        status:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceiptPurchaseOrderMatchLine'
+      additionalProperties: false
+
+    ReceiptPurchaseOrderMatchLine:
+      type: object
+      required:
+        - purchase_order_line_id
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - unit_code
+        - ordered_quantity
+        - received_quantity
+        - outstanding_quantity
+      description: |
+        One ordered line and how much of it has arrived, all three quantities in
+        the line's own `unit_code`.
+      properties:
+        purchase_order_line_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        unit_code:
+          type: string
+        ordered_quantity:
+          type: string
+        received_quantity:
+          type: string
+        outstanding_quantity:
+          type: string
+      additionalProperties: false
+
+    GoodsReceiptDetailEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [goods_receipt]
+          properties:
+            goods_receipt:
+              $ref: '#/components/schemas/GoodsReceiptDetail'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    ReceivableOrder:
+      type: object
+      required:
+        - id
+        - number
+        - status
+        - branch_id
+        - supplier
+        - issued_at
+        - line_count
+        - outstanding_line_count
+        - lines
+      description: |
+        One order a delivery could be received against (§4, §6) — a deliberate
+        manage-scoped subset of the order book, not the order book. No notes, no
+        recipient snapshot, no history, and no money at any depth.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+        status:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierRef'
+            - type: 'null'
+        issued_at:
+          type: ['string', 'null']
+          format: date-time
+        line_count:
+          type: integer
+          minimum: 0
+        outstanding_line_count:
+          type: integer
+          minimum: 0
+          description: |
+            Lines with something still to come. Fully delivered lines stay in
+            `lines` — a person checking a delivery against a sheet needs to see
+            the row accounted for rather than missing — and this is the count a
+            picker sorts and labels by.
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceivableOrderLine'
+      additionalProperties: false
+
+    ReceivableOrderLine:
+      type: object
+      required:
+        - purchase_order_line_id
+        - stock_item_id
+        - item_code
+        - item_name_en
+        - item_name_ar
+        - unit_code
+        - unit_id
+        - ordered_quantity
+        - received_quantity
+        - outstanding_quantity
+      description: |
+        One ordered line with its outstanding quantity — what the receive screen
+        prefills a row with (§4). The unit is fixed from the order line, so a
+        delivery cannot silently be counted in something else.
+      properties:
+        purchase_order_line_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        item_name_ar:
+          type: ['string', 'null']
+        unit_code:
+          type: string
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        ordered_quantity:
+          type: string
+        received_quantity:
+          type: string
+        outstanding_quantity:
+          type: string
+      additionalProperties: false
+
+    ReceivableOrderCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [receivable_orders]
+          properties:
+            receivable_orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReceivableOrder'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    UnpricedReceipt:
+      type: object
+      required:
+        - id
+        - received_on
+        - supplier
+        - document_ref
+        - supplier_invoice_ref
+        - purchase_order_id
+        - cost_status
+        - line_count
+        - unpriced_line_count
+        - valuation_pending_count
+      description: |
+        One row of the unpriced-receipts work queue (§3.6). Deliberately not the
+        whole receipt: this is a list somebody scans to decide what to open next.
+
+        The two counts are two different jobs. `unpriced_line_count` is "type
+        these prices in"; `valuation_pending_count` is "the prices are already
+        here and an exchange-rate decision is not this screen's to make". A queue
+        showing one number for both would send people to rows they cannot action.
+
+        No money at all — the amounts are on the receipt detail, behind the same
+        gate this list sits on.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        received_on:
+          type: ['string', 'null']
+          format: date
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierRef'
+            - type: 'null'
+        document_ref:
+          type: ['string', 'null']
+        supplier_invoice_ref:
+          type: ['string', 'null']
+        purchase_order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        cost_status:
+          $ref: '#/components/schemas/ReceiptCostStatus'
+        line_count:
+          type: integer
+          minimum: 0
+        unpriced_line_count:
+          type: integer
+          minimum: 0
+        valuation_pending_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    UnpricedReceiptCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [unpriced_receipts]
+          properties:
+            unpriced_receipts:
+              type: array
+              items:
+                $ref: '#/components/schemas/UnpricedReceipt'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    CompleteReceiptPriceLine:
+      type: object
+      required: [goods_receipt_line_id, unit_price_amount, cost_currency_code]
+      description: |
+        One line's missing price. `line_total_amount` is optional and is
+        **checked** against quantity × unit price rather than stored as given:
+        the total and the price are two views of one fact, and a database holding
+        two answers for it is worse than one that refuses.
+      properties:
+        goods_receipt_line_id:
+          $ref: '#/components/schemas/Uuid'
+        unit_price_amount:
+          type: number
+          minimum: 0
+          description: Major currency units per the line's own unit (§4.4).
+        line_total_amount:
+          type: ['number', 'null']
+          minimum: 0
+        cost_currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+      additionalProperties: false
+
+    CompleteReceiptPricesRequest:
+      type: object
+      required: [lines]
+      description: |
+        Prices only. The quantities are untouchable here — §3.6 is explicit that
+        posted quantities are never edited in place, and nothing on this request
+        could change what arrived.
+
+        Every line named must still have a null `costed_at`, and every currency
+        on the request must agree with itself and with the receipt's
+        already-priced lines.
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CompleteReceiptPriceLine'
       additionalProperties: false
 
     SupplierRef:
@@ -25510,6 +28577,16 @@ components:
       properties:
         stock_item_id:
           $ref: '#/components/schemas/Uuid'
+        purchase_order_line_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The ordered line this delivery fulfils (SUP5). Only valid when the
+            receipt names a `purchase_order_id`, and it must belong to that order
+            and stock the same item. Omitted on a direct purchase and on an
+            unplanned extra item, which needs the receipt's `variance_note`
+            instead (§4).
         quantity:
           type: number
           exclusiveMinimum: 0
@@ -25532,7 +28609,12 @@ components:
         Posting a receipt writes every line straight into the inventory
         ledger (`reason: receipt`) inside one transaction — there is no
         draft state to save and return to. Since INV1.1 it also records the
-        supplier and document reference and blends each priced line's cost.
+        supplier and document reference and blends each priced line's cost, and
+        since SUP5 it settles a purchase order in the same transaction.
+
+        Amounts are non-negative magnitudes. A **discount** is sent positive and
+        subtracted by the arithmetic rather than sent negative, so the sign
+        convention lives in one place rather than in every client.
       properties:
         branch_id:
           $ref: '#/components/schemas/Uuid'
@@ -25540,15 +28622,79 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
-          description: Who the stock was bought from (INV1.1).
+          description: |
+            Who the stock was bought from (INV1.1). Required in practice when
+            `purchase_order_id` is sent, because §4 insists a delivery against an
+            order names that order's supplier.
         document_ref:
           type: ['string', 'null']
-          description: The supplier delivery note or invoice number (INV1.1).
+          description: The supplier delivery note, as written (INV1.1).
+        supplier_invoice_ref:
+          type: ['string', 'null']
+          maxLength: 120
+          description: The supplier's invoice number — a different document from the delivery note (SUP5).
+        invoice_date:
+          type: ['string', 'null']
+          format: date
+        received_on:
+          type: ['string', 'null']
+          format: date
+          description: |
+            The branch-local business day this delivery belongs to (§3.6). Omit
+            it and the server reads today in the receiving branch's own timezone.
+            A future date is refused — a delivery that has not happened is not a
+            delivery, and slice 6 would file its money in a period that has not
+            started.
+        variance_note:
+          type: ['string', 'null']
+          maxLength: 255
+          description: |
+            Why this delivery differs from what was ordered. Required for an
+            over-receipt and for any line with no `purchase_order_line_id` on a
+            delivery against an order (§3.5, §4).
         purchase_order_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
-          description: Accepted for forward compatibility; no endpoint creates one yet (O2).
+          description: |
+            The order this delivery settles (SUP5). It must be `issued` or
+            `partially_received` and must name this receipt's branch and
+            supplier; its received state is updated in the same transaction.
+        discount_amount:
+          type: ['number', 'null']
+          minimum: 0
+        tax_amount:
+          type: ['number', 'null']
+          minimum: 0
+        delivery_amount:
+          type: ['number', 'null']
+          minimum: 0
+        other_charges_amount:
+          type: ['number', 'null']
+          minimum: 0
+        invoice_total_amount:
+          type: ['number', 'null']
+          minimum: 0
+          description: |
+            When present it must equal `Σ line totals − discount + tax + delivery
+            + other charges` (§3.6), else `422` naming the difference.
+        over_receipt_confirmed:
+          type: ['boolean', 'null']
+          description: |
+            Confirms that more is arriving than the order still has outstanding.
+            Required to record an over-receipt at all, and not sufficient on its
+            own: §3.5 asks for an explicit confirmation **and** a variance note.
+        close_short:
+          type: ['boolean', 'null']
+          description: |
+            Close the rest of this order (§3.5). Only valid with a
+            `purchase_order_id`, and the order becomes `received` with a
+            `closed_at` stamp. If the delivery turns out to complete the order
+            anyway, no reason is stored, because there is nothing left to explain.
+        close_short_reason:
+          type: ['string', 'null']
+          maxLength: 255
+          description: Required with `close_short`. A blank is not an explicit reason.
         lines:
           type: array
           minItems: 1
@@ -25566,10 +28712,19 @@ components:
           properties:
             goods_receipt:
               type: object
-              required: [id]
+              required: [id, received_on, cost_status]
+              description: |
+                The identifier, plus the two facts a client acts on straight
+                away: which day this delivery was filed under, and whether its
+                paperwork is done.
               properties:
                 id:
                   $ref: '#/components/schemas/Uuid'
+                received_on:
+                  type: ['string', 'null']
+                  format: date
+                cost_status:
+                  $ref: '#/components/schemas/ReceiptCostStatus'
         meta:
           $ref: '#/components/schemas/Meta'
 
@@ -25579,8 +28734,11 @@ components:
         - id
         - goods_receipt_id
         - received_at
+        - received_on
         - supplier
         - document_ref
+        - purchase_order_id
+        - cost_status
         - stock_item_id
         - item_code
         - item_name_en
@@ -25590,6 +28748,7 @@ components:
         - unit_price_amount
         - line_total_amount
         - cost_currency_code
+        - valuation_pending_fx
         - costs_redacted
       description: One purchases-ledger row — a receipt line with its date, supplier and item (INV1.1).
       properties:
@@ -25600,12 +28759,25 @@ components:
         received_at:
           type: ['string', 'null']
           format: date-time
+        received_on:
+          type: ['string', 'null']
+          format: date
+          description: The branch-local business day the receipt is filed under (SUP5).
         supplier:
           oneOf:
             - $ref: '#/components/schemas/SupplierRef'
             - type: 'null'
         document_ref:
           type: ['string', 'null']
+        purchase_order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        cost_status:
+          oneOf:
+            - $ref: '#/components/schemas/ReceiptCostStatus'
+            - type: 'null'
+          description: The parent receipt's costing state (SUP5) — what the completeness filter reads.
         stock_item_id:
           $ref: '#/components/schemas/Uuid'
         item_code:
@@ -25628,6 +28800,12 @@ components:
           type: ['string', 'null']
         cost_currency_code:
           type: ['string', 'null']
+        valuation_pending_fx:
+          type: boolean
+          description: |
+            This line's price is recorded and its valuation is waiting on an
+            exchange-rate decision (§3.6). A work state, not money, so it is
+            never redacted.
         costs_redacted:
           type: boolean
       additionalProperties: false
@@ -25646,6 +28824,199 @@ components:
                 $ref: '#/components/schemas/PurchasesLedgerLine'
         meta:
           $ref: '#/components/schemas/PaginationMeta'
+
+    SpendSummarySupplierBreakdown:
+      type: object
+      required: [supplier, received_line_count, item_subtotal]
+      description: |
+        One supplier's item spend inside one period and currency (§3.7). Money
+        and counts only — the receipt-level charges are a fact about a whole
+        delivery and are reported once at the currency level rather than divided
+        up here. A `null` supplier is a direct market purchase.
+      properties:
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/SupplierRef'
+            - type: 'null'
+        received_line_count:
+          type: integer
+          minimum: 0
+        item_subtotal:
+          type: string
+          description: Σ line totals for this supplier in this period and currency, major units.
+      additionalProperties: false
+
+    SpendSummaryStockItemBreakdown:
+      type: object
+      required: [stock_item_id, item_code, item_name_en, received_line_count, item_subtotal]
+      description: One shelf's item spend inside one period and currency (§3.7).
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        item_code:
+          type: string
+        item_name_en:
+          type: string
+        received_line_count:
+          type: integer
+          minimum: 0
+        item_subtotal:
+          type: string
+      additionalProperties: false
+
+    SpendSummaryCurrencyTotals:
+      type: object
+      required:
+        - currency_code
+        - receipt_count
+        - received_line_count
+        - item_subtotal
+        - discount_total
+        - tax_total
+        - delivery_total
+        - other_charges_total
+        - invoice_total
+        - invoiced_receipt_count
+        - by_supplier
+        - by_stock_item
+      description: |
+        One currency's money inside one period (§3.7). Figures are never summed
+        across currencies; every amount is a major-unit decimal string.
+
+        `item_subtotal` is Σ receipt-line totals — what the goods themselves
+        cost, and the figure that reconciles line for line to the purchases
+        ledger. The four charge totals and `invoice_total` are receipt-level and
+        deliberately separate: tax and delivery are not an ingredient's purchase
+        price. A charge nobody recorded is `0`; an absent `invoice_total` is
+        `null`, because an unknown invoice total is not a zero one.
+
+        The two breakdowns are `null` when they were not requested and a list
+        (possibly empty) when they were.
+      properties:
+        currency_code:
+          type: string
+          description: ISO 4217 currency every amount in this row is denominated in.
+        receipt_count:
+          type: integer
+          minimum: 0
+          description: Receipts contributing money in this currency.
+        received_line_count:
+          type: integer
+          minimum: 0
+          description: Priced lines in this currency. Unpriced lines have no currency and are counted on the period.
+        item_subtotal:
+          type: string
+        discount_total:
+          type: string
+          description: Recorded positive; the invoice arithmetic subtracts it (§3.6).
+        tax_total:
+          type: string
+        delivery_total:
+          type: string
+        other_charges_total:
+          type: string
+        invoice_total:
+          type: ['string', 'null']
+          description: Σ supplier-invoice totals where one was recorded; null when none was.
+        invoiced_receipt_count:
+          type: integer
+          minimum: 0
+          description: How many receipts in this bucket carried an invoice total.
+        by_supplier:
+          type: ['array', 'null']
+          items:
+            $ref: '#/components/schemas/SpendSummarySupplierBreakdown'
+        by_stock_item:
+          type: ['array', 'null']
+          items:
+            $ref: '#/components/schemas/SpendSummaryStockItemBreakdown'
+      additionalProperties: false
+
+    SpendSummaryPeriod:
+      type: object
+      required:
+        - period
+        - period_start
+        - period_end
+        - receipt_count
+        - unpriced_receipt_count
+        - unpriced_line_count
+        - valuation_pending_line_count
+        - is_complete
+        - totals_by_currency
+      description: |
+        One ISO week or calendar month of purchasing (§3.7).
+
+        The completeness facts sit here rather than inside a currency row because
+        an unpriced line has no currency to belong to. A period with only
+        unpriced deliveries therefore carries an empty `totals_by_currency` and
+        `is_complete: false`.
+
+        `unpriced_line_count` and `valuation_pending_line_count` are disjoint and
+        both keep `is_complete` false: the first is "type these prices in", the
+        second is "the price is recorded and its valuation waits on an
+        exchange-rate decision" (§3.6).
+      properties:
+        period:
+          type: string
+          description: '`IYYY-Www` for a week (`2026-W34`), `YYYY-MM` for a month (`2026-08`).'
+        period_start:
+          type: string
+          format: date
+          description: First calendar day this period covers — a week starts Monday.
+        period_end:
+          type: string
+          format: date
+        receipt_count:
+          type: integer
+          minimum: 0
+          description: Receipts with at least one line in this period and filter scope.
+        unpriced_receipt_count:
+          type: integer
+          minimum: 0
+          description: Of those, the ones carrying at least one line whose money is not settled.
+        unpriced_line_count:
+          type: integer
+          minimum: 0
+          description: Lines with no price recorded. They contribute quantity history and no money (§3.7).
+        valuation_pending_line_count:
+          type: integer
+          minimum: 0
+          description: Lines whose price is recorded and whose valuation waits on an exchange rate (§3.6).
+        is_complete:
+          type: boolean
+          description: True only when neither count above is non-zero.
+        totals_by_currency:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpendSummaryCurrencyTotals'
+      additionalProperties: false
+
+    SpendSummaryCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [group_by, from, to, periods]
+          properties:
+            group_by:
+              type: string
+              enum: [week, month]
+            from:
+              type: string
+              format: date
+              description: The resolved lower bound actually read, whether it was sent or defaulted.
+            to:
+              type: string
+              format: date
+            periods:
+              type: array
+              items:
+                $ref: '#/components/schemas/SpendSummaryPeriod'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
 
     MonthlyCostReportRow:
       type: object
@@ -25667,10 +29038,18 @@ components:
         - other_cogs_amount
         - has_data_quality_flag
         - exception_count
+        - is_spend_complete
+        - unpriced_line_count
+        - valuation_pending_line_count
       description: >-
         One month of one kitchen's economics in one currency (INV1.4). Every
         amount is a major-unit decimal string; figures are never summed across
-        currencies.
+        currencies. Two data-quality flags, never merged: one says the month's
+        COGS is understated by unresolved consumption exceptions, the other says
+        its spend is understated because a delivery's invoice has not been
+        entered (SUP6, §3.6). The three spend-completeness fields are month facts
+        rather than currency facts — an unpriced line has no currency — so, like
+        waste_quantity, they repeat across a month's currency rows.
       properties:
         month:
           type: string
@@ -25724,6 +29103,22 @@ components:
         exception_count:
           type: integer
           description: Count of unresolved consumption exceptions on non-cancelled orders anchored to this month.
+        is_spend_complete:
+          type: boolean
+          description: >-
+            False when this month holds a delivery whose price is missing, or one
+            whose recorded price could not be valued in the ingredient's currency
+            — spend_amount is then understated (§3.6). A month whose only
+            activity is unpriced receipts produces no row at all; the spend
+            summary is where such a period appears.
+        unpriced_line_count:
+          type: integer
+          minimum: 0
+          description: Receipt lines in this month with no price recorded. A month fact, repeated across the month's currency rows.
+        valuation_pending_line_count:
+          type: integer
+          minimum: 0
+          description: Receipt lines in this month whose price is recorded and whose valuation waits on an exchange rate.
       additionalProperties: false
 
     MonthlyCostReportCollection:

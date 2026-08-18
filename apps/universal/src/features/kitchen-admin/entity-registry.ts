@@ -109,6 +109,22 @@ export const INVENTORY_VIEW_PERMISSION = 'inventory.view_organisation';
 export const INVENTORY_MANAGE_PERMISSION = 'inventory.manage_organisation';
 
 /**
+ * Preparing and issuing supply orders (SUP3) — a fourth inventory code, not implied by the three
+ * above.
+ *
+ * It gates **reads as well as writes**, which is the unusual half. Everywhere else on this surface a
+ * read is `inventory.view_organisation`, because how much flour is on the shelf is operational and
+ * every kitchen hand who counts it may see it. The order book is different in kind: it names who
+ * this kitchen buys from, in what quantity and how often, and that is a purchasing relationship
+ * rather than a shelf. So the supply-orders family carries this code for both `permission` and
+ * `managePermission` — there is no view-only reading of an order book.
+ *
+ * Not the cost code either. Deciding what to buy and being entitled to the valuation ledger are
+ * different authorities, and no part of the proposal carries money.
+ */
+export const INVENTORY_ORDER_SUPPLIES_PERMISSION = 'inventory.order_supplies_organisation';
+
+/**
  * Reading this kitchen's subscriptions.
  *
  * No family is gated on it — `EntityFamily.permission` carries one code, and the surface that needs
@@ -546,6 +562,49 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // families kept the `catalogue.*` piggyback the routes shed. Re-pointed here so the hub tile
         // and nav gate match the screen's own `<Gate>` and the backend route: an operator counts and
         // moves stock under `inventory.*`, not because they may edit the menu.
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
+        key: 'supplyOrders',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.supplyOrders.name',
+        descriptionKey: 'kitchen:families.supplyOrders.description',
+        // `▣`, a filled container — a basket, which is what this family is: the things the kitchen
+        // is about to buy, gathered before anybody commits to buying them. The same compromise the
+        // supplier card below records applies to the character.
+        icon: 'basket',
+        href: '/kitchen/supply-orders',
+        // Between stock and suppliers, and the order is the sentence the operations group reads as:
+        // orders come in, stock runs down, so the kitchen orders supplies — from the suppliers it
+        // keeps a book of, against whom it posts receipts, which the purchases ledger prices.
+        // Ordering sits next to the shortage that provokes it rather than next to the paperwork.
+        //
+        // The same code twice, unlike every other family here. An order book has no view-only
+        // reader: whoever may see what the kitchen is about to buy is the person trusted to decide
+        // it, which is exactly why the code exists apart from `inventory.view_organisation`.
+        permission: INVENTORY_ORDER_SUPPLIES_PERMISSION,
+        managePermission: INVENTORY_ORDER_SUPPLIES_PERMISSION,
+    },
+    {
+        key: 'suppliers',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.suppliers.name',
+        descriptionKey: 'kitchen:families.suppliers.description',
+        // `◍`, a figure in outline — a person, which is what a supplier record is mostly *about*
+        // once it has named contacts on it. The compromise every card in this workspace records
+        // applies: the icon set is a table of typographic characters with no van, warehouse or
+        // handshake in it, and the character is registered as `user` because a person was wanted
+        // first. A real icon set retires it.
+        icon: 'user',
+        href: '/kitchen/suppliers',
+        // Immediately before procurement, and deliberately: a receipt is posted *against* a
+        // supplier, so the book of who this kitchen buys from is the thing procurement points at.
+        // Reading the book is `inventory.view_organisation` — a kitchen hand looking up who to
+        // phone about a late delivery should not need the code that opens the ledger — and every
+        // write to it is `inventory.manage_organisation`, matching the receipt post beside it.
         permission: INVENTORY_VIEW_PERMISSION,
         managePermission: INVENTORY_MANAGE_PERMISSION,
     },

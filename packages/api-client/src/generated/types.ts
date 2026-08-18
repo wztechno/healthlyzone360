@@ -4045,16 +4045,842 @@ export type StockWasteRequest = {
     notes?: string | null;
 };
 
+/**
+ * One supplier in the organisation's book. The same shape everywhere a
+ * supplier is served — list row and freshly created record alike — so a
+ * client writes one mapper rather than three.
+ *
+ * `contact_email`/`contact_phone` are the **general office** details, not
+ * a duplicate of the primary named person: when a sales rep leaves, the
+ * office line is still correct and their mobile is not.
+ *
+ */
 export type Supplier = {
     id: Uuid;
     code: string;
     name_en: string;
+    name_ar: string | null;
     /**
      * The currency this supplier usually invoices in (ISO 4217), or null (INV1.1).
      */
     currency_code: string | null;
+    /**
+     * The general office address, not the primary contact's.
+     */
     contact_email: string | null;
+    /**
+     * The general office line, not the primary contact's.
+     */
     contact_phone: string | null;
+    /**
+     * Free text, transcribed as the supplier gives it and printed on order
+     * sheets — a building name, a market stall number, "gate 4, behind the
+     * cold store". Never geocoded, so never structured.
+     *
+     */
+    address: string | null;
+    /**
+     * Free text — "net 30", "cash on delivery", "50% up front". Never computed against.
+     */
+    payment_terms: string | null;
+    /**
+     * Days between issuing an order and expecting it. 0 is a same-morning market run.
+     */
+    lead_time_days: number | null;
+    notes: string | null;
+    /**
+     * Set when the supplier was archived. An archived supplier keeps every
+     * receipt posted against it and leaves every picker; clients render
+     * the record read-only rather than hiding it.
+     *
+     */
+    archived_at: string | null;
+    /**
+     * How many named contacts this supplier has on file.
+     */
+    contact_count: number;
+    /**
+     * How many stock items this supplier is linked to (SUP2). Counted on
+     * the list query rather than derived from `supplied_items`, which a
+     * list row does not carry.
+     *
+     */
+    supplied_item_count: number;
+    /**
+     * Who to call, summarised for a list row — the contact flagged
+     * primary, falling back to the first in display order. Null only when
+     * the supplier has no named contacts at all.
+     *
+     */
+    primary_contact: SupplierPrimaryContact | null;
+    /**
+     * Every named contact, in the kitchen's own display order. Served on
+     * the supplier **detail** response only, where `SupplierDetail`
+     * requires it — a list row carries `contact_count` and
+     * `primary_contact` instead, because fetching every contact of every
+     * supplier to render a book is the N+1 that summary exists to avoid.
+     *
+     */
+    contacts?: Array<SupplierContact>;
+    /**
+     * What this supplier sells the kitchen, preferred link first then by
+     * item name (SUP2). Detail response only, on the same terms as
+     * `contacts` — a list row carries `supplied_item_count` instead.
+     *
+     */
+    supplied_items?: Array<SuppliedItem>;
+    /**
+     * `true` when the reader lacks `inventory.view_costs_organisation`
+     * and every `supplied_items[].last_purchase` money field was served
+     * as `null`. Detail response only.
+     *
+     */
+    costs_redacted?: boolean;
+};
+
+/**
+ * The "who do I call" summary a supplier list row shows.
+ */
+export type SupplierPrimaryContact = {
+    name: string;
+    /**
+     * The telephone number, falling back to the WhatsApp number — a contact reachable only on WhatsApp is still reachable.
+     */
+    phone: string | null;
+};
+
+/**
+ * One named person at a supplier — distinct from the supplier's own office
+ * line. At least one of `email`, `phone` and `whatsapp_phone` is always
+ * present: a contact nobody can reach is not a contact.
+ *
+ * `whatsapp_phone` is its own field rather than a flag on `phone` because
+ * in this trade they genuinely differ — the landline takes the call, the
+ * mobile takes the order photo.
+ *
+ */
+export type SupplierContact = {
+    id: Uuid;
+    name: string;
+    role_title: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp_phone: string | null;
+    /**
+     * At most one per supplier, enforced by a partial unique index.
+     */
+    is_primary: boolean;
+    display_order: number;
+};
+
+/**
+ * A supplier with its full contact set and everything it supplies — the
+ * supplier's own page.
+ *
+ * The canonical `Supplier` with `contacts`, `supplied_items` and
+ * `costs_redacted` promoted from optional to required. Composed rather
+ * than restated so that a field added to the book cannot arrive on the
+ * list and go missing from the detail.
+ *
+ * All three are restated in the second subschema rather than only listed
+ * as required: `Supplier` closes itself with `additionalProperties: false`
+ * (which is why the fields are declared there too, optionally), and a
+ * `required`-only branch generates as an index signature rather than as
+ * the array a client needs.
+ *
+ */
+export type SupplierDetail = Supplier & {
+    contacts: Array<SupplierContact>;
+    supplied_items: Array<SuppliedItem>;
+    costs_redacted: boolean;
+};
+
+/**
+ * One "we buy this from them" row on the supplier's page (SUP2).
+ *
+ * The stock item is embedded rather than referenced by id alone because
+ * the table beside it shows a name, a code and a unit; a client resolving
+ * three fields per row against a separate list would be doing a join the
+ * server already has open.
+ *
+ * `last_purchase` is `null` when this supplier has never been recorded
+ * selling this item at a price — a distinct state from a *present*
+ * `last_purchase` whose money is redacted. **Never bought here** and
+ * **Hidden** are two different facts and clients must render them
+ * differently (§3.4).
+ *
+ */
+export type SuppliedItem = {
+    /**
+     * The shelf this link points at. Null only if it vanished between the read and the render.
+     */
+    stock_item: SuppliedStockItem | null;
+    /**
+     * At most one supplier per stock item may hold this, enforced by a partial unique index.
+     */
+    is_preferred: boolean;
+    /**
+     * The supplier's own catalogue reference, transcribed from their
+     * price list so an order sheet can quote it back. Named `_ref` rather
+     * than `_code`: it is their identifier, not this kitchen's.
+     *
+     */
+    supplier_item_ref: string | null;
+    /**
+     * The newest priced receipt line from this supplier for this item, or null if there is none.
+     */
+    last_purchase: LastPurchase | null;
+};
+
+/**
+ * The shelf a supplier link points at, summarised for the row that renders it.
+ */
+export type SuppliedStockItem = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    unit_code: string;
+    /**
+     * Which of the two books this shelf belongs to — the same field the inventory list publishes.
+     */
+    backing: 'ingredient' | 'product';
+};
+
+/**
+ * What this was last bought for (§3.4) — derived live from the newest
+ * priced `goods_receipt_lines` row, never stored.
+ *
+ * Unpriced deliveries are skipped entirely, so this is always a real
+ * price: an item received only on unpriced receipts has no
+ * `last_purchase` at all rather than one with a null amount.
+ *
+ * **The money is the only redacted part.** Without
+ * `inventory.view_costs_organisation`, `unit_price_amount` and
+ * `cost_currency_code` are `null` and the enclosing response flags
+ * `costs_redacted`. The date, quantity and unit survive: those are
+ * warehouse facts a receiving clerk entered, not the valuation the cost
+ * permission gates.
+ *
+ * The amount is always quoted **per `unit_code`** and always beside its
+ * own currency. A bare `6.90` without "USD per kg" is not a price, and
+ * currencies are never converted — there is no exchange rate in this
+ * system.
+ *
+ */
+export type LastPurchase = {
+    goods_receipt_id: Uuid;
+    /**
+     * The supplier delivery note or invoice number the price came from, as written.
+     */
+    document_ref: string | null;
+    received_at: string | null;
+    /**
+     * The quantity that line received, as a decimal string. Never redacted.
+     */
+    quantity: string;
+    /**
+     * The unit the price is quoted per; null means the stock item's own unit.
+     */
+    unit_id: Uuid | null;
+    /**
+     * That unit's code, resolved for display — `kg`, `l`, `piece`.
+     */
+    unit_code: string | null;
+    /**
+     * Major-unit decimal string per `unit_code`, or null when costs are redacted.
+     */
+    unit_price_amount: string | null;
+    /**
+     * ISO 4217, or null when costs are redacted.
+     */
+    cost_currency_code: string | null;
+};
+
+/**
+ * One stock item's newest purchase **across every supplier** (SUP2), with
+ * the supplier that sold it.
+ *
+ * `LastPurchase` plus the two fields that make it answerable outside a
+ * supplier's own page: the item it belongs to, so a client can join it to
+ * the stock list, and who sold it, because a price without the vendor
+ * beside it is not actionable.
+ *
+ * The supplier is nullable: a direct market-run receipt records no
+ * supplier, and the price it captured is still the last price of that
+ * item.
+ *
+ */
+export type ItemLatestPurchase = LastPurchase & {
+    stock_item_id: Uuid;
+    supplier: SupplierRef | null;
+};
+
+/**
+ * Requested items with no priced receipt are **absent** rather than
+ * present with nulls, so `meta.count` may be smaller than
+ * `meta.requested_count`. `meta.costs_redacted` says whether the money
+ * was served at all.
+ *
+ */
+export type ItemLatestPurchaseCollection = {
+    data: {
+        purchases: Array<ItemLatestPurchase>;
+    };
+    meta: Meta;
+};
+
+/**
+ * The three tallies partition each other: `out_of_stock_count` plus
+ * `low_stock_count` equals `count`, because a level that is both empty and
+ * below its threshold is counted once, as out of stock.
+ *
+ */
+export type SupplyNeedsCountEnvelope = {
+    data: {
+        /**
+         * Shelves at this branch that need ordering.
+         */
+        count: number;
+        /**
+         * Of those, the ones with nothing left (`quantity <= 0`).
+         */
+        out_of_stock_count: number;
+        /**
+         * Of those, the ones at or below a set reorder threshold but not yet empty.
+         */
+        low_stock_count: number;
+    };
+    meta: Meta;
+};
+
+/**
+ * One active supplier a proposal row could be bought from. Archived
+ * suppliers never appear here — a picker offering a shuttered warehouse is
+ * how an order gets sent to one.
+ *
+ * No price, and none is coming: this object exists so a person can choose
+ * who to buy from, not to compare what they charge.
+ *
+ */
+export type SupplierOption = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    name_ar: string | null;
+    /**
+     * This supplier holds the preferred flag for this stock item.
+     */
+    is_preferred: boolean;
+    /**
+     * Typical days from order to delivery, when the kitchen recorded one.
+     */
+    lead_time_days: number | null;
+};
+
+/**
+ * One row of the supply-order builder (SUP3).
+ *
+ * `is_out_of_stock` and `is_low` are independent readings of the numbers
+ * beside them — a shelf at zero with a threshold set is genuinely both.
+ * `origin` is the single label the union produces, and it is where the
+ * "counted once, as out of stock" rule lives.
+ *
+ * A `requested` row's `is_out_of_stock` still follows from its
+ * `quantity_on_hand`: a shelf that has never moved at this branch reports
+ * `"0.0000"`, and reporting `false` beside it would be a flag a client
+ * could not reconcile with the number it describes.
+ *
+ * No field here carries a price, a cost or a currency, at any depth.
+ *
+ */
+export type OrderProposalItem = {
+    stock_item_id: Uuid;
+    item_code: string;
+    item_name_en: string;
+    unit_id: Uuid | null;
+    /**
+     * The unit the quantity is counted in — `kg`, `l`, `piece`.
+     */
+    unit_code: string;
+    branch_id: Uuid;
+    /**
+     * A decimal string at scale 4, never a float. `"0.0000"` when the shelf has no level row at this branch.
+     */
+    quantity_on_hand: string;
+    /**
+     * The reorder point as a decimal string, or null when none is set.
+     */
+    reorder_threshold: string | null;
+    /**
+     * The level to restock back up to, as a decimal string, or null when none is set.
+     */
+    par_level: string | null;
+    /**
+     * Computed — `quantity_on_hand` is at or below zero.
+     */
+    is_out_of_stock: boolean;
+    /**
+     * Computed — a threshold is set and `quantity_on_hand` is at or below it.
+     */
+    is_low: boolean;
+    /**
+     * Why this row is in the proposal. A row satisfying both shortage rules is labelled `out_of_stock`.
+     */
+    origin: 'out_of_stock' | 'low_stock' | 'requested';
+    /**
+     * `par_level - quantity_on_hand` as a decimal string when a par is set
+     * and the difference is positive; null otherwise, meaning the person
+     * must type a quantity.
+     *
+     */
+    suggested_quantity: string | null;
+    /**
+     * How the suggestion was reached. `none` accompanies a null
+     * suggestion. There is deliberately no `threshold` basis — see the
+     * endpoint description.
+     *
+     */
+    suggested_quantity_basis: 'par' | 'none';
+    /**
+     * Every active linked supplier, preferred first then by name.
+     */
+    supplier_options: Array<SupplierOption>;
+    /**
+     * The active preferred supplier, else the sole active option, else
+     * null. Null with two or more options means the person must choose,
+     * which is not the same as `unassigned_reason` being set.
+     *
+     */
+    suggested_supplier_id: Uuid | null;
+    /**
+     * Why this row has no supplier to offer at all. `no_supplier`: nothing
+     * was ever linked. `suppliers_archived`: links exist and every one of
+     * them is archived, which is a different problem with a different fix.
+     * Null whenever at least one active option exists.
+     *
+     */
+    unassigned_reason: 'no_supplier' | 'suppliers_archived' | null;
+};
+
+/**
+ * Rows in the order they must be rendered: out of stock, then low, then
+ * requested. `meta` counts the queue only — `out_of_stock_count` and
+ * `low_stock_count` exclude requested rows, so they agree exactly with
+ * `/catalogue/procurement/supply-needs/count` for the same branch.
+ *
+ */
+export type OrderProposalCollection = {
+    data: {
+        items: Array<OrderProposalItem>;
+    };
+    meta: Meta;
+};
+
+/**
+ * Where an order has got to (§3.5). `draft → issued →
+ * partially_received → received`, with `cancelled` reachable from the two
+ * states in which nothing has arrived yet.
+ *
+ * **`issued`, never `sent`** (§2). Phase 1 dispatches nothing through any
+ * channel — a person presses Issue, the lines freeze, and they print the
+ * sheet and hand it over. Calling that `sent` would claim an event the
+ * system did not perform.
+ *
+ * `partially_received` and `received` are reached by **posting a goods
+ * receipt**, never by an action of their own: the quantities received are
+ * summed per order line and the status is whatever that sum says it is.
+ * There is no "mark as received" action and there must not be one — it
+ * would let an order claim a delivery that never turned up. The one
+ * apparent exception proves the rule: closing a short delivery still goes
+ * through a receipt, and what the flag adds is a reason for writing off the
+ * remainder rather than a status change of its own.
+ *
+ * `received` and `cancelled` are terminal: a delivery that turned out wrong
+ * is a receipt correction or a return, which are different objects with
+ * different quantities attached.
+ *
+ */
+export type PurchaseOrderStatus = 'draft' | 'issued' | 'partially_received' | 'received' | 'cancelled';
+
+/**
+ * One requested shelf, as the document says it (§3.5).
+ *
+ * Every display field is a **snapshot** taken when the line was written,
+ * not a live read of the stock item — that is what makes an issued order
+ * immutable in practice rather than only in status. A shelf renamed in
+ * March does not silently rename a line on an order issued in February,
+ * because the supplier is holding a printed copy of the February wording.
+ *
+ * `stock_item_id` rides alongside as a **pointer**: a client deep-links to
+ * the shelf with it and the receiving slice matches a delivery line to
+ * this one with it. It is never the source of the label beside it.
+ *
+ * **No price, no amount, no currency**, here or anywhere on a purchase
+ * order. Actual prices belong to goods receipts.
+ *
+ */
+export type PurchaseOrderLine = {
+    id: Uuid;
+    stock_item_id: Uuid;
+    /**
+     * Snapshotted — the kitchen's own identifier for the shelf.
+     */
+    item_code: string;
+    item_name_en: string;
+    /**
+     * Snapshotted from the backing ingredient or catalogue item, because
+     * `stock_items` carry `name_en` only. Null when neither has one — an
+     * honest blank, rather than English text printed under an Arabic
+     * heading.
+     *
+     */
+    item_name_ar: string | null;
+    /**
+     * A decimal string at scale 4, never a float. Always above zero. What was asked for.
+     */
+    quantity: string;
+    /**
+     * How much of this line has actually turned up, summed across every
+     * delivery against it (SUP5). Expressed in this line's own `unit_code`:
+     * a delivery quoted per kilogram against a shelf counted in grams is
+     * converted before it is summed, so the three quantities on one row
+     * always add up. A quantity, not money.
+     *
+     */
+    received_quantity: string;
+    /**
+     * What is still to come, and what the receive screen prefills (§4).
+     * Floored at zero — an over-receipt is a real event its variance note
+     * records, and a negative amount still to come would be an arithmetic
+     * curiosity rather than an instruction.
+     *
+     */
+    outstanding_quantity: string;
+    /**
+     * Snapshotted — the unit that prints on the order sheet.
+     */
+    unit_code: string;
+    /**
+     * The supplier's own catalogue reference, read from the saved
+     * supplier↔item link at write time so the sheet can quote it back at
+     * them. Null when this supplier has no link for this shelf, which is
+     * ordinary for a one-off purchase.
+     *
+     */
+    supplier_item_ref: string | null;
+    /**
+     * Reserved for a per-line remark. Nothing writes it in this version.
+     */
+    notes: string | null;
+    /**
+     * The sequence the person building the order chose. Clients render it and never re-sort.
+     */
+    display_order: number;
+};
+
+/**
+ * Who the order was addressed to, at the instant it was issued (§3.5).
+ *
+ * Captured on issue and never touched again. A supplier that moves
+ * premises in March must not silently rewrite the February order it is
+ * holding a copy of — so a **draft** preview reads the live supplier and an
+ * **issued** reprint reads this.
+ *
+ * It is a document, not a reference: the fields are the ones a printed
+ * order sheet names, and the supplier may since have been archived,
+ * renamed or emptied of contacts without any of it changing here.
+ *
+ */
+export type RecipientSnapshot = {
+    supplier_id: Uuid;
+    code: string;
+    name_en: string;
+    name_ar: string | null;
+    /**
+     * Free text as the supplier gives it. Never geocoded.
+     */
+    address: string | null;
+    payment_terms: string | null;
+    lead_time_days: number | null;
+    /**
+     * The general office address, not the primary contact's.
+     */
+    contact_email: string | null;
+    /**
+     * The general office line, not the primary contact's.
+     */
+    contact_phone: string | null;
+    /**
+     * Every named contact the supplier had at issue time, primary first.
+     */
+    contacts: Array<RecipientSnapshotContact>;
+};
+
+/**
+ * One named person as they stood at issue time. No identifier: this is a
+ * transcription onto a document, not a pointer at a row that may since
+ * have been deleted.
+ *
+ */
+export type RecipientSnapshotContact = {
+    name: string;
+    role_title: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp_phone: string | null;
+    is_primary: boolean;
+};
+
+/**
+ * One request the kitchen makes of one supplier, for one branch (§3.5).
+ *
+ * **One shape for the list, the detail and the create response.** A second
+ * summary variant is the one that drifts, and the batch read a print
+ * preview makes wants the whole thing anyway.
+ *
+ * **Two suppliers on an issued order, and both are deliberate.**
+ * `supplier` is the live record with its archive flag, because a screen
+ * offering to issue needs to know whether the supplier is still in the
+ * book. `recipient_snapshot` is who the document was addressed to at the
+ * instant it was issued, and it is `null` on a draft because a draft has
+ * been addressed to nobody yet. A client renders the live supplier on a
+ * draft and the snapshot from `issued` onward.
+ *
+ * `number` is the human handle both sides quote — `PO-` plus eight
+ * Crockford base-32 characters, minted **random rather than sequential**
+ * because a sequential number printed on a supplier's copy would tell them
+ * this kitchen's purchasing volume.
+ *
+ * **No money, at any depth.** Not a price, an amount, a currency or a
+ * total, on the order, on a line or inside the snapshot.
+ *
+ */
+export type PurchaseOrder = {
+    id: Uuid;
+    /**
+     * Unique within the organisation. `PO-` plus eight Crockford base-32 characters.
+     */
+    number: string;
+    status: PurchaseOrderStatus;
+    /**
+     * The site that is short of the goods.
+     */
+    branch: PurchaseOrderBranch | null;
+    /**
+     * The **live** supplier record, archive flag included.
+     */
+    supplier: PurchaseOrderSupplier | null;
+    /**
+     * Null on a draft; present from `issued` onward.
+     */
+    recipient_snapshot: RecipientSnapshot | null;
+    /**
+     * A remark for the whole order, printed on the sheet.
+     */
+    notes: string | null;
+    line_count: number;
+    /**
+     * When the document was frozen. Survives cancellation — cancelling an
+     * issued order does not un-issue it.
+     *
+     */
+    issued_at: string | null;
+    /**
+     * When the last outstanding line actually arrived (SUP5). An order
+     * closed short reaches `received` with this still null and `closed_at`
+     * set instead: nothing was last fulfilled, and a date here would be a
+     * small lie in the one place a person checks.
+     *
+     */
+    received_at: string | null;
+    /**
+     * When the order stopped expecting anything more — set on both routes
+     * to `received`, whether every line arrived or the remainder was
+     * written off.
+     *
+     */
+    closed_at: string | null;
+    /**
+     * Why the rest of this order was written off (§3.5). Present only on an
+     * order somebody deliberately closed short; a delivery that completed
+     * the order has nothing to explain and carries none.
+     *
+     */
+    close_short_reason: string | null;
+    cancelled_at: string | null;
+    created_at: string | null;
+    lines: Array<PurchaseOrderLine>;
+    /**
+     * Every delivery made against this order, oldest first (SUP5) — a
+     * reference rather than the receipt itself. The date, the delivery note
+     * and the line count are what an order detail lists; the money on those
+     * lines is behind a permission this response does not check, so a
+     * client that wants the figures opens the receipt.
+     *
+     */
+    receipts: Array<PurchaseOrderReceiptRef>;
+};
+
+/**
+ * One delivery made against an order, as the order lists it (SUP5).
+ */
+export type PurchaseOrderReceiptRef = {
+    id: Uuid;
+    /**
+     * The branch-local business day the delivery was filed under.
+     */
+    received_on: string | null;
+    /**
+     * The supplier delivery note, as written.
+     */
+    document_ref: string | null;
+    line_count: number;
+};
+
+/**
+ * The branch an order is for. `name` rather than `name_en`:
+ * `organisation_branches` carries one name column, and a bilingual pair on
+ * the wire would promise an Arabic branch name the table has no room for.
+ *
+ */
+export type PurchaseOrderBranch = {
+    id: Uuid;
+    name: string;
+};
+
+/**
+ * The **live** supplier an order names — not the snapshot.
+ * `archived_at` is on it deliberately: an issued order for a
+ * since-archived supplier is an ordinary situation a detail screen has to
+ * explain, and a reference without the flag would leave it guessing why
+ * issuing is refused.
+ *
+ */
+export type PurchaseOrderSupplier = {
+    id: Uuid;
+    code: string;
+    name_en: string;
+    name_ar: string | null;
+    archived_at: string | null;
+};
+
+export type PurchaseOrderEnvelope = {
+    data: {
+        purchase_order: PurchaseOrder;
+    };
+    meta: Meta;
+};
+
+/**
+ * A page of the order book, newest first — and the same envelope the batch
+ * create answers with, where the orders are in **request order** rather
+ * than newest first, because the person confirmed a list and the answer
+ * has to line up with it.
+ *
+ */
+export type PurchaseOrderCollection = {
+    data: {
+        purchase_orders: Array<PurchaseOrder>;
+    };
+    meta: PaginationMeta;
+};
+
+/**
+ * Everything a client may say about a line, and it is deliberately two
+ * fields. The item code, both names, the unit and the supplier's own
+ * catalogue reference are resolved server-side (§6) — a client that could
+ * name a line could put anything at all on a document a supplier reads.
+ * There is no price field and none is coming.
+ *
+ */
+export type CreatePurchaseOrderLine = {
+    stock_item_id: Uuid;
+    /**
+     * A decimal string above zero with at most four places — the stock
+     * column's own precision. A string rather than a number because
+     * `0.125` kg of saffron must arrive as `0.125`, and a float round trip
+     * is how that becomes `0.12499999999999999`.
+     *
+     */
+    quantity: string;
+};
+
+/**
+ * One draft per supplier, created together or not at all.
+ *
+ * `branch_id` sits on each order because every proposal row carries the
+ * branch it was read for, which is what makes a payload whose branch
+ * disagrees with its lines unrepresentable. The server then insists they
+ * all agree: §4 says a proposal is always *for one branch*, so two
+ * branches in one body is a `422` rather than a guess.
+ *
+ */
+export type CreatePurchaseOrdersRequest = {
+    orders: Array<CreatePurchaseOrderRequest>;
+};
+
+export type CreatePurchaseOrderRequest = {
+    supplier_id: Uuid;
+    branch_id: Uuid;
+    lines: Array<CreatePurchaseOrderLine>;
+};
+
+/**
+ * Presence-keyed: an omitted field is left alone, `notes: null` clears the
+ * note. `lines` is a **full replace** — the body states the whole desired
+ * set — because a diff would need an identity for a line the client does
+ * not name.
+ *
+ * Draft only. An issued order answers `409` with
+ * `details.reason = purchase_order_not_draft`.
+ *
+ */
+export type UpdatePurchaseOrderRequest = {
+    notes?: string | null;
+    lines?: Array<CreatePurchaseOrderLine>;
+};
+
+/**
+ * The pair that identifies the link, plus the two things about it a
+ * kitchen edits. Idempotent: sending the same body twice leaves the same
+ * row.
+ *
+ * `is_preferred` and `supplier_item_ref` are keyed on **presence**. An
+ * omitted field is left alone; `supplier_item_ref: null` clears a
+ * reference typed by mistake. `is_preferred: true` takes the flag off
+ * whichever supplier held it for this item; `false` clears this link's own
+ * flag and promotes nobody.
+ *
+ */
+export type UpsertSupplierLinkRequest = {
+    supplier_id: Uuid;
+    stock_item_id: Uuid;
+    is_preferred?: boolean | null;
+    supplier_item_ref?: string | null;
+};
+
+/**
+ * The link after a write, and nothing more.
+ *
+ * Every ops write in this workspace answers the minimum and lets the
+ * screen re-read what it changed. A supplied item's last purchase price is
+ * derived from the receipt ledger and cannot change because somebody saved
+ * a link, so returning it here would invent a read the caller did not ask
+ * for.
+ *
+ */
+export type SupplierLink = {
+    supplier_id: Uuid;
+    stock_item_id: Uuid;
+    is_preferred: boolean;
+    supplier_item_ref: string | null;
+};
+
+export type SupplierLinkEnvelope = {
+    data: {
+        supplier_link: SupplierLink;
+    };
+    meta: Meta;
 };
 
 export type SupplierCollection = {
@@ -4069,18 +4895,113 @@ export type SupplierCollection = {
  * per-organisation code from the name. `currency_code` is a hint the
  * receipt form pre-selects and is never required.
  *
+ * Contacts are **not** accepted here: they are their own section-level
+ * replace, and a create that took them would give a kitchen two ways to
+ * write the same set. The lightweight create inside the goods-receipt
+ * dialog sends a name and nothing else.
+ *
  */
 export type CreateSupplierRequest = {
     name_en: string;
+    name_ar?: string | null;
     code?: string | null;
     currency_code?: string | null;
     contact_email?: string | null;
     contact_phone?: string | null;
+    address?: string | null;
+    payment_terms?: string | null;
+    lead_time_days?: number | null;
+    notes?: string | null;
+};
+
+/**
+ * Every field of the record, all optional — a partial write. A field the
+ * body omits is left alone; a field sent as `null` is cleared, so a
+ * kitchen can genuinely remove an address it typed by mistake.
+ *
+ * `code` **is** editable, unlike a delivery zone's or a price list's. The
+ * difference is who wrote it: those are minted by an operator who meant
+ * them, whereas a supplier code is frequently minted by the server from a
+ * name typed into a goods-receipt dialog at the loading bay, and refusing
+ * to correct `GULF-FRESH-TRADING-CO-2` would leave the kitchen stuck with
+ * an accident. Uniqueness ignores this supplier's own row.
+ *
+ * `archived_at` is not reachable from here — archiving is its own action
+ * with its own audit event, so a form save cannot retire a supplier by
+ * writing a field. Contacts are their own set-replace.
+ *
+ */
+export type UpdateSupplierRequest = {
+    name_en?: string;
+    name_ar?: string | null;
+    code?: string;
+    currency_code?: string | null;
+    contact_email?: string | null;
+    contact_phone?: string | null;
+    address?: string | null;
+    payment_terms?: string | null;
+    lead_time_days?: number | null;
+    notes?: string | null;
+};
+
+/**
+ * The **whole desired contact set**. Contacts carrying an `id` are
+ * updated, contacts without one are created, and contacts absent from the
+ * body are deleted — one request, one transaction, one **Save contacts**
+ * button on the screen. Send `[]` to clear the set.
+ *
+ * Two rules are refused with `422` before the database can raise a
+ * constraint violation: at most one `is_primary` across the set, and at
+ * least one of `email`, `phone` and `whatsapp_phone` on every contact.
+ *
+ * Twenty is the cap. A supplier with more than twenty named people is not
+ * a supplier record, it is a directory.
+ *
+ */
+export type ReplaceSupplierContactsRequest = {
+    contacts: Array<ReplaceSupplierContact>;
+};
+
+/**
+ * One contact in a replace request. `id` names an existing contact to update; omit it to create.
+ */
+export type ReplaceSupplierContact = {
+    /**
+     * The contact to update. Omit or send null to create a new one.
+     */
+    id?: Uuid | null;
+    name: string;
+    role_title?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    whatsapp_phone?: string | null;
+    /**
+     * At most one contact in the set may set this.
+     */
+    is_primary?: boolean | null;
+    /**
+     * Defaults to the contact's position in the submitted array.
+     */
+    display_order?: number | null;
 };
 
 export type SupplierEnvelope = {
     data: {
         supplier: Supplier;
+    };
+    meta: Meta;
+};
+
+export type SupplierDetailEnvelope = {
+    data: {
+        supplier: SupplierDetail;
+    };
+    meta: Meta;
+};
+
+export type SupplierContactCollection = {
+    data: {
+        contacts: Array<SupplierContact>;
     };
     meta: Meta;
 };
@@ -4125,13 +5046,46 @@ export type ProcurementReferenceEnvelope = {
 };
 
 /**
+ * Whether a receipt's costing is finished (§3.6). Derived from the lines
+ * and never set by hand: a line counts as settled when it carries
+ * `costed_at`, the receipt is `complete` when every line does, `unpriced`
+ * when none does and `partial` in between.
+ *
+ * `costed_at` is stamped when there is nothing further to do with a line's
+ * money — the blend went through, **or** there was no ingredient to blend
+ * into (packaging, cleaning supplies). Both are finished states, and
+ * leaving the second one null would park its receipt in the work queue
+ * forever with no action available.
+ *
+ * A receipt whose only line is `valuation_pending_fx` therefore reads
+ * `unpriced` even though its price is recorded, because its costing is
+ * genuinely not finished. `valuation_pending_count` beside it is what tells
+ * a person which kind of unfinished it is.
+ *
+ * Not redacted without the cost permission: this says whether the paperwork
+ * needs attention, not what anything cost.
+ *
+ */
+export type ReceiptCostStatus = 'unpriced' | 'partial' | 'complete';
+
+/**
  * The money fields (INV1.1) are served as `null` when the reader lacks
  * `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
- * `quantity` and `unit_id` are warehouse facts and are never redacted.
+ * `quantity` and `unit_id` are warehouse facts and are never redacted, and
+ * neither are `costed_at` and `valuation_pending_fx`, which say whether the
+ * line still needs somebody's attention rather than what it cost.
  *
  */
 export type GoodsReceiptLine = {
+    id: Uuid;
     stock_item_id: Uuid;
+    /**
+     * The ordered line this delivery fulfils (SUP5). Null for a direct
+     * market purchase and for an unplanned extra item on an ordered
+     * delivery, both of which §4 treats as ordinary.
+     *
+     */
+    purchase_order_line_id: Uuid | null;
     quantity: string;
     /**
      * The unit the price is quoted per (INV1.1).
@@ -4143,16 +5097,47 @@ export type GoodsReceiptLine = {
     unit_price_amount: string | null;
     line_total_amount: string | null;
     cost_currency_code: string | null;
+    /**
+     * When this line's money was settled (§3.6). Null means the costing
+     * path has not run and price completion may still act on it — the guard
+     * that stops one quantity being costed twice.
+     *
+     */
+    costed_at: string | null;
+    /**
+     * The price is recorded exactly as the supplier wrote it and could not
+     * be blended into the ingredient's valuation currency (§3.6). Physical
+     * receiving is never lost to a currency, and no exchange rate is ever
+     * invented; a later accounting phase may resolve it.
+     *
+     */
+    valuation_pending_fx: boolean;
 };
 
 /**
- * A receipt still has no purchase-order surface in v1 (O2) —
- * `purchase_order_id` is always null. Since INV1.1 it also records who was
- * paid (`supplier`, `document_ref`) and what it cost: `receipt_total_amount`
- * in `currency_code`, offered only when every priced line shares one
- * currency (there is no exchange rate in this system, §4.4). When the
- * reader lacks `inventory.view_costs_organisation` every money field is
- * null and `costs_redacted` is true.
+ * What arrived, from whom, and what it cost (§3.6).
+ *
+ * **Two dates, and they are two different facts.** `received_at` is the
+ * exact instant; `received_on` is the branch-local calendar day the
+ * delivery belongs to, and it is what §3.7 groups spend by — a van unloaded
+ * at 21:30 in Dubai is a Tuesday delivery, and reading the UTC instant's
+ * date would file it on Monday.
+ *
+ * **Two document references, likewise.** `document_ref` is the delivery
+ * note the driver handed over; `supplier_invoice_ref` and `invoice_date`
+ * are the invoice, which often arrives days later.
+ *
+ * `receipt_total_amount` is the **item subtotal** in `currency_code`,
+ * offered only when every priced line shares one currency (there is no
+ * exchange rate in this system, §4.4). The header charges are reported
+ * **separately** for the reason §3.6 gives: tax and delivery are not an
+ * ingredient's purchase price, and a screen that added them into one figure
+ * would be mislabelling them. They carry no currency of their own — they
+ * are in the receipt's line currency, and the post refuses any other state.
+ *
+ * When the reader lacks `inventory.view_costs_organisation` every money
+ * field is null and `costs_redacted` is true. `cost_status` and the two
+ * counts are **not** redacted.
  *
  */
 export type GoodsReceipt = {
@@ -4160,18 +5145,209 @@ export type GoodsReceipt = {
     branch_id: Uuid;
     supplier: SupplierRef | null;
     /**
-     * The supplier delivery note or invoice number, as written (INV1.1).
+     * The supplier delivery note, as written (INV1.1).
      */
     document_ref: string | null;
+    /**
+     * The supplier's invoice number — a different document from the delivery note (SUP5).
+     */
+    supplier_invoice_ref: string | null;
+    invoice_date: string | null;
+    /**
+     * Why this delivery differs from what was ordered (§4). Required for an
+     * over-receipt and for an unplanned extra item — a required explanation
+     * that was then discarded would be the plainest kind of silent
+     * behaviour, so it is kept and shown.
+     *
+     */
+    variance_note: string | null;
     purchase_order_id: Uuid | null;
     received_at: string | null;
+    /**
+     * The branch-local business day this delivery is filed under (§3.6).
+     */
+    received_on: string | null;
+    cost_status: ReceiptCostStatus;
+    /**
+     * Lines whose money is not settled — the work still outstanding on this receipt.
+     */
+    unpriced_line_count: number;
+    /**
+     * Lines whose price is recorded and whose valuation is waiting on an exchange-rate decision.
+     */
+    valuation_pending_count: number;
     currency_code: string | null;
+    /**
+     * The item subtotal — Σ line totals. Never includes the header charges.
+     */
     receipt_total_amount: string | null;
+    discount_amount: string | null;
+    tax_amount: string | null;
+    delivery_amount: string | null;
+    other_charges_amount: string | null;
+    /**
+     * What the supplier invoiced in total, when it is known.
+     */
+    invoice_total_amount: string | null;
     /**
      * True when the reader lacks inventory.view_costs_organisation and money fields were nulled (INV1.1).
      */
     costs_redacted: boolean;
     lines: Array<GoodsReceiptLine>;
+};
+
+export type GoodsReceiptDetail = GoodsReceipt & {
+    purchase_order: ReceiptPurchaseOrderMatch | null;
+};
+
+/**
+ * The order a delivery settled, as the receipt shows it. No money at any
+ * depth, because there is none on a purchase order at all.
+ *
+ */
+export type ReceiptPurchaseOrderMatch = {
+    id: Uuid;
+    number: string;
+    status: PurchaseOrderStatus;
+    lines: Array<ReceiptPurchaseOrderMatchLine>;
+};
+
+/**
+ * One ordered line and how much of it has arrived, all three quantities in
+ * the line's own `unit_code`.
+ *
+ */
+export type ReceiptPurchaseOrderMatchLine = {
+    purchase_order_line_id: Uuid;
+    stock_item_id: Uuid;
+    item_code: string;
+    item_name_en: string;
+    unit_code: string;
+    ordered_quantity: string;
+    received_quantity: string;
+    outstanding_quantity: string;
+};
+
+export type GoodsReceiptDetailEnvelope = {
+    data: {
+        goods_receipt: GoodsReceiptDetail;
+    };
+    meta: Meta;
+};
+
+/**
+ * One order a delivery could be received against (§4, §6) — a deliberate
+ * manage-scoped subset of the order book, not the order book. No notes, no
+ * recipient snapshot, no history, and no money at any depth.
+ *
+ */
+export type ReceivableOrder = {
+    id: Uuid;
+    number: string;
+    status: PurchaseOrderStatus;
+    branch_id: Uuid;
+    supplier: SupplierRef | null;
+    issued_at: string | null;
+    line_count: number;
+    /**
+     * Lines with something still to come. Fully delivered lines stay in
+     * `lines` — a person checking a delivery against a sheet needs to see
+     * the row accounted for rather than missing — and this is the count a
+     * picker sorts and labels by.
+     *
+     */
+    outstanding_line_count: number;
+    lines: Array<ReceivableOrderLine>;
+};
+
+/**
+ * One ordered line with its outstanding quantity — what the receive screen
+ * prefills a row with (§4). The unit is fixed from the order line, so a
+ * delivery cannot silently be counted in something else.
+ *
+ */
+export type ReceivableOrderLine = {
+    purchase_order_line_id: Uuid;
+    stock_item_id: Uuid;
+    item_code: string;
+    item_name_en: string;
+    item_name_ar: string | null;
+    unit_code: string;
+    unit_id: Uuid | null;
+    ordered_quantity: string;
+    received_quantity: string;
+    outstanding_quantity: string;
+};
+
+export type ReceivableOrderCollection = {
+    data: {
+        receivable_orders: Array<ReceivableOrder>;
+    };
+    meta: Meta;
+};
+
+/**
+ * One row of the unpriced-receipts work queue (§3.6). Deliberately not the
+ * whole receipt: this is a list somebody scans to decide what to open next.
+ *
+ * The two counts are two different jobs. `unpriced_line_count` is "type
+ * these prices in"; `valuation_pending_count` is "the prices are already
+ * here and an exchange-rate decision is not this screen's to make". A queue
+ * showing one number for both would send people to rows they cannot action.
+ *
+ * No money at all — the amounts are on the receipt detail, behind the same
+ * gate this list sits on.
+ *
+ */
+export type UnpricedReceipt = {
+    id: Uuid;
+    received_on: string | null;
+    supplier: SupplierRef | null;
+    document_ref: string | null;
+    supplier_invoice_ref: string | null;
+    purchase_order_id: Uuid | null;
+    cost_status: ReceiptCostStatus;
+    line_count: number;
+    unpriced_line_count: number;
+    valuation_pending_count: number;
+};
+
+export type UnpricedReceiptCollection = {
+    data: {
+        unpriced_receipts: Array<UnpricedReceipt>;
+    };
+    meta: PaginationMeta;
+};
+
+/**
+ * One line's missing price. `line_total_amount` is optional and is
+ * **checked** against quantity × unit price rather than stored as given:
+ * the total and the price are two views of one fact, and a database holding
+ * two answers for it is worse than one that refuses.
+ *
+ */
+export type CompleteReceiptPriceLine = {
+    goods_receipt_line_id: Uuid;
+    /**
+     * Major currency units per the line's own unit (§4.4).
+     */
+    unit_price_amount: number;
+    line_total_amount?: number | null;
+    cost_currency_code: string;
+};
+
+/**
+ * Prices only. The quantities are untouchable here — §3.6 is explicit that
+ * posted quantities are never edited in place, and nothing on this request
+ * could change what arrived.
+ *
+ * Every line named must still have a null `costed_at`, and every currency
+ * on the request must agree with itself and with the receipt's
+ * already-priced lines.
+ *
+ */
+export type CompleteReceiptPricesRequest = {
+    lines: Array<CompleteReceiptPriceLine>;
 };
 
 /**
@@ -4201,6 +5377,15 @@ export type GoodsReceiptCollection = {
  */
 export type GoodsReceiptLineInput = {
     stock_item_id: Uuid;
+    /**
+     * The ordered line this delivery fulfils (SUP5). Only valid when the
+     * receipt names a `purchase_order_id`, and it must belong to that order
+     * and stock the same item. Omitted on a direct purchase and on an
+     * unplanned extra item, which needs the receipt's `variance_note`
+     * instead (§4).
+     *
+     */
+    purchase_order_line_id?: Uuid | null;
     quantity: number;
     unit_id?: Uuid;
     /**
@@ -4214,30 +5399,99 @@ export type GoodsReceiptLineInput = {
  * Posting a receipt writes every line straight into the inventory
  * ledger (`reason: receipt`) inside one transaction — there is no
  * draft state to save and return to. Since INV1.1 it also records the
- * supplier and document reference and blends each priced line's cost.
+ * supplier and document reference and blends each priced line's cost, and
+ * since SUP5 it settles a purchase order in the same transaction.
+ *
+ * Amounts are non-negative magnitudes. A **discount** is sent positive and
+ * subtracted by the arithmetic rather than sent negative, so the sign
+ * convention lives in one place rather than in every client.
  *
  */
 export type PostGoodsReceiptRequest = {
     branch_id: Uuid;
     /**
-     * Who the stock was bought from (INV1.1).
+     * Who the stock was bought from (INV1.1). Required in practice when
+     * `purchase_order_id` is sent, because §4 insists a delivery against an
+     * order names that order's supplier.
+     *
      */
     supplier_id?: Uuid | null;
     /**
-     * The supplier delivery note or invoice number (INV1.1).
+     * The supplier delivery note, as written (INV1.1).
      */
     document_ref?: string | null;
     /**
-     * Accepted for forward compatibility; no endpoint creates one yet (O2).
+     * The supplier's invoice number — a different document from the delivery note (SUP5).
+     */
+    supplier_invoice_ref?: string | null;
+    invoice_date?: string | null;
+    /**
+     * The branch-local business day this delivery belongs to (§3.6). Omit
+     * it and the server reads today in the receiving branch's own timezone.
+     * A future date is refused — a delivery that has not happened is not a
+     * delivery, and slice 6 would file its money in a period that has not
+     * started.
+     *
+     */
+    received_on?: string | null;
+    /**
+     * Why this delivery differs from what was ordered. Required for an
+     * over-receipt and for any line with no `purchase_order_line_id` on a
+     * delivery against an order (§3.5, §4).
+     *
+     */
+    variance_note?: string | null;
+    /**
+     * The order this delivery settles (SUP5). It must be `issued` or
+     * `partially_received` and must name this receipt's branch and
+     * supplier; its received state is updated in the same transaction.
+     *
      */
     purchase_order_id?: Uuid | null;
+    discount_amount?: number | null;
+    tax_amount?: number | null;
+    delivery_amount?: number | null;
+    other_charges_amount?: number | null;
+    /**
+     * When present it must equal `Σ line totals − discount + tax + delivery
+     * + other charges` (§3.6), else `422` naming the difference.
+     *
+     */
+    invoice_total_amount?: number | null;
+    /**
+     * Confirms that more is arriving than the order still has outstanding.
+     * Required to record an over-receipt at all, and not sufficient on its
+     * own: §3.5 asks for an explicit confirmation **and** a variance note.
+     *
+     */
+    over_receipt_confirmed?: boolean | null;
+    /**
+     * Close the rest of this order (§3.5). Only valid with a
+     * `purchase_order_id`, and the order becomes `received` with a
+     * `closed_at` stamp. If the delivery turns out to complete the order
+     * anyway, no reason is stored, because there is nothing left to explain.
+     *
+     */
+    close_short?: boolean | null;
+    /**
+     * Required with `close_short`. A blank is not an explicit reason.
+     */
+    close_short_reason?: string | null;
     lines: Array<GoodsReceiptLineInput>;
 };
 
 export type GoodsReceiptEnvelope = {
     data: {
+        /**
+         * The identifier, plus the two facts a client acts on straight
+         * away: which day this delivery was filed under, and whether its
+         * paperwork is done.
+         *
+         */
         goods_receipt: {
             id: Uuid;
+            received_on: string | null;
+            cost_status: ReceiptCostStatus;
         };
     };
     meta: Meta;
@@ -4250,8 +5504,17 @@ export type PurchasesLedgerLine = {
     id: Uuid;
     goods_receipt_id: Uuid;
     received_at: string | null;
+    /**
+     * The branch-local business day the receipt is filed under (SUP5).
+     */
+    received_on: string | null;
     supplier: SupplierRef | null;
     document_ref: string | null;
+    purchase_order_id: Uuid | null;
+    /**
+     * The parent receipt's costing state (SUP5) — what the completeness filter reads.
+     */
+    cost_status: ReceiptCostStatus | null;
     stock_item_id: Uuid;
     item_code: string | null;
     item_name_en: string | null;
@@ -4261,6 +5524,13 @@ export type PurchasesLedgerLine = {
     unit_price_amount: string | null;
     line_total_amount: string | null;
     cost_currency_code: string | null;
+    /**
+     * This line's price is recorded and its valuation is waiting on an
+     * exchange-rate decision (§3.6). A work state, not money, so it is
+     * never redacted.
+     *
+     */
+    valuation_pending_fx: boolean;
     costs_redacted: boolean;
 };
 
@@ -4272,7 +5542,142 @@ export type PurchasesLedgerCollection = {
 };
 
 /**
- * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies.
+ * One supplier's item spend inside one period and currency (§3.7). Money
+ * and counts only — the receipt-level charges are a fact about a whole
+ * delivery and are reported once at the currency level rather than divided
+ * up here. A `null` supplier is a direct market purchase.
+ *
+ */
+export type SpendSummarySupplierBreakdown = {
+    supplier: SupplierRef | null;
+    received_line_count: number;
+    /**
+     * Σ line totals for this supplier in this period and currency, major units.
+     */
+    item_subtotal: string;
+};
+
+/**
+ * One shelf's item spend inside one period and currency (§3.7).
+ */
+export type SpendSummaryStockItemBreakdown = {
+    stock_item_id: Uuid;
+    item_code: string;
+    item_name_en: string;
+    received_line_count: number;
+    item_subtotal: string;
+};
+
+/**
+ * One currency's money inside one period (§3.7). Figures are never summed
+ * across currencies; every amount is a major-unit decimal string.
+ *
+ * `item_subtotal` is Σ receipt-line totals — what the goods themselves
+ * cost, and the figure that reconciles line for line to the purchases
+ * ledger. The four charge totals and `invoice_total` are receipt-level and
+ * deliberately separate: tax and delivery are not an ingredient's purchase
+ * price. A charge nobody recorded is `0`; an absent `invoice_total` is
+ * `null`, because an unknown invoice total is not a zero one.
+ *
+ * The two breakdowns are `null` when they were not requested and a list
+ * (possibly empty) when they were.
+ *
+ */
+export type SpendSummaryCurrencyTotals = {
+    /**
+     * ISO 4217 currency every amount in this row is denominated in.
+     */
+    currency_code: string;
+    /**
+     * Receipts contributing money in this currency.
+     */
+    receipt_count: number;
+    /**
+     * Priced lines in this currency. Unpriced lines have no currency and are counted on the period.
+     */
+    received_line_count: number;
+    item_subtotal: string;
+    /**
+     * Recorded positive; the invoice arithmetic subtracts it (§3.6).
+     */
+    discount_total: string;
+    tax_total: string;
+    delivery_total: string;
+    other_charges_total: string;
+    /**
+     * Σ supplier-invoice totals where one was recorded; null when none was.
+     */
+    invoice_total: string | null;
+    /**
+     * How many receipts in this bucket carried an invoice total.
+     */
+    invoiced_receipt_count: number;
+    by_supplier: Array<SpendSummarySupplierBreakdown> | null;
+    by_stock_item: Array<SpendSummaryStockItemBreakdown> | null;
+};
+
+/**
+ * One ISO week or calendar month of purchasing (§3.7).
+ *
+ * The completeness facts sit here rather than inside a currency row because
+ * an unpriced line has no currency to belong to. A period with only
+ * unpriced deliveries therefore carries an empty `totals_by_currency` and
+ * `is_complete: false`.
+ *
+ * `unpriced_line_count` and `valuation_pending_line_count` are disjoint and
+ * both keep `is_complete` false: the first is "type these prices in", the
+ * second is "the price is recorded and its valuation waits on an
+ * exchange-rate decision" (§3.6).
+ *
+ */
+export type SpendSummaryPeriod = {
+    /**
+     * `IYYY-Www` for a week (`2026-W34`), `YYYY-MM` for a month (`2026-08`).
+     */
+    period: string;
+    /**
+     * First calendar day this period covers — a week starts Monday.
+     */
+    period_start: string;
+    period_end: string;
+    /**
+     * Receipts with at least one line in this period and filter scope.
+     */
+    receipt_count: number;
+    /**
+     * Of those, the ones carrying at least one line whose money is not settled.
+     */
+    unpriced_receipt_count: number;
+    /**
+     * Lines with no price recorded. They contribute quantity history and no money (§3.7).
+     */
+    unpriced_line_count: number;
+    /**
+     * Lines whose price is recorded and whose valuation waits on an exchange rate (§3.6).
+     */
+    valuation_pending_line_count: number;
+    /**
+     * True only when neither count above is non-zero.
+     */
+    is_complete: boolean;
+    totals_by_currency: Array<SpendSummaryCurrencyTotals>;
+};
+
+export type SpendSummaryCollection = {
+    data: {
+        group_by: 'week' | 'month';
+        /**
+         * The resolved lower bound actually read, whether it was sent or defaulted.
+         */
+        from: string;
+        to: string;
+        periods: Array<SpendSummaryPeriod>;
+    };
+    meta: Meta;
+};
+
+/**
+ * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies. Two data-quality flags, never merged: one says the month's COGS is understated by unresolved consumption exceptions, the other says its spend is understated because a delivery's invoice has not been entered (SUP6, §3.6). The three spend-completeness fields are month facts rather than currency facts — an unpriced line has no currency — so, like waste_quantity, they repeat across a month's currency rows.
  */
 export type MonthlyCostReportRow = {
     /**
@@ -4343,6 +5748,18 @@ export type MonthlyCostReportRow = {
      * Count of unresolved consumption exceptions on non-cancelled orders anchored to this month.
      */
     exception_count: number;
+    /**
+     * False when this month holds a delivery whose price is missing, or one whose recorded price could not be valued in the ingredient's currency — spend_amount is then understated (§3.6). A month whose only activity is unpriced receipts produces no row at all; the spend summary is where such a period appears.
+     */
+    is_spend_complete: boolean;
+    /**
+     * Receipt lines in this month with no price recorded. A month fact, repeated across the month's currency rows.
+     */
+    unpriced_line_count: number;
+    /**
+     * Receipt lines in this month whose price is recorded and whose valuation waits on an exchange rate.
+     */
+    valuation_pending_line_count: number;
 };
 
 export type MonthlyCostReportCollection = {
@@ -9950,6 +11367,28 @@ export type PlanDurationPath = Uuid | string;
  *
  */
 export type XBranchIdRequired = Uuid;
+
+/**
+ * The supplier identifier. An identifier only, unlike a delivery zone's
+ * path: a supplier `code` is frequently minted by the server and is
+ * editable afterwards, so a URL that accepted it would break the moment a
+ * kitchen corrected one.
+ *
+ */
+export type SupplierPath = Uuid;
+
+/**
+ * The purchase-order identifier, never its `number`. The number is the
+ * human handle both sides quote down a phone line; the URL takes the
+ * identifier, on the same grounds a supplier's does.
+ *
+ */
+export type PurchaseOrderPath = Uuid;
+
+/**
+ * The goods-receipt identifier.
+ */
+export type GoodsReceiptPath = Uuid;
 
 /**
  * The delivery zone identifier, or its `code`.
@@ -20259,7 +21698,12 @@ export type ListSuppliersData = {
         'X-Client-Request-Id'?: string;
     };
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Include archived suppliers. Omitted or false serves the live book only.
+         */
+        include_archived?: boolean;
+    };
     url: '/catalogue/procurement/suppliers';
 };
 
@@ -20347,6 +21791,1177 @@ export type CreateSupplierResponses = {
 };
 
 export type CreateSupplierResponse = CreateSupplierResponses[keyof CreateSupplierResponses];
+
+export type GetSupplierData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}';
+};
+
+export type GetSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetSupplierError = GetSupplierErrors[keyof GetSupplierErrors];
+
+export type GetSupplierResponses = {
+    /**
+     * The supplier and its contacts.
+     */
+    200: SupplierDetailEnvelope;
+};
+
+export type GetSupplierResponse = GetSupplierResponses[keyof GetSupplierResponses];
+
+export type UpdateSupplierData = {
+    body: UpdateSupplierRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}';
+};
+
+export type UpdateSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateSupplierError = UpdateSupplierErrors[keyof UpdateSupplierErrors];
+
+export type UpdateSupplierResponses = {
+    /**
+     * The supplier after the write.
+     */
+    200: SupplierEnvelope;
+};
+
+export type UpdateSupplierResponse = UpdateSupplierResponses[keyof UpdateSupplierResponses];
+
+export type ArchiveSupplierData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}/archive';
+};
+
+export type ArchiveSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchiveSupplierError = ArchiveSupplierErrors[keyof ArchiveSupplierErrors];
+
+export type ArchiveSupplierResponses = {
+    /**
+     * The archived supplier.
+     */
+    200: SupplierEnvelope;
+};
+
+export type ArchiveSupplierResponse = ArchiveSupplierResponses[keyof ArchiveSupplierResponses];
+
+export type RestoreSupplierData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}/restore';
+};
+
+export type RestoreSupplierErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RestoreSupplierError = RestoreSupplierErrors[keyof RestoreSupplierErrors];
+
+export type RestoreSupplierResponses = {
+    /**
+     * The restored supplier.
+     */
+    200: SupplierEnvelope;
+};
+
+export type RestoreSupplierResponse = RestoreSupplierResponses[keyof RestoreSupplierResponses];
+
+export type ReplaceSupplierContactsData = {
+    body: ReplaceSupplierContactsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The supplier identifier. An identifier only, unlike a delivery zone's
+         * path: a supplier `code` is frequently minted by the server and is
+         * editable afterwards, so a URL that accepted it would break the moment a
+         * kitchen corrected one.
+         *
+         */
+        supplierId: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/suppliers/{supplierId}/contacts';
+};
+
+export type ReplaceSupplierContactsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceSupplierContactsError = ReplaceSupplierContactsErrors[keyof ReplaceSupplierContactsErrors];
+
+export type ReplaceSupplierContactsResponses = {
+    /**
+     * The contact set after the replace, in display order.
+     */
+    200: SupplierContactCollection;
+};
+
+export type ReplaceSupplierContactsResponse = ReplaceSupplierContactsResponses[keyof ReplaceSupplierContactsResponses];
+
+export type DeleteSupplierLinkData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The supplier half of the link.
+         */
+        supplier_id: Uuid;
+        /**
+         * The stock item half of the link.
+         */
+        stock_item_id: Uuid;
+    };
+    url: '/catalogue/procurement/supplier-links';
+};
+
+export type DeleteSupplierLinkErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DeleteSupplierLinkError = DeleteSupplierLinkErrors[keyof DeleteSupplierLinkErrors];
+
+export type DeleteSupplierLinkResponses = {
+    /**
+     * The link is gone — or was never there.
+     */
+    204: void;
+};
+
+export type DeleteSupplierLinkResponse = DeleteSupplierLinkResponses[keyof DeleteSupplierLinkResponses];
+
+export type UpsertSupplierLinkData = {
+    body: UpsertSupplierLinkRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/supplier-links';
+};
+
+export type UpsertSupplierLinkErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpsertSupplierLinkError = UpsertSupplierLinkErrors[keyof UpsertSupplierLinkErrors];
+
+export type UpsertSupplierLinkResponses = {
+    /**
+     * The link after the write.
+     */
+    200: SupplierLinkEnvelope;
+};
+
+export type UpsertSupplierLinkResponse = UpsertSupplierLinkResponses[keyof UpsertSupplierLinkResponses];
+
+export type ListItemLatestPurchasesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The shelves to price, repeated as `stock_item_ids[]=…`. At most 200.
+         */
+        stock_item_ids: Array<Uuid>;
+    };
+    url: '/catalogue/procurement/item-purchases/latest';
+};
+
+export type ListItemLatestPurchasesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListItemLatestPurchasesError = ListItemLatestPurchasesErrors[keyof ListItemLatestPurchasesErrors];
+
+export type ListItemLatestPurchasesResponses = {
+    /**
+     * The latest purchase of each requested item that has one.
+     */
+    200: ItemLatestPurchaseCollection;
+};
+
+export type ListItemLatestPurchasesResponse = ListItemLatestPurchasesResponses[keyof ListItemLatestPurchasesResponses];
+
+export type CountSupplyNeedsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The branch whose shelves are counted. Must belong to the active organisation.
+         */
+        branch_id: Uuid;
+    };
+    url: '/catalogue/procurement/supply-needs/count';
+};
+
+export type CountSupplyNeedsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CountSupplyNeedsError = CountSupplyNeedsErrors[keyof CountSupplyNeedsErrors];
+
+export type CountSupplyNeedsResponses = {
+    /**
+     * The branch's shortage tallies.
+     */
+    200: SupplyNeedsCountEnvelope;
+};
+
+export type CountSupplyNeedsResponse = CountSupplyNeedsResponses[keyof CountSupplyNeedsResponses];
+
+export type GetOrderProposalData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The branch the proposal is for. Must belong to the active organisation.
+         */
+        branch_id: Uuid;
+        /**
+         * Manually added shelves, repeated as `stock_item_ids[]=…`. At most 100.
+         */
+        stock_item_ids?: Array<Uuid>;
+    };
+    url: '/catalogue/procurement/order-proposal';
+};
+
+export type GetOrderProposalErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderProposalError = GetOrderProposalErrors[keyof GetOrderProposalErrors];
+
+export type GetOrderProposalResponses = {
+    /**
+     * The branch's proposal rows, queue first.
+     */
+    200: OrderProposalCollection;
+};
+
+export type GetOrderProposalResponse = GetOrderProposalResponses[keyof GetOrderProposalResponses];
+
+export type ListPurchaseOrdersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Only orders in this state.
+         */
+        status?: PurchaseOrderStatus;
+        /**
+         * Only orders addressed to this supplier. Must belong to the active organisation.
+         */
+        supplier_id?: Uuid;
+        /**
+         * A batch read, repeated as `ids[]=…`. At most 50.
+         */
+        ids?: Array<Uuid>;
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/catalogue/procurement/purchase-orders';
+};
+
+export type ListPurchaseOrdersErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPurchaseOrdersError = ListPurchaseOrdersErrors[keyof ListPurchaseOrdersErrors];
+
+export type ListPurchaseOrdersResponses = {
+    /**
+     * A page of purchase orders, newest first.
+     */
+    200: PurchaseOrderCollection;
+};
+
+export type ListPurchaseOrdersResponse = ListPurchaseOrdersResponses[keyof ListPurchaseOrdersResponses];
+
+export type CreatePurchaseOrdersData = {
+    body: CreatePurchaseOrdersRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders';
+};
+
+export type CreatePurchaseOrdersErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreatePurchaseOrdersError = CreatePurchaseOrdersErrors[keyof CreatePurchaseOrdersErrors];
+
+export type CreatePurchaseOrdersResponses = {
+    /**
+     * The drafts created, in request order.
+     */
+    201: PurchaseOrderCollection;
+};
+
+export type CreatePurchaseOrdersResponse = CreatePurchaseOrdersResponses[keyof CreatePurchaseOrdersResponses];
+
+export type GetPurchaseOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The purchase-order identifier, never its `number`. The number is the
+         * human handle both sides quote down a phone line; the URL takes the
+         * identifier, on the same grounds a supplier's does.
+         *
+         */
+        purchaseOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders/{purchaseOrder}';
+};
+
+export type GetPurchaseOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetPurchaseOrderError = GetPurchaseOrderErrors[keyof GetPurchaseOrderErrors];
+
+export type GetPurchaseOrderResponses = {
+    /**
+     * The order, its lines and its recipient.
+     */
+    200: PurchaseOrderEnvelope;
+};
+
+export type GetPurchaseOrderResponse = GetPurchaseOrderResponses[keyof GetPurchaseOrderResponses];
+
+export type UpdatePurchaseOrderData = {
+    body: UpdatePurchaseOrderRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The purchase-order identifier, never its `number`. The number is the
+         * human handle both sides quote down a phone line; the URL takes the
+         * identifier, on the same grounds a supplier's does.
+         *
+         */
+        purchaseOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders/{purchaseOrder}';
+};
+
+export type UpdatePurchaseOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdatePurchaseOrderError = UpdatePurchaseOrderErrors[keyof UpdatePurchaseOrderErrors];
+
+export type UpdatePurchaseOrderResponses = {
+    /**
+     * The draft after the write.
+     */
+    200: PurchaseOrderEnvelope;
+};
+
+export type UpdatePurchaseOrderResponse = UpdatePurchaseOrderResponses[keyof UpdatePurchaseOrderResponses];
+
+export type IssuePurchaseOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The purchase-order identifier, never its `number`. The number is the
+         * human handle both sides quote down a phone line; the URL takes the
+         * identifier, on the same grounds a supplier's does.
+         *
+         */
+        purchaseOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders/{purchaseOrder}/issue';
+};
+
+export type IssuePurchaseOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type IssuePurchaseOrderError = IssuePurchaseOrderErrors[keyof IssuePurchaseOrderErrors];
+
+export type IssuePurchaseOrderResponses = {
+    /**
+     * The issued order, with its recipient snapshot.
+     */
+    200: PurchaseOrderEnvelope;
+};
+
+export type IssuePurchaseOrderResponse = IssuePurchaseOrderResponses[keyof IssuePurchaseOrderResponses];
+
+export type CancelPurchaseOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The purchase-order identifier, never its `number`. The number is the
+         * human handle both sides quote down a phone line; the URL takes the
+         * identifier, on the same grounds a supplier's does.
+         *
+         */
+        purchaseOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/purchase-orders/{purchaseOrder}/cancel';
+};
+
+export type CancelPurchaseOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelPurchaseOrderError = CancelPurchaseOrderErrors[keyof CancelPurchaseOrderErrors];
+
+export type CancelPurchaseOrderResponses = {
+    /**
+     * The cancelled order, unchanged apart from its status and stamp.
+     */
+    200: PurchaseOrderEnvelope;
+};
+
+export type CancelPurchaseOrderResponse = CancelPurchaseOrderResponses[keyof CancelPurchaseOrderResponses];
 
 export type GetProcurementReferenceData = {
     body?: never;
@@ -20485,6 +23100,40 @@ export type CreateGoodsReceiptErrors = {
      */
     403: ErrorEnvelope;
     /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The order's own state refuses the change (§3.5, §6). `details.reason`
+     * names which rule, and there are four:
+     *
+     * - `purchase_order_not_draft` — the order has been issued, cancelled or
+     * received against, and issued orders are immutable. `details.status`
+     * carries the state it is actually in.
+     * - `purchase_order_not_cancellable` — cancellation is reachable from
+     * `draft` and `issued` only; an order with deliveries against it cannot
+     * be cancelled as though nothing happened.
+     * - `supplier_archived` — the supplier has left the book. Restore it or
+     * choose another; `details.supplier_id` names it.
+     * - `purchase_order_received_against` — something has already been
+     * delivered against this order (SUP5). Checked before the status, so
+     * that when both apply a client is told what actually happened rather
+     * than being told the status again.
+     * - `purchase_order_not_receivable` — a delivery was posted against an
+     * order that is not `issued` or `partially_received`.
+     * - `purchase_order_branch_mismatch` / `purchase_order_supplier_mismatch`
+     * — §4: a receipt against an order must use that order's branch and
+     * supplier. Every identifier is well formed; what refuses is the
+     * relationship between them, which is why this is a `409` and not a
+     * `422`.
+     *
+     * No `current_lock_version`: purchase orders are not lock-versioned, so
+     * there is no race to reload against. Re-reading the order is what tells a
+     * client what happened to it.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -20504,6 +23153,272 @@ export type CreateGoodsReceiptResponses = {
 };
 
 export type CreateGoodsReceiptResponse = CreateGoodsReceiptResponses[keyof CreateGoodsReceiptResponses];
+
+export type GetGoodsReceiptData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The goods-receipt identifier.
+         */
+        goodsReceipt: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/goods-receipts/{goodsReceipt}';
+};
+
+export type GetGoodsReceiptErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetGoodsReceiptError = GetGoodsReceiptErrors[keyof GetGoodsReceiptErrors];
+
+export type GetGoodsReceiptResponses = {
+    /**
+     * The receipt, its lines and its order match.
+     */
+    200: GoodsReceiptDetailEnvelope;
+};
+
+export type GetGoodsReceiptResponse = GetGoodsReceiptResponses[keyof GetGoodsReceiptResponses];
+
+export type CompleteReceiptPricesData = {
+    body: CompleteReceiptPricesRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The goods-receipt identifier.
+         */
+        goodsReceipt: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/goods-receipts/{goodsReceipt}/complete-prices';
+};
+
+export type CompleteReceiptPricesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CompleteReceiptPricesError = CompleteReceiptPricesErrors[keyof CompleteReceiptPricesErrors];
+
+export type CompleteReceiptPricesResponses = {
+    /**
+     * The receipt after the prices were completed.
+     */
+    200: GoodsReceiptDetailEnvelope;
+};
+
+export type CompleteReceiptPricesResponse = CompleteReceiptPricesResponses[keyof CompleteReceiptPricesResponses];
+
+export type ListReceivableOrdersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The branch taking delivery. Must belong to the active organisation.
+         */
+        branch_id: Uuid;
+        /**
+         * Only orders addressed to this supplier.
+         */
+        supplier_id?: Uuid;
+    };
+    url: '/catalogue/procurement/receivable-orders';
+};
+
+export type ListReceivableOrdersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListReceivableOrdersError = ListReceivableOrdersErrors[keyof ListReceivableOrdersErrors];
+
+export type ListReceivableOrdersResponses = {
+    /**
+     * Orders open for receiving at this branch, oldest first.
+     */
+    200: ReceivableOrderCollection;
+};
+
+export type ListReceivableOrdersResponse = ListReceivableOrdersResponses[keyof ListReceivableOrdersResponses];
+
+export type ListUnpricedReceiptsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Only receipts posted at this branch. Must belong to the active organisation.
+         */
+        branch_id?: Uuid;
+        supplier_id?: Uuid;
+        /**
+         * Page size.
+         */
+        limit?: number;
+        /**
+         * The `meta.next_cursor` of the previous page. Opaque — echo it back,
+         * never construct one. A cursor this endpoint did not issue is
+         * `400 request.invalid`, never a silent restart from the beginning.
+         *
+         */
+        cursor?: string;
+    };
+    url: '/catalogue/procurement/unpriced-receipts';
+};
+
+export type ListUnpricedReceiptsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListUnpricedReceiptsError = ListUnpricedReceiptsErrors[keyof ListUnpricedReceiptsErrors];
+
+export type ListUnpricedReceiptsResponses = {
+    /**
+     * A page of receipts still waiting on their costing, oldest first.
+     */
+    200: UnpricedReceiptCollection;
+};
+
+export type ListUnpricedReceiptsResponse = ListUnpricedReceiptsResponses[keyof ListUnpricedReceiptsResponses];
 
 export type ListPurchasesLedgerData = {
     body?: never;
@@ -20532,7 +23447,33 @@ export type ListPurchasesLedgerData = {
          */
         to?: string;
         supplier_id?: Uuid;
+        /**
+         * Only lines whose stock item is backed by this ingredient.
+         */
         ingredient_id?: Uuid;
+        /**
+         * Only lines that received this shelf. Must belong to the active organisation.
+         */
+        stock_item_id?: Uuid;
+        /**
+         * Only lines whose receipt was posted at this branch. Must belong to the active organisation.
+         */
+        branch_id?: Uuid;
+        /**
+         * Only lines whose receipt was made against this order (SUP5) — what
+         * an order detail's "everything delivered against this" link lands on.
+         *
+         */
+        purchase_order_id?: Uuid;
+        /**
+         * Only lines whose receipt is in this costing state (SUP5). §3.4 lists
+         * price-completeness among the ledger's filters; it lands in the slice
+         * that lands the column rather than the slice that first draws a screen
+         * over it, because a parameter that quietly did nothing would be worse
+         * than its absence.
+         *
+         */
+        cost_status?: ReceiptCostStatus;
         /**
          * Page size.
          */
@@ -20568,6 +23509,10 @@ export type ListPurchasesLedgerErrors = {
      */
     403: ErrorEnvelope;
     /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
      * The rate limit for this endpoint was exceeded.
      */
     429: ErrorEnvelope;
@@ -20583,6 +23528,101 @@ export type ListPurchasesLedgerResponses = {
 };
 
 export type ListPurchasesLedgerResponse = ListPurchasesLedgerResponses[keyof ListPurchasesLedgerResponses];
+
+export type GetProcurementSpendSummaryData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * `week` groups by ISO week over `received_on` (Monday-started,
+         * labelled `2026-W34`); `month` groups by calendar month (`2026-08`).
+         *
+         */
+        group_by: 'week' | 'month';
+        /**
+         * Inclusive lower bound on the receipt's business date, `YYYY-MM-DD`.
+         */
+        from?: string;
+        /**
+         * Inclusive upper bound on the receipt's business date, `YYYY-MM-DD`. Must not precede `from`.
+         */
+        to?: string;
+        /**
+         * Only receipts posted at this branch. Must belong to the active organisation.
+         */
+        branch_id?: Uuid;
+        /**
+         * Only receipts from this supplier. Must belong to the active organisation.
+         */
+        supplier_id?: Uuid;
+        /**
+         * Only lines that received this shelf. Must belong to the active organisation.
+         */
+        stock_item_id?: Uuid;
+        /**
+         * Comma-separated breakdowns to compute — `suppliers`, `items`, or
+         * both. An unrecognised token is refused rather than ignored, so a
+         * typo cannot look like an empty result.
+         *
+         */
+        include?: string;
+    };
+    url: '/catalogue/procurement/spend-summary';
+};
+
+export type GetProcurementSpendSummaryErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetProcurementSpendSummaryError = GetProcurementSpendSummaryErrors[keyof GetProcurementSpendSummaryErrors];
+
+export type GetProcurementSpendSummaryResponses = {
+    /**
+     * The spend summary, newest period first.
+     */
+    200: SpendSummaryCollection;
+};
+
+export type GetProcurementSpendSummaryResponse = GetProcurementSpendSummaryResponses[keyof GetProcurementSpendSummaryResponses];
 
 export type GetMonthlyCostReportData = {
     body?: never;

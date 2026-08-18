@@ -6,6 +6,7 @@ namespace Healthy360\Procurement\Http\Controllers;
 
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Procurement\Models\Supplier;
+use Healthy360\Procurement\Presenters\SupplierPresenter;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -28,15 +29,24 @@ use Illuminate\Validation\Rule;
  * server mints a unique per-organisation code from it, exactly as the ingredient
  * catalogue mints a slug, so the supplier book never demands a code the person
  * filling in a delivery note does not have.
+ *
+ * Every field of the record is writable here, but **contacts are not**: they are
+ * their own section-level replace, and a create that accepted them would give a
+ * kitchen two ways to write the same set. The lightweight create inside the
+ * goods-receipt dialog sends a name and nothing else; the full form sends the
+ * record and then saves contacts against it.
  */
 final class SupplierStoreController
 {
+    public function __construct(private readonly SupplierPresenter $presenter) {}
+
     public function __invoke(Request $request, TenantContext $context, AuditRecorder $audit): JsonResponse
     {
         $organisationId = $context->organisationId();
 
         $validated = $request->validate([
             'name_en' => ['required', 'string', 'max:160'],
+            'name_ar' => ['nullable', 'string', 'max:160'],
             'code' => [
                 'nullable',
                 'string',
@@ -51,6 +61,12 @@ final class SupplierStoreController
             ],
             'contact_email' => ['nullable', 'email', 'max:160'],
             'contact_phone' => ['nullable', 'string', 'max:40'],
+            'address' => ['nullable', 'string', 'max:2000'],
+            'payment_terms' => ['nullable', 'string', 'max:120'],
+            // Mirrors the CHECK the migration adds, so a bad value is a named
+            // 422 rather than a constraint violation.
+            'lead_time_days' => ['nullable', 'integer', 'between:0,365'],
+            'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $code = $validated['code'] ?? null;
@@ -61,9 +77,14 @@ final class SupplierStoreController
         $supplier = Supplier::query()->create([
             'code' => $code,
             'name_en' => $validated['name_en'],
+            'name_ar' => $validated['name_ar'] ?? null,
             'currency_code' => $validated['currency_code'] ?? null,
             'contact_email' => $validated['contact_email'] ?? null,
             'contact_phone' => $validated['contact_phone'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'payment_terms' => $validated['payment_terms'] ?? null,
+            'lead_time_days' => $validated['lead_time_days'] ?? null,
+            'notes' => $validated['notes'] ?? null,
         ]);
 
         $audit->record(
@@ -71,20 +92,16 @@ final class SupplierStoreController
             actorUserId: $context->userId(),
             subjectType: 'supplier',
             subjectId: (string) $supplier->getKey(),
+            // `supplier_ref`, not `code`: `AuditRecorder` redacts any key
+            // containing that substring, so the obvious name would have written
+            // `[redacted]` into every row.
             metadata: [
-                'code' => $supplier->code,
+                'supplier_ref' => $supplier->code,
                 'has_currency' => $supplier->currency_code !== null,
             ],
         );
 
-        return ApiResponse::data(['supplier' => [
-            'id' => (string) $supplier->getKey(),
-            'code' => $supplier->code,
-            'name_en' => $supplier->name_en,
-            'currency_code' => $supplier->currency_code,
-            'contact_email' => $supplier->contact_email,
-            'contact_phone' => $supplier->contact_phone,
-        ]], status: 201);
+        return ApiResponse::data(['supplier' => $this->presenter->supplier($supplier)], status: 201);
     }
 
     /**

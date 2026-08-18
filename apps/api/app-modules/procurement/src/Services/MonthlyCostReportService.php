@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Healthy360\Procurement\Services;
 
+use Carbon\CarbonImmutable;
 use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
-use Healthy360\Procurement\Models\GoodsReceiptLine;
 use Healthy360\ReferenceData\Models\Currency;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -28,8 +28,9 @@ use RuntimeException;
  * ## The three amounts and where each is read
  *
  * - **Spend** = Σ `goods_receipt_lines.line_total_amount`, bucketed by the month
- *   of the receipt's `received_at` and grouped by `cost_currency_code`. Major-unit
- *   decimals, the browsable detail behind which is the purchases ledger.
+ *   of the receipt's `received_on` and grouped by `cost_currency_code`. Major-unit
+ *   decimals, the browsable detail behind which is the purchases ledger. Read
+ *   through {@see ProcurementSpendQuery} rather than computed here — see below.
  * - **COGS** = Σ `stock_movements.cost_amount` for `reason = consume` /
  *   `reference_type = order`, bucketed by the movement's `created_at` and grouped
  *   by `cost_currency_code`. Major-unit decimals. A cancelled order's consume is
@@ -76,20 +77,54 @@ use RuntimeException;
  * a total across two currencies would be a number nobody could reconcile — the
  * report keeps them on separate rows instead.
  *
+ * ## One spend aggregation, shared with the weekly/monthly summary (SUP6)
+ *
+ * §3.7: "Extract/reuse the procurement spend aggregation so the monthly report
+ * and new weekly/monthly purchase summary cannot disagree." The purchasing side
+ * of this report is therefore a **month-grouped read of
+ * {@see ProcurementSpendQuery}** rather than a query of its own. The predicate is
+ * unchanged — a line total and a currency both present — so no figure moves,
+ * with one deliberate exception: the bucket is now the receipt's branch-local
+ * `received_on` rather than its UTC `received_at`. That is the column SUP5 added
+ * for exactly this purpose, and it is the correct one: a van unloaded at 21:30 in
+ * Dubai on the last of the month is that month's spend, and the UTC instant would
+ * file it in the next one. The two agree for every receipt whose branch runs on
+ * UTC and differ only at a month boundary, always in favour of the business date.
+ *
  * ## Data quality
+ *
+ * Two different figures can be understated, so there are two different flags and
+ * they are deliberately not merged.
  *
  * When a confirmed order could not fully value its consumption — a missing
  * moving-average cost, an unconvertible unit — INV1.2 recorded an
  * {@see OrderConsumptionException} rather than guessing. A month with unresolved
- * exceptions has an **understated** COGS, so the row is flagged rather than
+ * exceptions has an **understated COGS**, so the row is flagged rather than
  * presented as authoritative. The flag counts exceptions on non-cancelled orders,
  * anchored on the order's `confirmed_at` month to match the COGS it undermines.
+ *
+ * Separately, §3.6 requires that "reports flag the affected week/month until
+ * every receipt is complete". A month holding a delivery whose invoice has not
+ * arrived has an **understated spend**, which is a different number failing for a
+ * different reason, so it carries its own `is_spend_complete` with the two counts
+ * behind it. Folding either into the other would leave a reader unable to tell
+ * which figure to distrust.
+ *
+ * Both are month facts rather than currency facts — an unpriced line has no
+ * currency at all — so, exactly like `waste_quantity`, they repeat across a
+ * month's currency rows. One consequence is worth stating plainly: a month whose
+ * *only* activity is unpriced receipts produces no row here at all, because no
+ * currency key exists for it, and there is nothing to flag. The weekly/monthly
+ * spend summary is where such a period appears — as a period with an empty
+ * `totals_by_currency` and `is_complete: false`.
  */
 final readonly class MonthlyCostReportService
 {
     private const int SCALE = 6;
 
     private const int PERCENT_SCALE = 2;
+
+    public function __construct(private ProcurementSpendQuery $spend) {}
 
     /**
      * Compute the report rows for one organisation, optionally bounded to a month
@@ -113,14 +148,19 @@ final readonly class MonthlyCostReportService
      *     product_cogs_amount: numeric-string,
      *     other_cogs_amount: numeric-string,
      *     has_data_quality_flag: bool,
-     *     exception_count: int
+     *     exception_count: int,
+     *     is_spend_complete: bool,
+     *     unpriced_line_count: int,
+     *     valuation_pending_line_count: int
      * }>
      */
     public function forOrganisation(string $organisationId, ?string $from = null, ?string $to = null): array
     {
         $minorUnits = $this->minorUnitsByCurrency();
 
-        $spend = $this->spendByMonthCurrency($organisationId, $from, $to);
+        $spendPeriods = $this->spendPeriods($organisationId, $from, $to);
+        $spend = $this->spendByMonthCurrency($spendPeriods);
+        $spendQuality = $this->spendQualityByMonth($spendPeriods);
         $cogs = $this->cogsByMonthCurrency($organisationId, $from, $to);
         $cogsSplit = $this->cogsSplitByMonthCurrency($organisationId, $from, $to);
         $waste = $this->wasteByMonthCurrency($organisationId, $from, $to);
@@ -170,6 +210,10 @@ final readonly class MonthlyCostReportService
                 : null;
 
             $exceptionCount = $exceptions[$month] ?? 0;
+            $quality = $spendQuality[$month] ?? [
+                'unpriced_line_count' => 0,
+                'valuation_pending_line_count' => 0,
+            ];
 
             $rows[] = [
                 'month' => $month,
@@ -189,6 +233,12 @@ final readonly class MonthlyCostReportService
                 'other_cogs_amount' => $otherCogs,
                 'has_data_quality_flag' => $exceptionCount > 0,
                 'exception_count' => $exceptionCount,
+                // The spend side's own completeness (§3.6), kept apart from the
+                // COGS flag above because they undermine two different figures.
+                'is_spend_complete' => $quality['unpriced_line_count'] === 0
+                    && $quality['valuation_pending_line_count'] === 0,
+                'unpriced_line_count' => $quality['unpriced_line_count'],
+                'valuation_pending_line_count' => $quality['valuation_pending_line_count'],
             ];
         }
 
@@ -204,25 +254,72 @@ final readonly class MonthlyCostReportService
     }
 
     /**
-     * Spend by month and currency: Σ line totals over the receipt's month.
+     * The shared spend aggregation, month-grouped and bounded to this report's
+     * `YYYY-MM` range (§3.7).
      *
+     * The month bounds become inclusive **date** bounds on `received_on`, which
+     * is what the shared query groups by. No cap is applied: a kitchen's trading
+     * history is the natural bound on this report, and the 24-month cap belongs
+     * to the summary endpoint, where a client picks a window.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function spendPeriods(string $organisationId, ?string $from, ?string $to): array
+    {
+        return $this->spend->forOrganisation(
+            $organisationId,
+            ProcurementSpendQuery::MONTH,
+            $from === null ? null : $from.'-01',
+            $to === null ? null : CarbonImmutable::parse($to.'-01', 'UTC')->endOfMonth()->toDateString(),
+        );
+    }
+
+    /**
+     * Spend by month and currency, folded out of the shared aggregation into the
+     * same `month => currency => total` shape the rest of this report unions over.
+     *
+     * @param  list<array<string, mixed>>  $periods
      * @return array<string, array<string, numeric-string>>
      */
-    private function spendByMonthCurrency(string $organisationId, ?string $from, ?string $to): array
+    private function spendByMonthCurrency(array $periods): array
     {
-        $query = GoodsReceiptLine::query()
-            ->join('goods_receipts', 'goods_receipts.id', '=', 'goods_receipt_lines.goods_receipt_id')
-            ->where('goods_receipts.organisation_id', $organisationId)
-            ->whereNotNull('goods_receipt_lines.line_total_amount')
-            ->whereNotNull('goods_receipt_lines.cost_currency_code')
-            ->selectRaw("to_char(goods_receipts.received_at, 'YYYY-MM') as month")
-            ->selectRaw('goods_receipt_lines.cost_currency_code as currency')
-            ->selectRaw('SUM(goods_receipt_lines.line_total_amount) as total')
-            ->groupBy('month', 'currency');
+        $out = [];
 
-        $this->boundMonths($query, "to_char(goods_receipts.received_at, 'YYYY-MM')", $from, $to);
+        foreach ($periods as $period) {
+            /** @var list<array<string, mixed>> $totals */
+            $totals = $period['totals_by_currency'];
 
-        return $this->pivot($query->get());
+            foreach ($totals as $row) {
+                $out[(string) $period['period']][(string) $row['currency_code']] =
+                    $this->numeric((string) $row['item_subtotal']);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * How much of each month's spend is still outstanding (§3.6).
+     *
+     * A month fact rather than a currency fact, because an unpriced line has no
+     * currency to belong to — the same reason the summary endpoint puts these
+     * counts on the period envelope rather than inside a money row.
+     *
+     * @param  list<array<string, mixed>>  $periods
+     * @return array<string, array{unpriced_line_count: int, valuation_pending_line_count: int}>
+     */
+    private function spendQualityByMonth(array $periods): array
+    {
+        $out = [];
+
+        foreach ($periods as $period) {
+            $out[(string) $period['period']] = [
+                'unpriced_line_count' => (int) $period['unpriced_line_count'],
+                'valuation_pending_line_count' => (int) $period['valuation_pending_line_count'],
+            ];
+        }
+
+        return $out;
     }
 
     /**

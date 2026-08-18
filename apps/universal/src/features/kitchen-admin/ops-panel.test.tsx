@@ -1,10 +1,12 @@
-import type { StockItem, StockLevel } from '@healthy360/api-client/contracts';
+import type { ItemLatestPurchase, StockItem, StockLevel } from '@healthy360/api-client/contracts';
+import { GoodsReceiptId, SupplierId } from '@healthy360/domain-types';
 import { screen, waitFor } from '@testing-library/react-native';
 
-import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { TEST_BRANCH_ID } from '../../testing/session-fixtures.ts';
+import { stockItemRowTestId } from './ops-format.ts';
 import { StockScreen } from './screens/stock-screen.tsx';
 
 jest.mock('expo-router', () => ({
@@ -48,6 +50,30 @@ function stockLevel(ordinal: number, overrides: Partial<StockLevel> = {}): Stock
     };
 }
 
+/** One shelf's newest purchase across every supplier (SUP2), as the Procurement read answers it. */
+function itemLatestPurchase(
+    ordinal: number,
+    overrides: Partial<ItemLatestPurchase> = {},
+): ItemLatestPurchase {
+    return {
+        stockItemId: `stock-item-${String(ordinal)}` as StockItem['id'],
+        goodsReceiptId: GoodsReceiptId.unsafe(`goods-receipt-${String(ordinal)}`),
+        documentRef: 'DN-2001',
+        receivedAt: '2026-08-10T09:00:00.000Z',
+        quantity: '10.0000',
+        unitId: null,
+        unitCode: 'kg',
+        unitPriceAmount: '3.200000',
+        costCurrencyCode: 'USD',
+        supplier: {
+            id: SupplierId.unsafe('supplier-1'),
+            code: 'GULF-01',
+            nameEn: 'Gulf Fresh',
+        },
+        ...overrides,
+    };
+}
+
 describe('ops panels', () => {
     it('splits the stock board into the two books and counts each from the declared world', async () => {
         await renderStubScreen(<StockScreen />, {
@@ -60,6 +86,7 @@ describe('ops panels', () => {
                         stockItem(4, { backing: 'product', catalogueItemId: 'catalogue-item-4' }),
                     ],
                     listStockLevels: async () => [1, 2, 3].map((n) => stockLevel(n)),
+                    listItemLatestPurchases: async () => [],
                 },
                 kitchenAdmin: { listIngredients: async () => page([]) },
             },
@@ -98,6 +125,7 @@ describe('ops panels', () => {
                 kitchenOps: {
                     listStockItems: async () => [stockItem(1)],
                     listStockLevels: async () => [],
+                    listItemLatestPurchases: async () => [],
                 },
                 kitchenAdmin: { listIngredients: async () => page([]) },
             },
@@ -128,5 +156,104 @@ describe('ops panels', () => {
             expect(screen.getByTestId('kitchen-stock-ingredients-empty')).toBeTruthy();
         });
         expect(screen.getByTestId('kitchen-stock-products-empty')).toBeTruthy();
+    });
+
+    /*
+     * SUP2 — the last-purchase column. The price is a *separate* Procurement read joined to the
+     * Inventory rows on `stockItemId`, because Inventory may not import Procurement, so the three
+     * things worth pinning are the join, the three-state cell, and that the join is one request.
+     */
+
+    it('joins the last purchase onto both books and keeps its three states apart', async () => {
+        const { repositories } = await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [stockItem(1), stockItem(2), stockItem(3)],
+                    listStockLevels: async () => [],
+                    listItemLatestPurchases: async () => [
+                        itemLatestPurchase(1),
+                        // Bought, but the money was redacted for this reader.
+                        itemLatestPurchase(3, {
+                            unitPriceAmount: null,
+                            costCurrencyCode: null,
+                        }),
+                    ],
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-stock-ingredients-table')).toBeTruthy();
+        });
+
+        // One request for the whole page, carrying every visible shelf — never one per row.
+        expect(repositories.kitchenOps.listItemLatestPurchases).toHaveBeenCalledTimes(1);
+        expect(repositories.kitchenOps.listItemLatestPurchases).toHaveBeenCalledWith([
+            stockItem(1).id,
+            stockItem(2).id,
+            stockItem(3).id,
+        ]);
+
+        // 1. A price, with the currency and unit that make it mean something.
+        //
+        // The join is its own request, one behind the table: until it lands every row honestly says
+        // so, so the wait is for the cell this test is about rather than for the table that arrived
+        // a request earlier. The assertions are regexes because all three facts share one cell —
+        // `toHaveTextContent` matches a bare string exactly, so each would fail on the other two.
+        const priced = stockItemRowTestId(String(stockItem(1).id));
+        await waitFor(() => {
+            expect(screen.getByTestId(`${priced}-price`)).toBeTruthy();
+        });
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/3\.20/);
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/USD/);
+        expect(screen.getByTestId(`${priced}-price-source`)).toHaveTextContent(/Gulf Fresh/);
+
+        // 2. Absent from the answer means never bought at a price at all.
+        expect(
+            screen.getByTestId(`${stockItemRowTestId(String(stockItem(2).id))}-never-bought`),
+        ).toBeTruthy();
+
+        // 3. Present but redacted — a different cell from either of the other two.
+        const hidden = stockItemRowTestId(String(stockItem(3).id));
+        expect(screen.getByTestId(`${hidden}-price-hidden`)).toBeTruthy();
+        expect(screen.queryByTestId(`${hidden}-price`)).toBeNull();
+        expect(screen.queryByTestId(`${hidden}-never-bought`)).toBeNull();
+
+        // The History deep link is offered to a reader who may open the ledger.
+        expect(screen.getByTestId(`${priced}-history`)).toBeTruthy();
+    });
+
+    it('hides the price and the History link from a reader without the cost permission', async () => {
+        await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: ['organisation.view_current', 'inventory.view_organisation'],
+                }),
+            }),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [stockItem(1)],
+                    listStockLevels: async () => [],
+                    // The server would redact these; the screen must not show them either way.
+                    listItemLatestPurchases: async () => [itemLatestPurchase(1)],
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-stock-ingredients-table')).toBeTruthy();
+        });
+
+        const testID = stockItemRowTestId(String(stockItem(1).id));
+        // Same one-request lag as above: the row reports "loading" until the join lands.
+        await waitFor(() => {
+            expect(screen.getByTestId(`${testID}-price-hidden`)).toBeTruthy();
+        });
+        expect(screen.queryByTestId(`${testID}-price`)).toBeNull();
+        // A link into a ledger this reader may not open would be a promise it refuses.
+        expect(screen.queryByTestId(`${testID}-history`)).toBeNull();
     });
 });

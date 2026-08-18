@@ -32,8 +32,10 @@ const KITCHEN_MANAGEMENT_ID_LABELS: readonly string[] = [
 const KITCHEN_OPS_ID_LABELS: readonly string[] = [
     'GoodsReceiptId',
     'ProductionOrderId',
+    'PurchaseOrderId',
     'QualityCheckId',
     'StockItemId',
+    'SupplierContactId',
     'SupplierId',
 ];
 
@@ -138,7 +140,7 @@ describe('identifier codecs', () => {
         ).toEqual([...KITCHEN_MANAGEMENT_ID_LABELS].sort());
     });
 
-    it('exposes the five kitchen ops identifiers', () => {
+    it('exposes the seven kitchen ops identifiers', () => {
         expect(
             Object.keys(ID_CODECS)
                 .filter((label) => KITCHEN_OPS_ID_LABELS.includes(label))

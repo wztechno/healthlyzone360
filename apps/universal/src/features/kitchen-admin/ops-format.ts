@@ -10,6 +10,8 @@ import type {
     OrderDeskDriver,
     OrderDeskQueueRow,
     ProductionOrderStatus,
+    PurchaseOrderStatus,
+    ReceiptCostStatus,
     QualityCheckStatus,
     QualityCheckSubjectType,
     StockItem,
@@ -402,6 +404,189 @@ export function filterDrivers(
     );
 }
 
+/* ── purchase orders (SUP4) ──────────────────────────────────────────────────────────────────── */
+
+const PURCHASE_ORDER_STATUS_KEYS: Readonly<Record<PurchaseOrderStatus, string>> = {
+    draft: 'kitchen:ops.supplyOrders.status.draft',
+    issued: 'kitchen:ops.supplyOrders.status.issued',
+    partially_received: 'kitchen:ops.supplyOrders.status.partiallyReceived',
+    received: 'kitchen:ops.supplyOrders.status.received',
+    cancelled: 'kitchen:ops.supplyOrders.status.cancelled',
+};
+
+export function purchaseOrderStatusKey(status: PurchaseOrderStatus): string {
+    return PURCHASE_ORDER_STATUS_KEYS[status];
+}
+
+/**
+ * The tone an order's status badge carries.
+ *
+ * `draft` is a warning on exactly the grounds `placed` is on a kitchen order: it is the only state
+ * on this list that is *somebody's job right now* — an order nobody has issued buys nothing — and
+ * neutral would read as settled. `cancelled` is neutral rather than danger: calling an order off is
+ * an outcome, not a fault, and colouring it as an error would ask a manager to treat a closed
+ * decision as a problem to fix.
+ *
+ * `partially_received` shares `issued`'s info tone rather than earning a louder one. A half
+ * delivery is the ordinary shape of a wholesale order, not an exception.
+ */
+const PURCHASE_ORDER_STATUS_TONES: Readonly<Record<PurchaseOrderStatus, BadgeTone>> = {
+    draft: 'warning',
+    issued: 'info',
+    partially_received: 'info',
+    received: 'success',
+    cancelled: 'neutral',
+};
+
+export function purchaseOrderStatusTone(status: PurchaseOrderStatus): BadgeTone {
+    return PURCHASE_ORDER_STATUS_TONES[status];
+}
+
+/**
+ * The three questions the detail screen's controls ask, as closed records over all five statuses.
+ *
+ * Closed rather than `status === 'draft'` tests for the reason `DELIVERY_JOB_ASSIGNABLE` is: the day
+ * the wire gains a sixth state this stops compiling and somebody decides what it means, which is
+ * exactly the decision a permissive default would make silently and wrongly. They mirror the
+ * server's own machine rather than restating it — a control offered on a state the service refuses
+ * would earn a `resource.conflict` the person did nothing to deserve.
+ *
+ * The two receiving rows are filled in **now**, ahead of the slice that can reach them, and the
+ * values are not placeholders:
+ *
+ * - **editing** is false from `issued` onward, because issuing freezes the document a supplier is
+ *   holding a copy of;
+ * - **issuing** is false everywhere but `draft` — there is one way in and it happens once;
+ * - **cancelling** is false from `partially_received` onward, and that is the interesting one.
+ *   §3.5: an order with deliveries against it cannot be cancelled as though nothing happened. The
+ *   receiving slice's backend refuses it, and hiding the control now means the button never appears
+ *   on a row the server would refuse.
+ */
+const PURCHASE_ORDER_LINES_EDITABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: true,
+    issued: false,
+    partially_received: false,
+    received: false,
+    cancelled: false,
+};
+
+export function canEditPurchaseOrderLines(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_LINES_EDITABLE[status];
+}
+
+const PURCHASE_ORDER_ISSUABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: true,
+    issued: false,
+    partially_received: false,
+    received: false,
+    cancelled: false,
+};
+
+export function canIssuePurchaseOrder(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_ISSUABLE[status];
+}
+
+const PURCHASE_ORDER_CANCELLABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: true,
+    issued: true,
+    partially_received: false,
+    received: false,
+    cancelled: false,
+};
+
+export function canCancelPurchaseOrder(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_CANCELLABLE[status];
+}
+
+/**
+ * Whether an order can still take a delivery (SUP5, §3.5).
+ *
+ * The two states a van can arrive against, and no others. A draft has been handed to nobody, and a
+ * received or cancelled order is terminal — the server refuses a delivery against any of the three,
+ * so offering the action would earn a `resource.conflict` the person did nothing to deserve.
+ */
+const PURCHASE_ORDER_RECEIVABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: false,
+    issued: true,
+    partially_received: true,
+    received: false,
+    cancelled: false,
+};
+
+export function canReceivePurchaseOrder(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_RECEIVABLE[status];
+}
+
+/**
+ * Whether an order has a document worth putting on paper (SUP7, §7).
+ *
+ * Four of the five, and the one exception is the interesting one. A **draft** prints as a preview
+ * carrying a Draft marker — §3.5 asks for exactly that, because checking the sheet before freezing
+ * it is the last chance to notice a wrong quantity. A **cancelled** order is the refusal: the whole
+ * purpose of the sheet is to be handed to a supplier, and printing one for an order that was called
+ * off is how a delivery arrives that nobody ordered. Its record stays readable on screen.
+ *
+ * `received` stays true because reprints are a Phase 1 outcome in their own right (§1 item 6): a
+ * receiver reconciling an invoice three weeks later needs the document that was handed over.
+ */
+const PURCHASE_ORDER_PRINTABLE: Readonly<Record<PurchaseOrderStatus, boolean>> = {
+    draft: true,
+    issued: true,
+    partially_received: true,
+    received: true,
+    cancelled: false,
+};
+
+export function canPrintPurchaseOrder(status: PurchaseOrderStatus): boolean {
+    return PURCHASE_ORDER_PRINTABLE[status];
+}
+
+/* ── receipt costing (SUP5) ──────────────────────────────────────────────────────────────────── */
+
+const RECEIPT_COST_STATUS_KEYS: Readonly<Record<ReceiptCostStatus, string>> = {
+    unpriced: 'kitchen:ops.receiving.costStatus.unpriced',
+    partial: 'kitchen:ops.receiving.costStatus.partial',
+    complete: 'kitchen:ops.receiving.costStatus.complete',
+};
+
+export function receiptCostStatusKey(status: ReceiptCostStatus): string {
+    return RECEIPT_COST_STATUS_KEYS[status];
+}
+
+/**
+ * The tone a receipt's costing badge carries.
+ *
+ * Both unfinished states are `warning` and neither is `danger`: an invoice that has not arrived yet
+ * is somebody's job, not a fault, and colouring it as an error would ask a manager to treat the
+ * ordinary rhythm of wholesale paperwork as a problem to fix. They are the same tone because they
+ * are the same call to action — open this receipt — and the counts beside them are what distinguish
+ * "type these prices in" from "the prices are here and something else is blocking".
+ */
+const RECEIPT_COST_STATUS_TONES: Readonly<Record<ReceiptCostStatus, BadgeTone>> = {
+    unpriced: 'warning',
+    partial: 'warning',
+    complete: 'success',
+};
+
+export function receiptCostStatusTone(status: ReceiptCostStatus): BadgeTone {
+    return RECEIPT_COST_STATUS_TONES[status];
+}
+
+/**
+ * How much of an ordered line is still to come, as a display string.
+ *
+ * The server already floors it at zero and expresses all three quantities in the line's own unit, so
+ * this is a read rather than an arithmetic — deliberately. A screen that recomputed "ordered minus
+ * received" would be a second answer to a question the receiving guard has already answered, and the
+ * two would eventually disagree about a delivery quoted in a different unit.
+ */
+export function outstandingLabel(line: {
+    readonly outstandingQuantity: string;
+    readonly unitCode: string;
+}): string {
+    return `${line.outstandingQuantity} ${line.unitCode}`;
+}
+
 /* ── B2B quotations (B4) ─────────────────────────────────────────────────────────────────────── */
 
 const KITCHEN_QUOTATION_STATUS_KEYS: Readonly<Record<KitchenQuotationStatus, string>> = {
@@ -477,6 +662,81 @@ export function stockLevelRowTestId(levelId: string): string {
 
 export function supplierRowTestId(supplierId: string): string {
     return `kitchen-supplier-${supplierId}`;
+}
+
+/**
+ * One contact card in the supplier contact editor (SUP1).
+ *
+ * Keyed by the editor's own local key rather than by the contact's identifier, because a card
+ * a person has just added has no identifier yet — the set-replace mints one on save. A test id
+ * that only existed for saved rows would be missing from exactly the card a test wants to fill in.
+ */
+export function supplierContactRowTestId(localKey: string): string {
+    return `kitchen-supplier-contact-${localKey}`;
+}
+
+/**
+ * One supplied-item row on the supplier's page (SUP2).
+ *
+ * Keyed by the *stock item*, not by a link identifier: the API identifies a link by its
+ * `(supplier, item)` pair and never publishes a row id, and the supplier is already fixed by the
+ * page the row is on.
+ */
+export function suppliedItemRowTestId(stockItemId: string): string {
+    return `kitchen-supplier-item-${stockItemId}`;
+}
+
+/**
+ * One row of the supply-order builder (SUP3).
+ *
+ * Keyed by the stock item, which is what a proposal row *is*: the row for a shelf that ran out and
+ * the row for the same shelf somebody added by hand are the same row, deduped by the server, and a
+ * key derived from the origin would have made that provable only by accident.
+ */
+export function supplyOrderRowTestId(stockItemId: string): string {
+    return `kitchen-supply-order-row-${stockItemId}`;
+}
+
+/** One supplier's block in the builder's grouping preview (SUP3). */
+export function supplyOrderGroupTestId(supplierId: string): string {
+    return `kitchen-supply-order-group-${supplierId}`;
+}
+
+/**
+ * One row of the order book (SUP4).
+ *
+ * Keyed by the order's identifier rather than by its `number`: the number is the handle a person
+ * quotes down a phone line and is minted per organisation, while a test id has to be unique in a
+ * page that may show two kitchens' fixtures in one Playwright run.
+ */
+export function purchaseOrderRowTestId(purchaseOrderId: string): string {
+    return `kitchen-purchase-order-${purchaseOrderId}`;
+}
+
+/** One line on the purchase-order detail (SUP4), keyed by the shelf the line names. */
+export function purchaseOrderLineTestId(stockItemId: string): string {
+    return `kitchen-purchase-order-line-${stockItemId}`;
+}
+
+/**
+ * One printed sheet on the print route (SUP7), keyed by the **order** rather than the supplier.
+ *
+ * §7 says each supplier starts on a new page, and one order is addressed to exactly one supplier —
+ * but the two are not interchangeable as a key. A batch may legitimately name two orders for one
+ * supplier (a second draft raised after the first was issued), and a supplier-keyed id would then
+ * collide on the page where the page break lives.
+ *
+ * This prefix is also load-bearing outside TypeScript: the `@media print` block in
+ * `apps/universal/global.css` breaks the page after each sheet by selecting the element children of
+ * `[data-testid='kitchen-supply-print-sheets']` whose id starts with this stem. Renaming it here
+ * without renaming it there prints every supplier onto one continuous roll, which no test would
+ * catch by shape alone.
+ *
+ * The child selector is not fussiness: every id *inside* a sheet is built from this same stem, so a
+ * bare prefix match would break the page after the document title and after every item row.
+ */
+export function printSheetTestId(purchaseOrderId: string): string {
+    return `kitchen-supply-print-sheet-${purchaseOrderId}`;
 }
 
 export function goodsReceiptRowTestId(goodsReceiptId: string): string {
