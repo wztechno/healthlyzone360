@@ -17,15 +17,15 @@
     },
     "dependencies": {
         "@healthy360/domain-types": "workspace:*",
-        "@hookform/resolvers": "^5.5.7",
+        "@hookform/resolvers": "^5.8.0",
         "zod": "^4.4.3"
     },
     "peerDependencies": {
-        "react-hook-form": "^7.83.0"
+        "react-hook-form": "^7.85.0"
     },
     "devDependencies": {
         "@healthy360/testing": "workspace:*",
-        "react-hook-form": "^7.83.0",
+        "react-hook-form": "^7.85.0",
         "vitest": "^4.1.10"
     }
 }
