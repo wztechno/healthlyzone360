@@ -36,8 +36,8 @@
     },
     "devDependencies": {
         "@healthy360/testing": "workspace:*",
-        "@types/react": "~19.2.2",
-        "react": "19.2.3",
+        "@types/react": "~19.2.18",
+        "react": "19.2.8",
         "vitest": "^4.1.10"
     }
 }
