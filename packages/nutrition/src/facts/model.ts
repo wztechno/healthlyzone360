@@ -68,6 +68,13 @@ export const MEASURE_UNITS = [
     'cup',
     'tbsp',
     'tsp',
+    // Purchase packs — how a kitchen buys, not how a recipe measures. They
+    // never cross-convert; each is an honest identity of one.
+    'pack',
+    'bag',
+    'can',
+    'bottle',
+    'gallon',
 ] as const;
 export type MeasureUnit = (typeof MEASURE_UNITS)[number];
 

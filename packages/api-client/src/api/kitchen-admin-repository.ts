@@ -462,7 +462,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems('product', pickCursorFilter(filter), status);
+            const page = await listCatalogueItems(
+                filter?.itemType ?? 'product',
+                pickCursorFilter(filter),
+                status,
+            );
             return {
                 ...page,
                 items: page.items.map((wire) => mapProductAdminFromItem(wire)),
@@ -628,11 +632,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/plans/${encodeURIComponent(String(planId))}/menu`,
             });
 
-            return mapPlanMenu(
-                envelope.data.item,
-                envelope.data.cycle,
-                envelope.data.entries,
-            );
+            return mapPlanMenu(envelope.data.item, envelope.data.cycle, envelope.data.entries);
         },
 
         async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {

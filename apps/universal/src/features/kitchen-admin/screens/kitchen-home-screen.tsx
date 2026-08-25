@@ -831,9 +831,12 @@ export function KitchenHomeScreen() {
                                             hint={
                                                 lowStockCount !== null && lowStockCount > 0
                                                     ? canOrderSupplies
-                                                        ? t('kitchen:hub.kpi.lowStockReadyToOrder', {
-                                                              count: lowStockCount,
-                                                          })
+                                                        ? t(
+                                                              'kitchen:hub.kpi.lowStockReadyToOrder',
+                                                              {
+                                                                  count: lowStockCount,
+                                                              },
+                                                          )
                                                         : t('kitchen:ops.stock.lowStockCount', {
                                                               count: lowStockCount,
                                                           })

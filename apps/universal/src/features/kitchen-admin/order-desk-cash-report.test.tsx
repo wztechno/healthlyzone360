@@ -81,9 +81,24 @@ function report(rows: readonly OrderDeskCashReportRow[]): OrderDeskCashReport {
         // Derived by the server, never by the screen — two totals for one method, because two
         // currencies.
         totals: [
-            { method: 'cash_on_delivery', currencyCode: 'USD', receiptCount: 2, amountMinorSum: 4_000 },
-            { method: 'cash_on_delivery', currencyCode: 'AED', receiptCount: 1, amountMinorSum: 9_000 },
-            { method: 'cash_at_counter', currencyCode: 'USD', receiptCount: 1, amountMinorSum: 400 },
+            {
+                method: 'cash_on_delivery',
+                currencyCode: 'USD',
+                receiptCount: 2,
+                amountMinorSum: 4_000,
+            },
+            {
+                method: 'cash_on_delivery',
+                currencyCode: 'AED',
+                receiptCount: 1,
+                amountMinorSum: 9_000,
+            },
+            {
+                method: 'cash_at_counter',
+                currencyCode: 'USD',
+                receiptCount: 1,
+                amountMinorSum: 400,
+            },
             { method: 'wish', currencyCode: 'USD', receiptCount: 1, amountMinorSum: 250 },
         ],
         meta: { date: '2026-05-10', branchId: null, timezone: 'UTC', count: rows.length },
@@ -200,7 +215,7 @@ describe('order desk cash report — the ladder', () => {
 });
 
 describe('order desk cash report — rows, totals and the em dash', () => {
-    it('keeps one agent\'s two currencies as two rows and never sums across them', async () => {
+    it("keeps one agent's two currencies as two rows and never sums across them", async () => {
         const rows = seedRows();
         await renderReport(async () => report(rows));
         await settled();

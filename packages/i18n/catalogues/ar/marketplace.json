@@ -321,7 +321,8 @@
         "resultCount_two": "نتيجتان",
         "resultCount_few": "{{count}} نتائج",
         "resultCount_many": "{{count}} نتيجة",
-        "resultCount_other": "{{count}} نتيجة"
+        "resultCount_other": "{{count}} نتيجة",
+        "category": "الفئة"
     },
     "nutrition": {
         "energy": "{{energy}} سعرة",
@@ -365,7 +366,9 @@
     },
     "itemTypes": {
         "meal": "وجبة",
-        "product": "منتج"
+        "product": "منتج",
+        "sauce": "صلصة",
+        "dressing": "صلصة سلطة"
     },
     "diets": {
         "omnivore": "نظام مختلط",
@@ -416,5 +419,20 @@
     },
     "tags": {
         "more": "+{{n}} أخرى"
+    },
+    "categories": {
+        "meal": "وجبات",
+        "frozen": "مجمّدات",
+        "beverage": "مشروبات",
+        "bread": "خبز",
+        "sauce": "صلصات",
+        "dressing": "صلصات السلطة",
+        "poultry": "دواجن",
+        "meat": "لحوم",
+        "toppings": "إضافات",
+        "oil": "زيوت",
+        "condiment": "توابل ومقبلات",
+        "dairy": "ألبان",
+        "vegetables": "خضار"
     }
 }

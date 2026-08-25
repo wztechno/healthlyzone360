@@ -110,6 +110,10 @@ interface DetailsDraft {
     readonly reference: string;
     readonly categoryCode: string;
     readonly measurementUnit: MeasureUnit;
+    /** `''` means "no purchase pack recorded" — an honest absence, not a default. */
+    readonly purchaseUnit: MeasureUnit | '';
+    readonly composition: string;
+    readonly itemsPerUnit: string;
     readonly notes: string;
     readonly aliases: readonly string[];
 }
@@ -119,6 +123,9 @@ const EMPTY_DETAILS: DetailsDraft = {
     reference: '',
     categoryCode: '',
     measurementUnit: 'g',
+    purchaseUnit: '',
+    composition: '',
+    itemsPerUnit: '',
     notes: '',
     aliases: [],
 };
@@ -129,9 +136,20 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
         reference: ingredient.reference ?? '',
         categoryCode: ingredient.categoryCode,
         measurementUnit: ingredient.measurementUnit,
+        purchaseUnit: ingredient.purchaseUnit ?? '',
+        composition: ingredient.composition ?? '',
+        itemsPerUnit: ingredient.itemsPerUnit === null ? '' : String(ingredient.itemsPerUnit),
         notes: ingredient.notes ?? '',
         aliases: [...ingredient.aliases],
     };
+}
+
+/** The draft's items-per-unit as a number, or null for blank/unparseable. */
+function itemsPerUnitOf(draft: DetailsDraft): number | null {
+    const trimmed = draft.itemsPerUnit.trim();
+    if (trimmed === '') return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 /** A mapping row as the editor holds it, plus where it came from. */
@@ -401,6 +419,13 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                         ? {}
                         : { reference: details.reference.trim() }),
                     ...(details.aliases.length === 0 ? {} : { aliases: details.aliases }),
+                    ...(details.purchaseUnit === '' ? {} : { purchaseUnit: details.purchaseUnit }),
+                    ...(details.composition.trim() === ''
+                        ? {}
+                        : { composition: details.composition.trim() }),
+                    ...(itemsPerUnitOf(details) === null
+                        ? {}
+                        : { itemsPerUnit: itemsPerUnitOf(details)! }),
                     ...(details.notes.trim() === '' ? {} : { notes: details.notes.trim() }),
                 },
                 {
@@ -430,6 +455,10 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                     categoryCode: details.categoryCode,
                     measurementUnit: details.measurementUnit,
                     reference: details.reference.trim() === '' ? null : details.reference.trim(),
+                    purchaseUnit: details.purchaseUnit === '' ? null : details.purchaseUnit,
+                    composition:
+                        details.composition.trim() === '' ? null : details.composition.trim(),
+                    itemsPerUnit: itemsPerUnitOf(details),
                     aliases: details.aliases,
                     notes: details.notes.trim() === '' ? null : details.notes.trim(),
                 },
@@ -678,6 +707,61 @@ function IngredientEditor({ ingredient }: IngredientEditScreenProps) {
                         value={details.measurementUnit}
                         onChange={(next) => {
                             setDetails({ ...details, measurementUnit: next as MeasureUnit });
+                            markDetailsDirty();
+                        }}
+                    />
+
+                    <Select
+                        testID="kitchen-ingredient-purchase-unit"
+                        id="kitchen-ingredient-purchase-unit"
+                        label={t('kitchen:fields.purchaseUnit')}
+                        hint={t('kitchen:fields.purchaseUnitHint')}
+                        searchable
+                        disabled={isPlatformLibrary}
+                        options={[
+                            {
+                                value: 'none',
+                                label: t('kitchen:fields.purchaseUnitNone'),
+                                description: t('kitchen:fields.purchaseUnitNoneHint'),
+                            },
+                            ...unitOptions,
+                        ]}
+                        value={details.purchaseUnit === '' ? 'none' : details.purchaseUnit}
+                        onChange={(next) => {
+                            setDetails({
+                                ...details,
+                                purchaseUnit:
+                                    next === 'none' ? '' : (next as DetailsDraft['purchaseUnit']),
+                            });
+                            markDetailsDirty();
+                        }}
+                    />
+
+                    <TextInputField
+                        testID="kitchen-ingredient-items-per-unit"
+                        id="kitchen-ingredient-items-per-unit"
+                        label={t('kitchen:fields.itemsPerUnit')}
+                        hint={t('kitchen:fields.itemsPerUnitHint')}
+                        value={details.itemsPerUnit}
+                        keyboardType="numeric"
+                        disabled={isPlatformLibrary}
+                        onChangeText={(next) => {
+                            setDetails({ ...details, itemsPerUnit: next });
+                            markDetailsDirty();
+                        }}
+                    />
+
+                    <TextInputField
+                        testID="kitchen-ingredient-composition"
+                        id="kitchen-ingredient-composition"
+                        label={t('kitchen:fields.composition')}
+                        hint={t('kitchen:fields.compositionHint')}
+                        value={details.composition}
+                        multiline
+                        numberOfLines={3}
+                        disabled={isPlatformLibrary}
+                        onChangeText={(next) => {
+                            setDetails({ ...details, composition: next });
                             markDetailsDirty();
                         }}
                     />

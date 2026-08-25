@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6088 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6131 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2588,6 +2588,13 @@ export interface NamespaceKeys {
     | 'desk.window.overdue'
     | 'desk.window.today'
     | 'desk.windowLabel'
+    | 'dressings.caption'
+    | 'dressings.create'
+    | 'dressings.emptyBody'
+    | 'dressings.emptyTitle'
+    | 'dressings.resultCount'
+    | 'dressings.subtitle'
+    | 'dressings.title'
     | 'driver.assignedAt'
     | 'driver.deliver'
     | 'driver.deliverBody'
@@ -2656,6 +2663,8 @@ export interface NamespaceKeys {
     | 'families.costReport.name'
     | 'families.deliveryZones.description'
     | 'families.deliveryZones.name'
+    | 'families.dressings.description'
+    | 'families.dressings.name'
     | 'families.ingredients.description'
     | 'families.ingredients.name'
     | 'families.meals.description'
@@ -2690,6 +2699,8 @@ export interface NamespaceKeys {
     | 'families.recipes.name'
     | 'families.review.description'
     | 'families.review.name'
+    | 'families.sauces.description'
+    | 'families.sauces.name'
     | 'families.stock.description'
     | 'families.stock.name'
     | 'families.suppliers.description'
@@ -2699,9 +2710,17 @@ export interface NamespaceKeys {
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
+    | 'fields.composition'
+    | 'fields.compositionHint'
+    | 'fields.itemsPerUnit'
+    | 'fields.itemsPerUnitHint'
     | 'fields.name'
     | 'fields.notes'
     | 'fields.notesHint'
+    | 'fields.purchaseUnit'
+    | 'fields.purchaseUnitHint'
+    | 'fields.purchaseUnitNone'
+    | 'fields.purchaseUnitNoneHint'
     | 'fields.reference'
     | 'fields.referenceHint'
     | 'fields.unit'
@@ -4272,6 +4291,13 @@ export interface NamespaceKeys {
     | 'rows.moveUp'
     | 'rows.movedAnnouncement'
     | 'rows.remove'
+    | 'sauces.caption'
+    | 'sauces.create'
+    | 'sauces.emptyBody'
+    | 'sauces.emptyTitle'
+    | 'sauces.resultCount'
+    | 'sauces.subtitle'
+    | 'sauces.title'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -4295,6 +4321,7 @@ export interface NamespaceKeys {
     | 'units.cup'
     | 'units.dimensionCount'
     | 'units.dimensionMass'
+    | 'units.dimensionPackage'
     | 'units.dimensionServing'
     | 'units.dimensionVolume'
     | 'units.g'
@@ -4433,6 +4460,19 @@ export interface NamespaceKeys {
     | 'brand.homeLabel'
     | 'brand.name'
     | 'brand.tagline'
+    | 'categories.beverage'
+    | 'categories.bread'
+    | 'categories.condiment'
+    | 'categories.dairy'
+    | 'categories.dressing'
+    | 'categories.frozen'
+    | 'categories.meal'
+    | 'categories.meat'
+    | 'categories.oil'
+    | 'categories.poultry'
+    | 'categories.sauce'
+    | 'categories.toppings'
+    | 'categories.vegetables'
     | 'channels.b2b'
     | 'channels.b2c'
     | 'channels.corporate'
@@ -4539,6 +4579,7 @@ export interface NamespaceKeys {
     | 'discover.subtitle'
     | 'discover.title'
     | 'filters.availability'
+    | 'filters.category'
     | 'filters.clear'
     | 'filters.cuisine'
     | 'filters.howToGetIt'
@@ -4587,8 +4628,10 @@ export interface NamespaceKeys {
     | 'howItWorks.step.tell.title'
     | 'howItWorks.subtitle'
     | 'howItWorks.title'
+    | 'itemTypes.dressing'
     | 'itemTypes.meal'
     | 'itemTypes.product'
+    | 'itemTypes.sauce'
     | 'kitchen.branchArea'
     | 'kitchen.branchesTitle'
     | 'kitchen.closedOn'
@@ -8694,6 +8737,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.window.overdue',
   'kitchen:desk.window.today',
   'kitchen:desk.windowLabel',
+  'kitchen:dressings.caption',
+  'kitchen:dressings.create',
+  'kitchen:dressings.emptyBody',
+  'kitchen:dressings.emptyTitle',
+  'kitchen:dressings.resultCount',
+  'kitchen:dressings.subtitle',
+  'kitchen:dressings.title',
   'kitchen:driver.assignedAt',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
@@ -8762,6 +8812,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.costReport.name',
   'kitchen:families.deliveryZones.description',
   'kitchen:families.deliveryZones.name',
+  'kitchen:families.dressings.description',
+  'kitchen:families.dressings.name',
   'kitchen:families.ingredients.description',
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
@@ -8796,6 +8848,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.recipes.name',
   'kitchen:families.review.description',
   'kitchen:families.review.name',
+  'kitchen:families.sauces.description',
+  'kitchen:families.sauces.name',
   'kitchen:families.stock.description',
   'kitchen:families.stock.name',
   'kitchen:families.suppliers.description',
@@ -8805,9 +8859,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
+  'kitchen:fields.composition',
+  'kitchen:fields.compositionHint',
+  'kitchen:fields.itemsPerUnit',
+  'kitchen:fields.itemsPerUnitHint',
   'kitchen:fields.name',
   'kitchen:fields.notes',
   'kitchen:fields.notesHint',
+  'kitchen:fields.purchaseUnit',
+  'kitchen:fields.purchaseUnitHint',
+  'kitchen:fields.purchaseUnitNone',
+  'kitchen:fields.purchaseUnitNoneHint',
   'kitchen:fields.reference',
   'kitchen:fields.referenceHint',
   'kitchen:fields.unit',
@@ -10378,6 +10440,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:rows.moveUp',
   'kitchen:rows.movedAnnouncement',
   'kitchen:rows.remove',
+  'kitchen:sauces.caption',
+  'kitchen:sauces.create',
+  'kitchen:sauces.emptyBody',
+  'kitchen:sauces.emptyTitle',
+  'kitchen:sauces.resultCount',
+  'kitchen:sauces.subtitle',
+  'kitchen:sauces.title',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',
@@ -10401,6 +10470,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:units.cup',
   'kitchen:units.dimensionCount',
   'kitchen:units.dimensionMass',
+  'kitchen:units.dimensionPackage',
   'kitchen:units.dimensionServing',
   'kitchen:units.dimensionVolume',
   'kitchen:units.g',
@@ -10538,6 +10608,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:brand.homeLabel',
   'marketplace:brand.name',
   'marketplace:brand.tagline',
+  'marketplace:categories.beverage',
+  'marketplace:categories.bread',
+  'marketplace:categories.condiment',
+  'marketplace:categories.dairy',
+  'marketplace:categories.dressing',
+  'marketplace:categories.frozen',
+  'marketplace:categories.meal',
+  'marketplace:categories.meat',
+  'marketplace:categories.oil',
+  'marketplace:categories.poultry',
+  'marketplace:categories.sauce',
+  'marketplace:categories.toppings',
+  'marketplace:categories.vegetables',
   'marketplace:channels.b2b',
   'marketplace:channels.b2c',
   'marketplace:channels.corporate',
@@ -10644,6 +10727,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.subtitle',
   'marketplace:discover.title',
   'marketplace:filters.availability',
+  'marketplace:filters.category',
   'marketplace:filters.clear',
   'marketplace:filters.cuisine',
   'marketplace:filters.howToGetIt',
@@ -10692,8 +10776,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.step.tell.title',
   'marketplace:howItWorks.subtitle',
   'marketplace:howItWorks.title',
+  'marketplace:itemTypes.dressing',
   'marketplace:itemTypes.meal',
   'marketplace:itemTypes.product',
+  'marketplace:itemTypes.sauce',
   'marketplace:kitchen.branchArea',
   'marketplace:kitchen.branchesTitle',
   'marketplace:kitchen.closedOn',

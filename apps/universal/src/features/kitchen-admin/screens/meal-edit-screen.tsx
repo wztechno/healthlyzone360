@@ -681,6 +681,29 @@ function MealEditor({ meal }: MealEditScreenProps) {
                 </Stack>
             </Card>
 
+            {/* ── source transcription ─────────────────────────────────────────────────────── */}
+            {data?.composition == null && data?.kitchenCategory == null ? null : (
+                <Card testID="kitchen-meal-composition" padding="md">
+                    <Stack space="sm">
+                        <Heading level={2}>{t('kitchen:fields.composition')}</Heading>
+                        {data.kitchenCategory === null ? null : (
+                            <Text
+                                testID="kitchen-meal-composition-category"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {data.kitchenSubcategory === null
+                                    ? data.kitchenCategory
+                                    : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
+                            </Text>
+                        )}
+                        {data.composition === null ? null : (
+                            <Text testID="kitchen-meal-composition-text">{data.composition}</Text>
+                        )}
+                    </Stack>
+                </Card>
+            )}
+
             {/* ── recipe, allergens and channels ───────────────────────────────────────────── */}
             <Card testID="kitchen-meal-recipe" padding="md">
                 <Stack space="md">

@@ -260,8 +260,14 @@ export interface IngredientAdmin {
     /** The kitchen's own reference, e.g. `IG-014`. `null` for a platform-library row. */
     readonly reference: string | null;
     readonly categoryCode: string;
-    /** The unit the kitchen buys and issues it in. */
+    /** The unit the kitchen issues it in. */
     readonly measurementUnit: MeasureUnit;
+    /** The pack the kitchen buys it in, when recorded. */
+    readonly purchaseUnit: MeasureUnit | null;
+    /** Coarse "Made From" transcription from the source workbook, kitchen-facing. */
+    readonly composition: string | null;
+    /** Pieces per purchase pack, when the source knows it. */
+    readonly itemsPerUnit: number | null;
     /** CONFIDENTIAL — purchase cost of 100 g, major units. `null` when no cost is recorded. */
     readonly costPer100g: CostAmount | null;
     /** Per-100 g reference facts, when the ingredient has any. Never fabricated to fill the field. */
@@ -288,6 +294,9 @@ export interface CreateIngredientRequest {
     readonly name: LocalisedText;
     readonly categoryCode: string;
     readonly measurementUnit: MeasureUnit;
+    readonly purchaseUnit?: MeasureUnit | undefined;
+    readonly composition?: string | undefined;
+    readonly itemsPerUnit?: number | undefined;
     readonly reference?: string | undefined;
     readonly costPer100g?: CostAmount | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
@@ -299,6 +308,11 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly name?: LocalisedText | undefined;
     readonly categoryCode?: string | undefined;
     readonly measurementUnit?: MeasureUnit | undefined;
+    readonly purchaseUnit?: MeasureUnit | null | undefined;
+    readonly composition?: string | null | undefined;
+    readonly itemsPerUnit?: number | null | undefined;
+    /** Per-100 g reference facts; `null` clears them. */
+    readonly per100g?: NutritionFacts | null | undefined;
     readonly reference?: string | null | undefined;
     readonly costPer100g?: CostAmount | null | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
@@ -554,9 +568,21 @@ export interface ProductPackVariant {
 export interface ProductAdmin {
     readonly id: ProductId;
     readonly meta: AdminEntityMeta;
+    /**
+     * Which packaged kind this row is. Sauces and dressings share the product
+     * shape wholesale — same packs, same pricing, same publication — and the
+     * kitchen screens list each kind on its own page via
+     * {@link ProductAdminFilter.itemType}.
+     */
+    readonly itemType: 'product' | 'sauce' | 'dressing';
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;
+    /** The kitchen's own nested filing pair, transcribed from its sheets. */
+    readonly kitchenCategory: string | null;
+    readonly kitchenSubcategory: string | null;
+    /** Coarse "Made From" transcription, kitchen-facing. */
+    readonly composition: string | null;
     readonly kitchenId: KitchenId;
     /** True for goods priced at the day's market rate; such a product carries no confirmed price. */
     readonly isMarketPriced: boolean;
@@ -576,9 +602,13 @@ export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly categoryCode?: string | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
+    /** Which packaged kind to list. Defaults to `product`. */
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
 }
 
 export interface CreateProductRequest {
+    /** Defaults to `product`; the sauces and dressings screens pass their own. */
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;
@@ -685,6 +715,11 @@ export interface MealAdmin {
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
+    /** The kitchen's own nested filing pair, transcribed from its sheets. */
+    readonly kitchenCategory: string | null;
+    readonly kitchenSubcategory: string | null;
+    /** Coarse "Made From" transcription, kitchen-facing. */
+    readonly composition: string | null;
     readonly kitchenId: KitchenId;
     /** The recipe *version* the meal's figures were computed from. Both `null` for a bought-in meal. */
     readonly recipeId: RecipeId | null;
@@ -1179,10 +1214,7 @@ export interface KitchenAdminRepository {
      * a day beyond the submitted cycle, and for a plan with no commercial terms yet
      * (`plan_profile_missing`) — a menu on an unconfigured plan is a menu on nothing.
      */
-    replacePlanMenu(
-        planId: SubscriptionPlanId,
-        request: ReplacePlanMenuRequest,
-    ): Promise<PlanMenu>;
+    replacePlanMenu(planId: SubscriptionPlanId, request: ReplacePlanMenuRequest): Promise<PlanMenu>;
 
     /* ── delivery zones and windows ─────────────────────────────────────────────────────────── */
 

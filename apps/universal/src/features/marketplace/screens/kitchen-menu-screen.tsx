@@ -15,8 +15,28 @@ import { MealCard } from '../meal-card.tsx';
 import { QueryStates } from '../query-states.tsx';
 
 const MEAL_TYPES: readonly MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
-const ITEM_TYPES = ['meal', 'product'] as const;
-const GROUP_KEYS = ['itemType', 'mealType'] as const;
+const ITEM_TYPES = ['meal', 'product', 'sauce', 'dressing'] as const;
+
+// ponytail: the platform product-category codes, mirrored from the API's
+// ProductCategorySeeder — the seed is code, so this constant changes with it.
+// Derived-from-loaded-pages was rejected (pagination could hide a shelf);
+// a categories endpoint is the upgrade path if kitchens ever mint their own.
+const PUBLISHED_CATEGORIES = [
+    'meal',
+    'frozen',
+    'beverage',
+    'bread',
+    'sauce',
+    'dressing',
+    'poultry',
+    'meat',
+    'toppings',
+    'oil',
+    'condiment',
+    'dairy',
+    'vegetables',
+] as const;
+const GROUP_KEYS = ['itemType', 'category', 'mealType'] as const;
 
 export interface KitchenMenuScreenProps {
     readonly kitchenId: string | undefined;
@@ -48,11 +68,15 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
         }
 
         const mealTypes = (selectedFilters['mealType'] ?? []) as readonly MealType[];
-        const itemTypes = (selectedFilters['itemType'] ?? []) as readonly ('meal' | 'product')[];
+        const itemTypes = (selectedFilters['itemType'] ?? []) as readonly (
+            'meal' | 'product' | 'sauce' | 'dressing'
+        )[];
+        const categorySlug = selectedFilters['category']?.[0];
         return {
             kitchenIds: [parsed],
             ...(searchTerm === '' ? {} : { query: searchTerm }),
             ...(itemTypes.length === 0 ? {} : { itemTypes }),
+            ...(categorySlug === undefined ? {} : { categorySlug }),
             ...(mealTypes.length === 0 ? {} : { mealTypes }),
         };
     }, [parsed, searchTerm, selectedFilters]);
@@ -108,6 +132,15 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                         options: ITEM_TYPES.map((itemType) => ({
                             value: itemType,
                             label: t(`marketplace:itemTypes.${itemType}`),
+                        })),
+                    },
+                    {
+                        key: 'category',
+                        label: t('marketplace:filters.category'),
+                        mode: 'single',
+                        options: PUBLISHED_CATEGORIES.map((code) => ({
+                            value: code,
+                            label: t(`marketplace:categories.${code}`),
                         })),
                     },
                     {

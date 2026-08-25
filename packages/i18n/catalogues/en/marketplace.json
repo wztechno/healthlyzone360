@@ -317,7 +317,8 @@
         "specialism": "Specialism",
         "availability": "Availability",
         "resultCount_one": "{{count}} result",
-        "resultCount_other": "{{count}} results"
+        "resultCount_other": "{{count}} results",
+        "category": "Category"
     },
     "nutrition": {
         "energy": "{{energy}} kcal",
@@ -361,7 +362,9 @@
     },
     "itemTypes": {
         "meal": "Meal",
-        "product": "Product"
+        "product": "Product",
+        "sauce": "Sauce",
+        "dressing": "Dressing"
     },
     "diets": {
         "omnivore": "Omnivore",
@@ -412,5 +415,20 @@
     },
     "tags": {
         "more": "+{{n}} more"
+    },
+    "categories": {
+        "meal": "Meals",
+        "frozen": "Frozen",
+        "beverage": "Beverages",
+        "bread": "Bread",
+        "sauce": "Sauces",
+        "dressing": "Dressings",
+        "poultry": "Poultry",
+        "meat": "Meat",
+        "toppings": "Toppings",
+        "oil": "Oils",
+        "condiment": "Condiments",
+        "dairy": "Dairy",
+        "vegetables": "Vegetables"
     }
 }

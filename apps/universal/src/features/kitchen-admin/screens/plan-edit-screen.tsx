@@ -781,8 +781,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
      * The cutover question, asked of the *server's* menu rather than the draft's origin: has this
      * plan ever had one, and is this draft about to give it one?
      */
-    const menuCutover =
-        menuRecord.data !== undefined && isFirstPublication(menuRecord.data, menu);
+    const menuCutover = menuRecord.data !== undefined && isFirstPublication(menuRecord.data, menu);
     const menuOnServer = menuRecord.data !== undefined && isMenuPublished(menuRecord.data);
     const publishFailure = toFailure(publish.error);
     const publishFields =

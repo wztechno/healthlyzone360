@@ -884,10 +884,7 @@ function OrderDeskQueueList() {
     const meta = queue.data?.meta ?? null;
     const failure = toFailure(queue.error);
     const filtered =
-        trimmed !== '' ||
-        statuses.length > 0 ||
-        fulfilmentType !== null ||
-        deskWindow !== 'today';
+        trimmed !== '' || statuses.length > 0 || fulfilmentType !== null || deskWindow !== 'today';
 
     /**
      * The open row as the queue currently has it, or the copy the drawer was opened with.

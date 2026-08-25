@@ -196,6 +196,28 @@ function MealsList() {
             },
         },
         {
+            key: 'category',
+            header: t('kitchen:list.columnCategory'),
+            render: (row) =>
+                row.kitchenCategory === null ? (
+                    <Text
+                        testID={`${mealRowTestId(String(row.id))}-kitchen-category-none`}
+                        tone="secondary"
+                    >
+                        {t('kitchen:list.noCategory')}
+                    </Text>
+                ) : (
+                    <Text
+                        testID={`${mealRowTestId(String(row.id))}-kitchen-category`}
+                        tone="secondary"
+                    >
+                        {row.kitchenSubcategory === null
+                            ? row.kitchenCategory
+                            : `${row.kitchenCategory} / ${row.kitchenSubcategory}`}
+                    </Text>
+                ),
+        },
+        {
             key: 'allergens',
             header: t('kitchen:meals.columnAllergens'),
             flex: 2,
@@ -377,6 +399,7 @@ function MealsList() {
                         columns={columns}
                         rows={sorted}
                         rowKey={(row) => String(row.id)}
+                        rowTone={(row) => (row.meta.status === 'retired' ? 'muted' : 'default')}
                         sortKey={sortKey}
                         sortDirection={sortDirection}
                         onSortChange={(key, direction) => {

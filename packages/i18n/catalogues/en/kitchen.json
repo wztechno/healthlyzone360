@@ -1454,6 +1454,14 @@
         "orderCashReport": {
             "name": "Cash taken",
             "description": "What each agent took in a day, and how it arrived — the record behind the till, until there is a shift to close."
+        },
+        "sauces": {
+            "name": "Sauces & marinations",
+            "description": "The kitchen-made sauces and marinations, with their packs and prices."
+        },
+        "dressings": {
+            "name": "Dressings",
+            "description": "The kitchen-made salad dressings, with their packs and prices."
         }
     },
     "analytics": {
@@ -1663,7 +1671,15 @@
         "unit": "Issuing unit",
         "unitHint": "The unit this ingredient is bought and issued in.",
         "notes": "Notes",
-        "notesHint": "Anything the next person needs to know. Never a substitute for an allergen mapping."
+        "notesHint": "Anything the next person needs to know. Never a substitute for an allergen mapping.",
+        "purchaseUnit": "Purchase pack",
+        "purchaseUnitHint": "The pack this is bought in; the unit above stays the usage unit.",
+        "purchaseUnitNone": "Not recorded",
+        "purchaseUnitNoneHint": "No purchase pack on record",
+        "itemsPerUnit": "Items per pack",
+        "itemsPerUnitHint": "Pieces in one purchase pack, where known.",
+        "composition": "Composition (made from)",
+        "compositionHint": "The source sheet's own wording — a coarse ingredient list, not a formulation."
     },
     "units": {
         "dimensionMass": "Mass",
@@ -1679,7 +1695,8 @@
         "portion": "Portions",
         "cup": "Cups",
         "tbsp": "Tablespoons",
-        "tsp": "Teaspoons"
+        "tsp": "Teaspoons",
+        "dimensionPackage": "Packs"
     },
     "aliases": {
         "title": "Other names",
@@ -2677,5 +2694,25 @@
         "loadErrorTitle": "Those opening hours could not be loaded",
         "noBranchTitle": "No branch is in context",
         "noBranchBody": "Opening hours belong to a branch. Choose one from the workspace switcher and come back."
+    },
+    "sauces": {
+        "title": "Sauces & marinations",
+        "subtitle": "Kitchen-made sauces sold as packaged goods — same packs and channels as products.",
+        "create": "New sauce",
+        "caption": "Sauces and marinations, their packs, channels and status",
+        "resultCount_one": "{{count}} sauce",
+        "resultCount_other": "{{count}} sauces",
+        "emptyTitle": "No sauces yet",
+        "emptyBody": "Sauces the kitchen makes appear here once they are imported or created."
+    },
+    "dressings": {
+        "title": "Dressings",
+        "subtitle": "Kitchen-made salad dressings sold as packaged goods.",
+        "create": "New dressing",
+        "caption": "Dressings, their packs, channels and status",
+        "resultCount_one": "{{count}} dressing",
+        "resultCount_other": "{{count}} dressings",
+        "emptyTitle": "No dressings yet",
+        "emptyBody": "Dressings the kitchen makes appear here once they are imported or created."
     }
 }

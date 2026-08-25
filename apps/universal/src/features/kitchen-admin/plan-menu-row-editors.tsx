@@ -311,9 +311,7 @@ export function PlanMenuDays({
                                                     <NumberStepper
                                                         testID={`${rowTestId}-sequence`}
                                                         id={`${rowTestId}-sequence`}
-                                                        label={t(
-                                                            'kitchen:plans.menuSequenceLabel',
-                                                        )}
+                                                        label={t('kitchen:plans.menuSequenceLabel')}
                                                         hint={t('kitchen:plans.menuSequenceHint')}
                                                         min={1}
                                                         max={MENU_SEQUENCE_MAX}

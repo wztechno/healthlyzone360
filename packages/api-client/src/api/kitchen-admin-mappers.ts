@@ -229,14 +229,59 @@ export function mapIngredientAdmin(
             wire.ingredient_subcategory_id,
         ),
         measurementUnit: mapMeasureUnit(wire.default_unit_code),
+        purchaseUnit:
+            wire.purchase_unit_code == null ? null : mapMeasureUnit(wire.purchase_unit_code),
+        composition: wire.composition ?? null,
+        itemsPerUnit: wire.items_per_unit == null ? null : parseDecimal(wire.items_per_unit),
         costPer100g: null,
-        per100g: null,
+        per100g: mapIngredientPer100g(wire),
         allergens: options?.allergens ?? [],
         dietClassifications: [],
         aliases: options?.aliases ?? [],
         organisationId:
             wire.organisation_id === null ? null : OrganisationId.unsafe(wire.organisation_id),
         notes: wire.notes ?? null,
+    };
+}
+
+/**
+ * The slim per-100 g payload an ingredient stores, lifted into the full facts
+ * envelope the screens render. Provenance is honest about what it is: a
+ * professional entry recorded on the ingredient, not a laboratory analysis and
+ * not a derivation — those arrive with the recipe-rollup phase.
+ */
+function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
+    const payload = wire.nutrition_per_100g;
+    if (payload == null) return null;
+
+    const recordedAt = wire.updated_at ?? UNKNOWN_ISO_DATE_TIME;
+
+    return {
+        basis: 'per_100g',
+        kind: 'actual',
+        serving: null,
+        totalGrams: 100,
+        amounts: payload.amounts.map((amount) => ({
+            nutrientId: amount.nutrient_id,
+            unit: amount.unit,
+            value: amount.value,
+            kind: 'actual',
+            tolerance: null,
+        })),
+        source: {
+            kind: 'professional_entry',
+            label: 'Kitchen-recorded reference facts',
+            version: 'ingredient-record',
+            calculatedAt: recordedAt,
+        },
+        calculation: {
+            method: 'as_recorded',
+            basis: 'per_100g',
+            calculatedAt: recordedAt,
+            prototype: false,
+            rounding: 'as_entered',
+            notes: [],
+        },
     };
 }
 
@@ -376,9 +421,16 @@ export function mapProductAdminFromItem(
     return {
         id: ProductId.unsafe(wire.id),
         meta: mapCatalogueItemMeta(wire),
+        itemType:
+            wire.item_type === 'sauce' || wire.item_type === 'dressing'
+                ? wire.item_type
+                : 'product',
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
-        categoryCode: wire.product_category_id ?? 'uncategorized',
+        categoryCode: wire.product_category_code ?? 'uncategorized',
+        kitchenCategory: wire.kitchen_category ?? null,
+        kitchenSubcategory: wire.kitchen_subcategory ?? null,
+        composition: wire.composition ?? null,
         kitchenId: mapKitchenId(wire.organisation_id),
         isMarketPriced: wire.is_market_priced,
         isAssorted: wire.is_assorted,
@@ -418,6 +470,9 @@ export function mapMealAdminFromItem(
         meta: mapCatalogueItemMeta(wire),
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
+        kitchenCategory: wire.kitchen_category ?? null,
+        kitchenSubcategory: wire.kitchen_subcategory ?? null,
+        composition: wire.composition ?? null,
         kitchenId: mapKitchenId(wire.organisation_id),
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         recipeVersionId: null,

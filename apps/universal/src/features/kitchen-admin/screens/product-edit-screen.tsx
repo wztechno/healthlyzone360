@@ -174,21 +174,35 @@ function packRequest(rows: readonly PackDraft[]): readonly ProductPackVariant[] 
 export interface ProductEditScreenProps {
     /** The route parameter. `'new'` opens the create form; anything else is an identifier. */
     readonly product: string | undefined;
+    /**
+     * Which packaged kind a create makes and which list the screen returns to.
+     * The sauces and dressings routes pass theirs; the default is products.
+     */
+    readonly itemType?: 'product' | 'sauce' | 'dressing';
+    readonly routeBase?: '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings';
 }
 
-export function ProductEditScreen({ product }: ProductEditScreenProps) {
+export function ProductEditScreen({
+    product,
+    itemType = 'product',
+    routeBase = '/kitchen/products',
+}: ProductEditScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-product-editor"
         >
-            <ProductEditor product={product} />
+            <ProductEditor product={product} itemType={itemType} routeBase={routeBase} />
         </Gate>
     );
 }
 
-function ProductEditor({ product }: ProductEditScreenProps) {
+function ProductEditor({
+    product,
+    itemType = 'product',
+    routeBase = '/kitchen/products',
+}: ProductEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
@@ -328,6 +342,7 @@ function ProductEditor({ product }: ProductEditScreenProps) {
                     name: details.name,
                     description: details.description,
                     categoryCode: details.categoryCode,
+                    itemType,
                     isMarketPriced: details.isMarketPriced,
                     isAssorted: details.isAssorted,
                     packVariants: packRequest(details.packs),
@@ -343,7 +358,7 @@ function ProductEditor({ product }: ProductEditScreenProps) {
                                 name: displayName(created.name, locale).value,
                             }),
                         });
-                        router.replace(`/kitchen/products/${String(created.id)}` as never);
+                        router.replace(`${routeBase}/${String(created.id)}` as never);
                     },
                 },
             );
@@ -424,7 +439,7 @@ function ProductEditor({ product }: ProductEditScreenProps) {
                             variant="quiet"
                             label={t('kitchen:products.backToList')}
                             onPress={() => {
-                                router.push('/kitchen/products' as never);
+                                router.push(routeBase as never);
                             }}
                         />
                     }
@@ -477,7 +492,7 @@ function ProductEditor({ product }: ProductEditScreenProps) {
             saveDisabled={!canManage || detailsBlocked}
             backLabel={t('kitchen:products.backToList')}
             onBack={() => {
-                router.push('/kitchen/products' as never);
+                router.push(routeBase as never);
             }}
             primaryAction={
                 isCreating || !canManage || data?.meta.status === 'retired' ? null : (
@@ -653,6 +668,31 @@ function ProductEditor({ product }: ProductEditScreenProps) {
                     />
                 </Stack>
             </Card>
+
+            {/* ── source transcription ─────────────────────────────────────────────────────── */}
+            {data?.composition == null && data?.kitchenCategory == null ? null : (
+                <Card testID="kitchen-product-composition" padding="md">
+                    <Stack space="sm">
+                        <Heading level={2}>{t('kitchen:fields.composition')}</Heading>
+                        {data.kitchenCategory === null ? null : (
+                            <Text
+                                testID="kitchen-product-composition-category"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {data.kitchenSubcategory === null
+                                    ? data.kitchenCategory
+                                    : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
+                            </Text>
+                        )}
+                        {data.composition === null ? null : (
+                            <Text testID="kitchen-product-composition-text">
+                                {data.composition}
+                            </Text>
+                        )}
+                    </Stack>
+                </Card>
+            )}
 
             {/* ── recipe linkage ───────────────────────────────────────────────────────────── */}
             <Card testID="kitchen-product-recipe" padding="md">

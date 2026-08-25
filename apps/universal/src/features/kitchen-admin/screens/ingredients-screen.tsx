@@ -346,6 +346,11 @@ function IngredientsList() {
                         columns={columns}
                         rows={sorted}
                         rowKey={(row) => String(row.id)}
+                        rowTone={(row) =>
+                            row.meta.status === 'draft' || row.meta.status === 'retired'
+                                ? 'muted'
+                                : 'default'
+                        }
                         sortKey={sortKey}
                         sortDirection={sortDirection}
                         onSortChange={(key, direction) => {

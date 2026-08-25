@@ -283,7 +283,11 @@ function RecipeEditor({ recipe }: RecipeEditScreenProps) {
     const parsed = isCreating ? null : RecipeId.safeParse(recipe);
 
     const record = useRecipeQuery(parsed);
-    const ingredientsPage = useIngredientsQuery({ limit: 100 });
+    // Only usable rows reach the line picker: an inactive or archived
+    // ingredient stays visible in the catalogue list (greyed) but is not
+    // offered to a formulation — the server refuses it anyway, and a picker
+    // that offered it would invite the refusal.
+    const ingredientsPage = useIngredientsQuery({ limit: 100, statuses: ['published'] });
     const ingredients: readonly IngredientAdmin[] = ingredientsFromPages(
         ingredientsPage.data?.pages,
     );
