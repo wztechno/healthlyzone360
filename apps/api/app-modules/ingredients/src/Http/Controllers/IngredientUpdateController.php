@@ -50,7 +50,7 @@ final class IngredientUpdateController
         }
 
         $updated = $this->catalogue->update($record, $request->validated(), $expected);
-        $updated->load('defaultUnit');
+        $updated->load(['defaultUnit', 'purchaseUnit']);
 
         return ApiResponse::data(['ingredient' => $this->presenter->ingredient($updated)])
             ->withHeaders(['ETag' => '"'.$updated->lock_version.'"']);

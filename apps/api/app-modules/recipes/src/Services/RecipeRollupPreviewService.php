@@ -247,6 +247,13 @@ final class RecipeRollupPreviewService
             throw $this->invalid($field, 'This ingredient is archived and cannot be added to a recipe.');
         }
 
+        // Inactive is the operator's "do not use this" switch: the row stays
+        // visible (greyed) in the kitchen tables, but nothing new may be
+        // built on it until somebody flips it back.
+        if ($ingredient->status === IngredientStatus::Inactive) {
+            throw $this->invalid($field, 'This ingredient is inactive and cannot be added to a recipe until it is reactivated.');
+        }
+
         return $ingredient;
     }
 

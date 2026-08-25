@@ -195,6 +195,9 @@ def resolve_allergens(class_cell: str, source_cell: str):
         if us_only:
             mapping["market_scope"] = "us_only"
         if verify:
+            # `~` is the workbook's "possible — verify per supplier": a
+            # possibility, not a determination, on both axes.
+            mapping["containment"] = "may_contain"
             mapping["verification_status"] = "requires_supplier_confirmation"
         per_code = evidence_by_code.get(code)
         if per_code:
@@ -733,7 +736,8 @@ def self_test():
     assert vinegar["status"] == "inactive" and "status_blank_inactive" in vinegar["flags"]
     assert vinegar["default_unit_code"] == "kg" and "unit_defaulted_kg" in vinegar["flags"]
     assert vinegar["allergens"][0] == {
-        "allergen_code": "sulphites", "verification_status": "requires_supplier_confirmation",
+        "allergen_code": "sulphites", "containment": "may_contain",
+        "verification_status": "requires_supplier_confirmation",
         "evidence": "Sulphites~ - vinegar"}
 
     coconut = by_ref(ings, "ING-003")

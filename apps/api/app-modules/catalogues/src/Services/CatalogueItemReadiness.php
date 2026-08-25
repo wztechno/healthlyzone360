@@ -108,7 +108,9 @@ final readonly class CatalogueItemReadiness
             ];
         }
 
-        if ($item->item_type === CatalogueItemType::Product && ! $this->hasActiveVariant($item)) {
+        $packKinds = [CatalogueItemType::Product, CatalogueItemType::Sauce, CatalogueItemType::Dressing];
+
+        if (in_array($item->item_type, $packKinds, true) && ! $this->hasActiveVariant($item)) {
             $reasons[] = [
                 'code' => 'no_active_variant',
                 'detail' => 'A product with no active pack is a name with nothing behind it, and a price has nothing to attach to.',
@@ -116,10 +118,12 @@ final readonly class CatalogueItemReadiness
             ];
         }
 
-        if ($item->item_type === CatalogueItemType::Meal && ! $this->hasAllergenBasis($item)) {
+        $labelledKinds = [CatalogueItemType::Meal, CatalogueItemType::Sauce, CatalogueItemType::Dressing];
+
+        if (in_array($item->item_type, $labelledKinds, true) && ! $this->hasAllergenBasis($item)) {
             $reasons[] = [
                 'code' => 'no_allergen_basis',
-                'detail' => 'A meal must either link a recipe with a published version or list its own ingredients. An item that can answer neither cannot say what is in it, and silence is not a statement of absence.',
+                'detail' => 'A meal, sauce or dressing must link a recipe with a published version, list its own ingredients, or be exactly one ingredient. An item that can answer none of these cannot say what is in it, and silence is not a statement of absence.',
                 'context' => [],
             ];
         }
@@ -228,12 +232,20 @@ final readonly class CatalogueItemReadiness
     }
 
     /**
-     * A meal may answer "what is in this" two ways: a published recipe version
-     * whose frozen label it inherits, or its own ingredient list. Either is
-     * enough; neither is not.
+     * An item may answer "what is in this" three ways: a published recipe
+     * version whose frozen label it inherits, its own ingredient list, or —
+     * for an item that *is* exactly one ingredient — the `ingredient_id` link
+     * itself, whose declared allergens truthfully are the item's. That last
+     * arm is the same semantics resale products and order consumption already
+     * use; it is not a fabricated containment row. Any one is enough; none is
+     * not.
      */
     private function hasAllergenBasis(CatalogueItem $item): bool
     {
+        if ($item->ingredient_id !== null) {
+            return true;
+        }
+
         if ($this->allergens->publishedVersion($item) !== null) {
             return true;
         }

@@ -36,6 +36,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $ingredient_category_id
  * @property string|null $ingredient_subcategory_id
  * @property string $default_unit_id
+ * @property string|null $purchase_unit_id
+ * @property string|null $composition
+ * @property string|null $items_per_unit
+ * @property array<string, mixed>|null $nutrition_per_100g
  * @property string $yield_factor
  * @property string|null $forked_from_ingredient_id
  * @property AvailabilityTier|null $availability_tier
@@ -76,6 +80,8 @@ class Ingredient extends BaseModel implements OrganisationScoped
             'seeded_at' => 'immutable_datetime',
             'lock_version' => 'integer',
             'yield_factor' => 'decimal:4',
+            'items_per_unit' => 'decimal:2',
+            'nutrition_per_100g' => 'array',
         ];
     }
 
@@ -101,6 +107,14 @@ class Ingredient extends BaseModel implements OrganisationScoped
     public function defaultUnit(): BelongsTo
     {
         return $this->belongsTo(MeasurementUnit::class, 'default_unit_id');
+    }
+
+    /**
+     * @return BelongsTo<MeasurementUnit, $this>
+     */
+    public function purchaseUnit(): BelongsTo
+    {
+        return $this->belongsTo(MeasurementUnit::class, 'purchase_unit_id');
     }
 
     /**

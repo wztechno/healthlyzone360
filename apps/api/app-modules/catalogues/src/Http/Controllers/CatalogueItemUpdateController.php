@@ -37,6 +37,8 @@ final class CatalogueItemUpdateController
         $record = $this->locator->item($item);
         $updated = $this->items->update($record, $request->payload(), $this->requiredLockVersion($request));
 
+        $updated->load('category');
+
         return ApiResponse::data(['item' => $this->presenter->item($updated)])
             ->withHeaders(['ETag' => '"'.$updated->lock_version.'"']);
     }

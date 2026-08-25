@@ -64,6 +64,10 @@ final class MarketplaceMealPresenter
             'kitchen_id' => $meal->organisation_id,
             'kitchen_name' => $kitchenName,
             'item_type' => $meal->item_type->value,
+            'published_category' => $meal->category === null ? null : [
+                'code' => $meal->category->code,
+                'name' => MarketplaceLocale::pick($locale, $meal->category->name_en, $meal->category->name_ar),
+            ],
             'name' => MarketplaceLocale::pick($locale, $meal->name_en, $meal->name_ar),
             'slug' => $meal->slug,
             'description' => MarketplaceLocale::pick($locale, $meal->description_en, $meal->description_ar),

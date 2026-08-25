@@ -24,7 +24,7 @@
       "pieces_per_pack": null,
       "allergens": [
         {"allergen_code": "egg", "evidence": "Eggs - mayonnaise base"},
-        {"allergen_code": "sulphites", "verification_status": "requires_supplier_confirmation", "evidence": "Sulphites~ - vinegar"}
+        {"allergen_code": "sulphites", "containment": "may_contain", "verification_status": "requires_supplier_confirmation", "evidence": "Sulphites~ - vinegar"}
       ],
       "allergen_evidence": "Eggs - mayonnaise base; Sulphites~ - vinegar",
       "prices": {

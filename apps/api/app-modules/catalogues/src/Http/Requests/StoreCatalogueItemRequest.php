@@ -44,6 +44,9 @@ class StoreCatalogueItemRequest extends FormRequest
             'slug' => ['nullable', 'string', 'max:130', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
             'description_en' => ['nullable', 'string', 'max:4000'],
             'description_ar' => ['nullable', 'string', 'max:4000'],
+            'composition' => ['nullable', 'string', 'max:2000'],
+            'kitchen_category' => ['nullable', 'string', 'max:120'],
+            'kitchen_subcategory' => ['nullable', 'string', 'max:120'],
 
             // Existence is checked in the service rather than by an `exists`
             // rule, for the K1.2 reason: the row must be one *this

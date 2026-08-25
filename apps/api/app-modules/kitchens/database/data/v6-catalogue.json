@@ -81,6 +81,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - vinegar / molasses in BBQ sauce"
         },
@@ -138,6 +139,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - hot sauce / vinegar"
         }
@@ -183,6 +185,7 @@
       "allergens": [
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - red wine vinegar"
         }
@@ -225,6 +228,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - pickles, vinegar"
         }
@@ -282,6 +286,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - vinegar"
         }
@@ -381,6 +386,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - chilli sauce (vinegar)"
         }
@@ -667,6 +673,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - sweet chilli sauce (vinegar)"
         }
@@ -709,6 +716,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - pickles, capers"
         }
@@ -1428,6 +1436,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - vinegar"
         }
@@ -1651,6 +1660,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - Worcestershire / vinegar"
         },
@@ -1867,6 +1877,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - balsamic vinegar"
         }
@@ -2022,6 +2033,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - vinegar"
         }
@@ -2121,6 +2133,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ — vinegar"
         }
@@ -2281,6 +2294,7 @@
       "allergens": [
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ — pomegranate molasses"
         }
@@ -2408,6 +2422,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - pickles, vinegar"
         }
@@ -2595,6 +2610,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - balsamic vinegar"
         }
@@ -3457,6 +3473,7 @@
       "allergens": [
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ -"
         }
@@ -3893,6 +3910,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ - vinegar"
         }
@@ -4029,6 +4047,7 @@
       "allergens": [
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~ -"
         }
@@ -4111,6 +4130,7 @@
         },
         {
           "allergen_code": "sulphites",
+          "containment": "may_contain",
           "verification_status": "requires_supplier_confirmation",
           "evidence": "Sulphites~"
         }

@@ -20,6 +20,26 @@ use Illuminate\Validation\Rules\Enum;
 class StoreIngredientRequest extends FormRequest
 {
     /**
+     * The per-100 g nutrition facts payload — the same envelope
+     * `catalogue_items.nutrition_facts` uses, restricted to the eight core
+     * nutrient ids. Validation is deliberately shallow (shape, ids, numbers);
+     * the recipe-rollup phase owns anything deeper.
+     *
+     * @return array<string, mixed>
+     */
+    public static function nutritionRules(): array
+    {
+        return [
+            'nutrition_per_100g' => ['sometimes', 'nullable', 'array'],
+            'nutrition_per_100g.basis' => ['required_with:nutrition_per_100g', 'in:per_100g'],
+            'nutrition_per_100g.amounts' => ['required_with:nutrition_per_100g', 'array', 'max:20'],
+            'nutrition_per_100g.amounts.*.nutrient_id' => ['required', 'in:energy,protein,carbohydrate,fat,fibre,sugars,saturated_fat,sodium'],
+            'nutrition_per_100g.amounts.*.unit' => ['required', 'in:kcal,kJ,g,mg'],
+            'nutrition_per_100g.amounts.*.value' => ['required', 'numeric', 'min:0'],
+        ];
+    }
+
+    /**
      * Authorisation is the route's `permission` middleware and the service's
      * platform-row rule; a form request that also guessed would give two
      * answers to one question.
@@ -41,9 +61,13 @@ class StoreIngredientRequest extends FormRequest
             'ingredient_category_id' => ['nullable', 'uuid', Rule::exists('ingredient_categories', 'id')],
             'ingredient_subcategory_id' => ['nullable', 'uuid', Rule::exists('ingredient_categories', 'id')],
             'default_unit_id' => ['required', 'uuid', Rule::exists('measurement_units', 'id')],
+            'purchase_unit_id' => ['nullable', 'uuid', Rule::exists('measurement_units', 'id')],
+            'composition' => ['nullable', 'string', 'max:2000'],
+            'items_per_unit' => ['nullable', 'numeric', 'gt:0', 'max:99999999.99'],
             'yield_factor' => ['nullable', 'numeric', 'gt:0', 'max:99.9999'],
             'availability_tier' => ['nullable', new Enum(AvailabilityTier::class)],
             'notes' => ['nullable', 'string', 'max:2000'],
+            ...self::nutritionRules(),
         ];
     }
 }

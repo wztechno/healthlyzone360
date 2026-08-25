@@ -65,6 +65,16 @@ class CatalogueItemFactory extends Factory
         return $this->state(fn (array $attributes): array => ['item_type' => CatalogueItemType::SubscriptionPlan]);
     }
 
+    public function sauce(): static
+    {
+        return $this->state(fn (array $attributes): array => ['item_type' => CatalogueItemType::Sauce]);
+    }
+
+    public function dressing(): static
+    {
+        return $this->state(fn (array $attributes): array => ['item_type' => CatalogueItemType::Dressing]);
+    }
+
     /**
      * The untranslated state the publish gate refuses. Empty, not null: the
      * column is NOT NULL and "" is what "nobody has written the Arabic yet"

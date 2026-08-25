@@ -6,9 +6,9 @@ namespace Healthy360\B2b\Services;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
-use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
+use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
@@ -110,7 +110,7 @@ final readonly class B2bCatalogueBrowse
         CustomerAccount $buyer,
         CarbonImmutable $on,
     ): ?ResolvedPrice {
-        $variantId = $item->item_type === CatalogueItemType::Product
+        $variantId = $item->item_type->variantType() === VariantType::Pack
             ? $this->defaultPackVariantId($item)
             : null;
 

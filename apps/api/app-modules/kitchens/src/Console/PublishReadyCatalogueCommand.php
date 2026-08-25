@@ -63,7 +63,7 @@ final class PublishReadyCatalogueCommand extends Command
     protected $description = 'Publish every recipe version and catalogue item of a kitchen that passes its readiness gate.';
 
     /** @var array<string, int> */
-    private array $published = ['recipe_version' => 0, 'meal' => 0, 'product' => 0, 'subscription_plan' => 0];
+    private array $published = ['recipe_version' => 0, 'meal' => 0, 'product' => 0, 'subscription_plan' => 0, 'sauce' => 0, 'dressing' => 0];
 
     /** @var list<array{type: string, name: string, reasons: string}> */
     private array $refusals = [];
@@ -82,7 +82,7 @@ final class PublishReadyCatalogueCommand extends Command
         // Artisan resolves a command once and reuses the instance, so two runs
         // in one process would otherwise accumulate one another's counts and
         // refusals.
-        $this->published = ['recipe_version' => 0, 'meal' => 0, 'product' => 0, 'subscription_plan' => 0];
+        $this->published = ['recipe_version' => 0, 'meal' => 0, 'product' => 0, 'subscription_plan' => 0, 'sauce' => 0, 'dressing' => 0];
         $this->refusals = [];
         $this->failures = [];
 

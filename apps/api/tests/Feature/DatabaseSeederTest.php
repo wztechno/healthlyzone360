@@ -123,7 +123,7 @@ it('seeds the launch languages with the correct direction', function (): void {
 it('seeds the foundation and kitchen measurement units', function (): void {
     expect(MeasurementUnit::query()->pluck('code')->all())->toEqualCanonicalizing([
         'g', 'mg', 'kg', 'ml', 'l', 'cm', 'm', 'kcal', 'kJ', 'piece', 'serving', 'tsp', 'tbsp', 'cup',
-        'gallon', 'bunch', 'can', 'bag', 'bottle',
+        'gallon', 'bunch', 'can', 'bag', 'bottle', 'pack',
     ])->and(MeasurementUnit::query()->pluck('unit_system')->unique()->values()->all())
         ->toEqualCanonicalizing(['metric', 'clinical', 'imperial', 'packaging']);
 });
@@ -138,7 +138,7 @@ it('gives every measurement unit a dimension conversion can be trusted within', 
         'kcal' => 'energy', 'kJ' => 'energy',
         'piece' => 'count',
         'serving' => 'serving',
-        'bunch' => 'package', 'can' => 'package', 'bag' => 'package', 'bottle' => 'package',
+        'bunch' => 'package', 'can' => 'package', 'bag' => 'package', 'bottle' => 'package', 'pack' => 'package',
     ])->and(array_values(array_unique(array_values($dimensions))))
         ->toEqualCanonicalizing(['mass', 'volume', 'length', 'energy', 'count', 'serving', 'package']);
 });
@@ -197,55 +197,65 @@ it('seeds the fourteen canonical allergen classes with their market metadata', f
         ->and($classes->where('name_ar', '')->count())->toBe(0);
 });
 
-it('seeds the platform ingredient library with its taxonomy and aliases', function (): void {
+it('seeds the v6 platform ingredient library with its taxonomy', function (): void {
     $ingredients = Ingredient::withoutTenancy()->whereNull('organisation_id')->get();
 
-    expect($ingredients)->toHaveCount(213)
+    // 306 ingredient rows (ING-*) plus 31 packaging & disposables rows
+    // (PKG-*) — non-food supplier goods that purchase and stock like any
+    // other supplier good, and carry no allergens.
+    expect($ingredients)->toHaveCount(337)
         ->and($ingredients->pluck('source_system')->unique()->all())->toBe(['healthy360_platform'])
-        ->and($ingredients->pluck('source_ref')->unique())->toHaveCount(213)
+        ->and($ingredients->pluck('source_ref')->unique())->toHaveCount(337)
         ->and($ingredients->whereNull('seeded_at')->count())->toBe(0)
-        ->and($ingredients->where('status', IngredientStatus::Active)->count())->toBe(213);
+        ->and($ingredients->where('status', IngredientStatus::Active)->count())->toBe(335)
+        // The two rows the source records no Status for land inactive —
+        // visible but greyed and unusable until a human decides.
+        ->and($ingredients->where('status', IngredientStatus::Inactive)->pluck('source_ref')->sort()->values()->all())
+        ->toBe(['ING-013', 'ING-077'])
+        // v6 records real units per row; nothing is left on a placeholder.
+        ->and($ingredients->whereNull('default_unit_id')->count())->toBe(0);
+
+    $packaging = $ingredients->filter(fn (Ingredient $row): bool => str_starts_with((string) $row->source_ref, 'PKG-'));
+
+    expect($packaging)->toHaveCount(31);
 
     $categories = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->get();
 
-    expect($categories)->toHaveCount(62)
-        ->and($categories->whereNull('parent_id')->count())->toBe(12)
-        ->and($categories->whereNotNull('parent_id')->count())->toBe(50);
+    expect($categories)->toHaveCount(79)
+        ->and($categories->whereNull('parent_id')->count())->toBe(18)
+        ->and($categories->whereNotNull('parent_id')->count())->toBe(61)
+        ->and($categories->where('code', 'packaging-disposables')->count())->toBe(1);
 
-    // The two workbook rows that duplicate an earlier ingredient survive as
-    // aliases, so a later import quoting IG-161/IG-162 still resolves.
-    $aliases = IngredientAlias::query()->where('source_system', 'healthy360_platform')->get();
-
-    expect($aliases->count())->toBeGreaterThanOrEqual(2)
-        ->and($aliases->pluck('source_ref')->sort()->values()->all())->toBe(['IG-161', 'IG-162'])
-        ->and($aliases->pluck('alias_normalised')->sort()->values()->all())->toBe(['garlic', 'onions']);
+    // The v6 master carries no duplicate rows, so no aliases are seeded.
+    expect(IngredientAlias::query()->where('source_system', 'healthy360_platform')->count())->toBe(0);
 });
 
 it('seeds the platform allergen baseline exactly as the source records it', function (): void {
     $mappings = IngredientAllergen::withoutTenancy()->whereNull('organisation_id')->get();
 
-    expect($mappings)->toHaveCount(61)
+    expect($mappings)->toHaveCount(133)
         ->and($mappings->pluck('source')->unique()->all())->toBe([AllergenMappingSource::MasterList])
         ->and($mappings->countBy(fn (IngredientAllergen $row): string => $row->allergen_code)->sortKeys()->all())
         ->toBe([
-            'celery' => 1, 'crustaceans' => 2, 'egg' => 2, 'fish' => 4, 'gluten' => 13,
-            'lupin' => 1, 'milk' => 7, 'mollusc' => 1, 'mustard' => 1, 'peanut' => 2,
-            'sesame' => 3, 'soy' => 4, 'sulphites' => 7, 'tree_nut' => 13,
+            'celery' => 6, 'crustaceans' => 3, 'egg' => 7, 'fish' => 7, 'gluten' => 27,
+            'lupin' => 1, 'milk' => 29, 'mustard' => 5, 'peanut' => 2,
+            'sesame' => 4, 'soy' => 8, 'sulphites' => 21, 'tree_nut' => 13,
         ]);
 
-    // Coconut is a tree nut under US law and not an EU allergen.
+    // Coconut is a tree nut under US law and not an EU allergen. The v6
+    // sheet marks its three coconut rows with the * convention.
     $usOnly = $mappings->where('market_scope', AllergenMarketScope::UsOnly);
 
-    expect($usOnly)->toHaveCount(4)
+    expect($usOnly)->toHaveCount(3)
         ->and($usOnly->pluck('allergen_code')->unique()->all())->toBe(['tree_nut']);
 
-    // "Possible — verify per supplier" is recorded as a possibility.
+    // The ~ convention — "possible in vinegar, dried fruit… verify per
+    // supplier" — is a possibility, not a determination, on both axes.
     $sulphites = $mappings->where('allergen_code', 'sulphites');
 
     expect($sulphites->pluck('containment')->unique()->all())->toBe([AllergenContainment::MayContain])
         ->and($sulphites->pluck('verification_status')->unique()->all())
-        ->toBe([AllergenVerificationStatus::RequiresSupplierConfirmation])
-        ->and($sulphites->pluck('evidence')->unique()->all())->toBe(['verify per supplier']);
+        ->toBe([AllergenVerificationStatus::RequiresSupplierConfirmation]);
 
     // Soya sauce carries both classes the source names for it.
     $soyaSauce = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', 'soya-sauce')->sole();
@@ -254,20 +264,24 @@ it('seeds the platform allergen baseline exactly as the source records it', func
         ->toBe(['gluten', 'soy']);
 });
 
-it('quarantines the burghul and pita rows the source contradicts itself about', function (): void {
-    $flagged = Ingredient::withoutTenancy()
+it('records the burghul and pita gluten declarations the v6 source resolved', function (): void {
+    // The v1 workbook contradicted itself about these two rows (class
+    // "None" beside an allergen key naming them under Cereals/Gluten). The
+    // v6 source declares the gluten outright, so nothing is quarantined —
+    // but the declarations themselves are pinned so a regression to the
+    // silent reading cannot pass unnoticed.
+    expect(Ingredient::withoutTenancy()
         ->whereNull('organisation_id')
         ->where('verification_status', IngredientVerificationStatus::RequiresReview)
-        ->get();
+        ->count())->toBe(0);
 
-    expect($flagged->pluck('source_ref')->sort()->values()->all())->toBe(['IG-025', 'IG-143'])
-        ->and($flagged->pluck('slug')->sort()->values()->all())->toBe(['burghul-bulgur', 'pita-bread']);
+    foreach (['burghul-bulgur', 'pita-bread'] as $slug) {
+        $ingredient = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', $slug)->sole();
 
-    foreach ($flagged as $ingredient) {
-        expect($ingredient->notes)->toContain('Cereals/Gluten')
-            // Seeded exactly as recorded: the source says "None", so no
-            // mapping is invented on the way in.
-            ->and(IngredientAllergen::withoutTenancy()->where('ingredient_id', $ingredient->getKey())->count())->toBe(0);
+        expect(IngredientAllergen::withoutTenancy()
+            ->where('ingredient_id', $ingredient->getKey())
+            ->pluck('allergen_code')
+            ->all())->toBe(['gluten'], $slug);
     }
 });
 
@@ -279,7 +293,7 @@ it('falls back to the English name where the source has no Arabic', function ():
         ->whereColumn('name_ar', 'name_en')
         ->count();
 
-    expect($fallbacks)->toBe(213);
+    expect($fallbacks)->toBe(337);
 });
 
 it('seeds the twelve organisation types with both names', function (): void {

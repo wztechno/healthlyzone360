@@ -45,7 +45,6 @@ trait ReadsMarketplaceFilters
             'protein_min',
             'carbohydrate_max',
             'fat_max',
-            'category_slug',
             'sort',
             'direction',
         ];
