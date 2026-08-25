@@ -2347,6 +2347,11 @@ export interface NamespaceKeys {
     | 'channels.sectionTitle'
     | 'channels.untilHint'
     | 'channels.untilLabel'
+    | 'classes.columnClass'
+    | 'classes.columnExamples'
+    | 'classes.columnMarkets'
+    | 'classes.columnReference'
+    | 'classes.columnThreshold'
     | 'classes.count'
     | 'classes.emptyBody'
     | 'classes.emptyTitle'
@@ -8551,6 +8556,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:channels.sectionTitle',
   'kitchen:channels.untilHint',
   'kitchen:channels.untilLabel',
+  'kitchen:classes.columnClass',
+  'kitchen:classes.columnExamples',
+  'kitchen:classes.columnMarkets',
+  'kitchen:classes.columnReference',
+  'kitchen:classes.columnThreshold',
   'kitchen:classes.count',
   'kitchen:classes.emptyBody',
   'kitchen:classes.emptyTitle',

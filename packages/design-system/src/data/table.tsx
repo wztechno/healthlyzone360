@@ -7,6 +7,8 @@ import type { LayoutChangeEvent } from 'react-native';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { GAP_CLASS } from '../primitives/stack.tsx';
+import type { SpaceStep } from '../primitives/stack.tsx';
 
 export type TableSortDirection = 'asc' | 'desc';
 
@@ -130,6 +132,7 @@ export function Table<Row>({
     const { atLeast } = useBreakpoint();
     const generated = useId();
     const base = testID ?? `table-${generated.replace(/:/g, '')}`;
+    const rowGapClass = columnGap === undefined ? 'gap-3' : GAP_CLASS[columnGap];
     const captionId = `${base}-caption`;
     const wide = atLeast('md');
     const isEmpty = rows.length === 0;
@@ -297,7 +300,10 @@ export function Table<Row>({
                     <View
                         testID={`${base}-header`}
                         role="row"
-                        className="flex-row items-center gap-3 border-b-2 border-stroke-subtle px-1 pb-2"
+                        className={cx(
+                            'flex-row items-center border-b-2 border-stroke-subtle px-1 pb-2',
+                            rowGapClass,
+                        )}
                     >
                         {columns.map((column) => {
                             if (column.sortable !== true) {

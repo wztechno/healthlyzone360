@@ -1130,7 +1130,9 @@ describe('the allergen class reference', () => {
         expect(screen.getByTestId('kitchen-allergen-classes-governance')).toBeTruthy();
 
         for (const entry of ALLERGEN_CLASSES) {
-            expect(screen.getByTestId(`kitchen-allergen-class-${String(entry.code)}`)).toBeTruthy();
+            expect(
+                screen.getByTestId(`kitchen-allergen-class-${String(entry.code)}-name`),
+            ).toBeTruthy();
         }
 
         // Sulphites carry a stated threshold; most classes carry none, and that is printed.
