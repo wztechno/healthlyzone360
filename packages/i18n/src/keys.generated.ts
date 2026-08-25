@@ -6,6 +6,7 @@
  * 6186 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * 6093 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * 6095 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6092 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2363,13 +2364,10 @@ export interface NamespaceKeys {
     | 'classes.governanceBody'
     | 'classes.governanceTitle'
     | 'classes.inactive'
-    | 'classes.marketsLabel'
     | 'classes.noMarkets'
-    | 'classes.referenceLabel'
     | 'classes.severe'
     | 'classes.subtitle'
     | 'classes.thresholdAny'
-    | 'classes.thresholdLabel'
     | 'classes.thresholdValue'
     | 'classes.title'
     | 'common.add'
@@ -8574,13 +8572,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:classes.governanceBody',
   'kitchen:classes.governanceTitle',
   'kitchen:classes.inactive',
-  'kitchen:classes.marketsLabel',
   'kitchen:classes.noMarkets',
-  'kitchen:classes.referenceLabel',
   'kitchen:classes.severe',
   'kitchen:classes.subtitle',
   'kitchen:classes.thresholdAny',
-  'kitchen:classes.thresholdLabel',
   'kitchen:classes.thresholdValue',
   'kitchen:classes.title',
   'kitchen:common.add',
