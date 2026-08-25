@@ -192,8 +192,12 @@ it('treats the ingredient link as a truthful allergen basis and refuses items wi
     $readiness = app(CatalogueItemReadiness::class);
     $codes = fn (string $ref): array => array_column($readiness->reasons($items[$ref]), 'code');
 
-    // A sauce that is exactly one ingredient answers "what is in this".
+    // A sauce that is exactly one ingredient answers "what is in this" — and
+    // the LABEL answers with the same basis the gate accepted: the derived
+    // allergen list reads the linked ingredient's declarations.
     expect($codes('SAC-901'))->not->toContain('no_allergen_basis')
+        ->and(app(MarketplaceMeals::class)->allergenCodesOf($items['SAC-901']))
+        ->toBe(['egg', 'sulphites'])
         // The blank-role meal has no ingredient, no recipe, no member list —
         // honestly unpublishable until one exists.
         ->and($codes('PRD-902'))->toContain('no_allergen_basis')
