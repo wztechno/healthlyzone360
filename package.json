@@ -22,6 +22,8 @@
         "api:lint:proposed": "npx --yes @redocly/cli lint --config docs/api/proposed/redocly.yaml",
         "gen:api": "node scripts/gen-api.mjs",
         "gen:api:check": "node scripts/gen-api.mjs --check",
+        "gen:v6": "python scripts/convert-v6-workbook.py",
+        "gen:v6:check": "python scripts/convert-v6-workbook.py --self-test",
         "gen:pseudo-locale": "node packages/i18n/scripts/generate-pseudo-locale.mjs",
         "gen:i18n-keys": "node packages/i18n/scripts/generate-keys.mjs",
         "i18n:check": "node packages/i18n/scripts/check-catalogues.mjs",

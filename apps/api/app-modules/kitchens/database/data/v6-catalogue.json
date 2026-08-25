@@ -1,0 +1,5917 @@
+{
+  "source_workbook": "Ingredients_Sauces_Dressings_v6.xlsx",
+  "source_system": "healthy360_workbook_v6",
+  "items": [
+    {
+      "source_ref": "SAC-001",
+      "sheet_item_type": "sauce",
+      "name_en": "Aioli Sauce",
+      "slug": "aioli-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Garlic, egg yolk / mayonnaise, lemon, olive oil, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg yolk / mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mayonnaise"
+        }
+      ],
+      "allergen_evidence": "Eggs - egg yolk / mayonnaise; Mustard - mayonnaise",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 500,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-002",
+      "sheet_item_type": "sauce",
+      "name_en": "Barbecue Dip",
+      "slug": "barbecue-dip",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Barbecue sauce, mayonnaise, smoked paprika, spices",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - vinegar / molasses in BBQ sauce"
+        },
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans + Cereals/Gluten - soya sauce in BBQ base (verify brand)"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Soybeans + Cereals/Gluten - soya sauce in BBQ base (verify brand)"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Sulphites~ - vinegar / molasses in BBQ sauce; Soybeans + Cereals/Gluten - soya sauce in BBQ base (verify brand)",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 300,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 250,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-003",
+      "sheet_item_type": "sauce",
+      "name_en": "Buffalo Dip",
+      "slug": "buffalo-dip",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Louisiana hot sauce, butter, garlic, vinegar, paprika",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - butter"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - hot sauce / vinegar"
+        }
+      ],
+      "allergen_evidence": "Milk - butter; Sulphites~ - hot sauce / vinegar",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 500,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-004",
+      "sheet_item_type": "sauce",
+      "name_en": "Chimichurri Sauce",
+      "slug": "chimichurri-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Parsley, coriander, garlic, oregano, red wine vinegar, olive oil, chilli flakes",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - red wine vinegar"
+        }
+      ],
+      "allergen_evidence": "Sulphites~ - red wine vinegar",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-005",
+      "sheet_item_type": "sauce",
+      "name_en": "Classic Burger Sauce",
+      "slug": "classic-burger-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, ketchup, mustard, pickles, spices",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mustard"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - pickles, vinegar"
+        }
+      ],
+      "allergen_evidence": "Eggs - mayonnaise; Mustard - mustard; Sulphites~ - pickles, vinegar",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 500,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-006",
+      "sheet_item_type": "sauce",
+      "name_en": "Cocktail Sauce",
+      "slug": "cocktail-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, ketchup, lemon, Worcestershire sauce, paprika",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish - Worcestershire (anchovy)"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - vinegar"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Fish - Worcestershire (anchovy); Sulphites~ - vinegar",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-007",
+      "sheet_item_type": "sauce",
+      "name_en": "Crab Sauce",
+      "slug": "crab-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Crab sticks (surimi), mayonnaise, sweet chilli, sesame oil, lemon",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish + Crustaceans - crab sticks (surimi & crab flavouring)"
+        },
+        {
+          "allergen_code": "crustaceans",
+          "evidence": "Fish + Crustaceans - crab sticks (surimi & crab flavouring)"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - surimi starch"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame - sesame oil"
+        }
+      ],
+      "allergen_evidence": "Fish + Crustaceans - crab sticks (surimi & crab flavouring); Cereals/Gluten - surimi starch; Eggs - mayonnaise; Mustard - mayonnaise; Sesame - sesame oil",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-008",
+      "sheet_item_type": "sauce",
+      "name_en": "Dynamite Sauce",
+      "slug": "dynamite-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, sriracha / sweet chilli, sesame oil, lemon",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame - sesame oil"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - chilli sauce (vinegar)"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Sesame - sesame oil; Sulphites~ - chilli sauce (vinegar)",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-009",
+      "sheet_item_type": "sauce",
+      "name_en": "Garlic Mayo Sauce",
+      "slug": "garlic-mayo-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, garlic, lemon, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 500,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-010",
+      "sheet_item_type": "sauce",
+      "name_en": "Garlic Paste (Toum)",
+      "slug": "garlic-paste-toum",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Garlic, sunflower oil, lemon juice, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": "Egg-free emulsion; verify no egg white is used as stabiliser",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-011",
+      "sheet_item_type": "sauce",
+      "name_en": "Honey Mustard Sauce",
+      "slug": "honey-mustard-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Honey, mustard, mayonnaise, lemon, olive oil",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mustard"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - mayonnaise"
+        }
+      ],
+      "allergen_evidence": "Mustard - mustard; Eggs - mayonnaise",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 500,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "In-house version of DR-07 | Also held in the recipe library as Honey Mustard Salad Dressing | B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-012",
+      "sheet_item_type": "sauce",
+      "name_en": "Pepper Mayo",
+      "slug": "pepper-mayo",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, black pepper, cream, lemon",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cream"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Milk - cream",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-013",
+      "sheet_item_type": "sauce",
+      "name_en": "Pesto Mayo",
+      "slug": "pesto-mayo",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, pesto (basil, pine nuts, parmesan, olive oil, garlic)",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts - pine nuts"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - parmesan"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Tree nuts - pine nuts; Milk - parmesan",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 700,
+          "currency": "USD"
+        }
+      },
+      "notes": "Not sold B2C",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-014",
+      "sheet_item_type": "sauce",
+      "name_en": "Pico de Gallo",
+      "slug": "pico-de-gallo",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Tomato, onion, coriander, lemon, green chilli, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-015",
+      "sheet_item_type": "sauce",
+      "name_en": "Sweet Chilli Mayo",
+      "slug": "sweet-chilli-mayo",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, sweet chilli sauce, lemon",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - sweet chilli sauce (vinegar)"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Sulphites~ - sweet chilli sauce (vinegar)",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-016",
+      "sheet_item_type": "sauce",
+      "name_en": "Tartar Sauce",
+      "slug": "tartar-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, pickles, capers, lemon, mustard, parsley",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mustard / mayonnaise"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - pickles, capers"
+        }
+      ],
+      "allergen_evidence": "Eggs - mayonnaise; Mustard - mustard / mayonnaise; Sulphites~ - pickles, capers",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-017",
+      "sheet_item_type": "sauce",
+      "name_en": "Truffle Mayo Sauce",
+      "slug": "truffle-mayo-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, truffle paste / truffle oil, lemon",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-018",
+      "sheet_item_type": "sauce",
+      "name_en": "Alfredo Sauce",
+      "slug": "alfredo-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Cream, butter, parmesan, milk, garlic, (flour)",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cream, butter, parmesan, milk"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour (if thickened with roux)"
+        }
+      ],
+      "allergen_evidence": "Milk - cream, butter, parmesan, milk; Cereals/Gluten - flour (if thickened with roux)",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-019",
+      "sheet_item_type": "sauce",
+      "name_en": "Coriander Garlic Cooking Sauce",
+      "slug": "coriander-garlic-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Coriander, garlic, olive oil, lemon, cumin, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-020",
+      "sheet_item_type": "sauce",
+      "name_en": "Curry Cooking Sauce",
+      "slug": "curry-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Curry powder, onion, garlic, ginger, coconut milk, tomato, oil, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "tree_nut",
+          "market_scope": "us_only",
+          "evidence": "Tree nuts* — coconut milk"
+        }
+      ],
+      "allergen_evidence": "Tree nuts* — coconut milk",
+      "prices": {},
+      "notes": "* coconut (US only)",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-021",
+      "sheet_item_type": "sauce",
+      "name_en": "Four Cheese Sauce",
+      "slug": "four-cheese-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Cream, milk, mozzarella, cheddar, parmesan, gouda, butter, flour",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cream, milk, cheeses, butter"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour (roux)"
+        }
+      ],
+      "allergen_evidence": "Milk - cream, milk, cheeses, butter; Cereals/Gluten - flour (roux)",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-022",
+      "sheet_item_type": "sauce",
+      "name_en": "Indian Cooking Sauce",
+      "slug": "indian-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Garam masala, onion, garlic, ginger, tomato, yogurt, oil",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk — yogurt"
+        }
+      ],
+      "allergen_evidence": "Milk — yogurt",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-023",
+      "sheet_item_type": "sauce",
+      "name_en": "Korma Cooking Sauce",
+      "slug": "korma-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Cashew, cream, onion, garlic, ginger, garam masala, yogurt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts — cashew"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk — cream / yogurt"
+        }
+      ],
+      "allergen_evidence": "Tree nuts — cashew; Milk — cream / yogurt",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-024",
+      "sheet_item_type": "sauce",
+      "name_en": "Marinara Sauce",
+      "slug": "marinara-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Tomato, garlic, onion, basil, oregano, olive oil, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-025",
+      "sheet_item_type": "sauce",
+      "name_en": "Moghrabieh Cooking Sauce",
+      "slug": "moghrabieh-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Moghrabieh (wheat), chickpeas, onion, caraway, cinnamon, allspice, broth, oil",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten — moghrabieh (wheat)"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten — moghrabieh (wheat)",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-026",
+      "sheet_item_type": "sauce",
+      "name_en": "Mushroom Sauce",
+      "slug": "mushroom-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mushroom, cream, butter, onion, garlic, black pepper, oil",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cream, butter"
+        }
+      ],
+      "allergen_evidence": "Milk - cream, butter",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 700,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 400,
+          "currency": "USD"
+        }
+      },
+      "notes": "In-house version of SC-06 | Also held in the recipe library as Mushroom Cooking Sauce | B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-027",
+      "sheet_item_type": "sauce",
+      "name_en": "Mustard Cooking Sauce",
+      "slug": "mustard-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mustard, cream, honey, lemon, oil",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard — mustard"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk — cream"
+        }
+      ],
+      "allergen_evidence": "Mustard — mustard; Milk — cream",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-028",
+      "sheet_item_type": "sauce",
+      "name_en": "Peanut Butter Sauce",
+      "slug": "peanut-butter-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Peanut butter, soya sauce, garlic, ginger, lemon, honey, sesame",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "peanut",
+          "evidence": "Peanuts - peanut butter"
+        },
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans - soya sauce"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - soya sauce"
+        },
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame - sesame"
+        }
+      ],
+      "allergen_evidence": "Peanuts - peanut butter; Soybeans - soya sauce; Cereals/Gluten - soya sauce; Sesame - sesame",
+      "prices": {},
+      "notes": "In-house version of SC-08 | Also held in the recipe library as Peanut Butter Cooking Sauce",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-029",
+      "sheet_item_type": "sauce",
+      "name_en": "Pesto Mix",
+      "slug": "pesto-mix",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Basil, pine nuts, garlic, olive oil, parmesan, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts - pine nuts"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - parmesan"
+        }
+      ],
+      "allergen_evidence": "Tree nuts - pine nuts; Milk - parmesan",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 1800,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 700,
+          "currency": "USD"
+        }
+      },
+      "notes": "In-house version of SC-09 | Also held in the recipe library as Pesto Cooking Sauce | B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-030",
+      "sheet_item_type": "sauce",
+      "name_en": "Pizza Tomato Cooking Sauce",
+      "slug": "pizza-tomato-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Tomato, garlic, oregano, basil, olive oil, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-031",
+      "sheet_item_type": "sauce",
+      "name_en": "Shawarma Cooking Sauce",
+      "slug": "shawarma-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Garlic, lemon, tahini, yogurt, shawarma spices (allspice, cinnamon, cardamom, clove), oil",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame — tahini"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk — yogurt"
+        }
+      ],
+      "allergen_evidence": "Sesame — tahini; Milk — yogurt",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-032",
+      "sheet_item_type": "sauce",
+      "name_en": "Siyadieh Cooking Sauce",
+      "slug": "siyadieh-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Fish stock, caramelised onions, cumin, caraway, coriander, pine nuts, turmeric/saffron, rice",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish — fish stock"
+        },
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts — pine nuts"
+        }
+      ],
+      "allergen_evidence": "Fish — fish stock; Tree nuts — pine nuts",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-033",
+      "sheet_item_type": "sauce",
+      "name_en": "Soya Sesame Cooking Sauce",
+      "slug": "soya-sesame-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Soya sauce, sesame / sesame oil, garlic, ginger, honey",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans — soya sauce"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten — soya sauce"
+        },
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame — sesame"
+        }
+      ],
+      "allergen_evidence": "Soybeans — soya sauce; Cereals/Gluten — soya sauce; Sesame — sesame",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-034",
+      "sheet_item_type": "sauce",
+      "name_en": "Steak Sauce",
+      "slug": "steak-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Demi-glace, beef stock, butter, cream, black pepper, Worcestershire sauce",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - butter, cream"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - demi-glace (wheat)"
+        },
+        {
+          "allergen_code": "celery",
+          "evidence": "Celery - stock powder"
+        },
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish - Worcestershire (anchovy)"
+        }
+      ],
+      "allergen_evidence": "Milk - butter, cream; Cereals/Gluten - demi-glace (wheat); Celery - stock powder; Fish - Worcestershire (anchovy)",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 500,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-035",
+      "sheet_item_type": "sauce",
+      "name_en": "Sweet & Sour Sauce",
+      "slug": "sweet-sour-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Pineapple (jam/juice), vinegar, tomato, sugar, soya sauce, bell pepper, corn starch",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans - soya sauce"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - soya sauce"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - vinegar"
+        }
+      ],
+      "allergen_evidence": "Soybeans - soya sauce; Cereals/Gluten - soya sauce; Sulphites~ - vinegar",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 400,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "In-house version of SC-14 | Also held in the recipe library as Sweet & Sour Cooking Sauce | B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-036",
+      "sheet_item_type": "sauce",
+      "name_en": "Tomato Cooking Sauce",
+      "slug": "tomato-cooking-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Tomato, onion, garlic, olive oil, basil, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-037",
+      "sheet_item_type": "sauce",
+      "name_en": "Truffle Creamy Sauce",
+      "slug": "truffle-creamy-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cooking sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Cream, butter, truffle paste, parmesan, garlic",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cooking-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cream, butter, parmesan"
+        }
+      ],
+      "allergen_evidence": "Milk - cream, butter, parmesan",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 800,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 500,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-038",
+      "sheet_item_type": "sauce",
+      "name_en": "Caramel Sauce",
+      "slug": "caramel-sauce",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Dessert sauce",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Sugar, cream, butter, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-dessert-sauce",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cream, butter"
+        }
+      ],
+      "allergen_evidence": "Milk - cream, butter",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-039",
+      "sheet_item_type": "sauce",
+      "name_en": "Beef Grilled Marination",
+      "slug": "beef-grilled-marination",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Marinade / prep",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Beef, soya sauce, Worcestershire sauce, garlic, oil, spices",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-marinade-prep",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans - soya sauce"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - soya sauce, malt vinegar"
+        },
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish - Worcestershire (anchovy)"
+        }
+      ],
+      "allergen_evidence": "Soybeans - soya sauce; Cereals/Gluten - soya sauce, malt vinegar; Fish - Worcestershire (anchovy)",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-040",
+      "sheet_item_type": "sauce",
+      "name_en": "Fajita Sizzling Mix",
+      "slug": "fajita-sizzling-mix",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Marinade / prep",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Onion, bell pepper, fajita spices, oil, lemon",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-marinade-prep",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": "Verify the spice blend base for wheat",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-041",
+      "sheet_item_type": "sauce",
+      "name_en": "Philadelphia Marination",
+      "slug": "philadelphia-marination",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Marinade / prep",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Beef strips, onion, bell pepper, Worcestershire sauce, garlic, black pepper, oil",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-marinade-prep",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish - Worcestershire (anchovy)"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - Worcestershire / vinegar"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - malt vinegar in Worcestershire"
+        }
+      ],
+      "allergen_evidence": "Fish - Worcestershire (anchovy); Sulphites~ - Worcestershire / vinegar; Cereals/Gluten - malt vinegar in Worcestershire",
+      "prices": {},
+      "notes": "Milk if cheese sauce is added at service",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-042",
+      "sheet_item_type": "sauce",
+      "name_en": "Sour Cream",
+      "slug": "sour-cream",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Marinade / prep",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Fresh cream, culture / lemon juice, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-marinade-prep",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cream"
+        }
+      ],
+      "allergen_evidence": "Milk - cream",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 500,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "SAC-043",
+      "sheet_item_type": "sauce",
+      "name_en": "Tempura Batter",
+      "slug": "tempura-batter",
+      "published_category_code": "sauce",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Marinade / prep",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Tempura mix / wheat flour, corn starch, water, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-marinade-prep",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour / tempura mix"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour / tempura mix",
+      "prices": {},
+      "notes": "Eggs if egg-enriched mix is used - verify supplier",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-001",
+      "sheet_item_type": "dressing",
+      "name_en": "Asian Salad Dressing",
+      "slug": "asian-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Soya sauce, sesame / sesame oil, rice vinegar, ginger, garlic, honey",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans — soya sauce"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten — soya sauce"
+        },
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame — sesame"
+        }
+      ],
+      "allergen_evidence": "Soybeans — soya sauce; Cereals/Gluten — soya sauce; Sesame — sesame",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-002",
+      "sheet_item_type": "dressing",
+      "name_en": "Avocado Mint Salad Dressing",
+      "slug": "avocado-mint-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Avocado, mint, lemon, olive oil, garlic, salt",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-003",
+      "sheet_item_type": "dressing",
+      "name_en": "Avocado Salad Dressing",
+      "slug": "avocado-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Avocado, lemon, olive oil, garlic, salt",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-004",
+      "sheet_item_type": "dressing",
+      "name_en": "Balsamic Dressing",
+      "slug": "balsamic-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Balsamic vinegar, olive oil, mustard, honey, garlic",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mustard"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - balsamic vinegar"
+        }
+      ],
+      "allergen_evidence": "Mustard - mustard; Sulphites~ - balsamic vinegar",
+      "prices": {},
+      "notes": "In-house version of DR-04 | Also held in the recipe library as Balsamic Salad Dressing",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-005",
+      "sheet_item_type": "dressing",
+      "name_en": "Caesar Dressing",
+      "slug": "caesar-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise / egg yolk, parmesan, anchovy, garlic, mustard, lemon, Worcestershire",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - mayonnaise / egg yolk"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - parmesan"
+        },
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish - anchovy, Worcestershire"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mustard"
+        }
+      ],
+      "allergen_evidence": "Eggs - mayonnaise / egg yolk; Milk - parmesan; Fish - anchovy, Worcestershire; Mustard - mustard",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 600,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 400,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-006",
+      "sheet_item_type": "dressing",
+      "name_en": "Coriander Salad Dressing",
+      "slug": "coriander-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Coriander, lemon, olive oil, garlic, cumin, salt",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-007",
+      "sheet_item_type": "dressing",
+      "name_en": "Curry Salad Dressing",
+      "slug": "curry-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Curry powder, yogurt, lemon, honey, oil",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk — yogurt"
+        }
+      ],
+      "allergen_evidence": "Milk — yogurt",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-008",
+      "sheet_item_type": "dressing",
+      "name_en": "Honey Vinaigrette",
+      "slug": "honey-vinaigrette",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Honey, vinegar, olive oil, mustard, lemon",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mustard"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - vinegar"
+        }
+      ],
+      "allergen_evidence": "Mustard - mustard; Sulphites~ - vinegar",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-009",
+      "sheet_item_type": "dressing",
+      "name_en": "Lemon Mustard Dressing",
+      "slug": "lemon-mustard-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Lemon, mustard, olive oil, honey, garlic, salt",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mustard"
+        }
+      ],
+      "allergen_evidence": "Mustard - mustard",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-010",
+      "sheet_item_type": "dressing",
+      "name_en": "Lemon Oil Dressing",
+      "slug": "lemon-oil-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Lemon, olive oil, garlic, salt, sumac",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": "In-house version of DR-08 | Also held in the recipe library as Lemon Salad Dressing",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-011",
+      "sheet_item_type": "dressing",
+      "name_en": "Mustard Salad Dressing",
+      "slug": "mustard-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mustard, olive oil, vinegar, honey, lemon",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard — mustard"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ — vinegar"
+        }
+      ],
+      "allergen_evidence": "Mustard — mustard; Sulphites~ — vinegar",
+      "prices": {},
+      "notes": "~ verify supplier",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-012",
+      "sheet_item_type": "dressing",
+      "name_en": "Orange Oil Dressing",
+      "slug": "orange-oil-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Orange juice, olive oil, lemon, honey, (mustard)",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "mustard",
+          "evidence": "Mustard - mustard (if used)"
+        }
+      ],
+      "allergen_evidence": "Mustard - mustard (if used)",
+      "prices": {},
+      "notes": "In-house version of DR-10 | Also held in the recipe library as Orange Salad Dressing",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-013",
+      "sheet_item_type": "dressing",
+      "name_en": "Oregano Salad Dressing",
+      "slug": "oregano-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Oregano, olive oil, lemon / vinegar, garlic, salt",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-014",
+      "sheet_item_type": "dressing",
+      "name_en": "Paprika Salad Dressing",
+      "slug": "paprika-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Paprika, olive oil, lemon, garlic, salt",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-015",
+      "sheet_item_type": "dressing",
+      "name_en": "Pesto Oil Dressing",
+      "slug": "pesto-oil-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Basil, pine nuts, parmesan, garlic, olive oil, lemon",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts - pine nuts"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - parmesan"
+        }
+      ],
+      "allergen_evidence": "Tree nuts - pine nuts; Milk - parmesan",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-016",
+      "sheet_item_type": "dressing",
+      "name_en": "Pomegranate Salad Dressing",
+      "slug": "pomegranate-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Pomegranate molasses, olive oil, lemon, garlic, sumac",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ — pomegranate molasses"
+        }
+      ],
+      "allergen_evidence": "Sulphites~ — pomegranate molasses",
+      "prices": {},
+      "notes": "~ verify supplier",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-017",
+      "sheet_item_type": "dressing",
+      "name_en": "Ranch Dressing",
+      "slug": "ranch-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, yogurt / buttermilk, garlic, dill, parsley, lemon",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - yogurt / buttermilk"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Milk - yogurt / buttermilk",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 600,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 400,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-018",
+      "sheet_item_type": "dressing",
+      "name_en": "Tarator Salad Dressing",
+      "slug": "tarator-salad-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Tahini, lemon, garlic, water, salt, parsley",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame — tahini"
+        }
+      ],
+      "allergen_evidence": "Sesame — tahini",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "DRS-019",
+      "sheet_item_type": "dressing",
+      "name_en": "Thousand Island Dressing",
+      "slug": "thousand-island-dressing",
+      "published_category_code": "dressing",
+      "kitchen_category": "Dressings",
+      "kitchen_subcategory": "Salad dressing",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mayonnaise, ketchup, pickles, onion, lemon, paprika",
+      "category_code": "dressings",
+      "subcategory_code": "dressings-salad-dressing",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - pickles, vinegar"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Sulphites~ - pickles, vinegar",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 600,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-001",
+      "sheet_item_type": "meal",
+      "name_en": "Beef Fajita",
+      "slug": "beef-fajita",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Beef, bell pepper, onion, fajita spices, oil",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "bag",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-002",
+      "sheet_item_type": "meal",
+      "name_en": "Breaded Fish Filet",
+      "slug": "breaded-fish-filet",
+      "published_category_code": "meal",
+      "kitchen_category": "Fish & Seafood",
+      "kitchen_subcategory": "Shelfish & Squid",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Fish filet, flour, breadcrumbs, egg, lemon, spices",
+      "category_code": "fish-seafood",
+      "subcategory_code": "fish-seafood-shelfish-squid",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish - fish filet"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Fish - fish filet; Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-003",
+      "sheet_item_type": "meal",
+      "name_en": "Breaded Shrimps",
+      "slug": "breaded-shrimps",
+      "published_category_code": "meal",
+      "kitchen_category": "Fish & Seafood",
+      "kitchen_subcategory": "Shelfish & Squid",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Shrimp, flour, breadcrumbs, egg, spices",
+      "category_code": "fish-seafood",
+      "subcategory_code": "fish-seafood-shelfish-squid",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "crustaceans",
+          "evidence": "Crustaceans - shrimp"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Crustaceans - shrimp; Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-004",
+      "sheet_item_type": "meal",
+      "name_en": "Burger Patty (beef)",
+      "slug": "burger-patty-beef",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Minced beef, beef fat, onion, salt, black pepper, spices",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": "Cereals/Gluten if rusk or breadcrumb binder is added - verify recipe",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-005",
+      "sheet_item_type": "meal",
+      "name_en": "Caramelised Onions",
+      "slug": "caramelised-onions",
+      "published_category_code": "meal",
+      "kitchen_category": "Vegetables",
+      "kitchen_subcategory": "Onions & Garlic",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Onion, butter / oil, sugar, balsamic vinegar, salt",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-onions-garlic",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "bag",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - butter"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - balsamic vinegar"
+        }
+      ],
+      "allergen_evidence": "Milk - butter; Sulphites~ - balsamic vinegar",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 1200,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.2,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 200 g portions",
+      "flags": [
+        "recipe_library_unlinked",
+        "source_blank_role_flags"
+      ]
+    },
+    {
+      "source_ref": "PRD-006",
+      "sheet_item_type": "meal",
+      "name_en": "Cheese Balls",
+      "slug": "cheese-balls",
+      "published_category_code": "meal",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Cheese (mozzarella/cheddar), potato or flour, breadcrumbs, egg, spices",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cheese"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Milk - cheese; Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-007",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Breast Marinated",
+      "slug": "chicken-breast-marinated",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken breast, lemon, garlic, yogurt, oil, spices",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - yogurt"
+        }
+      ],
+      "allergen_evidence": "Milk - yogurt",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 900,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1000,
+          "currency": "USD"
+        }
+      },
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-008",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Burger Patty",
+      "slug": "chicken-burger-patty",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Minced chicken, onion, breadcrumbs, garlic, spices, salt",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - breadcrumbs"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - breadcrumbs",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 800,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1000,
+          "currency": "USD"
+        }
+      },
+      "notes": "Eggs if used as a binder - verify recipe | Usage unit may be kg or piece",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-009",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Crispy",
+      "slug": "chicken-crispy",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken, flour, corn starch, crispy spices, egg, milk",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, crispy spices"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, crispy spices; Eggs - egg wash; Milk - milk wash",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 900,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1000,
+          "currency": "USD"
+        }
+      },
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-010",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Fajita",
+      "slug": "chicken-fajita",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken, bell pepper, onion, fajita spices, lemon, oil",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "bag",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": "Verify the spice blend base for wheat",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-011",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Nuggets",
+      "slug": "chicken-nuggets",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken breast, flour, breadcrumbs, egg, milk, spices, salt",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash; Milk - milk wash",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 600,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 800,
+          "currency": "USD"
+        }
+      },
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-012",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Popcorn",
+      "slug": "chicken-popcorn",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken, flour, corn starch, crispy spices, egg, milk",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "bag",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, spice blend"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, spice blend; Eggs - egg wash; Milk - milk wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-013",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Red Tawouk",
+      "slug": "chicken-red-tawouk",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken, tomato paste, garlic, paprika, lemon, yogurt, seven spices, oil",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - yogurt"
+        }
+      ],
+      "allergen_evidence": "Milk - yogurt",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 900,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1000,
+          "currency": "USD"
+        }
+      },
+      "notes": "Also sold 0.5 kg B2C at $5.50",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-014",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Strips",
+      "slug": "chicken-strips",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken breast, flour, breadcrumbs, egg, milk, crispy spices",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs, spice blend"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, breadcrumbs, spice blend; Eggs - egg wash; Milk - milk wash",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 900,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1000,
+          "currency": "USD"
+        }
+      },
+      "notes": "Usage unit may be kg or piece",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-015",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken White Tawouk",
+      "slug": "chicken-white-tawouk",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken, garlic, lemon, yogurt, white pepper, oil, salt",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - yogurt"
+        }
+      ],
+      "allergen_evidence": "Milk - yogurt",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 900,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1000,
+          "currency": "USD"
+        }
+      },
+      "notes": "Also sold 0.5 kg B2C at $5.50",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-016",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken wings",
+      "slug": "chicken-wings",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken wings, garlic, lemon, paprika, spices, oil, (corn starch)",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-017",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Wings (marinated)",
+      "slug": "chicken-wings-marinated",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken wings, garlic, lemon, paprika, spices, oil, (corn starch)",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 600,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 800,
+          "currency": "USD"
+        }
+      },
+      "notes": "Gluten if a wheat-flour dredge is used - verify recipe",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-018",
+      "sheet_item_type": "meal",
+      "name_en": "Chicken Zinger",
+      "slug": "chicken-zinger",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken breast, flour, crispy spices, egg, milk, paprika, chilli",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, crispy spices"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, crispy spices; Eggs - egg wash; Milk - milk wash",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 950,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1100,
+          "currency": "USD"
+        }
+      },
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-019",
+      "sheet_item_type": "meal",
+      "name_en": "Chocolate Fondant",
+      "slug": "chocolate-fondant",
+      "published_category_code": "meal",
+      "kitchen_category": "Desserts",
+      "kitchen_subcategory": "Cake & Cream",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Dark chocolate, butter, eggs, sugar, wheat flour",
+      "category_code": "desserts",
+      "subcategory_code": "desserts-cakes-cream",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - butter (and milk solids in chocolate)"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - eggs"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour"
+        },
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans - soy lecithin in chocolate"
+        }
+      ],
+      "allergen_evidence": "Milk - butter (and milk solids in chocolate); Eggs - eggs; Cereals/Gluten - flour; Soybeans - soy lecithin in chocolate",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked",
+        "source_blank_role_flags"
+      ]
+    },
+    {
+      "source_ref": "PRD-020",
+      "sheet_item_type": "meal",
+      "name_en": "Cordon Bleu",
+      "slug": "cordon-bleu",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken breast, cheese (mozzarella/cheddar), turkey breast, flour, breadcrumbs, egg",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cheese"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Milk - cheese; Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-021",
+      "sheet_item_type": "meal",
+      "name_en": "Escalope",
+      "slug": "escalope",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken or beef escalope, flour, egg, breadcrumbs, escalope spices",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 900,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 900,
+          "currency": "USD"
+        }
+      },
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-022",
+      "sheet_item_type": "meal",
+      "name_en": "Escalope Milanaise",
+      "slug": "escalope-milanaise",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chicken or veal, flour, egg, breadcrumbs, parmesan",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - parmesan"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash; Milk - parmesan",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-023",
+      "sheet_item_type": "meal",
+      "name_en": "Halloumi Sticks",
+      "slug": "halloumi-sticks",
+      "published_category_code": "meal",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Halloumi cheese, flour, breadcrumbs, egg",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - halloumi"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Milk - halloumi; Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-024",
+      "sheet_item_type": "meal",
+      "name_en": "Kebbe",
+      "slug": "kebbe",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Burghul, minced beef, onion, pine nuts, seven spices, salt",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - burghul (wheat)"
+        },
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts - pine nuts"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - burghul (wheat); Tree nuts - pine nuts",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-025",
+      "sheet_item_type": "meal",
+      "name_en": "Makanek (Lebanese sausage)",
+      "slug": "makanek-lebanese-sausage",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Beef/lamb, fat, salt, spices, nitrite, (wine)",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ -"
+        }
+      ],
+      "allergen_evidence": "Sulphites~ -",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-026",
+      "sheet_item_type": "meal",
+      "name_en": "Mozzarella Sticks",
+      "slug": "mozzarella-sticks",
+      "published_category_code": "meal",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mozzarella cheese, flour, panko breadcrumbs, egg, milk, spices",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": 20.0,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - mozzarella / milk"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Milk - mozzarella / milk; Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 700,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1000,
+          "currency": "USD"
+        }
+      },
+      "notes": "20 pieces per kg; also sold 0.5 kg B2C at $5.50",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-027",
+      "sheet_item_type": "meal",
+      "name_en": "Mozzarella Sticks, small",
+      "slug": "mozzarella-sticks-small",
+      "published_category_code": "meal",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mozzarella cheese, flour, panko breadcrumbs, egg, milk",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - mozzarella / milk"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Milk - mozzarella / milk; Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 700,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 1.0,
+          "price_minor": 1000,
+          "currency": "USD"
+        }
+      },
+      "notes": "Priced as standard mozzarella sticks",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-028",
+      "sheet_item_type": "meal",
+      "name_en": "Pain Perdu",
+      "slug": "pain-perdu",
+      "published_category_code": "meal",
+      "kitchen_category": "Desserts",
+      "kitchen_subcategory": "Cake & Cream",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Bread, milk, eggs, sugar, vanilla, cinnamon",
+      "category_code": "desserts",
+      "subcategory_code": "desserts-cakes-cream",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - bread"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - eggs"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - bread; Milk - milk; Eggs - eggs",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked",
+        "source_blank_role_flags"
+      ]
+    },
+    {
+      "source_ref": "PRD-029",
+      "sheet_item_type": "meal",
+      "name_en": "Rkakat Cheese",
+      "slug": "rkakat-cheese",
+      "published_category_code": "meal",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Rkakat dough, akkawi / mozzarella cheese, parsley, oil",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - rkakat dough (wheat)"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cheese"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - rkakat dough (wheat); Milk - cheese",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-030",
+      "sheet_item_type": "meal",
+      "name_en": "Roasted Mushroom",
+      "slug": "roasted-mushroom",
+      "published_category_code": "meal",
+      "kitchen_category": "Vegetables",
+      "kitchen_subcategory": "Mushroom",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Mushroom, butter / olive oil, garlic, thyme, salt",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-mushrooms",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - butter"
+        }
+      ],
+      "allergen_evidence": "Milk - butter",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked",
+        "source_blank_role_flags"
+      ]
+    },
+    {
+      "source_ref": "PRD-031",
+      "sheet_item_type": "meal",
+      "name_en": "Sambousek Cheese",
+      "slug": "sambousek-cheese",
+      "published_category_code": "meal",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Wheat dough (flour, water, oil, salt), akkawi cheese, parsley",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - dough (wheat)"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cheese"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - dough (wheat); Milk - cheese",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-032",
+      "sheet_item_type": "meal",
+      "name_en": "Sambousek Lahme",
+      "slug": "sambousek-lahme",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Wheat dough, minced beef, onion, pine nuts, sumac, spices",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - dough (wheat)"
+        },
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts - pine nuts"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - dough (wheat); Tree nuts - pine nuts",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-033",
+      "sheet_item_type": "meal",
+      "name_en": "Smashed Burger Patty",
+      "slug": "smashed-burger-patty",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Minced beef, beef fat, salt, black pepper",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "bag",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 1500,
+          "currency": "USD"
+        }
+      },
+      "notes": "Not sold B2C",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-034",
+      "sheet_item_type": "meal",
+      "name_en": "Stuffed Vine Leaves (Warak Enab)",
+      "slug": "stuffed-vine-leaves-warak-enab",
+      "published_category_code": "meal",
+      "kitchen_category": "Vegetables",
+      "kitchen_subcategory": "Leafy Green",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Vine leaves, rice, tomato, onion, parsley, mint, lemon, olive oil, salt",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-leafy-green",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-035",
+      "sheet_item_type": "meal",
+      "name_en": "Tiramisu",
+      "slug": "tiramisu",
+      "published_category_code": "meal",
+      "kitchen_category": "Desserts",
+      "kitchen_subcategory": "Cake & Cream",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Lady finger biscuits, cream cheese / mascarpone, cream, eggs, sugar, coffee, cocoa",
+      "category_code": "desserts",
+      "subcategory_code": "desserts-cakes-cream",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - lady fingers"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - mascarpone, cream"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - eggs"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - lady fingers; Milk - mascarpone, cream; Eggs - eggs",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-036",
+      "sheet_item_type": "meal",
+      "name_en": "Coleslaw",
+      "slug": "coleslaw",
+      "published_category_code": "meal",
+      "kitchen_category": "Vegetables",
+      "kitchen_subcategory": "Leafy Green",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "White cabbage, carrot, mayonnaise, vinegar, sugar, lemon",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-leafy-green",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "mustard",
+          "evidence": "Eggs + Mustard - mayonnaise"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ - vinegar"
+        }
+      ],
+      "allergen_evidence": "Eggs + Mustard - mayonnaise; Sulphites~ - vinegar",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-037",
+      "sheet_item_type": "meal",
+      "name_en": "Guacamole",
+      "slug": "guacamole",
+      "published_category_code": "meal",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Avocado, lemon, onion, tomato, coriander, chilli, salt",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {
+        "b2b": {
+          "weight_kg": 1.0,
+          "price_minor": 500,
+          "currency": "USD"
+        },
+        "b2c": {
+          "weight_kg": 0.3,
+          "price_minor": 300,
+          "currency": "USD"
+        }
+      },
+      "notes": "B2C in 300 g bottles",
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "PRD-038",
+      "sheet_item_type": "meal",
+      "name_en": "Hummus Dip",
+      "slug": "hummus-dip",
+      "published_category_code": "meal",
+      "kitchen_category": "Sauce",
+      "kitchen_subcategory": "Cold sauce / dip",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "production",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Chickpeas, tahini, lemon, garlic, salt, olive oil",
+      "category_code": "sauce",
+      "subcategory_code": "sauce-cold-sauce-dip",
+      "usage_unit_code": "kg",
+      "purchase_unit_code": "kg",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame - tahini"
+        }
+      ],
+      "allergen_evidence": "Sesame - tahini",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "recipe_library_unlinked"
+      ]
+    },
+    {
+      "source_ref": "RSL-001",
+      "sheet_item_type": "product",
+      "name_en": "Beef Fajita",
+      "slug": "beef-fajita-product",
+      "published_category_code": "meal",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Beef, bell pepper, onion, fajita spices, oil",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "slug_collision_suffixed",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-002",
+      "sheet_item_type": "product",
+      "name_en": "Makanek (Lebanese sausage)",
+      "slug": "makanek-lebanese-sausage-product",
+      "published_category_code": "frozen",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Beef/lamb, fat, salt, spices, nitrite, (wine)",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~ -"
+        }
+      ],
+      "allergen_evidence": "Sulphites~ -",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "slug_collision_suffixed",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-003",
+      "sheet_item_type": "product",
+      "name_en": "Calamari pane, frozen",
+      "slug": "calamari-pane-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Fish & Seafood",
+      "kitchen_subcategory": "Shelfish & Squid",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Squid, wheat flour & breadcrumb, batter",
+      "category_code": "fish-seafood",
+      "subcategory_code": "fish-seafood-shelfish-squid",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "mollusc",
+          "evidence": "Molluscs - squid"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour & breadcrumb"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs"
+        }
+      ],
+      "allergen_evidence": "Molluscs - squid; Cereals/Gluten - wheat flour & breadcrumb; Eggs",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-004",
+      "sheet_item_type": "product",
+      "name_en": "Makdous",
+      "slug": "makdous",
+      "published_category_code": "meal",
+      "kitchen_category": "Vegetable",
+      "kitchen_subcategory": "Cucumber, Eggplant & Squash",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Baby eggplant, walnut, red pepper, garlic, salt, olive oil",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-cucumber-eggplant-squash",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts - walnut"
+        },
+        {
+          "allergen_code": "sulphites",
+          "verification_status": "requires_supplier_confirmation",
+          "evidence": "Sulphites~"
+        }
+      ],
+      "allergen_evidence": "Tree nuts - walnut; Sulphites~",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-005",
+      "sheet_item_type": "product",
+      "name_en": "Cheddar patty, frozen",
+      "slug": "cheddar-patty-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Cheddar cheese, wheat breadcrumb, batter",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cheddar cheese"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat breadcrumb"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs"
+        }
+      ],
+      "allergen_evidence": "Milk - cheddar cheese; Cereals/Gluten - wheat breadcrumb; Eggs",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-006",
+      "sheet_item_type": "product",
+      "name_en": "Jalapeno cheese bites, frozen",
+      "slug": "jalapeno-cheese-bites-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Jalapeno pepper, cream cheese, wheat breadcrumb, batter (egg, milk)",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cream cheese, batter"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat breadcrumb"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - batter"
+        }
+      ],
+      "allergen_evidence": "Milk - cream cheese, batter; Cereals/Gluten - wheat breadcrumb; Eggs - batter",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-007",
+      "sheet_item_type": "product",
+      "name_en": "Mozzarella bricks, frozen",
+      "slug": "mozzarella-bricks-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Mozzarella, wheat breadcrumb, batter",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - mozzarella"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat breadcrumb"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs"
+        }
+      ],
+      "allergen_evidence": "Milk - mozzarella; Cereals/Gluten - wheat breadcrumb; Eggs",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-008",
+      "sheet_item_type": "product",
+      "name_en": "Mozzarella patty, frozen",
+      "slug": "mozzarella-patty-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Dairy",
+      "kitchen_subcategory": "Cheese",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Mozzarella, wheat breadcrumb, batter",
+      "category_code": "dairy",
+      "subcategory_code": "dairy-cheese",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - mozzarella"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat breadcrumb"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs"
+        }
+      ],
+      "allergen_evidence": "Milk - mozzarella; Cereals/Gluten - wheat breadcrumb; Eggs",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-009",
+      "sheet_item_type": "product",
+      "name_en": "Crispy fish fingers, frozen",
+      "slug": "crispy-fish-fingers-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Fish & Seafood",
+      "kitchen_subcategory": "Fish",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Fish fillet, wheat breadcrumb, batter",
+      "category_code": "fish-seafood",
+      "subcategory_code": "fish-seafood-fish",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "fish",
+          "evidence": "Fish - fish fillet"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat breadcrumb"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs"
+        }
+      ],
+      "allergen_evidence": "Fish - fish fillet; Cereals/Gluten - wheat breadcrumb; Eggs",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-010",
+      "sheet_item_type": "product",
+      "name_en": "Onion rings, frozen",
+      "slug": "onion-rings-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Vegetable",
+      "kitchen_subcategory": "Onions & Garlic",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Onion, wheat flour batter, breadcrumb",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-onions-garlic",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour batter, breadcrumb"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour batter, breadcrumb",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-011",
+      "sheet_item_type": "product",
+      "name_en": "Curly fries (twister), frozen",
+      "slug": "curly-fries-twister-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Vegetable",
+      "kitchen_subcategory": "Root Vegetable",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Potato, seasoned wheat-flour coating, oil, spices",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-root-vegetable",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - seasoned wheat-flour coating"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - seasoned wheat-flour coating",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-012",
+      "sheet_item_type": "product",
+      "name_en": "French fries, frozen",
+      "slug": "french-fries-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Vegetable",
+      "kitchen_subcategory": "Root Vegetable",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Potato, vegetable oil",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-root-vegetable",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-013",
+      "sheet_item_type": "product",
+      "name_en": "Potato cubes, frozen",
+      "slug": "potato-cubes-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Vegetable",
+      "kitchen_subcategory": "Root Vegetable",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Potato, vegetable oil, (dextrose, stabiliser)",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-root-vegetable",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-014",
+      "sheet_item_type": "product",
+      "name_en": "Potato wedges, frozen",
+      "slug": "potato-wedges-frozen",
+      "published_category_code": "frozen",
+      "kitchen_category": "Vegetable",
+      "kitchen_subcategory": "Root Vegetable",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Potato, vegetable oil, seasoned coating",
+      "category_code": "vegetable",
+      "subcategory_code": "vegetable-root-vegetable",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-015",
+      "sheet_item_type": "product",
+      "name_en": "Tomato juice",
+      "slug": "tomato-juice",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Tomato juice, salt",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-016",
+      "sheet_item_type": "product",
+      "name_en": "Almond milk",
+      "slug": "almond-milk",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Plant Based Milk",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Water, almonds, (sugar, stabiliser)",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-plant-based-milk",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "tree_nut",
+          "evidence": "Tree nuts - almonds"
+        }
+      ],
+      "allergen_evidence": "Tree nuts - almonds",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-017",
+      "sheet_item_type": "product",
+      "name_en": "Chocolate, milk",
+      "slug": "chocolate-milk",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Plant Based Milk",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Sugar, milk solids, cocoa mass, cocoa butter, soy lecithin",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-plant-based-milk",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk solids, cocoa butter"
+        },
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans - soy lecithin"
+        }
+      ],
+      "allergen_evidence": "Milk - milk solids, cocoa butter; Soybeans - soy lecithin",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-018",
+      "sheet_item_type": "product",
+      "name_en": "Coconut milk",
+      "slug": "coconut-milk",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Plant Based Milk",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Coconut extract, water, (stabiliser)",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-plant-based-milk",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "tree_nut",
+          "market_scope": "us_only",
+          "evidence": "Tree nuts* - coconut extract"
+        }
+      ],
+      "allergen_evidence": "Tree nuts* - coconut extract",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-019",
+      "sheet_item_type": "product",
+      "name_en": "Rice milk",
+      "slug": "rice-milk",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Plant Based Milk",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Water, rice, (oil, salt, stabiliser)",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-plant-based-milk",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-020",
+      "sheet_item_type": "product",
+      "name_en": "Iced tea, canned",
+      "slug": "iced-tea-canned",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Tea",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Water, sugar, tea extract, acidity regulator, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-tea",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-021",
+      "sheet_item_type": "product",
+      "name_en": "Tea",
+      "slug": "tea",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Tea",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "-",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-tea",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-022",
+      "sheet_item_type": "product",
+      "name_en": "Tea Anise",
+      "slug": "tea-anise",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Tea",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "-",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-tea",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-023",
+      "sheet_item_type": "product",
+      "name_en": "Tea Chamomile",
+      "slug": "tea-chamomile",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Tea",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "-",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-tea",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-024",
+      "sheet_item_type": "product",
+      "name_en": "Tea Ginger",
+      "slug": "tea-ginger",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Tea",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "-",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-tea",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-025",
+      "sheet_item_type": "product",
+      "name_en": "Tea Peppermint",
+      "slug": "tea-peppermint",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Tea",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "-",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-tea",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-026",
+      "sheet_item_type": "product",
+      "name_en": "Coconut water",
+      "slug": "coconut-water",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Water",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Tree nuts* - coconut water",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-water",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "tree_nut"
+        }
+      ],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-027",
+      "sheet_item_type": "product",
+      "name_en": "Sparkling water",
+      "slug": "sparkling-water",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Water",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-water",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-028",
+      "sheet_item_type": "product",
+      "name_en": "Pineapple juice",
+      "slug": "pineapple-juice",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Pineapple juice (from concentrate)",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-029",
+      "sheet_item_type": "product",
+      "name_en": "Pepsi",
+      "slug": "pepsi",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-030",
+      "sheet_item_type": "product",
+      "name_en": "Pepsi (Diet)",
+      "slug": "pepsi-diet",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-031",
+      "sheet_item_type": "product",
+      "name_en": "Pepsi Zero",
+      "slug": "pepsi-zero",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-032",
+      "sheet_item_type": "product",
+      "name_en": "Seven Up",
+      "slug": "seven-up",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-033",
+      "sheet_item_type": "product",
+      "name_en": "Seven Up (Diet)",
+      "slug": "seven-up-diet",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-034",
+      "sheet_item_type": "product",
+      "name_en": "Mirinda",
+      "slug": "mirinda",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-035",
+      "sheet_item_type": "product",
+      "name_en": "Mirinda (Diet)",
+      "slug": "mirinda-diet",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-036",
+      "sheet_item_type": "product",
+      "name_en": "Lipton Iced Tea Peach",
+      "slug": "lipton-iced-tea-peach",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-037",
+      "sheet_item_type": "product",
+      "name_en": "Lipton Iced Tea Peach Zero",
+      "slug": "lipton-iced-tea-peach-zero",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Juice & Soft Drink",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Carbonated water, sugar, acidity regulator, colour, flavouring",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-juice-soft-drink",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-038",
+      "sheet_item_type": "product",
+      "name_en": "Water, drinking (bottled)",
+      "slug": "water-drinking-bottled",
+      "published_category_code": "beverage",
+      "kitchen_category": "Beverage",
+      "kitchen_subcategory": "Water",
+      "is_ingredient": false,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Purified / mineral drinking water",
+      "category_code": "beverage",
+      "subcategory_code": "beverage-water",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-039",
+      "sheet_item_type": "product",
+      "name_en": "Chicken strips",
+      "slug": "chicken-strips-product",
+      "published_category_code": "frozen",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Chicken breast, flour, breadcrumbs, egg, milk, crispy spices",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs, spice blend"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, breadcrumbs, spice blend; Eggs - egg wash; Milk - milk wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "slug_collision_suffixed",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-040",
+      "sheet_item_type": "product",
+      "name_en": "Chicken wings",
+      "slug": "chicken-wings-product",
+      "published_category_code": "frozen",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Chicken wings, garlic, lemon, paprika, spices, oil, (corn starch)",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "slug_collision_suffixed",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-041",
+      "sheet_item_type": "product",
+      "name_en": "Chicken zinger",
+      "slug": "chicken-zinger-product",
+      "published_category_code": "frozen",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Chicken breast, flour, crispy spices, egg, milk, paprika, chilli",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, crispy spices"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, crispy spices; Eggs - egg wash; Milk - milk wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "slug_collision_suffixed",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-042",
+      "sheet_item_type": "product",
+      "name_en": "Crispy chicken",
+      "slug": "crispy-chicken",
+      "published_category_code": "frozen",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Chicken, flour, corn starch, crispy spices, egg, milk",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, crispy spices"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, crispy spices; Eggs - egg wash; Milk - milk wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-043",
+      "sheet_item_type": "product",
+      "name_en": "Escalope",
+      "slug": "escalope-product",
+      "published_category_code": "frozen",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Poultry",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Chicken or beef escalope, flour, egg, breadcrumbs, escalope spices",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-poultry",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "slug_collision_suffixed",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-044",
+      "sheet_item_type": "product",
+      "name_en": "Cordon bleu",
+      "slug": "cordon-bleu-product",
+      "published_category_code": "frozen",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Chicken breast, cheese (mozzarella/cheddar), turkey breast, flour, breadcrumbs, egg",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - cheese"
+        },
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - flour, breadcrumbs"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg wash"
+        }
+      ],
+      "allergen_evidence": "Milk - cheese; Cereals/Gluten - flour, breadcrumbs; Eggs - egg wash",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "slug_collision_suffixed",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-045",
+      "sheet_item_type": "product",
+      "name_en": "Burger Patty (beef)",
+      "slug": "burger-patty-beef-product",
+      "published_category_code": "frozen",
+      "kitchen_category": "Meat & Egg",
+      "kitchen_subcategory": "Beef",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": "Recipe Library",
+      "composition": "Minced beef, beef fat, onion, salt, black pepper, spices",
+      "category_code": "meat-egg",
+      "subcategory_code": "meat-egg-beef",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [],
+      "allergen_evidence": null,
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "recipe_library_unlinked",
+        "slug_collision_suffixed",
+        "source_misplaced_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-046",
+      "sheet_item_type": "product",
+      "name_en": "Burger bun",
+      "slug": "burger-bun",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, water, sugar, yeast, milk powder, egg, butter/oil, sesame topping",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk powder, butter/oil"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg"
+        },
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame - sesame topping"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour; Milk - milk powder, butter/oil; Eggs - egg; Sesame - sesame topping",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-047",
+      "sheet_item_type": "product",
+      "name_en": "Ciabatta bread",
+      "slug": "ciabatta-bread",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, water, olive oil, yeast, salt",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-048",
+      "sheet_item_type": "product",
+      "name_en": "Croissant, chocolate",
+      "slug": "croissant-chocolate",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, butter, milk, egg, sugar, yeast, chocolate (soy lecithin)",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - butter, milk"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg"
+        },
+        {
+          "allergen_code": "soy",
+          "evidence": "Soybeans - chocolate"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour; Milk - butter, milk; Eggs - egg; Soybeans - chocolate",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-049",
+      "sheet_item_type": "product",
+      "name_en": "Croissant, plain",
+      "slug": "croissant-plain",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, butter, milk, egg, sugar, yeast, salt",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - butter, milk"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour; Milk - butter, milk; Eggs - egg",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-050",
+      "sheet_item_type": "product",
+      "name_en": "Croissant, thyme (zaatar)",
+      "slug": "croissant-thyme-zaatar",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, butter, egg, zaatar (thyme, sumac, sesame), olive oil",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - butter"
+        },
+        {
+          "allergen_code": "egg",
+          "evidence": "Eggs - egg"
+        },
+        {
+          "allergen_code": "sesame",
+          "evidence": "Sesame - zaatar"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour; Milk - butter; Eggs - egg; Sesame - zaatar",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-051",
+      "sheet_item_type": "product",
+      "name_en": "Pain de mie (sandwich loaf)",
+      "slug": "pain-de-mie-sandwich-loaf",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, water, milk, butter, sugar, yeast, salt",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        },
+        {
+          "allergen_code": "milk",
+          "evidence": "Milk - milk, butter"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour; Milk - milk, butter",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-052",
+      "sheet_item_type": "product",
+      "name_en": "Panko breadcrumbs",
+      "slug": "panko-breadcrumbs",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, yeast, sugar, salt",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-053",
+      "sheet_item_type": "product",
+      "name_en": "Sourdough bread",
+      "slug": "sourdough-bread",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, water, sourdough starter, salt",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour, sourdough starter"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour, sourdough starter",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-054",
+      "sheet_item_type": "product",
+      "name_en": "Tortilla bread",
+      "slug": "tortilla-bread",
+      "published_category_code": "bread",
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, water, oil/shortening, salt, raising agents",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "kind_typo_repaired",
+        "unit_defaulted_piece"
+      ]
+    },
+    {
+      "source_ref": "RSL-055",
+      "sheet_item_type": "product",
+      "name_en": "Baguette, white",
+      "slug": "baguette-white",
+      "published_category_code": null,
+      "kitchen_category": "Bread",
+      "kitchen_subcategory": "Wheat / gluten",
+      "is_ingredient": true,
+      "is_product": true,
+      "production_mode": "supplier",
+      "status": "active",
+      "source": null,
+      "composition": "Wheat flour, water, yeast, salt",
+      "category_code": "bread",
+      "subcategory_code": "bread-wheat-gluten",
+      "usage_unit_code": "piece",
+      "purchase_unit_code": "piece",
+      "items_per_unit": null,
+      "pieces_per_pack": null,
+      "allergens": [
+        {
+          "allergen_code": "gluten",
+          "evidence": "Cereals/Gluten - wheat flour"
+        }
+      ],
+      "allergen_evidence": "Cereals/Gluten - wheat flour",
+      "prices": {},
+      "notes": null,
+      "flags": [
+        "columns_swapped_repaired",
+        "published_category_missing",
+        "row_shift_repaired"
+      ]
+    }
+  ]
+}
