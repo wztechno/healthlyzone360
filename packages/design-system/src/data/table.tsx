@@ -7,6 +7,8 @@ import type { LayoutChangeEvent } from 'react-native';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { GAP_CLASS } from '../primitives/stack.tsx';
+import type { SpaceStep } from '../primitives/stack.tsx';
 
 export type TableSortDirection = 'asc' | 'desc';
 
@@ -71,13 +73,8 @@ export interface TableProps<Row> {
     readonly onSortChange?: ((key: string, direction: TableSortDirection) => void) | undefined;
     /** A trailing action column above `md`; a card footer below it. */
     readonly rowAction?: TableRowAction<Row> | undefined;
-    /**
-     * Per-row emphasis. `muted` dims the whole row (desktop) or card (mobile)
-     * — the affordance for a row that exists but must not be used, e.g. an
-     * inactive or retired catalogue entry. Content and actions stay rendered
-     * and reachable; only the emphasis changes.
-     */
-    readonly rowTone?: ((row: Row) => 'default' | 'muted') | undefined;
+    /** The gap between columns, in both the header row and every data row. Defaults to 12px. */
+    readonly columnGap?: SpaceStep | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -122,7 +119,7 @@ export function Table<Row>({
     sortDirection = 'asc',
     onSortChange,
     rowAction,
-    rowTone,
+    columnGap,
     className,
     testID,
 }: TableProps<Row>) {
@@ -130,6 +127,7 @@ export function Table<Row>({
     const { atLeast } = useBreakpoint();
     const generated = useId();
     const base = testID ?? `table-${generated.replace(/:/g, '')}`;
+    const rowGapClass = columnGap === undefined ? 'gap-3' : GAP_CLASS[columnGap];
     const captionId = `${base}-caption`;
     const wide = atLeast('md');
     const isEmpty = rows.length === 0;
@@ -297,7 +295,10 @@ export function Table<Row>({
                     <View
                         testID={`${base}-header`}
                         role="row"
-                        className="flex-row items-center gap-3 border-b-2 border-stroke-subtle px-1 pb-2"
+                        className={cx(
+                            'flex-row items-center border-b-2 border-stroke-subtle px-1 pb-2',
+                            rowGapClass,
+                        )}
                     >
                         {columns.map((column) => {
                             if (column.sortable !== true) {
@@ -410,8 +411,8 @@ export function Table<Row>({
                             testID={`${base}-row-${rowKey(row)}`}
                             role="row"
                             className={cx(
-                                'flex-row items-center gap-3 border-b border-surface-sunken px-1 py-3',
-                                rowTone?.(row) === 'muted' && 'opacity-60',
+                                'flex-row items-center border-b border-surface-sunken px-1 py-3',
+                                rowGapClass,
                             )}
                         >
                             {columns.map((column) => (
