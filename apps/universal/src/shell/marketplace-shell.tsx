@@ -23,6 +23,7 @@ import { isPathAvailable } from '../features/availability.ts';
 import { marketplaceNavigation } from '../navigation/consumer-items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useSession } from '../session/session-provider.tsx';
+import { ThemeToggle } from './theme-toggle.tsx';
 
 const SHELL_TEST_ID = 'marketplace-shell';
 const CONTENT_TEST_ID = `${SHELL_TEST_ID}-content`;
@@ -214,6 +215,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
                 }}
             />
+            <ThemeToggle />
             {signedIn ? (
                 <>
                     <Button

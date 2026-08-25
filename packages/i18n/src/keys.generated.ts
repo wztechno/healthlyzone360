@@ -5,6 +5,7 @@
  *
  * 6186 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * 6093 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6095 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1764,6 +1765,8 @@ export interface NamespaceKeys {
     | 'theme.dark'
     | 'theme.label'
     | 'theme.light'
+    | 'theme.switchToDark'
+    | 'theme.switchToLight'
     | 'theme.system';
   readonly "designSystem":
     | 'breadcrumbs.label'
@@ -7978,6 +7981,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:theme.dark',
   'common:theme.label',
   'common:theme.light',
+  'common:theme.switchToDark',
+  'common:theme.switchToLight',
   'common:theme.system',
   'designSystem:breadcrumbs.label',
   'designSystem:chip.remove',

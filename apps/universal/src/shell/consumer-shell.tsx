@@ -12,6 +12,7 @@ import { useCartQuery } from '../data/marketplace-hooks.ts';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { consumerNavigation } from '../navigation/consumer-items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
+import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
  * The signed-in consumer chrome.
@@ -104,6 +105,7 @@ export function ConsumerShell({ children, unguarded = false }: ConsumerShellProp
                     void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
                 }}
             />
+            <ThemeToggle />
             {/*
              * The basket, which this shell did not have. Rule 4 gives the customer area's primary
              * slot to the revenue action, and until now the only way to the basket from a customer

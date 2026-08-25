@@ -14,6 +14,7 @@ import { isAreaAvailable } from '../features/availability.ts';
 import { permittedNavigation } from '../navigation/items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useAccessState } from '../session/session-provider.tsx';
+import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
  * Which shell chrome each area gets.
@@ -154,6 +155,7 @@ function GuardedAreaShell({
                         void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
                     }}
                 />
+                <ThemeToggle />
                 {/*
                  * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit
                  * that a staff area with no single core-loop action gets no top-bar primary at
