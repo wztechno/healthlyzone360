@@ -53,7 +53,9 @@
         "label": "Appearance",
         "light": "Light",
         "dark": "Dark",
-        "system": "Match device"
+        "system": "Match device",
+        "switchToLight": "Switch to light mode",
+        "switchToDark": "Switch to dark mode"
     },
     "direction": {
         "ltr": "Left to right",

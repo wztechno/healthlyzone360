@@ -96,6 +96,8 @@ export const ICON_GLYPHS = {
     leaf: '♣',
     medicalCross: '✚',
     sparkle: '✧',
+    sun: '☀',
+    moon: '☾',
 } as const;
 
 export type IconGlyphName = keyof typeof ICON_GLYPHS;

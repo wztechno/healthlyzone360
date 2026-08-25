@@ -61,7 +61,20 @@ function ThemeProbe() {
     );
 }
 
+/** Enough of a document for the hook's two web writes, and far less than jsdom. */
+function stubDocument() {
+    const classList = { toggle: jest.fn() };
+    const value = { documentElement: { classList }, cookie: '' };
+    Object.defineProperty(globalThis, 'document', { configurable: true, writable: true, value });
+    return { classList, document: value };
+}
+
 describe('useTheme', () => {
+    afterEach(() => {
+        Reflect.deleteProperty(globalThis, 'document');
+        jest.restoreAllMocks();
+    });
+
     it('resolves a theme name and its token set', async () => {
         mockedDimensions.mockReturnValue({ width: 1024, height: 900, scale: 2, fontScale: 1 });
         await renderWithI18n(<ThemeProbe />);
@@ -69,6 +82,44 @@ describe('useTheme', () => {
         expect(['light', 'dark']).toContain(screen.getByTestId('theme').children[0]);
         expect(screen.getByTestId('surface').children[0]).toMatch(/^#[0-9a-f]{6}$/i);
     });
+
+    /**
+     * The regression this exists for.
+     *
+     * `tokens.css` darkens `:root:not(.light)` under `prefers-color-scheme: dark`, so on a machine
+     * whose system is dark the media query wins until something writes `.light`. NativeWind only
+     * ever writes `.dark`, so nothing did — and the appearance toggle appeared completely dead on
+     * exactly those machines while working normally on light ones.
+     */
+    it('writes the .light escape-hatch class the dark media query tests for', async () => {
+        jest.replaceProperty(Platform, 'OS', 'web');
+        const { classList } = stubDocument();
+        await renderWithI18n(<ThemeProbe />);
+
+        const resolved = screen.getByTestId('theme').children[0];
+        expect(classList.toggle).toHaveBeenCalledWith('light', resolved === 'light');
+    });
+
+    /** There is no document to write to, and `Platform.OS` is the only thing that can say so. */
+    it('leaves the document alone on native', async () => {
+        const { classList } = stubDocument();
+        await renderWithI18n(<ThemeProbe />);
+
+        expect(classList.toggle).not.toHaveBeenCalled();
+    });
+
+    /*
+     * The cookie write is deliberately not covered here, and it is worth saying why rather than
+     * leaving the gap to look like an oversight.
+     *
+     * Reaching `persistTheme` means calling `setTheme`, which delegates to NativeWind's
+     * `setColorScheme` — and that throws "Unable to manually set color scheme without using
+     * darkMode: class" in this package's jest run, because `darkMode: 'class'` is declared in
+     * `apps/universal/tailwind.config.js` and this package has no Tailwind config of its own. The
+     * throw is correct behaviour telling a developer their configuration is wrong, so it must not
+     * be swallowed to make a test pass. Persistence is verified in the application instead, where
+     * the setting actually exists.
+     */
 });
 
 function MotionProbe() {
