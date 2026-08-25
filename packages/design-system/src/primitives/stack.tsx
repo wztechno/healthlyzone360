@@ -18,7 +18,7 @@ import { cx } from '../internal/class-names.ts';
 export const SPACE_STEPS = ['none', 'xs', 'sm', 'md', 'lg', 'xl'] as const;
 export type SpaceStep = (typeof SPACE_STEPS)[number];
 
-const GAP_CLASS: Readonly<Record<SpaceStep, string>> = {
+export const GAP_CLASS: Readonly<Record<SpaceStep, string>> = {
     none: 'gap-0',
     xs: 'gap-1',
     sm: 'gap-2',

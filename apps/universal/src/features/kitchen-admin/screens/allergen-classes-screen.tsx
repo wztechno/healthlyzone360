@@ -1,3 +1,4 @@
+import type { AllergenClass } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -9,8 +10,10 @@ import {
     Inline,
     Skeleton,
     Stack,
+    Table,
     Text,
 } from '@healthy360/design-system';
+import type { TableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +36,7 @@ import { displayName } from '../format.ts';
  * and offers nothing that would imply otherwise. A greyed-out "Edit" would be a claim about the
  * interface that is not true.
  *
- * ## What each card has to say
+ * ## What each row has to say
  *
  * Which markets require the class, and the threshold when a regime states one — sulphites are
  * declarable at 10 mg/kg, most classes at any detectable amount. "No market in this list requires
@@ -60,6 +63,118 @@ function AllergenClasses() {
     const classes = useAllergenClassesQuery();
     const failure = toFailure(classes.error);
     const rows = classes.data ?? [];
+
+    const columns: readonly TableColumn<AllergenClass>[] = [
+        {
+            key: 'reference',
+            header: t('kitchen:classes.columnReference'),
+            flex: 2,
+            render: (entry) => {
+                const testID = `kitchen-allergen-class-${String(entry.code)}`;
+
+                return (
+                    <Text testID={`${testID}-reference`} tone="secondary">
+                        {entry.regulatoryReference}
+                    </Text>
+                );
+            },
+        },
+        {
+            key: 'class',
+            header: t('kitchen:classes.columnClass'),
+            rowHeader: true,
+            flex: 2,
+            render: (entry) => {
+                const testID = `kitchen-allergen-class-${String(entry.code)}`;
+                const name = displayName(entry.name, locale);
+
+                return (
+                    <Inline space="xs" align="center" wrap>
+                        <Text variant="bodyStrong" testID={`${testID}-name`}>
+                            {name.value}
+                        </Text>
+                        <Badge
+                            testID={`${testID}-code`}
+                            tone="neutral"
+                            icon="dot"
+                            label={String(entry.code)}
+                        />
+                        {entry.severeByDefault ? (
+                            <Badge
+                                testID={`${testID}-severe`}
+                                tone="danger"
+                                label={t('kitchen:classes.severe')}
+                            />
+                        ) : null}
+                        {entry.isActive ? null : (
+                            <Badge
+                                testID={`${testID}-inactive`}
+                                tone="warning"
+                                label={t('kitchen:classes.inactive')}
+                            />
+                        )}
+                    </Inline>
+                );
+            },
+        },
+        {
+            key: 'examples',
+            header: t('kitchen:classes.columnExamples'),
+            flex: 3,
+            render: (entry) => {
+                const testID = `kitchen-allergen-class-${String(entry.code)}`;
+                const description = displayName(entry.description, locale);
+
+                return (
+                    <Text testID={`${testID}-description`} tone="secondary">
+                        {description.value}
+                    </Text>
+                );
+            },
+        },
+        {
+            key: 'markets',
+            header: t('kitchen:classes.columnMarkets'),
+            render: (entry) => {
+                const testID = `kitchen-allergen-class-${String(entry.code)}`;
+
+                return entry.markets.length === 0 ? (
+                    <Text testID={`${testID}-markets-none`} tone="secondary">
+                        {t('kitchen:classes.noMarkets')}
+                    </Text>
+                ) : (
+                    <Inline space="xs" wrap testID={`${testID}-markets`}>
+                        {entry.markets.map((market) => (
+                            <Badge
+                                key={market}
+                                testID={`${testID}-market-${market}`}
+                                tone="info"
+                                label={market}
+                            />
+                        ))}
+                    </Inline>
+                );
+            },
+        },
+        {
+            key: 'threshold',
+            header: t('kitchen:classes.columnThreshold'),
+            render: (entry) => {
+                const testID = `kitchen-allergen-class-${String(entry.code)}`;
+
+                return (
+                    <Text testID={`${testID}-threshold`} tone="secondary">
+                        {entry.declarationThreshold === null
+                            ? t('kitchen:classes.thresholdAny')
+                            : t('kitchen:classes.thresholdValue', {
+                                  value: formatter.formatNumber(entry.declarationThreshold.value),
+                                  unit: entry.declarationThreshold.unit,
+                              })}
+                    </Text>
+                );
+            },
+        },
+    ];
 
     return (
         <Stack space="lg" testID="kitchen-allergen-classes-screen">
@@ -139,97 +254,15 @@ function AllergenClasses() {
                         {t('kitchen:classes.count', { count: rows.length })}
                     </Text>
 
-                    {rows.map((entry) => {
-                        const testID = `kitchen-allergen-class-${String(entry.code)}`;
-                        const name = displayName(entry.name, locale);
-                        const description = displayName(entry.description, locale);
-
-                        return (
-                            <Card key={String(entry.code)} testID={testID} padding="md">
-                                <Stack space="sm">
-                                    <Inline space="sm" align="center" wrap>
-                                        <Heading level={2} testID={`${testID}-name`}>
-                                            {name.value}
-                                        </Heading>
-                                        <Badge
-                                            testID={`${testID}-code`}
-                                            tone="neutral"
-                                            icon="dot"
-                                            label={String(entry.code)}
-                                        />
-                                        {entry.severeByDefault ? (
-                                            <Badge
-                                                testID={`${testID}-severe`}
-                                                tone="danger"
-                                                label={t('kitchen:classes.severe')}
-                                            />
-                                        ) : null}
-                                        {entry.isActive ? null : (
-                                            <Badge
-                                                testID={`${testID}-inactive`}
-                                                tone="warning"
-                                                label={t('kitchen:classes.inactive')}
-                                            />
-                                        )}
-                                    </Inline>
-
-                                    <Text testID={`${testID}-description`} tone="secondary">
-                                        {description.value}
-                                    </Text>
-
-                                    <Stack space="none">
-                                        <Text variant="label">
-                                            {t('kitchen:classes.marketsLabel')}
-                                        </Text>
-                                        {entry.markets.length === 0 ? (
-                                            <Text
-                                                testID={`${testID}-markets-none`}
-                                                tone="secondary"
-                                            >
-                                                {t('kitchen:classes.noMarkets')}
-                                            </Text>
-                                        ) : (
-                                            <Inline space="xs" wrap testID={`${testID}-markets`}>
-                                                {entry.markets.map((market) => (
-                                                    <Badge
-                                                        key={market}
-                                                        testID={`${testID}-market-${market}`}
-                                                        tone="info"
-                                                        label={market}
-                                                    />
-                                                ))}
-                                            </Inline>
-                                        )}
-                                    </Stack>
-
-                                    <Stack space="none">
-                                        <Text variant="label">
-                                            {t('kitchen:classes.thresholdLabel')}
-                                        </Text>
-                                        <Text testID={`${testID}-threshold`} tone="secondary">
-                                            {entry.declarationThreshold === null
-                                                ? t('kitchen:classes.thresholdAny')
-                                                : t('kitchen:classes.thresholdValue', {
-                                                      value: formatter.formatNumber(
-                                                          entry.declarationThreshold.value,
-                                                      ),
-                                                      unit: entry.declarationThreshold.unit,
-                                                  })}
-                                        </Text>
-                                    </Stack>
-
-                                    <Stack space="none">
-                                        <Text variant="label">
-                                            {t('kitchen:classes.referenceLabel')}
-                                        </Text>
-                                        <Text testID={`${testID}-reference`} tone="secondary">
-                                            {entry.regulatoryReference}
-                                        </Text>
-                                    </Stack>
-                                </Stack>
-                            </Card>
-                        );
-                    })}
+                    <Table<AllergenClass>
+                        testID="kitchen-allergen-classes-table"
+                        caption={t('kitchen:classes.title')}
+                        captionHidden
+                        columns={columns}
+                        rows={rows}
+                        rowKey={(entry) => String(entry.code)}
+                        columnGap="md"
+                    />
                 </Stack>
             )}
         </Stack>
