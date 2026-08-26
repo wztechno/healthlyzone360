@@ -20,8 +20,7 @@ bash scripts/storage-init.sh
 (cd apps/api && php artisan kitchen:import-v6 --publish)
 (cd apps/api && php artisan inventory:derive-stock-items)
 echo "Reset complete."
-echo "Reseeding recreates the demo kitchens (their seeder also creates the ops login)."
-echo "To return to the one-kitchen world: php apps/api/artisan tinker --execute \"require 'scratchpad/prune-demo-kitchens.php';\""
+echo "Demo world (Verdant, clinic, corporate buyer, preview kitchens) is OFF by default; opt in with SEED_DEMO_WORLD=true."
 echo "Note: subscription plans and costed technical sheets are ABSENT by design after a v6 reset."
 echo "The legacy kitchen:import-workbook must NOT be rerun wholesale (it would restore the legacy"
 echo "ingredient/product catalogue beside the v6 one); a selective plans-only mode is a pending owner decision."

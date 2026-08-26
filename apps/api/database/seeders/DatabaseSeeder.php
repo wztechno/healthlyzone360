@@ -41,6 +41,36 @@ class DatabaseSeeder extends Seeder
             AccessControlSeeder::class,
             FeatureDefinitionSeeder::class,
             ConsentDefinitionSeeder::class,
+            // The way in: the operator login and its workspace are not a
+            // demo, and a reset without them produces a system nobody can
+            // open.
+            PlatformOperatorSeeder::class,
+            ...$this->demoWorld(),
+            // Last: stock is derived from the ingredient library and every
+            // kitchen's bought-in products, so all of both must already exist.
+            DerivedStockSeeder::class,
+        ]);
+    }
+
+    /**
+     * The demonstration world — Verdant, the clinic, the corporate buyer,
+     * the preview marketplace kitchens, the demo customer and the synthetic
+     * purchasing history.
+     *
+     * **Off by default outside the test suite** (owner decision, 2026-08-26:
+     * the development world is the one real kitchen). PHPUnit keeps seeding
+     * it because ~a hundred test cases assert against it; a developer who
+     * wants it back opts in with `SEED_DEMO_WORLD=true`.
+     *
+     * @return list<class-string>
+     */
+    private function demoWorld(): array
+    {
+        if (! app()->runningUnitTests() && ! filter_var(env('SEED_DEMO_WORLD', false), FILTER_VALIDATE_BOOL)) {
+            return [];
+        }
+
+        return [
             DemoTenantSeeder::class,
             ...$this->previewWorld(),
             // After the tenants, and necessarily so: the demo customer's
@@ -53,10 +83,7 @@ class DatabaseSeeder extends Seeder
             OpsDemoSeeder::class,
             // After Verdant's wholesale channel and published meals exist.
             B2bProgrammesDemoSeeder::class,
-            // Last: stock is derived from the ingredient library and every
-            // kitchen's bought-in products, so all of both must already exist.
-            DerivedStockSeeder::class,
-        ]);
+        ];
     }
 
     /**

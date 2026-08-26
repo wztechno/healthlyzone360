@@ -22,8 +22,7 @@ php artisan inventory:derive-stock-items
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "inventory:derive-stock-items failed" }
 Pop-Location
 Write-Host "Reset complete."
-Write-Host "Reseeding recreates the demo kitchens (their seeder also creates the ops login)."
-Write-Host 'To return to the one-kitchen world: php apps/api/artisan tinker --execute "require ''C:/dev/Healthy360/scratchpad/prune-demo-kitchens.php'';"'
+Write-Host "Demo world (Verdant, clinic, corporate buyer, preview kitchens) is OFF by default; opt in with SEED_DEMO_WORLD=true."
 Write-Host "Note: subscription plans and costed technical sheets are ABSENT by design after a v6 reset."
 Write-Host "The legacy kitchen:import-workbook must NOT be rerun wholesale (it would restore the legacy"
 Write-Host "ingredient/product catalogue beside the v6 one); a selective plans-only mode is a pending owner decision."
