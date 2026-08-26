@@ -182,7 +182,7 @@ it('seeds the fourteen canonical allergen classes with their market metadata', f
     expect($classes)->toHaveCount(14)
         ->and($classes->keys()->all())->toBe([
             'gluten', 'crustaceans', 'egg', 'fish', 'peanut', 'soy', 'milk', 'tree_nut',
-            'celery', 'mustard', 'sesame', 'sulphites', 'lupin', 'mollusc',
+            'sesame', 'celery', 'mustard', 'sulphites', 'lupin', 'mollusc',
         ])
         ->and($classes->pluck('regulatory_ref')->all())->toBe([
             'ALG-01', 'ALG-02', 'ALG-03', 'ALG-04', 'ALG-05', 'ALG-06', 'ALG-07',
