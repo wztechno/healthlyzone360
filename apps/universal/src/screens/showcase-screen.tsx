@@ -66,6 +66,7 @@ import { useColorScheme } from 'nativewind';
 import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
+import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
@@ -1177,6 +1178,31 @@ export function ShowcaseScreen() {
                         <Text tone="secondary">{t('designSystem:showcase.motionNumber')}</Text>
                         <AnimatedFigure value={1650 + replays * 125} />
                     </Inline>
+                </Section>
+
+                {/* English literals, like `hero` and `ai` above: the section demonstrates one
+                    feature-level composition rather than a translated design-system primitive. */}
+                <Section id="kitchen" title="Kitchen templates">
+                    <KitchenPageHeader
+                        testID="showcase-kitchen-header"
+                        title="Stock"
+                        subtitle="What is on hand, what the minimum is, and how tomorrow reads."
+                        statusChip={<Badge tone="danger" label="1 item short" />}
+                        actions={
+                            <Button
+                                testID="showcase-kitchen-header-action"
+                                size="sm"
+                                label="Receive a delivery"
+                            />
+                        }
+                    />
+                    <KitchenPageHeader
+                        testID="showcase-kitchen-header-band"
+                        variant="band"
+                        title="Grilled Halloumi & Rocket Plate"
+                        subtitle="Creating and editing share this form — leaving with unsaved changes asks first."
+                        statusChip={<Badge tone="warning" label="Draft" />}
+                    />
                 </Section>
             </Stack>
         </PageTransition>
