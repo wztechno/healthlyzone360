@@ -55,7 +55,7 @@ use RuntimeException;
  */
 final readonly class KitchenWorkbookWorld
 {
-    public const string ORGANISATION_NAME = 'Healthy360 Kitchen';
+    public const string ORGANISATION_NAME = 'HealthZone360 Kitchen';
 
     public const string BRANCH_NAME = 'Main Kitchen';
 

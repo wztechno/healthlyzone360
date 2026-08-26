@@ -54,7 +54,7 @@ final class ImportV6RecipesCommand extends Command
 
     protected $signature = 'kitchen:import-v6-recipes
         {--source= : Path to the PRIVATE v6-recipes.json the converter wrote beside the workbooks}
-        {--org=green-life-kitchen : The organisation slug to import into}
+        {--org=healthzone360-kitchen : The organisation slug to import into}
         {--dictionary= : Override the committed curated dictionary (used by tests)}
         {--dry-run : Do everything and roll it back; report what would be created}';
 
@@ -92,7 +92,7 @@ final class ImportV6RecipesCommand extends Command
 
         $options = new ImportOptions(
             sourceDirectory: $source,
-            organisationSlug: $this->stringOption('org') ?? 'green-life-kitchen',
+            organisationSlug: $this->stringOption('org') ?? 'healthzone360-kitchen',
             dryRun: (bool) $this->option('dry-run'),
             validateOnly: false,
         );

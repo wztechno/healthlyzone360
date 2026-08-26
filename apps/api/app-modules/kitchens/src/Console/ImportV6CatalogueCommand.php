@@ -24,7 +24,7 @@ use Throwable;
  * audited, because it writes a whole catalogue into one organisation and
  * that is not something to do to production by accident.
  *
- * The organisation default is the command's own (`green-life-kitchen`, the
+ * The organisation default is the command's own (`healthzone360-kitchen`, the
  * real kitchen) — deliberately NOT the shared `kitchens.import
  * .organisation_slug` config, so this command's default can never silently
  * redirect the legacy importer or vice versa.
@@ -32,7 +32,7 @@ use Throwable;
 final class ImportV6CatalogueCommand extends Command
 {
     protected $signature = 'kitchen:import-v6
-        {--org=green-life-kitchen : The organisation slug to import into}
+        {--org=healthzone360-kitchen : The organisation slug to import into}
         {--source= : Override the committed v6-catalogue.json (used by tests)}
         {--dry-run : Do everything and roll it back; report what would be created}
         {--publish : After a writing import, activate B2C/B2B tariffs and publish ready items}';
@@ -58,7 +58,7 @@ final class ImportV6CatalogueCommand extends Command
 
         $options = new ImportOptions(
             sourceDirectory: $source ?? V6CatalogueData::committedPath(),
-            organisationSlug: $this->stringOption('org') ?? 'green-life-kitchen',
+            organisationSlug: $this->stringOption('org') ?? 'healthzone360-kitchen',
             dryRun: (bool) $this->option('dry-run'),
             validateOnly: false,
         );
