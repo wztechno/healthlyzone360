@@ -519,6 +519,8 @@ function renderFamilyCard(
     summaries: {
         readonly recipe: UseQueryResult<PublishedFamilySummary>;
         readonly product: UseQueryResult<PublishedFamilySummary>;
+        readonly sauce: UseQueryResult<PublishedFamilySummary>;
+        readonly dressing: UseQueryResult<PublishedFamilySummary>;
         readonly meal: UseQueryResult<PublishedFamilySummary>;
         readonly priceList: UseQueryResult<PublishedFamilySummary>;
         readonly plan: UseQueryResult<PublishedFamilySummary>;
@@ -538,6 +540,14 @@ function renderFamilyCard(
     }
     if (family.key === 'products') {
         return <PublishedFamilyCard key={family.key} family={family} summary={summaries.product} />;
+    }
+    if (family.key === 'sauces') {
+        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.sauce} />;
+    }
+    if (family.key === 'dressings') {
+        return (
+            <PublishedFamilyCard key={family.key} family={family} summary={summaries.dressing} />
+        );
     }
     if (family.key === 'meals') {
         return <PublishedFamilyCard key={family.key} family={family} summary={summaries.meal} />;
@@ -645,6 +655,8 @@ export function KitchenHomeScreen() {
     const permitted = new Set(families.map((family) => family.key));
     const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'));
     const productSummary = useProductSummaryQuery(permitted.has('products'));
+    const sauceSummary = useProductSummaryQuery(permitted.has('sauces'), 'sauce');
+    const dressingSummary = useProductSummaryQuery(permitted.has('dressings'), 'dressing');
     const mealSummary = useMealSummaryQuery(permitted.has('meals'));
     const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
     const planSummary = usePlanSummaryQuery(permitted.has('plans'));
@@ -683,6 +695,8 @@ export function KitchenHomeScreen() {
     const summaries = {
         recipe: recipeSummary,
         product: productSummary,
+        sauce: sauceSummary,
+        dressing: dressingSummary,
         meal: mealSummary,
         priceList: priceListSummary,
         plan: planSummary,
@@ -693,6 +707,8 @@ export function KitchenHomeScreen() {
     if (permitted.has('ingredients')) draftParts.push(ingredientSummary.data?.drafts);
     if (permitted.has('recipes')) draftParts.push(recipeSummary.data?.drafts);
     if (permitted.has('products')) draftParts.push(productSummary.data?.drafts);
+    if (permitted.has('sauces')) draftParts.push(sauceSummary.data?.drafts);
+    if (permitted.has('dressings')) draftParts.push(dressingSummary.data?.drafts);
     if (permitted.has('meals')) draftParts.push(mealSummary.data?.drafts);
     const knownDrafts = draftParts.filter((part): part is number => typeof part === 'number');
     const draftsPending =

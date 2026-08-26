@@ -1020,11 +1020,14 @@ export function useProductCategoriesQuery(): UseQueryResult<readonly ProductCate
 }
 
 /** The product counts behind the hub card, in one query. */
-export function useProductSummaryQuery(enabled = true): UseQueryResult<PublishedFamilySummary> {
+export function useProductSummaryQuery(
+    enabled = true,
+    itemType: 'product' | 'sauce' | 'dressing' = 'product',
+): UseQueryResult<PublishedFamilySummary> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenAdmin.products({ derive: 'summary' }),
+        queryKey: queryKeys.kitchenAdmin.products({ derive: 'summary', itemType }),
         enabled: enabled && repositories !== null,
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
@@ -1032,12 +1035,14 @@ export function useProductSummaryQuery(enabled = true): UseQueryResult<Published
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listProducts({
                         limit: SUMMARY_PAGE_LIMIT,
+                        itemType,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listProducts({
                         limit: SUMMARY_PAGE_LIMIT,
+                        itemType,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1045,6 +1050,7 @@ export function useProductSummaryQuery(enabled = true): UseQueryResult<Published
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listProducts({
                         limit: SUMMARY_PAGE_LIMIT,
+                        itemType,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1052,6 +1058,7 @@ export function useProductSummaryQuery(enabled = true): UseQueryResult<Published
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listProducts({
                         limit: SUMMARY_PAGE_LIMIT,
+                        itemType,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
