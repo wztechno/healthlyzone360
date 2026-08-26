@@ -8,6 +8,7 @@ use Healthy360\Kitchens\Console\ActivateImportedTariffsCommand;
 use Healthy360\Kitchens\Console\ApplyAllergenDeterminationsCommand;
 use Healthy360\Kitchens\Console\ImportKitchenWorkbookCommand;
 use Healthy360\Kitchens\Console\ImportV6CatalogueCommand;
+use Healthy360\Kitchens\Console\ImportV6RecipesCommand;
 use Healthy360\Kitchens\Console\PublishReadyCatalogueCommand;
 use Healthy360\Kitchens\Console\SeedApproximatePlanPricesCommand;
 use Illuminate\Support\ServiceProvider;
@@ -32,6 +33,7 @@ class KitchensServiceProvider extends ServiceProvider
             $this->commands([
                 ImportKitchenWorkbookCommand::class,
                 ImportV6CatalogueCommand::class,
+                ImportV6RecipesCommand::class,
                 ActivateImportedTariffsCommand::class,
                 ApplyAllergenDeterminationsCommand::class,
                 SeedApproximatePlanPricesCommand::class,

@@ -793,15 +793,255 @@ def self_test():
     print(f"self-test OK ({len(ings)} ingredients, {len(items)} items, {len(repairs)} repairs exercised)")
 
 
+
+# ---------------------------------------------------------------- recipes mode
+
+RECIPE_WORKBOOKS = {
+    "sauce": "Actual Data_Recipes (Sauce).xlsx",
+    "dressing": "Actual Data_Recipes (Dressing).xlsx",
+    "meal": "Actual Data_Recipes (Meal).xlsx",
+}
+
+
+def parse_yield(raw) -> dict:
+    """The Quantity Produced cell in its three shapes: a bare number (kg or
+    pieces - the cost labels disambiguate downstream), "130 (7 kg)" (pieces
+    with the mass in parentheses), or empty."""
+    text = clean(raw)
+    out = {"raw": text or None, "label": None, "shape": "absent",
+           "quantity": None, "unit": None, "piece_count": None}
+    if not text:
+        return out
+    m = re.match(r"^(\d+)\s*\(\s*([\d.]+)\s*kg\s*\)$", text, re.IGNORECASE)
+    if m:
+        out.update(shape="pieces_with_mass", piece_count=int(m.group(1)),
+                   quantity=m.group(2), unit="kg")
+        return out
+    if re.match(r"^[\d.]+$", text):
+        out.update(shape="bare_number", quantity=text, unit="kg")
+        return out
+    out["shape"] = "unparsed"
+    return out
+
+
+def convert_recipe_sheet(ws, family: str, index: int) -> dict:
+    rows = []
+    for r in ws.iter_rows(values_only=True):
+        r = [clean(c) for c in r]
+        while r and r[-1] == "":
+            r.pop()
+        if r:
+            rows.append(r)
+
+    sheet = {
+        "sheet_index": index, "family": family, "tab": ws.title,
+        "designation": "", "kind": None,
+        "yield": parse_yield(None),
+        "totals": {"input_quantity": None, "input_total": None},
+        "lines": [], "cost_labels": [], "waste_percent": None,
+        "findings": [],
+    }
+    in_lines = False
+    for row_number, r in enumerate(rows, start=1):
+        head = r[0]
+        low = head.lower()
+        if head == "Designation" and len(r) > 1 and r[1] == "U.":
+            in_lines = True
+            continue
+        if low.startswith("total:"):
+            in_lines = False
+            if len(r) > 2:
+                sheet["totals"]["input_quantity"] = clean(r[2]) or None
+            if len(r) > 4:
+                sheet["totals"]["input_total"] = clean(r[4]) or None
+            continue
+        if in_lines:
+            if len(r) >= 2 and r[0]:
+                sheet["lines"].append({
+                    "row": row_number,
+                    "designation": r[0],
+                    "unit": r[1] if len(r) > 1 and r[1] else None,
+                    "quantity": r[2] if len(r) > 2 and r[2] else None,
+                    "unit_price": r[3] if len(r) > 3 and r[3] else None,
+                    "line_total": r[4] if len(r) > 4 and r[4] else None,
+                    "comment": r[5] if len(r) > 5 and r[5] else None,
+                })
+            continue
+        if low == "designation" and len(r) > 1 and not sheet["designation"]:
+            sheet["designation"] = r[1]
+        elif low == "kind" and len(r) > 1:
+            sheet["kind"] = r[1]
+        elif low.startswith("quantity produced") and len(r) > 1:
+            sheet["yield"] = parse_yield(r[1])
+        elif ("production cost" in low or "waste" in low) and len(r) > 1:
+            sheet["cost_labels"].append({"label": head, "amount": clean(r[1]) or None})
+            if "waste" in low:
+                m = re.search(r"(\d+(?:\.\d+)?)\s*%", head)
+                if m:
+                    sheet["waste_percent"] = m.group(1)
+
+    if not sheet["designation"]:
+        sheet["designation"] = ws.title
+        sheet["findings"].append({"code": "designation_absent",
+                                  "detail": f"{family}/{ws.title}: no Designation cell; the tab name stands in."})
+    if sheet["yield"]["shape"] in {"absent", "unparsed"}:
+        code = "yield_unstated" if sheet["yield"]["shape"] == "absent" else "yield_unparsed"
+        sheet["findings"].append({"code": code,
+                                  "detail": f"{family}/{ws.title}: Quantity Produced is {sheet['yield']['raw'] or 'empty'}."})
+    return sheet
+
+
+def convert_recipes(directory: str) -> dict:
+    import openpyxl
+
+    sheets, findings = [], []
+    index = 0
+    for family, filename in RECIPE_WORKBOOKS.items():
+        wb = openpyxl.load_workbook(str(Path(directory) / filename), data_only=True)
+        for tab in wb.sheetnames:
+            index += 1
+            sheets.append(convert_recipe_sheet(wb[tab], family, index))
+
+    # Repairs the sheets need before the writer sees them, each reported.
+    # Order matters: dedupe first, so a sheet pasted twice under two tabs is
+    # recognised as the same sheet, not mistaken for a name collision.
+    #
+    # 1. The same sheet pasted into two workbooks (Honey Mustard, equal
+    #    figures) imports once; a second *different* formulation would stay -
+    #    the writer models that as a second draft version, deliberately.
+    unique, by_key = [], {}
+    for sheet in sheets:
+        key = (sheet["designation"].lower(), sheet["totals"]["input_total"], sheet["yield"]["raw"])
+        if key in by_key:
+            findings.append({"code": "duplicate_sheet_skipped",
+                             "detail": f'{sheet["family"]}/{sheet["tab"]}: identical to {by_key[key]}; imported once.'})
+            continue
+        by_key[key] = f'{sheet["family"]}/{sheet["tab"]}'
+        unique.append(sheet)
+
+    # 2. A designation another sheet already claims while the tab and the
+    #    figures both disagree - the Ranch sheet says "Caesar Sauce" - is a
+    #    copy-paste slip; the tab wins.
+    seen = {}
+    for sheet in unique:
+        key = sheet["designation"].lower()
+        if key in seen and sheet["tab"].lower() != key:
+            findings.append({"code": "designation_collision_repaired",
+                             "detail": f'{sheet["family"]}/{sheet["tab"]}: Designation says "{sheet["designation"]}" - already sheet {seen[key]}. The tab name stands in.'})
+            sheet["designation"] = sheet["tab"]
+        seen.setdefault(sheet["designation"].lower(), f'{sheet["family"]}/{sheet["tab"]}')
+    for i, sheet in enumerate(unique, start=1):
+        sheet["sheet_index"] = i
+
+    return {
+        "source_workbooks": list(RECIPE_WORKBOOKS.values()),
+        "source_system": "healthy360_workbook_v6",
+        "sheets": unique,
+        "findings": findings,
+    }
+
+
+def recipes_self_test():
+    import openpyxl
+    import tempfile
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    def sheet(title, designation, kind, qty, lines, costs):
+        ws = wb.create_sheet(title)
+        ws.append(["Technical Sheet"])
+        ws.append(["Description"])
+        ws.append(["Designation", designation, "", "", "Insert Photo Here"])
+        ws.append(["Kind", kind])
+        ws.append(["Quantity Produced", qty])
+        ws.append(["Production"])
+        ws.append(["Raw Materiel"])
+        ws.append(["Designation", "U.", "Q.", "U.P.", "T", "Comments"])
+        total_q = total_t = 0
+        for name, q, up in lines:
+            ws.append([name, "kg", q, up, q * up])
+            total_q += q
+            total_t += q * up
+        ws.append(["Total:", "", total_q, "", total_t])
+        ws.append(["Cost"])
+        for label, amount in costs:
+            ws.append([label, amount])
+
+    sheet("Test Sauce", "Test Sauce", "Production", 1.5,
+          [("Mayo", 1, 3.5), ("Salt", 0.01, 0.3)],
+          [("Total Production Cost", 3.503), ("1 kg Production Cost", 2.335), ("3% Waste Coeffecient", 2.405)])
+    sheet("Piece Prep", "Piece Prep", "Preparation", "130 (7 kg)",
+          [("Chicken", 7, 4)],
+          [("Total Production Cost", 28), ("1 Piece Production Cost", 0.215), ("3% Waste Coeffecient", 0.222),
+           ("1 Kg Production Cost", 4.0), ("3% Waste Coeffecient", 4.12)])
+    sheet("Ranch Sheet", "Test Sauce", "Sauce", 2,
+          [("Mayo", 2, 3.5)],
+          [("Total Production Cost", 7), ("Add Waste Coefficient 3%", 3.605)])
+    sheet("Dup Sauce", "Test Sauce", "Production", 1.5,
+          [("Mayo", 1, 3.5), ("Salt", 0.01, 0.3)],
+          [("Total Production Cost", 3.503)])
+
+    with tempfile.TemporaryDirectory() as d:
+        wb.save(str(Path(d) / RECIPE_WORKBOOKS["sauce"]))
+        for family in ("dressing", "meal"):
+            small = openpyxl.Workbook()
+            small.remove(small.active)
+            ws = small.create_sheet("Filler")
+            ws.append(["Technical Sheet"])
+            ws.append(["Designation", f"Filler {family}"])
+            ws.append(["Kind", "Production"])
+            ws.append(["Quantity Produced", 1])
+            ws.append(["Designation", "U.", "Q.", "U.P.", "T"])
+            ws.append(["Salt", "kg", 1, 0.3, 0.3])
+            ws.append(["Total:", "", 1, "", 0.3])
+            ws.append(["Total Production Cost", 0.3])
+            small.save(str(Path(d) / RECIPE_WORKBOOKS[family]))
+        doc = convert_recipes(d)
+
+    sheets = {s["tab"]: s for s in doc["sheets"]}
+    assert len(doc["sheets"]) == 5, len(doc["sheets"])  # Dup Sauce dropped
+    assert "Dup Sauce" not in sheets
+    assert any(f["code"] == "duplicate_sheet_skipped" for f in doc["findings"])
+    assert sheets["Ranch Sheet"]["designation"] == "Ranch Sheet"
+    assert any(f["code"] == "designation_collision_repaired" for f in doc["findings"])
+    test = sheets["Test Sauce"]
+    assert test["yield"] == {"raw": "1.5", "label": None, "shape": "bare_number",
+                             "quantity": "1.5", "unit": "kg", "piece_count": None}
+    assert test["waste_percent"] == "3"
+    assert test["totals"]["input_quantity"] == "1.01"
+    assert test["lines"][0]["designation"] == "Mayo" and test["lines"][0]["unit_price"] == "3.5"
+    piece = sheets["Piece Prep"]
+    assert piece["yield"]["piece_count"] == 130 and piece["yield"]["quantity"] == "7"
+    assert len(piece["cost_labels"]) == 5
+    assert [s["sheet_index"] for s in doc["sheets"]] == [1, 2, 3, 4, 5]
+    print(f"recipes self-test OK ({len(doc['sheets'])} sheets, {len(doc['findings'])} findings exercised)")
+
 # ---------------------------------------------------------------- entrypoint
 
 def main():
     self_test()
+    recipes_self_test()
     if "--self-test" in sys.argv:
         return
+
+    if "--recipes" in sys.argv:
+        directory = sys.argv[sys.argv.index("--recipes") + 1]
+        out = Path(sys.argv[sys.argv.index("--recipes-out") + 1]) if "--recipes-out" in sys.argv \
+            else Path(directory) / "v6-recipes.json"
+        doc = convert_recipes(directory)
+        # Confidential: formulations and unit costs. Written beside the source
+        # workbooks (or --recipes-out), NEVER into the repository.
+        out.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        lines = sum(len(s["lines"]) for s in doc["sheets"])
+        print(f"wrote {out} ({len(doc['sheets'])} recipe sheets, {lines} lines) - PRIVATE, do not commit")
+        for finding in doc["findings"]:
+            print(f"  - [{finding['code']}] {finding['detail']}")
+        return
+
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
-        print("usage: convert-v6-workbook.py <path-to-xlsx> | --self-test", file=sys.stderr)
+        print("usage: convert-v6-workbook.py <path-to-xlsx> | --recipes <dir> [--recipes-out <file>] | --self-test", file=sys.stderr)
         sys.exit(2)
 
     import openpyxl

@@ -41,6 +41,7 @@ final readonly class IngredientWriter
         private DesignationDictionary $dictionary,
         private DesignationResolver $resolver,
         private string $sourceSystem,
+        private string $dictionaryFile = 'kitchen-workbook-aliases.json',
     ) {}
 
     /**
@@ -54,7 +55,7 @@ final readonly class IngredientWriter
         $now = now();
 
         foreach ($this->dictionary->tenantIngredients() as $definition) {
-            $sourceRef = 'kitchen-workbook-aliases.json#'.$definition['slug'];
+            $sourceRef = $this->dictionaryFile.'#'.$definition['slug'];
 
             $existing = Ingredient::withoutTenancy()
                 ->where('organisation_id', $organisationId)
@@ -140,7 +141,7 @@ final readonly class IngredientWriter
             $alias->ingredient_id = $ingredientId;
             $alias->alias = $normalised;
             $alias->source_system = $this->sourceSystem;
-            $alias->source_ref = 'kitchen-workbook-aliases.json#alias';
+            $alias->source_ref = $this->dictionaryFile.'#alias';
             $alias->save();
         }
     }

@@ -1,0 +1,16 @@
+{
+    "aliases": [
+        { "designation": "Fixture Garlic Sauce", "resolves_to": "Fixture Garlic Sauce" }
+    ],
+    "tenant_ingredients": [
+        { "name_en": "Fixture Hot Paste", "slug": "fixture-hot-paste", "category_code": "condiment-sweetener", "subcategory_code": "condiment-sweetener-condiment", "default_unit": "kg", "note": "Synthetic minted raw material.", "intermediate": false, "sheet_missing": false }
+    ],
+    "recipe_links": [
+        { "product": "Fixture Garlic Sauce", "recipe": "Fixture Garlic Sauce" },
+        { "product": "Fixture Frozen Fries", "recipe": "Fixture Piece Prep" }
+    ],
+    "recipe_links_declined": [
+        { "product": "Fixture Plain Sauce", "candidate": "Fixture No Yield", "reason": "Synthetic: deliberately not linked." }
+    ],
+    "never_merge": []
+}
