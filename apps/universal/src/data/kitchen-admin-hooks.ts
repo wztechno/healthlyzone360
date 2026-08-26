@@ -48,6 +48,7 @@ import type {
     UpdatePlanRequest,
     UpdateProductRequest,
     UpdateRecipeRequest,
+    TechnicalSheetAdmin,
 } from '@healthy360/api-client/contracts';
 import { pageCount } from '@healthy360/api-client/contracts';
 import type {
@@ -60,6 +61,7 @@ import type {
     ProductId,
     RecipeId,
     SubscriptionPlanId,
+    RecipeVersionId,
 } from '@healthy360/domain-types';
 import {
     hashKey,
@@ -576,6 +578,33 @@ export function useRecipeQuery(recipeId: RecipeId | null): UseQueryResult<Recipe
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (recipeId === null) throw new Error('No recipe identifier.');
             return repositories.kitchenAdmin.getRecipe(recipeId);
+        },
+    });
+}
+
+/**
+ * CONFIDENTIAL — the costed technical sheet of the version on screen.
+ *
+ * `null` data is a state, not an error: it is what the repository returns for
+ * a member without `recipe.view_costs_organisation`, and the panel renders
+ * the formulation without money rather than failing the screen.
+ */
+export function useRecipeTechnicalSheetQuery(
+    recipeId: RecipeId | null,
+    versionId: RecipeVersionId | null,
+): UseQueryResult<TechnicalSheetAdmin | null> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.recipeTechnicalSheet(
+            recipeId ?? ('' as RecipeId),
+            versionId === null ? '' : String(versionId),
+        ),
+        enabled: repositories !== null && recipeId !== null && versionId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (recipeId === null || versionId === null) throw new Error('No recipe version.');
+            return repositories.kitchenAdmin.getRecipeTechnicalSheet(recipeId, versionId);
         },
     });
 }

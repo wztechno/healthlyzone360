@@ -266,6 +266,7 @@ function recipe({ ordinal, name, currentVersion, overrides = {} }: RecipeSeed): 
         name: { en: label, ar: `${label} بالعربية` },
         slug: label.toLocaleLowerCase().replace(/\s+/g, '-'),
         kitchenId: TEST_KITCHEN_ID,
+        sourceKind: null,
         currentVersionNumber: version.versionNumber,
         versionCount: version.versionNumber,
         description: { en: 'A dish.', ar: 'طبق.' },
@@ -282,6 +283,7 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
         name: record.name,
         slug: record.slug,
         kitchenId: record.kitchenId,
+        sourceKind: record.sourceKind,
         currentVersionNumber: record.currentVersionNumber,
         versionCount: record.versionCount,
     };

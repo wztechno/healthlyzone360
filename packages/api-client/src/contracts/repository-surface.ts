@@ -203,6 +203,7 @@ export const REPOSITORY_SURFACE = {
         'getPriceList',
         'getProduct',
         'getRecipe',
+        'getRecipeTechnicalSheet',
         'getZone',
         'listAllergenClasses',
         'listIngredients',

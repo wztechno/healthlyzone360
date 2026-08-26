@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6131 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6155 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4209,6 +4209,30 @@ export interface NamespaceKeys {
     | 'recipes.sectionSteps'
     | 'recipes.sectionVersions'
     | 'recipes.sectionYield'
+    | 'recipes.sheetBasisMismatch'
+    | 'recipes.sheetColComments'
+    | 'recipes.sheetColDesignation'
+    | 'recipes.sheetColLineTotal'
+    | 'recipes.sheetColQuantity'
+    | 'recipes.sheetColUnit'
+    | 'recipes.sheetColUnitPrice'
+    | 'recipes.sheetConfidential'
+    | 'recipes.sheetCostAbsent'
+    | 'recipes.sheetCostHidden'
+    | 'recipes.sheetCostPerPiece'
+    | 'recipes.sheetCostPerUnit'
+    | 'recipes.sheetCostTitle'
+    | 'recipes.sheetCostTotal'
+    | 'recipes.sheetCostWithWaste'
+    | 'recipes.sheetDesignation'
+    | 'recipes.sheetKind'
+    | 'recipes.sheetKindUnstated'
+    | 'recipes.sheetNoLines'
+    | 'recipes.sheetQuantityProduced'
+    | 'recipes.sheetQuantityWithPieces'
+    | 'recipes.sheetRawMaterial'
+    | 'recipes.sheetTitle'
+    | 'recipes.sheetTotalRow'
     | 'recipes.stepCount'
     | 'recipes.stepInstruction'
     | 'recipes.stepMinutes'
@@ -10358,6 +10382,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sectionSteps',
   'kitchen:recipes.sectionVersions',
   'kitchen:recipes.sectionYield',
+  'kitchen:recipes.sheetBasisMismatch',
+  'kitchen:recipes.sheetColComments',
+  'kitchen:recipes.sheetColDesignation',
+  'kitchen:recipes.sheetColLineTotal',
+  'kitchen:recipes.sheetColQuantity',
+  'kitchen:recipes.sheetColUnit',
+  'kitchen:recipes.sheetColUnitPrice',
+  'kitchen:recipes.sheetConfidential',
+  'kitchen:recipes.sheetCostAbsent',
+  'kitchen:recipes.sheetCostHidden',
+  'kitchen:recipes.sheetCostPerPiece',
+  'kitchen:recipes.sheetCostPerUnit',
+  'kitchen:recipes.sheetCostTitle',
+  'kitchen:recipes.sheetCostTotal',
+  'kitchen:recipes.sheetCostWithWaste',
+  'kitchen:recipes.sheetDesignation',
+  'kitchen:recipes.sheetKind',
+  'kitchen:recipes.sheetKindUnstated',
+  'kitchen:recipes.sheetNoLines',
+  'kitchen:recipes.sheetQuantityProduced',
+  'kitchen:recipes.sheetQuantityWithPieces',
+  'kitchen:recipes.sheetRawMaterial',
+  'kitchen:recipes.sheetTitle',
+  'kitchen:recipes.sheetTotalRow',
   'kitchen:recipes.stepCount',
   'kitchen:recipes.stepInstruction',
   'kitchen:recipes.stepMinutes',

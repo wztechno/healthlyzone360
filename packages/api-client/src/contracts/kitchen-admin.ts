@@ -434,6 +434,8 @@ export interface RecipeAdminSummary {
     readonly name: LocalisedText;
     readonly slug: string;
     readonly kitchenId: KitchenId;
+    /** The source sheet's own Kind wording ("Production", "Preparation"), verbatim. */
+    readonly sourceKind: string | null;
     readonly currentVersionNumber: number;
     readonly versionCount: number;
 }
@@ -451,6 +453,54 @@ export interface RecipeAdminFilter extends CursorPageRequest, OffsetPageRequest 
     readonly kitchenId?: KitchenId | undefined;
     /** Only recipes whose current version needs re-derivation. */
     readonly staleOnly?: boolean | undefined;
+}
+
+/**
+ * CONFIDENTIAL — one costed line of the technical sheet, in the same order as
+ * {@link RecipeVersionAdmin.lines}; a client renders designation, quantity and
+ * unit from the version line and the money from here.
+ */
+export interface TechnicalSheetLineAdmin {
+    readonly lineNumber: number;
+    readonly ingredientId: IngredientId;
+    /** CONFIDENTIAL — the sheet's U.P. column: cost of one usage unit. */
+    readonly unitCost: CostAmount | null;
+    /** CONFIDENTIAL — the sheet's T column, verbatim even where its arithmetic is wrong. */
+    readonly lineCost: CostAmount | null;
+    readonly comment: string | null;
+}
+
+/** CONFIDENTIAL — one basis of the sheet's cost block. */
+export interface RecipeCostFigures {
+    readonly totalInputCost: CostAmount;
+    /** Total ÷ yield quantity, when the version states one. */
+    readonly costPerYieldUnit: CostAmount | null;
+    readonly costPerYieldUnitWithWaste: CostAmount | null;
+    /** Total ÷ piece count, when the version counts pieces. */
+    readonly costPerPiece: CostAmount | null;
+    readonly costPerPieceWithWaste: CostAmount | null;
+    readonly wastePercent: number;
+    /** The sheet's own label claims a basis the yield cannot support. */
+    readonly basisMismatch: boolean;
+    readonly calculatedAt: IsoDateTime;
+}
+
+/**
+ * CONFIDENTIAL — the technical sheet of one recipe version: the costed lines
+ * and the latest snapshot per basis. `null` from the repository means the
+ * caller lacks `recipe.view_costs_organisation`; a sheet with no costed lines
+ * still arrives, with empty money.
+ */
+export interface TechnicalSheetAdmin {
+    readonly versionId: RecipeVersionId;
+    readonly currency: CurrencyCode | null;
+    readonly currencyConflict: boolean;
+    readonly lines: readonly TechnicalSheetLineAdmin[];
+    readonly uncostedLineNumbers: readonly number[];
+    /** The sheet's own figures, verbatim (`as_recorded`). */
+    readonly asRecorded: RecipeCostFigures | null;
+    /** This system's arithmetic over the same lines (`recalculated`). */
+    readonly recalculated: RecipeCostFigures | null;
 }
 
 export interface CreateRecipeRequest {
@@ -1138,6 +1188,15 @@ export interface KitchenAdminRepository {
 
     listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>>;
     getRecipe(recipeId: RecipeId): Promise<RecipeAdmin>;
+    /**
+     * CONFIDENTIAL — the costed technical sheet of one version, or `null` when
+     * this member lacks `recipe.view_costs_organisation`. The panel renders
+     * the sheet without money in that case rather than failing the screen.
+     */
+    getRecipeTechnicalSheet(
+        recipeId: RecipeId,
+        versionId: RecipeVersionId,
+    ): Promise<TechnicalSheetAdmin | null>;
     createRecipe(request: CreateRecipeRequest): Promise<RecipeAdmin>;
     /** Editing a published recipe opens a new draft version; the result says which one is current. */
     updateRecipe(recipeId: RecipeId, request: UpdateRecipeRequest): Promise<RecipeAdmin>;

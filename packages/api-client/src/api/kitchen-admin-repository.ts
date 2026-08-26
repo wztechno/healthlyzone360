@@ -8,6 +8,7 @@ import type {
     RecipeId,
     SubscriptionPlanId,
     DietClassification,
+    RecipeVersionId,
 } from '@healthy360/domain-types';
 import { isDietClassification } from '@healthy360/domain-types';
 
@@ -30,7 +31,9 @@ import type {
     RecipeAdmin,
     RecipeAdminFilter,
     RecipeAdminSummary,
+    TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
+import { ApiError } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     AdminCatalogueItem,
@@ -63,6 +66,7 @@ import type {
     RecipeStep as WireRecipeStep,
     RecipeVersionAllergen,
     BranchOperatingDay as WireBranchOperatingDay,
+    TechnicalSheet as WireTechnicalSheet,
 } from '../generated/types.ts';
 import {
     apiStatusForPublishableFilter,
@@ -86,6 +90,7 @@ import {
     mapProductAdminFromItem,
     mapProductPackVariants,
     mapRecipeAdmin,
+    mapTechnicalSheetAdmin,
     mapRecipeAdminSummary,
     mapRecipeVersionAdmin,
     mapServiceAreaFromDeliveryArea,
@@ -192,6 +197,7 @@ export type ApiKitchenAdminReads = Pick<
     | 'getIngredient'
     | 'listRecipes'
     | 'getRecipe'
+    | 'getRecipeTechnicalSheet'
     | 'listProducts'
     | 'getProduct'
     | 'listMeals'
@@ -233,6 +239,28 @@ function cursorQuery(
 }
 
 export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdminReads {
+    let unitCodeLookup: ReadonlyMap<string, string> | null = null;
+
+    async function loadUnitCodeLookup(): Promise<ReadonlyMap<string, string>> {
+        if (unitCodeLookup !== null) return unitCodeLookup;
+
+        try {
+            const reference = await transport.requestEnvelope<{
+                measurement_units: Array<{ id: string; code: string }>;
+            }>({ method: 'GET', path: '/catalogue/procurement/reference' });
+
+            unitCodeLookup = new Map(
+                reference.data.measurement_units.map((row) => [row.id, row.code]),
+            );
+        } catch {
+            // A member who cannot read the procurement reference still gets
+            // recipes; the units fall back to the mapper's honest default.
+            unitCodeLookup = new Map();
+        }
+
+        return unitCodeLookup;
+    }
+
     let categoryLookup: CategoryLookup | null = null;
     let salesChannelLookup: SalesChannelLookup | null = null;
 
@@ -404,6 +432,29 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             return mapAdminCursorPage(envelope.data, meta, (wire) => mapRecipeAdminSummary(wire));
         },
 
+        async getRecipeTechnicalSheet(
+            recipeId: RecipeId,
+            versionId: RecipeVersionId,
+        ): Promise<TechnicalSheetAdmin | null> {
+            try {
+                const sheet = await transport.request<WireTechnicalSheet>({
+                    method: 'GET',
+                    path: `/catalogue/recipes/${encodeURIComponent(String(recipeId))}/versions/${encodeURIComponent(String(versionId))}/technical-sheet`,
+                });
+
+                return mapTechnicalSheetAdmin(sheet);
+            } catch (caught) {
+                // The sheet is the confidential half of a recipe. A member
+                // without recipe.view_costs_organisation still gets the
+                // formulation screen — just without the money on it.
+                if (caught instanceof ApiError && caught.code === 'authz.permission_denied') {
+                    return null;
+                }
+
+                throw caught;
+            }
+        },
+
         async getRecipe(recipeId: RecipeId): Promise<RecipeAdmin> {
             const showEnvelope = await transport.requestEnvelope<{
                 recipe: AdminRecipe;
@@ -446,12 +497,17 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/recipes/${encodeURIComponent(String(recipeId))}/versions/${encodeURIComponent(String(currentWire.version_number))}`,
             });
 
-            const currentVersion = mapRecipeVersionAdmin(versionEnvelope.data.version, {
-                lines: versionEnvelope.data.lines,
-                outputs: versionEnvelope.data.outputs,
-                steps: versionEnvelope.data.steps,
-                allergens: versionEnvelope.data.allergens,
-            });
+            const unitsById = await loadUnitCodeLookup();
+            const currentVersion = mapRecipeVersionAdmin(
+                versionEnvelope.data.version,
+                {
+                    lines: versionEnvelope.data.lines,
+                    outputs: versionEnvelope.data.outputs,
+                    steps: versionEnvelope.data.steps,
+                    allergens: versionEnvelope.data.allergens,
+                },
+                unitsById,
+            );
 
             return mapRecipeAdmin(recipeWire, versionsWire, currentVersion);
         },

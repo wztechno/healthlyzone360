@@ -157,6 +157,7 @@ function recipe(overrides: Partial<RecipeAdminSummary> = {}): RecipeAdminSummary
         meta: meta({ status: 'published' }),
         name: { en: 'Lamb and burghul', ar: 'لحم وبرغل' },
         slug: 'lamb-and-burghul',
+        sourceKind: null,
         kitchenId: '01935f6d-0000-7000-8000-00000000f000' as RecipeAdminSummary['kitchenId'],
         currentVersionNumber: 1,
         versionCount: 1,
