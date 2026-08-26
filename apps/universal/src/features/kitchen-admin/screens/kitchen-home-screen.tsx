@@ -49,6 +49,7 @@ import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
 import { ENTITY_GROUPS, WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
 import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
+import { KpiTile as BaseKpiTile } from '../kpi-tile.tsx';
 import { buildReviewQueue } from '../review-queue.ts';
 
 /**
@@ -599,41 +600,14 @@ function KpiTile({
     const animated = useAnimatedNumber(value ?? 0);
 
     return (
-        <View
+        <BaseKpiTile
             testID={testID}
-            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
-        >
-            {pending ? (
-                <Skeleton
-                    testID={`${testID}-loading`}
-                    heightClassName="h-8"
-                    widthClassName="w-1/2"
-                />
-            ) : (
-                <Text
-                    testID={`${testID}-value`}
-                    className="font-display text-[25px] font-bold text-content-primary"
-                >
-                    {value === null ? '—' : String(animated)}
-                </Text>
-            )}
-            <Text tone="secondary" variant="caption" className="mt-0.5">
-                {label}
-            </Text>
-            {hint === undefined ? null : (
-                <Text
-                    testID={`${testID}-hint`}
-                    className="mt-1.5 text-[11.5px] font-bold text-brand-600"
-                >
-                    {hint}
-                </Text>
-            )}
-            {!pending && value === null ? (
-                <Text tone="secondary" variant="caption" className="mt-1">
-                    {t('kitchen:hub.countUnavailable')}
-                </Text>
-            ) : null}
-        </View>
+            label={label}
+            value={value === null ? null : String(animated)}
+            pending={pending}
+            hint={hint}
+            nullCaption={t('kitchen:hub.countUnavailable')}
+        />
     );
 }
 

@@ -1,10 +1,11 @@
-import { EmptyState, FadeIn, PageTransition, Stack, Text, useMotion } from '@healthy360/design-system';
+import { EmptyState, FadeIn, PageTransition, Stack, useMotion } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { KitchenPageHeader } from './kitchen-page-header.tsx';
+import { KpiTile } from './kpi-tile.tsx';
 
 /**
  * Shared chrome for stock / procurement / production / QC.
@@ -50,20 +51,11 @@ function MetricSlot({
     const formatter = useFormatter();
 
     return (
-        <View
+        <KpiTile
             testID={testID}
-            className="min-h-[88px] flex-1 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
-        >
-            <Text
-                testID={`${testID}-value`}
-                className="font-display text-[25px] font-bold text-content-primary"
-            >
-                {value === null ? '—' : formatter.formatNumber(value)}
-            </Text>
-            <Text tone="secondary" variant="caption" className="mt-0.5">
-                {label}
-            </Text>
-        </View>
+            label={label}
+            value={value === null ? null : formatter.formatNumber(value)}
+        />
     );
 }
 

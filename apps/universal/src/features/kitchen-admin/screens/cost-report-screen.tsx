@@ -22,6 +22,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useCostReportQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { BarChart, ChartFrame, DonutChart, LineChart } from '../analytics-charts.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
+import { KpiTile } from '../kpi-tile.tsx';
 
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4).
@@ -62,22 +63,7 @@ function StatTile({
     readonly label: string;
     readonly value: string;
 }) {
-    return (
-        <View
-            testID={testID}
-            className="min-h-[92px] min-w-[148px] flex-1 basis-[148px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
-        >
-            <Text tone="secondary" variant="caption">
-                {label}
-            </Text>
-            <Text
-                testID={`${testID}-value`}
-                className="mt-1 font-display text-[24px] font-bold text-content-primary"
-            >
-                {value}
-            </Text>
-        </View>
-    );
+    return <KpiTile testID={testID} size="lg" label={label} value={value} />;
 }
 
 function CostReport() {

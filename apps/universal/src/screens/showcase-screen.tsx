@@ -67,6 +67,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
+import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
@@ -1203,6 +1204,27 @@ export function ShowcaseScreen() {
                         subtitle="Creating and editing share this form — leaving with unsaved changes asks first."
                         statusChip={<Badge tone="warning" label="Draft" />}
                     />
+                    <View className="flex-row flex-wrap gap-3">
+                        <KpiTile
+                            testID="showcase-kitchen-kpi"
+                            label="Spend"
+                            value="$18,240"
+                            size="lg"
+                            hint="what arrived this month"
+                        />
+                        <KpiTile
+                            testID="showcase-kitchen-kpi-pending"
+                            label="Cost of goods"
+                            value={null}
+                            pending
+                        />
+                        <KpiTile
+                            testID="showcase-kitchen-kpi-null"
+                            label="Margin"
+                            value={null}
+                            nullCaption="The count could not be read."
+                        />
+                    </View>
                 </Section>
             </Stack>
         </PageTransition>
