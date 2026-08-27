@@ -6,7 +6,6 @@ import {
     CalendarGrid,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Skeleton,
     Stack,
@@ -22,6 +21,7 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskCalendarQuery } from '../../../data/order-desk-hooks.ts';
 import { addDays, dateInstant, todayIso } from '../../planner/format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ORDER_VIEW_PERMISSION, SUBSCRIPTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
 import type { CalendarReading, CalendarSlotDescriptor } from '../order-desk-calendar.ts';
@@ -408,41 +408,48 @@ function OrderDeskCalendarWeek() {
 
     return (
         <Stack space="lg" testID="kitchen-order-desk-calendar-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-order-desk-calendar-title">
-                    {t('kitchen:calendar.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-order-desk-calendar-subtitle">
-                    {t('kitchen:calendar.subtitle')}
-                </Text>
-                <Text variant="caption" tone="secondary" testID="kitchen-order-desk-calendar-range">
-                    {rangeLabel}
-                </Text>
-                {meta === null ? null : (
-                    // How many squares the server actually walked. A count of *days*, never of
-                    // work: there is no count of work anywhere in this response, because that
-                    // would be the total the three books must not have.
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        role="status"
-                        aria-live="polite"
-                        testID="kitchen-order-desk-calendar-day-count"
-                    >
-                        {t('kitchen:calendar.dayCount', { count: meta.dayCount })}
-                    </Text>
-                )}
-                <Text
-                    testID="kitchen-order-desk-calendar-announcer"
-                    role="status"
-                    aria-live="polite"
-                    accessibilityLiveRegion="polite"
-                    variant="caption"
-                    tone="secondary"
-                >
-                    {message}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-order-desk-calendar-header"
+                title={t('kitchen:calendar.title')}
+                subtitle={t('kitchen:calendar.subtitle')}
+                titleTestID="kitchen-order-desk-calendar-title"
+                subtitleTestID="kitchen-order-desk-calendar-subtitle"
+                meta={
+                    <Stack space="none">
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-order-desk-calendar-range"
+                        >
+                            {rangeLabel}
+                        </Text>
+                        {meta === null ? null : (
+                            // How many squares the server actually walked. A count of *days*,
+                            // never of work: there is no count of work anywhere in this response,
+                            // because that would be the total the three books must not have.
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                role="status"
+                                aria-live="polite"
+                                testID="kitchen-order-desk-calendar-day-count"
+                            >
+                                {t('kitchen:calendar.dayCount', { count: meta.dayCount })}
+                            </Text>
+                        )}
+                        <Text
+                            testID="kitchen-order-desk-calendar-announcer"
+                            role="status"
+                            aria-live="polite"
+                            accessibilityLiveRegion="polite"
+                            variant="caption"
+                            tone="secondary"
+                        >
+                            {message}
+                        </Text>
+                    </Stack>
+                }
+            />
 
             <Callout
                 testID="kitchen-order-desk-calendar-bases"
