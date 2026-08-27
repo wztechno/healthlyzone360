@@ -66,8 +66,10 @@ import { useColorScheme } from 'nativewind';
 import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
+import type { PublishableStatus } from '@healthy360/api-client/contracts';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
+import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
@@ -154,6 +156,8 @@ export function ShowcaseScreen() {
     const [filterOn, setFilterOn] = useState(true);
     const [startDate, setStartDate] = useState<string | null>('2026-08-03');
     const [replays, setReplays] = useState(0);
+    const [kitchenQuery, setKitchenQuery] = useState('');
+    const [kitchenStatuses, setKitchenStatuses] = useState<readonly PublishableStatus[]>(['draft']);
 
     const options = [1, 2, 3].map((index) => ({
         value: `option-${index}`,
@@ -1225,6 +1229,15 @@ export function ShowcaseScreen() {
                             nullCaption="The count could not be read."
                         />
                     </View>
+                    <ListToolbar
+                        testID="showcase-kitchen-toolbar"
+                        query={kitchenQuery}
+                        onQueryChange={setKitchenQuery}
+                        statuses={kitchenStatuses}
+                        onStatusesChange={setKitchenStatuses}
+                        statusOptions={['draft', 'review_required', 'published', 'retired']}
+                        resultSummary="Showing 8 of 24"
+                    />
                 </Section>
             </Stack>
         </PageTransition>

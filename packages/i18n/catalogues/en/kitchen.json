@@ -1585,6 +1585,10 @@
         }
     },
     "toolbar": {
+        "filters": "Filters",
+        "filtersActive": "Filters ({{n}})",
+        "removeFilter": "Remove filter: {{filter}}",
+        "showing": "Showing {{shown}} of {{total}}",
         "searchLabel": "Search",
         "searchPlaceholder": "Name, alias or reference",
         "statusLabel": "Status",

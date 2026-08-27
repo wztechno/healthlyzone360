@@ -5,7 +5,6 @@ import {
     Card,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -39,6 +38,7 @@ import {
     summarisePlanPrices,
 } from '../format.ts';
 import type { PlanPriceCoverage } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -386,14 +386,24 @@ function PlansList() {
 
     return (
         <Stack space="lg" testID="kitchen-plans-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-plans-title">
-                    {t('kitchen:plans.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-plans-subtitle">
-                    {t('kitchen:plans.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-plans-header"
+                title={t('kitchen:plans.title')}
+                subtitle={t('kitchen:plans.subtitle')}
+                titleTestID="kitchen-plans-title"
+                subtitleTestID="kitchen-plans-subtitle"
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-plans-toolbar-create"
+                            label={t('kitchen:plans.create')}
+                            onPress={() => {
+                                router.push('/kitchen/plans/new' as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ListToolbar
                 testID="kitchen-plans-toolbar"
@@ -402,17 +412,14 @@ function PlansList() {
                 statuses={statuses}
                 onStatusesChange={setStatuses}
                 statusOptions={PLAN_STATUS_FILTERS}
-                createLabel={t('kitchen:plans.create')}
-                {...(canManage
-                    ? {
-                          onCreate: () => {
-                              router.push('/kitchen/plans/new' as never);
-                          },
-                      }
-                    : {})}
                 {...(plans.isPending || total === null
                     ? {}
-                    : { resultSummary: t('kitchen:plans.resultCount', { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {plans.isPending ? (

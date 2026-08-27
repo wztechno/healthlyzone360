@@ -771,3 +771,17 @@ export async function emptyBasket(page: Page): Promise<void> {
         await expect.poll(async () => removes.count()).toBeLessThan(before);
     }
 }
+
+/**
+ * Open a kitchen list's Filters disclosure.
+ *
+ * The status chips and the taxonomy select live inside a `Collapse` that is closed on arrival
+ * unless a filter is already applied (KITCHEN.md 7a — one toolbar row), so any spec that reaches
+ * for them makes the same move a person does: open the panel, then touch the filter. The wait is
+ * on the panel's mounted content, because the collapse animates and an unmounted chip would be
+ * clicked into nothing.
+ */
+export async function openListFilters(page: Page, toolbarTestID: string): Promise<void> {
+    await page.getByTestId(`${toolbarTestID}-filters`).click();
+    await expect(page.getByTestId(`${toolbarTestID}-filter-panel-content`)).toBeVisible();
+}

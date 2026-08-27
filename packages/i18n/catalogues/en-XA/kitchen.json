@@ -1585,6 +1585,10 @@
     }
   },
   "toolbar": {
+    "filters": "[[Ƒíłţéŕš āēī]]",
+    "filtersActive": "[[Ƒíłţéŕš ({{n}}) āēīōūā]]",
+    "removeFilter": "[[Ŕéɱóṽé ƒíłţéŕ: {{filter}} āēīōūāēīōū]]",
+    "showing": "[[Šĥóŵíñĝ {{shown}} óƒ {{total}} āēīōūāēīōūāē]]",
     "searchLabel": "[[Šéáŕçĥ āēī]]",
     "searchPlaceholder": "[[Ñáɱé, áłíáš óŕ ŕéƒéŕéñçé āēīōūāēīōū]]",
     "statusLabel": "[[Šţáţúš āēī]]",

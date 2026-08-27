@@ -6,7 +6,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -41,6 +40,7 @@ import {
     statusKey,
     statusTone,
 } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -293,14 +293,24 @@ function MealsList() {
 
     return (
         <Stack space="lg" testID="kitchen-meals-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-meals-title">
-                    {t('kitchen:meals.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-meals-subtitle">
-                    {t('kitchen:meals.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-meals-header"
+                title={t('kitchen:meals.title')}
+                subtitle={t('kitchen:meals.subtitle')}
+                titleTestID="kitchen-meals-title"
+                subtitleTestID="kitchen-meals-subtitle"
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-meals-toolbar-create"
+                            label={t('kitchen:meals.create')}
+                            onPress={() => {
+                                router.push('/kitchen/meals/new' as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ListToolbar
                 testID="kitchen-meals-toolbar"
@@ -317,17 +327,14 @@ function MealsList() {
                 }))}
                 category={mealType}
                 onCategoryChange={setMealType}
-                createLabel={t('kitchen:meals.create')}
-                {...(canManage
-                    ? {
-                          onCreate: () => {
-                              router.push('/kitchen/meals/new' as never);
-                          },
-                      }
-                    : {})}
                 {...(meals.isPending || total === null
                     ? {}
-                    : { resultSummary: t('kitchen:meals.resultCount', { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {meals.isPending ? (

@@ -6,6 +6,7 @@ import {
     KITCHEN_OWNER,
     VERDANT_SLUG,
     apiRequest,
+    openListFilters,
     probeStack,
     readSessionToken,
     selectVerdantKitchenContext,
@@ -1282,6 +1283,7 @@ test.describe('kitchen workspace (en)', () => {
          */
         const rows = page.locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]');
         const unfiltered = await rows.count();
+        await openListFilters(page, 'kitchen-price-lists-toolbar');
         await page.getByTestId('kitchen-price-lists-toolbar-status-draft').click();
         await expect
             .poll(async () => rows.count(), { timeout: JOURNEY_TIMEOUT })

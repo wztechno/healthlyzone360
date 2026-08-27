@@ -6,7 +6,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -42,6 +41,7 @@ import {
     statusTone,
     unitKey,
 } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -391,14 +391,24 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
 
     return (
         <Stack space="lg" testID="kitchen-products-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-products-title">
-                    {t(family.title)}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-products-subtitle">
-                    {t(family.subtitle)}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-products-header"
+                title={t(family.title)}
+                subtitle={t(family.subtitle)}
+                titleTestID="kitchen-products-title"
+                subtitleTestID="kitchen-products-subtitle"
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-products-toolbar-create"
+                            label={t(family.create)}
+                            onPress={() => {
+                                router.push(`${family.routeBase}/new` as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ListToolbar
                 testID="kitchen-products-toolbar"
@@ -416,17 +426,14 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                 }))}
                 category={category}
                 onCategoryChange={setCategory}
-                createLabel={t(family.create)}
-                {...(canManage
-                    ? {
-                          onCreate: () => {
-                              router.push(`${family.routeBase}/new` as never);
-                          },
-                      }
-                    : {})}
                 {...(products.isPending || total === null
                     ? {}
-                    : { resultSummary: t(family.resultCount, { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {products.isPending ? (

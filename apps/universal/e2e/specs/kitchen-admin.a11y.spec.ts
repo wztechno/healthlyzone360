@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 
 import {
     KITCHEN_OWNER,
+    openListFilters,
     probeStack,
     selectVerdantKitchenContext,
     signIn,
@@ -223,6 +224,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
 
     test('the ingredient list with its searchable category filter open', async ({ page }) => {
         await openIngredients(page);
+        await openListFilters(page, 'kitchen-ingredients-toolbar');
         await page.getByTestId('kitchen-ingredients-toolbar-category-trigger').click();
         await expect(page.getByTestId('kitchen-ingredients-toolbar-category-list')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-ingredients-category-select');
@@ -345,6 +347,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         page,
     }) => {
         await openMeals(page);
+        await openListFilters(page, 'kitchen-meals-toolbar');
         await page.getByTestId('kitchen-meals-toolbar-status-draft').click();
         await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-open"]').first().click();
         await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();
@@ -417,6 +420,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         // Publication is one-way on a shared database, so the write spec may have consumed the one
         // draft tariff — in which case there is no dialog to sweep and saying so beats a red.
         await openPriceLists(page);
+        await openListFilters(page, 'kitchen-price-lists-toolbar');
         await page.getByTestId('kitchen-price-lists-toolbar-status-draft').click();
         const drafts = page.locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]');
         test.skip(
@@ -491,6 +495,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         page,
     }) => {
         await openPlans(page);
+        await openListFilters(page, 'kitchen-plans-toolbar');
         await page.getByTestId('kitchen-plans-toolbar-status-draft').click();
         await page.locator('[data-testid^="kitchen-plan-"][data-testid$="-open"]').first().click();
         await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible();

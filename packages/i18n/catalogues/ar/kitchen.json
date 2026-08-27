@@ -1781,6 +1781,10 @@
         }
     },
     "toolbar": {
+        "filters": "عوامل التصفية",
+        "filtersActive": "عوامل التصفية ({{n}})",
+        "removeFilter": "إزالة عامل التصفية: {{filter}}",
+        "showing": "تعرض {{shown}} من {{total}}",
         "searchLabel": "بحث",
         "searchPlaceholder": "الاسم أو اسم بديل أو المرجع",
         "statusLabel": "الحالة",
