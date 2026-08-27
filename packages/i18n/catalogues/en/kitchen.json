@@ -258,6 +258,7 @@
             "adjustHint": "Enter how much to add or remove.",
             "adjustedToast": "Stock adjusted for {{name}}.",
             "wastedToast": "Waste logged for {{name}}.",
+            "columnLevel": "Level",
             "columnThreshold": "Reorder at",
             "noThreshold": "No threshold",
             "lowBadge": "Low",

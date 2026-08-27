@@ -19,6 +19,7 @@ import type { TableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { useRouter } from 'expo-router';
 
@@ -303,6 +304,37 @@ function Stock() {
         }
     }
 
+    /**
+     * The 7c level meter: how close the shelf is to where it should be. The target is the par
+     * level when one is set, else double the reorder threshold — "comfortably above the minimum".
+     * A row with neither carries no meter: a bar with no target would be decoration inventing a
+     * scale. The fill is a graphic, always beside the numeric columns that stay the record.
+     */
+    const levelMeter = (row: StockLevel) => {
+        const quantity = Number(row.quantity);
+        const par = row.parLevel === null ? null : Number(row.parLevel);
+        const threshold = row.reorderThreshold === null ? null : Number(row.reorderThreshold);
+        const target = par !== null && par > 0 ? par : threshold !== null ? threshold * 2 : null;
+        if (target === null || target <= 0 || !Number.isFinite(quantity)) return null;
+        const fraction = Math.max(0.04, Math.min(1, quantity / target));
+        const fill = isOutOfStock(row.quantity)
+            ? 'h-full rounded-full bg-danger'
+            : row.isLow
+              ? 'h-full rounded-full bg-warning'
+              : // §1.3 permits brand-500 on graphics: this fill carries no text, and the quantity
+                // and threshold columns beside it state the numbers.
+                'h-full rounded-full bg-brand-500';
+        return (
+            <View
+                testID={`${stockLevelRowTestId(row.id)}-meter`}
+                aria-hidden
+                className="h-2 w-full max-w-[160px] overflow-hidden rounded-full bg-surface-sunken"
+            >
+                <View className={fill} style={{ width: `${String(fraction * 100)}%` }} />
+            </View>
+        );
+    };
+
     const levelColumns: readonly TableColumn<StockLevel>[] = [
         {
             key: 'item',
@@ -340,6 +372,11 @@ function Stock() {
                     </Text>
                 </Inline>
             ),
+        },
+        {
+            key: 'level',
+            header: t('kitchen:ops.stock.columnLevel'),
+            render: (row) => levelMeter(row),
         },
         {
             key: 'threshold',

@@ -278,6 +278,7 @@
             "adjustHint": "أدخل الكمية المراد إضافتها أو خصمها.",
             "adjustedToast": "تم تعديل مخزون {{name}}.",
             "wastedToast": "تم تسجيل هدر لـ {{name}}.",
+            "columnLevel": "المستوى",
             "columnThreshold": "حد إعادة الطلب",
             "noThreshold": "بلا حد",
             "lowBadge": "منخفض",

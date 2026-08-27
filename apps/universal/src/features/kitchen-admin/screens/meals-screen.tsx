@@ -21,8 +21,10 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { EntityImage } from '../../../media/entity-image.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     pagesInResult,
@@ -174,24 +176,37 @@ function MealsList() {
                 const name = displayName(row.name, locale);
                 const testID = mealRowTestId(String(row.id));
                 return (
-                    <Stack space="none">
-                        <Text variant="bodyStrong" testID={`${testID}-name`}>
-                            {name.value}
-                        </Text>
-                        {name.isFallback ? (
-                            <Badge
-                                testID={`${testID}-missing-arabic`}
-                                tone="warning"
-                                icon="warning"
-                                label={t('kitchen:list.missingArabic')}
+                    <View className="flex-row items-center gap-3">
+                        {/* 7a row thumbnail: decorative — the name beside it carries the meaning. */}
+                        <View className="w-11">
+                            <EntityImage
+                                assetId={row.imagePlaceholderId}
+                                seed={String(row.id)}
+                                label={name.value}
+                                aspect="square"
+                                variant="card"
+                                decorative
                             />
-                        ) : null}
-                        <Inline space="xs" wrap testID={`${testID}-meal-types`}>
-                            {row.mealTypes.map((type) => (
-                                <Badge key={type} tone="neutral" label={t(mealTypeKey(type))} />
-                            ))}
-                        </Inline>
-                    </Stack>
+                        </View>
+                        <Stack space="none" className="min-w-0 flex-1">
+                            <Text variant="bodyStrong" testID={`${testID}-name`}>
+                                {name.value}
+                            </Text>
+                            {name.isFallback ? (
+                                <Badge
+                                    testID={`${testID}-missing-arabic`}
+                                    tone="warning"
+                                    icon="warning"
+                                    label={t('kitchen:list.missingArabic')}
+                                />
+                            ) : null}
+                            <Inline space="xs" wrap testID={`${testID}-meal-types`}>
+                                {row.mealTypes.map((type) => (
+                                    <Badge key={type} tone="neutral" label={t(mealTypeKey(type))} />
+                                ))}
+                            </Inline>
+                        </Stack>
+                    </View>
                 );
             },
         },
