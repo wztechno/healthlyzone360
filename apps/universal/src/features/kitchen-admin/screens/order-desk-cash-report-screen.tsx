@@ -26,6 +26,7 @@ import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 
 /**
@@ -187,28 +188,29 @@ function OrderDeskCashReport() {
 
     return (
         <Stack space="lg" testID="kitchen-order-desk-cash-report-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-order-desk-cash-report-title">
-                    {t('kitchen:ops.cashReport.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-order-desk-cash-report-subtitle">
-                    {t('kitchen:ops.cashReport.subtitle')}
-                </Text>
-                {meta === null ? null : (
-                    // The day and the clock the server cut on. Printed rather than assumed — see the
-                    // file header.
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        testID="kitchen-order-desk-cash-report-measured-on"
-                    >
-                        {t('kitchen:ops.cashReport.measuredOn', {
-                            date: formatter.formatDate(meta.date, { dateStyle: 'medium' }),
-                            timezone: meta.timezone,
-                        })}
-                    </Text>
-                )}
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-order-desk-cash-report-header"
+                title={t('kitchen:ops.cashReport.title')}
+                subtitle={t('kitchen:ops.cashReport.subtitle')}
+                titleTestID="kitchen-order-desk-cash-report-title"
+                subtitleTestID="kitchen-order-desk-cash-report-subtitle"
+                meta={
+                    meta === null ? undefined : (
+                        // The day and the clock the server cut on. Printed rather than assumed —
+                        // see the file header.
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-order-desk-cash-report-measured-on"
+                        >
+                            {t('kitchen:ops.cashReport.measuredOn', {
+                                date: formatter.formatDate(meta.date, { dateStyle: 'medium' }),
+                                timezone: meta.timezone,
+                            })}
+                        </Text>
+                    )
+                }
+            />
 
             {/*
              * Stated once, at the top, and not as a warning tone: nothing here is wrong. It is the

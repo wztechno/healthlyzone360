@@ -20,6 +20,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useAllergenClassesQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 
 /**
  * `/kitchen/allergen-classes` — the fourteen regulatory classes, read only.
@@ -82,14 +83,13 @@ function AllergenClasses() {
                 }}
             />
 
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-allergen-classes-title">
-                    {t('kitchen:classes.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-allergen-classes-subtitle">
-                    {t('kitchen:classes.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-allergen-classes-header"
+                title={t('kitchen:classes.title')}
+                subtitle={t('kitchen:classes.subtitle')}
+                titleTestID="kitchen-allergen-classes-title"
+                subtitleTestID="kitchen-allergen-classes-subtitle"
+            />
 
             <Callout
                 testID="kitchen-allergen-classes-governance"

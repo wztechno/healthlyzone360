@@ -60,6 +60,7 @@ import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode, minorAmountToInput, parseMinorAmount } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import {
     canAssignDeliveryJob,
     canConfirmKitchenOrder,
@@ -1236,29 +1237,31 @@ function OrderDeskQueueList() {
 
     return (
         <Stack space="lg" testID="kitchen-order-desk-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-order-desk-title">
-                    {t('kitchen:desk.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-order-desk-subtitle">
-                    {t('kitchen:desk.subtitle')}
-                </Text>
-                {meta === null ? null : (
-                    // The day and the clock the server sorted against. Echoed by the endpoint
-                    // because the screen did not choose them and cannot derive them — and with no
-                    // branch named, the boundary is UTC rather than this kitchen's local midnight.
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        testID="kitchen-order-desk-measured-on"
-                    >
-                        {t('kitchen:desk.measuredOn', {
-                            date: formatter.formatDate(meta.today, { dateStyle: 'medium' }),
-                            timezone: meta.timezone,
-                        })}
-                    </Text>
-                )}
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-order-desk-header"
+                title={t('kitchen:desk.title')}
+                subtitle={t('kitchen:desk.subtitle')}
+                titleTestID="kitchen-order-desk-title"
+                subtitleTestID="kitchen-order-desk-subtitle"
+                meta={
+                    meta === null ? undefined : (
+                        // The day and the clock the server sorted against. Echoed by the endpoint
+                        // because the screen did not choose them and cannot derive them — and with
+                        // no branch named, the boundary is UTC rather than this kitchen's local
+                        // midnight.
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-order-desk-measured-on"
+                        >
+                            {t('kitchen:desk.measuredOn', {
+                                date: formatter.formatDate(meta.today, { dateStyle: 'medium' }),
+                                timezone: meta.timezone,
+                            })}
+                        </Text>
+                    )
+                }
+            />
 
             <Card tone="raised" padding="md" testID="kitchen-order-desk-toolbar">
                 <Stack space="sm">
