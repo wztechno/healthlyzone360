@@ -429,6 +429,41 @@ describe('AppShell — marketplace', () => {
     });
 });
 
+describe('AppShell — auth aside', () => {
+    it('stands the brand panel beside the card from lg up', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="auth"
+                authAside={<Text testID="shell-aside-content">brand</Text>}
+            >
+                <Text>Form</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-aside')).toBeTruthy();
+        expect(screen.getByTestId('shell-aside-content')).toBeTruthy();
+        expect(screen.getByTestId('shell-card')).toBeTruthy();
+    });
+
+    it('drops the panel below lg and keeps the centred card', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="auth"
+                authAside={<Text testID="shell-aside-content">brand</Text>}
+            >
+                <Text>Form</Text>
+            </AppShell>,
+        );
+
+        expect(screen.queryByTestId('shell-aside')).toBeNull();
+        expect(screen.getByTestId('shell-card')).toBeTruthy();
+    });
+});
+
 describe('AppShell — sidebar slots', () => {
     it('renders the brand block, the background layer, the badge and the pinned end control', async () => {
         setViewport(1280);
