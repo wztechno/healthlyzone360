@@ -330,7 +330,7 @@ function Stock() {
                 aria-hidden
                 className="h-2 w-full max-w-[160px] overflow-hidden rounded-full bg-surface-sunken"
             >
-                <View className={fill} style={{ width: `${String(fraction * 100)}%` }} />
+                <View className={fill} style={{ width: `${fraction * 100}%` }} />
             </View>
         );
     };
