@@ -778,7 +778,7 @@ function SupplyOrderBuilder() {
                     {plan.groups.length === 0 ? null : (
                         <View
                             testID="kitchen-supply-order-commit"
-                            className="flex-row flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1"
+                            className="flex-row flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
                         >
                             {/*
                              * Three counts as three complete phrases rather than one interpolated

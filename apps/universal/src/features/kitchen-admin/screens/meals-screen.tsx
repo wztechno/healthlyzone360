@@ -462,6 +462,16 @@ function MealsList() {
                         }}
                     />
 
+                    {/* 7a's provenance footer, verbatim from the frame: the numbers on a card are
+
+                        the recipe version's, and this is where a reader learns that. */}
+
+                    <Text variant="caption" tone="secondary" testID="kitchen-meals-provenance">
+
+                        {t('kitchen:meals.tableProvenance')}
+
+                    </Text>
+
                     <Pagination
                         testID="kitchen-meals-pagination"
                         page={page}

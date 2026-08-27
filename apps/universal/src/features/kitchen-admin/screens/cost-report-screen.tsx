@@ -248,6 +248,7 @@ function CostReport() {
             key: 'margin',
             header: t('kitchen:ops.costReport.columnMargin'),
             numeric: true,
+            primary: true,
             render: (row) => (
                 <Text variant="bodyStrong" testID={`kitchen-cost-report-${row.month}-margin`}>
                     {money(row.grossMarginAmount)}
@@ -276,7 +277,7 @@ function CostReport() {
 
             <View
                 testID="kitchen-cost-report-filters"
-                className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
             >
                 <Inline space="sm" align="end" wrap>
                     <TextInputField
@@ -484,7 +485,7 @@ function CostReport() {
 
                     <View
                         testID="kitchen-cost-report-table-panel"
-                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Table<MonthlyCostReportRow>
                             testID="kitchen-cost-report-table"

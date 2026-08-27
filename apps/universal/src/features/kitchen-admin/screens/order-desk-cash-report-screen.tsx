@@ -175,6 +175,7 @@ function OrderDeskCashReport() {
             key: 'amount',
             header: t('kitchen:ops.cashReport.columnAmount'),
             numeric: true,
+            primary: true,
             render: (row) => (
                 <Text variant="bodyStrong" testID={`${rowTestId(row)}-amount`}>
                     {formatMoney(formatter, {

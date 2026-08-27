@@ -354,6 +354,7 @@ function Stock() {
             key: 'quantity',
             header: t('kitchen:ops.stock.columnQuantity'),
             numeric: true,
+            primary: true,
             render: (row) => (
                 <Inline space="xs" align="center" justify="end">
                     {row.isLow && !isOutOfStock(row.quantity) ? (

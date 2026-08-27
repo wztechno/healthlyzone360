@@ -1609,6 +1609,7 @@
         "title": "Ingredients",
         "subtitle": "The shared library plus everything this kitchen has added or changed.",
         "caption": "Ingredients",
+        "tableProvenance": "Energy and macros come from the linked recipe version — edit them there, not here.",
         "columnName": "Name",
         "columnCategory": "Category",
         "columnAllergens": "Allergens",

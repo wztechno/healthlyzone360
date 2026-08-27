@@ -230,7 +230,7 @@ function AnalyticsDashboard() {
                 <FadeIn delayMs={stagger(1)}>
                     <View
                         testID="kitchen-analytics-filters"
-                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Tabs
                             testID="kitchen-analytics-range"
@@ -316,7 +316,7 @@ function AnalyticsDashboard() {
                 <FadeIn delayMs={stagger(5)}>
                     <View
                         testID="kitchen-analytics-table-panel"
-                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Stack space="xs">
                             <Heading level={2}>{t('kitchen:analytics.table.title')}</Heading>

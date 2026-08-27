@@ -292,6 +292,7 @@ function Orders() {
             key: 'total',
             header: t('kitchen:ops.orders.columnTotal'),
             numeric: true,
+            primary: true,
             render: (row) => (
                 <Text
                     variant="bodyStrong"
