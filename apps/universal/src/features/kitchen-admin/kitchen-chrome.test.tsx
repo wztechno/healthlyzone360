@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react-native';
+import { screen, waitFor } from '@testing-library/react-native';
 import { Text as RNText } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
@@ -32,6 +32,11 @@ function Probe() {
 describe('useKitchenNavigation', () => {
     it('leads with Overview, groups the families, and keeps the workspace trio reachable', async () => {
         await renderStubScreen(<Probe />, { session: kitchenManagerSession() });
+
+        // The families appear once the stubbed session has hydrated the access state.
+        await waitFor(() => {
+            expect(screen.getByTestId('probe-stock')).toBeTruthy();
+        });
 
         // Overview first and unheaded — AppShell renders ungrouped items before any group.
         expect(screen.getByTestId('probe-overview')).toHaveTextContent(/^0\|\(ungrouped\)\|/);
