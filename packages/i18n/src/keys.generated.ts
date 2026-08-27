@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6174 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6177 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1207,6 +1207,8 @@ export interface NamespaceKeys {
     | 'plans.emptyTitle'
     | 'plans.energyBand'
     | 'plans.eyebrow'
+    | 'plans.filters'
+    | 'plans.filtersActive'
     | 'plans.fromPrice'
     | 'plans.heroHowItWorks'
     | 'plans.heroSpeakToDietitian'
@@ -1222,6 +1224,7 @@ export interface NamespaceKeys {
     | 'plans.resultSummary'
     | 'plans.searchLabel'
     | 'plans.searchPlaceholder'
+    | 'plans.showing'
     | 'plans.sort.priceLowHigh'
     | 'plans.sort.ratingHighLow'
     | 'plans.sort.recommended'
@@ -7406,6 +7409,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.emptyTitle',
   'catalogue:plans.energyBand',
   'catalogue:plans.eyebrow',
+  'catalogue:plans.filters',
+  'catalogue:plans.filtersActive',
   'catalogue:plans.fromPrice',
   'catalogue:plans.heroHowItWorks',
   'catalogue:plans.heroSpeakToDietitian',
@@ -7421,6 +7426,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.resultSummary',
   'catalogue:plans.searchLabel',
   'catalogue:plans.searchPlaceholder',
+  'catalogue:plans.showing',
   'catalogue:plans.sort.priceLowHigh',
   'catalogue:plans.sort.ratingHighLow',
   'catalogue:plans.sort.recommended',
