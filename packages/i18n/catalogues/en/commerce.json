@@ -108,6 +108,8 @@
         "paymentNoticeTitle": "Payment methods",
         "paymentNoticeBody": "Cash on delivery is available for every order. Card payments use the sandbox provider after you place the order — we never store card numbers.",
         "placeFailedTitle": "The order could not be placed",
+        "progressLabel": "Checkout progress",
+        "steps": { "delivery": "Delivery", "review": "Review", "placed": "Placed" },
         "successTitle": "Order placed",
         "successBody": "Your order reference is {{reference}}. The kitchen has been notified.",
         "successCodTitle": "Cash on delivery",

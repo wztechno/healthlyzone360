@@ -112,6 +112,8 @@
         "paymentNoticeTitle": "طرق الدفع",
         "paymentNoticeBody": "الدفع نقداً عند الاستلام متاح لكل طلب. مدفوعات البطاقة تستخدم مزوّداً تجريبياً بعد تقديم الطلب — لا نخزّن أرقام البطاقات.",
         "placeFailedTitle": "تعذّر تقديم الطلب",
+        "progressLabel": "تقدّم إتمام الطلب",
+        "steps": { "delivery": "التوصيل", "review": "المراجعة", "placed": "تم الطلب" },
         "successTitle": "تم تقديم الطلب",
         "successBody": "مرجعك {{reference}}. سيجهّز المطبخ طلبك.",
         "successCodTitle": "الدفع نقداً عند الاستلام",
