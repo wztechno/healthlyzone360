@@ -510,7 +510,8 @@ Secondary emphasis use is limited to the sparkle nav glyph and the AI tint `acce
 
 ## 6 — Screen map
 
-Every design file was recreated from the repo files listed beside it.
+Every design file was recreated from the repo files listed beside it. The kitchen module
+(`/kitchen`, ~40 routes) has its own map and specs in `KITCHEN.md`.
 
 | Design file | id | Screen | Built from |
 | --- | --- | --- | --- |
@@ -625,8 +626,10 @@ Fonts: **Inter** and **Space Grotesk**, both already in the token set.
 
 ```
 README.md                                  this document
+KITCHEN.md                                 kitchen-module addendum (frames 7a–7j)
 support.js                                 runtime for the design files
 designs/
+  Kitchen Module - Wellness Green.dc.html  7a–7j, all /kitchen routes by template
   Meals - Wellness Green.dc.html           1a + today's recreation
   Marketplace - Wellness Green.dc.html     2a 2b 2c
   Customer - Wellness Green.dc.html        3a 3b 3c 3d

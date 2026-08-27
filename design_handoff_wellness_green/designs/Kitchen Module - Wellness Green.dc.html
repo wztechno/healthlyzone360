@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFEEE9; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#157043; text-decoration:none; }
+  a:hover { color:#0B3B26; }
+</style>
+</helmet>
+
+<section style="display:flex; flex-direction:column; gap:36px; padding:48px 56px 64px">
+  <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap">
+    <span style="font-family:'Space Grotesk'; font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#6D28D9">Turn 7 · Kitchen module</span>
+    <span style="font-size:13px; color:#5B6673">Nine templates covering all ~40 kitchen routes — home, analytics, KDS and sale are in batch 5. Radius per the settled decision: cards 16px, panels 14px.</span>
+  </div>
+
+  <!-- ════════ 7a — ENTITY LIST TEMPLATE ════════ -->
+  <div id="7a" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7a</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Entity list template</span>
+      <span style="font-size:13px; color:#5B6673">shown as /kitchen/meals — covers recipes, ingredients, products, sauces, dressings, plans, price lists, suppliers, quotations, delivery zones, orders, purchases ledger, allergen classes</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navMeals }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Meals</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Meals</div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:10px">
+              <span style="display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 15px; border-radius:11px; background:#FDF2D6; border:1px solid #B3841F; color:#79480A; font-size:13px; font-weight:700">4 in the review queue</span>
+              <span style="display:inline-flex; align-items:center; height:44px; padding:0 20px; border-radius:11px; background:#157043; color:#fff; font-size:14px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">New meal</span>
+            </div>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">The dishes this kitchen sells, and which of them consumers can see.</div>
+        </div>
+        <div style="padding:18px 28px 0; display:flex; align-items:center; gap:12px">
+          <span style="display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 16px; border-radius:12px; background:#FFFFFF; border:1px solid #CCEEDA; color:#1F2937; font-size:14px; font-weight:600; box-shadow:0 1px 2px 0 #1715140f"><span style="width:8px; height:8px; border-radius:2px; background:#16A34A"></span>Filters</span>
+          <div style="display:flex; align-items:center; gap:0; height:44px; padding:0 6px 0 16px; border-radius:12px; background:#FFFFFF; border:1px solid #CCEEDA; flex:0 0 300px">
+            <span style="flex:1; font-size:14px; color:#68615A">Search meals</span>
+          </div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:14px">
+            <span style="font-family:'Space Grotesk'; font-size:14.5px; font-weight:700; color:#1F2937">Showing <span style="color:#157043">8</span> of 24 meals</span>
+            <span style="display:inline-flex; align-items:center; gap:10px; height:44px; padding:0 16px; border-radius:12px; background:#FFFFFF; border:1px solid #CCEEDA; font-size:14px; font-weight:600; color:#1F2937">Order by · Recently updated <span style="color:#5B6673; font-size:11px">▾</span></span>
+          </div>
+        </div>
+        <div style="margin:16px 28px 24px; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+          <div style="display:grid; grid-template-columns:minmax(0,2.5fr) 84px 64px 56px 56px 56px 118px 96px; gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Meal</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Price</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">kcal</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Prot</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Carbs</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Fat</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Visibility</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Updated</span>
+          </div>
+          <sc-for list="{{ mealRows }}" as="r" hint-placeholder-count="8">
+            <div style="display:grid; grid-template-columns:minmax(0,2.5fr) 84px 64px 56px 56px 56px 118px 96px; gap:0 14px; align-items:center; padding:10px 18px; border-bottom:1px solid #EDF6F0">
+              <div style="display:flex; align-items:center; gap:12px; min-width:0">
+                <div style="width:44px; height:44px; border-radius:10px; overflow:hidden; background:#EDF6F0; flex-shrink:0">{{ r.thumb }}</div>
+                <span style="font-size:14px; font-weight:600; color:#1F2937; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+              </div>
+              <span style="font-family:'Space Grotesk'; font-size:14.5px; font-weight:700; color:#0B3B26; text-align:right">{{ r.price }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:14px; font-weight:700; color:#0B3B26; text-align:right">{{ r.kcal }}</span>
+              <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.p }}</span>
+              <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.c }}</span>
+              <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.f }}</span>
+              <span><span style="{{ r.visCss }}">{{ r.vis }}</span></span>
+              <span style="font-size:12.5px; color:#5B6673; text-align:right">{{ r.upd }}</span>
+            </div>
+          </sc-for>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 18px">
+            <span style="font-size:12.5px; color:#5B6673">Energy and macros come from the linked recipe version — edit them there, not here.</span>
+            <span style="font-size:13px; font-weight:600; color:#157043">Load 16 more</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7b — EDITOR TEMPLATE ════════ -->
+  <div id="7b" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7b</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Editor template — with the publication gate</span>
+      <span style="font-size:13px; color:#5B6673">shown as /kitchen/meals/{meal} — covers every {param} editor and its `new` value: recipes, ingredients, products, sauces, dressings, plans, price lists, suppliers, zones</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navMeals }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 18px; background:#FFFFFF; border-bottom:1px solid #CCEEDA; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Meals / Grilled Halloumi &amp; Rocket Plate</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Grilled Halloumi &amp; Rocket Plate</div>
+            <span style="display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; background:#FDF2D6; color:#79480A; font-size:12px; font-weight:700">Draft — blocked from publishing</span>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:10px">
+              <span style="display:inline-flex; align-items:center; height:44px; padding:0 18px; border-radius:11px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:14px; font-weight:600">Discard changes</span>
+              <span style="display:inline-flex; align-items:center; height:44px; padding:0 22px; border-radius:11px; background:#157043; color:#fff; font-size:14px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">Save draft</span>
+            </div>
+          </div>
+          <div style="font-size:13px; color:#5B6673">Unsaved changes are guarded — leaving this page asks first. Creating and editing share this form.</div>
+        </div>
+        <div style="padding:22px 28px 26px; display:flex; gap:20px; align-items:flex-start">
+          <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:16px">
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:20px 22px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); display:flex; flex-direction:column; gap:14px">
+              <div style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#1F2937">Basics</div>
+              <div style="display:flex; flex-direction:column; gap:6px">
+                <span style="font-size:13px; font-weight:600; color:#1F2937">Name<span style="color:#C02722"> *</span></span>
+                <div style="display:flex; align-items:center; height:48px; padding:0 15px; border-radius:11px; border:1.5px solid #CCEEDA; background:#fff; font-size:15px; color:#1F2937">Grilled Halloumi &amp; Rocket Plate</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px">
+                <span style="font-size:13px; font-weight:600; color:#1F2937">Description</span>
+                <div style="padding:12px 15px; border-radius:11px; border:1.5px solid #CCEEDA; background:#fff; font-size:14.5px; line-height:21px; color:#1F2937; min-height:64px">Seared halloumi over rocket and warm chickpeas, with a lemon-oregano dressing and toasted seeds.</div>
+              </div>
+              <div style="display:flex; gap:14px">
+                <div style="flex:1; display:flex; flex-direction:column; gap:6px">
+                  <span style="font-size:13px; font-weight:600; color:#1F2937">Portion size<span style="color:#C02722"> *</span></span>
+                  <div style="display:flex; align-items:center; justify-content:space-between; height:48px; padding:0 15px; border-radius:11px; border:1.5px solid #CCEEDA; background:#fff; font-size:15px; color:#1F2937">340 <span style="font-size:13px; color:#5B6673">g</span></div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:6px">
+                  <span style="font-size:13px; font-weight:600; color:#1F2937">Price<span style="color:#C02722"> *</span></span>
+                  <div style="display:flex; align-items:center; justify-content:space-between; height:48px; padding:0 15px; border-radius:11px; border:1.5px solid #16A34A; background:#fff; font-size:15px; color:#1F2937; box-shadow:0 0 0 3px rgba(22,163,74,.16)">13.90 <span style="font-size:13px; color:#5B6673">$</span></div>
+                </div>
+              </div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:20px 22px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:baseline; justify-content:space-between">
+                <div style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#1F2937">Recipe &amp; nutrition</div>
+                <span style="font-size:13px; font-weight:600; color:#157043">Change version</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:13px; padding:13px 15px; border-radius:14px; background:#F0FBF3; border:1px solid #CCEEDA">
+                <span style="width:9px; height:9px; border-radius:999px; background:#16A34A; flex-shrink:0"></span>
+                <div style="flex:1; min-width:0">
+                  <div style="font-size:14px; font-weight:700; color:#14532D">Halloumi &amp; Rocket — recipe v4 · 340 g portion</div>
+                  <div style="font-size:12.5px; color:#39434F; margin-top:1px">505 kcal · 27 g protein · 31 g carbs · 29 g fat — published with the meal, on the card itself</div>
+                </div>
+              </div>
+              <div style="font-size:12.5px; color:#5B6673">The nutrition record and allergen list come from this version. Editing the recipe creates v5; this meal stays on v4 until you move it.</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:20px 22px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:baseline; justify-content:space-between">
+                <div style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#1F2937">Card photo</div>
+                <span style="font-size:13px; font-weight:600; color:#157043">Replace</span>
+              </div>
+              <div style="display:flex; gap:16px; align-items:center">
+                <div style="width:200px; aspect-ratio:4/3; border-radius:14px; overflow:hidden; background:#EDF6F0; flex-shrink:0"><img src="assets/dishes/grilled-halloumi-rocket.card.webp" alt="Grilled Halloumi and Rocket Plate" style="width:100%; height:100%; object-fit:cover; display:block"></div>
+                <div style="font-size:12.5px; line-height:19px; color:#5B6673">Shown at 4:3 on marketplace cards and 16:9 on the meal page. One photo, two crops — keep the dish centred.</div>
+              </div>
+            </div>
+          </div>
+          <div style="width:330px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:20px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); display:flex; flex-direction:column; gap:13px">
+              <div style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#1F2937">Publication gate</div>
+              <sc-for list="{{ gateChecks }}" as="g" hint-placeholder-count="5">
+                <div style="display:flex; align-items:flex-start; gap:10px">
+                  <span style="{{ g.dotCss }}">{{ g.mark }}</span>
+                  <div style="flex:1; min-width:0">
+                    <div style="font-size:13.5px; font-weight:600; color:#1F2937">{{ g.label }}</div>
+                    <div style="font-size:12px; color:#5B6673; margin-top:1px">{{ g.note }}</div>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="padding:12px 14px; border-radius:12px; background:#FDF2D6; border:1px solid #B3841F; font-size:12.5px; line-height:19px; color:#79480A">One check is failing. The meal stays off the marketplace until every check passes — fix it here, then publish.</div>
+              <span style="display:inline-flex; align-items:center; justify-content:center; height:46px; border-radius:11px; background:#EDF6F0; color:#8A9490; font-size:14px; font-weight:700">Publish to marketplace</span>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:12px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">In the review queue</div>
+              <div style="font-size:13px; line-height:19px; color:#39434F">This meal appears on the review queue as "No allergen declaration" — resolving the failing check clears it there too.</div>
+              <span style="font-size:13px; font-weight:600; color:#157043">Open the review queue</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7c — STOCK ════════ -->
+  <div id="7c" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7c</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Stock</span>
+      <span style="font-size:13px; color:#5B6673">/kitchen/stock — on hand, minimums and days of cover; History deep-links into the purchases ledger</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navStock }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Stock</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Stock</div>
+            <span style="display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; background:#FDE5E3; color:#8F1F1A; font-size:12px; font-weight:700">1 item short</span>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:10px">
+              <span style="display:inline-flex; align-items:center; height:44px; padding:0 18px; border-radius:11px; background:#FFFFFF; border:1.5px solid #16A34A; color:#157043; font-size:14px; font-weight:700">Receive a delivery</span>
+              <span style="display:inline-flex; align-items:center; height:44px; padding:0 18px; border-radius:11px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:14px; font-weight:600">Order supplies</span>
+            </div>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">What is on hand, what the minimum is, and how many days tomorrow's book covers.</div>
+        </div>
+        <div style="margin:16px 28px 24px; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+          <div style="display:grid; grid-template-columns:minmax(0,1.7fr) 90px 60px 70px 96px minmax(0,1.4fr) 96px 80px; gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Item</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">On hand</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Unit</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Min</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Cover</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Level</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">State</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">History</span>
+          </div>
+          <sc-for list="{{ stockRows }}" as="r" hint-placeholder-count="8">
+            <div style="display:grid; grid-template-columns:minmax(0,1.7fr) 90px 60px 70px 96px minmax(0,1.4fr) 96px 80px; gap:0 14px; align-items:center; padding:12px 18px; border-bottom:1px solid #EDF6F0">
+              <span style="font-size:14px; font-weight:600; color:#1F2937">{{ r.item }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#0B3B26; text-align:right">{{ r.on }}</span>
+              <span style="font-size:13px; color:#5B6673">{{ r.unit }}</span>
+              <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.min }}</span>
+              <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.cover }}</span>
+              <div style="height:8px; border-radius:999px; background:#EDF6F0; overflow:hidden"><div style="width:{{ r.pct }}%; height:100%; border-radius:999px; background:{{ r.bar }}"></div></div>
+              <span><span style="{{ r.stateCss }}">{{ r.state }}</span></span>
+              <span style="font-size:13px; font-weight:600; color:#157043; text-align:right">View</span>
+            </div>
+          </sc-for>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 18px">
+            <span style="font-size:12.5px; color:#5B6673">Cover is computed against confirmed orders only — the same rule production uses.</span>
+            <span style="font-size:13px; font-weight:600; color:#157043">Consumption exceptions (2)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7d — PRODUCTION ════════ -->
+  <div id="7d" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7d</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Production</span>
+      <span style="font-size:13px; color:#5B6673">/kitchen/production — the day's cook list, from confirmed orders only</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navProd }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Production</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Production</div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 14px; border-radius:11px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:14px; font-weight:600">‹</span>
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 18px; border-radius:11px; background:#DCFCE7; border:1px solid #16A34A; color:#14532D; font-size:14px; font-weight:700">Thursday 27 Aug</span>
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 14px; border-radius:11px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:14px; font-weight:600">›</span>
+            </div>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">228 portions across 6 meals — counted from confirmed orders only, never from placed ones.</div>
+        </div>
+        <div style="margin:16px 28px 0; display:flex; gap:14px">
+          <div style="flex:1; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:2px"><span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Portions</span><span style="font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0B3B26">228</span></div>
+          <div style="flex:1; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:2px"><span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Meals</span><span style="font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0B3B26">6</span></div>
+          <div style="flex:1; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:2px"><span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Done</span><span style="font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0B3B26">60 <span style="font-size:15px; color:#5B6673">of 228</span></span></div>
+          <div style="flex:1; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:2px"><span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">First due</span><span style="font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0B3B26">11:20</span></div>
+        </div>
+        <div style="margin:14px 28px 24px; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+          <div style="display:grid; grid-template-columns:minmax(0,2.4fr) 110px minmax(0,1.6fr) 110px; gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Meal</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Portions</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Allergens in play</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">State</span>
+          </div>
+          <sc-for list="{{ prodRows }}" as="r" hint-placeholder-count="6">
+            <div style="display:grid; grid-template-columns:minmax(0,2.4fr) 110px minmax(0,1.6fr) 110px; gap:0 14px; align-items:center; padding:13px 18px; border-bottom:1px solid #EDF6F0">
+              <span style="font-size:14px; font-weight:600; color:#1F2937">{{ r.meal }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#0B3B26; text-align:right">{{ r.portions }}</span>
+              <span style="font-size:13px; color:#79480A">{{ r.allergens }}</span>
+              <span><span style="{{ r.statusCss }}">{{ r.status }}</span></span>
+            </div>
+          </sc-for>
+          <div style="padding:12px 18px; font-size:12.5px; color:#5B6673">Ticket-level work stays on the KDS — this list is the day's totals, not the queue.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7e — RECEIVE A DELIVERY ════════ -->
+  <div id="7e" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7e</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Receive a delivery</span>
+      <span style="font-size:13px; color:#5B6673">/kitchen/procurement/receive?order=… — booking in against the order; unpriced lines land in Unpriced receipts</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navProc }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Procurement / Receive</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Book in a delivery</div>
+            <div style="margin-left:auto"><span style="font-size:13px; font-weight:600; color:#157043">Back to procurement</span></div>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">Reachable from the order itself or from the procurement hub with a picker — this one arrived fixed to an order.</div>
+        </div>
+        <div style="margin:16px 28px 24px; display:flex; gap:20px; align-items:flex-start">
+          <div style="flex:1; min-width:0; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+            <div style="display:flex; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid #EDF6F0">
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#1F2937">Supply order SO-1047</span>
+              <span style="display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; background:#EDF6F0; color:#39434F; font-size:12px; font-weight:700">Al Amal Farms</span>
+              <span style="font-size:12.5px; color:#5B6673">Due Wed 26 Aug · 5 lines</span>
+              <span style="margin-left:auto; font-size:13px; font-weight:600; color:#157043">Change order</span>
+            </div>
+            <div style="display:grid; grid-template-columns:minmax(0,1.8fr) 90px 110px 100px 100px minmax(0,1.2fr); gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Item</span>
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Ordered</span>
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Received</span>
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Unit cost</span>
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Line total</span>
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase"></span>
+            </div>
+            <sc-for list="{{ receiveRows }}" as="r" hint-placeholder-count="5">
+              <div style="display:grid; grid-template-columns:minmax(0,1.8fr) 90px 110px 100px 100px minmax(0,1.2fr); gap:0 14px; align-items:center; padding:11px 18px; border-bottom:1px solid #EDF6F0">
+                <span style="font-size:14px; font-weight:600; color:#1F2937">{{ r.item }}</span>
+                <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.ordered }}</span>
+                <div style="display:flex; justify-content:flex-end"><span style="display:inline-flex; align-items:center; justify-content:flex-end; width:76px; height:40px; padding:0 12px; border-radius:10px; border:1.5px solid #CCEEDA; background:#fff; font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#0B3B26">{{ r.received }}</span></div>
+                <span style="font-family:'Space Grotesk'; font-size:14px; font-weight:700; color:#0B3B26; text-align:right">{{ r.cost }}</span>
+                <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.total }}</span>
+                <span><sc-if value="{{ r.flag }}" hint-placeholder-val="{{ false }}"><span style="{{ r.flagCss }}">{{ r.flag }}</span></sc-if></span>
+              </div>
+            </sc-for>
+            <div style="display:flex; align-items:center; gap:12px; padding:16px 18px">
+              <span style="font-size:12.5px; color:#5B6673; flex:1">Booking in updates stock immediately. Lines without an invoice price go to <span style="color:#157043; font-weight:600">Unpriced receipts</span> and keep the cost report honest.</span>
+              <span style="display:inline-flex; align-items:center; height:48px; padding:0 18px; border-radius:11px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:14px; font-weight:600">Cancel</span>
+              <span style="display:inline-flex; align-items:center; height:48px; padding:0 24px; border-radius:11px; background:#157043; color:#fff; font-size:15px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">Book in the delivery</span>
+            </div>
+          </div>
+          <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:10px">
+              <div style="font-size:12px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">This delivery</div>
+              <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:#5B6673">Lines</span><span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#0B3B26">5</span></div>
+              <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:#5B6673">Priced value</span><span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#0B3B26">$256.90</span></div>
+              <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:#5B6673">Short against order</span><span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#79480A">2 kg</span></div>
+              <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:#5B6673">Unpriced lines</span><span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#79480A">1</span></div>
+            </div>
+            <div style="padding:14px 16px; border-radius:14px; background:#E2F1FB; border:1px solid #3690BF; display:flex; gap:11px; align-items:flex-start">
+              <span style="flex-shrink:0; width:20px; height:20px; border-radius:999px; background:#0369A1; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px">i</span>
+              <div style="font-size:12.5px; line-height:19px; color:#0B4A6F">Receiving needs the inventory permission, not the order book — a receiver who cannot open supply orders still lands here under Procurement.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7f — SUPPLY ORDERS ════════ -->
+  <div id="7f" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7f</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Supply orders</span>
+      <span style="font-size:13px; color:#5B6673">/kitchen/supply-orders — shortages and the way into ordering them; ?created= shows the print callout; covers the builder and print routes</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navSupply }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Supply orders</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Supply orders</div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:10px">
+              <span style="display:inline-flex; align-items:center; height:44px; padding:0 20px; border-radius:11px; background:#157043; color:#fff; font-size:14px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">Start an order</span>
+            </div>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">What this branch is short of, and the way into ordering it. Needs come from Order desk › Requirements.</div>
+        </div>
+        <sc-if value="{{ showCreatedCallout }}" hint-placeholder-val="{{ true }}">
+        <div style="margin:16px 28px 0; padding:15px 18px; border-radius:14px; background:#DCFCE7; border:1px solid #16A34A; display:flex; align-items:center; gap:13px">
+          <span style="flex-shrink:0; width:22px; height:22px; border-radius:999px; background:#157043; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center">✓</span>
+          <span style="flex:1; font-size:13.5px; color:#14532D"><strong>3 purchase orders created</strong> — SO-1051 Levant Grain Co, SO-1052 Cedar Valley Poultry, SO-1053 Al Amal Farms.</span>
+          <span style="display:inline-flex; align-items:center; height:40px; padding:0 18px; border-radius:10px; background:#157043; color:#fff; font-size:13.5px; font-weight:700">Print them</span>
+        </div>
+        </sc-if>
+        <div style="margin:14px 28px 24px; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid #EDF6F0">
+            <span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#1F2937">Short for Friday to Monday</span>
+            <span style="font-size:12.5px; color:#5B6673">From requirements · confirmed orders only</span>
+          </div>
+          <div style="display:grid; grid-template-columns:minmax(0,1.8fr) 100px 110px 100px minmax(0,1.6fr) 90px; gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Item</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">On hand</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Needed</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Short by</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Preferred supplier</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right"></span>
+          </div>
+          <sc-for list="{{ shortageRows }}" as="r" hint-placeholder-count="5">
+            <div style="display:grid; grid-template-columns:minmax(0,1.8fr) 100px 110px 100px minmax(0,1.6fr) 90px; gap:0 14px; align-items:center; padding:12px 18px; border-bottom:1px solid #EDF6F0">
+              <span style="font-size:14px; font-weight:600; color:#1F2937">{{ r.item }}</span>
+              <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.on }}</span>
+              <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.need }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#8F1F1A; text-align:right">{{ r.short }}</span>
+              <span style="font-size:13.5px; color:#39434F">{{ r.supplier }}</span>
+              <span style="font-size:13px; font-weight:600; color:#157043; text-align:right">Add to order</span>
+            </div>
+          </sc-for>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 18px">
+            <span style="font-size:12.5px; color:#5B6673">The builder groups lines by supplier and creates one order per supplier — a batch, then Print them.</span>
+            <span style="font-size:13px; font-weight:600; color:#157043">Open the requirements report</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7g — ORDER DESK ════════ -->
+  <div id="7g" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7g</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Order desk — book and calendar</span>
+      <span style="font-size:13px; color:#5B6673">/kitchen/order-desk and /calendar — the open book in due order; the week ahead on three books, never added together</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navBook }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Order desk</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Order book</div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 16px; border-radius:999px; background:#DCFCE7; border:1px solid #16A34A; color:#14532D; font-size:13.5px; font-weight:700">Today</span>
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 16px; border-radius:999px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:13.5px; font-weight:600">Tomorrow</span>
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 16px; border-radius:999px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:13.5px; font-weight:600">This week</span>
+              <span style="width:1px; height:24px; background:#CCEEDA; margin:0 4px"></span>
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 16px; border-radius:999px; background:#DCFCE7; border:1px solid #16A34A; color:#14532D; font-size:13.5px; font-weight:700">Lunch</span>
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 16px; border-radius:999px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:13.5px; font-weight:600">Dinner</span>
+            </div>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">The open book in the order it is due. Wednesday 26 August · 7 open orders in the lunch window.</div>
+        </div>
+        <div style="margin:16px 28px 0; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+          <div style="display:grid; grid-template-columns:72px 90px minmax(0,2fr) 130px 90px 90px 110px; gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Due</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Order</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Customer</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Book</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Items</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Window</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">State</span>
+          </div>
+          <sc-for list="{{ bookRows }}" as="r" hint-placeholder-count="7">
+            <div style="display:grid; grid-template-columns:72px 90px minmax(0,2fr) 130px 90px 90px 110px; gap:0 14px; align-items:center; padding:11px 18px; border-bottom:1px solid #EDF6F0">
+              <span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#0B3B26">{{ r.due }}</span>
+              <span style="font-size:13.5px; font-weight:600; color:#39434F">{{ r.id }}</span>
+              <span style="font-size:14px; color:#1F2937; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.who }}</span>
+              <span><span style="{{ r.bookCss }}">{{ r.book }}</span></span>
+              <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.items }}</span>
+              <span style="font-size:13px; color:#5B6673">{{ r.window }}</span>
+              <span><span style="{{ r.statusCss }}">{{ r.status }}</span></span>
+            </div>
+          </sc-for>
+          <div style="padding:12px 18px; font-size:12.5px; color:#5B6673">Cancelling is management work — it lives on Orders, not here or on the KDS.</div>
+        </div>
+        <div style="margin:14px 28px 24px; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid #EDF6F0">
+            <span style="font-family:'Space Grotesk'; font-size:15px; font-weight:700; color:#1F2937">The week ahead — Mon 24 to Sun 30</span>
+            <span style="font-size:12.5px; color:#5B6673">Three books, shown apart. The calendar never adds them together.</span>
+          </div>
+          <div style="display:grid; grid-template-columns:150px repeat(7,1fr); gap:0; padding:10px 18px 6px">
+            <span></span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; text-align:center">Mon</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; text-align:center">Tue</span>
+            <span style="font-size:11.5px; font-weight:700; color:#157043; text-align:center">Wed · today</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; text-align:center">Thu</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; text-align:center">Fri</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; text-align:center">Sat</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; text-align:center">Sun</span>
+          </div>
+          <sc-for list="{{ calBooks }}" as="b" hint-placeholder-count="3">
+            <div style="display:grid; grid-template-columns:150px repeat(7,1fr); gap:0; align-items:center; padding:8px 18px; border-top:1px solid #EDF6F0">
+              <span><span style="{{ b.css }}">{{ b.name }}</span></span>
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#0B3B26; text-align:center">{{ b.d0 }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#0B3B26; text-align:center">{{ b.d1 }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#157043; text-align:center">{{ b.d2 }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#0B3B26; text-align:center">{{ b.d3 }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#0B3B26; text-align:center">{{ b.d4 }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#0B3B26; text-align:center">{{ b.d5 }}</span>
+              <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#0B3B26; text-align:center">{{ b.d6 }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7h — COST REPORT ════════ -->
+  <div id="7h" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7h</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Report template</span>
+      <span style="font-size:13px; color:#5B6673">shown as /kitchen/cost-report — covers the cash report, requirements, purchases-ledger summaries and branch operating</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navCost }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Cost report</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Cost report</div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
+              <span style="display:inline-flex; align-items:center; gap:10px; height:40px; padding:0 16px; border-radius:11px; background:#FFFFFF; border:1px solid #CCEEDA; font-size:14px; font-weight:600; color:#1F2937">August 2026 <span style="color:#5B6673; font-size:11px">▾</span></span>
+            </div>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">Spend and cost of goods beside selling revenue, to the 25th. Visible with the costs permission only.</div>
+        </div>
+        <sc-if value="{{ showDataQualityFlag }}" hint-placeholder-val="{{ true }}">
+        <div style="margin:16px 28px 0; padding:14px 18px; border-radius:14px; background:#FDF2D6; border:1px solid #B3841F; display:flex; align-items:center; gap:12px">
+          <span style="flex-shrink:0; width:20px; height:20px; border-radius:999px; background:#8A5A09; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center">!</span>
+          <span style="flex:1; font-size:13px; color:#79480A"><strong>3 receipts are still unpriced</strong> — cost of goods may be understated until their invoices arrive.</span>
+          <span style="font-size:13px; font-weight:700; color:#79480A">Review unpriced receipts</span>
+        </div>
+        </sc-if>
+        <div style="margin:14px 28px 0; display:flex; gap:14px">
+          <div style="flex:1; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:2px"><span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Spend</span><span style="font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0B3B26">$18,240</span><span style="font-size:12px; color:#5B6673">what arrived this month</span></div>
+          <div style="flex:1; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:2px"><span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Cost of goods</span><span style="font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0B3B26">$16,905</span><span style="font-size:12px; color:#5B6673">what confirmed orders consumed</span></div>
+          <div style="flex:1; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:2px"><span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Revenue</span><span style="font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0B3B26">$52,610</span><span style="font-size:12px; color:#5B6673">sold across all three books</span></div>
+          <div style="flex:1; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:2px"><span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Margin</span><span style="font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#157043">67.9%</span><span style="font-size:12px; color:#5B6673">after cost of goods</span></div>
+        </div>
+        <div style="margin:14px 28px 24px; display:flex; gap:20px; align-items:flex-start">
+          <div style="flex:1; min-width:0; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+            <div style="display:grid; grid-template-columns:minmax(0,1.6fr) 110px minmax(0,2fr) 150px; gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Category</span>
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Spend</span>
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Share</span>
+              <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase"></span>
+            </div>
+            <sc-for list="{{ costRows }}" as="r" hint-placeholder-count="8">
+              <div style="display:grid; grid-template-columns:minmax(0,1.6fr) 110px minmax(0,2fr) 150px; gap:0 14px; align-items:center; padding:11px 18px; border-bottom:1px solid #EDF6F0">
+                <span style="font-size:14px; font-weight:600; color:#1F2937">{{ r.cat }}</span>
+                <span style="font-family:'Space Grotesk'; font-size:14.5px; font-weight:700; color:#0B3B26; text-align:right">{{ r.spend }}</span>
+                <div style="display:flex; align-items:center; gap:10px">
+                  <div style="flex:1; height:8px; border-radius:999px; background:#EDF6F0; overflow:hidden"><div style="width:{{ r.share }}%; height:100%; border-radius:999px; background:#16A34A"></div></div>
+                  <span style="font-size:12.5px; color:#5B6673; width:34px; text-align:right">{{ r.share }}%</span>
+                </div>
+                <span style="font-size:12px; color:#79480A">{{ r.note }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:12px">
+              <div style="font-size:12px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Meals vs products</div>
+              <div style="display:flex; flex-direction:column; gap:6px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:#39434F">Meals</span><span style="font-family:'Space Grotesk'; font-size:14px; font-weight:700; color:#0B3B26">82%</span></div>
+                <div style="height:8px; border-radius:999px; background:#EDF6F0; overflow:hidden"><div style="width:82%; height:100%; border-radius:999px; background:#16A34A"></div></div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13.5px; color:#39434F">Products</span><span style="font-family:'Space Grotesk'; font-size:14px; font-weight:700; color:#0B3B26">18%</span></div>
+                <div style="height:8px; border-radius:999px; background:#EDF6F0; overflow:hidden"><div style="width:18%; height:100%; border-radius:999px; background:#0E6B41"></div></div>
+              </div>
+              <div style="font-size:12px; color:#5B6673">Share of cost of goods, not of revenue.</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:9px">
+              <div style="font-size:12px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Same template</div>
+              <div style="font-size:13px; line-height:19px; color:#39434F">Cash report — one day's takings by agent, method and currency. Requirements — what to buy for the days ahead. Ledger — weekly and monthly summaries. Branch operating — the trading week and cut-offs, as a form.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7i — QUEUES ════════ -->
+  <div id="7i" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7i</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Queue template — review and exceptions</span>
+      <span style="font-size:13px; color:#5B6673">/kitchen/review (read-only rows linking into editors) and /kitchen/consumption-exceptions (resolve and retry) — QC follows the same shape</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navReview }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Review queue</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Review queue</div>
+            <span style="display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; background:#FDF2D6; color:#79480A; font-size:12px; font-weight:700">4 blocking the catalogue</span>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">What is blocking the catalogue. Every fix happens in the family editor the row links into — this page is a read.</div>
+        </div>
+        <div style="margin:16px 28px 0; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+          <div style="display:grid; grid-template-columns:minmax(0,2fr) 90px minmax(0,1.8fr) 70px 170px; gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Item</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Family</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Blocking reason</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Age</span>
+            <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right"></span>
+          </div>
+          <sc-for list="{{ reviewRows }}" as="r" hint-placeholder-count="4">
+            <div style="display:grid; grid-template-columns:minmax(0,2fr) 90px minmax(0,1.8fr) 70px 170px; gap:0 14px; align-items:center; padding:12px 18px; border-bottom:1px solid #EDF6F0">
+              <span style="font-size:14px; font-weight:600; color:#1F2937">{{ r.name }}</span>
+              <span><span style="{{ r.famCss }}">{{ r.fam }}</span></span>
+              <span style="font-size:13.5px; color:#8F1F1A">{{ r.reason }}</span>
+              <span style="font-size:13px; color:#5B6673; text-align:right">{{ r.age }}</span>
+              <span style="font-size:13px; font-weight:600; color:#157043; text-align:right">{{ r.cta }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:20px 28px 0; display:flex; flex-direction:column; gap:5px">
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Consumption exceptions</div>
+            <span style="display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; background:#FDE5E3; color:#8F1F1A; font-size:12px; font-weight:700">2 open</span>
+          </div>
+          <div style="font-size:13.5px; color:#5B6673">What confirmed orders could not deduct honestly. Resolve and retry need the manage permission; reading does not.</div>
+        </div>
+        <div style="margin:14px 28px 24px; background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+          <sc-for list="{{ exceptionRows }}" as="r" hint-placeholder-count="2">
+            <div style="display:flex; align-items:center; gap:16px; padding:14px 18px; border-bottom:1px solid #EDF6F0">
+              <span style="font-size:13.5px; font-weight:600; color:#39434F; width:76px; flex-shrink:0">{{ r.order }}</span>
+              <div style="flex:1; min-width:0">
+                <div style="font-size:14px; font-weight:600; color:#1F2937">{{ r.meal }}</div>
+                <div style="font-size:13px; color:#8F1F1A; margin-top:1px">{{ r.reason }}</div>
+              </div>
+              <span style="font-size:12.5px; color:#5B6673; flex-shrink:0">{{ r.age }} ago</span>
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 16px; border-radius:10px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:13.5px; font-weight:600; flex-shrink:0">Resolve</span>
+              <span style="display:inline-flex; align-items:center; height:40px; padding:0 18px; border-radius:10px; background:#157043; color:#fff; font-size:13.5px; font-weight:700; flex-shrink:0">Retry deduction</span>
+            </div>
+          </sc-for>
+          <div style="padding:12px 18px; font-size:12.5px; color:#5B6673">Quality control uses this same queue shape — a check per row, the action on the row, the count in the sidebar.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7j — RECIPE EDITOR ════════ -->
+  <div id="7j" style="display:flex; flex-direction:column">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px">
+      <span style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 9px; border-radius:8px; background:#0B3B26; color:#fff; font-family:'Space Grotesk'; font-size:13px; font-weight:700">7j</span>
+      <span style="font-family:'Space Grotesk'; font-size:20px; font-weight:700; color:#1F2937">Recipe &amp; version editor</span>
+      <span style="font-size:13px; color:#5B6673">/kitchen/recipes/{recipe} — where 7b's failing gate check gets fixed; nutrition and allergens are computed from the lines, never typed</span>
+    </div>
+    <div style="width:1280px; border-radius:20px; overflow:hidden; box-shadow:0 2px 4px -1px #17151414, 0 24px 60px -30px rgba(11,59,38,.55); background:#F7FCF9; display:flex; align-items:stretch">
+      <div style="width:232px; flex-shrink:0; background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%); padding:22px 14px 18px; display:flex; flex-direction:column">
+        <div style="display:flex; align-items:center; gap:10px; padding:0 6px">
+          <div style="width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6D28D9 0%,#16A34A 100%); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:14px">H</div>
+          <div style="min-width:0">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#fff">Healthy360</div>
+            <div style="font-size:11px; color:rgba(220,252,231,.62)">Kitchen · Verdant Kitchen</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px">
+          <sc-for list="{{ navRecipes }}" as="n" hint-placeholder-count="14">
+            <div style="{{ n.css }}"><span>{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeCss }}">{{ n.badge }}</span></sc-if></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:auto; padding-top:16px">
+          <span style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid rgba(220,252,231,.28); color:rgba(220,252,231,.85); font-size:13px; font-weight:600">Sign out</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+        <div style="padding:24px 28px 18px; background:#FFFFFF; border-bottom:1px solid #CCEEDA; display:flex; flex-direction:column; gap:5px">
+          <div style="font-size:12px; color:#5B6673">Kitchen workspace / Recipes / Halloumi &amp; Rocket</div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Space Grotesk'; font-size:26px; font-weight:700; color:#1F2937; letter-spacing:-0.02em">Halloumi &amp; Rocket — recipe</div>
+            <span style="display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; background:#FDF2D6; color:#79480A; font-size:12px; font-weight:700">Editing v4 — saves as v5</span>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:10px">
+              <span style="display:inline-flex; align-items:center; height:44px; padding:0 18px; border-radius:11px; background:#FFFFFF; border:1px solid #CCEEDA; color:#5B6673; font-size:14px; font-weight:600">Discard changes</span>
+              <span style="display:inline-flex; align-items:center; height:44px; padding:0 22px; border-radius:11px; background:#157043; color:#fff; font-size:14px; font-weight:700; cursor:pointer; transition:background .16s" style-hover="background:#0B3B26">Save as v5</span>
+            </div>
+          </div>
+          <div style="font-size:13px; color:#5B6673">Creating and editing share this form — `new` opens it empty. Leaving with unsaved changes asks first.</div>
+        </div>
+        <div style="padding:22px 28px 26px; display:flex; gap:20px; align-items:flex-start">
+          <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:16px">
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #EDF6F0">
+                <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#1F2937">Ingredients — per 340 g portion</span>
+                <span style="font-size:13px; font-weight:600; color:#157043">Add a line</span>
+              </div>
+              <div style="display:grid; grid-template-columns:minmax(0,2fr) 130px 110px 90px; gap:0 14px; padding:12px 18px 10px; border-bottom:1.5px solid #CCEEDA">
+                <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Ingredient</span>
+                <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Quantity</span>
+                <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right">Energy</span>
+                <span style="font-size:11.5px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase; text-align:right"></span>
+              </div>
+              <sc-for list="{{ ingredientRows }}" as="r" hint-placeholder-count="6">
+                <div style="display:grid; grid-template-columns:minmax(0,2fr) 130px 110px 90px; gap:0 14px; align-items:center; padding:11px 18px; border-bottom:1px solid #EDF6F0">
+                  <span style="font-size:14px; font-weight:600; color:#1F2937">{{ r.name }}</span>
+                  <div style="display:flex; justify-content:flex-end"><span style="display:inline-flex; align-items:center; justify-content:flex-end; width:96px; height:40px; padding:0 12px; border-radius:10px; border:1.5px solid #CCEEDA; background:#fff; font-family:'Space Grotesk'; font-size:14.5px; font-weight:700; color:#0B3B26">{{ r.qty }}</span></div>
+                  <span style="font-size:13.5px; color:#39434F; text-align:right">{{ r.kcal }} kcal</span>
+                  <span style="font-size:13px; font-weight:600; color:#8F1F1A; text-align:right">Remove</span>
+                </div>
+              </sc-for>
+              <div style="padding:13px 18px; font-size:12.5px; color:#5B6673">Nutrition and allergens are computed from these lines against the ingredient records — they are never typed in here.</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); overflow:hidden">
+              <div style="padding:16px 18px; border-bottom:1px solid #EDF6F0">
+                <span style="font-family:'Space Grotesk'; font-size:16px; font-weight:700; color:#1F2937">Allergen declaration</span>
+              </div>
+              <sc-for list="{{ allergenRows }}" as="a" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid #EDF6F0">
+                  <span style="font-size:14px; font-weight:600; color:#1F2937; width:280px; flex-shrink:0">{{ a.name }}</span>
+                  <span><span style="{{ a.css }}">{{ a.state }}</span></span>
+                  <span style="margin-left:auto; font-size:13px; font-weight:700; color:#79480A">{{ a.action }}</span>
+                </div>
+              </sc-for>
+              <div style="padding:13px 18px; font-size:12.5px; color:#5B6673">The meal editor's publication gate reads this declaration — <strong style="color:#79480A">Milk</strong> is what is blocking Grilled Halloumi &amp; Rocket Plate from publishing.</div>
+            </div>
+          </div>
+          <div style="width:330px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:20px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); display:flex; flex-direction:column; gap:10px">
+              <div style="font-size:12px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Nutrition per portion — computed</div>
+              <div style="display:flex; align-items:baseline; gap:7px"><span style="font-family:'Space Grotesk'; font-size:38px; font-weight:700; color:#0B3B26; line-height:1">505</span><span style="font-size:13px; color:#5B6673">kcal · 340 g</span></div>
+              <div style="display:flex; gap:0; border-top:1px solid #EDF6F0; padding-top:11px">
+                <div style="flex:1; display:flex; flex-direction:column; gap:1px"><span style="font-family:'Space Grotesk'; font-size:17px; font-weight:700; color:#0B3B26">27<span style="font-size:11.5px">g</span></span><span style="font-size:11.5px; color:#5B6673">protein</span></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:1px; border-left:1px solid #EDF6F0; padding-left:13px"><span style="font-family:'Space Grotesk'; font-size:17px; font-weight:700; color:#0B3B26">31<span style="font-size:11.5px">g</span></span><span style="font-size:11.5px; color:#5B6673">carbs</span></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:1px; border-left:1px solid #EDF6F0; padding-left:13px"><span style="font-family:'Space Grotesk'; font-size:17px; font-weight:700; color:#0B3B26">29<span style="font-size:11.5px">g</span></span><span style="font-size:11.5px; color:#5B6673">fat</span></div>
+              </div>
+              <div style="font-size:12px; color:#5B6673">This record is what the marketplace card and meal page publish.</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:20px; box-shadow:0 1px 2px rgba(23,21,20,.05), 0 14px 30px -18px rgba(11,59,38,.35); display:flex; flex-direction:column; gap:11px">
+              <div style="font-size:12px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Versions</div>
+              <sc-for list="{{ versionRows }}" as="v" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:10px">
+                  <span style="font-family:'Space Grotesk'; font-size:14px; font-weight:700; color:#1F2937; width:26px">{{ v.v }}</span>
+                  <span><span style="{{ v.css }}">{{ v.state }}</span></span>
+                  <span style="margin-left:auto; font-size:12px; color:#5B6673">{{ v.meta }}</span>
+                </div>
+              </sc-for>
+              <div style="font-size:12px; line-height:18px; color:#5B6673; border-top:1px solid #EDF6F0; padding-top:10px">Meals stay on their version until you move them — saving v5 changes nothing they sell.</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E3F3E9; border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:9px">
+              <div style="font-size:12px; font-weight:700; color:#646E7C; letter-spacing:.04em; text-transform:uppercase">Used by</div>
+              <div style="display:flex; align-items:center; justify-content:space-between">
+                <span style="font-size:13.5px; font-weight:600; color:#1F2937">Grilled Halloumi &amp; Rocket Plate</span>
+                <span style="font-size:12px; color:#5B6673">on v4</span>
+              </div>
+              <span style="font-size:13px; font-weight:600; color:#157043">Open the meal editor</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showQueueBadges&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Kitchen module&quot;},&quot;showCreatedCallout&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Kitchen module&quot;},&quot;showDataQualityFlag&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Kitchen module&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const showBadges = p.showQueueBadges ?? true;
+    const NAV = [
+      ['Workbench', ['Overview', 'Review queue', 'Analytics']],
+      ['Catalogue', ['Meals', 'Recipes', 'Ingredients', 'Products', 'Sauces', 'Dressings', 'Plans', 'Price lists', 'Allergen classes']],
+      ['Inventory', ['Stock', 'Production', 'Quality control', 'Procurement', 'Purchases ledger', 'Exceptions', 'Cost report']],
+      ['Order desk', ['Order book', 'Calendar', 'Sale', 'Cash report', 'Requirements']],
+      ['Supply', ['Suppliers', 'Supply orders', 'Quotations']],
+      ['Branch', ['Orders', 'Delivery zones', 'Operating hours']],
+    ];
+    const BADGES = showBadges ? { 'Review queue': 4, 'Exceptions': 2 } : {};
+    const headCss = 'padding:14px 12px 5px; font-size:10.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:rgba(220,252,231,.62)';
+    const itemCss = (on) => on
+      ? 'display:flex; align-items:center; justify-content:space-between; gap:8px; height:30px; padding:0 12px; border-radius:9px; background:#157043; color:#FFFFFF; font-size:12.5px; font-weight:700; white-space:nowrap'
+      : 'display:flex; align-items:center; justify-content:space-between; gap:8px; height:30px; padding:0 12px; border-radius:9px; color:rgba(220,252,231,.78); font-size:12.5px; font-weight:500; white-space:nowrap';
+    const badgeCss = 'display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:19px; padding:0 6px; border-radius:999px; background:#FDF2D6; color:#79480A; font-size:10.5px; font-weight:700';
+    const nav = (active) => NAV.flatMap(([h, items]) => [
+      { css: headCss, label: h, badge: 0, badgeCss: '' },
+      ...items.map((l) => ({ css: itemCss(l === active), label: l, badge: BADGES[l] || 0, badgeCss })),
+    ]);
+    const chip = (kind) => ({
+      pub: 'display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; background:#DCFCE7; color:#14532D; font-size:12px; font-weight:700',
+      draft: 'display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; background:#FDF2D6; color:#79480A; font-size:12px; font-weight:700',
+      blocked: 'display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; background:#FDE5E3; color:#8F1F1A; font-size:12px; font-weight:700',
+      grey: 'display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; background:#EDF6F0; color:#39434F; font-size:12px; font-weight:700',
+      blue: 'display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; background:#E2F1FB; color:#0B4A6F; font-size:12px; font-weight:700',
+    })[kind];
+    const D = 'assets/dishes/';
+    const thumb = (src) => React.createElement('img', { src, alt: '', style: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' } });
+    const mealRows = [
+      { thumb: thumb(D + 'herbed-chicken-freekeh.card.webp'), name: 'Verdant Herb Garden Bowl', price: '$14.50', kcal: '540', p: '42 g', c: '38 g', f: '18 g', vis: 'Published', visCss: chip('pub'), upd: '2 d ago' },
+      { thumb: thumb(D + 'charred-aubergine-chickpea.card.webp'), name: 'Verdant Aubergine Chickpea Bowl', price: '$12.75', kcal: '452', p: '19 g', c: '52 g', f: '17 g', vis: 'Published', visCss: chip('pub'), upd: '5 d ago' },
+      { thumb: thumb(D + 'grilled-halloumi-rocket.card.webp'), name: 'Grilled Halloumi & Rocket Plate', price: '$13.90', kcal: '505', p: '27 g', c: '31 g', f: '29 g', vis: 'Draft', visCss: chip('draft'), upd: '1 h ago' },
+      { thumb: thumb(D + 'morning-oats-dates-almonds.card.webp'), name: 'Morning Oats, Dates & Almonds', price: '$9.25', kcal: '410', p: '14 g', c: '58 g', f: '12 g', vis: 'Published', visCss: chip('pub'), upd: '12 d ago' },
+      { thumb: thumb(D + 'smoky-tofu-kale-bowl.card.webp'), name: 'Smoky Tofu & Kale Bowl', price: '$13.25', kcal: '465', p: '31 g', c: '36 g', f: '22 g', vis: 'Blocked', visCss: chip('blocked'), upd: '3 h ago' },
+      { thumb: thumb(D + 'spiced-lentil-pumpkin-stew.card.webp'), name: 'Spiced Lentil & Pumpkin Stew', price: '$11.00', kcal: '430', p: '21 g', c: '49 g', f: '12 g', vis: 'Published', visCss: chip('pub'), upd: '8 d ago' },
+      { thumb: thumb(D + 'citrus-sea-bass-green-beans.card.webp'), name: 'Citrus Sea Bass & Green Beans', price: '$17.50', kcal: '488', p: '39 g', c: '22 g', f: '24 g', vis: 'Draft', visCss: chip('draft'), upd: '6 h ago' },
+      { thumb: thumb(D + 'harbour-prawn-quinoa.card.webp'), name: 'Harbour Prawn Quinoa Bowl', price: '$16.50', kcal: '498', p: '38 g', c: '34 g', f: '16 g', vis: 'Published', visCss: chip('pub'), upd: '9 d ago' },
+    ];
+    const gDot = (state) => ({
+      ok: 'flex-shrink:0; width:20px; height:20px; border-radius:999px; background:#DCFCE7; color:#14532D; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; margin-top:1px',
+      fail: 'flex-shrink:0; width:20px; height:20px; border-radius:999px; background:#FDE5E3; color:#8F1F1A; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; margin-top:1px',
+    })[state];
+    const gateChecks = [
+      { mark: '✓', dotCss: gDot('ok'), label: 'Card photo', note: 'Uploaded · shown at 4:3 and 16:9' },
+      { mark: '✓', dotCss: gDot('ok'), label: 'Nutrition record', note: 'From recipe v4 · complete' },
+      { mark: '✕', dotCss: gDot('fail'), label: 'Allergen declaration', note: 'Milk handling undeclared — declare it on recipe v4' },
+      { mark: '✓', dotCss: gDot('ok'), label: 'Price on a live list', note: '$13.90 on the Marketplace list' },
+      { mark: '✓', dotCss: gDot('ok'), label: 'Recipe version linked', note: 'v4 · 340 g portion' },
+    ];
+    const stockRows = [
+      { item: 'Cracked freekeh', on: '4', unit: 'kg', min: '12', cover: '0.8 days', pct: 12, bar: '#C02722', state: 'Short', stateCss: chip('blocked') },
+      { item: 'Tahini', on: '9', unit: 'kg', min: '10', cover: '1.9 days', pct: 34, bar: '#B57D0D', state: 'Low', stateCss: chip('draft') },
+      { item: 'Chicken thigh', on: '46', unit: 'kg', min: '30', cover: '4.1 days', pct: 74, bar: '#16A34A', state: 'In range', stateCss: chip('pub') },
+      { item: 'Chickpeas, dry', on: '62', unit: 'kg', min: '25', cover: '9.5 days', pct: 92, bar: '#16A34A', state: 'In range', stateCss: chip('pub') },
+      { item: 'Kale', on: '18', unit: 'kg', min: '12', cover: '2.2 days', pct: 55, bar: '#16A34A', state: 'In range', stateCss: chip('pub') },
+      { item: 'Halloumi', on: '21', unit: 'kg', min: '15', cover: '3.6 days', pct: 64, bar: '#16A34A', state: 'In range', stateCss: chip('pub') },
+      { item: 'Lemons', on: '33', unit: 'kg', min: '20', cover: '5.0 days', pct: 71, bar: '#16A34A', state: 'In range', stateCss: chip('pub') },
+      { item: 'Olive oil', on: '58', unit: 'L', min: '24', cover: '11 days', pct: 95, bar: '#16A34A', state: 'In range', stateCss: chip('pub') },
+    ];
+    const prodRows = [
+      { meal: 'Verdant Herb Garden Bowl', portions: '64', allergens: 'gluten · sesame', status: 'In prep', statusCss: chip('blue') },
+      { meal: 'Verdant Aubergine Chickpea Bowl', portions: '41', allergens: 'gluten · milk · sesame', status: 'Queued', statusCss: chip('grey') },
+      { meal: 'Smoky Tofu & Kale Bowl', portions: '35', allergens: 'soy · sesame', status: 'In prep', statusCss: chip('blue') },
+      { meal: 'Grilled Halloumi & Rocket Plate', portions: '28', allergens: 'milk', status: 'Queued', statusCss: chip('grey') },
+      { meal: 'Morning Oats, Dates & Almonds', portions: '22', allergens: 'gluten · nuts', status: 'Done', statusCss: chip('pub') },
+      { meal: 'Spiced Lentil & Pumpkin Stew', portions: '38', allergens: 'none declared', status: 'Done', statusCss: chip('pub') },
+    ];
+    const receiveRows = [
+      { item: 'Chicken thigh', ordered: '40 kg', received: '40', cost: '$3.80', total: '$152.00', flag: '', flagCss: '' },
+      { item: 'Kale', ordered: '24 kg', received: '22', cost: '$1.10', total: '$24.20', flag: '−2 kg short', flagCss: chip('draft') },
+      { item: 'Lemons', ordered: '30 kg', received: '30', cost: '$0.85', total: '$25.50', flag: '', flagCss: '' },
+      { item: 'Cracked freekeh', ordered: '25 kg', received: '25', cost: '', total: '—', flag: 'No invoice price', flagCss: chip('draft') },
+      { item: 'Tahini', ordered: '12 kg', received: '12', cost: '$4.60', total: '$55.20', flag: '', flagCss: '' },
+    ];
+    const shortageRows = [
+      { item: 'Cracked freekeh', on: '4 kg', need: '28 kg', short: '24 kg', supplier: 'Levant Grain Co' },
+      { item: 'Tahini', on: '9 kg', need: '18 kg', short: '9 kg', supplier: 'Levant Grain Co' },
+      { item: 'Chicken thigh', on: '46 kg', need: '90 kg', short: '44 kg', supplier: 'Cedar Valley Poultry' },
+      { item: 'Halloumi', on: '21 kg', need: '30 kg', short: '9 kg', supplier: 'Coastal Dairy Collective' },
+      { item: 'Kale', on: '18 kg', need: '40 kg', short: '22 kg', supplier: 'Al Amal Farms' },
+    ];
+    const bookRows = [
+      { due: '11:20', id: '#M-8841', who: 'L. Haddad', book: 'Marketplace', bookCss: chip('pub'), items: '3 items', window: 'Lunch', status: 'Confirmed', statusCss: chip('grey') },
+      { due: '11:35', id: '#S-2210', who: 'Weekly plan · R. Nassar', book: 'Subscriptions', bookCss: chip('blue'), items: '5 items', window: 'Lunch', status: 'In prep', statusCss: chip('blue') },
+      { due: '11:40', id: '#T-114', who: 'Walk-in', book: 'Order desk', bookCss: chip('grey'), items: '2 items', window: 'Lunch', status: 'Ready', statusCss: chip('pub') },
+      { due: '12:05', id: '#M-8843', who: 'S. Barakat', book: 'Marketplace', bookCss: chip('pub'), items: '1 item', window: 'Lunch', status: 'Confirmed', statusCss: chip('grey') },
+      { due: '12:10', id: '#S-2211', who: 'Weekly plan · H. Rizk', book: 'Subscriptions', bookCss: chip('blue'), items: '4 items', window: 'Lunch', status: 'Confirmed', statusCss: chip('grey') },
+      { due: '12:30', id: '#T-115', who: 'Telephone · M. Aoun', book: 'Order desk', bookCss: chip('grey'), items: '6 items', window: 'Lunch', status: 'Confirmed', statusCss: chip('grey') },
+      { due: '18:40', id: '#M-8848', who: 'D. Khoury', book: 'Marketplace', bookCss: chip('pub'), items: '2 items', window: 'Dinner', status: 'Placed', statusCss: chip('draft') },
+    ];
+    const calBook = (name, css, d) => ({ name, css, d0: d[0], d1: d[1], d2: d[2], d3: d[3], d4: d[4], d5: d[5], d6: d[6] });
+    const calBooks = [
+      calBook('Marketplace', chip('pub'), ['42', '38', '44', '51', '47', '63', '58']),
+      calBook('Subscriptions', chip('blue'), ['120', '120', '118', '118', '122', '96', '88']),
+      calBook('Order desk', chip('grey'), ['12', '15', '11', '14', '18', '26', '22']),
+    ];
+    const costRows = [
+      { cat: 'Poultry', spend: '$4,820', share: 26, note: '' },
+      { cat: 'Produce', spend: '$3,610', share: 20, note: '' },
+      { cat: 'Dry goods', spend: '$2,940', share: 16, note: '3 unpriced receipts' },
+      { cat: 'Dairy', spend: '$2,150', share: 12, note: '' },
+      { cat: 'Seafood', spend: '$1,980', share: 11, note: '' },
+      { cat: 'Oils & condiments', spend: '$1,240', share: 7, note: '' },
+      { cat: 'Packaging', spend: '$860', share: 5, note: '' },
+      { cat: 'Other', spend: '$640', share: 3, note: '' },
+    ];
+    const reviewRows = [
+      { name: 'Smoky Tofu & Kale Bowl', fam: 'Meal', famCss: chip('grey'), reason: 'No allergen declaration', age: '3 h', cta: 'Open the meal editor' },
+      { name: 'Citrus Sea Bass & Green Beans', fam: 'Meal', famCss: chip('grey'), reason: 'No price on the live list', age: '6 h', cta: 'Open the meal editor' },
+      { name: 'Herb Garden Bowl — recipe v8', fam: 'Recipe', famCss: chip('grey'), reason: 'Nutrition record incomplete', age: '1 d', cta: 'Open the recipe editor' },
+      { name: 'Family Week Plan', fam: 'Plan', famCss: chip('grey'), reason: 'Contains an unpublished meal', age: '2 d', cta: 'Open the plan editor' },
+    ];
+    const exceptionRows = [
+      { order: '#M-8791', meal: 'Verdant Aubergine Chickpea Bowl', reason: 'Stock would go negative — cracked freekeh', age: '2 h' },
+      { order: '#S-2196', meal: 'Verdant Herb Garden Bowl', reason: 'No recipe version linked for the 480 g portion', age: '1 d' },
+    ];
+    const ingredientRows = [
+      { name: 'Halloumi', qty: '90 g', kcal: '246' },
+      { name: 'Chickpeas, cooked', qty: '80 g', kcal: '110' },
+      { name: 'Mixed seeds, toasted', qty: '15 g', kcal: '86' },
+      { name: 'Olive oil', qty: '5 ml', kcal: '47' },
+      { name: 'Rocket', qty: '40 g', kcal: '10' },
+      { name: 'Lemon', qty: '20 g', kcal: '6' },
+    ];
+    const allergenRows = [
+      { name: 'Milk', state: 'Undeclared', css: chip('draft'), action: 'Declare handling' },
+      { name: 'Sesame', state: 'Declared · contains', css: chip('blocked'), action: '' },
+      { name: 'Gluten', state: 'Declared · not present', css: chip('pub'), action: '' },
+      { name: 'Nuts, soy, fish, eggs, crustaceans', state: 'Declared · not present', css: chip('pub'), action: '' },
+    ];
+    const versionRows = [
+      { v: 'v5', state: 'Draft — this edit', css: chip('draft'), meta: 'unsaved' },
+      { v: 'v4', state: 'Live', css: chip('pub'), meta: '1 meal linked' },
+      { v: 'v3', state: 'Retired', css: chip('grey'), meta: 'Mar 2026' },
+      { v: 'v2', state: 'Retired', css: chip('grey'), meta: 'Jan 2026' },
+    ];
+    return {
+      navRecipes: nav('Recipes'), ingredientRows, allergenRows, versionRows,
+      navMeals: nav('Meals'), navStock: nav('Stock'), navProd: nav('Production'), navProc: nav('Procurement'),
+      navSupply: nav('Supply orders'), navBook: nav('Order book'), navCost: nav('Cost report'), navReview: nav('Review queue'),
+      mealRows, gateChecks, stockRows, prodRows, receiveRows, shortageRows, bookRows, calBooks, costRows, reviewRows, exceptionRows,
+      showCreatedCallout: p.showCreatedCallout ?? true,
+      showDataQualityFlag: p.showDataQualityFlag ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>
