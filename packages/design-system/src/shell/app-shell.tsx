@@ -77,6 +77,11 @@ export interface AppShellProps {
      * the caller keeps such a control in the top bar instead.
      */
     readonly sidebarEnd?: ReactNode | undefined;
+    /**
+     * `auth` variant only: a brand panel beside the card from `lg` up — the split-panel auth
+     * opening. Dropped below `lg`, where the centred card keeps the whole width.
+     */
+    readonly authAside?: ReactNode | undefined;
     readonly contentClassName?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -123,6 +128,7 @@ export function AppShell({
     sidebarBackground,
     sidebarStart,
     sidebarEnd,
+    authAside,
     contentClassName,
     testID,
 }: AppShellProps) {
@@ -144,28 +150,38 @@ export function AppShell({
         return (
             <View testID={testID} className="flex-1 bg-surface-sunken">
                 {banner}
-                <ScrollView contentContainerClassName="flex-grow items-center justify-center p-4">
-                    <View
-                        testID={testID === undefined ? undefined : `${testID}-card`}
-                        role="main"
-                        className={cx(
-                            'w-full max-w-[440px] flex-col gap-6 rounded-xl bg-surface-base p-6 shadow-elevation-2',
-                            contentClassName,
-                        )}
-                    >
-                        {title === undefined ? null : (
-                            <RNText
-                                accessibilityRole="header"
-                                aria-level={1}
-                                className="text-2xl font-semibold text-content-primary text-start"
-                            >
-                                {title}
-                            </RNText>
-                        )}
-                        {children}
-                    </View>
-                    {footer}
-                </ScrollView>
+                <View className="flex-1 flex-row">
+                    {authAside !== undefined && wideEnoughForSidebar ? (
+                        <View
+                            testID={testID === undefined ? undefined : `${testID}-aside`}
+                            className="w-[440px] shrink-0 overflow-hidden"
+                        >
+                            {authAside}
+                        </View>
+                    ) : null}
+                    <ScrollView contentContainerClassName="flex-grow items-center justify-center p-4">
+                        <View
+                            testID={testID === undefined ? undefined : `${testID}-card`}
+                            role="main"
+                            className={cx(
+                                'w-full max-w-[440px] flex-col gap-6 rounded-xl bg-surface-base p-6 shadow-elevation-2',
+                                contentClassName,
+                            )}
+                        >
+                            {title === undefined ? null : (
+                                <RNText
+                                    accessibilityRole="header"
+                                    aria-level={1}
+                                    className="text-2xl font-semibold text-content-primary text-start"
+                                >
+                                    {title}
+                                </RNText>
+                            )}
+                            {children}
+                        </View>
+                        {footer}
+                    </ScrollView>
+                </View>
             </View>
         );
     }

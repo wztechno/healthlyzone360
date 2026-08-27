@@ -60,6 +60,8 @@ export interface AreaShellProps {
      * overlay and a canopy-styled control inside it would be mint on white.
      */
     readonly signOutInSidebar?: boolean | undefined;
+    /** `auth` variant only: the brand panel beside the card from `lg` up. */
+    readonly authAside?: ReactNode | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -94,6 +96,7 @@ function GuardedAreaShell({
     sidebarBackground,
     sidebarStart,
     signOutInSidebar = false,
+    authAside,
     testID = 'app-shell',
 }: AreaShellProps) {
     const { t } = useTranslation();
@@ -209,6 +212,7 @@ function GuardedAreaShell({
             {...(sidebarBackground === undefined ? {} : { sidebarBackground })}
             {...(sidebarStart === undefined ? {} : { sidebarStart })}
             {...(sidebarSignOut === undefined ? {} : { sidebarEnd: sidebarSignOut })}
+            {...(authAside === undefined ? {} : { authAside })}
         >
             {children}
         </AppShell>

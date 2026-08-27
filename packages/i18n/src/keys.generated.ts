@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6181 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6186 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -297,6 +297,10 @@ export interface NamespaceKeys {
     | 'subtitle'
     | 'title';
   readonly "auth":
+    | 'aside.headline'
+    | 'aside.points.marketplace'
+    | 'aside.points.nutrition'
+    | 'aside.points.planner'
     | 'branchPicker.empty'
     | 'branchPicker.groupLabel'
     | 'branchPicker.onlyOne'
@@ -330,6 +334,7 @@ export interface NamespaceKeys {
     | 'login.emailPlaceholder'
     | 'login.failed'
     | 'login.forgotLink'
+    | 'login.guest'
     | 'login.passwordLabel'
     | 'login.rateLimited'
     | 'login.registerLink'
@@ -6506,6 +6511,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:phone.verifiedTitle',
   'account:subtitle',
   'account:title',
+  'auth:aside.headline',
+  'auth:aside.points.marketplace',
+  'auth:aside.points.nutrition',
+  'auth:aside.points.planner',
   'auth:branchPicker.empty',
   'auth:branchPicker.groupLabel',
   'auth:branchPicker.onlyOne',
@@ -6539,6 +6548,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.emailPlaceholder',
   'auth:login.failed',
   'auth:login.forgotLink',
+  'auth:login.guest',
   'auth:login.passwordLabel',
   'auth:login.rateLimited',
   'auth:login.registerLink',
