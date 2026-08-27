@@ -37,6 +37,11 @@ export interface NavigationItem {
      * short for headings to buy anything.
      */
     readonly group?: string | undefined;
+    /**
+     * Trailing slot on the item row — a count badge for a queue destination. Honoured by the
+     * sidebar and the drawer; the rail and the bottom tabs have no room for one.
+     */
+    readonly badge?: ReactNode | undefined;
     readonly onPress: () => void;
     readonly testID?: string | undefined;
 }
@@ -57,6 +62,17 @@ export interface AppShellProps {
     /** Full-width strip above everything: offline indicator, mock-data banner. */
     readonly banner?: ReactNode | undefined;
     readonly footer?: ReactNode | undefined;
+    /**
+     * Sidebar width in pixels. Applied as a style so the default `w-[260px]`/`w-[88px]` classes —
+     * and the suites that assert them — stay exactly as they are when this is not passed.
+     */
+    readonly sidebarWidth?: number | undefined;
+    /** Absolute-fill layer behind the sidebar's content — a gradient over the flat canopy. */
+    readonly sidebarBackground?: ReactNode | undefined;
+    /** Above the sidebar's navigation — a brand block. Sidebar only; the drawer has a title bar. */
+    readonly sidebarStart?: ReactNode | undefined;
+    /** Pinned at the bottom of the sidebar, and after the drawer's list — a sign-out control. */
+    readonly sidebarEnd?: ReactNode | undefined;
     readonly contentClassName?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -99,6 +115,10 @@ export function AppShell({
     topbarEnd,
     banner,
     footer,
+    sidebarWidth,
+    sidebarBackground,
+    sidebarStart,
+    sidebarEnd,
     contentClassName,
     testID,
 }: AppShellProps) {
@@ -319,6 +339,7 @@ export function AppShell({
                         {item.label}
                     </RNText>
                 )}
+                {compact ? null : item.badge}
             </Pressable>
         );
 
@@ -373,11 +394,21 @@ export function AppShell({
         <View
             testID={testID === undefined ? undefined : `${testID}-sidebar`}
             className={cx(
-                'h-full bg-surface-canopy',
+                'h-full flex-col overflow-hidden bg-surface-canopy',
                 variant === 'rail' ? 'w-[88px]' : 'w-[260px]',
             )}
+            style={sidebarWidth === undefined ? undefined : { width: sidebarWidth }}
         >
-            {navigationList(variant === 'rail', 'canopy')}
+            {sidebarBackground === undefined ? null : (
+                <View className="absolute inset-0" pointerEvents="none">
+                    {sidebarBackground}
+                </View>
+            )}
+            {sidebarStart}
+            {/* The list scrolls; the brand block above and the control below stay put. A
+                workspace rail of thirty destinations is taller than most viewports. */}
+            <ScrollView className="flex-1">{navigationList(variant === 'rail', 'canopy')}</ScrollView>
+            {sidebarEnd}
         </View>
     );
 
@@ -391,6 +422,7 @@ export function AppShell({
             title={t('designSystem:shell.primaryNavigation')}
         >
             {navigationList(false)}
+            {sidebarEnd}
         </Drawer>
     );
 
