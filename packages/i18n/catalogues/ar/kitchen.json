@@ -69,6 +69,7 @@
         "railTitle": "المطبخ",
         "overview": "نظرة عامة",
         "groups": {
+            "workspace": "مساحة العمل",
             "orderDesk": "مكتب الطلبات",
             "workbench": "منصة العمل",
             "catalogue": "الكتالوج",

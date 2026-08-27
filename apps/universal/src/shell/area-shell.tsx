@@ -1,4 +1,4 @@
-import { AppShell, Button, Inline, OfflineIndicator } from '@healthy360/design-system';
+import { AppShell, Button, Inline, OfflineIndicator, useBreakpoint } from '@healthy360/design-system';
 import type { AppShellVariant, NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { RouteArea } from '@healthy360/domain-types';
@@ -6,7 +6,7 @@ import { Redirect, usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { Gate } from '../access/gate.tsx';
 import { useLogoutMutation } from '../data/hooks.ts';
@@ -46,6 +46,20 @@ export interface AreaShellProps {
     readonly title?: string | undefined;
     /** Skip the gate. Only the auth area does this; everything else must be guarded. */
     readonly unguarded?: boolean | undefined;
+    /**
+     * Replaces the workspace destinations with an area-owned rail — the kitchen family rail.
+     * The default stays `permittedNavigation`, which is what every other area wants.
+     */
+    readonly navigation?: readonly NavigationItem[] | undefined;
+    readonly sidebarWidth?: number | undefined;
+    readonly sidebarBackground?: ReactNode | undefined;
+    readonly sidebarStart?: ReactNode | undefined;
+    /**
+     * Move Sign out from the top bar to the bottom of the sidebar (KITCHEN.md sidebar spec). Only
+     * where the sidebar exists: below `lg` the top bar keeps it, because the drawer is a light
+     * overlay and a canopy-styled control inside it would be mint on white.
+     */
+    readonly signOutInSidebar?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -75,6 +89,11 @@ function GuardedAreaShell({
     variant,
     title,
     unguarded = false,
+    navigation: navigationOverride,
+    sidebarWidth,
+    sidebarBackground,
+    sidebarStart,
+    signOutInSidebar = false,
     testID = 'app-shell',
 }: AreaShellProps) {
     const { t } = useTranslation();
@@ -84,11 +103,16 @@ function GuardedAreaShell({
     const { state: connectivity } = useOnlineStatus();
     const { locale, setLocale } = useLocale();
     const logout = useLogoutMutation();
+    const { atLeast } = useBreakpoint();
 
     const resolvedVariant = variant ?? AREA_SHELL_VARIANT[area];
+    // Same threshold AppShell uses to swap the sidebar for the drawer: when there is no sidebar,
+    // Sign out must stay in the top bar or it stops existing.
+    const sidebarPresent = signOutInSidebar && atLeast('lg');
 
     const navigation = useMemo<readonly NavigationItem[]>(() => {
         if (resolvedVariant === 'auth' || resolvedVariant === 'kiosk') return [];
+        if (navigationOverride !== undefined) return navigationOverride;
         return permittedNavigation(accessState).map((item) => ({
             key: item.key,
             label: t(item.labelKey),
@@ -99,7 +123,15 @@ function GuardedAreaShell({
                 router.push(item.href as never);
             },
         }));
-    }, [accessState, pathname, resolvedVariant, router, t]);
+    }, [accessState, navigationOverride, pathname, resolvedVariant, router, t]);
+
+    const signOut = () => {
+        logout.mutate(undefined, {
+            onSuccess: () => {
+                router.replace('/sign-in');
+            },
+        });
+    };
 
     const banner = (
         <View>
@@ -125,23 +157,45 @@ function GuardedAreaShell({
                  * all: promoting navigation into the slot, or letting a destructive action sit
                  * there, is worse than leaving it alone. The areas that do have one — the kitchen
                  * workbench, the editors — carry it on the screen that owns it.
+                 *
+                 * When the area pins Sign out to its sidebar, this control moves there — but only
+                 * while the sidebar is on screen.
                  */}
-                <Button
-                    testID="sign-out"
-                    size="sm"
-                    variant="quiet"
-                    label={t('common:action.signOut')}
-                    loading={logout.isPending}
-                    onPress={() => {
-                        logout.mutate(undefined, {
-                            onSuccess: () => {
-                                router.replace('/sign-in');
-                            },
-                        });
-                    }}
-                />
+                {sidebarPresent ? null : (
+                    <Button
+                        testID="sign-out"
+                        size="sm"
+                        variant="quiet"
+                        label={t('common:action.signOut')}
+                        loading={logout.isPending}
+                        onPress={signOut}
+                    />
+                )}
             </Inline>
         );
+
+    // KITCHEN.md sidebar spec: quiet, translucent border, never filled. On the canopy the quiet
+    // button's white fill would glow, so this control states its own colours — the same
+    // translucent pair PageHero's chips use.
+    const sidebarSignOut = !sidebarPresent ? undefined : (
+        <View className="border-t border-content-on-canopy-muted/30 p-3">
+            <Pressable
+                testID="sign-out"
+                role="button"
+                accessibilityRole="button"
+                accessibilityLabel={t('common:action.signOut')}
+                accessibilityState={{ disabled: logout.isPending }}
+                disabled={logout.isPending}
+                focusable
+                onPress={signOut}
+                className="min-h-touch items-center justify-center rounded-lg border border-content-on-canopy-muted/30"
+            >
+                <RNText className="text-sm font-semibold text-content-on-canopy-muted/80">
+                    {t('common:action.signOut')}
+                </RNText>
+            </Pressable>
+        </View>
+    );
 
     const shell = (
         <AppShell
@@ -151,6 +205,10 @@ function GuardedAreaShell({
             navigation={navigation}
             banner={banner}
             topbarEnd={topbarEnd}
+            {...(sidebarWidth === undefined ? {} : { sidebarWidth })}
+            {...(sidebarBackground === undefined ? {} : { sidebarBackground })}
+            {...(sidebarStart === undefined ? {} : { sidebarStart })}
+            {...(sidebarSignOut === undefined ? {} : { sidebarEnd: sidebarSignOut })}
         >
             {children}
         </AppShell>

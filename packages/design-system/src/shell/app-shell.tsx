@@ -71,7 +71,11 @@ export interface AppShellProps {
     readonly sidebarBackground?: ReactNode | undefined;
     /** Above the sidebar's navigation — a brand block. Sidebar only; the drawer has a title bar. */
     readonly sidebarStart?: ReactNode | undefined;
-    /** Pinned at the bottom of the sidebar, and after the drawer's list — a sign-out control. */
+    /**
+     * Pinned at the bottom of the sidebar — a sign-out control. Sidebar only: the drawer is a
+     * light overlay, and a canopy-styled control inside it would be mint on white. Below `lg`
+     * the caller keeps such a control in the top bar instead.
+     */
     readonly sidebarEnd?: ReactNode | undefined;
     readonly contentClassName?: string | undefined;
     readonly testID?: string | undefined;
@@ -422,7 +426,6 @@ export function AppShell({
             title={t('designSystem:shell.primaryNavigation')}
         >
             {navigationList(false)}
-            {sidebarEnd}
         </Drawer>
     );
 

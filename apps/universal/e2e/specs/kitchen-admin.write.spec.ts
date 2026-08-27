@@ -2519,6 +2519,33 @@ test.describe('kitchen workspace (en)', () => {
         await page.getByTestId('kitchen-branch-hours-screen-save').click();
         await expect(page.getByTestId('kitchen-branch-hours-saved-toast')).toBeVisible();
     });
+
+    /*
+     * KITCHEN.md acceptance: queue counts in the sidebar match the queue pages' own counts. The
+     * badge and the hub KPI read the *same* query, so this pins the wiring rather than a
+     * coincidence — and it is asserted against the hub tile because both are on one screen, which
+     * keeps the check free of copy parsing.
+     */
+    test('the sidebar review badge agrees with the workspace count', async ({ page }) => {
+        await openWorkspace(page);
+        await page.goto('/kitchen');
+        await expect(page.getByTestId('kitchen-home-screen')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
+
+        const kpi = page.getByTestId('kitchen-kpi-review-value');
+        await expect(kpi).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await expect(kpi).not.toHaveText('—');
+        const total = (await kpi.textContent())?.trim() ?? '';
+
+        const badge = page.getByTestId('nav-review-badge');
+        if (total === '0') {
+            // A zero is a tile fact, not a badge: the rail stays quiet.
+            await expect(badge).toHaveCount(0);
+        } else {
+            await expect(badge).toHaveText(total);
+        }
+    });
 });
 
 /** The first weekday row of the branch-hours editor that is currently open for trade. */

@@ -49,6 +49,7 @@
         "railTitle": "Kitchen",
         "overview": "Overview",
         "groups": {
+            "workspace": "Workspace",
             "orderDesk": "Order desk",
             "workbench": "Workbench",
             "catalogue": "Catalogue",
