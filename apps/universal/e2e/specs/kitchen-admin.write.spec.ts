@@ -621,19 +621,46 @@ test.describe('kitchen workspace (en)', () => {
         await openWorkspace(page);
         await openScreen(page, '/kitchen/stock', 'kitchen-stock-screen', 'kitchen-stock-panel');
 
-        // Each metric equals the number of rows the screen actually fetched.
-        await expect(page.getByTestId('kitchen-stock-items-table')).toBeVisible({
+        /*
+         * The board carries **two** item books now, not one: stock items are derived from what a
+         * kitchen handles, so what it cooks with and what it buys in to resell are counted and
+         * listed separately (`kitchen-stock-ingredients-*`, `kitchen-stock-products-*`). The single
+         * `items` metric and the single table it counted are gone, and the claim is per book —
+         * which is the stronger version of the same sentence, because a metric that summed the two
+         * could be right while either half was wrong.
+         */
+        await expect(page.getByTestId('kitchen-stock-content')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
         await expect(page.getByTestId('kitchen-stock-levels-table')).toBeVisible();
+        // Verdant cooks with things, so this book has rows; the resale book legitimately may not,
+        // and it says so in its own empty state rather than by being absent.
+        await expect(page.getByTestId('kitchen-stock-ingredients-table')).toBeVisible();
+        await expect(
+            page
+                .getByTestId('kitchen-stock-products-table')
+                .or(page.getByTestId('kitchen-stock-products-empty'))
+                .first(),
+        ).toBeVisible();
 
-        const itemRows = page.locator('[data-testid^="kitchen-stock-item-"][data-testid$="-name"]');
+        // Each metric equals the number of rows that book actually fetched, counted inside the
+        // book rather than across the screen — both tables render `kitchen-stock-item-…` rows.
+        const nameCells = '[data-testid^="kitchen-stock-item-"][data-testid$="-name"]';
+        const ingredientRows = page.locator(
+            `[data-testid="kitchen-stock-ingredients-table"] ${nameCells}`,
+        );
+        const productRows = page.locator(
+            `[data-testid="kitchen-stock-products-table"] ${nameCells}`,
+        );
         const levelRows = page.locator(
             '[data-testid^="kitchen-stock-level-"][data-testid$="-quantity"]',
         );
 
-        await expect(page.getByTestId('kitchen-stock-panel-metric-items-value')).toHaveText(
-            String(await itemRows.count()),
+        await expect(page.getByTestId('kitchen-stock-panel-metric-ingredients-value')).toHaveText(
+            String(await ingredientRows.count()),
+        );
+        await expect(page.getByTestId('kitchen-stock-panel-metric-products-value')).toHaveText(
+            String(await productRows.count()),
         );
         await expect(page.getByTestId('kitchen-stock-panel-metric-levels-value')).toHaveText(
             String(await levelRows.count()),
@@ -1634,9 +1661,29 @@ test.describe('kitchen workspace (en)', () => {
         await page.getByTestId('kitchen-supplier-contacts-save').click();
         await expectToast(page, 'kitchen-supplier-contacts-saved-toast');
 
-        // Read back off the record rather than off a list column: this is the row PostgreSQL
-        // returned, not a number the table derived.
-        await expect(page.getByTestId(`${cardId}-name-input`)).toHaveValue('Samir Haddad');
+        /*
+         * Read back off the record rather than off a list column: this is the row PostgreSQL
+         * returned, not a number the table derived.
+         *
+         * Addressed by the **persisted** card rather than by `cardId`, because `cardId` names the
+         * locally-minted key the card was typed into (`…-contact-new-1`) and the replace endpoint
+         * mints the real identifier: the refetch re-keys every card to `String(contact.id)`
+         * (`supplierContactDraft`), so the transient id is gone by the time the toast lands. That
+         * disappearance is itself the claim — the card on screen afterwards is the server's row.
+         */
+        await expect(page.locator('[data-testid^="kitchen-supplier-contact-new-"]')).toHaveCount(0);
+        const savedContact = page
+            .locator('[data-testid^="kitchen-supplier-contact-"][data-testid$="-name-input"]')
+            .first();
+        await expect(savedContact).toHaveValue('Samir Haddad', { timeout: JOURNEY_TIMEOUT });
+        // And the primary flag pressed before the save survived the round trip.
+        await expect(
+            page
+                .locator(
+                    '[data-testid^="kitchen-supplier-contact-"][data-testid$="-primary-badge"]',
+                )
+                .first(),
+        ).toBeVisible();
 
         /* ── supplied items: link, then prefer (SUP2) ────────────────────────────────────────── */
 
@@ -1648,7 +1695,9 @@ test.describe('kitchen workspace (en)', () => {
          * behind "at most one preferred supplier per item" never surfaces as a 500.
          */
 
-        await page.getByTestId('kitchen-supplier-item-picker').click();
+        // The Select's own trigger, as everywhere else in this suite: the bare `…-item-picker` id
+        // is the field wrapper — label, control and hint — and pressing its centre is a coin toss.
+        await page.getByTestId('kitchen-supplier-item-picker-trigger').click();
 
         const option = page
             .locator('[data-testid^="kitchen-supplier-item-picker-option-"]')
@@ -1756,11 +1805,15 @@ test.describe('kitchen workspace (en)', () => {
             .first();
         await expect(supplierOpen).toBeVisible({ timeout: JOURNEY_TIMEOUT });
         await supplierOpen.click();
-        await expect(page.getByTestId('kitchen-supplier-items')).toBeVisible({
+        // The section the link is made in — `kitchen-supplier-supplied-items`, which is the card
+        // itself and so is present whether or not this supplier has bought anything yet. Its table
+        // is not: an unstocked supplier renders `…-items-empty` instead, and waiting for the table
+        // would be waiting for a row this journey has not created yet.
+        await expect(page.getByTestId('kitchen-supplier-supplied-items')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
 
-        await page.getByTestId('kitchen-supplier-item-picker').click();
+        await page.getByTestId('kitchen-supplier-item-picker-trigger').click();
         const pick = page.locator('[data-testid^="kitchen-supplier-item-picker-option-"]').first();
         await expect(pick).toBeVisible({ timeout: JOURNEY_TIMEOUT });
         const pickId = await pick.getAttribute('data-testid');
@@ -1771,17 +1824,26 @@ test.describe('kitchen workspace (en)', () => {
         await expectToast(page, 'kitchen-supplier-item-linked-toast');
 
         // Preferred, so the proposal has an unambiguous answer rather than a "choose one" cell.
-        await page.getByTestId(`kitchen-supplier-item-${stockItemId}-prefer`).click();
+        // Waited for rather than pressed blind: the row only exists once the link's refetch lands.
+        const preferControl = page.getByTestId(
+            `kitchen-supplier-item-${stockItemId}-make-preferred`,
+        );
+        await expect(preferControl).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await preferControl.click();
         await expectToast(page, 'kitchen-supplier-item-preferred-toast');
 
         /* ── make it low, through the threshold dialog the stock screen already owns ─────────── */
 
         await openScreen(page, '/kitchen/stock', 'kitchen-stock-screen', 'kitchen-stock-panel');
-        await expect(page.getByTestId('kitchen-stock-items-table')).toBeVisible({
+        await expect(page.getByTestId('kitchen-stock-content')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
 
-        await page.getByTestId(`kitchen-stock-item-${stockItemId}-threshold`).click();
+        // The row for the item just linked, in whichever of the two books it belongs to — the
+        // board splits what a kitchen cooks with from what it resells, and a supplier sells both.
+        const threshold = page.getByTestId(`kitchen-stock-item-${stockItemId}-threshold`);
+        await expect(threshold).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await threshold.click();
         await expect(page.getByTestId('kitchen-stock-threshold-dialog')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
@@ -1839,22 +1901,38 @@ test.describe('kitchen workspace (en)', () => {
         await page.getByTestId('kitchen-supply-order-create-confirm-action').click();
         await expectToast(page, 'kitchen-supply-order-created-toast');
 
-        // The builder steps aside to the landing page, where the new draft is in the book.
+        /*
+         * The builder steps aside to the landing page and **names what it created in the address**
+         * — `?created=…`, which is where the standing "Print them" callout gets its count from —
+         * so that is what identifies the order this journey goes on to issue and receive.
+         *
+         * Taking "the first row of the book" instead was wrong twice over against a shared
+         * database. The book is a keyset page ordered by the server, so the top row is whichever
+         * order sorts first — on a second run an *issued* order from the run before, which carries
+         * no Save control and no outstanding lines, which is exactly how this failed. And the book
+         * is a page rather than the whole book (`totalCount` is null by contract), so a new draft
+         * is not guaranteed to be on it at all.
+         */
         await expect(page.getByTestId('kitchen-supply-orders-book-table')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
+        await expect(page.getByTestId('kitchen-supply-orders-created')).toBeVisible({
+            timeout: JOURNEY_TIMEOUT,
+        });
 
-        const orderOpen = page
-            .locator('[data-testid^="kitchen-purchase-order-"][data-testid$="-open"]')
-            .first();
-        await expect(orderOpen).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        const createdIds = (new URL(page.url()).searchParams.get('created') ?? '')
+            .split(',')
+            .map((segment) => segment.trim())
+            .filter((segment) => segment !== '');
+        expect(
+            createdIds.length,
+            'the builder should hand the landing page the orders it created',
+        ).toBeGreaterThan(0);
         // Kept, because **Issue and print** now leaves this screen for the sheet (SUP7) and the
         // receiving half of this journey has to come back to precisely this order rather than to
         // whichever one happens to be at the top of the book by then.
-        const orderTestId = await orderOpen.getAttribute('data-testid');
-        if (orderTestId === null) throw new Error('The order row carries no test id.');
-        const orderId = orderTestId.replace('kitchen-purchase-order-', '').replace(/-open$/, '');
-        await orderOpen.click();
+        const orderId = createdIds[0] as string;
+        await page.goto(`/kitchen/supply-orders/${orderId}`);
 
         // A draft is a form: the save control and the quantity boxes are both present, and the
         // supplier block reads the live record because the order is still being addressed.
@@ -1935,15 +2013,21 @@ test.describe('kitchen workspace (en)', () => {
             timeout: JOURNEY_TIMEOUT,
         });
 
-        // §4: the row opens with what is outstanding. The price box is here for **every** manage
-        // holder — §5's blind-write model, which the old receipt dialog hid behind the cost code.
-        const firstQuantity = page.getByTestId('kitchen-receive-line-0-quantity');
+        /*
+         * §4: the row opens with what is outstanding. The price box is here for **every** manage
+         * holder — §5's blind-write model, which the old receipt dialog hid behind the cost code.
+         *
+         * `…-quantity-input`, not `…-quantity`: a `TextInputField` carries its id on the labelled
+         * field and its inner `<input>` on `…-input`, so reading a value off the bare id asks the
+         * wrapper what it contains and Playwright refuses ("Node is not an <input>").
+         */
+        const firstQuantity = page.getByTestId('kitchen-receive-line-0-quantity-input');
         await expect(firstQuantity).toBeVisible();
         const outstanding = (await firstQuantity.inputValue()).trim();
         expect(Number(outstanding)).toBeGreaterThan(0);
 
         await firstQuantity.fill('1');
-        await page.getByTestId('kitchen-receive-line-0-price').fill('2.00');
+        await page.getByTestId('kitchen-receive-line-0-price-input').fill('2.00');
 
         // A part delivery offers to close the rest, and does not take it.
         await expect(page.getByTestId('kitchen-receive-close-short')).toBeVisible();
@@ -1958,12 +2042,20 @@ test.describe('kitchen workspace (en)', () => {
         await page.getByTestId('kitchen-receive-confirm-post').click();
         await expectToast(page, 'kitchen-receive-posted-toast');
 
-        // Back on the order: partially received, with the three quantities reconciling on the row.
+        /*
+         * Back on the order: part-received, with the three quantities reconciling on the row.
+         *
+         * The status is matched on the words the badge actually renders — "Partly received" — and
+         * the pair of assertions below is what keeps the two states apart. `/received/i` alone
+         * cannot: it matches the part-received badge as happily as the finished one, so the "and
+         * now it is complete" claim at the end of this journey would have passed on an order that
+         * was still half-outstanding.
+         */
         await expect(page.getByTestId('kitchen-supply-order-detail-screen')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
         await expect(page.getByTestId('kitchen-supply-order-detail-status')).toContainText(
-            /partially/i,
+            /partly received/i,
             { timeout: JOURNEY_TIMEOUT },
         );
         await expect(page.getByTestId('kitchen-supply-order-detail-receipts')).toBeVisible();
@@ -1975,16 +2067,20 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-receive-form')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
-        const remainder = page.getByTestId('kitchen-receive-line-0-quantity');
+        const remainder = page.getByTestId('kitchen-receive-line-0-quantity-input');
         expect(Number((await remainder.inputValue()).trim())).toBeGreaterThan(0);
-        await page.getByTestId('kitchen-receive-line-0-price').fill('2.50');
+        await page.getByTestId('kitchen-receive-line-0-price-input').fill('2.50');
         await page.getByTestId('kitchen-receive-submit').click();
         await page.getByTestId('kitchen-receive-confirm-post').click();
         await expectToast(page, 'kitchen-receive-posted-toast');
 
+        // Complete, and provably not merely part-received: "Partly received" contains "received".
         await expect(page.getByTestId('kitchen-supply-order-detail-status')).toContainText(
             /received/i,
             { timeout: JOURNEY_TIMEOUT },
+        );
+        await expect(page.getByTestId('kitchen-supply-order-detail-status')).not.toContainText(
+            /partly/i,
         );
     });
 
@@ -2039,13 +2135,25 @@ test.describe('kitchen workspace (en)', () => {
         const sheets = page.locator('[data-testid="kitchen-supply-print-sheets"] > div');
         await expect(sheets).toHaveCount(ids.length);
 
-        // §7 and §3.5's structural boundary, stated where a person would actually see it break: a
-        // purchase order carries no price, amount, currency or total at any depth, so nothing on
-        // the paper may look like money.
+        /*
+         * §7 and §3.5's structural boundary, stated where a person would actually see it break: a
+         * purchase order carries no price, amount, currency or total at any depth, so nothing on
+         * the paper may look like money.
+         *
+         * Two patterns rather than one, and the split is the whole point. The English money words
+         * stay **unanchored**, so "subtotal" and "priced" are caught along with "total" and
+         * "price". The currency codes are matched **case-sensitively**, because `textContent`
+         * concatenates adjacent nodes with no separator between them — a sheet whose status block
+         * renders "Status" beside "Draft" reads as `StatusDraft`, and a case-insensitive `/USD/`
+         * matched the `usD` at that seam and failed the assertion on a page with no money on it.
+         * A rendered currency code is upper-case by definition, so nothing is given up.
+         */
         const sheetText = await sheets.evaluateAll((nodes) =>
             nodes.map((node) => node.textContent ?? '').join('\n'),
         );
-        expect(sheetText).not.toMatch(/price|total|amount|USD|\$/i);
+        expect(sheetText).not.toMatch(/price|total|amount/i);
+        expect(sheetText).not.toMatch(/USD|AED|EUR|GBP/);
+        expect(sheetText).not.toMatch(/[$£€]/);
 
         /* ── and now as the printer sees it ───────────────────────────────────────────────────── */
 
@@ -2103,25 +2211,46 @@ test.describe('kitchen workspace (en)', () => {
          * them in that order: the warning appears the moment a row goes past what is outstanding,
          * the confirmation unlocks the note, and only then does the post become available.
          */
+        // Every test gets its own browser context, so the session is established here rather than
+        // inherited from the journey above: `/kitchen/procurement/receive` is behind `Gate`, and an
+        // anonymous `goto` lands on the sign-in screen instead.
+        await openWorkspace(page);
         await page.goto('/kitchen/procurement/receive');
         await expect(page.getByTestId('kitchen-receive-screen')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
 
+        /*
+         * The screen's two settled states, waited for as a race rather than probed the instant it
+         * paints. Both arrive only once the receivable-orders read has landed, and `isVisible()`
+         * against a skeleton answers "not empty" — which sent this straight on to press a picker
+         * that did not exist yet and time out against a screen that was merely loading.
+         */
         const empty = page.getByTestId('kitchen-receive-empty');
-        if (await empty.isVisible().catch(() => false)) {
+        const content = page.getByTestId('kitchen-receive-content');
+        await expect(empty.or(content).first()).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+
+        if ((await empty.count()) > 0) {
             // Nothing is open for delivery at this branch, which is a legitimate state for the
             // screen and not a failure of it.
             return;
         }
 
-        await page.getByTestId('kitchen-receive-order-picker').click();
-        await page.keyboard.press('Enter');
+        // Chosen by pressing an option rather than by a blind Enter on the field: the picker is a
+        // `Select`, so the control is its trigger and the choice is one of the options it opens.
+        await page.getByTestId('kitchen-receive-order-picker-trigger').click();
+        const orderOption = page
+            .locator('[data-testid^="kitchen-receive-order-picker-option-"]')
+            .first();
+        await expect(orderOption).toBeVisible({ timeout: JOURNEY_TIMEOUT });
+        await orderOption.click();
         await expect(page.getByTestId('kitchen-receive-form')).toBeVisible({
             timeout: JOURNEY_TIMEOUT,
         });
 
-        const quantity = page.getByTestId('kitchen-receive-line-0-quantity');
+        // The field ids address the labelled field; the `<input>` inside it is `…-input`, and the
+        // checkbox's pressable is `…-control`. Both are the design system's own suffix contract.
+        const quantity = page.getByTestId('kitchen-receive-line-0-quantity-input');
         const outstanding = Number((await quantity.inputValue()).trim());
         await quantity.fill(String(outstanding + 5));
 
@@ -2129,13 +2258,13 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId('kitchen-receive-over-receipt')).toBeVisible();
         await expect(page.getByTestId('kitchen-receive-submit')).toBeDisabled();
 
-        await page.getByTestId('kitchen-receive-over-confirm').click();
+        await page.getByTestId('kitchen-receive-over-confirm-control').click();
         // Confirmed but unexplained is still refused — the note is a separate answer.
         await expect(page.getByTestId('kitchen-receive-variance-note')).toBeVisible();
         await expect(page.getByTestId('kitchen-receive-submit')).toBeDisabled();
 
         await page
-            .getByTestId('kitchen-receive-variance-note')
+            .getByTestId('kitchen-receive-variance-note-input')
             .fill('Supplier sent a larger pack.');
         await expect(page.getByTestId('kitchen-receive-submit')).toBeEnabled();
     });
