@@ -343,7 +343,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
      * (`chicken-freekeh-bowl`) rather than on one this sweep created. The dialog is opened and never
      * confirmed, so nothing is published.
      */
-    test('the meal publish confirmation, where the consequence is stated before it is agreed', async ({
+    test('the meal publication gate, its failing check and the publish confirmation', async ({
         page,
     }) => {
         await openMeals(page);
@@ -351,11 +351,21 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         await page.getByTestId('kitchen-meals-toolbar-status-draft').click();
         await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-open"]').first().click();
         await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();
-        await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible();
 
-        await page.getByTestId('kitchen-meal-publish').click();
-        await expect(page.getByTestId('kitchen-meal-publish-dialog')).toBeVisible();
-        await expectNoSeriousViolations(page, 'kitchen-meal-publish-dialog');
+        // The gate rail is the state worth sweeping on the seeded blocked draft: pass/fail rows,
+        // the amber explainer, and Publish visibly disabled while a check fails.
+        await expect(page.getByTestId('kitchen-meal-gate')).toBeVisible();
+        await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-meal-gate-rail');
+
+        // The dialog exists only behind an *enabled* Publish. This project is read-only by the
+        // doctrine above, so the gate is never saved into passing here — when the first draft's
+        // gate fails, the dialog is covered by the write spec's own publish journeys instead.
+        if (await page.getByTestId('kitchen-meal-publish').isEnabled()) {
+            await page.getByTestId('kitchen-meal-publish').click();
+            await expect(page.getByTestId('kitchen-meal-publish-dialog')).toBeVisible();
+            await expectNoSeriousViolations(page, 'kitchen-meal-publish-dialog');
+        }
     });
 
     test('the withdraw confirmation, which removes a meal from every consumer surface', async ({

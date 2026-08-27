@@ -48,6 +48,7 @@ import {
 import type { AvailabilityDraft } from '../catalogue-row-editors.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { GateRailCard } from '../gate-rail-card.tsx';
 import {
     availableChannels,
     channelKey,
@@ -300,6 +301,35 @@ function MealEditor({ meal }: MealEditScreenProps) {
         return reasons;
     }, [data, detailsDirty, daysDirty, t]);
 
+    /**
+     * The same three predicates as {@link publishBlockers}, shaped for the gate rail: a labelled
+     * pass/fail row each, with the blocker sentence as the failing row's fix-note. Derived, never a
+     * fourth source of truth — the rail's dots and the publish button disable together.
+     */
+    const gateChecks = useMemo(() => {
+        if (data === undefined) return [];
+        return [
+            {
+                key: 'name',
+                label: t('kitchen:meals.gateCheckName'),
+                passed: !isTranslationIncomplete(data.name),
+                note: t('kitchen:meals.blockName'),
+            },
+            {
+                key: 'description',
+                label: t('kitchen:meals.gateCheckDescription'),
+                passed: !isTranslationIncomplete(data.description),
+                note: t('kitchen:meals.blockDescription'),
+            },
+            {
+                key: 'saved',
+                label: t('kitchen:meals.gateCheckSaved'),
+                passed: !(detailsDirty || daysDirty),
+                note: t('kitchen:meals.blockUnsaved'),
+            },
+        ];
+    }, [data, detailsDirty, daysDirty, t]);
+
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
     const saveDetails = () => {
@@ -483,6 +513,53 @@ function MealEditor({ meal }: MealEditScreenProps) {
             onBack={() => {
                 router.push('/kitchen/meals' as never);
             }}
+            rail={
+                isCreating || data === undefined ? undefined : (
+                    <GateRailCard
+                        testID="kitchen-meal-gate"
+                        title={t('kitchen:meals.gateTitle')}
+                        checks={gateChecks}
+                        explainer={t('kitchen:meals.gateExplainer')}
+                        action={
+                            !canManage || isPublished ? undefined : (
+                                <Button
+                                    testID="kitchen-meal-publish"
+                                    label={t('kitchen:publish.action')}
+                                    // The acceptance check: visibly disabled while any gate check
+                                    // fails. The dialog's confirm keeps the same guard.
+                                    disabled={publishBlockers.length > 0 || quarantined}
+                                    onPress={() => {
+                                        setShowPublish(true);
+                                    }}
+                                />
+                            )
+                        }
+                        crossLink={
+                            <View className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card">
+                                <Text
+                                    variant="label"
+                                    tone="secondary"
+                                    className="uppercase tracking-widest"
+                                >
+                                    {t('kitchen:meals.gateQueueTitle')}
+                                </Text>
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:meals.gateQueueBody')}
+                                </Text>
+                                <Button
+                                    testID="kitchen-meal-gate-queue-open"
+                                    variant="ghost"
+                                    size="sm"
+                                    label={t('kitchen:meals.gateQueueOpen')}
+                                    onPress={() => {
+                                        router.push('/kitchen/review' as never);
+                                    }}
+                                />
+                            </View>
+                        }
+                    />
+                )
+            }
             primaryAction={
                 isCreating || !canManage ? null : (
                     <Inline space="xs" wrap justify="end">
@@ -495,16 +572,8 @@ function MealEditor({ meal }: MealEditScreenProps) {
                                     setShowRetire(true);
                                 }}
                             />
-                        ) : (
-                            <Button
-                                testID="kitchen-meal-publish"
-                                variant="secondary"
-                                label={t('kitchen:publish.action')}
-                                onPress={() => {
-                                    setShowPublish(true);
-                                }}
-                            />
-                        )}
+                        ) : // Publish lives on the gate rail now, beside the checks that gate it.
+                        null}
                     </Inline>
                 )
             }

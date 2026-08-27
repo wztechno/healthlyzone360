@@ -67,6 +67,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
 import type { PublishableStatus } from '@healthy360/api-client/contracts';
+import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
@@ -1238,6 +1239,30 @@ export function ShowcaseScreen() {
                         statusOptions={['draft', 'review_required', 'published', 'retired']}
                         resultSummary="Showing 8 of 24"
                     />
+                    <View className="max-w-[360px]">
+                        <GateRailCard
+                            testID="showcase-kitchen-gate"
+                            title="Publication gate"
+                            checks={[
+                                { key: 'name', label: 'Name in both languages', passed: true },
+                                {
+                                    key: 'description',
+                                    label: 'Description in both languages',
+                                    passed: false,
+                                    note: 'The description is missing one of its two languages.',
+                                },
+                                { key: 'saved', label: 'Changes saved', passed: true },
+                            ]}
+                            explainer="A check is failing. The meal stays off the marketplace until every check passes."
+                            action={
+                                <Button
+                                    testID="showcase-kitchen-gate-publish"
+                                    label="Publish"
+                                    disabled
+                                />
+                            }
+                        />
+                    </View>
                 </Section>
             </Stack>
         </PageTransition>
