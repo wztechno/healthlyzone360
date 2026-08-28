@@ -700,8 +700,9 @@ test.describe('kitchen workspace (en)', () => {
                 .first(),
         ).toBeVisible();
 
+        // "Showing 25 of 382" — the toolbar states shown-of-total now (KITCHEN.md 7a / README §8).
         await expect(page.getByTestId('kitchen-ingredients-toolbar-result-summary')).toContainText(
-            'matches',
+            'Showing',
         );
     });
 
@@ -952,7 +953,7 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId(`${base}-publish`)).toHaveCount(0);
         await expect(page.getByTestId(`${base}-archive`)).toBeVisible();
         await expect(page.getByTestId('kitchen-products-toolbar-result-summary')).toContainText(
-            'match',
+            'Showing',
         );
     });
 
@@ -1063,7 +1064,7 @@ test.describe('kitchen workspace (en)', () => {
         const row = page.locator('[data-testid^="kitchen-meal-"][data-testid$="-status"]').first();
         await expect(row).toBeVisible();
         await expect(page.getByTestId('kitchen-meals-toolbar-result-summary')).toContainText(
-            'match',
+            'Showing',
         );
 
         // A published meal says what publication *means* rather than leaving a badge to imply it.
@@ -1438,7 +1439,7 @@ test.describe('kitchen workspace (en)', () => {
         });
         await expect(page.getByTestId(`${base}-status`)).toBeVisible();
         await expect(page.getByTestId('kitchen-plans-toolbar-result-summary')).toContainText(
-            'match',
+            'Showing',
         );
     });
 
