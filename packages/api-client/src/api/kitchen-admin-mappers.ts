@@ -42,8 +42,10 @@ import type {
     ProductAdmin,
     ProductPackVariant,
     PublishableStatus,
+    CostAmount,
     RecipeAdmin,
     RecipeAdminSummary,
+    RecipeCostFigures,
     RecipeAllergenDeclaration,
     RecipeLine,
     RecipeOutput,
@@ -53,6 +55,7 @@ import type {
     RecipeVersionSummary,
     RollupWarning,
     ServiceArea,
+    TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
 import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
@@ -67,6 +70,7 @@ import type {
     AdminRecipe,
     AdminRecipeVersion,
     AdminSalesChannel,
+    CostSnapshot as WireCostSnapshot,
     DeliveryWindow as WireDeliveryWindow,
     DeliveryZone,
     DerivedAllergen,
@@ -93,6 +97,7 @@ import type {
     CatalogueItemStatus,
     DeliveryZoneStatus,
     PriceStatus,
+    TechnicalSheet as WireTechnicalSheet,
 } from '../generated/types.ts';
 
 /**
@@ -229,14 +234,59 @@ export function mapIngredientAdmin(
             wire.ingredient_subcategory_id,
         ),
         measurementUnit: mapMeasureUnit(wire.default_unit_code),
+        purchaseUnit:
+            wire.purchase_unit_code == null ? null : mapMeasureUnit(wire.purchase_unit_code),
+        composition: wire.composition ?? null,
+        itemsPerUnit: wire.items_per_unit == null ? null : parseDecimal(wire.items_per_unit),
         costPer100g: null,
-        per100g: null,
+        per100g: mapIngredientPer100g(wire),
         allergens: options?.allergens ?? [],
         dietClassifications: [],
         aliases: options?.aliases ?? [],
         organisationId:
             wire.organisation_id === null ? null : OrganisationId.unsafe(wire.organisation_id),
         notes: wire.notes ?? null,
+    };
+}
+
+/**
+ * The slim per-100 g payload an ingredient stores, lifted into the full facts
+ * envelope the screens render. Provenance is honest about what it is: a
+ * professional entry recorded on the ingredient, not a laboratory analysis and
+ * not a derivation — those arrive with the recipe-rollup phase.
+ */
+function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
+    const payload = wire.nutrition_per_100g;
+    if (payload == null) return null;
+
+    const recordedAt = wire.updated_at ?? UNKNOWN_ISO_DATE_TIME;
+
+    return {
+        basis: 'per_100g',
+        kind: 'actual',
+        serving: null,
+        totalGrams: 100,
+        amounts: payload.amounts.map((amount) => ({
+            nutrientId: amount.nutrient_id,
+            unit: amount.unit,
+            value: amount.value,
+            kind: 'actual',
+            tolerance: null,
+        })),
+        source: {
+            kind: 'professional_entry',
+            label: 'Kitchen-recorded reference facts',
+            version: 'ingredient-record',
+            calculatedAt: recordedAt,
+        },
+        calculation: {
+            method: 'as_recorded',
+            basis: 'per_100g',
+            calculatedAt: recordedAt,
+            prototype: false,
+            rounding: 'as_entered',
+            notes: [],
+        },
     };
 }
 
@@ -376,9 +426,16 @@ export function mapProductAdminFromItem(
     return {
         id: ProductId.unsafe(wire.id),
         meta: mapCatalogueItemMeta(wire),
+        itemType:
+            wire.item_type === 'sauce' || wire.item_type === 'dressing'
+                ? wire.item_type
+                : 'product',
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
-        categoryCode: wire.product_category_id ?? 'uncategorized',
+        categoryCode: wire.product_category_code ?? 'uncategorized',
+        kitchenCategory: wire.kitchen_category ?? null,
+        kitchenSubcategory: wire.kitchen_subcategory ?? null,
+        composition: wire.composition ?? null,
         kitchenId: mapKitchenId(wire.organisation_id),
         isMarketPriced: wire.is_market_priced,
         isAssorted: wire.is_assorted,
@@ -418,6 +475,9 @@ export function mapMealAdminFromItem(
         meta: mapCatalogueItemMeta(wire),
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
+        kitchenCategory: wire.kitchen_category ?? null,
+        kitchenSubcategory: wire.kitchen_subcategory ?? null,
+        composition: wire.composition ?? null,
         kitchenId: mapKitchenId(wire.organisation_id),
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         recipeVersionId: null,
@@ -581,6 +641,7 @@ export function mapRecipeAdminSummary(
             wire.branch_id === null || wire.branch_id === undefined
                 ? mapKitchenId(wire.organisation_id)
                 : KitchenId.unsafe(wire.branch_id),
+        sourceKind: wire.source_kind ?? null,
         currentVersionNumber,
         versionCount: options?.versionCount ?? 1,
     };
@@ -612,24 +673,33 @@ export function pickCurrentRecipeVersion(
     );
 }
 
-function mapRecipeLine(wire: WireRecipeLine): RecipeLine {
+/** Unit id → platform code, from `/catalogue/procurement/reference`. Empty when unreadable. */
+export type UnitCodeLookup = ReadonlyMap<string, string>;
+
+const NO_UNIT_LOOKUP: UnitCodeLookup = new Map<string, string>();
+
+function measureUnitById(id: string | null | undefined, units: UnitCodeLookup): MeasureUnit {
+    return mapMeasureUnit(id === null || id === undefined ? null : units.get(id));
+}
+
+function mapRecipeLine(wire: WireRecipeLine, units: UnitCodeLookup): RecipeLine {
     return {
         ingredientId: IngredientId.unsafe(wire.ingredient_id),
         ingredientName: localised(wire.source_designation ?? '', undefined),
         quantity: parseDecimal(wire.quantity),
-        unit: mapMeasureUnit(null),
+        unit: measureUnitById(wire.unit_id, units),
         sourceDesignation: wire.source_designation ?? null,
         isOptional: false,
         lineCost: null,
     };
 }
 
-function mapRecipeOutput(wire: WireRecipeOutput): RecipeOutput {
+function mapRecipeOutput(wire: WireRecipeOutput, units: UnitCodeLookup): RecipeOutput {
     return {
         ingredientId: IngredientId.unsafe(wire.ingredient_id),
         ingredientName: localised('', undefined),
         quantity: parseDecimal(wire.output_quantity),
-        unit: mapMeasureUnit(null),
+        unit: measureUnitById(wire.unit_id, units),
         isPrimary: wire.is_primary,
     };
 }
@@ -664,6 +734,7 @@ export function mapRecipeVersionAdmin(
         readonly steps: readonly WireRecipeStep[];
         readonly allergens: readonly RecipeVersionAllergen[];
     },
+    units: UnitCodeLookup = NO_UNIT_LOOKUP,
 ): RecipeVersionAdmin {
     return {
         id: RecipeVersionId.unsafe(wire.id),
@@ -671,11 +742,11 @@ export function mapRecipeVersionAdmin(
         versionNumber: wire.version_number,
         status: mapRecipeVersionPublishableStatus(wire.status),
         yieldQuantity: parseDecimal(wire.yield_quantity, 1),
-        yieldUnit: mapMeasureUnit(null),
+        yieldUnit: measureUnitById(wire.yield_unit_id, units),
         yieldPieces: wire.yield_piece_count ?? null,
         wastePercent: parseDecimal(wire.waste_coefficient_percent, 3),
-        lines: details.lines.map(mapRecipeLine),
-        outputs: details.outputs.map(mapRecipeOutput),
+        lines: details.lines.map((line) => mapRecipeLine(line, units)),
+        outputs: details.outputs.map((output) => mapRecipeOutput(output, units)),
         steps: details.steps.map(mapRecipeStep),
         allergens: details.allergens.map(mapRecipeAllergen),
         estimatedCost: null,
@@ -712,6 +783,63 @@ export function mapRecipeAdmin(
         description: localised(recipeWire.notes ?? '', undefined),
         currentVersion,
         versions,
+    };
+}
+
+function mapCostAmount(
+    amount: string | null | undefined,
+    currency: string | null | undefined,
+): CostAmount | null {
+    if (amount === null || amount === undefined || currency === null || currency === undefined) {
+        return null;
+    }
+
+    const parsed = Number(amount);
+
+    return Number.isFinite(parsed)
+        ? { amount: parsed, currency: currency as CostAmount['currency'] }
+        : null;
+}
+
+function mapCostFigures(wire: WireCostSnapshot | null): RecipeCostFigures | null {
+    if (wire === null) return null;
+
+    const total = mapCostAmount(wire.total_input_cost_amount, wire.currency_code);
+    if (total === null) return null;
+
+    return {
+        totalInputCost: total,
+        costPerYieldUnit: mapCostAmount(wire.cost_per_yield_unit_amount, wire.currency_code),
+        costPerYieldUnitWithWaste: mapCostAmount(
+            wire.cost_per_yield_unit_with_waste_amount,
+            wire.currency_code,
+        ),
+        costPerPiece: mapCostAmount(wire.cost_per_piece_amount, wire.currency_code),
+        costPerPieceWithWaste: mapCostAmount(
+            wire.cost_per_piece_with_waste_amount,
+            wire.currency_code,
+        ),
+        wastePercent: Number(wire.waste_coefficient_percent),
+        basisMismatch: wire.basis_mismatch,
+        calculatedAt: wire.calculated_at,
+    };
+}
+
+export function mapTechnicalSheetAdmin(wire: WireTechnicalSheet): TechnicalSheetAdmin {
+    return {
+        versionId: RecipeVersionId.unsafe(wire.version.id),
+        currency: (wire.currency_code ?? null) as TechnicalSheetAdmin['currency'],
+        currencyConflict: wire.currency_conflict,
+        lines: wire.lines.map((line) => ({
+            lineNumber: line.line_number,
+            ingredientId: IngredientId.unsafe(line.ingredient_id),
+            unitCost: mapCostAmount(line.unit_cost_amount, line.cost_currency_code),
+            lineCost: mapCostAmount(line.line_cost_amount, line.cost_currency_code),
+            comment: line.comment ?? null,
+        })),
+        uncostedLineNumbers: wire.uncosted_line_numbers,
+        asRecorded: mapCostFigures(wire.snapshots.as_recorded),
+        recalculated: mapCostFigures(wire.snapshots.recalculated),
     };
 }
 

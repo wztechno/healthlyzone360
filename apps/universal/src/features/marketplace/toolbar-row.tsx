@@ -41,6 +41,12 @@ export interface ActiveFilterChip {
 }
 
 export interface ToolbarRowProps {
+    /**
+     * A search field on the row's leading edge, before the disclosure toggle. Full-width on a
+     * narrow screen, ~300px from `md` up — the kitchen lists put their search here; `/meals`
+     * keeps its search in the hero and leaves this empty.
+     */
+    readonly search?: ReactNode | undefined;
     /** Label for the disclosure toggle — already carrying its count, e.g. "Filters (3)". */
     readonly filtersLabel: string;
     readonly filtersActive: number;
@@ -66,6 +72,7 @@ export interface ToolbarRowProps {
 }
 
 export function ToolbarRow({
+    search,
     filtersLabel,
     filtersActive,
     onToggleFilters,
@@ -90,6 +97,9 @@ export function ToolbarRow({
             // against a label-and-select twice its height.
             className="flex-row flex-wrap items-center gap-2"
         >
+            {search === undefined ? null : (
+                <View className="w-full md:w-[300px]">{search}</View>
+            )}
             <Pressable
                 testID={filtersId}
                 role="button"

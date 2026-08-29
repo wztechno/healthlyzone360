@@ -1,0 +1,539 @@
+{
+    "_comment": "Curated designation dictionary for the v6 recipe technical sheets (kitchen:import-v6-recipes). Names, links and raw-material declarations only — no formulation, no quantity, no cost lives here; those stay in the private v6-recipes.json beside the source workbooks. Same schema as kitchen-workbook-aliases.json. Every entry is a human decision: aliases map the sheets' wording onto existing rows (the safe direction — an alias that GAINS allergen coverage is acceptable, one that loses it is not); tenant_ingredients declare the raw materials the sheets use and the v6 library does not carry; recipe_links tie a catalogue item to its technical sheet; declined links document exactly why an ambiguous match was NOT made.",
+    "aliases": [
+        {
+            "designation": "7 Spices",
+            "resolves_to": "Seven spices (sabaa baharat)"
+        },
+        {
+            "designation": "Barbecue",
+            "resolves_to": "Bbq Sauce"
+        },
+        {
+            "designation": "Beef Stock",
+            "resolves_to": "Beef stock powder"
+        },
+        {
+            "designation": "Black Pepper Powder",
+            "resolves_to": "Black Pepper"
+        },
+        {
+            "designation": "Brisket",
+            "resolves_to": "Beef brisket"
+        },
+        {
+            "designation": "Chicken Breast",
+            "resolves_to": "Chicken"
+        },
+        {
+            "designation": "Chicken Breast Marination",
+            "resolves_to": "Chicken Breast Marinated"
+        },
+        {
+            "designation": "Chuck",
+            "resolves_to": "Beef chuck roll"
+        },
+        {
+            "designation": "Cripsy Spice",
+            "resolves_to": "Crispy coating spices"
+        },
+        {
+            "designation": "Crispy Spice",
+            "resolves_to": "Crispy coating spices"
+        },
+        {
+            "designation": "Corn Starch",
+            "resolves_to": "Corn starch (cornflour)"
+        },
+        {
+            "designation": "Dijon Mustard",
+            "resolves_to": "Mustard, Dijon"
+        },
+        {
+            "designation": "Mustard Dijon",
+            "resolves_to": "Mustard, Dijon"
+        },
+        {
+            "designation": "Mustard a L ancienne",
+            "resolves_to": "Mustard, wholegrain (a l'ancienne)"
+        },
+        {
+            "designation": "Yellow Mustard",
+            "resolves_to": "Mustard, yellow (American)"
+        },
+        {
+            "designation": "Fat",
+            "resolves_to": "Beef fat"
+        },
+        {
+            "designation": "Flour",
+            "resolves_to": "Flour, all-purpose (wheat)"
+        },
+        {
+            "designation": "Fresh Cream",
+            "resolves_to": "Cream, fresh (animal)"
+        },
+        {
+            "designation": "Ginger Powder",
+            "resolves_to": "Ginger"
+        },
+        {
+            "designation": "Lemon Juice",
+            "resolves_to": "Lemon"
+        },
+        {
+            "designation": "Liquid Milk",
+            "resolves_to": "Milk, liquid (full fat)"
+        },
+        {
+            "designation": "Milk",
+            "resolves_to": "Milk, liquid (full fat)"
+        },
+        {
+            "designation": "Milk Liquid",
+            "resolves_to": "Milk, liquid (full fat)"
+        },
+        {
+            "designation": "Local Beef",
+            "resolves_to": "Beef, local (assorted cuts)"
+        },
+        {
+            "designation": "Mushroom fresh",
+            "resolves_to": "Mushroom"
+        },
+        {
+            "designation": "Onion",
+            "resolves_to": "Onions"
+        },
+        {
+            "designation": "Onion White",
+            "resolves_to": "Onions"
+        },
+        {
+            "designation": "Orange Juice",
+            "resolves_to": "Orange"
+        },
+        {
+            "designation": "Panko",
+            "resolves_to": "Panko breadcrumbs"
+        },
+        {
+            "designation": "Parmesan",
+            "resolves_to": "Parmesan cheese"
+        },
+        {
+            "designation": "Pineapple Juice (maccaw)",
+            "resolves_to": "Pineapple juice"
+        },
+        {
+            "designation": "Red Pepper",
+            "resolves_to": "Bell Pepper"
+        },
+        {
+            "designation": "Red Vineagar",
+            "resolves_to": "Vinegar, red wine"
+        },
+        {
+            "designation": "Red Vineager",
+            "resolves_to": "Vinegar, red wine"
+        },
+        {
+            "designation": "Smoked Paprika",
+            "resolves_to": "Paprika, smoked"
+        },
+        {
+            "designation": "Soy Sauce",
+            "resolves_to": "Soya sauce"
+        },
+        {
+            "designation": "Soya",
+            "resolves_to": "Soya sauce"
+        },
+        {
+            "designation": "Sugar",
+            "resolves_to": "Sugar, white"
+        },
+        {
+            "designation": "White Sugar",
+            "resolves_to": "Sugar, white"
+        },
+        {
+            "designation": "Sweet Paprika",
+            "resolves_to": "Paprika"
+        },
+        {
+            "designation": "Turkey Breast",
+            "resolves_to": "Turkey"
+        },
+        {
+            "designation": "Vineager",
+            "resolves_to": "Vinegar"
+        },
+        {
+            "designation": "White Vineager",
+            "resolves_to": "Vinegar, white"
+        },
+        {
+            "designation": "White Vinegar",
+            "resolves_to": "Vinegar, white"
+        },
+        {
+            "designation": "Classic Sauce",
+            "resolves_to": "Classic Burger Sauce"
+        },
+        {
+            "designation": "Garlic Mayo",
+            "resolves_to": "Garlic Mayo Sauce"
+        },
+        {
+            "designation": "Bbq Sauce Dip",
+            "resolves_to": "Barbecue Dip"
+        },
+        {
+            "designation": "Truffle Mayo",
+            "resolves_to": "Truffle Mayo Sauce"
+        },
+        {
+            "designation": "Thousand Islands",
+            "resolves_to": "Thousand Island Dressing"
+        },
+        {
+            "designation": "Caesar Sauce",
+            "resolves_to": "Caesar Dressing"
+        },
+        {
+            "designation": "Ranch Sauce",
+            "resolves_to": "Ranch Dressing"
+        },
+        {
+            "designation": "Honey Mustard",
+            "resolves_to": "Honey Mustard Sauce"
+        },
+        {
+            "designation": "Taouk Preparation",
+            "resolves_to": "Chicken Red Tawouk"
+        },
+        {
+            "designation": "Smash Burger",
+            "resolves_to": "Smashed Burger Patty"
+        },
+        {
+            "designation": "Marinated Chicken Breast",
+            "resolves_to": "Chicken Breast Marinated"
+        },
+        {
+            "designation": "Mozzarella Sticks (24-25g)",
+            "resolves_to": "Mozzarella Sticks"
+        },
+        {
+            "designation": "Cheese Balls (25 - 30g)",
+            "resolves_to": "Cheese Balls"
+        },
+        {
+            "designation": "Cordon Bleu Piece",
+            "resolves_to": "Cordon Bleu"
+        }
+    ],
+    "tenant_ingredients": [
+        {
+            "name_en": "Bbq Sauce",
+            "slug": "bbq-sauce",
+            "category_code": "condiment-sweetener",
+            "subcategory_code": "condiment-sweetener-condiment",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets (Classic Sauce, Bbq Sauce Dip, Thousand Islands as \"Barbecue\"); not in the v6 ingredient master.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Sriracha",
+            "slug": "sriracha",
+            "category_code": "condiment-sweetener",
+            "subcategory_code": "condiment-sweetener-condiment",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets; not in the v6 ingredient master.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Louisiana Sauce",
+            "slug": "louisiana-sauce",
+            "category_code": "condiment-sweetener",
+            "subcategory_code": "condiment-sweetener-condiment",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets; not in the v6 ingredient master.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Worcestershire Sauce",
+            "slug": "worcestershire-sauce",
+            "category_code": "condiment-sweetener",
+            "subcategory_code": "condiment-sweetener-condiment",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets; not in the v6 ingredient master. Typically contains fish (anchovy) — needs an allergen determination before any consuming recipe publishes.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Demi Glace",
+            "slug": "demi-glace",
+            "category_code": "oil-fat-stock",
+            "subcategory_code": "oil-fat-stock-stock-bouillon",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets; not in the v6 ingredient master. Commercial demi-glace usually carries wheat — needs an allergen determination.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Jalapenos",
+            "slug": "jalapenos",
+            "category_code": "vegetable",
+            "subcategory_code": "vegetable-tomatoes-peppers",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets; not in the v6 ingredient master.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Dill Pickles",
+            "slug": "dill-pickles",
+            "category_code": "vegetable",
+            "subcategory_code": "vegetable-olives-pickles",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets; not in the v6 ingredient master. Brine vinegar — sulphites need a supplier confirmation.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Green Onions",
+            "slug": "green-onions",
+            "category_code": "vegetable",
+            "subcategory_code": "vegetable-onions-garlic",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets; not the master's \"Onions\" — a different vegetable, not a spelling of it.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Swiss Cheese",
+            "slug": "swiss-cheese",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-cheese",
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets. NOT aliased onto Emmental: plausibly the same, and \"plausibly\" is not a food-safety standard. Merge deliberately if the kitchen confirms.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Filet",
+            "slug": "filet",
+            "category_code": "meat-egg",
+            "subcategory_code": "meat-egg-beef",
+            "default_unit": "kg",
+            "note": "The escalope sheets' word. Could be the master's faux-filet or tenderloin; guessing between cuts fabricates a costing, so it stands alone until the kitchen merges it.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Water",
+            "slug": "water",
+            "category_code": null,
+            "subcategory_code": null,
+            "default_unit": "kg",
+            "note": "Named by the v6 technical sheets as a costed raw material.",
+            "intermediate": false,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Butter Mix",
+            "slug": "butter-mix",
+            "category_code": "dairy",
+            "subcategory_code": null,
+            "default_unit": "kg",
+            "note": null,
+            "intermediate": true,
+            "sheet_missing": true
+        },
+        {
+            "name_en": "Mix Cheese Preparation",
+            "slug": "mix-cheese-preparation",
+            "category_code": "dairy",
+            "subcategory_code": "dairy-cheese",
+            "default_unit": "kg",
+            "note": null,
+            "intermediate": true,
+            "sheet_missing": true
+        },
+        {
+            "name_en": "Cordon Bleu Marination",
+            "slug": "cordon-bleu-marination",
+            "category_code": "sauce",
+            "subcategory_code": "sauce-marinade-prep",
+            "default_unit": "kg",
+            "note": "Produced by its own technical sheet and consumed by Cordon Bleu Piece.",
+            "intermediate": true,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Coleslow Sauce",
+            "slug": "coleslow-sauce",
+            "category_code": "sauce",
+            "subcategory_code": "sauce-cold-sauce-dip",
+            "default_unit": "kg",
+            "note": "Produced by its own technical sheet; the dressing half of the Coleslaw meal, whose own sheet does not exist yet.",
+            "intermediate": true,
+            "sheet_missing": false
+        },
+        {
+            "name_en": "Crispy Chicken Marination",
+            "slug": "crispy-chicken-marination",
+            "category_code": "sauce",
+            "subcategory_code": "sauce-marinade-prep",
+            "default_unit": "kg",
+            "note": "Produced by the Tender Marination sheet (its Designation cell names it this).",
+            "intermediate": true,
+            "sheet_missing": false
+        }
+    ],
+    "recipe_links": [
+        {
+            "product": "Barbecue Dip",
+            "recipe": "Bbq Sauce Dip"
+        },
+        {
+            "product": "Burger Patty (beef)",
+            "recipe": "Americain Beef Patty"
+        },
+        {
+            "product": "Caesar Dressing",
+            "recipe": "Caesar Sauce"
+        },
+        {
+            "product": "Caramelised Onions",
+            "recipe": "Caramilsed Onions"
+        },
+        {
+            "product": "Cheese Balls",
+            "recipe": "Cheese Balls (25 - 30g)"
+        },
+        {
+            "product": "Chicken Breast Marinated",
+            "recipe": "Marinated Chicken Breast"
+        },
+        {
+            "product": "Chicken Red Tawouk",
+            "recipe": "Taouk Preparation"
+        },
+        {
+            "product": "Classic Burger Sauce",
+            "recipe": "Classic Sauce"
+        },
+        {
+            "product": "Cordon Bleu",
+            "recipe": "Cordon Bleu Piece"
+        },
+        {
+            "product": "Garlic Mayo Sauce",
+            "recipe": "Garlic Mayo"
+        },
+        {
+            "product": "Guacamole",
+            "recipe": "Guacamole"
+        },
+        {
+            "product": "Honey Mustard Sauce",
+            "recipe": "Honey Mustard"
+        },
+        {
+            "product": "Mozzarella Sticks",
+            "recipe": "Mozzarella Sticks (24-25g)"
+        },
+        {
+            "product": "Mushroom Sauce",
+            "recipe": "Mushroom Sauce"
+        },
+        {
+            "product": "Pesto Mayo",
+            "recipe": "Pesto Mayo"
+        },
+        {
+            "product": "Pesto Mix",
+            "recipe": "Pesto Mix"
+        },
+        {
+            "product": "Ranch Dressing",
+            "recipe": "Ranch Sauce"
+        },
+        {
+            "product": "Roasted Mushroom",
+            "recipe": "Sauteed Mushroom"
+        },
+        {
+            "product": "Smashed Burger Patty",
+            "recipe": "Smash Burger"
+        },
+        {
+            "product": "Sour Cream",
+            "recipe": "Sour Cream"
+        },
+        {
+            "product": "Sweet & Sour Sauce",
+            "recipe": "Sweet & Sour Sauce"
+        },
+        {
+            "product": "Thousand Island Dressing",
+            "recipe": "Thousand Islands"
+        },
+        {
+            "product": "Truffle Mayo Sauce",
+            "recipe": "Truffle Mayo"
+        }
+    ],
+    "recipe_links_declined": [
+        {
+            "product": "Escalope",
+            "candidate": "Escalope Beef Prep / Escalope Preparation",
+            "reason": "Two sheets, one item; the item says \"chicken or beef escalope\" and neither sheet says which it prices. Linking either would be a coin toss recorded as a fact."
+        },
+        {
+            "product": "Escalope Milanaise",
+            "candidate": "Escalope Preparation",
+            "reason": "Nothing on the sheet names Milanaise (no parmesan line). Unconfirmed."
+        },
+        {
+            "product": "Coleslaw",
+            "candidate": "Coleslow Sauce",
+            "reason": "The sheet produces the dressing component, not the coleslaw. The meal's own sheet does not exist yet."
+        },
+        {
+            "product": "Chicken Crispy",
+            "candidate": "Tender Marination (Crispy Chicken Marination)",
+            "reason": "The sheet produces the marination component, not the finished crispy chicken."
+        }
+    ],
+    "never_merge": [
+        {
+            "names": [
+                "Green Onions",
+                "Onions"
+            ],
+            "reason": "Different vegetables; the sheets use both."
+        },
+        {
+            "names": [
+                "Swiss Cheese",
+                "Emmental cheese"
+            ],
+            "reason": "Plausibly identical, unconfirmed by the kitchen — a merge is a food-safety statement."
+        },
+        {
+            "names": [
+                "Filet",
+                "Beef faux-filet (sirloin)",
+                "Beef tenderloin chain"
+            ],
+            "reason": "The sheets' \"Filet\" could be either cut; costs differ materially."
+        }
+    ]
+}

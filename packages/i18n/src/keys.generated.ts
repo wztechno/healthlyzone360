@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6088 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6186 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -297,6 +297,10 @@ export interface NamespaceKeys {
     | 'subtitle'
     | 'title';
   readonly "auth":
+    | 'aside.headline'
+    | 'aside.points.marketplace'
+    | 'aside.points.nutrition'
+    | 'aside.points.planner'
     | 'branchPicker.empty'
     | 'branchPicker.groupLabel'
     | 'branchPicker.onlyOne'
@@ -330,6 +334,7 @@ export interface NamespaceKeys {
     | 'login.emailPlaceholder'
     | 'login.failed'
     | 'login.forgotLink'
+    | 'login.guest'
     | 'login.passwordLabel'
     | 'login.rateLimited'
     | 'login.registerLink'
@@ -1207,6 +1212,8 @@ export interface NamespaceKeys {
     | 'plans.emptyTitle'
     | 'plans.energyBand'
     | 'plans.eyebrow'
+    | 'plans.filters'
+    | 'plans.filtersActive'
     | 'plans.fromPrice'
     | 'plans.heroHowItWorks'
     | 'plans.heroSpeakToDietitian'
@@ -1222,6 +1229,7 @@ export interface NamespaceKeys {
     | 'plans.resultSummary'
     | 'plans.searchLabel'
     | 'plans.searchPlaceholder'
+    | 'plans.showing'
     | 'plans.sort.priceLowHigh'
     | 'plans.sort.ratingHighLow'
     | 'plans.sort.recommended'
@@ -1411,9 +1419,13 @@ export interface NamespaceKeys {
     | 'checkout.placeOrderHint'
     | 'checkout.priceAfterReview'
     | 'checkout.priceBeforeReview'
+    | 'checkout.progressLabel'
     | 'checkout.review'
     | 'checkout.slotTitle'
     | 'checkout.slotWindow'
+    | 'checkout.steps.delivery'
+    | 'checkout.steps.placed'
+    | 'checkout.steps.review'
     | 'checkout.successBody'
     | 'checkout.successCart'
     | 'checkout.successCodBody'
@@ -2588,6 +2600,13 @@ export interface NamespaceKeys {
     | 'desk.window.overdue'
     | 'desk.window.today'
     | 'desk.windowLabel'
+    | 'dressings.caption'
+    | 'dressings.create'
+    | 'dressings.emptyBody'
+    | 'dressings.emptyTitle'
+    | 'dressings.resultCount'
+    | 'dressings.subtitle'
+    | 'dressings.title'
     | 'driver.assignedAt'
     | 'driver.deliver'
     | 'driver.deliverBody'
@@ -2656,6 +2675,8 @@ export interface NamespaceKeys {
     | 'families.costReport.name'
     | 'families.deliveryZones.description'
     | 'families.deliveryZones.name'
+    | 'families.dressings.description'
+    | 'families.dressings.name'
     | 'families.ingredients.description'
     | 'families.ingredients.name'
     | 'families.meals.description'
@@ -2690,6 +2711,8 @@ export interface NamespaceKeys {
     | 'families.recipes.name'
     | 'families.review.description'
     | 'families.review.name'
+    | 'families.sauces.description'
+    | 'families.sauces.name'
     | 'families.stock.description'
     | 'families.stock.name'
     | 'families.suppliers.description'
@@ -2699,9 +2722,17 @@ export interface NamespaceKeys {
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
+    | 'fields.composition'
+    | 'fields.compositionHint'
+    | 'fields.itemsPerUnit'
+    | 'fields.itemsPerUnitHint'
     | 'fields.name'
     | 'fields.notes'
     | 'fields.notesHint'
+    | 'fields.purchaseUnit'
+    | 'fields.purchaseUnitHint'
+    | 'fields.purchaseUnitNone'
+    | 'fields.purchaseUnitNoneHint'
     | 'fields.reference'
     | 'fields.referenceHint'
     | 'fields.unit'
@@ -2775,6 +2806,7 @@ export interface NamespaceKeys {
     | 'list.noCategory'
     | 'list.open'
     | 'list.subtitle'
+    | 'list.tableProvenance'
     | 'list.title'
     | 'list.updatedBy'
     | 'list.updatedBySeed'
@@ -2854,6 +2886,7 @@ export interface NamespaceKeys {
     | 'nav.groups.operations'
     | 'nav.groups.orderDesk'
     | 'nav.groups.workbench'
+    | 'nav.groups.workspace'
     | 'nav.overview'
     | 'nav.railTitle'
     | 'ops.cashReport.a11y.unnamedAgent'
@@ -2896,6 +2929,10 @@ export interface NamespaceKeys {
     | 'ops.costReport.filterFrom'
     | 'ops.costReport.filterTo'
     | 'ops.costReport.flagged'
+    | 'ops.costReport.hintCogs'
+    | 'ops.costReport.hintMargin'
+    | 'ops.costReport.hintRevenue'
+    | 'ops.costReport.hintSpend'
     | 'ops.costReport.mixCenter'
     | 'ops.costReport.mixMeal'
     | 'ops.costReport.mixOther'
@@ -3327,6 +3364,7 @@ export interface NamespaceKeys {
     | 'ops.stock.columnHeld'
     | 'ops.stock.columnItem'
     | 'ops.stock.columnLastPurchase'
+    | 'ops.stock.columnLevel'
     | 'ops.stock.columnQuantity'
     | 'ops.stock.columnThreshold'
     | 'ops.stock.columnUnit'
@@ -4101,6 +4139,14 @@ export interface NamespaceKeys {
     | 'publish.confirm'
     | 'publish.consequence'
     | 'publish.failedTitle'
+    | 'publish.gateCheckDescription'
+    | 'publish.gateCheckName'
+    | 'publish.gateCheckSaved'
+    | 'publish.gateExplainer'
+    | 'publish.gateQueueBody'
+    | 'publish.gateQueueOpen'
+    | 'publish.gateQueueTitle'
+    | 'publish.gateTitle'
     | 'publish.publishedToast'
     | 'publish.quarantineBody'
     | 'publish.quarantineTitle'
@@ -4190,6 +4236,30 @@ export interface NamespaceKeys {
     | 'recipes.sectionSteps'
     | 'recipes.sectionVersions'
     | 'recipes.sectionYield'
+    | 'recipes.sheetBasisMismatch'
+    | 'recipes.sheetColComments'
+    | 'recipes.sheetColDesignation'
+    | 'recipes.sheetColLineTotal'
+    | 'recipes.sheetColQuantity'
+    | 'recipes.sheetColUnit'
+    | 'recipes.sheetColUnitPrice'
+    | 'recipes.sheetConfidential'
+    | 'recipes.sheetCostAbsent'
+    | 'recipes.sheetCostHidden'
+    | 'recipes.sheetCostPerPiece'
+    | 'recipes.sheetCostPerUnit'
+    | 'recipes.sheetCostTitle'
+    | 'recipes.sheetCostTotal'
+    | 'recipes.sheetCostWithWaste'
+    | 'recipes.sheetDesignation'
+    | 'recipes.sheetKind'
+    | 'recipes.sheetKindUnstated'
+    | 'recipes.sheetNoLines'
+    | 'recipes.sheetQuantityProduced'
+    | 'recipes.sheetQuantityWithPieces'
+    | 'recipes.sheetRawMaterial'
+    | 'recipes.sheetTitle'
+    | 'recipes.sheetTotalRow'
     | 'recipes.stepCount'
     | 'recipes.stepInstruction'
     | 'recipes.stepMinutes'
@@ -4272,6 +4342,13 @@ export interface NamespaceKeys {
     | 'rows.moveUp'
     | 'rows.movedAnnouncement'
     | 'rows.remove'
+    | 'sauces.caption'
+    | 'sauces.create'
+    | 'sauces.emptyBody'
+    | 'sauces.emptyTitle'
+    | 'sauces.resultCount'
+    | 'sauces.subtitle'
+    | 'sauces.title'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -4288,13 +4365,18 @@ export interface NamespaceKeys {
     | 'toolbar.categoryLabel'
     | 'toolbar.clearFilters'
     | 'toolbar.create'
+    | 'toolbar.filters'
+    | 'toolbar.filtersActive'
+    | 'toolbar.removeFilter'
     | 'toolbar.resultCount'
     | 'toolbar.searchLabel'
     | 'toolbar.searchPlaceholder'
+    | 'toolbar.showing'
     | 'toolbar.statusLabel'
     | 'units.cup'
     | 'units.dimensionCount'
     | 'units.dimensionMass'
+    | 'units.dimensionPackage'
     | 'units.dimensionServing'
     | 'units.dimensionVolume'
     | 'units.g'
@@ -4433,6 +4515,19 @@ export interface NamespaceKeys {
     | 'brand.homeLabel'
     | 'brand.name'
     | 'brand.tagline'
+    | 'categories.beverage'
+    | 'categories.bread'
+    | 'categories.condiment'
+    | 'categories.dairy'
+    | 'categories.dressing'
+    | 'categories.frozen'
+    | 'categories.meal'
+    | 'categories.meat'
+    | 'categories.oil'
+    | 'categories.poultry'
+    | 'categories.sauce'
+    | 'categories.toppings'
+    | 'categories.vegetables'
     | 'channels.b2b'
     | 'channels.b2c'
     | 'channels.corporate'
@@ -4539,6 +4634,7 @@ export interface NamespaceKeys {
     | 'discover.subtitle'
     | 'discover.title'
     | 'filters.availability'
+    | 'filters.category'
     | 'filters.clear'
     | 'filters.cuisine'
     | 'filters.howToGetIt'
@@ -4587,8 +4683,10 @@ export interface NamespaceKeys {
     | 'howItWorks.step.tell.title'
     | 'howItWorks.subtitle'
     | 'howItWorks.title'
+    | 'itemTypes.dressing'
     | 'itemTypes.meal'
     | 'itemTypes.product'
+    | 'itemTypes.sauce'
     | 'kitchen.branchArea'
     | 'kitchen.branchesTitle'
     | 'kitchen.closedOn'
@@ -6413,6 +6511,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:phone.verifiedTitle',
   'account:subtitle',
   'account:title',
+  'auth:aside.headline',
+  'auth:aside.points.marketplace',
+  'auth:aside.points.nutrition',
+  'auth:aside.points.planner',
   'auth:branchPicker.empty',
   'auth:branchPicker.groupLabel',
   'auth:branchPicker.onlyOne',
@@ -6446,6 +6548,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.emailPlaceholder',
   'auth:login.failed',
   'auth:login.forgotLink',
+  'auth:login.guest',
   'auth:login.passwordLabel',
   'auth:login.rateLimited',
   'auth:login.registerLink',
@@ -7320,6 +7423,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.emptyTitle',
   'catalogue:plans.energyBand',
   'catalogue:plans.eyebrow',
+  'catalogue:plans.filters',
+  'catalogue:plans.filtersActive',
   'catalogue:plans.fromPrice',
   'catalogue:plans.heroHowItWorks',
   'catalogue:plans.heroSpeakToDietitian',
@@ -7335,6 +7440,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.resultSummary',
   'catalogue:plans.searchLabel',
   'catalogue:plans.searchPlaceholder',
+  'catalogue:plans.showing',
   'catalogue:plans.sort.priceLowHigh',
   'catalogue:plans.sort.ratingHighLow',
   'catalogue:plans.sort.recommended',
@@ -7523,9 +7629,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.placeOrderHint',
   'commerce:checkout.priceAfterReview',
   'commerce:checkout.priceBeforeReview',
+  'commerce:checkout.progressLabel',
   'commerce:checkout.review',
   'commerce:checkout.slotTitle',
   'commerce:checkout.slotWindow',
+  'commerce:checkout.steps.delivery',
+  'commerce:checkout.steps.placed',
+  'commerce:checkout.steps.review',
   'commerce:checkout.successBody',
   'commerce:checkout.successCart',
   'commerce:checkout.successCodBody',
@@ -8694,6 +8804,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.window.overdue',
   'kitchen:desk.window.today',
   'kitchen:desk.windowLabel',
+  'kitchen:dressings.caption',
+  'kitchen:dressings.create',
+  'kitchen:dressings.emptyBody',
+  'kitchen:dressings.emptyTitle',
+  'kitchen:dressings.resultCount',
+  'kitchen:dressings.subtitle',
+  'kitchen:dressings.title',
   'kitchen:driver.assignedAt',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
@@ -8762,6 +8879,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.costReport.name',
   'kitchen:families.deliveryZones.description',
   'kitchen:families.deliveryZones.name',
+  'kitchen:families.dressings.description',
+  'kitchen:families.dressings.name',
   'kitchen:families.ingredients.description',
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
@@ -8796,6 +8915,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.recipes.name',
   'kitchen:families.review.description',
   'kitchen:families.review.name',
+  'kitchen:families.sauces.description',
+  'kitchen:families.sauces.name',
   'kitchen:families.stock.description',
   'kitchen:families.stock.name',
   'kitchen:families.suppliers.description',
@@ -8805,9 +8926,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
+  'kitchen:fields.composition',
+  'kitchen:fields.compositionHint',
+  'kitchen:fields.itemsPerUnit',
+  'kitchen:fields.itemsPerUnitHint',
   'kitchen:fields.name',
   'kitchen:fields.notes',
   'kitchen:fields.notesHint',
+  'kitchen:fields.purchaseUnit',
+  'kitchen:fields.purchaseUnitHint',
+  'kitchen:fields.purchaseUnitNone',
+  'kitchen:fields.purchaseUnitNoneHint',
   'kitchen:fields.reference',
   'kitchen:fields.referenceHint',
   'kitchen:fields.unit',
@@ -8881,6 +9010,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.noCategory',
   'kitchen:list.open',
   'kitchen:list.subtitle',
+  'kitchen:list.tableProvenance',
   'kitchen:list.title',
   'kitchen:list.updatedBy',
   'kitchen:list.updatedBySeed',
@@ -8960,6 +9090,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.groups.operations',
   'kitchen:nav.groups.orderDesk',
   'kitchen:nav.groups.workbench',
+  'kitchen:nav.groups.workspace',
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
@@ -9002,6 +9133,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.filterFrom',
   'kitchen:ops.costReport.filterTo',
   'kitchen:ops.costReport.flagged',
+  'kitchen:ops.costReport.hintCogs',
+  'kitchen:ops.costReport.hintMargin',
+  'kitchen:ops.costReport.hintRevenue',
+  'kitchen:ops.costReport.hintSpend',
   'kitchen:ops.costReport.mixCenter',
   'kitchen:ops.costReport.mixMeal',
   'kitchen:ops.costReport.mixOther',
@@ -9433,6 +9568,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.columnHeld',
   'kitchen:ops.stock.columnItem',
   'kitchen:ops.stock.columnLastPurchase',
+  'kitchen:ops.stock.columnLevel',
   'kitchen:ops.stock.columnQuantity',
   'kitchen:ops.stock.columnThreshold',
   'kitchen:ops.stock.columnUnit',
@@ -10207,6 +10343,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:publish.confirm',
   'kitchen:publish.consequence',
   'kitchen:publish.failedTitle',
+  'kitchen:publish.gateCheckDescription',
+  'kitchen:publish.gateCheckName',
+  'kitchen:publish.gateCheckSaved',
+  'kitchen:publish.gateExplainer',
+  'kitchen:publish.gateQueueBody',
+  'kitchen:publish.gateQueueOpen',
+  'kitchen:publish.gateQueueTitle',
+  'kitchen:publish.gateTitle',
   'kitchen:publish.publishedToast',
   'kitchen:publish.quarantineBody',
   'kitchen:publish.quarantineTitle',
@@ -10296,6 +10440,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sectionSteps',
   'kitchen:recipes.sectionVersions',
   'kitchen:recipes.sectionYield',
+  'kitchen:recipes.sheetBasisMismatch',
+  'kitchen:recipes.sheetColComments',
+  'kitchen:recipes.sheetColDesignation',
+  'kitchen:recipes.sheetColLineTotal',
+  'kitchen:recipes.sheetColQuantity',
+  'kitchen:recipes.sheetColUnit',
+  'kitchen:recipes.sheetColUnitPrice',
+  'kitchen:recipes.sheetConfidential',
+  'kitchen:recipes.sheetCostAbsent',
+  'kitchen:recipes.sheetCostHidden',
+  'kitchen:recipes.sheetCostPerPiece',
+  'kitchen:recipes.sheetCostPerUnit',
+  'kitchen:recipes.sheetCostTitle',
+  'kitchen:recipes.sheetCostTotal',
+  'kitchen:recipes.sheetCostWithWaste',
+  'kitchen:recipes.sheetDesignation',
+  'kitchen:recipes.sheetKind',
+  'kitchen:recipes.sheetKindUnstated',
+  'kitchen:recipes.sheetNoLines',
+  'kitchen:recipes.sheetQuantityProduced',
+  'kitchen:recipes.sheetQuantityWithPieces',
+  'kitchen:recipes.sheetRawMaterial',
+  'kitchen:recipes.sheetTitle',
+  'kitchen:recipes.sheetTotalRow',
   'kitchen:recipes.stepCount',
   'kitchen:recipes.stepInstruction',
   'kitchen:recipes.stepMinutes',
@@ -10378,6 +10546,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:rows.moveUp',
   'kitchen:rows.movedAnnouncement',
   'kitchen:rows.remove',
+  'kitchen:sauces.caption',
+  'kitchen:sauces.create',
+  'kitchen:sauces.emptyBody',
+  'kitchen:sauces.emptyTitle',
+  'kitchen:sauces.resultCount',
+  'kitchen:sauces.subtitle',
+  'kitchen:sauces.title',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',
@@ -10394,13 +10569,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.categoryLabel',
   'kitchen:toolbar.clearFilters',
   'kitchen:toolbar.create',
+  'kitchen:toolbar.filters',
+  'kitchen:toolbar.filtersActive',
+  'kitchen:toolbar.removeFilter',
   'kitchen:toolbar.resultCount',
   'kitchen:toolbar.searchLabel',
   'kitchen:toolbar.searchPlaceholder',
+  'kitchen:toolbar.showing',
   'kitchen:toolbar.statusLabel',
   'kitchen:units.cup',
   'kitchen:units.dimensionCount',
   'kitchen:units.dimensionMass',
+  'kitchen:units.dimensionPackage',
   'kitchen:units.dimensionServing',
   'kitchen:units.dimensionVolume',
   'kitchen:units.g',
@@ -10538,6 +10718,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:brand.homeLabel',
   'marketplace:brand.name',
   'marketplace:brand.tagline',
+  'marketplace:categories.beverage',
+  'marketplace:categories.bread',
+  'marketplace:categories.condiment',
+  'marketplace:categories.dairy',
+  'marketplace:categories.dressing',
+  'marketplace:categories.frozen',
+  'marketplace:categories.meal',
+  'marketplace:categories.meat',
+  'marketplace:categories.oil',
+  'marketplace:categories.poultry',
+  'marketplace:categories.sauce',
+  'marketplace:categories.toppings',
+  'marketplace:categories.vegetables',
   'marketplace:channels.b2b',
   'marketplace:channels.b2c',
   'marketplace:channels.corporate',
@@ -10644,6 +10837,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.subtitle',
   'marketplace:discover.title',
   'marketplace:filters.availability',
+  'marketplace:filters.category',
   'marketplace:filters.clear',
   'marketplace:filters.cuisine',
   'marketplace:filters.howToGetIt',
@@ -10692,8 +10886,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.step.tell.title',
   'marketplace:howItWorks.subtitle',
   'marketplace:howItWorks.title',
+  'marketplace:itemTypes.dressing',
   'marketplace:itemTypes.meal',
   'marketplace:itemTypes.product',
+  'marketplace:itemTypes.sauce',
   'marketplace:kitchen.branchArea',
   'marketplace:kitchen.branchesTitle',
   'marketplace:kitchen.closedOn',

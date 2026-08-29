@@ -23,6 +23,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import {
@@ -346,7 +347,9 @@ export function PlannerWeekScreen({ week }: PlannerWeekScreenProps) {
                 </Text>
             </Stack>
 
-            <Inline space="sm" wrap testID="planner-week-navigation">
+            {/* One row, one baseline (§2.5): week navigation leads, the week's actions trail,
+                and the gap between them does the separating. */}
+            <View className="flex-row flex-wrap items-center gap-2" testID="planner-week-navigation">
                 <Button
                     testID="planner-week-previous"
                     variant="secondary"
@@ -374,6 +377,7 @@ export function PlannerWeekScreen({ week }: PlannerWeekScreenProps) {
                         router.push(`/customer/grocery/${weekStart}` as never);
                     }}
                 />
+                <View className="grow" />
                 <Button
                     testID="planner-week-regenerate"
                     size="sm"
@@ -393,7 +397,7 @@ export function PlannerWeekScreen({ week }: PlannerWeekScreenProps) {
                         setMenuOpen(true);
                     }}
                 />
-            </Inline>
+            </View>
 
             <QueryStates
                 query={planWeek}

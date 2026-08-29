@@ -43,6 +43,8 @@ final class UnitMap
         'bottle' => 'bottle',
         'bunch' => 'bunch',
         'gallon' => 'gallon',
+        'gal' => 'gallon',
+        'pack' => 'pack',
     ];
 
     /** @var array<string, string>|null unit code → id */

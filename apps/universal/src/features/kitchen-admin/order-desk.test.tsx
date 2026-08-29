@@ -1394,9 +1394,9 @@ describe('order desk queue — the fulfilment-type filter', () => {
     it('keys a narrowed queue to a different cache entry from the unnarrowed one', () => {
         // Value equality, as the window pair above: the screen memoises the filter object, so the
         // hash is what decides whether two screens are looking at the same question.
-        expect(
+        expect(queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'delivery' })).toEqual(
             queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'delivery' }),
-        ).toEqual(queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'delivery' }));
+        );
         expect(
             queryKeys.orderDesk.queue({ window: 'today', fulfilmentType: 'delivery' }),
         ).not.toEqual(queryKeys.orderDesk.queue({ window: 'today' }));
@@ -1466,9 +1466,7 @@ describe('order desk queue — recording a payment', () => {
         fireEvent.press(screen.getByTestId(rowTestId(1, 'open')));
         await waitFor(
             () => {
-                expect(
-                    screen.getByTestId('kitchen-order-desk-detail-record-payment'),
-                ).toBeTruthy();
+                expect(screen.getByTestId('kitchen-order-desk-detail-record-payment')).toBeTruthy();
             },
             { timeout: 5000 },
         );
@@ -1481,7 +1479,7 @@ describe('order desk queue — recording a payment', () => {
         );
     }
 
-    it('prefills the outstanding remainder in the order\'s currency', async () => {
+    it("prefills the outstanding remainder in the order's currency", async () => {
         await renderPayment({
             row: unsettledRow({
                 payment: { method: 'cash_on_delivery', receivedMinor: 4_000, receipted: false },
@@ -1496,7 +1494,7 @@ describe('order desk queue — recording a payment', () => {
         );
     });
 
-    it('sends the detail read\'s version, the chosen method and the amount in minor units', async () => {
+    it("sends the detail read's version, the chosen method and the amount in minor units", async () => {
         const recordPayment = jest.fn(async () => ({
             receipt: {
                 id: 'receipt-1',
@@ -1532,7 +1530,7 @@ describe('order desk queue — recording a payment', () => {
         });
     });
 
-    it('raises the wizard\'s own manual-confirmation warning when the money came by transfer', async () => {
+    it("raises the wizard's own manual-confirmation warning when the money came by transfer", async () => {
         await renderPayment({});
         await openDialog();
 
@@ -1541,7 +1539,9 @@ describe('order desk queue — recording a payment', () => {
 
         fireEvent.press(screen.getByTestId('kitchen-order-desk-payment-method-trigger'));
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-payment-method-option-wish')).toBeTruthy();
+            expect(
+                screen.getByTestId('kitchen-order-desk-payment-method-option-wish'),
+            ).toBeTruthy();
         });
         fireEvent.press(screen.getByTestId('kitchen-order-desk-payment-method-option-wish'));
 

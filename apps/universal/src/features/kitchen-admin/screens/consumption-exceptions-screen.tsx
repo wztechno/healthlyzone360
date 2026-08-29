@@ -173,7 +173,8 @@ function ConsumptionExceptions() {
                     <Inline space="xs" wrap>
                         <Button
                             testID={`kitchen-exception-${row.id}-retry`}
-                            variant="secondary"
+                            // The row's primary (KITCHEN.md 7i): retrying is the fix — resolving
+                            // without one is the concession, and stays quiet beside it.
                             size="sm"
                             label={t('kitchen:ops.exceptions.retry')}
                             loading={pendingId === row.id && retry.isPending}

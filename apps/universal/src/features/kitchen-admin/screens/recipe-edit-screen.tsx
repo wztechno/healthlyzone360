@@ -46,6 +46,7 @@ import {
     usePublishRecipeMutation,
     useRecipeQuery,
     useRecipeRollupQuery,
+    useRecipeTechnicalSheetQuery,
     useRetireRecipeMutation,
     useSetRecipeLinesMutation,
     useSetRecipeOutputsMutation,
@@ -69,6 +70,7 @@ import {
 import { RecipeLineEditor, RecipeOutputEditor, RecipeStepEditor } from '../recipe-row-editors.tsx';
 import type { LineDraft, OutputDraft, StepDraft } from '../recipe-row-editors.tsx';
 import { RecipeRollupPanel } from '../recipe-rollup-panel.tsx';
+import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -283,7 +285,11 @@ function RecipeEditor({ recipe }: RecipeEditScreenProps) {
     const parsed = isCreating ? null : RecipeId.safeParse(recipe);
 
     const record = useRecipeQuery(parsed);
-    const ingredientsPage = useIngredientsQuery({ limit: 100 });
+    // Only usable rows reach the line picker: an inactive or archived
+    // ingredient stays visible in the catalogue list (greyed) but is not
+    // offered to a formulation — the server refuses it anyway, and a picker
+    // that offered it would invite the refusal.
+    const ingredientsPage = useIngredientsQuery({ limit: 100, statuses: ['published'] });
     const ingredients: readonly IngredientAdmin[] = ingredientsFromPages(
         ingredientsPage.data?.pages,
     );
@@ -408,6 +414,10 @@ function RecipeEditor({ recipe }: RecipeEditScreenProps) {
 
     const previewDraft = useDebouncedRollupDraft(liveDraft);
     const rollup = useRecipeRollupQuery(previewDraft);
+    const technicalSheet = useRecipeTechnicalSheetQuery(
+        parsed,
+        data === undefined ? null : data.currentVersion.id,
+    );
     const rollupFailure = toFailure(rollup.error);
 
     /* ── option lists ────────────────────────────────────────────────────────────────────────── */
@@ -769,6 +779,17 @@ function RecipeEditor({ recipe }: RecipeEditScreenProps) {
                 </Stack>
             }
         >
+            {/* ── the technical sheet, as the kitchen's paper lays it out ─────────────────── */}
+            {isCreating || data === undefined ? null : (
+                <TechnicalSheetPanel
+                    testID="kitchen-recipe-technical-sheet"
+                    recipe={data}
+                    version={data.currentVersion}
+                    sheet={technicalSheet.data}
+                    isLoading={technicalSheet.isPending}
+                />
+            )}
+
             {/* ── the record ───────────────────────────────────────────────────────────────── */}
             <Card testID="kitchen-recipe-details" padding="md">
                 <Stack space="md">

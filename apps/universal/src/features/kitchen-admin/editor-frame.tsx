@@ -3,7 +3,6 @@ import {
     Badge,
     Button,
     Dialog,
-    Heading,
     Inline,
     PageTransition,
     Stack,
@@ -15,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { statusKey, statusTone } from './format.ts';
+import { KitchenPageHeader } from './kitchen-page-header.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
@@ -58,6 +58,11 @@ export interface EditorFrameProps {
     readonly banner?: ReactNode | undefined;
     readonly onBack: () => void;
     readonly backLabel: string;
+    /**
+     * A right-hand column beside the form on wide screens — the meal editor's publication gate.
+     * Stacks after the form below `lg`, so the reading order is the same at every width.
+     */
+    readonly rail?: ReactNode | undefined;
     readonly children: ReactNode;
     readonly testID: string;
 }
@@ -76,6 +81,7 @@ export function EditorFrame({
     banner,
     onBack,
     backLabel,
+    rail,
     children,
     testID,
 }: EditorFrameProps) {
@@ -92,22 +98,25 @@ export function EditorFrame({
     return (
         <PageTransition testID={testID} transitionKey={testID}>
             <Stack space="lg">
-                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1">
-                    <Stack space="sm">
-                        <Button
-                            testID={`${testID}-back`}
-                            variant="ghost"
-                            size="sm"
-                            label={backLabel}
-                            onPress={() => {
-                                guard.intercept(onBack);
-                            }}
-                        />
-
-                        <Heading level={1} testID={`${testID}-title`}>
-                            {title}
-                        </Heading>
-
+                <KitchenPageHeader
+                    testID={`${testID}-header`}
+                    variant="band"
+                    title={title}
+                    titleTestID={`${testID}-title`}
+                    back={
+                        <View className="flex-row">
+                            <Button
+                                testID={`${testID}-back`}
+                                variant="ghost"
+                                size="sm"
+                                label={backLabel}
+                                onPress={() => {
+                                    guard.intercept(onBack);
+                                }}
+                            />
+                        </View>
+                    }
+                    meta={
                         <Inline space="sm" align="center" wrap testID={`${testID}-meta`}>
                             {meta === null ? (
                                 <Badge
@@ -135,14 +144,25 @@ export function EditorFrame({
                                 {updatedLine()}
                             </Text>
                         </Inline>
-                    </Stack>
-                </View>
+                    }
+                />
 
                 {banner}
 
-                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
-                    {children}
-                </View>
+                {rail === undefined ? (
+                    <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
+                        {children}
+                    </View>
+                ) : (
+                    <View className="flex-col gap-4 lg:flex-row lg:items-start">
+                        <View className="min-w-0 flex-1 rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
+                            {children}
+                        </View>
+                        <View testID={`${testID}-rail`} className="lg:w-[330px] lg:shrink-0">
+                            {rail}
+                        </View>
+                    </View>
+                )}
 
                 {/*
                  * The bar is a normal block at the end of the flow rather than a fixed overlay: a
@@ -152,7 +172,7 @@ export function EditorFrame({
                  */}
                 <View
                     testID={`${testID}-actions`}
-                    className="flex-row flex-wrap items-center justify-end gap-2 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1"
+                    className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
                 >
                     {primaryAction}
                     {hideSave ? null : (

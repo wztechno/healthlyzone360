@@ -532,6 +532,29 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 const unitId = await units.resolve(transport, request.measurementUnit);
                 if (unitId !== null) body.default_unit_id = unitId;
             }
+            if (request.purchaseUnit !== undefined) {
+                if (request.purchaseUnit === null) {
+                    body.purchase_unit_id = null;
+                } else {
+                    const unitId = await units.resolve(transport, request.purchaseUnit);
+                    if (unitId !== null) body.purchase_unit_id = unitId;
+                }
+            }
+            if (request.composition !== undefined) body.composition = request.composition;
+            if (request.itemsPerUnit !== undefined) body.items_per_unit = request.itemsPerUnit;
+            if (request.per100g !== undefined) {
+                body.nutrition_per_100g =
+                    request.per100g === null
+                        ? null
+                        : {
+                              basis: 'per_100g',
+                              amounts: request.per100g.amounts.map((amount) => ({
+                                  nutrient_id: amount.nutrientId,
+                                  unit: amount.unit,
+                                  value: amount.value,
+                              })),
+                          };
+            }
             if (request.notes !== undefined) body.notes = request.notes;
 
             await transport.request({
@@ -785,7 +808,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     method: 'POST',
                     path: '/catalogue/items',
                     body: {
-                        item_type: 'product',
+                        item_type: request.itemType ?? 'product',
                         name_en: request.name.en,
                         ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
                         ...descriptionWire(request.description),

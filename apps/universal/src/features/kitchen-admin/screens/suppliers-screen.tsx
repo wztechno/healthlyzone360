@@ -6,7 +6,6 @@ import {
     EmptyState,
     ErrorState,
     FilterChip,
-    Heading,
     Inline,
     Skeleton,
     Stack,
@@ -25,6 +24,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { supplierRowTestId } from '../ops-format.ts';
 
 /**
@@ -206,14 +206,13 @@ function SuppliersList() {
 
     return (
         <Stack space="lg" testID="kitchen-suppliers-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-suppliers-title">
-                    {t('kitchen:ops.suppliers.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-suppliers-subtitle">
-                    {t('kitchen:ops.suppliers.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-suppliers-header"
+                title={t('kitchen:ops.suppliers.title')}
+                subtitle={t('kitchen:ops.suppliers.subtitle')}
+                titleTestID="kitchen-suppliers-title"
+                subtitleTestID="kitchen-suppliers-subtitle"
+            />
 
             {/*
              * Hand-rolled rather than `ListToolbar`: that component is typed on `PublishableStatus`

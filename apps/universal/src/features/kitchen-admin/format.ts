@@ -139,11 +139,11 @@ export function verificationKey(verification: AllergenVerification): string {
  *
  * Grouping the unit picker by dimension is not decoration: automatic conversion only ever happens
  * *within* a dimension, so a picker that mixed grams and millilitres into one flat list would invite
- * exactly the choice the schema constraint exists to prevent. `package` is absent because the
- * nutrition package's `MeasureUnit` union has no member for it — pack equivalences are product data
- * (K1.4), not an issuing unit.
+ * exactly the choice the schema constraint exists to prevent. The `package` dimension arrived with
+ * the v6 purchase packs (pack, bag, can, bottle, gallon) — units that never cross-convert; each is
+ * an honest identity of one.
  */
-export const UNIT_DIMENSIONS = ['mass', 'volume', 'count', 'serving'] as const;
+export const UNIT_DIMENSIONS = ['mass', 'volume', 'count', 'serving', 'package'] as const;
 export type UnitDimension = (typeof UNIT_DIMENSIONS)[number];
 
 const UNIT_DIMENSION: Readonly<Record<MeasureUnit, UnitDimension>> = {
@@ -157,6 +157,11 @@ const UNIT_DIMENSION: Readonly<Record<MeasureUnit, UnitDimension>> = {
     piece: 'count',
     slice: 'count',
     portion: 'serving',
+    pack: 'package',
+    bag: 'package',
+    can: 'package',
+    bottle: 'package',
+    gallon: 'package',
 };
 
 export function unitDimension(unit: MeasureUnit): UnitDimension {
@@ -168,6 +173,7 @@ const UNIT_DIMENSION_KEYS: Readonly<Record<UnitDimension, string>> = {
     volume: 'kitchen:units.dimensionVolume',
     count: 'kitchen:units.dimensionCount',
     serving: 'kitchen:units.dimensionServing',
+    package: 'kitchen:units.dimensionPackage',
 };
 
 export function unitDimensionKey(dimension: UnitDimension): string {

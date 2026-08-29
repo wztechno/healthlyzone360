@@ -156,12 +156,7 @@ describe('the coordinate', () => {
             row({ key: 'd', slot: 'lunch', sequence: 1 }),
         ]);
 
-        expect(menuDays(draft)[0]?.entries.map((entry) => entry.key)).toEqual([
-            'c',
-            'd',
-            'b',
-            'a',
-        ]);
+        expect(menuDays(draft)[0]?.entries.map((entry) => entry.key)).toEqual(['c', 'd', 'b', 'a']);
     });
 
     it('hands out the first free coordinate on a day, slots before second sittings', () => {
@@ -169,10 +164,7 @@ describe('the coordinate', () => {
 
         expect(nextCoordinate(draft, 3)).toEqual({ slot: 'breakfast', sequence: 1 });
 
-        draft = addMenuEntry(
-            draft,
-            emptyMenuEntry('k1', 3, { slot: 'breakfast', sequence: 1 }),
-        );
+        draft = addMenuEntry(draft, emptyMenuEntry('k1', 3, { slot: 'breakfast', sequence: 1 }));
         expect(nextCoordinate(draft, 3)).toEqual({ slot: 'lunch', sequence: 1 });
 
         // A different day is untouched by what day 3 holds.

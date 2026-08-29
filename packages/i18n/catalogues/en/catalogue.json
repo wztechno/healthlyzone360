@@ -167,6 +167,9 @@
         "title": "Healthy eating, planned for real life",
         "subtitle": "Subscription meal plans from verified kitchens — each with calorie bands, honest pricing and a dietitian consultation before you commit.",
         "eyebrow": "Meal plans built around your goals",
+        "filters": "Filters",
+        "filtersActive": "Filters ({{n}})",
+        "showing": "Showing {{shown}} of {{total}} · {{kitchens}}",
         "heroHowItWorks": "How plans work",
         "heroSpeakToDietitian": "Speak to a dietitian",
         "trust": {

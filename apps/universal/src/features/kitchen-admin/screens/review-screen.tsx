@@ -22,6 +22,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useReviewQueueQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, statusKey, statusTone } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import {
     buildReviewQueue,
     isBlockingReason,
@@ -233,14 +234,13 @@ function ReviewQueueBody() {
                 }}
             />
 
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-review-title">
-                    {t('kitchen:review.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-review-subtitle">
-                    {t('kitchen:review.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-review-header"
+                title={t('kitchen:review.title')}
+                subtitle={t('kitchen:review.subtitle')}
+                titleTestID="kitchen-review-title"
+                subtitleTestID="kitchen-review-subtitle"
+            />
 
             {sources.isPending ? (
                 <Stack space="sm" testID="kitchen-review-loading">

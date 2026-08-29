@@ -6,7 +6,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -22,8 +21,10 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { EntityImage } from '../../../media/entity-image.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     pagesInResult,
@@ -41,6 +42,7 @@ import {
     statusKey,
     statusTone,
 } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -174,26 +176,61 @@ function MealsList() {
                 const name = displayName(row.name, locale);
                 const testID = mealRowTestId(String(row.id));
                 return (
-                    <Stack space="none">
-                        <Text variant="bodyStrong" testID={`${testID}-name`}>
-                            {name.value}
-                        </Text>
-                        {name.isFallback ? (
-                            <Badge
-                                testID={`${testID}-missing-arabic`}
-                                tone="warning"
-                                icon="warning"
-                                label={t('kitchen:list.missingArabic')}
+                    <View className="flex-row items-center gap-3">
+                        {/* 7a row thumbnail: decorative — the name beside it carries the meaning. */}
+                        <View className="w-11">
+                            <EntityImage
+                                assetId={row.imagePlaceholderId}
+                                seed={String(row.id)}
+                                label={name.value}
+                                aspect="square"
+                                variant="card"
+                                decorative
                             />
-                        ) : null}
-                        <Inline space="xs" wrap testID={`${testID}-meal-types`}>
-                            {row.mealTypes.map((type) => (
-                                <Badge key={type} tone="neutral" label={t(mealTypeKey(type))} />
-                            ))}
-                        </Inline>
-                    </Stack>
+                        </View>
+                        <Stack space="none" className="min-w-0 flex-1">
+                            <Text variant="bodyStrong" testID={`${testID}-name`}>
+                                {name.value}
+                            </Text>
+                            {name.isFallback ? (
+                                <Badge
+                                    testID={`${testID}-missing-arabic`}
+                                    tone="warning"
+                                    icon="warning"
+                                    label={t('kitchen:list.missingArabic')}
+                                />
+                            ) : null}
+                            <Inline space="xs" wrap testID={`${testID}-meal-types`}>
+                                {row.mealTypes.map((type) => (
+                                    <Badge key={type} tone="neutral" label={t(mealTypeKey(type))} />
+                                ))}
+                            </Inline>
+                        </Stack>
+                    </View>
                 );
             },
+        },
+        {
+            key: 'category',
+            header: t('kitchen:list.columnCategory'),
+            render: (row) =>
+                row.kitchenCategory === null ? (
+                    <Text
+                        testID={`${mealRowTestId(String(row.id))}-kitchen-category-none`}
+                        tone="secondary"
+                    >
+                        {t('kitchen:list.noCategory')}
+                    </Text>
+                ) : (
+                    <Text
+                        testID={`${mealRowTestId(String(row.id))}-kitchen-category`}
+                        tone="secondary"
+                    >
+                        {row.kitchenSubcategory === null
+                            ? row.kitchenCategory
+                            : `${row.kitchenCategory} / ${row.kitchenSubcategory}`}
+                    </Text>
+                ),
         },
         {
             key: 'allergens',
@@ -271,14 +308,24 @@ function MealsList() {
 
     return (
         <Stack space="lg" testID="kitchen-meals-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-meals-title">
-                    {t('kitchen:meals.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-meals-subtitle">
-                    {t('kitchen:meals.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-meals-header"
+                title={t('kitchen:meals.title')}
+                subtitle={t('kitchen:meals.subtitle')}
+                titleTestID="kitchen-meals-title"
+                subtitleTestID="kitchen-meals-subtitle"
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-meals-toolbar-create"
+                            label={t('kitchen:meals.create')}
+                            onPress={() => {
+                                router.push('/kitchen/meals/new' as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ListToolbar
                 testID="kitchen-meals-toolbar"
@@ -295,17 +342,14 @@ function MealsList() {
                 }))}
                 category={mealType}
                 onCategoryChange={setMealType}
-                createLabel={t('kitchen:meals.create')}
-                {...(canManage
-                    ? {
-                          onCreate: () => {
-                              router.push('/kitchen/meals/new' as never);
-                          },
-                      }
-                    : {})}
                 {...(meals.isPending || total === null
                     ? {}
-                    : { resultSummary: t('kitchen:meals.resultCount', { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {meals.isPending ? (
@@ -377,6 +421,7 @@ function MealsList() {
                         columns={columns}
                         rows={sorted}
                         rowKey={(row) => String(row.id)}
+                        rowTone={(row) => (row.meta.status === 'retired' ? 'muted' : 'default')}
                         sortKey={sortKey}
                         sortDirection={sortDirection}
                         onSortChange={(key, direction) => {
@@ -416,6 +461,16 @@ function MealsList() {
                             },
                         }}
                     />
+
+                    {/* 7a's provenance footer, verbatim from the frame: the numbers on a card are
+
+                        the recipe version's, and this is where a reader learns that. */}
+
+                    <Text variant="caption" tone="secondary" testID="kitchen-meals-provenance">
+
+                        {t('kitchen:meals.tableProvenance')}
+
+                    </Text>
 
                     <Pagination
                         testID="kitchen-meals-pagination"

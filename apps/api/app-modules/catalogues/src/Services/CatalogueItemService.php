@@ -72,6 +72,9 @@ final readonly class CatalogueItemService
      *     catalogue_id?: string|null,
      *     description_en?: string|null,
      *     description_ar?: string|null,
+     *     composition?: string|null,
+     *     kitchen_category?: string|null,
+     *     kitchen_subcategory?: string|null,
      *     product_category_id?: string|null,
      *     production_mode?: string|null,
      *     recipe_id?: string|null,
@@ -112,6 +115,9 @@ final readonly class CatalogueItemService
             // what makes that consequential.
             $item->name_ar = $this->trimmedOrNull($attributes['name_ar'] ?? null) ?? '';
             $item->description_en = $this->trimmedOrNull($attributes['description_en'] ?? null);
+            $item->composition = $this->trimmedOrNull($attributes['composition'] ?? null);
+            $item->kitchen_category = $this->trimmedOrNull($attributes['kitchen_category'] ?? null);
+            $item->kitchen_subcategory = $this->trimmedOrNull($attributes['kitchen_subcategory'] ?? null);
             $item->description_ar = $this->trimmedOrNull($attributes['description_ar'] ?? null);
             $item->product_category_id = $links['product_category_id'];
             $item->production_mode = $links['production_mode'];
@@ -166,7 +172,7 @@ final readonly class CatalogueItemService
 
         $changes = [];
 
-        foreach (['name_en', 'name_ar', 'description_en', 'description_ar', 'image_placeholder_id'] as $field) {
+        foreach (['name_en', 'name_ar', 'description_en', 'description_ar', 'composition', 'kitchen_category', 'kitchen_subcategory', 'image_placeholder_id'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
@@ -541,6 +547,13 @@ final readonly class CatalogueItemService
 
         if ($ingredient->status === IngredientStatus::Archived) {
             throw $this->invalid($field, 'This ingredient is archived and cannot be added to a catalogue item.');
+        }
+
+        // Inactive is the operator's "do not use this" switch: the row stays
+        // visible (greyed) in the kitchen tables, but nothing new may be
+        // built on it until somebody flips it back.
+        if ($ingredient->status === IngredientStatus::Inactive) {
+            throw $this->invalid($field, 'This ingredient is inactive and cannot be added to a catalogue item until it is reactivated.');
         }
 
         return $ingredient;

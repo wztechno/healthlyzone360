@@ -49,6 +49,7 @@ import { BrandGradient } from '../../../ui/brand-gradient.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
 import { ENTITY_GROUPS, WORKSPACE_PERMISSIONS, permittedFamilies } from '../entity-registry.ts';
 import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
+import { KpiTile as BaseKpiTile } from '../kpi-tile.tsx';
 import { buildReviewQueue } from '../review-queue.ts';
 
 /**
@@ -519,6 +520,8 @@ function renderFamilyCard(
     summaries: {
         readonly recipe: UseQueryResult<PublishedFamilySummary>;
         readonly product: UseQueryResult<PublishedFamilySummary>;
+        readonly sauce: UseQueryResult<PublishedFamilySummary>;
+        readonly dressing: UseQueryResult<PublishedFamilySummary>;
         readonly meal: UseQueryResult<PublishedFamilySummary>;
         readonly priceList: UseQueryResult<PublishedFamilySummary>;
         readonly plan: UseQueryResult<PublishedFamilySummary>;
@@ -538,6 +541,14 @@ function renderFamilyCard(
     }
     if (family.key === 'products') {
         return <PublishedFamilyCard key={family.key} family={family} summary={summaries.product} />;
+    }
+    if (family.key === 'sauces') {
+        return <PublishedFamilyCard key={family.key} family={family} summary={summaries.sauce} />;
+    }
+    if (family.key === 'dressings') {
+        return (
+            <PublishedFamilyCard key={family.key} family={family} summary={summaries.dressing} />
+        );
     }
     if (family.key === 'meals') {
         return <PublishedFamilyCard key={family.key} family={family} summary={summaries.meal} />;
@@ -589,41 +600,14 @@ function KpiTile({
     const animated = useAnimatedNumber(value ?? 0);
 
     return (
-        <View
+        <BaseKpiTile
             testID={testID}
-            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
-        >
-            {pending ? (
-                <Skeleton
-                    testID={`${testID}-loading`}
-                    heightClassName="h-8"
-                    widthClassName="w-1/2"
-                />
-            ) : (
-                <Text
-                    testID={`${testID}-value`}
-                    className="font-display text-[25px] font-bold text-content-primary"
-                >
-                    {value === null ? '—' : String(animated)}
-                </Text>
-            )}
-            <Text tone="secondary" variant="caption" className="mt-0.5">
-                {label}
-            </Text>
-            {hint === undefined ? null : (
-                <Text
-                    testID={`${testID}-hint`}
-                    className="mt-1.5 text-[11.5px] font-bold text-brand-600"
-                >
-                    {hint}
-                </Text>
-            )}
-            {!pending && value === null ? (
-                <Text tone="secondary" variant="caption" className="mt-1">
-                    {t('kitchen:hub.countUnavailable')}
-                </Text>
-            ) : null}
-        </View>
+            label={label}
+            value={value === null ? null : String(animated)}
+            pending={pending}
+            hint={hint}
+            nullCaption={t('kitchen:hub.countUnavailable')}
+        />
     );
 }
 
@@ -645,6 +629,8 @@ export function KitchenHomeScreen() {
     const permitted = new Set(families.map((family) => family.key));
     const recipeSummary = useRecipeSummaryQuery(permitted.has('recipes'));
     const productSummary = useProductSummaryQuery(permitted.has('products'));
+    const sauceSummary = useProductSummaryQuery(permitted.has('sauces'), 'sauce');
+    const dressingSummary = useProductSummaryQuery(permitted.has('dressings'), 'dressing');
     const mealSummary = useMealSummaryQuery(permitted.has('meals'));
     const priceListSummary = usePriceListSummaryQuery(permitted.has('price-lists'));
     const planSummary = usePlanSummaryQuery(permitted.has('plans'));
@@ -683,6 +669,8 @@ export function KitchenHomeScreen() {
     const summaries = {
         recipe: recipeSummary,
         product: productSummary,
+        sauce: sauceSummary,
+        dressing: dressingSummary,
         meal: mealSummary,
         priceList: priceListSummary,
         plan: planSummary,
@@ -693,6 +681,8 @@ export function KitchenHomeScreen() {
     if (permitted.has('ingredients')) draftParts.push(ingredientSummary.data?.drafts);
     if (permitted.has('recipes')) draftParts.push(recipeSummary.data?.drafts);
     if (permitted.has('products')) draftParts.push(productSummary.data?.drafts);
+    if (permitted.has('sauces')) draftParts.push(sauceSummary.data?.drafts);
+    if (permitted.has('dressings')) draftParts.push(dressingSummary.data?.drafts);
     if (permitted.has('meals')) draftParts.push(mealSummary.data?.drafts);
     const knownDrafts = draftParts.filter((part): part is number => typeof part === 'number');
     const draftsPending =
@@ -831,9 +821,12 @@ export function KitchenHomeScreen() {
                                             hint={
                                                 lowStockCount !== null && lowStockCount > 0
                                                     ? canOrderSupplies
-                                                        ? t('kitchen:hub.kpi.lowStockReadyToOrder', {
-                                                              count: lowStockCount,
-                                                          })
+                                                        ? t(
+                                                              'kitchen:hub.kpi.lowStockReadyToOrder',
+                                                              {
+                                                                  count: lowStockCount,
+                                                              },
+                                                          )
                                                         : t('kitchen:ops.stock.lowStockCount', {
                                                               count: lowStockCount,
                                                           })

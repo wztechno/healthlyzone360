@@ -173,6 +173,18 @@ export function SignInScreen() {
                 }}
             />
 
+            {/* The marketplace browses without an account (4a): the way out of this form is a
+                visible choice, not a back button. */}
+            <Button
+                testID="sign-in-guest"
+                block
+                variant="secondary"
+                label={t('auth:login.guest')}
+                onPress={() => {
+                    router.replace('/' as never);
+                }}
+            />
+
             <Inline space="xs">
                 <Link testID="sign-in-forgot" href="/forgot-password" asChild>
                     <Text tone="info" accessibilityRole="link">

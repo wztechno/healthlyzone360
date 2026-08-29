@@ -3,7 +3,6 @@ import {
     Button,
     FadeIn,
     Heading,
-    Inline,
     PageTransition,
     Stack,
     Table,
@@ -33,6 +32,7 @@ import type {
     AnalyticsTableRow,
 } from '../analytics-sample-data.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { KpiTile } from '../kpi-tile.tsx';
 
 type SortKey = 'name' | 'volume' | 'completionPercent' | 'avgMinutes';
 
@@ -59,28 +59,20 @@ function KpiCard({ kpi, testID }: { readonly kpi: AnalyticsKpi; readonly testID:
               : t('kitchen:analytics.trend.flat');
 
     return (
-        <View
+        <KpiTile
             testID={testID}
-            className="min-h-[108px] min-w-[148px] flex-1 basis-[148px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
-        >
-            <Text tone="secondary" variant="caption">
-                {t(kpi.labelKey)}
-            </Text>
-            <Text
-                testID={`${testID}-value`}
-                className="mt-1 font-display text-[28px] font-bold text-content-primary"
-            >
-                {formatKpiValue(kpi, animated)}
-            </Text>
-            <Inline space="xs" className="mt-2 items-center">
+            size="lg"
+            label={t(kpi.labelKey)}
+            value={formatKpiValue(kpi, animated)}
+            trend={
                 <Badge
                     testID={`${testID}-trend`}
                     tone={positive ? 'success' : 'danger'}
                     icon={positive ? 'chevronUp' : 'chevronDown'}
                     label={deltaLabel}
                 />
-            </Inline>
-        </View>
+            }
+        />
     );
 }
 
@@ -238,7 +230,7 @@ function AnalyticsDashboard() {
                 <FadeIn delayMs={stagger(1)}>
                     <View
                         testID="kitchen-analytics-filters"
-                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Tabs
                             testID="kitchen-analytics-range"
@@ -324,7 +316,7 @@ function AnalyticsDashboard() {
                 <FadeIn delayMs={stagger(5)}>
                     <View
                         testID="kitchen-analytics-table-panel"
-                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Stack space="xs">
                             <Heading level={2}>{t('kitchen:analytics.table.title')}</Heading>

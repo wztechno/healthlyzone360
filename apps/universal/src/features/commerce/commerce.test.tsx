@@ -286,6 +286,7 @@ function testMeal(seed: MealSeed): MarketplaceMeal {
         kitchenId: KITCHEN_ID,
         kitchenName: KITCHEN.name,
         itemType: 'meal',
+        publishedCategory: null,
         name: seed.name,
         slug: `meal-${String(seed.ordinal)}`,
         description: `${seed.name}, made to order.`,

@@ -44,12 +44,16 @@ const TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
 
 const TAB_SELECTED: Readonly<Record<TabsVariant, string>> = {
     underline: 'border-stroke-focus',
-    segmented: 'bg-surface-base shadow-elevation-1',
+    // The subtle fill with its tested text pair, and brand-500 exactly where §1.3 keeps it — on a
+    // border (KITCHEN.md 7g: the selected window chip).
+    segmented: 'border border-brand-500 bg-surface-brand-subtle',
 };
 
 const TAB_UNSELECTED: Readonly<Record<TabsVariant, string>> = {
     underline: 'border-transparent',
-    segmented: 'bg-transparent',
+    // Transparent border, not none: a border that appears only on selection would shift the row's
+    // geometry by a pixel every time the choice changes.
+    segmented: 'border border-transparent bg-transparent',
 };
 
 /**
@@ -160,7 +164,11 @@ export function Tabs<T extends string = string>({
                                 name={item.icon}
                                 size="sm"
                                 className={
-                                    selected ? 'text-content-primary' : 'text-content-secondary'
+                                    selected
+                                        ? variant === 'segmented'
+                                            ? 'text-content-on-brand-subtle'
+                                            : 'text-content-primary'
+                                        : 'text-content-secondary'
                                 }
                             />
                         )}
@@ -169,7 +177,9 @@ export function Tabs<T extends string = string>({
                             className={cx(
                                 'text-sm text-center',
                                 selected
-                                    ? 'font-semibold text-content-primary'
+                                    ? variant === 'segmented'
+                                        ? 'font-semibold text-content-on-brand-subtle'
+                                        : 'font-semibold text-content-primary'
                                     : 'text-content-secondary',
                             )}
                         >

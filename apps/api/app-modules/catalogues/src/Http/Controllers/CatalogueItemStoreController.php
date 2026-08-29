@@ -36,6 +36,8 @@ final class CatalogueItemStoreController
 
         $item = $this->items->create($attributes);
 
+        $item->load('category');
+
         return ApiResponse::data(['item' => $this->presenter->item($item)], status: 201)
             ->withHeaders(['ETag' => '"'.$item->lock_version.'"']);
     }

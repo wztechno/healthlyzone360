@@ -266,6 +266,27 @@ export function authenticatedLandmark(page: Page): Locator {
  * raced the write and landed on a signed-out screen, which on a slow stack looked exactly like an
  * application bug. So: wait for an authenticated landmark to paint, and then for the credential to
  * actually be in `localStorage`.
+ *
+ * ## Two workers must never sign in as the same account at the same time
+ *
+ * This is the single most expensive thing to rediscover about this suite, so it is written down
+ * here rather than in one spec's header. Signing in *is* `POST /auth/token` — the web build has no
+ * cookie session of its own (`packages/api-client/src/api/repositories.ts`) — and it registers the
+ * device it is on, which for every browser on every machine is the same pair: `device_name`
+ * `"Healthy360 web"`, `platform` `web`. `DeviceRegistrar::register` treats a repeat registration of
+ * one device as a **rotation**: it deletes the token the device was carrying and issues a new one,
+ * so that a reinstall cannot leave an orphaned credential behind.
+ *
+ * The consequence for a parallel run is exact and unforgiving. Worker A signs in as
+ * `owner@verdant.test`; worker B signs in as `owner@verdant.test` a second later and A's bearer
+ * token is **deleted**; A's next `GET /me` answers `auth.unauthenticated`; `resolveSessionPhase`
+ * reads that one code as "you are signed out"; and A lands on the anonymous marketplace with a
+ * valid-looking token still in storage — which is precisely the failure the retry below exists to
+ * paper over, and which no amount of waiting or retrying can fix once two workers are racing.
+ *
+ * So a group of spec files that share one persona has to be run with `--workers=1`, exactly as
+ * `pnpm run e2e:write` already does for the mutating project. The three `kitchen-admin.*` files all
+ * sign in as {@link KITCHEN_OWNER} and are the current example.
  */
 export async function signIn(
     page: Page,
@@ -749,4 +770,18 @@ export async function emptyBasket(page: Page): Promise<void> {
         await first.click();
         await expect.poll(async () => removes.count()).toBeLessThan(before);
     }
+}
+
+/**
+ * Open a kitchen list's Filters disclosure.
+ *
+ * The status chips and the taxonomy select live inside a `Collapse` that is closed on arrival
+ * unless a filter is already applied (KITCHEN.md 7a — one toolbar row), so any spec that reaches
+ * for them makes the same move a person does: open the panel, then touch the filter. The wait is
+ * on the panel's mounted content, because the collapse animates and an unmounted chip would be
+ * clicked into nothing.
+ */
+export async function openListFilters(page: Page, toolbarTestID: string): Promise<void> {
+    await page.getByTestId(`${toolbarTestID}-filters`).click();
+    await expect(page.getByTestId(`${toolbarTestID}-filter-panel-content`)).toBeVisible();
 }

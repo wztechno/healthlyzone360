@@ -43,6 +43,7 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { stockItemLabel, supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
     buildGroups,
@@ -613,11 +614,11 @@ function SupplyOrderBuilder() {
 
     return (
         <Stack space="lg" testID="kitchen-supply-order-builder-screen">
-            <Inline space="sm" align="end" justify="between" wrap>
-                <Stack space="xs">
-                    <Heading level={1} testID="kitchen-supply-order-builder-title">
-                        {t('kitchen:ops.supplyOrders.builderTitle')}
-                    </Heading>
+            <KitchenPageHeader
+                testID="kitchen-supply-order-builder-header"
+                title={t('kitchen:ops.supplyOrders.builderTitle')}
+                titleTestID="kitchen-supply-order-builder-title"
+                meta={
                     <Text variant="caption" tone="secondary" testID="kitchen-supply-order-read-at">
                         {readAt === null
                             ? t('kitchen:ops.supplyOrders.readAtPending')
@@ -628,21 +629,23 @@ function SupplyOrderBuilder() {
                                   }),
                               })}
                     </Text>
-                </Stack>
-                <Button
-                    testID="kitchen-supply-order-refresh"
-                    variant="ghost"
-                    label={t('kitchen:ops.supplyOrders.refresh')}
-                    loading={proposal.isFetching}
-                    onPress={() => {
-                        if (touched) {
-                            setConfirmingRefresh(true);
-                            return;
-                        }
-                        refresh();
-                    }}
-                />
-            </Inline>
+                }
+                actions={
+                    <Button
+                        testID="kitchen-supply-order-refresh"
+                        variant="ghost"
+                        label={t('kitchen:ops.supplyOrders.refresh')}
+                        loading={proposal.isFetching}
+                        onPress={() => {
+                            if (touched) {
+                                setConfirmingRefresh(true);
+                                return;
+                            }
+                            refresh();
+                        }}
+                    />
+                }
+            />
 
             {branchId === null ? (
                 <EmptyState
@@ -775,7 +778,7 @@ function SupplyOrderBuilder() {
                     {plan.groups.length === 0 ? null : (
                         <View
                             testID="kitchen-supply-order-commit"
-                            className="flex-row flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1"
+                            className="flex-row flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
                         >
                             {/*
                              * Three counts as three complete phrases rather than one interpolated

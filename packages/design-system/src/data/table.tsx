@@ -71,6 +71,13 @@ export interface TableProps<Row> {
     readonly onSortChange?: ((key: string, direction: TableSortDirection) => void) | undefined;
     /** A trailing action column above `md`; a card footer below it. */
     readonly rowAction?: TableRowAction<Row> | undefined;
+    /**
+     * Per-row emphasis. `muted` dims the whole row (desktop) or card (mobile)
+     * — the affordance for a row that exists but must not be used, e.g. an
+     * inactive or retired catalogue entry. Content and actions stay rendered
+     * and reachable; only the emphasis changes.
+     */
+    readonly rowTone?: ((row: Row) => 'default' | 'muted') | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -115,6 +122,7 @@ export function Table<Row>({
     sortDirection = 'asc',
     onSortChange,
     rowAction,
+    rowTone,
     className,
     testID,
 }: TableProps<Row>) {
@@ -224,7 +232,10 @@ export function Table<Row>({
                                 key={rowKey(row)}
                                 testID={`${base}-card-${rowKey(row)}`}
                                 role="listitem"
-                                className="flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3"
+                                className={cx(
+                                    'flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3',
+                                    rowTone?.(row) === 'muted' && 'opacity-60',
+                                )}
                             >
                                 {columns.map((column) => (
                                     <View
@@ -398,7 +409,10 @@ export function Table<Row>({
                             key={rowKey(row)}
                             testID={`${base}-row-${rowKey(row)}`}
                             role="row"
-                            className="flex-row items-center gap-3 border-b border-surface-sunken px-1 py-3"
+                            className={cx(
+                                'flex-row items-center gap-3 border-b border-surface-sunken px-1 py-3',
+                                rowTone?.(row) === 'muted' && 'opacity-60',
+                            )}
                         >
                             {columns.map((column) => (
                                 <View

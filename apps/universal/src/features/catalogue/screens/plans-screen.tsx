@@ -1,8 +1,8 @@
-import { Breadcrumbs, Button, Inline, Select, Stack, Tabs, Text } from '@healthy360/design-system';
+import { Button, Collapse, Select, Stack, Tabs } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDietCategoriesQuery, usePlansQuery } from '../../../data/catalogue-hooks.ts';
@@ -21,11 +21,13 @@ import {
     toPlanFilter,
 } from '../plan-catalogue.ts';
 import type { PlanSort } from '../plan-catalogue.ts';
+import { ToolbarRow } from '../../marketplace/toolbar-row.tsx';
+import type { ActiveFilterChip } from '../../marketplace/toolbar-row.tsx';
+import { PageHero } from '../../../ui/page-hero.tsx';
 import { NutritionMethodologyNotice } from '../nutrition-methodology-notice.tsx';
 import { PlanCard } from '../plan-card.tsx';
 import { PlanComparisonTray } from '../plan-comparison-tray.tsx';
 import { PlanRecommendationCta } from '../plan-recommendation-cta.tsx';
-import { PlansHero } from '../plans-hero.tsx';
 
 /**
  * `/plans` — the subscription-plan catalogue.
@@ -174,18 +176,70 @@ export function PlansScreen() {
         label: t(`catalogue:plans.sort.${value}`),
     }));
 
-    const resultSummary = t('catalogue:plans.resultSummary', {
-        count: items.length,
+    // "Showing 6 of 18 · 4 kitchens" — shown, the whole catalogue, and the spread (§8: a count
+    // states a total). The total is the unfiltered listing, which this screen already fetches.
+    const resultSummary = t('catalogue:plans.showing', {
+        shown: items.length,
+        total: allPlans.data?.items.length ?? items.length,
         kitchens: t('catalogue:plans.kitchenCount', {
             count: distinctKitchenIds(items).length,
         }),
     });
 
+    // Closed on arrival unless a filter is already applied — the /meals behaviour. The category
+    // lives in its own tab strip, so it neither opens the panel nor becomes a chip.
+    const [showFilters, setShowFilters] = useState(
+        query !== '' || kitchenIds.length > 0 || calorie !== undefined,
+    );
+
+    const activeChips: readonly ActiveFilterChip[] = useMemo(() => {
+        const chips: ActiveFilterChip[] = [];
+        if (query !== '') {
+            chips.push({
+                key: 'query',
+                label: query,
+                removeLabel: t('catalogue:filters.removeFilter', { filter: query }),
+                onRemove: () => {
+                    filters.setQuery('');
+                },
+            });
+        }
+        for (const id of kitchenIds) {
+            const label = kitchenNameById.get(id) ?? id;
+            chips.push({
+                key: `kitchen-${id}`,
+                label,
+                removeLabel: t('catalogue:filters.removeFilter', { filter: label }),
+                onRemove: () => {
+                    filters.toggle('kitchen', id, false);
+                },
+            });
+        }
+        if (calorie !== undefined) {
+            const label = t(`catalogue:plans.calorie.${calorie}`);
+            chips.push({
+                key: 'calorie',
+                label,
+                removeLabel: t('catalogue:filters.removeFilter', { filter: label }),
+                onRemove: () => {
+                    filters.select('calorie', null);
+                },
+            });
+        }
+        return chips;
+    }, [query, kitchenIds, calorie, kitchenNameById, filters, t]);
+
     return (
         <Stack space="xl" testID="plans-screen">
-            <Breadcrumbs
-                testID="plans-breadcrumbs"
-                items={[
+            {/*
+             * Rule 3: the page opens with weight. The canopy band replaces the green-to-violet
+             * banner this screen carried — violet is machine-origin's colour (Rule 5), and a
+             * catalogue hero has no claim on it. Breadcrumbs move inside the band, the two
+             * orientation CTAs take the trailing rail, and the trust lines become its chips.
+             */}
+            <PageHero
+                testID="plans"
+                breadcrumbs={[
                     {
                         key: 'home',
                         label: t('catalogue:nav.home'),
@@ -195,19 +249,35 @@ export function PlansScreen() {
                     },
                     { key: 'plans', label: t('catalogue:nav.plans') },
                 ]}
-            />
-
-            <PlansHero
-                onHowItWorks={() => {
-                    router.push('/how-it-works');
-                }}
-                {...(isFeatureAvailable('dietitianDirectory')
-                    ? {
-                          onSpeakToDietitian: () => {
-                              router.push('/dietitians');
-                          },
-                      }
-                    : {})}
+                title={t('catalogue:plans.title')}
+                subtitle={t('catalogue:plans.subtitle')}
+                chips={[
+                    t('catalogue:plans.trust.reviewed'),
+                    t('catalogue:plans.trust.kitchens'),
+                    t('catalogue:plans.trust.flexible'),
+                ]}
+                trailing={
+                    <Stack space="sm">
+                        <Button
+                            testID="plans-hero-how"
+                            variant="secondary"
+                            label={t('catalogue:plans.heroHowItWorks')}
+                            onPress={() => {
+                                router.push('/how-it-works');
+                            }}
+                        />
+                        {isFeatureAvailable('dietitianDirectory') ? (
+                            <Button
+                                testID="plans-hero-dietitian"
+                                variant="secondary"
+                                label={t('catalogue:plans.heroSpeakToDietitian')}
+                                onPress={() => {
+                                    router.push('/dietitians');
+                                }}
+                            />
+                        ) : null}
+                    </Stack>
+                }
             />
 
             <Stack space="md" testID="plans-toolbar">
@@ -239,35 +309,55 @@ export function PlansScreen() {
                     />
                 )}
 
-                <FilterBar
-                    testID="plans-filter"
-                    state={filters}
-                    searchLabel={t('catalogue:plans.searchLabel')}
-                    searchPlaceholder={t('catalogue:plans.searchPlaceholder')}
-                    groups={groups}
+                {/* Rule 2: one row — the disclosure, the filters in force, the count stating a
+                    total, and the sort share a baseline. The search lives inside the panel here
+                    (the hero's rail carries CTAs, not a search box), so an applied query stays
+                    visible as a removable chip on the row. */}
+                <ToolbarRow
+                    testID="plans-toolbar-row"
+                    countTestID="plans-result-summary"
+                    filtersLabel={
+                        activeChips.length === 0
+                            ? t('catalogue:plans.filters')
+                            : t('catalogue:plans.filtersActive', { n: activeChips.length })
+                    }
+                    filtersActive={activeChips.length}
+                    filtersExpanded={showFilters}
+                    filtersPanelId="plans-filter-panel"
+                    onToggleFilters={() => {
+                        setShowFilters((open) => !open);
+                    }}
+                    activeFilters={activeChips}
+                    onClearAll={filters.clear}
+                    clearAllLabel={t('catalogue:filters.clear')}
+                    resultSummary={resultSummary}
+                    sort={
+                        <Select<PlanSort>
+                            testID="plans-sort"
+                            label={t('catalogue:plans.sortLabel')}
+                            options={sortOptions}
+                            value={sort}
+                            onChange={(next) => {
+                                router.setParams({ sort: next });
+                            }}
+                            className="min-w-[220px]"
+                        />
+                    }
                 />
 
-                <Inline space="sm" align="center" justify="between" wrap testID="plans-result-bar">
-                    <Text
-                        testID="plans-result-summary"
-                        role="status"
-                        aria-live="polite"
-                        tone="secondary"
-                        variant="caption"
-                    >
-                        {resultSummary}
-                    </Text>
-                    <Select<PlanSort>
-                        testID="plans-sort"
-                        label={t('catalogue:plans.sortLabel')}
-                        options={sortOptions}
-                        value={sort}
-                        onChange={(next) => {
-                            router.setParams({ sort: next });
-                        }}
-                        className="min-w-[220px]"
+                <Collapse
+                    open={showFilters}
+                    nativeID="plans-filter-panel"
+                    testID="plans-filter-panel"
+                >
+                    <FilterBar
+                        testID="plans-filter"
+                        state={filters}
+                        searchLabel={t('catalogue:plans.searchLabel')}
+                        searchPlaceholder={t('catalogue:plans.searchPlaceholder')}
+                        groups={groups}
                     />
-                </Inline>
+                </Collapse>
             </Stack>
 
             <QueryStates

@@ -174,6 +174,7 @@ function OrderDeskRequirements() {
             key: 'required',
             header: t('kitchen:ops.requirements.columnRequired'),
             numeric: true,
+            primary: true,
             render: (row) => (
                 <Text testID={`${rowTestId(row)}-required`}>{quantity(row.required)}</Text>
             ),

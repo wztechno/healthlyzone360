@@ -4,6 +4,7 @@ import type { Page } from '@playwright/test';
 import {
     APP_URL,
     KITCHEN_OWNER,
+    openListFilters,
     probeStack,
     selectVerdantKitchenContext,
     signIn,
@@ -110,6 +111,7 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await page.getByTestId('kitchen-family-ingredients-open').click();
 
         await expect(page.getByTestId('kitchen-ingredients-title')).toContainText(ARABIC_SCRIPT);
+        await openListFilters(page, 'kitchen-ingredients-toolbar');
         await expect(page.getByTestId('kitchen-ingredients-toolbar-status-label')).toContainText(
             ARABIC_SCRIPT,
         );

@@ -1,16 +1,11 @@
-import {
-    EmptyState,
-    FadeIn,
-    Heading,
-    PageTransition,
-    Stack,
-    Text,
-    useMotion,
-} from '@healthy360/design-system';
+import { EmptyState, FadeIn, PageTransition, Stack, useMotion } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+
+import { KitchenPageHeader } from './kitchen-page-header.tsx';
+import { KpiTile } from './kpi-tile.tsx';
 
 /**
  * Shared chrome for stock / procurement / production / QC.
@@ -37,6 +32,10 @@ export interface OpsPanelProps {
     readonly metrics: readonly OpsMetric[];
     readonly emptyTitleKey: string;
     readonly emptyBodyKey: string;
+    /** Status badge beside the title, where the board has a state ("1 item short"). */
+    readonly statusChip?: ReactNode | undefined;
+    /** Right-aligned on the title row. One primary maximum (Rule 4). */
+    readonly actions?: ReactNode | undefined;
     readonly children?: ReactNode | undefined;
 }
 
@@ -52,20 +51,11 @@ function MetricSlot({
     const formatter = useFormatter();
 
     return (
-        <View
+        <KpiTile
             testID={testID}
-            className="min-h-[88px] flex-1 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
-        >
-            <Text
-                testID={`${testID}-value`}
-                className="font-display text-[25px] font-bold text-content-primary"
-            >
-                {value === null ? '—' : formatter.formatNumber(value)}
-            </Text>
-            <Text tone="secondary" variant="caption" className="mt-0.5">
-                {label}
-            </Text>
-        </View>
+            label={label}
+            value={value === null ? null : formatter.formatNumber(value)}
+        />
     );
 }
 
@@ -76,6 +66,8 @@ export function OpsPanel({
     metrics,
     emptyTitleKey,
     emptyBodyKey,
+    statusChip,
+    actions,
     children,
 }: OpsPanelProps) {
     const { t } = useTranslation();
@@ -85,14 +77,15 @@ export function OpsPanel({
         <PageTransition testID={testID} transitionKey={testID}>
             <Stack space="lg">
                 <FadeIn delayMs={stagger(0)}>
-                    <Stack space="xs">
-                        <Heading level={1} testID={`${testID}-title`}>
-                            {t(titleKey)}
-                        </Heading>
-                        <Text tone="secondary" testID={`${testID}-subtitle`}>
-                            {t(subtitleKey)}
-                        </Text>
-                    </Stack>
+                    <KitchenPageHeader
+                        testID={`${testID}-header`}
+                        title={t(titleKey)}
+                        subtitle={t(subtitleKey)}
+                        titleTestID={`${testID}-title`}
+                        subtitleTestID={`${testID}-subtitle`}
+                        statusChip={statusChip}
+                        actions={actions}
+                    />
                 </FadeIn>
 
                 <FadeIn delayMs={stagger(1)} testID={`${testID}-metrics`}>
@@ -109,7 +102,7 @@ export function OpsPanel({
                 </FadeIn>
 
                 <FadeIn delayMs={stagger(2)}>
-                    <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1 md:p-5">
+                    <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card md:p-5">
                         {children ?? (
                             <EmptyState
                                 testID={`${testID}-empty`}

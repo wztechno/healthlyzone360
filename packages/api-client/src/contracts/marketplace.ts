@@ -128,8 +128,14 @@ export interface MarketplaceMeal {
     readonly id: MealId;
     readonly kitchenId: KitchenId;
     readonly kitchenName: string;
-    /** Prepared meal or sellable product (sauce, frozen pack, and so on). */
-    readonly itemType: 'meal' | 'product';
+    /** Prepared meal, resold product, kitchen-made sauce, or dressing. */
+    readonly itemType: 'meal' | 'product' | 'sauce' | 'dressing';
+    /**
+     * The customer-facing shelf this listing is published under, from the
+     * platform product taxonomy. `null` when the kitchen has not filed it
+     * anywhere. Filter with {@link MealFilter.categorySlug}.
+     */
+    readonly publishedCategory: { readonly code: string; readonly name: string } | null;
     readonly name: string;
     readonly slug: string;
     readonly description: string;
@@ -253,8 +259,10 @@ export interface KitchenFilter extends CursorPageRequest {
 export interface MealFilter extends CursorPageRequest {
     readonly query?: string | undefined;
     readonly kitchenIds?: readonly KitchenId[] | undefined;
-    /** Restrict to `meal`, `product`, or both. Omit for both. */
-    readonly itemTypes?: readonly ('meal' | 'product')[] | undefined;
+    /** Restrict to any of `meal`, `product`, `sauce`, `dressing`. Omit for all. */
+    readonly itemTypes?: readonly ('meal' | 'product' | 'sauce' | 'dressing')[] | undefined;
+    /** One published-category code; an unknown code matches nothing. */
+    readonly categorySlug?: string | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
     readonly cuisines?: readonly string[] | undefined;

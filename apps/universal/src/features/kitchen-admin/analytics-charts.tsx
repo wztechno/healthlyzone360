@@ -23,7 +23,7 @@ export function ChartFrame({ testID, title, children }: ChartFrameProps) {
     return (
         <View
             testID={testID}
-            className="min-h-[280px] flex-1 basis-[280px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+            className="min-h-[280px] flex-1 basis-[280px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
         >
             <Text className="mb-3 font-display text-base font-bold text-content-primary">
                 {title}

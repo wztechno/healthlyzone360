@@ -37,7 +37,7 @@ final class CatalogueItemIndexController
      */
     public function __invoke(Request $request): JsonResponse
     {
-        $query = CatalogueItem::query();
+        $query = CatalogueItem::query()->with('category');
 
         $this->applyStatus($request, $query);
         $this->applyType($request, $query);
@@ -116,7 +116,7 @@ final class CatalogueItemIndexController
         if (! is_string($type) || CatalogueItemType::tryFrom($type) === null) {
             throw new ApiException(
                 ErrorCode::RequestInvalid,
-                'The item_type filter must be one of: product, meal, subscription_plan.',
+                'The item_type filter must be one of: product, meal, subscription_plan, sauce, dressing.',
                 ['parameter' => 'item_type'],
             );
         }

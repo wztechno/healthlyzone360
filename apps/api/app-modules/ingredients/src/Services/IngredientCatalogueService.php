@@ -57,6 +57,10 @@ final readonly class IngredientCatalogueService
      *     ingredient_category_id?: string|null,
      *     ingredient_subcategory_id?: string|null,
      *     default_unit_id: string,
+     *     purchase_unit_id?: string|null,
+     *     composition?: string|null,
+     *     items_per_unit?: float|string|null,
+     *     nutrition_per_100g?: array<string, mixed>|null,
      *     yield_factor?: float|string|null,
      *     availability_tier?: string|null,
      *     notes?: string|null
@@ -77,6 +81,10 @@ final readonly class IngredientCatalogueService
         $ingredient->ingredient_category_id = $attributes['ingredient_category_id'] ?? null;
         $ingredient->ingredient_subcategory_id = $attributes['ingredient_subcategory_id'] ?? null;
         $ingredient->default_unit_id = $attributes['default_unit_id'];
+        $ingredient->purchase_unit_id = $attributes['purchase_unit_id'] ?? null;
+        $ingredient->composition = $this->trimmedOrNull($attributes['composition'] ?? null);
+        $ingredient->items_per_unit = isset($attributes['items_per_unit']) ? (string) $attributes['items_per_unit'] : null;
+        $ingredient->nutrition_per_100g = $attributes['nutrition_per_100g'] ?? null;
         $ingredient->yield_factor = (string) ($attributes['yield_factor'] ?? 1);
         $ingredient->availability_tier = AvailabilityTier::tryFrom((string) ($attributes['availability_tier'] ?? ''));
 
@@ -116,7 +124,7 @@ final readonly class IngredientCatalogueService
 
         $changes = [];
 
-        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'yield_factor', 'availability_tier', 'notes'] as $field) {
+        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'nutrition_per_100g', 'yield_factor', 'availability_tier', 'notes'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
@@ -127,7 +135,7 @@ final readonly class IngredientCatalogueService
                 $value = trim($value);
             }
 
-            if ($field === 'notes' && $value === '') {
+            if (in_array($field, ['notes', 'composition'], true) && $value === '') {
                 $value = null;
             }
 

@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 
 import {
     KITCHEN_OWNER,
+    openListFilters,
     probeStack,
     selectVerdantKitchenContext,
     signIn,
@@ -223,6 +224,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
 
     test('the ingredient list with its searchable category filter open', async ({ page }) => {
         await openIngredients(page);
+        await openListFilters(page, 'kitchen-ingredients-toolbar');
         await page.getByTestId('kitchen-ingredients-toolbar-category-trigger').click();
         await expect(page.getByTestId('kitchen-ingredients-toolbar-category-list')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-ingredients-category-select');
@@ -341,18 +343,29 @@ test.describe('kitchen workspace accessibility (axe)', () => {
      * (`chicken-freekeh-bowl`) rather than on one this sweep created. The dialog is opened and never
      * confirmed, so nothing is published.
      */
-    test('the meal publish confirmation, where the consequence is stated before it is agreed', async ({
+    test('the meal publication gate, its failing check and the publish confirmation', async ({
         page,
     }) => {
         await openMeals(page);
+        await openListFilters(page, 'kitchen-meals-toolbar');
         await page.getByTestId('kitchen-meals-toolbar-status-draft').click();
         await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-open"]').first().click();
         await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();
-        await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible();
 
-        await page.getByTestId('kitchen-meal-publish').click();
-        await expect(page.getByTestId('kitchen-meal-publish-dialog')).toBeVisible();
-        await expectNoSeriousViolations(page, 'kitchen-meal-publish-dialog');
+        // The gate rail is the state worth sweeping on the seeded blocked draft: pass/fail rows,
+        // the amber explainer, and Publish visibly disabled while a check fails.
+        await expect(page.getByTestId('kitchen-meal-gate')).toBeVisible();
+        await expect(page.getByTestId('kitchen-meal-publish')).toBeVisible();
+        await expectNoSeriousViolations(page, 'kitchen-meal-gate-rail');
+
+        // The dialog exists only behind an *enabled* Publish. This project is read-only by the
+        // doctrine above, so the gate is never saved into passing here — when the first draft's
+        // gate fails, the dialog is covered by the write spec's own publish journeys instead.
+        if (await page.getByTestId('kitchen-meal-publish').isEnabled()) {
+            await page.getByTestId('kitchen-meal-publish').click();
+            await expect(page.getByTestId('kitchen-meal-publish-dialog')).toBeVisible();
+            await expectNoSeriousViolations(page, 'kitchen-meal-publish-dialog');
+        }
     });
 
     test('the withdraw confirmation, which removes a meal from every consumer surface', async ({
@@ -417,6 +430,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         // Publication is one-way on a shared database, so the write spec may have consumed the one
         // draft tariff — in which case there is no dialog to sweep and saying so beats a red.
         await openPriceLists(page);
+        await openListFilters(page, 'kitchen-price-lists-toolbar');
         await page.getByTestId('kitchen-price-lists-toolbar-status-draft').click();
         const drafts = page.locator('[data-testid^="kitchen-price-list-"][data-testid$="-open"]');
         test.skip(
@@ -491,6 +505,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         page,
     }) => {
         await openPlans(page);
+        await openListFilters(page, 'kitchen-plans-toolbar');
         await page.getByTestId('kitchen-plans-toolbar-status-draft').click();
         await page.locator('[data-testid^="kitchen-plan-"][data-testid$="-open"]').first().click();
         await expect(page.getByTestId('kitchen-plan-editor-screen')).toBeVisible();

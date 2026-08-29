@@ -5,7 +5,6 @@ import {
     Card,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -34,6 +33,7 @@ import {
     statusTone,
     summarisePriceEntries,
 } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -318,14 +318,15 @@ function PriceListsList() {
 
     return (
         <Stack space="lg" testID="kitchen-price-lists-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-price-lists-title">
-                    {t('kitchen:priceLists.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-price-lists-subtitle">
-                    {t('kitchen:priceLists.subtitle')}
-                </Text>
-            </Stack>
+            {/* No create action: the contract has no `createPriceList`, so the title row's
+                primary slot stays empty rather than promoting something else into it. */}
+            <KitchenPageHeader
+                testID="kitchen-price-lists-header"
+                title={t('kitchen:priceLists.title')}
+                subtitle={t('kitchen:priceLists.subtitle')}
+                titleTestID="kitchen-price-lists-title"
+                subtitleTestID="kitchen-price-lists-subtitle"
+            />
 
             <ListToolbar
                 testID="kitchen-price-lists-toolbar"
@@ -334,12 +335,14 @@ function PriceListsList() {
                 statuses={statuses}
                 onStatusesChange={setStatuses}
                 statusOptions={PRICE_LIST_STATUS_FILTERS}
-                // No create control: the contract has no `createPriceList`. The label is required by
-                // the toolbar's shape and is never rendered without `onCreate`.
-                createLabel={t('kitchen:priceLists.title')}
                 {...(priceLists.isPending || total === null
                     ? {}
-                    : { resultSummary: t('kitchen:priceLists.resultCount', { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {priceLists.isPending ? (

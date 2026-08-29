@@ -368,7 +368,9 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 // query so they cannot disagree, and the only way a client-side fold would differ
                 // is by grouping on method alone and adding two currencies together.
                 totals: payload.data.totals.map(mapOrderDeskCashReportTotal),
-                meta: mapOrderDeskCashReportMeta(payload.meta as OrderDeskCashReportEnvelope['meta']),
+                meta: mapOrderDeskCashReportMeta(
+                    payload.meta as OrderDeskCashReportEnvelope['meta'],
+                ),
             };
         },
 

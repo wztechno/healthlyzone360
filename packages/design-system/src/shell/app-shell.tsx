@@ -37,6 +37,11 @@ export interface NavigationItem {
      * short for headings to buy anything.
      */
     readonly group?: string | undefined;
+    /**
+     * Trailing slot on the item row — a count badge for a queue destination. Honoured by the
+     * sidebar and the drawer; the rail and the bottom tabs have no room for one.
+     */
+    readonly badge?: ReactNode | undefined;
     readonly onPress: () => void;
     readonly testID?: string | undefined;
 }
@@ -57,6 +62,26 @@ export interface AppShellProps {
     /** Full-width strip above everything: offline indicator, mock-data banner. */
     readonly banner?: ReactNode | undefined;
     readonly footer?: ReactNode | undefined;
+    /**
+     * Sidebar width in pixels. Applied as a style so the default `w-[260px]`/`w-[88px]` classes —
+     * and the suites that assert them — stay exactly as they are when this is not passed.
+     */
+    readonly sidebarWidth?: number | undefined;
+    /** Absolute-fill layer behind the sidebar's content — a gradient over the flat canopy. */
+    readonly sidebarBackground?: ReactNode | undefined;
+    /** Above the sidebar's navigation — a brand block. Sidebar only; the drawer has a title bar. */
+    readonly sidebarStart?: ReactNode | undefined;
+    /**
+     * Pinned at the bottom of the sidebar — a sign-out control. Sidebar only: the drawer is a
+     * light overlay, and a canopy-styled control inside it would be mint on white. Below `lg`
+     * the caller keeps such a control in the top bar instead.
+     */
+    readonly sidebarEnd?: ReactNode | undefined;
+    /**
+     * `auth` variant only: a brand panel beside the card from `lg` up — the split-panel auth
+     * opening. Dropped below `lg`, where the centred card keeps the whole width.
+     */
+    readonly authAside?: ReactNode | undefined;
     readonly contentClassName?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -99,6 +124,11 @@ export function AppShell({
     topbarEnd,
     banner,
     footer,
+    sidebarWidth,
+    sidebarBackground,
+    sidebarStart,
+    sidebarEnd,
+    authAside,
     contentClassName,
     testID,
 }: AppShellProps) {
@@ -120,28 +150,38 @@ export function AppShell({
         return (
             <View testID={testID} className="flex-1 bg-surface-sunken">
                 {banner}
-                <ScrollView contentContainerClassName="flex-grow items-center justify-center p-4">
-                    <View
-                        testID={testID === undefined ? undefined : `${testID}-card`}
-                        role="main"
-                        className={cx(
-                            'w-full max-w-[440px] flex-col gap-6 rounded-xl bg-surface-base p-6 shadow-elevation-2',
-                            contentClassName,
-                        )}
-                    >
-                        {title === undefined ? null : (
-                            <RNText
-                                accessibilityRole="header"
-                                aria-level={1}
-                                className="text-2xl font-semibold text-content-primary text-start"
-                            >
-                                {title}
-                            </RNText>
-                        )}
-                        {children}
-                    </View>
-                    {footer}
-                </ScrollView>
+                <View className="flex-1 flex-row">
+                    {authAside !== undefined && wideEnoughForSidebar ? (
+                        <View
+                            testID={testID === undefined ? undefined : `${testID}-aside`}
+                            className="w-[440px] shrink-0 overflow-hidden"
+                        >
+                            {authAside}
+                        </View>
+                    ) : null}
+                    <ScrollView contentContainerClassName="flex-grow items-center justify-center p-4">
+                        <View
+                            testID={testID === undefined ? undefined : `${testID}-card`}
+                            role="main"
+                            className={cx(
+                                'w-full max-w-[440px] flex-col gap-6 rounded-xl bg-surface-base p-6 shadow-elevation-2',
+                                contentClassName,
+                            )}
+                        >
+                            {title === undefined ? null : (
+                                <RNText
+                                    accessibilityRole="header"
+                                    aria-level={1}
+                                    className="text-2xl font-semibold text-content-primary text-start"
+                                >
+                                    {title}
+                                </RNText>
+                            )}
+                            {children}
+                        </View>
+                        {footer}
+                    </ScrollView>
+                </View>
             </View>
         );
     }
@@ -319,6 +359,7 @@ export function AppShell({
                         {item.label}
                     </RNText>
                 )}
+                {compact ? null : item.badge}
             </Pressable>
         );
 
@@ -373,11 +414,21 @@ export function AppShell({
         <View
             testID={testID === undefined ? undefined : `${testID}-sidebar`}
             className={cx(
-                'h-full bg-surface-canopy',
+                'h-full flex-col overflow-hidden bg-surface-canopy',
                 variant === 'rail' ? 'w-[88px]' : 'w-[260px]',
             )}
+            style={sidebarWidth === undefined ? undefined : { width: sidebarWidth }}
         >
-            {navigationList(variant === 'rail', 'canopy')}
+            {sidebarBackground === undefined ? null : (
+                <View className="absolute inset-0" pointerEvents="none">
+                    {sidebarBackground}
+                </View>
+            )}
+            {sidebarStart}
+            {/* The list scrolls; the brand block above and the control below stay put. A
+                workspace rail of thirty destinations is taller than most viewports. */}
+            <ScrollView className="flex-1">{navigationList(variant === 'rail', 'canopy')}</ScrollView>
+            {sidebarEnd}
         </View>
     );
 

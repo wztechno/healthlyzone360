@@ -244,11 +244,14 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
         {
             key: 'unitPrice',
             header: t('kitchen:ops.ledger.columnUnitPrice'),
+            numeric: true,
             render: (row) => <Text>{money(row.unitPriceAmount, row.costCurrencyCode)}</Text>,
         },
         {
             key: 'lineTotal',
             header: t('kitchen:ops.ledger.columnLineTotal'),
+            numeric: true,
+            primary: true,
             render: (row) => (
                 <Text variant="bodyStrong" testID={`kitchen-ledger-${row.id}-total`}>
                     {money(row.lineTotalAmount, row.costCurrencyCode)}
@@ -483,7 +486,7 @@ function PeriodCard({
     return (
         <View
             testID={`kitchen-ledger-period-${period.period}`}
-            className="gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+            className="gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
         >
             <Inline space="sm" align="center" wrap>
                 <Stack space="none" className="min-w-0 flex-1">

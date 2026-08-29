@@ -1,16 +1,9 @@
-import {
-    Badge,
-    Button,
-    Dialog,
-    Heading,
-    Inline,
-    PageTransition,
-    Stack,
-} from '@healthy360/design-system';
+import { Badge, Button, Dialog, Inline, PageTransition, Stack } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { KitchenPageHeader } from './kitchen-page-header.tsx';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
 /**
@@ -77,23 +70,26 @@ export function OpsRecordFrame({
     return (
         <PageTransition testID={testID} transitionKey={testID}>
             <Stack space="lg">
-                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1">
-                    <Stack space="sm">
-                        <Button
-                            testID={`${testID}-back`}
-                            variant="ghost"
-                            size="sm"
-                            label={backLabel}
-                            onPress={() => {
-                                guard.intercept(onBack);
-                            }}
-                        />
-
-                        <Heading level={1} testID={`${testID}-title`}>
-                            {title}
-                        </Heading>
-
-                        {guard.isDirty ? (
+                <KitchenPageHeader
+                    testID={`${testID}-header`}
+                    variant="band"
+                    title={title}
+                    titleTestID={`${testID}-title`}
+                    back={
+                        <View className="flex-row">
+                            <Button
+                                testID={`${testID}-back`}
+                                variant="ghost"
+                                size="sm"
+                                label={backLabel}
+                                onPress={() => {
+                                    guard.intercept(onBack);
+                                }}
+                            />
+                        </View>
+                    }
+                    meta={
+                        guard.isDirty ? (
                             <Inline space="sm" align="center" wrap>
                                 <Badge
                                     testID={`${testID}-dirty`}
@@ -102,9 +98,9 @@ export function OpsRecordFrame({
                                     label={t('kitchen:editor.unsaved')}
                                 />
                             </Inline>
-                        ) : null}
-                    </Stack>
-                </View>
+                        ) : undefined
+                    }
+                />
 
                 {banner}
 
@@ -114,7 +110,7 @@ export function OpsRecordFrame({
 
                 <View
                     testID={`${testID}-actions`}
-                    className="flex-row flex-wrap items-center justify-end gap-2 rounded-xl border border-brand-100 bg-surface-raised p-3 shadow-elevation-1"
+                    className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
                 >
                     {primaryAction}
                     {hideSave ? null : (

@@ -47,6 +47,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $description_en
  * @property string|null $description_ar
  * @property string|null $product_category_id
+ * @property string|null $composition
+ * @property string|null $kitchen_category
+ * @property string|null $kitchen_subcategory
  * @property ProductionMode|null $production_mode
  * @property string|null $recipe_id
  * @property string|null $ingredient_id

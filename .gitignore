@@ -14,6 +14,7 @@ build/
 .expo/
 
 # Logs and caches
+__pycache__/
 *.log
 .phpunit.cache/
 .phpunit.result.cache

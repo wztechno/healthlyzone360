@@ -61,6 +61,7 @@ class MeasurementUnitSeeder extends Seeder
         ['code' => 'can', 'dimension' => 'package', 'unit_system' => 'packaging', 'base_ratio' => '1', 'name_en' => 'Can', 'name_ar' => 'علبة'],
         ['code' => 'bag', 'dimension' => 'package', 'unit_system' => 'packaging', 'base_ratio' => '1', 'name_en' => 'Bag', 'name_ar' => 'كيس'],
         ['code' => 'bottle', 'dimension' => 'package', 'unit_system' => 'packaging', 'base_ratio' => '1', 'name_en' => 'Bottle', 'name_ar' => 'زجاجة'],
+        ['code' => 'pack', 'dimension' => 'package', 'unit_system' => 'packaging', 'base_ratio' => '1', 'name_en' => 'Pack', 'name_ar' => 'عبوة'],
     ];
 
     public function run(): void

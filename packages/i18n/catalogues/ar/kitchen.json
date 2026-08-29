@@ -69,6 +69,7 @@
         "railTitle": "المطبخ",
         "overview": "نظرة عامة",
         "groups": {
+            "workspace": "مساحة العمل",
             "orderDesk": "مكتب الطلبات",
             "workbench": "منصة العمل",
             "catalogue": "الكتالوج",
@@ -277,6 +278,7 @@
             "adjustHint": "أدخل الكمية المراد إضافتها أو خصمها.",
             "adjustedToast": "تم تعديل مخزون {{name}}.",
             "wastedToast": "تم تسجيل هدر لـ {{name}}.",
+            "columnLevel": "المستوى",
             "columnThreshold": "حد إعادة الطلب",
             "noThreshold": "بلا حد",
             "lowBadge": "منخفض",
@@ -1018,6 +1020,10 @@
             "dataQualityBody_many": "{{count}} شهرًا به استثناءات استهلاك غير محلولة، لذا فإن تكلفة البضاعة المُباعة فيها أقل من الواقع.",
             "dataQualityBody_other": "{{count}} شهر به استثناءات استهلاك غير محلولة، لذا فإن تكلفة البضاعة المُباعة فيها أقل من الواقع.",
             "flagged": "أقل من الواقع",
+            "hintSpend": "ما وصل هذا الشهر",
+            "hintCogs": "ما استهلكته الطلبات المؤكدة",
+            "hintRevenue": "المبيعات عبر كل الدفاتر",
+            "hintMargin": "بعد تكلفة البضاعة",
             "tileSpend": "الإنفاق · {{month}}",
             "tileCogs": "تكلفة البضاعة · {{month}}",
             "tileRevenue": "الإيراد · {{month}}",
@@ -1618,6 +1624,14 @@
         "orderCashReport": {
             "name": "المبالغ المستلمة",
             "description": "ما استلمه كل موظف في يوم، وكيف وصل — السجل خلف الصندوق، إلى أن تصبح هناك وردية تُغلق."
+        },
+        "sauces": {
+            "name": "الصلصات والتتبيلات",
+            "description": "الصلصات والتتبيلات المصنوعة في المطبخ، بعبواتها وأسعارها."
+        },
+        "dressings": {
+            "name": "صلصات السلطة",
+            "description": "صلصات السلطة المصنوعة في المطبخ، بعبواتها وأسعارها."
         }
     },
     "analytics": {
@@ -1773,6 +1787,10 @@
         }
     },
     "toolbar": {
+        "filters": "عوامل التصفية",
+        "filtersActive": "عوامل التصفية ({{n}})",
+        "removeFilter": "إزالة عامل التصفية: {{filter}}",
+        "showing": "تعرض {{shown}} من {{total}}",
         "searchLabel": "بحث",
         "searchPlaceholder": "الاسم أو اسم بديل أو المرجع",
         "statusLabel": "الحالة",
@@ -1791,6 +1809,7 @@
         "title": "المكوّنات",
         "subtitle": "المكتبة المشتركة إضافةً إلى كل ما أضافه هذا المطبخ أو غيّره.",
         "caption": "المكوّنات",
+        "tableProvenance": "الطاقة والمغذيات الكبرى تأتي من نسخة الوصفة المرتبطة — عدّلها هناك، لا هنا.",
         "columnName": "الاسم",
         "columnCategory": "الفئة",
         "columnAllergens": "مسبّبات الحساسية",
@@ -1863,7 +1882,15 @@
         "unit": "وحدة الصرف",
         "unitHint": "الوحدة التي يُشترى بها هذا المكوّن ويُصرف.",
         "notes": "ملاحظات",
-        "notesHint": "كل ما يحتاج الشخص التالي إلى معرفته. ولا يغني هذا أبدًا عن ربط مسبّبات الحساسية."
+        "notesHint": "كل ما يحتاج الشخص التالي إلى معرفته. ولا يغني هذا أبدًا عن ربط مسبّبات الحساسية.",
+        "purchaseUnit": "عبوة الشراء",
+        "purchaseUnitHint": "العبوة التي يُشترى بها؛ الوحدة أعلاه تبقى وحدة الاستخدام.",
+        "purchaseUnitNone": "غير مسجّلة",
+        "purchaseUnitNoneHint": "لا عبوة شراء مسجّلة",
+        "itemsPerUnit": "القطع في العبوة",
+        "itemsPerUnitHint": "عدد القطع في عبوة شراء واحدة، حيثما كان معروفًا.",
+        "composition": "التركيبة (مصنوع من)",
+        "compositionHint": "صياغة ورقة المصدر نفسها — قائمة مكوّنات تقريبية، وليست تركيبة كمّية."
     },
     "units": {
         "dimensionMass": "كتلة",
@@ -1879,7 +1906,8 @@
         "portion": "حصص",
         "cup": "أكواب",
         "tbsp": "ملاعق كبيرة",
-        "tsp": "ملاعق صغيرة"
+        "tsp": "ملاعق صغيرة",
+        "dimensionPackage": "عبوات"
     },
     "aliases": {
         "title": "أسماء أخرى",
@@ -2128,7 +2156,31 @@
         "stepCount_two": "خطوتان",
         "stepCount_few": "{{count}} خطوات",
         "stepCount_many": "{{count}} خطوةً",
-        "stepCount_other": "{{count}} خطوة"
+        "stepCount_other": "{{count}} خطوة",
+        "sheetTitle": "الورقة الفنية",
+        "sheetConfidential": "هذه المعلومات خاصة ومقيّدة — لا يجوز مشاركتها خارج المطبخ.",
+        "sheetDesignation": "التسمية",
+        "sheetKind": "النوع",
+        "sheetKindUnstated": "غير مذكور",
+        "sheetQuantityProduced": "الكمية المنتجة",
+        "sheetQuantityWithPieces": "{{pieces}} قطعة ({{quantity}} {{unit}})",
+        "sheetRawMaterial": "المواد الأولية",
+        "sheetColDesignation": "التسمية",
+        "sheetColUnit": "الوحدة",
+        "sheetColQuantity": "الكمية",
+        "sheetColUnitPrice": "سعر الوحدة",
+        "sheetColLineTotal": "الإجمالي",
+        "sheetColComments": "ملاحظات",
+        "sheetTotalRow": "المجموع:",
+        "sheetNoLines": "لا توجد بنود مواد أولية مسجّلة بعد.",
+        "sheetCostTitle": "التكلفة",
+        "sheetCostTotal": "تكلفة الإنتاج الإجمالية",
+        "sheetCostPerUnit": "تكلفة إنتاج 1 {{unit}}",
+        "sheetCostPerPiece": "تكلفة إنتاج القطعة الواحدة",
+        "sheetCostWithWaste": "معامل الهدر {{percent}}٪",
+        "sheetCostAbsent": "لا توجد لقطة تكلفة مسجّلة لهذه النسخة بعد.",
+        "sheetCostHidden": "التكاليف مخفية — تتطلب رؤيتها صلاحية تكاليف الوصفات.",
+        "sheetBasisMismatch": "التسمية تخالف المردود"
     },
     "publish": {
         "action": "نشر",
@@ -2143,6 +2195,14 @@
         "quarantineBody": "تتعارض معلومات مسبّبات الحساسية في هذه الوصفة مع تحديد نُشرت على أساسه. النشر مرفوض من هذه الحالة، ولا يتجاوزه أي عدد من النقرات. عالج التعارض على مستوى المكوّن أوّلًا.",
         "blockedTitle": "لا يمكن نشر هذه النسخة بعد",
         "blockNoLines": "لا تحتوي على أي بند.",
+        "gateTitle": "بوابة النشر",
+        "gateCheckName": "الاسم باللغتين",
+        "gateCheckDescription": "الوصف باللغتين",
+        "gateCheckSaved": "التغييرات محفوظة",
+        "gateExplainer": "أحد الفحوص لا يزال متعثرًا. تبقى الوجبة خارج السوق حتى تنجح كل الفحوص — أصلحه هنا ثم انشر.",
+        "gateQueueTitle": "في قائمة المراجعة",
+        "gateQueueBody": "الفحص المتعثر يظهر في قائمة المراجعة أيضًا — حلّه هنا يزيله هناك.",
+        "gateQueueOpen": "افتح قائمة المراجعة",
         "blockName": "ينقص الاسمَ إحدى اللغتين.",
         "blockDescription": "ينقص الوصفَ إحدى اللغتين.",
         "blockUnsaved": "هناك تغييرات غير محفوظة. احفظها أوّلًا؛ فالنشر ينشر ما لدى الخادم لا ما يظهر على الشاشة.",
@@ -3125,5 +3185,33 @@
         "loadErrorTitle": "تعذّر تحميل أوقات العمل هذه",
         "noBranchTitle": "لا يوجد فرع في السياق",
         "noBranchBody": "أوقات العمل تخصّ فرعًا. اختر فرعًا من مبدّل مساحة العمل ثم عُد."
+    },
+    "sauces": {
+        "title": "الصلصات والتتبيلات",
+        "subtitle": "صلصات المطبخ تُباع كسلع معبأة — نفس العبوات والقنوات كالمنتجات.",
+        "create": "صلصة جديدة",
+        "caption": "الصلصات والتتبيلات وعبواتها وقنواتها وحالتها",
+        "resultCount_zero": "{{count}} صلصة",
+        "resultCount_one": "صلصة واحدة",
+        "resultCount_two": "صلصتان",
+        "resultCount_few": "{{count}} صلصات",
+        "resultCount_many": "{{count}} صلصةً",
+        "resultCount_other": "{{count}} صلصة",
+        "emptyTitle": "لا صلصات بعد",
+        "emptyBody": "تظهر الصلصات التي يصنعها المطبخ هنا بعد استيرادها أو إنشائها."
+    },
+    "dressings": {
+        "title": "صلصات السلطة",
+        "subtitle": "صلصات السلطة المصنوعة في المطبخ تُباع كسلع معبأة.",
+        "create": "صلصة سلطة جديدة",
+        "caption": "صلصات السلطة وعبواتها وقنواتها وحالتها",
+        "resultCount_zero": "{{count}} صلصة سلطة",
+        "resultCount_one": "صلصة سلطة واحدة",
+        "resultCount_two": "صلصتا سلطة",
+        "resultCount_few": "{{count}} صلصات سلطة",
+        "resultCount_many": "{{count}} صلصة سلطة",
+        "resultCount_other": "{{count}} صلصة سلطة",
+        "emptyTitle": "لا صلصات سلطة بعد",
+        "emptyBody": "تظهر صلصات السلطة التي يصنعها المطبخ هنا بعد استيرادها أو إنشائها."
     }
 }

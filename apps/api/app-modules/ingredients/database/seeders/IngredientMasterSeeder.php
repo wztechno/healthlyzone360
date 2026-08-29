@@ -21,39 +21,34 @@ use Illuminate\Database\Seeder;
 use RuntimeException;
 
 /**
- * The platform ingredient library: 213 ingredients, a two-level taxonomy and
- * the allergen baseline that goes with them, transcribed from the
- * de-duplicated Lebanese-market ingredient master (IG-001..IG-215).
+ * The platform ingredient library, transcribed from the v6 workbook
+ * (`Ingredients_Sauces_Dressings_v6.xlsx` via scripts/convert-v6-workbook.py):
+ * 306 ingredients (ING-001..306), 31 packaging & disposables rows
+ * (PKG-001..031, non-food supplier goods — no allergens, no nutrition), a
+ * two-level taxonomy and the allergen baseline that goes with them.
  *
  * **Committed and production-safe.** This is mechanism (a) of the three in
- * the data register (D-046): a public list of ingredient names, categories
- * and regulated allergen classes. It contains no formulation, no cost, no
- * supplier and no yield — those arrive only through the private importer, and
- * never as a file in this repository.
+ * the data register (D-046): a public list of ingredient names, categories,
+ * units, coarse "Made From" transcriptions and regulated allergen classes.
+ * It contains no quantified formulation, no cost, no supplier and no yield.
  *
  * **What the source does not say, this seeder does not invent:**
  *
- * - *Units.* The workbook records no purchasing or usage unit, so every row
- *   gets `g` as a neutral default. It is operator-editable and the product
- *   list supplies the real ones in a later slice. Guessing millilitres for
- *   things that look like liquids would have produced 213 confident wrong
- *   answers instead of 213 obvious placeholders.
+ * - *Units.* v6 records a usage unit and a purchase pack per row; where a row
+ *   has neither (most produce), the converter defaulted `kg` and flagged it.
+ *   Rows still fall back to `g` here only if a row somehow carries no code.
  * - *Arabic names.* The source is English-only, so `name_ar` falls back to
- *   `name_en` for all 213 rows (the `SeedDataFile::stringOr` pattern). A
- *   machine translation of a food name that ends up on an allergen label is
- *   not an improvement on an honest fallback.
- * - *Availability tier.* The workbook's own introduction promises a
- *   Core/Common/Specialty-imported flag, and the ingredient sheet has no such
- *   column. `availability_tier` is therefore left NULL rather than inferred.
+ *   `name_en` (the `SeedDataFile::stringOr` pattern). A machine translation
+ *   of a food name that ends up on an allergen label is not an improvement
+ *   on an honest fallback.
+ * - *Availability tier.* No such column in the source; left NULL.
+ * - *Status.* Two v6 rows carry no Status; the converter recorded them
+ *   `inactive` — visible but greyed and unusable until a human decides.
  *
- * **The burghul/pita contradiction** (appendix D, risk R1) is seeded exactly
- * as recorded — allergen class "None" — with `verification_status`
- * `requires_review` and a note stating the conflict, and the run prints a
- * prominent warning. The source sheet tags both rows "None" while the same
- * workbook's allergen key lists burghul and bread under Cereals/Gluten. A
- * seeder that silently "corrected" this would be inventing a food-safety
- * determination; one that silently accepted it would be shipping one. It does
- * neither: it records both readings and escalates.
+ * The v1 workbook's burghul/pita "None" contradiction is resolved in the v6
+ * source itself (both rows now declare Cereals/Gluten), but the escalation
+ * path stays: any row the source marks `requires_review` is seeded exactly
+ * as recorded and printed as a contradiction warning.
  *
  * **Insert-if-absent, not upsert.** A second run creates what is missing and
  * leaves everything that exists alone, so a platform operator's curation of a
@@ -65,18 +60,19 @@ class IngredientMasterSeeder extends Seeder
     public const string SOURCE_SYSTEM = 'healthy360_platform';
 
     /**
-     * The unit every seeded row starts on. See the class docblock: the source
-     * records none, and this is a placeholder rather than a claim.
+     * The unit a row falls back to when it somehow carries no code. The v6
+     * converter defaults blank rows itself, so this is a belt for a document
+     * edited by hand, not the normal path.
      */
     private const string DEFAULT_UNIT_CODE = 'g';
 
     public function run(): void
     {
         $data = SeedDataFile::documentIn(dirname(__DIR__).'/data', 'platform-ingredients');
-        $unitId = $this->defaultUnitId();
+        $unitIds = $this->unitIds();
 
         $categoryIds = $this->seedCategories(SeedDataFile::rowList($data, 'categories'));
-        $report = $this->seedIngredients(SeedDataFile::rowList($data, 'ingredients'), $categoryIds, $unitId);
+        $report = $this->seedIngredients(SeedDataFile::rowList($data, 'ingredients'), $categoryIds, $unitIds);
         $this->seedAliases(SeedDataFile::rowList($data, 'aliases'));
 
         $this->report($report);
@@ -145,9 +141,10 @@ class IngredientMasterSeeder extends Seeder
      *
      * @param  list<array<array-key, mixed>>  $rows
      * @param  array<string, string>  $categoryIds
-     * @return array{created: int, existing: int, arabic_fallbacks: int, mappings_created: int, contradictions: list<string>}
+     * @param  array<string, string>  $unitIds  unit code → id
+     * @return array{created: int, existing: int, arabic_fallbacks: int, inactive: int, mappings_created: int, contradictions: list<string>}
      */
-    private function seedIngredients(array $rows, array $categoryIds, string $unitId): array
+    private function seedIngredients(array $rows, array $categoryIds, array $unitIds): array
     {
         /** @var array<string, string> $existingIds */
         $existingIds = Ingredient::withoutTenancy()
@@ -158,6 +155,7 @@ class IngredientMasterSeeder extends Seeder
 
         $created = 0;
         $arabicFallbacks = 0;
+        $inactive = 0;
         $contradictions = [];
         $pending = [];
         $mappingRows = [];
@@ -178,6 +176,15 @@ class IngredientMasterSeeder extends Seeder
                 $contradictions[] = sprintf('%s — %s', $sourceRef, $nameEn);
             }
 
+            $status = SeedDataFile::nullableString($row, 'status') ?? IngredientStatus::Active->value;
+
+            if ($status === IngredientStatus::Inactive->value) {
+                $inactive++;
+            }
+
+            $purchaseUnitCode = SeedDataFile::nullableString($row, 'purchase_unit_code');
+            $itemsPerUnit = $row['items_per_unit'] ?? null;
+
             $id = $existingIds[$sourceRef] ?? null;
 
             if ($id === null) {
@@ -192,11 +199,15 @@ class IngredientMasterSeeder extends Seeder
                     'name_ar' => $nameAr,
                     'ingredient_category_id' => $categoryIds[SeedDataFile::string($row, 'category_code')] ?? null,
                     'ingredient_subcategory_id' => $categoryIds[SeedDataFile::string($row, 'subcategory_code')] ?? null,
-                    'default_unit_id' => $unitId,
+                    'default_unit_id' => $this->unitIdFor($unitIds, SeedDataFile::nullableString($row, 'default_unit_code')),
+                    'purchase_unit_id' => $purchaseUnitCode === null ? null : $this->unitIdFor($unitIds, $purchaseUnitCode),
+                    'composition' => SeedDataFile::nullableString($row, 'composition'),
+                    'items_per_unit' => is_numeric($itemsPerUnit) ? (string) $itemsPerUnit : null,
+                    'nutrition_per_100g' => null,
                     'yield_factor' => 1,
                     'forked_from_ingredient_id' => null,
                     'availability_tier' => null,
-                    'status' => IngredientStatus::Active->value,
+                    'status' => $status,
                     'verification_status' => $verification,
                     'notes' => SeedDataFile::nullableString($row, 'notes'),
                     'source_system' => self::SOURCE_SYSTEM,
@@ -238,6 +249,7 @@ class IngredientMasterSeeder extends Seeder
             'created' => $created,
             'existing' => count($rows) - $created,
             'arabic_fallbacks' => $arabicFallbacks,
+            'inactive' => $inactive,
             'mappings_created' => $this->seedMappings($mappingRows),
             'contradictions' => $contradictions,
         ];
@@ -327,19 +339,19 @@ class IngredientMasterSeeder extends Seeder
     }
 
     /**
-     * @param  array{created: int, existing: int, arabic_fallbacks: int, mappings_created: int, contradictions: list<string>}  $report
+     * @param  array{created: int, existing: int, arabic_fallbacks: int, inactive: int, mappings_created: int, contradictions: list<string>}  $report
      */
     private function report(array $report): void
     {
         $this->command->info(sprintf(
             'Platform ingredient library: %d created, %d already present, %d allergen baseline mappings created. '
             .'%d rows use the English name as the Arabic name (the source is English-only). '
-            .'Every row is on the placeholder unit "%s" — the source records no unit.',
+            .'%d rows are inactive — the source records no Status for them.',
             $report['created'],
             $report['existing'],
             $report['mappings_created'],
             $report['arabic_fallbacks'],
-            self::DEFAULT_UNIT_CODE,
+            $report['inactive'],
         ));
 
         if ($report['contradictions'] === []) {
@@ -367,14 +379,32 @@ class IngredientMasterSeeder extends Seeder
         $this->command->error('');
     }
 
-    private function defaultUnitId(): string
+    /**
+     * @return array<string, string> unit code → id
+     */
+    private function unitIds(): array
     {
-        $id = MeasurementUnit::query()->where('code', self::DEFAULT_UNIT_CODE)->value('id');
+        /** @var array<string, string> $ids */
+        $ids = MeasurementUnit::query()->pluck('id', 'code')->all();
 
-        if (! is_string($id)) {
+        if (! isset($ids[self::DEFAULT_UNIT_CODE])) {
             throw new RuntimeException('The measurement units must be seeded before the ingredient master.');
         }
 
-        return $id;
+        return $ids;
+    }
+
+    /**
+     * @param  array<string, string>  $unitIds
+     */
+    private function unitIdFor(array $unitIds, ?string $code): string
+    {
+        $code ??= self::DEFAULT_UNIT_CODE;
+
+        if (! isset($unitIds[$code])) {
+            throw new RuntimeException("The document names unit [{$code}] which is not seeded.");
+        }
+
+        return $unitIds[$code];
     }
 }

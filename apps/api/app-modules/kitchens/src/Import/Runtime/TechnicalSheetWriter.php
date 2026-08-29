@@ -58,6 +58,7 @@ final readonly class TechnicalSheetWriter
         private DesignationResolver $resolver,
         private RecipeCostingService $costing,
         private string $sourceSystem,
+        private string $sourceFile = SourceManifest::RECIPES,
     ) {}
 
     /**
@@ -65,7 +66,7 @@ final readonly class TechnicalSheetWriter
      */
     public function write(array $parsed, string $organisationId, ImportReport $report): void
     {
-        $report->findings($parsed['findings'], SourceManifest::RECIPES);
+        $report->findings($parsed['findings'], $this->sourceFile);
 
         /** @var array<string, Recipe> $recipes designation → recipe */
         $recipes = [];
@@ -85,7 +86,7 @@ final readonly class TechnicalSheetWriter
         $index = $sheet['sheet_index'];
         /** @var string $designation */
         $designation = $sheet['designation'];
-        $sheetRef = SourceManifest::RECIPES.'#Sheet'.$index;
+        $sheetRef = $this->sourceFile.'#Sheet'.$index;
 
         /** @var list<array{code: string, detail: string}> $sheetFindings */
         $sheetFindings = $sheet['findings'];
@@ -212,7 +213,7 @@ final readonly class TechnicalSheetWriter
      */
     private function recipe(string $designation, string $organisationId, ImportReport $report): Recipe
     {
-        $sourceRef = SourceManifest::RECIPES.'#'.Str::slug($designation);
+        $sourceRef = $this->sourceFile.'#'.Str::slug($designation);
 
         $existing = Recipe::withoutTenancy()
             ->where('organisation_id', $organisationId)
@@ -617,7 +618,7 @@ final readonly class TechnicalSheetWriter
 
         return trim(sprintf(
             'Imported from %s#Sheet%s. Sheet kind: %s. Quantity produced as written: %s.',
-            SourceManifest::RECIPES,
+            $this->sourceFile,
             $sheet['sheet_index'],
             is_string($kind) && $kind !== '' ? $kind : 'not stated',
             is_string($yield) && $yield !== '' ? $yield : 'not stated',

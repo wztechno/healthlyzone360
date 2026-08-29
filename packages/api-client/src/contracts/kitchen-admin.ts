@@ -260,8 +260,14 @@ export interface IngredientAdmin {
     /** The kitchen's own reference, e.g. `IG-014`. `null` for a platform-library row. */
     readonly reference: string | null;
     readonly categoryCode: string;
-    /** The unit the kitchen buys and issues it in. */
+    /** The unit the kitchen issues it in. */
     readonly measurementUnit: MeasureUnit;
+    /** The pack the kitchen buys it in, when recorded. */
+    readonly purchaseUnit: MeasureUnit | null;
+    /** Coarse "Made From" transcription from the source workbook, kitchen-facing. */
+    readonly composition: string | null;
+    /** Pieces per purchase pack, when the source knows it. */
+    readonly itemsPerUnit: number | null;
     /** CONFIDENTIAL — purchase cost of 100 g, major units. `null` when no cost is recorded. */
     readonly costPer100g: CostAmount | null;
     /** Per-100 g reference facts, when the ingredient has any. Never fabricated to fill the field. */
@@ -288,6 +294,9 @@ export interface CreateIngredientRequest {
     readonly name: LocalisedText;
     readonly categoryCode: string;
     readonly measurementUnit: MeasureUnit;
+    readonly purchaseUnit?: MeasureUnit | undefined;
+    readonly composition?: string | undefined;
+    readonly itemsPerUnit?: number | undefined;
     readonly reference?: string | undefined;
     readonly costPer100g?: CostAmount | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
@@ -299,6 +308,11 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly name?: LocalisedText | undefined;
     readonly categoryCode?: string | undefined;
     readonly measurementUnit?: MeasureUnit | undefined;
+    readonly purchaseUnit?: MeasureUnit | null | undefined;
+    readonly composition?: string | null | undefined;
+    readonly itemsPerUnit?: number | null | undefined;
+    /** Per-100 g reference facts; `null` clears them. */
+    readonly per100g?: NutritionFacts | null | undefined;
     readonly reference?: string | null | undefined;
     readonly costPer100g?: CostAmount | null | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
@@ -420,6 +434,8 @@ export interface RecipeAdminSummary {
     readonly name: LocalisedText;
     readonly slug: string;
     readonly kitchenId: KitchenId;
+    /** The source sheet's own Kind wording ("Production", "Preparation"), verbatim. */
+    readonly sourceKind: string | null;
     readonly currentVersionNumber: number;
     readonly versionCount: number;
 }
@@ -437,6 +453,54 @@ export interface RecipeAdminFilter extends CursorPageRequest, OffsetPageRequest 
     readonly kitchenId?: KitchenId | undefined;
     /** Only recipes whose current version needs re-derivation. */
     readonly staleOnly?: boolean | undefined;
+}
+
+/**
+ * CONFIDENTIAL — one costed line of the technical sheet, in the same order as
+ * {@link RecipeVersionAdmin.lines}; a client renders designation, quantity and
+ * unit from the version line and the money from here.
+ */
+export interface TechnicalSheetLineAdmin {
+    readonly lineNumber: number;
+    readonly ingredientId: IngredientId;
+    /** CONFIDENTIAL — the sheet's U.P. column: cost of one usage unit. */
+    readonly unitCost: CostAmount | null;
+    /** CONFIDENTIAL — the sheet's T column, verbatim even where its arithmetic is wrong. */
+    readonly lineCost: CostAmount | null;
+    readonly comment: string | null;
+}
+
+/** CONFIDENTIAL — one basis of the sheet's cost block. */
+export interface RecipeCostFigures {
+    readonly totalInputCost: CostAmount;
+    /** Total ÷ yield quantity, when the version states one. */
+    readonly costPerYieldUnit: CostAmount | null;
+    readonly costPerYieldUnitWithWaste: CostAmount | null;
+    /** Total ÷ piece count, when the version counts pieces. */
+    readonly costPerPiece: CostAmount | null;
+    readonly costPerPieceWithWaste: CostAmount | null;
+    readonly wastePercent: number;
+    /** The sheet's own label claims a basis the yield cannot support. */
+    readonly basisMismatch: boolean;
+    readonly calculatedAt: IsoDateTime;
+}
+
+/**
+ * CONFIDENTIAL — the technical sheet of one recipe version: the costed lines
+ * and the latest snapshot per basis. `null` from the repository means the
+ * caller lacks `recipe.view_costs_organisation`; a sheet with no costed lines
+ * still arrives, with empty money.
+ */
+export interface TechnicalSheetAdmin {
+    readonly versionId: RecipeVersionId;
+    readonly currency: CurrencyCode | null;
+    readonly currencyConflict: boolean;
+    readonly lines: readonly TechnicalSheetLineAdmin[];
+    readonly uncostedLineNumbers: readonly number[];
+    /** The sheet's own figures, verbatim (`as_recorded`). */
+    readonly asRecorded: RecipeCostFigures | null;
+    /** This system's arithmetic over the same lines (`recalculated`). */
+    readonly recalculated: RecipeCostFigures | null;
 }
 
 export interface CreateRecipeRequest {
@@ -554,9 +618,21 @@ export interface ProductPackVariant {
 export interface ProductAdmin {
     readonly id: ProductId;
     readonly meta: AdminEntityMeta;
+    /**
+     * Which packaged kind this row is. Sauces and dressings share the product
+     * shape wholesale — same packs, same pricing, same publication — and the
+     * kitchen screens list each kind on its own page via
+     * {@link ProductAdminFilter.itemType}.
+     */
+    readonly itemType: 'product' | 'sauce' | 'dressing';
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;
+    /** The kitchen's own nested filing pair, transcribed from its sheets. */
+    readonly kitchenCategory: string | null;
+    readonly kitchenSubcategory: string | null;
+    /** Coarse "Made From" transcription, kitchen-facing. */
+    readonly composition: string | null;
     readonly kitchenId: KitchenId;
     /** True for goods priced at the day's market rate; such a product carries no confirmed price. */
     readonly isMarketPriced: boolean;
@@ -576,9 +652,13 @@ export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly categoryCode?: string | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
+    /** Which packaged kind to list. Defaults to `product`. */
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
 }
 
 export interface CreateProductRequest {
+    /** Defaults to `product`; the sauces and dressings screens pass their own. */
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;
@@ -685,6 +765,11 @@ export interface MealAdmin {
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
+    /** The kitchen's own nested filing pair, transcribed from its sheets. */
+    readonly kitchenCategory: string | null;
+    readonly kitchenSubcategory: string | null;
+    /** Coarse "Made From" transcription, kitchen-facing. */
+    readonly composition: string | null;
     readonly kitchenId: KitchenId;
     /** The recipe *version* the meal's figures were computed from. Both `null` for a bought-in meal. */
     readonly recipeId: RecipeId | null;
@@ -1103,6 +1188,15 @@ export interface KitchenAdminRepository {
 
     listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>>;
     getRecipe(recipeId: RecipeId): Promise<RecipeAdmin>;
+    /**
+     * CONFIDENTIAL — the costed technical sheet of one version, or `null` when
+     * this member lacks `recipe.view_costs_organisation`. The panel renders
+     * the sheet without money in that case rather than failing the screen.
+     */
+    getRecipeTechnicalSheet(
+        recipeId: RecipeId,
+        versionId: RecipeVersionId,
+    ): Promise<TechnicalSheetAdmin | null>;
     createRecipe(request: CreateRecipeRequest): Promise<RecipeAdmin>;
     /** Editing a published recipe opens a new draft version; the result says which one is current. */
     updateRecipe(recipeId: RecipeId, request: UpdateRecipeRequest): Promise<RecipeAdmin>;
@@ -1179,10 +1273,7 @@ export interface KitchenAdminRepository {
      * a day beyond the submitted cycle, and for a plan with no commercial terms yet
      * (`plan_profile_missing`) — a menu on an unconfigured plan is a menu on nothing.
      */
-    replacePlanMenu(
-        planId: SubscriptionPlanId,
-        request: ReplacePlanMenuRequest,
-    ): Promise<PlanMenu>;
+    replacePlanMenu(planId: SubscriptionPlanId, request: ReplacePlanMenuRequest): Promise<PlanMenu>;
 
     /* ── delivery zones and windows ─────────────────────────────────────────────────────────── */
 

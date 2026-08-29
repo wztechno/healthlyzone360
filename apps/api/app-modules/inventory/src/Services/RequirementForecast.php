@@ -474,7 +474,12 @@ final readonly class RequirementForecast
 
             match ($item->item_type) {
                 CatalogueItemType::Meal => $this->requireMeal($organisationId, $branchId, $item, $entry, $required, $holes),
-                CatalogueItemType::Product => $this->requireProduct($organisationId, $branchId, $item, $entry, $required, $holes),
+                // A sauce or dressing forecasts like a product: its demand is
+                // its own shelf (via its ingredient link), not an exploded
+                // recipe — the v6 catalogue records no formulation lines.
+                CatalogueItemType::Product,
+                CatalogueItemType::Sauce,
+                CatalogueItemType::Dressing => $this->requireProduct($organisationId, $branchId, $item, $entry, $required, $holes),
                 CatalogueItemType::SubscriptionPlan => null,
             };
         }

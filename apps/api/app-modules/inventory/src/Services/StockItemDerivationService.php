@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Healthy360\Inventory\Services;
 
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
-use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\ProductionMode;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Enums\IngredientStatus;
@@ -87,6 +86,15 @@ final readonly class StockItemDerivationService
      * @var list<string>
      */
     private const array RESOLD_MODES = [ProductionMode::Supplier->value, ProductionMode::Both->value];
+
+    /**
+     * The sellable kinds a supplier-mode row of which is a shelf. A sauce or
+     * dressing a kitchen resells behaves exactly like a resold product; the
+     * usual production-mode ones are not stock — their ingredients are.
+     *
+     * @var list<string>
+     */
+    private const array RESOLD_ITEM_TYPES = ['product', 'sauce', 'dressing'];
 
     /**
      * Bring one organisation's stock items in line with its ingredients and its
@@ -275,7 +283,7 @@ final readonly class StockItemDerivationService
     {
         return CatalogueItem::withoutTenancy()
             ->where('organisation_id', $organisationId)
-            ->where('item_type', CatalogueItemType::Product)
+            ->whereIn('item_type', self::RESOLD_ITEM_TYPES)
             ->whereIn('production_mode', self::RESOLD_MODES)
             ->where('status', '!=', CatalogueItemStatus::Retired)
             ->orderBy('slug')
@@ -284,7 +292,7 @@ final readonly class StockItemDerivationService
 
     private function isResold(CatalogueItem $product): bool
     {
-        return $product->item_type === CatalogueItemType::Product
+        return in_array($product->item_type->value, self::RESOLD_ITEM_TYPES, true)
             && $product->production_mode !== null
             && in_array($product->production_mode->value, self::RESOLD_MODES, true)
             && $product->status !== CatalogueItemStatus::Retired;

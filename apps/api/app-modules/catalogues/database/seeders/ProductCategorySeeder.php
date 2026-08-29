@@ -42,6 +42,13 @@ class ProductCategorySeeder extends Seeder
         ['code' => 'bread', 'name_en' => 'Bread', 'name_ar' => 'خبز'],
         ['code' => 'dairy', 'name_en' => 'Dairy', 'name_ar' => 'ألبان'],
         ['code' => 'vegetables', 'name_en' => 'Vegetables', 'name_ar' => 'خضار'],
+
+        // The v6 workbook's published categories that the original ten did
+        // not cover: its meal sheet publishes under "Meal", its beverages and
+        // dressings under their own names. "Sauce & Marinade" reuses `sauce`.
+        ['code' => 'meal', 'name_en' => 'Meals', 'name_ar' => 'وجبات'],
+        ['code' => 'beverage', 'name_en' => 'Beverages', 'name_ar' => 'مشروبات'],
+        ['code' => 'dressing', 'name_en' => 'Dressings', 'name_ar' => 'صلصات السلطة'],
     ];
 
     public function run(): void
