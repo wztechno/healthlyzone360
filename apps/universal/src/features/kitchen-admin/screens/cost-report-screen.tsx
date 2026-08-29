@@ -22,6 +22,8 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useCostReportQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { BarChart, ChartFrame, DonutChart, LineChart } from '../analytics-charts.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
+import { KpiTile } from '../kpi-tile.tsx';
 
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4).
@@ -57,27 +59,15 @@ function StatTile({
     testID,
     label,
     value,
+    hint,
 }: {
     readonly testID: string;
     readonly label: string;
     readonly value: string;
+    /** The 7h meaning line — one sentence saying what the figure is. */
+    readonly hint?: string | undefined;
 }) {
-    return (
-        <View
-            testID={testID}
-            className="min-h-[92px] min-w-[148px] flex-1 basis-[148px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
-        >
-            <Text tone="secondary" variant="caption">
-                {label}
-            </Text>
-            <Text
-                testID={`${testID}-value`}
-                className="mt-1 font-display text-[24px] font-bold text-content-primary"
-            >
-                {value}
-            </Text>
-        </View>
-    );
+    return <KpiTile testID={testID} size="lg" label={label} value={value} hint={hint} />;
 }
 
 function CostReport() {
@@ -258,6 +248,7 @@ function CostReport() {
             key: 'margin',
             header: t('kitchen:ops.costReport.columnMargin'),
             numeric: true,
+            primary: true,
             render: (row) => (
                 <Text variant="bodyStrong" testID={`kitchen-cost-report-${row.month}-margin`}>
                     {money(row.grossMarginAmount)}
@@ -276,21 +267,17 @@ function CostReport() {
 
     return (
         <Stack space="lg" testID="kitchen-cost-report-screen">
-            <Stack space="xs">
-                <Text
-                    className="font-display text-[28px] font-bold text-content-primary"
-                    testID="kitchen-cost-report-title"
-                >
-                    {t('kitchen:ops.costReport.title')}
-                </Text>
-                <Text tone="secondary" testID="kitchen-cost-report-subtitle">
-                    {t('kitchen:ops.costReport.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-cost-report-header"
+                title={t('kitchen:ops.costReport.title')}
+                subtitle={t('kitchen:ops.costReport.subtitle')}
+                titleTestID="kitchen-cost-report-title"
+                subtitleTestID="kitchen-cost-report-subtitle"
+            />
 
             <View
                 testID="kitchen-cost-report-filters"
-                className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
             >
                 <Inline space="sm" align="end" wrap>
                     <TextInputField
@@ -404,6 +391,7 @@ function CostReport() {
                                 label={t('kitchen:ops.costReport.tileSpend', {
                                     month: latest.month,
                                 })}
+                                hint={t('kitchen:ops.costReport.hintSpend')}
                                 value={money(latest.spendAmount)}
                             />
                             <StatTile
@@ -411,6 +399,7 @@ function CostReport() {
                                 label={t('kitchen:ops.costReport.tileCogs', {
                                     month: latest.month,
                                 })}
+                                hint={t('kitchen:ops.costReport.hintCogs')}
                                 value={money(latest.cogsAmount)}
                             />
                             <StatTile
@@ -418,6 +407,7 @@ function CostReport() {
                                 label={t('kitchen:ops.costReport.tileRevenue', {
                                     month: latest.month,
                                 })}
+                                hint={t('kitchen:ops.costReport.hintRevenue')}
                                 value={money(latest.revenueAmount)}
                             />
                             <StatTile
@@ -425,6 +415,7 @@ function CostReport() {
                                 label={t('kitchen:ops.costReport.tileMargin', {
                                     month: latest.month,
                                 })}
+                                hint={t('kitchen:ops.costReport.hintMargin')}
                                 value={money(latest.grossMarginAmount)}
                             />
                         </View>
@@ -494,7 +485,7 @@ function CostReport() {
 
                     <View
                         testID="kitchen-cost-report-table-panel"
-                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-1"
+                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Table<MonthlyCostReportRow>
                             testID="kitchen-cost-report-table"

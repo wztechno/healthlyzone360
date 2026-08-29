@@ -66,13 +66,19 @@ final class PublicMealIndexController
             $query->whereIn('organisation_id', $kitchenIds);
         }
 
+        $categorySlug = $this->stringParameter($request, 'category_slug');
+
+        if ($categorySlug !== null) {
+            $this->meals->whereCategorySlug($query, $categorySlug);
+        }
+
         $diets = $this->listParameter($request, 'diet_classifications', 12);
 
         if ($diets !== null) {
             $this->meals->whereDietClassifications($query, $diets);
         }
 
-        $itemTypes = $this->listParameter($request, 'item_types', 2);
+        $itemTypes = $this->listParameter($request, 'item_types', 4);
 
         if ($itemTypes !== null) {
             $unknown = array_values(array_diff($itemTypes, MarketplaceMeals::LISTING_ITEM_TYPES));
@@ -80,7 +86,7 @@ final class PublicMealIndexController
             if ($unknown !== []) {
                 throw new ApiException(
                     ErrorCode::RequestInvalid,
-                    'item_types accepts only meal and product.',
+                    'item_types accepts only meal, product, sauce and dressing.',
                     ['parameter' => 'item_types', 'unknown' => $unknown],
                 );
             }

@@ -6,7 +6,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -40,6 +39,7 @@ import {
     statusKey,
     statusTone,
 } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -404,14 +404,24 @@ function RecipesList() {
 
     return (
         <Stack space="lg" testID="kitchen-recipes-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-recipes-title">
-                    {t('kitchen:recipes.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-recipes-subtitle">
-                    {t('kitchen:recipes.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-recipes-header"
+                title={t('kitchen:recipes.title')}
+                subtitle={t('kitchen:recipes.subtitle')}
+                titleTestID="kitchen-recipes-title"
+                subtitleTestID="kitchen-recipes-subtitle"
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-recipes-toolbar-create"
+                            label={t('kitchen:recipes.create')}
+                            onPress={() => {
+                                router.push('/kitchen/recipes/new' as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ListToolbar
                 testID="kitchen-recipes-toolbar"
@@ -429,17 +439,14 @@ function RecipesList() {
                 }))}
                 category={kitchen}
                 onCategoryChange={setKitchen}
-                createLabel={t('kitchen:recipes.create')}
-                {...(canManage
-                    ? {
-                          onCreate: () => {
-                              router.push('/kitchen/recipes/new' as never);
-                          },
-                      }
-                    : {})}
                 {...(recipes.isPending || total === null
                     ? {}
-                    : { resultSummary: t('kitchen:recipes.resultCount', { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {recipes.isPending ? (

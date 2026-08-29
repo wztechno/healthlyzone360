@@ -1,9 +1,19 @@
-import { Button, Callout, Inline, Stack, Stepper } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Icon,
+    Inline,
+    Stack,
+    Stepper,
+    Text,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type { ApiFailure } from '@healthy360/api-client';
 import type { StoredNutritionTarget } from '@healthy360/api-client/contracts';
 import { Redirect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Pressable, View } from 'react-native';
 
 import {
     toFailure,
@@ -24,6 +34,7 @@ import { SummaryStep } from './summary-step.tsx';
 import {
     FIRST_ONBOARDING_STEP,
     ONBOARDING_STEP_COUNT,
+    ONBOARDING_STEP_SLUGS,
     nextStep,
     onboardingStep,
     onboardingStepPath,
@@ -63,6 +74,8 @@ export function OnboardingScreen({ slug }: OnboardingScreenProps) {
     const { t } = useTranslation();
     const validationTranslate = useValidationTranslate();
     const router = useRouter();
+    const { atLeast } = useBreakpoint();
+    const wide = atLeast('lg');
     const { answers, dispatch } = useOnboarding();
 
     const [errors, setErrors] = useState<StepErrors>({});
@@ -189,16 +202,98 @@ export function OnboardingScreen({ slug }: OnboardingScreenProps) {
     const skippable =
         step.optional && !(slug === 'body-fat' && answers.calculationBasis === 'body_composition');
 
-    return (
-        <Stack space="lg" testID="onboarding-screen">
-            <Stepper
-                testID="onboarding-stepper"
-                label={t('onboarding:progressLabel')}
-                current={step.position}
-                total={ONBOARDING_STEP_COUNT}
-                stepLabel={stepLabel}
-            />
+    const progress = (
+        <Stepper
+            testID="onboarding-stepper"
+            label={t('onboarding:progressLabel')}
+            current={step.position}
+            total={ONBOARDING_STEP_COUNT}
+            stepLabel={stepLabel}
+        />
+    );
 
+    /*
+     * The step rail (4c), from `lg` up: every step named, with done / current / pending marked by
+     * shape as well as colour. A finished step is a control — pressing it is the same move the
+     * summary's edit links make, and the reachability guard above stays the only gatekeeper. The
+     * branch is JavaScript, not hidden classes, for the planner's reason: an off-screen copy of
+     * twenty-two steps would sit in the accessibility tree.
+     */
+    const rail = (
+        <View className="w-[266px] shrink-0" testID="onboarding-rail">
+            <Stack space="md">
+                {progress}
+                <Stack space="none" testID="onboarding-rail-steps">
+                    {ONBOARDING_STEP_SLUGS.map((railSlug, index) => {
+                        const position = index + 1;
+                        const state =
+                            position < step.position
+                                ? 'done'
+                                : position === step.position
+                                  ? 'current'
+                                  : 'pending';
+                        return (
+                            <Pressable
+                                key={railSlug}
+                                testID={`onboarding-rail-${railSlug}`}
+                                role="link"
+                                accessibilityRole="link"
+                                accessibilityLabel={t(`onboarding:stepLabels.${railSlug}`)}
+                                aria-current={state === 'current' ? 'step' : undefined}
+                                disabled={state !== 'done'}
+                                focusable={state === 'done'}
+                                onPress={() => {
+                                    goTo(railSlug);
+                                }}
+                                className={
+                                    state === 'current'
+                                        ? 'flex-row items-center gap-2 rounded-lg bg-surface-brand-subtle px-2 py-1.5'
+                                        : 'flex-row items-center gap-2 rounded-lg px-2 py-1.5'
+                                }
+                            >
+                                {state === 'done' ? (
+                                    <View
+                                        aria-hidden
+                                        className="h-5 w-5 items-center justify-center rounded-full bg-surface-brand-subtle"
+                                    >
+                                        <Icon
+                                            name="check"
+                                            size="sm"
+                                            className="text-content-on-brand-subtle"
+                                        />
+                                    </View>
+                                ) : state === 'current' ? (
+                                    // brand-500 as a ring is a graphic (§1.3); the row's fill and
+                                    // label carry the state in text.
+                                    <View
+                                        aria-hidden
+                                        className="h-5 w-5 rounded-full border-2 border-brand-500 bg-surface-raised"
+                                    />
+                                ) : (
+                                    <View aria-hidden className="mx-1.5 h-2 w-2 rounded-full bg-stroke-subtle" />
+                                )}
+                                <Text
+                                    variant="caption"
+                                    tone={
+                                        state === 'pending'
+                                            ? 'disabled'
+                                            : state === 'current'
+                                              ? 'primary'
+                                              : 'secondary'
+                                    }
+                                >
+                                    {t(`onboarding:stepLabels.${railSlug}`)}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </Stack>
+            </Stack>
+        </View>
+    );
+
+    const flow = (
+        <>
             {slug === 'summary' ? (
                 <SummaryStep
                     answers={answers}
@@ -301,6 +396,24 @@ export function OnboardingScreen({ slug }: OnboardingScreenProps) {
                     ) : null}
                 </Inline>
             ) : null}
+        </>
+    );
+
+    if (wide) {
+        return (
+            <View className="flex-row gap-6" testID="onboarding-screen">
+                {rail}
+                <View className="min-w-0 max-w-[720px] flex-1">
+                    <Stack space="lg">{flow}</Stack>
+                </View>
+            </View>
+        );
+    }
+
+    return (
+        <Stack space="lg" testID="onboarding-screen">
+            {progress}
+            {flow}
         </Stack>
     );
 }

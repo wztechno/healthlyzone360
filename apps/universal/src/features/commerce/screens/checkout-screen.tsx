@@ -9,6 +9,7 @@ import {
     SegmentedControl,
     Select,
     Stack,
+    Stepper,
     Text,
 } from '@healthy360/design-system';
 import type {
@@ -218,6 +219,21 @@ export function CheckoutScreen() {
                 </Heading>
                 <Text tone="secondary">{t('commerce:checkout.body')}</Text>
             </Stack>
+
+            {/* Delivery → Review → Placed. The counter form, not a node diagram — the same
+                trade the onboarding stepper documents. Review is the committed state the
+                two-phase flow below already tracks. */}
+            <Stepper
+                testID="checkout-stepper"
+                label={t('commerce:checkout.progressLabel')}
+                current={committed === null ? 1 : 2}
+                total={3}
+                stepLabel={
+                    committed === null
+                        ? t('commerce:checkout.steps.delivery')
+                        : t('commerce:checkout.steps.review')
+                }
+            />
 
             <QueryStates
                 query={cart}
@@ -528,6 +544,13 @@ function OrderPlaced({ order, delivery, onBrowse, onCart, onSubscriptions }: Ord
 
     return (
         <Stack space="lg" testID="checkout-success-screen">
+            <Stepper
+                testID="checkout-stepper"
+                label={t('commerce:checkout.progressLabel')}
+                current={3}
+                total={3}
+                stepLabel={t('commerce:checkout.steps.placed')}
+            />
             <Callout
                 testID="checkout-success-notice"
                 role="status"

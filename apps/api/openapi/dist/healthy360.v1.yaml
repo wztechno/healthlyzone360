@@ -7361,16 +7361,30 @@ paths:
           description: Comma-separated kitchen identifiers.
           schema:
             type: string
+        - name: category_slug
+          in: query
+          required: false
+          description: |
+            One published-category code from the platform product taxonomy
+            (`frozen`, `beverage`, `sauce`, `dressing`, `meal`, `bread`, …).
+            An unknown code matches nothing — the codes are navigation, and a
+            stale chip should render an empty shelf, not a `400`.
+          schema:
+            type: string
+            examples:
+              - frozen
         - name: item_types
           in: query
           required: false
           description: |
             Comma-separated catalogue item types to include. Allowed values:
-            `meal`, `product`. Omit to receive both. Unknown values are `400`.
+            `meal`, `product`, `sauce`, `dressing`. Omit to receive all.
+            Unknown values are `400`.
           schema:
             type: string
             examples:
               - meal,product
+              - sauce,dressing
         - name: diet_classifications
           in: query
           required: false
@@ -21620,6 +21634,58 @@ components:
         - specialty_imported
         - null
       description: Local availability in the launch market. Null where the source does not say.
+    IngredientNutrientAmount:
+      type: object
+      required:
+        - nutrient_id
+        - unit
+        - value
+      properties:
+        nutrient_id:
+          type: string
+          enum:
+            - energy
+            - protein
+            - carbohydrate
+            - fat
+            - fibre
+            - sugars
+            - saturated_fat
+            - sodium
+        unit:
+          type: string
+          enum:
+            - kcal
+            - kJ
+            - g
+            - mg
+        value:
+          type: number
+          minimum: 0
+      additionalProperties: false
+    IngredientNutritionPer100g:
+      type: object
+      description: |
+        Per-100 g reference facts for an ingredient — the landing zone the
+        later recipe-rollup phase reads. The same envelope family as a
+        catalogue item's `nutrition_facts`, kept to what an operator can
+        actually assert today: a basis pinned to `per_100g` and the eight
+        core nutrient amounts. Source/calculation provenance arrives with
+        the rollup phase, not before.
+      required:
+        - basis
+        - amounts
+      properties:
+        basis:
+          type: string
+          enum:
+            - per_100g
+        amounts:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/IngredientNutrientAmount'
+      additionalProperties: false
     AdminIngredient:
       type: object
       required:
@@ -21676,6 +21742,31 @@ components:
           type:
             - string
             - 'null'
+        purchase_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The pack this is bought in; the default unit stays the usage unit.
+        purchase_unit_code:
+          type:
+            - string
+            - 'null'
+        composition:
+          type:
+            - string
+            - 'null'
+          description: |
+            The source workbook's "Made From" transcription — a coarse,
+            kitchen-facing ingredient list, never a quantified formulation.
+        items_per_unit:
+          type:
+            - string
+            - 'null'
+          description: Pieces per purchase pack, as a two-place decimal string.
+        nutrition_per_100g:
+          oneOf:
+            - $ref: '#/components/schemas/IngredientNutritionPer100g'
+            - type: 'null'
         yield_factor:
           type: string
           description: Decimal with four places, as a string so no client rounds it.
@@ -21935,6 +22026,24 @@ components:
             - type: 'null'
         default_unit_id:
           $ref: '#/components/schemas/Uuid'
+        purchase_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        composition:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+        items_per_unit:
+          type:
+            - number
+            - 'null'
+          exclusiveMinimum: 0
+        nutrition_per_100g:
+          oneOf:
+            - $ref: '#/components/schemas/IngredientNutritionPer100g'
+            - type: 'null'
         yield_factor:
           type: number
           exclusiveMinimum: 0
@@ -21971,6 +22080,24 @@ components:
             - type: 'null'
         default_unit_id:
           $ref: '#/components/schemas/Uuid'
+        purchase_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        composition:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+        items_per_unit:
+          type:
+            - number
+            - 'null'
+          exclusiveMinimum: 0
+        nutrition_per_100g:
+          oneOf:
+            - $ref: '#/components/schemas/IngredientNutritionPer100g'
+            - type: 'null'
         yield_factor:
           type: number
           exclusiveMinimum: 0
@@ -23229,6 +23356,8 @@ components:
         - product
         - meal
         - subscription_plan
+        - sauce
+        - dressing
       description: |
         Which kind of sellable thing an item is — the discriminator that lets
         products, meals and subscription plans share one table, one price path,
@@ -23508,6 +23637,30 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        product_category_code:
+          type:
+            - string
+            - 'null'
+          description: |
+            The platform code of the published category, when the relation is
+            loaded — the value a client should file the item under instead of
+            resolving the id itself.
+        composition:
+          type:
+            - string
+            - 'null'
+          description: |
+            The source workbook's "Recipe (Made From)" transcription — coarse,
+            kitchen-facing prose, never a quantified formulation.
+        kitchen_category:
+          type:
+            - string
+            - 'null'
+          description: The kitchen's own nested filing label, transcribed text.
+        kitchen_subcategory:
+          type:
+            - string
+            - 'null'
           description: The merchandising shelf, not the purchasing taxonomy.
         production_mode:
           oneOf:
@@ -23942,6 +24095,21 @@ components:
             - string
             - 'null'
           maxLength: 4000
+        composition:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+        kitchen_category:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+        kitchen_subcategory:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
         catalogue_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -24009,6 +24177,21 @@ components:
             - string
             - 'null'
           maxLength: 4000
+        composition:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
+        kitchen_category:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+        kitchen_subcategory:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
         product_category_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -26451,6 +26634,7 @@ components:
         - kitchen_id
         - kitchen_name
         - item_type
+        - published_category
         - name
         - slug
         - description
@@ -26479,10 +26663,31 @@ components:
           enum:
             - meal
             - product
+            - sauce
+            - dressing
           description: |
-            Whether this listing is a prepared meal or a sellable product
-            (sauce, frozen pack, oil, and so on). Both appear on the kitchen
-            menu; clients filter with `item_types`.
+            Whether this listing is a prepared meal, a resold product
+            (frozen pack, drink, bread and so on), a kitchen-made sauce or a
+            dressing. All appear on the kitchen menu; clients filter with
+            `item_types`.
+        published_category:
+          oneOf:
+            - type: object
+              required:
+                - code
+                - name
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                  description: Localised — one server-chosen language.
+              additionalProperties: false
+            - type: 'null'
+          description: |
+            The customer-facing shelf this listing is published under, from
+            the platform product taxonomy. Null when the kitchen has not
+            filed it anywhere. Filter with `category_slug`.
         name:
           type: string
           description: Localised. One server-chosen language, never both columns.

@@ -49,6 +49,8 @@ final class CatalogueItemShowController
     {
         $record = $this->locator->item($item);
 
+        $record->load('category');
+
         return ApiResponse::data([
             'item' => $this->presenter->item($record),
             'variants' => $this->variants($record),

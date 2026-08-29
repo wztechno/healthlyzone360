@@ -301,7 +301,17 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
         id: MealId.unsafe(wire.id),
         kitchenId: KitchenId.unsafe(wire.kitchen_id),
         kitchenName: wire.kitchen_name,
-        itemType: wire.item_type === 'product' ? 'product' : 'meal',
+        // Faithful for the four known kinds; an unknown future kind renders
+        // as a meal rather than crashing a listing page.
+        itemType:
+            wire.item_type === 'product' ||
+            wire.item_type === 'sauce' ||
+            wire.item_type === 'dressing'
+                ? wire.item_type
+                : 'meal',
+        publishedCategory: wire.published_category
+            ? { code: wire.published_category.code, name: wire.published_category.name }
+            : null,
         name: wire.name,
         slug: wire.slug,
         description: wire.description,

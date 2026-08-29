@@ -5,7 +5,6 @@ import {
     Card,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -32,6 +31,7 @@ import {
     statusTone,
     zoneRowTestId,
 } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -332,14 +332,24 @@ function DeliveryZonesList() {
 
     return (
         <Stack space="lg" testID="kitchen-zones-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-zones-title">
-                    {t('kitchen:zones.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-zones-subtitle">
-                    {t('kitchen:zones.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-zones-header"
+                title={t('kitchen:zones.title')}
+                subtitle={t('kitchen:zones.subtitle')}
+                titleTestID="kitchen-zones-title"
+                subtitleTestID="kitchen-zones-subtitle"
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-zones-toolbar-create"
+                            label={t('kitchen:zones.create')}
+                            onPress={() => {
+                                router.push('/kitchen/delivery-zones/new' as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ListToolbar
                 testID="kitchen-zones-toolbar"
@@ -348,17 +358,14 @@ function DeliveryZonesList() {
                 statuses={statuses}
                 onStatusesChange={setStatuses}
                 statusOptions={ZONE_STATUS_FILTERS}
-                createLabel={t('kitchen:zones.create')}
-                {...(canManage
-                    ? {
-                          onCreate: () => {
-                              router.push('/kitchen/delivery-zones/new' as never);
-                          },
-                      }
-                    : {})}
                 {...(zones.isPending || total === null
                     ? {}
-                    : { resultSummary: t('kitchen:zones.resultCount', { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {zones.isPending ? (

@@ -281,8 +281,7 @@ export function menuDays(draft: MenuDraft): readonly MenuDay[] {
             cycleDay,
             isBeyondCycle: draft.cycleDays !== null && cycleDay > draft.cycleDays,
             entries: [...(occupied.get(cycleDay) ?? [])].sort((left, right) => {
-                const slots =
-                    (SLOT_ORDER.get(left.slot) ?? 0) - (SLOT_ORDER.get(right.slot) ?? 0);
+                const slots = (SLOT_ORDER.get(left.slot) ?? 0) - (SLOT_ORDER.get(right.slot) ?? 0);
                 if (slots !== 0) return slots;
                 return (left.sequence ?? 0) - (right.sequence ?? 0);
             }),

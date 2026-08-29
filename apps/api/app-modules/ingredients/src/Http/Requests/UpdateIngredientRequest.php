@@ -36,9 +36,13 @@ class UpdateIngredientRequest extends FormRequest
             'ingredient_category_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('ingredient_categories', 'id')],
             'ingredient_subcategory_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('ingredient_categories', 'id')],
             'default_unit_id' => ['sometimes', 'required', 'uuid', Rule::exists('measurement_units', 'id')],
+            'purchase_unit_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('measurement_units', 'id')],
+            'composition' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'items_per_unit' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:99999999.99'],
             'yield_factor' => ['sometimes', 'required', 'numeric', 'gt:0', 'max:99.9999'],
             'availability_tier' => ['sometimes', 'nullable', new Enum(AvailabilityTier::class)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            ...StoreIngredientRequest::nutritionRules(),
         ];
     }
 }

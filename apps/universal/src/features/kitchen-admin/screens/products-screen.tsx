@@ -6,7 +6,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -42,6 +41,7 @@ import {
     statusTone,
     unitKey,
 } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -73,14 +73,73 @@ import { useListPage } from '../use-list-page.ts';
 
 type SortKey = 'name' | 'status' | 'updatedAt';
 
-export function ProductsScreen() {
+/**
+ * The three packaged-goods families this one screen serves. Sauces and
+ * dressings are products in apparatus — same packs, same channels, same
+ * lifecycle — listed on their own pages by `item_type`. Copy that names the
+ * family is looked up here (literal keys, so extraction sees them); copy
+ * about the apparatus stays under `kitchen:products.*`.
+ */
+export interface GoodsFamily {
+    readonly itemType: 'product' | 'sauce' | 'dressing';
+    readonly routeBase: '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings';
+    readonly gateTestID: string;
+    readonly title: string;
+    readonly subtitle: string;
+    readonly create: string;
+    readonly caption: string;
+    readonly resultCount: string;
+    readonly emptyTitle: string;
+    readonly emptyBody: string;
+}
+
+export const PRODUCTS_FAMILY: GoodsFamily = {
+    itemType: 'product',
+    routeBase: '/kitchen/products',
+    gateTestID: 'kitchen-products',
+    title: 'kitchen:products.title',
+    subtitle: 'kitchen:products.subtitle',
+    create: 'kitchen:products.create',
+    caption: 'kitchen:products.caption',
+    resultCount: 'kitchen:products.resultCount',
+    emptyTitle: 'kitchen:products.emptyTitle',
+    emptyBody: 'kitchen:products.emptyBody',
+};
+
+export const SAUCES_FAMILY: GoodsFamily = {
+    itemType: 'sauce',
+    routeBase: '/kitchen/sauces',
+    gateTestID: 'kitchen-sauces',
+    title: 'kitchen:sauces.title',
+    subtitle: 'kitchen:sauces.subtitle',
+    create: 'kitchen:sauces.create',
+    caption: 'kitchen:sauces.caption',
+    resultCount: 'kitchen:sauces.resultCount',
+    emptyTitle: 'kitchen:sauces.emptyTitle',
+    emptyBody: 'kitchen:sauces.emptyBody',
+};
+
+export const DRESSINGS_FAMILY: GoodsFamily = {
+    itemType: 'dressing',
+    routeBase: '/kitchen/dressings',
+    gateTestID: 'kitchen-dressings',
+    title: 'kitchen:dressings.title',
+    subtitle: 'kitchen:dressings.subtitle',
+    create: 'kitchen:dressings.create',
+    caption: 'kitchen:dressings.caption',
+    resultCount: 'kitchen:dressings.resultCount',
+    emptyTitle: 'kitchen:dressings.emptyTitle',
+    emptyBody: 'kitchen:dressings.emptyBody',
+};
+
+export function ProductsScreen({ family = PRODUCTS_FAMILY }: { readonly family?: GoodsFamily }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
-            testID="kitchen-products"
+            testID={family.gateTestID}
         >
-            <ProductsList />
+            <ProductsList family={family} />
         </Gate>
     );
 }
@@ -147,7 +206,7 @@ function ChannelCell({ row }: { readonly row: ProductAdmin }) {
     );
 }
 
-function ProductsList() {
+function ProductsList({ family }: { readonly family: GoodsFamily }) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
@@ -165,11 +224,12 @@ function ProductsList() {
     const trimmed = query.trim();
     const filter = useMemo(
         () => ({
+            itemType: family.itemType,
             ...(trimmed === '' ? {} : { query: trimmed }),
             ...(statuses.length === 0 ? {} : { statuses }),
             ...(category === null ? {} : { categoryCode: category }),
         }),
-        [trimmed, statuses, category],
+        [family.itemType, trimmed, statuses, category],
     );
 
     const [page, setPage] = useListPage(filter);
@@ -203,7 +263,7 @@ function ProductsList() {
     }, [rows, sortKey, sortDirection, locale]);
 
     const openEditor = (productId: string) => {
-        router.push(`/kitchen/products/${productId}` as never);
+        router.push(`${family.routeBase}/${productId}` as never);
     };
 
     const columns: readonly TableColumn<ProductAdmin>[] = [
@@ -263,11 +323,24 @@ function ProductsList() {
             key: 'category',
             header: t('kitchen:products.columnCategory'),
             render: (row) => (
-                <Text testID={`${productRowTestId(String(row.id))}-category`}>
-                    {row.categoryCode.trim() === ''
-                        ? t('kitchen:list.noCategory')
-                        : humaniseCode(row.categoryCode)}
-                </Text>
+                <Stack space="none">
+                    <Text testID={`${productRowTestId(String(row.id))}-category`}>
+                        {row.categoryCode.trim() === ''
+                            ? t('kitchen:list.noCategory')
+                            : humaniseCode(row.categoryCode)}
+                    </Text>
+                    {row.kitchenCategory === null ? null : (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID={`${productRowTestId(String(row.id))}-kitchen-category`}
+                        >
+                            {row.kitchenSubcategory === null
+                                ? row.kitchenCategory
+                                : `${row.kitchenCategory} / ${row.kitchenSubcategory}`}
+                        </Text>
+                    )}
+                </Stack>
             ),
         },
         {
@@ -318,14 +391,24 @@ function ProductsList() {
 
     return (
         <Stack space="lg" testID="kitchen-products-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-products-title">
-                    {t('kitchen:products.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-products-subtitle">
-                    {t('kitchen:products.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-products-header"
+                title={t(family.title)}
+                subtitle={t(family.subtitle)}
+                titleTestID="kitchen-products-title"
+                subtitleTestID="kitchen-products-subtitle"
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-products-toolbar-create"
+                            label={t(family.create)}
+                            onPress={() => {
+                                router.push(`${family.routeBase}/new` as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ListToolbar
                 testID="kitchen-products-toolbar"
@@ -343,17 +426,14 @@ function ProductsList() {
                 }))}
                 category={category}
                 onCategoryChange={setCategory}
-                createLabel={t('kitchen:products.create')}
-                {...(canManage
-                    ? {
-                          onCreate: () => {
-                              router.push('/kitchen/products/new' as never);
-                          },
-                      }
-                    : {})}
                 {...(products.isPending || total === null
                     ? {}
-                    : { resultSummary: t('kitchen:products.resultCount', { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {products.isPending ? (
@@ -383,14 +463,10 @@ function ProductsList() {
                 <EmptyState
                     testID="kitchen-products-empty"
                     title={
-                        unfiltered
-                            ? t('kitchen:products.emptyTitle')
-                            : t('kitchen:products.filteredEmptyTitle')
+                        unfiltered ? t(family.emptyTitle) : t('kitchen:products.filteredEmptyTitle')
                     }
                     body={
-                        unfiltered
-                            ? t('kitchen:products.emptyBody')
-                            : t('kitchen:products.filteredEmptyBody')
+                        unfiltered ? t(family.emptyBody) : t('kitchen:products.filteredEmptyBody')
                     }
                     actions={
                         <Inline space="sm" wrap>
@@ -407,9 +483,9 @@ function ProductsList() {
                             {canManage ? (
                                 <Button
                                     testID="kitchen-products-empty-create"
-                                    label={t('kitchen:products.create')}
+                                    label={t(family.create)}
                                     onPress={() => {
-                                        router.push('/kitchen/products/new' as never);
+                                        router.push(`${family.routeBase}/new` as never);
                                     }}
                                 />
                             ) : null}
@@ -420,11 +496,12 @@ function ProductsList() {
                 <Stack space="sm">
                     <Table<ProductAdmin>
                         testID="kitchen-products-table"
-                        caption={t('kitchen:products.caption')}
+                        caption={t(family.caption)}
                         captionHidden
                         columns={columns}
                         rows={sorted}
                         rowKey={(row) => String(row.id)}
+                        rowTone={(row) => (row.meta.status === 'retired' ? 'muted' : 'default')}
                         sortKey={sortKey}
                         sortDirection={sortDirection}
                         onSortChange={(key, direction) => {

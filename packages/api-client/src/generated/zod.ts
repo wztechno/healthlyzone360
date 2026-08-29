@@ -308,6 +308,40 @@ export const zAvailabilityTier = z.enum([
     'specialty_imported'
 ]).nullable();
 
+export const zIngredientNutrientAmount = z.object({
+    nutrient_id: z.enum([
+        'energy',
+        'protein',
+        'carbohydrate',
+        'fat',
+        'fibre',
+        'sugars',
+        'saturated_fat',
+        'sodium'
+    ]),
+    unit: z.enum([
+        'kcal',
+        'kJ',
+        'g',
+        'mg'
+    ]),
+    value: z.number().gte(0)
+});
+
+/**
+ * Per-100 g reference facts for an ingredient — the landing zone the
+ * later recipe-rollup phase reads. The same envelope family as a
+ * catalogue item's `nutrition_facts`, kept to what an operator can
+ * actually assert today: a basis pinned to `per_100g` and the eight
+ * core nutrient amounts. Source/calculation provenance arrives with
+ * the rollup phase, not before.
+ *
+ */
+export const zIngredientNutritionPer100g = z.object({
+    basis: z.enum(['per_100g']),
+    amounts: z.array(zIngredientNutrientAmount).max(20)
+});
+
 /**
  * The administrative shape of an ingredient. Carries **both** names and
  * ignores `Accept-Language` for them: a bilingual editor has to see what
@@ -325,6 +359,11 @@ export const zAdminIngredient = z.object({
     ingredient_subcategory_id: zUuid.nullable(),
     default_unit_id: zUuid,
     default_unit_code: z.string().nullish(),
+    purchase_unit_id: zUuid.nullish(),
+    purchase_unit_code: z.string().nullish(),
+    composition: z.string().nullish(),
+    items_per_unit: z.string().nullish(),
+    nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
     yield_factor: z.string(),
     forked_from_ingredient_id: zUuid.nullish(),
     availability_tier: zAvailabilityTier.optional(),
@@ -412,6 +451,10 @@ export const zCreateIngredientRequest = z.object({
     ingredient_category_id: zUuid.nullish(),
     ingredient_subcategory_id: zUuid.nullish(),
     default_unit_id: zUuid,
+    purchase_unit_id: zUuid.nullish(),
+    composition: z.string().max(2000).nullish(),
+    items_per_unit: z.number().gt(0).nullish(),
+    nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
     yield_factor: z.number().gt(0).lte(99.9999).optional(),
     availability_tier: zAvailabilityTier.optional(),
     notes: z.string().max(2000).nullish()
@@ -429,6 +472,10 @@ export const zUpdateIngredientRequest = z.object({
     ingredient_category_id: zUuid.nullish(),
     ingredient_subcategory_id: zUuid.nullish(),
     default_unit_id: zUuid.optional(),
+    purchase_unit_id: zUuid.nullish(),
+    composition: z.string().max(2000).nullish(),
+    items_per_unit: z.number().gt(0).nullish(),
+    nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
     yield_factor: z.number().gt(0).lte(99.9999).optional(),
     availability_tier: zAvailabilityTier.optional(),
     notes: z.string().max(2000).nullish()
@@ -922,7 +969,9 @@ export const zUpdateAllergenClassRequest = z.object({
 export const zCatalogueItemType = z.enum([
     'product',
     'meal',
-    'subscription_plan'
+    'subscription_plan',
+    'sauce',
+    'dressing'
 ]);
 
 /**
@@ -1096,6 +1145,10 @@ export const zAdminCatalogueItem = z.object({
     description_en: z.string().nullish(),
     description_ar: z.string().nullish(),
     product_category_id: zUuid.nullish(),
+    product_category_code: z.string().nullish(),
+    composition: z.string().nullish(),
+    kitchen_category: z.string().nullish(),
+    kitchen_subcategory: z.string().nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
     recipe_id: zUuid.nullish(),
     ingredient_id: zUuid.nullish(),
@@ -1236,6 +1289,9 @@ export const zCreateCatalogueItemRequest = z.object({
     slug: z.string().max(130).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
     description_en: z.string().max(4000).nullish(),
     description_ar: z.string().max(4000).nullish(),
+    composition: z.string().max(2000).nullish(),
+    kitchen_category: z.string().max(120).nullish(),
+    kitchen_subcategory: z.string().max(120).nullish(),
     catalogue_id: zUuid.nullish(),
     product_category_id: zUuid.nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
@@ -1261,6 +1317,9 @@ export const zUpdateCatalogueItemRequest = z.object({
     name_ar: z.string().max(255).nullish(),
     description_en: z.string().max(4000).nullish(),
     description_ar: z.string().max(4000).nullish(),
+    composition: z.string().max(2000).nullish(),
+    kitchen_category: z.string().max(120).nullish(),
+    kitchen_subcategory: z.string().max(120).nullish(),
     product_category_id: zUuid.nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
     recipe_id: zUuid.nullish(),
@@ -2246,7 +2305,16 @@ export const zMarketplaceMeal = z.object({
     id: zUuid,
     kitchen_id: zUuid,
     kitchen_name: z.string(),
-    item_type: z.enum(['meal', 'product']),
+    item_type: z.enum([
+        'meal',
+        'product',
+        'sauce',
+        'dressing'
+    ]),
+    published_category: z.object({
+        code: z.string(),
+        name: z.string()
+    }).nullable(),
     name: z.string(),
     slug: z.string(),
     description: z.string(),
@@ -10878,6 +10946,7 @@ export const zListMarketplaceMealsHeaders = z.object({
 export const zListMarketplaceMealsQuery = z.object({
     query: z.string().max(120).optional(),
     kitchen_ids: z.string().optional(),
+    category_slug: z.string().optional(),
     item_types: z.string().optional(),
     diet_classifications: z.string().optional(),
     exclude_allergens: z.string().optional(),

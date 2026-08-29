@@ -320,6 +320,8 @@ export const queryKeys = {
             ['kitchenAdmin', 'ingredient', ingredientId] as const,
 
         recipes: (filter?: QueryScope) => ['kitchenAdmin', 'recipes', scope(filter)] as const,
+        recipeTechnicalSheet: (recipeId: RecipeId, versionId: string) =>
+            ['kitchenAdmin', 'recipe', recipeId, 'technical-sheet', versionId] as const,
         recipesPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'recipes', 'page', scope(filter), page] as const,
         recipe: (recipeId: RecipeId) => ['kitchenAdmin', 'recipe', recipeId] as const,

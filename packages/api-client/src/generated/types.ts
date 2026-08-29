@@ -339,6 +339,26 @@ export type IngredientVerificationStatus = 'verified' | 'unverified' | 'requires
  */
 export type AvailabilityTier = 'core' | 'common' | 'specialty_imported' | null;
 
+export type IngredientNutrientAmount = {
+    nutrient_id: 'energy' | 'protein' | 'carbohydrate' | 'fat' | 'fibre' | 'sugars' | 'saturated_fat' | 'sodium';
+    unit: 'kcal' | 'kJ' | 'g' | 'mg';
+    value: number;
+};
+
+/**
+ * Per-100 g reference facts for an ingredient — the landing zone the
+ * later recipe-rollup phase reads. The same envelope family as a
+ * catalogue item's `nutrition_facts`, kept to what an operator can
+ * actually assert today: a basis pinned to `per_100g` and the eight
+ * core nutrient amounts. Source/calculation provenance arrives with
+ * the rollup phase, not before.
+ *
+ */
+export type IngredientNutritionPer100g = {
+    basis: 'per_100g';
+    amounts: Array<IngredientNutrientAmount>;
+};
+
 /**
  * The administrative shape of an ingredient. Carries **both** names and
  * ignores `Accept-Language` for them: a bilingual editor has to see what
@@ -368,6 +388,22 @@ export type AdminIngredient = {
     ingredient_subcategory_id: Uuid | null;
     default_unit_id: Uuid;
     default_unit_code?: string | null;
+    /**
+     * The pack this is bought in; the default unit stays the usage unit.
+     */
+    purchase_unit_id?: Uuid | null;
+    purchase_unit_code?: string | null;
+    /**
+     * The source workbook's "Made From" transcription — a coarse,
+     * kitchen-facing ingredient list, never a quantified formulation.
+     *
+     */
+    composition?: string | null;
+    /**
+     * Pieces per purchase pack, as a two-place decimal string.
+     */
+    items_per_unit?: string | null;
+    nutrition_per_100g?: IngredientNutritionPer100g | null;
     /**
      * Decimal with four places, as a string so no client rounds it.
      */
@@ -484,6 +520,10 @@ export type CreateIngredientRequest = {
     ingredient_category_id?: Uuid | null;
     ingredient_subcategory_id?: Uuid | null;
     default_unit_id: Uuid;
+    purchase_unit_id?: Uuid | null;
+    composition?: string | null;
+    items_per_unit?: number | null;
+    nutrition_per_100g?: IngredientNutritionPer100g | null;
     yield_factor?: number;
     availability_tier?: AvailabilityTier;
     notes?: string | null;
@@ -501,6 +541,10 @@ export type UpdateIngredientRequest = {
     ingredient_category_id?: Uuid | null;
     ingredient_subcategory_id?: Uuid | null;
     default_unit_id?: Uuid;
+    purchase_unit_id?: Uuid | null;
+    composition?: string | null;
+    items_per_unit?: number | null;
+    nutrition_per_100g?: IngredientNutritionPer100g | null;
     yield_factor?: number;
     availability_tier?: AvailabilityTier;
     notes?: string | null;
@@ -1194,7 +1238,7 @@ export type UpdateAllergenClassRequest = {
  * around them.
  *
  */
-export type CatalogueItemType = 'product' | 'meal' | 'subscription_plan';
+export type CatalogueItemType = 'product' | 'meal' | 'subscription_plan' | 'sauce' | 'dressing';
 
 /**
  * The publication lifecycle of a sellable item — the **same** four-state
@@ -1363,10 +1407,28 @@ export type AdminCatalogueItem = {
     name_ar: string;
     description_en?: string | null;
     description_ar?: string | null;
+    product_category_id?: Uuid | null;
+    /**
+     * The platform code of the published category, when the relation is
+     * loaded — the value a client should file the item under instead of
+     * resolving the id itself.
+     *
+     */
+    product_category_code?: string | null;
+    /**
+     * The source workbook's "Recipe (Made From)" transcription — coarse,
+     * kitchen-facing prose, never a quantified formulation.
+     *
+     */
+    composition?: string | null;
+    /**
+     * The kitchen's own nested filing label, transcribed text.
+     */
+    kitchen_category?: string | null;
     /**
      * The merchandising shelf, not the purchasing taxonomy.
      */
-    product_category_id?: Uuid | null;
+    kitchen_subcategory?: string | null;
     production_mode?: CatalogueProductionMode | null;
     /**
      * The recipe a meal is produced from. Its **published** version is
@@ -1621,6 +1683,9 @@ export type CreateCatalogueItemRequest = {
     slug?: string | null;
     description_en?: string | null;
     description_ar?: string | null;
+    composition?: string | null;
+    kitchen_category?: string | null;
+    kitchen_subcategory?: string | null;
     /**
      * Omit to use (and create on demand) the organisation's `default` catalogue.
      */
@@ -1649,6 +1714,9 @@ export type UpdateCatalogueItemRequest = {
     name_ar?: string | null;
     description_en?: string | null;
     description_ar?: string | null;
+    composition?: string | null;
+    kitchen_category?: string | null;
+    kitchen_subcategory?: string | null;
     product_category_id?: Uuid | null;
     production_mode?: CatalogueProductionMode | null;
     recipe_id?: Uuid | null;
@@ -2958,12 +3026,26 @@ export type MarketplaceMeal = {
     kitchen_id: Uuid;
     kitchen_name: string;
     /**
-     * Whether this listing is a prepared meal or a sellable product
-     * (sauce, frozen pack, oil, and so on). Both appear on the kitchen
-     * menu; clients filter with `item_types`.
+     * Whether this listing is a prepared meal, a resold product
+     * (frozen pack, drink, bread and so on), a kitchen-made sauce or a
+     * dressing. All appear on the kitchen menu; clients filter with
+     * `item_types`.
      *
      */
-    item_type: 'meal' | 'product';
+    item_type: 'meal' | 'product' | 'sauce' | 'dressing';
+    /**
+     * The customer-facing shelf this listing is published under, from
+     * the platform product taxonomy. Null when the kitchen has not
+     * filed it anywhere. Filter with `category_slug`.
+     *
+     */
+    published_category: {
+        code: string;
+        /**
+         * Localised — one server-chosen language.
+         */
+        name: string;
+    } | null;
     /**
      * Localised. One server-chosen language, never both columns.
      */
@@ -20609,8 +20691,17 @@ export type ListMarketplaceMealsData = {
          */
         kitchen_ids?: string;
         /**
+         * One published-category code from the platform product taxonomy
+         * (`frozen`, `beverage`, `sauce`, `dressing`, `meal`, `bread`, …).
+         * An unknown code matches nothing — the codes are navigation, and a
+         * stale chip should render an empty shelf, not a `400`.
+         *
+         */
+        category_slug?: string;
+        /**
          * Comma-separated catalogue item types to include. Allowed values:
-         * `meal`, `product`. Omit to receive both. Unknown values are `400`.
+         * `meal`, `product`, `sauce`, `dressing`. Omit to receive all.
+         * Unknown values are `400`.
          *
          */
         item_types?: string;

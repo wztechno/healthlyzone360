@@ -39,7 +39,7 @@ final class IngredientIndexController
      */
     public function __invoke(Request $request): JsonResponse
     {
-        $query = Ingredient::query()->with('defaultUnit');
+        $query = Ingredient::query()->with(['defaultUnit', 'purchaseUnit']);
 
         $this->applyStatus($request, $query);
         $this->applyCategory($request, $query);

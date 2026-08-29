@@ -23,18 +23,22 @@ enum CatalogueItemType: string
     case Product = 'product';
     case Meal = 'meal';
     case SubscriptionPlan = 'subscription_plan';
+    case Sauce = 'sauce';
+    case Dressing = 'dressing';
 
     /**
      * Which variant kind belongs to this item type.
      *
-     * A product is bought in packs; a plan is bought in configurations. A
-     * meal has neither — it is sold as itself — which is why this returns
-     * null rather than inventing a third variant kind nobody would populate.
+     * A product is bought in packs — and so are sauces and dressings, which
+     * sell in B2B and B2C pack sizes exactly like any other packaged good. A
+     * plan is bought in configurations. A meal has neither — it is sold as
+     * itself — which is why this returns null rather than inventing a third
+     * variant kind nobody would populate.
      */
     public function variantType(): ?VariantType
     {
         return match ($this) {
-            self::Product => VariantType::Pack,
+            self::Product, self::Sauce, self::Dressing => VariantType::Pack,
             self::SubscriptionPlan => VariantType::PlanConfiguration,
             self::Meal => null,
         };

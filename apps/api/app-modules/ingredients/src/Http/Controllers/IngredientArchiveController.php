@@ -52,7 +52,7 @@ final class IngredientArchiveController
         }
 
         $archived = $this->catalogue->archive($record, $expected);
-        $archived->load('defaultUnit');
+        $archived->load(['defaultUnit', 'purchaseUnit']);
 
         return ApiResponse::data(['ingredient' => $this->presenter->ingredient($archived)])
             ->withHeaders(['ETag' => '"'.$archived->lock_version.'"']);

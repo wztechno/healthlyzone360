@@ -48,6 +48,7 @@ import type {
     UpdatePlanRequest,
     UpdateProductRequest,
     UpdateRecipeRequest,
+    TechnicalSheetAdmin,
 } from '@healthy360/api-client/contracts';
 import { pageCount } from '@healthy360/api-client/contracts';
 import type {
@@ -60,6 +61,7 @@ import type {
     ProductId,
     RecipeId,
     SubscriptionPlanId,
+    RecipeVersionId,
 } from '@healthy360/domain-types';
 import {
     hashKey,
@@ -580,6 +582,33 @@ export function useRecipeQuery(recipeId: RecipeId | null): UseQueryResult<Recipe
     });
 }
 
+/**
+ * CONFIDENTIAL — the costed technical sheet of the version on screen.
+ *
+ * `null` data is a state, not an error: it is what the repository returns for
+ * a member without `recipe.view_costs_organisation`, and the panel renders
+ * the formulation without money rather than failing the screen.
+ */
+export function useRecipeTechnicalSheetQuery(
+    recipeId: RecipeId | null,
+    versionId: RecipeVersionId | null,
+): UseQueryResult<TechnicalSheetAdmin | null> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.recipeTechnicalSheet(
+            recipeId ?? ('' as RecipeId),
+            versionId === null ? '' : String(versionId),
+        ),
+        enabled: repositories !== null && recipeId !== null && versionId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (recipeId === null || versionId === null) throw new Error('No recipe version.');
+            return repositories.kitchenAdmin.getRecipeTechnicalSheet(recipeId, versionId);
+        },
+    });
+}
+
 /** One kitchen recipes are actually filed under, with how many carry it. */
 export interface RecipeKitchen {
     readonly kitchenId: KitchenId;
@@ -991,11 +1020,14 @@ export function useProductCategoriesQuery(): UseQueryResult<readonly ProductCate
 }
 
 /** The product counts behind the hub card, in one query. */
-export function useProductSummaryQuery(enabled = true): UseQueryResult<PublishedFamilySummary> {
+export function useProductSummaryQuery(
+    enabled = true,
+    itemType: 'product' | 'sauce' | 'dressing' = 'product',
+): UseQueryResult<PublishedFamilySummary> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenAdmin.products({ derive: 'summary' }),
+        queryKey: queryKeys.kitchenAdmin.products({ derive: 'summary', itemType }),
         enabled: enabled && repositories !== null,
         queryFn: async (): Promise<PublishedFamilySummary> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
@@ -1003,12 +1035,14 @@ export function useProductSummaryQuery(enabled = true): UseQueryResult<Published
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listProducts({
                         limit: SUMMARY_PAGE_LIMIT,
+                        itemType,
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
                 ),
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listProducts({
                         limit: SUMMARY_PAGE_LIMIT,
+                        itemType,
                         statuses: ['published'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1016,6 +1050,7 @@ export function useProductSummaryQuery(enabled = true): UseQueryResult<Published
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listProducts({
                         limit: SUMMARY_PAGE_LIMIT,
+                        itemType,
                         statuses: ['draft'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),
@@ -1023,6 +1058,7 @@ export function useProductSummaryQuery(enabled = true): UseQueryResult<Published
                 countAcrossPages((cursor) =>
                     repositories.kitchenAdmin.listProducts({
                         limit: SUMMARY_PAGE_LIMIT,
+                        itemType,
                         statuses: ['review_required'],
                         ...(cursor === undefined ? {} : { cursor }),
                     }),

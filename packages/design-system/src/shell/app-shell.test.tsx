@@ -429,6 +429,87 @@ describe('AppShell — marketplace', () => {
     });
 });
 
+describe('AppShell — auth aside', () => {
+    it('stands the brand panel beside the card from lg up', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="auth"
+                authAside={<Text testID="shell-aside-content">brand</Text>}
+            >
+                <Text>Form</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-aside')).toBeTruthy();
+        expect(screen.getByTestId('shell-aside-content')).toBeTruthy();
+        expect(screen.getByTestId('shell-card')).toBeTruthy();
+    });
+
+    it('drops the panel below lg and keeps the centred card', async () => {
+        setViewport(390);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="auth"
+                authAside={<Text testID="shell-aside-content">brand</Text>}
+            >
+                <Text>Form</Text>
+            </AppShell>,
+        );
+
+        expect(screen.queryByTestId('shell-aside')).toBeNull();
+        expect(screen.getByTestId('shell-card')).toBeTruthy();
+    });
+});
+
+describe('AppShell — sidebar slots', () => {
+    it('renders the brand block, the background layer, the badge and the pinned end control', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[
+                    {
+                        key: 'review',
+                        label: 'Review queue',
+                        badge: <Text testID="nav-review-badge">4</Text>,
+                        onPress: () => undefined,
+                        testID: 'nav-review',
+                    },
+                ]}
+                sidebarStart={<Text testID="shell-brand-block">Healthy360</Text>}
+                sidebarBackground={<Text testID="shell-canopy-gradient">gradient</Text>}
+                sidebarEnd={<Text testID="shell-sidebar-sign-out">Sign out</Text>}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-brand-block')).toBeTruthy();
+        expect(screen.getByTestId('shell-canopy-gradient')).toBeTruthy();
+        expect(screen.getByTestId('nav-review-badge')).toBeTruthy();
+        expect(screen.getByTestId('shell-sidebar-sign-out')).toBeTruthy();
+    });
+
+    it('applies a caller width as style and leaves the default classes alone', async () => {
+        setViewport(1280);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="workspace" navigation={navigation} sidebarWidth={232}>
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        const sidebar = screen.getByTestId('shell-sidebar');
+        expect(sidebar.props.style).toMatchObject({ width: 232 });
+        // The class stays: the style wins at runtime, and the suites asserting the default keep
+        // meaning something.
+        expect(sidebar.props.className).toContain('w-[260px]');
+    });
+});
+
 describe('AppShell — consumer', () => {
     it('keeps a sidebar at lg and above', async () => {
         setViewport(1280);

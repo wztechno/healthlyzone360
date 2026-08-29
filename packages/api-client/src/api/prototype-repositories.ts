@@ -16,6 +16,7 @@ import type {
     SubscriptionPlanId,
     UserId,
     VdSessionId,
+    RecipeVersionId,
 } from '@healthy360/domain-types';
 import type { NutritionTargetRequest, NutritionTargetResult } from '@healthy360/nutrition';
 
@@ -117,6 +118,7 @@ import type {
     UpdatePlanRequest,
     UpdateProductRequest,
     UpdateRecipeRequest,
+    TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
 import type {
     DietCategory,
@@ -746,6 +748,14 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
     getRecipe(_recipeId: RecipeId): Promise<RecipeAdmin> {
         return notImplemented(`GET ${BASE}/catalogue/recipes/{recipe}`);
+    },
+    getRecipeTechnicalSheet(
+        _recipeId: RecipeId,
+        _versionId: RecipeVersionId,
+    ): Promise<TechnicalSheetAdmin | null> {
+        return notImplemented(
+            `GET ${BASE}/catalogue/recipes/{recipe}/versions/{version}/technical-sheet`,
+        );
     },
     createRecipe(_request: CreateRecipeRequest): Promise<RecipeAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/recipes`);

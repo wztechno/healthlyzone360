@@ -6,8 +6,8 @@ namespace Healthy360\Kitchens\Services;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
-use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\VariantStatus;
+use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
@@ -17,6 +17,7 @@ use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
+use Healthy360\Tenancy\Scopes\OrganisationScope;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -69,7 +70,7 @@ use Illuminate\Database\Eloquent\Builder;
 final readonly class MarketplaceMeals
 {
     /** @var list<string> */
-    public const array LISTING_ITEM_TYPES = ['meal', 'product'];
+    public const array LISTING_ITEM_TYPES = ['meal', 'product', 'sauce', 'dressing'];
 
     public function __construct(
         private PriceResolver $prices,
@@ -85,6 +86,10 @@ final readonly class MarketplaceMeals
     public function visible(): Builder
     {
         return CatalogueItem::withoutTenancy()
+            // The category relation must opt out too: this query serves the
+            // anonymous marketplace, where no tenant context exists to scope
+            // the (platform-rowed) product_categories table.
+            ->with(['category' => fn ($query) => $query->withoutGlobalScope(OrganisationScope::class)])
             ->whereIn('item_type', self::LISTING_ITEM_TYPES)
             ->where('status', CatalogueItemStatus::Published->value)
             ->whereIn('organisation_id', app(MarketplaceKitchens::class)->visible()->select('organisations.id'))
@@ -106,6 +111,21 @@ final readonly class MarketplaceMeals
      * @param  Builder<CatalogueItem>  $query
      * @param  list<string>  $types
      */
+    /**
+     * Only items published under this category, by the platform category's
+     * code. An unknown code matches nothing rather than erroring: the codes
+     * are navigation, and a stale chip should show an empty shelf, not a 400.
+     *
+     * @param  Builder<CatalogueItem>  $query
+     */
+    public function whereCategorySlug(Builder $query, string $slug): void
+    {
+        $query->whereExists(fn ($sub) => $sub->from('product_categories')
+            ->whereColumn('product_categories.id', 'catalogue_items.product_category_id')
+            ->where('product_categories.code', $slug)
+            ->where('product_categories.is_active', true));
+    }
+
     public function whereItemTypes(Builder $query, array $types): void
     {
         $allowed = array_values(array_intersect(array_unique($types), self::LISTING_ITEM_TYPES));
@@ -211,7 +231,7 @@ final readonly class MarketplaceMeals
             return null;
         }
 
-        $variantIds = $meal->item_type === CatalogueItemType::Product
+        $variantIds = $meal->item_type->variantType() === VariantType::Pack
             ? $this->listingPackVariantIds($meal)
             : [null];
 

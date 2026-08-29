@@ -176,7 +176,26 @@ export function CartScreen() {
                             />
                         )}
 
-                        <Card testID="cart-summary" padding="md" tone="sunken">
+                        <Card
+                            testID="cart-summary"
+                            padding="md"
+                            tone="sunken"
+                            // The order summary's call to action rides the pinned footer (§2.1),
+                            // gated exactly as it was inside the preview's QueryStates: no
+                            // confirmed totals, no button.
+                            footer={
+                                preview.data === undefined ? undefined : (
+                                    <Button
+                                        testID="cart-checkout"
+                                        block
+                                        label={t('commerce:cart.checkout')}
+                                        onPress={() => {
+                                            router.push('/customer/checkout' as never);
+                                        }}
+                                    />
+                                )
+                            }
+                        >
                             <Stack space="md">
                                 <Text variant="label">{t('commerce:cart.summaryTitle')}</Text>
                                 <QueryStates
@@ -204,14 +223,6 @@ export function CartScreen() {
                                                 body={t('commerce:cart.allergenBody')}
                                             />
                                         ) : null}
-                                        <Button
-                                            testID="cart-checkout"
-                                            block
-                                            label={t('commerce:cart.checkout')}
-                                            onPress={() => {
-                                                router.push('/customer/checkout' as never);
-                                            }}
-                                        />
                                     </Stack>
                                 </QueryStates>
                             </Stack>

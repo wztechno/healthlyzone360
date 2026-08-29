@@ -397,7 +397,13 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
         match ($item->item_type) {
             CatalogueItemType::Meal => $this->resolveMeal($order, $line, $item, $branchId, $failures),
-            CatalogueItemType::Product => $this->resolveProduct($order, $line, $item, $branchId, $failures),
+
+            // A sauce or dressing consumes like a product — one draw from the
+            // shelf its `ingredient_id` names. Nothing explodes: the v6
+            // catalogue links no formulation lines for them.
+            CatalogueItemType::Product,
+            CatalogueItemType::Sauce,
+            CatalogueItemType::Dressing => $this->resolveProduct($order, $line, $item, $branchId, $failures),
 
             // The zero-food plan-day line consumes nothing: the real meal and
             // product lines generated alongside it do the consuming.

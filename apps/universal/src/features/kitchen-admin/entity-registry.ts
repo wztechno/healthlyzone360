@@ -425,6 +425,30 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        key: 'sauces',
+        kind: 'managed',
+        group: 'catalogue',
+        nameKey: 'kitchen:families.sauces.name',
+        descriptionKey: 'kitchen:families.sauces.description',
+        // Same face-on pack rectangle as products: a sauce sells as a packaged
+        // good, and the glyph table still has nothing closer.
+        icon: 'device',
+        href: '/kitchen/sauces',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'dressings',
+        kind: 'managed',
+        group: 'catalogue',
+        nameKey: 'kitchen:families.dressings.name',
+        descriptionKey: 'kitchen:families.dressings.description',
+        icon: 'device',
+        href: '/kitchen/dressings',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
         key: 'meals',
         kind: 'managed',
         group: 'catalogue',

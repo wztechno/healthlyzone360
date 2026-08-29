@@ -6,7 +6,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Pagination,
     Skeleton,
@@ -38,6 +37,7 @@ import {
     statusKey,
     statusTone,
 } from '../format.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
@@ -241,14 +241,24 @@ function IngredientsList() {
 
     return (
         <Stack space="lg" testID="kitchen-ingredients-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-ingredients-title">
-                    {t('kitchen:list.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-ingredients-subtitle">
-                    {t('kitchen:list.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-ingredients-header"
+                title={t('kitchen:list.title')}
+                subtitle={t('kitchen:list.subtitle')}
+                titleTestID="kitchen-ingredients-title"
+                subtitleTestID="kitchen-ingredients-subtitle"
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-ingredients-toolbar-create"
+                            label={t('kitchen:toolbar.create')}
+                            onPress={() => {
+                                router.push('/kitchen/ingredients/new' as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ListToolbar
                 testID="kitchen-ingredients-toolbar"
@@ -264,17 +274,14 @@ function IngredientsList() {
                 }))}
                 category={category}
                 onCategoryChange={setCategory}
-                createLabel={t('kitchen:toolbar.create')}
-                {...(canManage
-                    ? {
-                          onCreate: () => {
-                              router.push('/kitchen/ingredients/new' as never);
-                          },
-                      }
-                    : {})}
                 {...(ingredients.isPending || total === null
                     ? {}
-                    : { resultSummary: t('kitchen:toolbar.resultCount', { count: total }) })}
+                    : {
+                          resultSummary: t('kitchen:toolbar.showing', {
+                              shown: sorted.length,
+                              total,
+                          }),
+                      })}
             />
 
             {ingredients.isPending ? (
@@ -346,6 +353,11 @@ function IngredientsList() {
                         columns={columns}
                         rows={sorted}
                         rowKey={(row) => String(row.id)}
+                        rowTone={(row) =>
+                            row.meta.status === 'draft' || row.meta.status === 'retired'
+                                ? 'muted'
+                                : 'default'
+                        }
                         sortKey={sortKey}
                         sortDirection={sortDirection}
                         onSortChange={(key, direction) => {

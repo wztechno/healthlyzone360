@@ -1,0 +1,72 @@
+{
+    "source_workbooks": ["synthetic-recipes.xlsx"],
+    "source_system": "healthy360_workbook_v6",
+    "sheets": [
+        {
+            "sheet_index": 1,
+            "family": "sauce",
+            "tab": "Fixture Garlic Sauce",
+            "designation": "Fixture Garlic Sauce",
+            "kind": "Production",
+            "yield": { "raw": "1.5", "label": null, "shape": "bare_number", "quantity": "1.5", "unit": "kg", "piece_count": null },
+            "totals": { "input_quantity": "1.51", "input_total": "3.803" },
+            "lines": [
+                { "row": 9, "designation": "Mayonnaise", "unit": "kg", "quantity": "1", "unit_price": "3.5", "line_total": "3.5", "comment": null },
+                { "row": 10, "designation": "Fixture Hot Paste", "unit": "kg", "quantity": "0.5", "unit_price": "0.6", "line_total": "0.3", "comment": "verify supplier" },
+                { "row": 11, "designation": "Salt", "unit": "kg", "quantity": "0.01", "unit_price": "0.3", "line_total": "0.003", "comment": null }
+            ],
+            "cost_labels": [
+                { "label": "Total Production Cost", "amount": "3.803" },
+                { "label": "1 kg Production Cost", "amount": "2.535" },
+                { "label": "3% Waste Coeffecient", "amount": "2.611" }
+            ],
+            "waste_percent": "3",
+            "findings": []
+        },
+        {
+            "sheet_index": 2,
+            "family": "meal",
+            "tab": "Fixture Piece Prep",
+            "designation": "Fixture Piece Prep",
+            "kind": "Preparation",
+            "yield": { "raw": "130 (7 kg)", "label": null, "shape": "pieces_with_mass", "quantity": "7", "unit": "kg", "piece_count": 130 },
+            "totals": { "input_quantity": "7.5", "input_total": "28" },
+            "lines": [
+                { "row": 9, "designation": "Chicken", "unit": "kg", "quantity": "7", "unit_price": "4", "line_total": "28", "comment": null },
+                { "row": 10, "designation": "Fixture Garlic Sauce", "unit": "kg", "quantity": "0.5", "unit_price": "2.535", "line_total": "1.2675", "comment": "intermediate" }
+            ],
+            "cost_labels": [
+                { "label": "Total Production Cost", "amount": "28" },
+                { "label": "1 Piece Production Cost", "amount": "0.215" },
+                { "label": "3% Waste Coeffecient", "amount": "0.222" },
+                { "label": "1 Kg Production Cost", "amount": "4.0" },
+                { "label": "3% Waste Coeffecient", "amount": "4.12" }
+            ],
+            "waste_percent": "3",
+            "findings": []
+        },
+        {
+            "sheet_index": 3,
+            "family": "meal",
+            "tab": "Fixture No Yield",
+            "designation": "Fixture No Yield",
+            "kind": "Production",
+            "yield": { "raw": null, "label": null, "shape": "absent", "quantity": null, "unit": null, "piece_count": null },
+            "totals": { "input_quantity": "2", "input_total": "8" },
+            "lines": [
+                { "row": 9, "designation": "Chicken", "unit": "kg", "quantity": "2", "unit_price": "4", "line_total": "8", "comment": null }
+            ],
+            "cost_labels": [
+                { "label": "Total Production Cost", "amount": "8" },
+                { "label": "1 kg Production Cost", "amount": "4" }
+            ],
+            "waste_percent": null,
+            "findings": [
+                { "code": "yield_unstated", "detail": "meal/Fixture No Yield: Quantity Produced is empty." }
+            ]
+        }
+    ],
+    "findings": [
+        { "code": "duplicate_sheet_skipped", "detail": "synthetic: a duplicated sheet was imported once." }
+    ]
+}

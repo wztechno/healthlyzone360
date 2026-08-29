@@ -65,6 +65,20 @@ final readonly class DerivedAllergenService
 
         $ingredientIds = $this->listedIngredientIds($item);
 
+        // An item that *is* exactly one ingredient — a resold good, a v6
+        // sauce or dressing — truthfully carries that ingredient's declared
+        // allergens. The same basis the readiness gate accepts
+        // (CatalogueItemReadiness::hasAllergenBasis); a gate that publishes
+        // on it while the label ignored it would be the dangerous half of an
+        // agreement.
+        if ($ingredientIds === [] && $item->ingredient_id !== null) {
+            return [
+                'basis' => 'linked_ingredient',
+                'recipe_version_id' => null,
+                'allergens' => $this->fromIngredients([$item->ingredient_id], $item->organisation_id),
+            ];
+        }
+
         if ($ingredientIds === []) {
             // Not "no allergens" — "no basis". An item nobody has described
             // has not been assessed, and silence is not a statement of absence

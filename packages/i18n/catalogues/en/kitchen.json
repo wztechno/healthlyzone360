@@ -49,6 +49,7 @@
         "railTitle": "Kitchen",
         "overview": "Overview",
         "groups": {
+            "workspace": "Workspace",
             "orderDesk": "Order desk",
             "workbench": "Workbench",
             "catalogue": "Catalogue",
@@ -257,6 +258,7 @@
             "adjustHint": "Enter how much to add or remove.",
             "adjustedToast": "Stock adjusted for {{name}}.",
             "wastedToast": "Waste logged for {{name}}.",
+            "columnLevel": "Level",
             "columnThreshold": "Reorder at",
             "noThreshold": "No threshold",
             "lowBadge": "Low",
@@ -874,6 +876,10 @@
             "dataQualityBody_one": "One month has unresolved consumption exceptions, so its cost of goods sold is understated.",
             "dataQualityBody_other": "{{count}} months have unresolved consumption exceptions, so their cost of goods sold is understated.",
             "flagged": "Understated",
+            "hintSpend": "what arrived this month",
+            "hintCogs": "what confirmed orders consumed",
+            "hintRevenue": "sold across every book",
+            "hintMargin": "after cost of goods",
             "tileSpend": "Spend · {{month}}",
             "tileCogs": "COGS · {{month}}",
             "tileRevenue": "Revenue · {{month}}",
@@ -1454,6 +1460,14 @@
         "orderCashReport": {
             "name": "Cash taken",
             "description": "What each agent took in a day, and how it arrived — the record behind the till, until there is a shift to close."
+        },
+        "sauces": {
+            "name": "Sauces & marinations",
+            "description": "The kitchen-made sauces and marinations, with their packs and prices."
+        },
+        "dressings": {
+            "name": "Dressings",
+            "description": "The kitchen-made salad dressings, with their packs and prices."
         }
     },
     "analytics": {
@@ -1577,6 +1591,10 @@
         }
     },
     "toolbar": {
+        "filters": "Filters",
+        "filtersActive": "Filters ({{n}})",
+        "removeFilter": "Remove filter: {{filter}}",
+        "showing": "Showing {{shown}} of {{total}}",
         "searchLabel": "Search",
         "searchPlaceholder": "Name, alias or reference",
         "statusLabel": "Status",
@@ -1591,6 +1609,7 @@
         "title": "Ingredients",
         "subtitle": "The shared library plus everything this kitchen has added or changed.",
         "caption": "Ingredients",
+        "tableProvenance": "Energy and macros come from the linked recipe version — edit them there, not here.",
         "columnName": "Name",
         "columnCategory": "Category",
         "columnAllergens": "Allergens",
@@ -1663,7 +1682,15 @@
         "unit": "Issuing unit",
         "unitHint": "The unit this ingredient is bought and issued in.",
         "notes": "Notes",
-        "notesHint": "Anything the next person needs to know. Never a substitute for an allergen mapping."
+        "notesHint": "Anything the next person needs to know. Never a substitute for an allergen mapping.",
+        "purchaseUnit": "Purchase pack",
+        "purchaseUnitHint": "The pack this is bought in; the unit above stays the usage unit.",
+        "purchaseUnitNone": "Not recorded",
+        "purchaseUnitNoneHint": "No purchase pack on record",
+        "itemsPerUnit": "Items per pack",
+        "itemsPerUnitHint": "Pieces in one purchase pack, where known.",
+        "composition": "Composition (made from)",
+        "compositionHint": "The source sheet's own wording — a coarse ingredient list, not a formulation."
     },
     "units": {
         "dimensionMass": "Mass",
@@ -1679,7 +1706,8 @@
         "portion": "Portions",
         "cup": "Cups",
         "tbsp": "Tablespoons",
-        "tsp": "Teaspoons"
+        "tsp": "Teaspoons",
+        "dimensionPackage": "Packs"
     },
     "aliases": {
         "title": "Other names",
@@ -1892,7 +1920,31 @@
         "stepRemoved": "Step {{number}} was removed.",
         "addStep": "Add a step",
         "stepCount_one": "{{count}} step",
-        "stepCount_other": "{{count}} steps"
+        "stepCount_other": "{{count}} steps",
+        "sheetTitle": "Technical sheet",
+        "sheetConfidential": "This information is private and restricted — it must not be shared outside the kitchen.",
+        "sheetDesignation": "Designation",
+        "sheetKind": "Kind",
+        "sheetKindUnstated": "Not stated",
+        "sheetQuantityProduced": "Quantity produced",
+        "sheetQuantityWithPieces": "{{pieces}} pieces ({{quantity}} {{unit}})",
+        "sheetRawMaterial": "Raw material",
+        "sheetColDesignation": "Designation",
+        "sheetColUnit": "U.",
+        "sheetColQuantity": "Q.",
+        "sheetColUnitPrice": "U.P.",
+        "sheetColLineTotal": "T",
+        "sheetColComments": "Comments",
+        "sheetTotalRow": "Total:",
+        "sheetNoLines": "No raw-material lines are recorded yet.",
+        "sheetCostTitle": "Cost",
+        "sheetCostTotal": "Total production cost",
+        "sheetCostPerUnit": "1 {{unit}} production cost",
+        "sheetCostPerPiece": "1 piece production cost",
+        "sheetCostWithWaste": "{{percent}}% waste coefficient",
+        "sheetCostAbsent": "No cost snapshot has been recorded for this version yet.",
+        "sheetCostHidden": "Costs are hidden — viewing them needs the recipe cost permission.",
+        "sheetBasisMismatch": "Label disputes yield"
     },
     "publish": {
         "action": "Publish",
@@ -1907,6 +1959,14 @@
         "quarantineBody": "This recipe’s allergen information contradicts a determination it was published against. Publication is refused from here — no amount of clicking gets past it. Resolve the conflict on the ingredient first.",
         "blockedTitle": "This version cannot be published yet",
         "blockNoLines": "It has no lines.",
+        "gateTitle": "Publication gate",
+        "gateCheckName": "Name in both languages",
+        "gateCheckDescription": "Description in both languages",
+        "gateCheckSaved": "Changes saved",
+        "gateExplainer": "A check is failing. The meal stays off the marketplace until every check passes — fix it here, then publish.",
+        "gateQueueTitle": "In the review queue",
+        "gateQueueBody": "A failing check appears on the review queue too — resolving it here clears it there.",
+        "gateQueueOpen": "Open the review queue",
         "blockName": "The name is missing one of its two languages.",
         "blockDescription": "The description is missing one of its two languages.",
         "blockUnsaved": "There are unsaved changes. Save them first — publishing publishes what the server holds, not what is on screen.",
@@ -2677,5 +2737,25 @@
         "loadErrorTitle": "Those opening hours could not be loaded",
         "noBranchTitle": "No branch is in context",
         "noBranchBody": "Opening hours belong to a branch. Choose one from the workspace switcher and come back."
+    },
+    "sauces": {
+        "title": "Sauces & marinations",
+        "subtitle": "Kitchen-made sauces sold as packaged goods — same packs and channels as products.",
+        "create": "New sauce",
+        "caption": "Sauces and marinations, their packs, channels and status",
+        "resultCount_one": "{{count}} sauce",
+        "resultCount_other": "{{count}} sauces",
+        "emptyTitle": "No sauces yet",
+        "emptyBody": "Sauces the kitchen makes appear here once they are imported or created."
+    },
+    "dressings": {
+        "title": "Dressings",
+        "subtitle": "Kitchen-made salad dressings sold as packaged goods.",
+        "create": "New dressing",
+        "caption": "Dressings, their packs, channels and status",
+        "resultCount_one": "{{count}} dressing",
+        "resultCount_other": "{{count}} dressings",
+        "emptyTitle": "No dressings yet",
+        "emptyBody": "Dressings the kitchen makes appear here once they are imported or created."
     }
 }

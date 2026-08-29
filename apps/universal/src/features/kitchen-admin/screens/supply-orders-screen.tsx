@@ -27,6 +27,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
+import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
 import {
@@ -317,14 +318,13 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
 
     return (
         <Stack space="lg" testID="kitchen-supply-orders-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="kitchen-supply-orders-title">
-                    {t('kitchen:ops.supplyOrders.title')}
-                </Heading>
-                <Text tone="secondary" testID="kitchen-supply-orders-subtitle">
-                    {t('kitchen:ops.supplyOrders.subtitle')}
-                </Text>
-            </Stack>
+            <KitchenPageHeader
+                testID="kitchen-supply-orders-header"
+                title={t('kitchen:ops.supplyOrders.title')}
+                subtitle={t('kitchen:ops.supplyOrders.subtitle')}
+                titleTestID="kitchen-supply-orders-title"
+                subtitleTestID="kitchen-supply-orders-subtitle"
+            />
 
             {branchId === null ? (
                 /*

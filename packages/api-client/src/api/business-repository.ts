@@ -113,6 +113,8 @@ function mapItemKind(itemType: string): CatalogueItemKind {
         case 'subscription_plan':
             return 'meal_plan';
         case 'product':
+        case 'sauce':
+        case 'dressing':
             return 'bulk_package';
         default:
             return 'meal';
