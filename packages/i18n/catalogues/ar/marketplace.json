@@ -20,6 +20,9 @@
         "signIn": "تسجيل الدخول",
         "register": "إنشاء حساب",
         "myHome": "صفحتي",
+        "accountMenu": "قائمة حساب {{name}}",
+        "searchLabel": "ابحث في القائمة",
+        "searchPlaceholder": "وجبات أو مكوّنات أو مطابخ",
         "skipToContent": "تخطَّ إلى المحتوى",
         "plannedSuffix": "{{label}} (قريبًا)",
         "plannedNotice": "لم يُبنَ قسم {{label}} بعد. لم يتغير أي شيء."
@@ -92,7 +95,23 @@
             "plans": "خطط الاشتراك جنبًا إلى جنب، مع نطاقات السعرات وخصومات المدة.",
             "diets": "تصفّح حسب طريقة أكلك لا حسب المطبخ الذي أعدّ الطعام.",
             "tools": "احسب هدف السعرات والعناصر الكبرى دون حساب، واطّلع على طريقة الحساب."
-        }
+        },
+        "heroEyebrow": "طازج اليوم · يُوصَّل إلى منطقتك",
+        "heroTitle": "طعام حقيقي، يُطبخ اليوم ويُؤكل اليوم.",
+        "heroBody": "أطباق وسلطات وصحون من إعداد طهاة، من مطابخ تنشر أرقامها. الطاقة والبروتين على كل طبق، دون اشتراك.",
+        "heroImageLabel": "طبق من أحد مطابخ المتجر",
+        "heroOverlayLabel": "الأعلى تقييمًا اليوم",
+        "heroBrowseMeals": "تصفّح قائمة اليوم",
+        "categoriesTitle": "تصفّح حسب الفئة",
+        "allMeals": "كل الوجبات",
+        "popularTitle": "الأعلى تقييمًا هذا الأسبوع",
+        "popularMeta": "بتقييم من طلبوها",
+        "offerEyebrow": "على القائمة هذا الأسبوع",
+        "offerTitle": "ابنِ أسبوعك من المطابخ القريبة منك",
+        "offerBody": "املأ أسبوعك من أي مطبخ في المتجر. كل طبق يحمل طاقته وبروتينه، فيكتمل حساب الأسبوع قبل أن تطلب.",
+        "offerAction": "ابدأ أسبوعًا",
+        "railTitle": "المزيد مثل {{meal}}",
+        "railFigures": "{{energy}} سعرة · {{protein}} غ بروتين"
     },
     "kitchens": {
         "title": "المطابخ",
@@ -108,7 +127,35 @@
         "deliversToTimed": "يوصل إلى {{area}} خلال {{minutes}} دقيقة تقريبًا",
         "emptyTitle": "لا توجد مطابخ مطابقة",
         "emptyBody": "جرّب نوع طعام آخر، أو امسح عوامل التصفية لعرض كل ما في المتجر.",
-        "noPublishedZone": "لم تُنشر منطقة توصيل"
+        "noPublishedZone": "لم تُنشر منطقة توصيل",
+        "heroEyebrow_zero": "لا توجد مطابخ توصل الآن",
+        "heroEyebrow_one": "مطبخ واحد يوصل الآن",
+        "heroEyebrow_two": "مطبخان يوصلان الآن",
+        "heroEyebrow_few": "{{count}} مطابخ توصل الآن",
+        "heroEyebrow_many": "{{count}} مطبخًا يوصل الآن",
+        "heroEyebrow_other": "{{count}} مطبخ يوصل الآن",
+        "heroEyebrowPending": "مطابخ توصل الآن",
+        "heroTitle": "ابحث عن مطبخ يطبخ بالطريقة التي تأكل بها.",
+        "allKitchens": "كل المطابخ",
+        "resultsTitle": "المطابخ في المتجر",
+        "matches_zero": "لا توجد نتائج",
+        "matches_one": "نتيجة واحدة",
+        "matches_two": "نتيجتان",
+        "matches_few": "{{count}} نتائج",
+        "matches_many": "{{count}} نتيجة",
+        "matches_other": "{{count}} نتيجة",
+        "etaMinutes": "نحو {{minutes}} دقيقة",
+        "deliveryFee": "التوصيل {{fee}}",
+        "freeDelivery": "توصيل مجاني",
+        "collectionOnly": "الاستلام من المطبخ فقط",
+        "areaSeparator": " · ",
+        "goalsTitle": "كل حسب هدفك",
+        "goalBody": {
+            "high_protein": "مطابخ أطباقها غنية بالبروتين.",
+            "vegan": "طهي نباتي بالكامل، دون منتجات حيوانية.",
+            "low_carb": "أطباق تقوم على البروتين والخضروات.",
+            "halal_friendly": "مطابخ تطبخ وفق متطلبات الحلال."
+        }
     },
     "kitchen": {
         "loading": "جارٍ التحميل",
@@ -157,7 +204,9 @@
             "carbohydrate": "كربوهيدرات",
             "fat": "دهون"
         },
-        "openMeal": "افتح {{meal}}"
+        "openMeal": "افتح {{meal}}",
+        "add": "أضِف",
+        "ratingLabel": "متوسط تقييم {{meal}}"
     },
     "dietitians": {
         "title": "أخصائيو التغذية",
@@ -433,6 +482,33 @@
         "oil": "زيوت",
         "condiment": "توابل ومقبلات",
         "dairy": "ألبان",
-        "vegetables": "خضار"
+        "vegetables": "خضار" },
+    "storefront": {
+        "openToday": "اليوم {{opensAt}} – {{closesAt}}",
+        "closedToday": "مغلق اليوم",
+        "factRating": "التقييم",
+        "factDelivery": "التوصيل",
+        "factDeliveryValue": "نحو {{minutes}} دقيقة",
+        "factCuisine": "المطبخ",
+        "factBranches": "الفروع",
+        "dietsEyebrow": "الأنظمة الغذائية في هذه القائمة",
+        "orderEyebrow": "اطلب من هذا المطبخ",
+        "minimum": "الحد الأدنى للطلب",
+        "fee": "رسوم التوصيل",
+        "fromAmount": "من {{amount}}",
+        "collectFrom": "الاستلام من",
+        "startOrder": "ابدأ طلبًا",
+        "seePlans": "اطّلع على الخطط الأسبوعية",
+        "productsTitle": "المؤن والعبوات",
+        "sectionNote_zero": "لا أطباق",
+        "sectionNote_one": "طبق واحد",
+        "sectionNote_two": "طبقان",
+        "sectionNote_few": "{{count}} أطباق",
+        "sectionNote_many": "{{count}} طبقًا",
+        "sectionNote_other": "{{count}} طبق",
+        "emptyTitle": "لا شيء في القائمة بعد",
+        "emptyBody": "لم ينشر هذا المطبخ أي شيء للطلب. تصفّح الدليل للعثور على مطبخ آخر.",
+        "addLabel": "أضف {{meal}} إلى السلة",
+        "openMeal": "{{meal}} — افتح الطبق"
     }
 }

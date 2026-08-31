@@ -70,7 +70,7 @@ test.describe('marketplace accessibility (axe)', () => {
         // matters here is that the menu card reaches it.
         await page
             .getByTestId('kitchen-menu-grid')
-            .locator('[data-testid^="meal-card-"]')
+            .locator('[data-testid$="-open"][data-testid^="meal-card-"]')
             .first()
             .click();
         await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
