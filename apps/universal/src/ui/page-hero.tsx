@@ -42,9 +42,15 @@ import { StyleSheet, Text as RNText, View } from 'react-native';
  * different effect wearing its name.
  */
 
-/** The canopy sweep: deep forest into a brighter green. Matches §1.2's 135° gradient. */
-const CANOPY_COLOURS = ['#0b3b26', '#124f33', '#0e6b41'] as const;
-const CANOPY_LOCATIONS = [0, 0.58, 1] as const;
+/**
+ * The canopy sweep: deep forest into a brighter green. Matches §1.2's 135° gradient.
+ *
+ * Exported so {@link StorefrontHero} paints the same band from the same three values. Two heroes
+ * carrying two copies of this sweep is how they drift a shade apart and the difference gets blamed
+ * on the screen rather than on the duplication.
+ */
+export const CANOPY_COLOURS = ['#0b3b26', '#124f33', '#0e6b41'] as const;
+export const CANOPY_LOCATIONS = [0, 0.58, 1] as const;
 
 /**
  * How dark the leading edge of the scrim is.
@@ -52,7 +58,7 @@ const CANOPY_LOCATIONS = [0, 0.58, 1] as const;
  * Enough that the mint body copy clears AA at the bright end of the sweep, which is the whole
  * reason the layer exists. The trailing end stays largely transparent so the band still brightens.
  */
-const SCRIM = ['rgba(11,59,38,0.92)', 'rgba(11,59,38,0.35)'] as const;
+export const SCRIM = ['rgba(11,59,38,0.92)', 'rgba(11,59,38,0.35)'] as const;
 
 export interface PageHeroProps {
     /** Rendered inside the band, so the page's position is part of its opening rather than above it. */

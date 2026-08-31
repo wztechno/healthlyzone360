@@ -48,11 +48,14 @@ import {
     Select,
     Skeleton,
     SlideIn,
+    SliderField,
     Spinner,
     Stack,
     Stepper,
+    TAG_TONES,
     Table,
     Tabs,
+    TagRow,
     Text,
     TextInputField,
     useAnimatedNumber,
@@ -73,6 +76,9 @@ import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
+import { BrowseCard } from '../ui/browse-card.tsx';
+import { BrowsePanel } from '../ui/browse-panel.tsx';
+import { ListingHeader } from '../ui/listing-header.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
 
 interface SectionProps {
@@ -154,6 +160,8 @@ export function ShowcaseScreen() {
     const [segment, setSegment] = useState('overview');
     const [portion, setPortion] = useState<number | null>(2);
     const [range, setRange] = useState<RangeValue>({ min: 300, max: 700 });
+    const [ceiling, setCeiling] = useState<number | null>(700);
+    const [floor, setFloor] = useState<number | null>(null);
     const [filterOn, setFilterOn] = useState(true);
     const [startDate, setStartDate] = useState<string | null>('2026-08-03');
     const [replays, setReplays] = useState(0);
@@ -324,20 +332,19 @@ export function ShowcaseScreen() {
                      * The emphasis order the shells now use, shown as a row so it can be judged as
                      * one. The thing to check is that the eye lands on Basket and not on Sign out
                      * — the inversion is the point, and it is only visible in company.
+                     *
+                     * Account and Basket lead, and the utilities follow them rather than opening
+                     * the row: what a person came to do sits before what they occasionally need to
+                     * change. The account control carries the person's own `displayName`, so this
+                     * sample uses a name rather than "My home" — a generic label here would show
+                     * the wrong shape, since a name is usually the longest item in the row.
                      */}
                     <Inline space="xs" align="center">
-                        <Button
-                            testID="showcase-emphasis-locale"
-                            size="sm"
-                            variant="ghost"
-                            label="العربية"
-                            onPress={() => undefined}
-                        />
                         <Button
                             testID="showcase-emphasis-my-home"
                             size="sm"
                             variant="ghost"
-                            label="My home"
+                            label="Sam Kovacs"
                             onPress={() => undefined}
                         />
                         <Button
@@ -352,6 +359,13 @@ export function ShowcaseScreen() {
                                     </RNText>
                                 </View>
                             }
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID="showcase-emphasis-locale"
+                            size="sm"
+                            variant="ghost"
+                            label="العربية"
                             onPress={() => undefined}
                         />
                         <Button
@@ -616,6 +630,53 @@ export function ShowcaseScreen() {
                         unit="kcal"
                         onChange={setRange}
                     />
+                    {/*
+                     * Both single-ended slider directions, side by side. What to check: the readout
+                     * says which side of the figure is being filtered rather than printing a bare
+                     * number, dragging the thumb back to the floor reads "Any" (which is how a
+                     * person lifts the limit without Clear all), and on iOS or Android this same
+                     * markup renders a NumberStepper instead — the platform split is the point.
+                     */}
+                    <SliderField
+                        testID="showcase-slider-at-most"
+                        id="showcase-slider-at-most"
+                        label={t('designSystem:showcase.sliderAtMostLabel')}
+                        direction="atMost"
+                        value={ceiling}
+                        min={0}
+                        max={1200}
+                        step={50}
+                        unit="kcal"
+                        readout={
+                            ceiling === null
+                                ? t('catalogue:filters.anyValue')
+                                : t('catalogue:filters.atMost', {
+                                      value: String(ceiling),
+                                      unit: 'kcal',
+                                  })
+                        }
+                        onChange={setCeiling}
+                    />
+                    <SliderField
+                        testID="showcase-slider-at-least"
+                        id="showcase-slider-at-least"
+                        label={t('designSystem:showcase.sliderAtLeastLabel')}
+                        direction="atLeast"
+                        value={floor}
+                        min={0}
+                        max={100}
+                        step={5}
+                        unit="g"
+                        readout={
+                            floor === null
+                                ? t('catalogue:filters.anyValue')
+                                : t('catalogue:filters.atLeast', {
+                                      value: String(floor),
+                                      unit: 'g',
+                                  })
+                        }
+                        onChange={setFloor}
+                    />
                 </Section>
 
                 <Section id="dates" title={t('designSystem:showcase.sections.dates')}>
@@ -690,6 +751,72 @@ export function ShowcaseScreen() {
                     />
                 </Section>
 
+                <Section id="listing-header" title="Listing header">
+                    {/*
+                     * The flat opening HealthZone gives a catalogue: a trail, a large title, the
+                     * live result count where a description usually goes, and one control on the
+                     * title's baseline. What to check: the trailing control sits level with the
+                     * foot of the title rather than floating against its cap, and narrowing the
+                     * window drops it below the title block whole rather than squeezing the
+                     * heading into one word per line.
+                     */}
+                    <ListingHeader
+                        testID="showcase-listing-header"
+                        breadcrumbs={[
+                            { key: 'home', label: 'Home', onPress: () => undefined },
+                            { key: 'meals', label: 'Meals' },
+                        ]}
+                        title="Every meal on the marketplace"
+                        meta="Showing 20 of 40 matching meals"
+                        trailing={
+                            <Select
+                                testID="showcase-listing-header-sort"
+                                id="showcase-listing-header-sort"
+                                label="Order by"
+                                value="relevance"
+                                options={[
+                                    { value: 'relevance', label: 'Best match' },
+                                    { value: 'price', label: 'Price' },
+                                    { value: 'rating', label: 'Rating' },
+                                ]}
+                                onChange={() => undefined}
+                                className="min-w-[200px]"
+                            />
+                        }
+                    />
+                </Section>
+
+                <Section id="browse-panel" title="Browse panel">
+                    {/*
+                     * HealthZone's browse opening: a live fact, a claim, and the chips that narrow
+                     * the grid, all inside one card. What to check: the chip row wraps inside the
+                     * panel rather than overflowing it, the headline breaks over two lines rather
+                     * than running the full width of the page, and the eyebrow reads as a fact
+                     * rather than as a label for the heading below it.
+                     */}
+                    <BrowsePanel
+                        testID="showcase-browse-panel"
+                        eyebrow="6 kitchens delivering right now"
+                        title="Find a kitchen that cooks the way you eat."
+                    >
+                        <FilterChip
+                            testID="showcase-browse-panel-all"
+                            label="All kitchens"
+                            selected
+                            onChange={() => undefined}
+                        />
+                        {['Delivery', 'Collection', 'High protein', 'Vegan'].map((label) => (
+                            <FilterChip
+                                key={label}
+                                testID={`showcase-browse-panel-${label.toLowerCase()}`}
+                                label={label}
+                                selected={false}
+                                onChange={() => undefined}
+                            />
+                        ))}
+                    </BrowsePanel>
+                </Section>
+
                 <Section id="ai" title="AI surfaces">
                     {/*
                      * The only two places violet means something. What to check: both say "AI
@@ -742,62 +869,91 @@ export function ShowcaseScreen() {
                                 name: 'Garden Bowl',
                                 body: 'Two lines of description.',
                                 price: '$14',
+                                tags: [
+                                    { key: 'vegan', label: 'Vegan' },
+                                    { key: 'gf', label: 'Gluten free' },
+                                    { key: 'raw', label: 'Raw' },
+                                ],
                             },
                             {
                                 key: 'long',
                                 name: 'Slow-Braised Lamb',
                                 body: 'A much longer description that wraps onto several lines, so this card would otherwise be the tallest in the row and drag its price down with it.',
                                 price: '$26',
+                                tags: [{ key: 'halal', label: 'Halal friendly' }],
                             },
                             {
                                 key: 'none',
                                 name: 'Sparkling Water',
                                 body: '',
                                 price: '$3',
+                                tags: [],
                             },
                         ].map((item) => (
                             <View
                                 key={item.key}
                                 className="min-w-[200px] flex-1 grow basis-[220px]"
                             >
-                                <Card
+                                <BrowseCard
                                     testID={`showcase-card-baseline-${item.key}`}
-                                    padding="none"
-                                    tone="raised"
-                                    interactive
                                     onPress={() => undefined}
                                     accessibilityLabel={item.name}
-                                    footer={
-                                        <View className="border-t border-stroke-subtle px-4 pb-4 pt-3">
-                                            <RNText
-                                                testID={`showcase-card-baseline-${item.key}-price`}
-                                                className="font-display text-2xl text-surface-brand text-start"
-                                            >
-                                                {item.price}
-                                            </RNText>
-                                        </View>
+                                    media={
+                                        <EntityImage
+                                            testID={`showcase-card-baseline-${item.key}-media`}
+                                            seed={`showcase-card-${item.key}`}
+                                            label={item.name}
+                                            aspect="card"
+                                            flush
+                                            overlayStart={<MediaChip label="Verdant Kitchen" />}
+                                        />
                                     }
-                                >
-                                    <EntityImage
-                                        testID={`showcase-card-baseline-${item.key}-media`}
-                                        seed={`showcase-card-${item.key}`}
-                                        label={item.name}
-                                        aspect="card"
-                                        flush
-                                        overlayStart={<MediaChip label="Verdant Kitchen" />}
-                                    />
-                                    <Stack space="xs" className="px-4 pt-4">
-                                        <RNText className="font-display text-lg text-content-primary text-start">
-                                            {item.name}
+                                    title={item.name}
+                                    trailing={
+                                        <Rating
+                                            testID={`showcase-card-baseline-${item.key}-rating`}
+                                            label={`Average rating for ${item.name}`}
+                                            value={4.7}
+                                            size="sm"
+                                            compact
+                                        />
+                                    }
+                                    meta={item.body}
+                                    tags={item.tags}
+                                    maxTags={2}
+                                    footer={
+                                        <RNText
+                                            testID={`showcase-card-baseline-${item.key}-price`}
+                                            className="font-display text-2xl text-surface-brand text-start"
+                                        >
+                                            {item.price}
                                         </RNText>
-                                        <Text tone="secondary" variant="caption">
-                                            {item.body}
-                                        </Text>
-                                    </Stack>
-                                </Card>
+                                    }
+                                />
                             </View>
                         ))}
                     </View>
+
+                    {/*
+                     * The tag row on its own, because a card is not the only place it lands. What to
+                     * check: the pills are label-sized rather than button-sized, they carry no
+                     * border, and the `+N` counter names what it hides to a screen reader rather
+                     * than only to the eye.
+                     */}
+                    <TagRow
+                        testID="showcase-tags"
+                        items={TAG_TONES.map((tone) => ({ key: tone, label: tone, tone }))}
+                    />
+                    <TagRow
+                        testID="showcase-tags-capped"
+                        items={[
+                            { key: 'vegan', label: 'Vegan' },
+                            { key: 'halal', label: 'Halal friendly' },
+                            { key: 'keto', label: 'Keto' },
+                            { key: 'nut-free', label: 'Nut free' },
+                        ]}
+                        max={2}
+                    />
                     <ListItem
                         testID="showcase-list-item"
                         title="Cedar Clinic"
@@ -964,6 +1120,18 @@ export function ShowcaseScreen() {
                         value={3}
                         variant="dots"
                         size="sm"
+                    />
+                    {/*
+                     * Compact: one glyph and the figure, for a rating sharing a line with a card
+                     * title. What to check: the figure is still visible text rather than something
+                     * only the glyph implies, and the accessible name still announces the scale.
+                     */}
+                    <Rating
+                        testID="showcase-rating-compact"
+                        label={t('designSystem:showcase.ratingLabel')}
+                        value={4.8}
+                        size="sm"
+                        compact
                     />
                 </Section>
 
