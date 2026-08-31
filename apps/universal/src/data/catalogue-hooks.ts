@@ -238,8 +238,26 @@ export function useTargetCalculationQuery(
  *
  * The cart identifier is read rather than passed: `getCart()` creates one lazily
  * (`contracts/commerce.ts`), so a person who has never had a basket does not need a separate
- * "create basket" step, and no screen has to hold a `CartId` it did not ask for. The cart query is
- * invalidated on success, which is what makes the shell's basket badge move.
+ * "create basket" step, and no screen has to hold a `CartId` it did not ask for.
+ *
+ * ## Read the identifier, do not go and ask for it
+ *
+ * This used to call `getCart()` before every add, and that one line was most of why adding took
+ * seconds. `getCart()` is `POST /carts` *plus* a lookup for every line already in the basket
+ * (`cart-repository.ts` explains why the lines need hydrating at all) — so a four-line basket paid
+ * five requests to learn an identifier the shell's `useCartQuery` already had in the cache. Reading
+ * it from the cache costs nothing, and `getCart()` remains the fallback for the one case that
+ * genuinely has no answer yet: an anonymous visitor, or the first add of a session, where nothing
+ * has opened a basket.
+ *
+ * ## And do not ask again afterwards
+ *
+ * There is no `invalidateQueries` here. The mutation's *response* is the fresh cart — the server
+ * returns the whole basket, and it is written into the cache synchronously on the line below — so
+ * invalidating would spend another `POST /carts` and another wave of line lookups to arrive back at
+ * the value already on screen. Cart mutations that do not return the new basket
+ * (`commerce-hooks.ts`'s remove and set-quantity, which also touch the priced checkout preview)
+ * still invalidate, and should.
  */
 export function useAddCartItemMutation(
     channelCode?: string,
@@ -250,14 +268,14 @@ export function useAddCartItemMutation(
 
     return useMutation({
         mutationFn: async (request: AddCartItemRequest) => {
-            const cart = await repositories.commerce.getCart(cartOptions);
-            return repositories.commerce.addCartItem(cart.id, request);
+            const known = queryClient.getQueryData<Cart>(queryKeys.commerce.cart(channelCode));
+            const cartId = known?.id ?? (await repositories.commerce.getCart(cartOptions)).id;
+            return repositories.commerce.addCartItem(cartId, request);
         },
         onSuccess: (cart) => {
-            // Written synchronously as well as invalidated: the screen reports the new item count
-            // in the same frame it shows the confirmation, and a refetch would land after it.
+            // Written rather than invalidated: the screen reports the new item count in the same
+            // frame it shows the confirmation, and a refetch would only land after it.
             queryClient.setQueryData(queryKeys.commerce.cart(channelCode), cart);
-            void queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart(channelCode) });
         },
     });
 }

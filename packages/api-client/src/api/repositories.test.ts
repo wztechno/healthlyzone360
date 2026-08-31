@@ -1782,6 +1782,106 @@ describe('subscriptions (S1)', () => {
         expect(preview.warnings).toContain('checkout.address_missing');
     });
 
+    /**
+     * A three-line basket hydrates into three items, in the order the server listed them.
+     *
+     * `CartPresenter::line` carries no name and no price, so every line has to be fetched before a
+     * basket can be drawn. Those fetches now go out together (`mapCart` uses `Promise.all`, where it
+     * used to `await` inside a `for`) — which is what stopped a four-line basket costing four
+     * sequential round trips on every add, remove and open.
+     *
+     * What this pins is the half that could silently break: the hydrated items must still line up
+     * with `wire.lines` positionally. `Promise.all` resolves by position rather than by whichever
+     * request answers first, and anything that replaces it — a keyed map, a settled-and-filtered
+     * list — has to keep that property or a basket starts showing the wrong price against the wrong
+     * dish.
+     */
+    it('hydrates every line of a basket, in the order the server listed them', async () => {
+        const cartId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b10';
+        const meals = [
+            { id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c11', name: 'First', price: 1000 },
+            { id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c12', name: 'Second', price: 2000 },
+            { id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c13', name: 'Third', price: 3000 },
+        ];
+
+        const wireMeal = (meal: (typeof meals)[number]) => ({
+            id: meal.id,
+            kitchen_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0',
+            kitchen_name: 'Verdant Kitchen',
+            name: meal.name,
+            slug: meal.name.toLowerCase(),
+            description: '',
+            meal_types: [],
+            diet_classifications: [],
+            cuisines: [],
+            allergens: [],
+            serving: null,
+            nutrition: null,
+            price: { amount: meal.price, currency: 'USD' },
+            preparation_minutes: null,
+            image_placeholder_id: null,
+            availability: [],
+            channels: {
+                b2c: true,
+                b2b: false,
+                marketplace: false,
+                pos: false,
+                subscription: false,
+                delivery: false,
+                pickup: false,
+                corporate: false,
+            },
+            rating: null,
+            rating_count: 0,
+        });
+
+        const wireCart = {
+            id: cartId,
+            organisation_id: 'org-1',
+            sales_channel_id: 'channel-1',
+            branch_id: null,
+            status: 'open',
+            currency_code: 'USD',
+            expires_at: '2026-08-05T12:00:00Z',
+            lock_version: 3,
+            line_count: meals.length,
+            created_at: '2026-08-04T10:00:00Z',
+            updated_at: '2026-08-04T10:05:00Z',
+            lines: meals.map((meal, index) => ({
+                id: `0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b2${String(index)}`,
+                catalogue_item_id: meal.id,
+                catalogue_item_variant_id: null,
+                quantity: '1.0000',
+                delivery_date: null,
+                created_at: '2026-08-04T10:05:00Z',
+                updated_at: '2026-08-04T10:05:00Z',
+            })),
+        };
+
+        const { repositories, calls } = harness(
+            [
+                { status: 200, body: { data: { cart: wireCart }, meta: {} } },
+                ...meals.map((meal) => ({
+                    status: 200,
+                    body: { data: wireMeal(meal), meta: {} },
+                })),
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const cart = await repositories.commerce.getCart();
+
+        expect(cart.items.map((item) => item.name)).toEqual(['First', 'Second', 'Third']);
+        expect(cart.items.map((item) => item.unitPrice.amount)).toEqual([1000, 2000, 3000]);
+        expect(cart.subtotal).toEqual({ amount: 6000, currency: 'USD' });
+
+        // One cart request, then one per line — no line fetched twice, none skipped.
+        expect(calls).toHaveLength(4);
+        expect(calls.slice(1).map((call) => call.url)).toEqual(
+            meals.map((meal) => `https://api.example/api/v1/marketplace/meals/${meal.id}`),
+        );
+    });
+
     it('adds a cart line then hydrates the returned basket', async () => {
         const mealId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c01';
         const cartId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b01';
