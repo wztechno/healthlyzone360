@@ -1,125 +1,195 @@
-import { Button, Card, Icon, Stack, Text, TextInputField } from '@healthy360/design-system';
-import type { IconName } from '@healthy360/design-system';
+import { Button, Card, Stack, Text } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
+import type { Formatter } from '@healthy360/i18n';
+import { MEAL_TYPES } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
-import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
-import { isPathAvailable } from '../../availability.ts';
+import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
-import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
-import { PageHero } from '../../../ui/page-hero.tsx';
-import { KitchenCard } from '../kitchen-card.tsx';
+import { StorefrontHero } from '../../../ui/storefront-hero.tsx';
+import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
+import { formatMoney, nutrientValue } from '../format.ts';
+import { MealCard } from '../meal-card.tsx';
 import { QueryStates } from '../query-states.tsx';
+import {
+    CardGrid,
+    CardGridItem,
+    SectionHeader,
+    TileGrid,
+    TileGridItem,
+} from '../section-header.tsx';
+
+/** How many of the collection the front door shows before handing off to the screen that owns it. */
+const PREVIEW_COUNT = 4;
+/** Rows in the trailing rail. Three is what fits beside the offer panel without scrolling it. */
+const RAIL_COUNT = 3;
 
 /**
- * Catalogue families, each a real route.
+ * Discover — the marketplace's storefront.
  *
- * The table lists every family the marketplace has; `isPathAvailable` decides which of them has a
- * backend today. `diets` and `tools` do not, so they are absent rather than shown as tiles that
- * would bounce a person straight back to this page.
- */
-const CATALOGUE_FAMILIES: readonly {
-    readonly key: string;
-    readonly icon: IconName;
-    readonly href: string;
-}[] = [
-    { key: 'meals', icon: 'dot', href: '/meals' },
-    { key: 'plans', icon: 'calendar', href: '/plans' },
-    { key: 'diets', icon: 'filter', href: '/diets/high-protein' },
-    { key: 'tools', icon: 'info', href: '/tools/calorie-calculator' },
-];
-
-const AVAILABLE_FAMILIES = CATALOGUE_FAMILIES.filter((family) => isPathAvailable(family.href));
-
-/**
- * Discover — the marketplace's front door.
+ * ## What changed, and why it is not just a repaint
  *
- * A hub rather than a fourth listing: it shows a slice of each family and hands off to the screen
- * that does the family properly. The search field is deliberately a *hand-off* too — it navigates
- * to the kitchen directory carrying the query in the URL, so the person lands somewhere they can
- * refine, share and reload, rather than on a results view that only exists in memory.
+ * This was a *directory*: a band with a search field, a row of kitchens, and tiles for the
+ * catalogue families. It opened by asking where you wanted to go. The storefront opens by showing
+ * the food — a claim beside a photograph, the ways into the catalogue, then what is rated highest
+ * and one way in.
+ *
+ * ## The search field is gone from the page, not from the product
+ *
+ * It moved into the chrome (`shell/marketplace-shell.tsx`), reachable from every marketplace screen
+ * rather than only the four that open with a hero. A second copy here would be two inputs on one
+ * page writing the same `?q=`, and the moment they disagree one of them is a bug.
+ *
+ * ## Categories are meal types, and that is a deliberate substitution
+ *
+ * The design draws categories as dish shapes — bowls, salads, wraps. This product has no such
+ * taxonomy; it has `MEAL_TYPES`, and the catalogue already filters on it, so these tiles land on a
+ * real filtered result. Diet categories were the closer match by name, but `availability.ts`
+ * records `dietCategories: false` — `/diets` has no backend, and tiles pointing there would bounce
+ * straight back here.
+ *
+ * ## Add appears only for people who have a basket
+ *
+ * Add is on every card, for everybody. It used to be offered only to signed-in people, because
+ * reproducing the meal page's guest-entry dialog per grid was a screen's worth of work — that work
+ * now lives in `commerce/use-basket-add.tsx` and every grid shares it, so an anonymous visitor
+ * presses Add and is asked the same question the meal page asks: carry on as a guest, or sign in.
  */
 export function DiscoverScreen() {
     const { t } = useTranslation();
     const router = useRouter();
-    const [term, setTerm] = useState('');
+    const formatter: Formatter = useFormatter();
+    const basket = useBasketAdd({ labelKey: 'marketplace:nav.discover', testID: 'discover' });
 
-    const kitchens = useKitchensQuery({ limit: 4, channels: ['b2c', 'marketplace'] });
+    /*
+     * Sorted by rating rather than by a demand signal, because rating is what the catalogue can
+     * sort on (`MEAL_SORTS`). The section is named for that — calling it "popular" would claim a
+     * measure of demand that nothing here takes.
+     */
+    const popular = useMealsQuery({ sort: 'rating' });
+    const rated = mealsFromPages(popular.data?.pages);
+    const topRated = rated.slice(0, PREVIEW_COUNT);
+    /*
+     * The rail continues the same ranking rather than running a second query. It is honest about
+     * what it is — more of the same list — where the design's "because you ordered…" is not
+     * available to us: there is no consumer order-history hook, so a rail claiming to know what
+     * someone ordered would be inventing the one thing that makes it worth showing.
+     */
+    const rail = rated.slice(PREVIEW_COUNT, PREVIEW_COUNT + RAIL_COUNT);
 
-    const kitchenItems = kitchens.data?.items ?? [];
-
-    const search = () => {
-        const trimmed = term.trim();
-        router.push(
-            (trimmed === '' ? '/kitchens' : `/kitchens?q=${encodeURIComponent(trimmed)}`) as never,
-        );
-    };
+    const heroMeal = topRated[0];
 
     return (
         <Stack space="xl" testID="discover-screen">
-            {/*
-             * Rule 3, on the surface that most needed it: this is the front door, and it opened
-             * with a heading, a line of grey text and a form field. The search panel moves into
-             * the band's trailing column, which is the arrangement the hero exists for — the page
-             * says what it is and offers the one thing you came to do, in the same breath.
-             */}
-            <PageHero
-                testID="discover"
-                title={t('marketplace:discover.title')}
-                subtitle={t('marketplace:discover.subtitle')}
-                trailing={
-                    <View className="flex-col gap-2 rounded-xl bg-surface-raised p-3 shadow-elevation-3">
-                        <TextInputField
-                            testID="discover-search"
-                            id="discover-search"
-                            label={t('marketplace:discover.searchLabel')}
-                            placeholder={t('marketplace:discover.searchPlaceholder')}
-                            value={term}
-                            onChangeText={setTerm}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            returnKeyType="search"
-                            onSubmitEditing={search}
-                            trailing={<Icon name="search" />}
+            <StorefrontHero
+                testID="discover-hero"
+                eyebrow={t('marketplace:discover.heroEyebrow')}
+                title={t('marketplace:discover.heroTitle')}
+                body={t('marketplace:discover.heroBody')}
+                imageSeed="discover-hero"
+                imageLabel={t('marketplace:discover.heroImageLabel')}
+                /*
+                 * The photograph is the dish the overlay names — the top-rated meal's own image.
+                 * There is no `discover/hero` asset in the manifest, so a fixed slot would have
+                 * fallen back to a generated pattern; this way the picture, the caption and the
+                 * first card below are the same dish, and stay so as the catalogue changes.
+                 */
+                imageAssetId={heroMeal?.imagePlaceholderId}
+                overlay={
+                    heroMeal === undefined
+                        ? undefined
+                        : {
+                              label: t('marketplace:discover.heroOverlayLabel'),
+                              value: `${heroMeal.name} · ${formatMoney(formatter, heroMeal.price)}`,
+                          }
+                }
+                actions={
+                    <>
+                        <Button
+                            testID="discover-hero-meals"
+                            label={t('marketplace:discover.heroBrowseMeals')}
+                            onPress={() => {
+                                router.push('/meals');
+                            }}
                         />
                         <Button
-                            testID="discover-search-submit"
-                            block
-                            label={t('marketplace:discover.searchSubmit')}
-                            onPress={search}
+                            testID="discover-hero-kitchens"
+                            variant="secondary"
+                            label={t('marketplace:landing.browseKitchens')}
+                            onPress={() => {
+                                router.push('/kitchens');
+                            }}
                         />
-                    </View>
+                    </>
                 }
             />
 
-            <Stack space="sm" testID="discover-kitchens">
+            <Stack space="sm" testID="discover-categories">
                 <SectionHeader
-                    title={t('marketplace:discover.kitchensTitle')}
-                    description={t('marketplace:discover.kitchensBody')}
+                    title={t('marketplace:discover.categoriesTitle')}
                     action={{
-                        label: t('marketplace:landing.seeAllKitchens'),
+                        label: t('marketplace:discover.allMeals'),
                         onPress: () => {
-                            router.push('/kitchens');
+                            router.push('/meals');
                         },
                     }}
-                    testID="discover-kitchens-header"
+                    testID="discover-categories-header"
+                />
+                <TileGrid>
+                    {MEAL_TYPES.map((mealType) => (
+                        <TileGridItem key={mealType}>
+                            <Card
+                                testID={`discover-category-${mealType}`}
+                                padding="md"
+                                interactive
+                                onPress={() => {
+                                    router.push(`/meals?mealType=${mealType}` as never);
+                                }}
+                                accessibilityLabel={t(`marketplace:mealTypes.${mealType}`)}
+                            >
+                                <Stack space="xs">
+                                    <EntityImage
+                                        source={resolveMarketingImage(`discover/${mealType}.tile`)}
+                                        decorative
+                                        seed={`discover-${mealType}`}
+                                        label={t(`marketplace:mealTypes.${mealType}`)}
+                                        aspect="wide"
+                                    />
+                                    <Text variant="bodyStrong">
+                                        {t(`marketplace:mealTypes.${mealType}`)}
+                                    </Text>
+                                </Stack>
+                            </Card>
+                        </TileGridItem>
+                    ))}
+                </TileGrid>
+            </Stack>
+
+            <Stack space="sm" testID="discover-popular">
+                <SectionHeader
+                    title={t('marketplace:discover.popularTitle')}
+                    meta={t('marketplace:discover.popularMeta')}
+                    testID="discover-popular-header"
                 />
                 <QueryStates
-                    query={kitchens}
-                    isEmpty={kitchenItems.length === 0}
-                    emptyTitle={t('marketplace:kitchens.emptyTitle')}
-                    emptyBody={t('marketplace:kitchens.emptyBody')}
-                    testID="discover-kitchens-list"
+                    query={popular}
+                    isEmpty={topRated.length === 0}
+                    emptyTitle={t('marketplace:menu.emptyTitle')}
+                    emptyBody={t('marketplace:menu.emptyBody')}
+                    testID="discover-popular-list"
                 >
                     <CardGrid>
-                        {kitchenItems.map((kitchen) => (
-                            <CardGridItem key={kitchen.id}>
-                                <KitchenCard
-                                    kitchen={kitchen}
+                        {topRated.map((meal) => (
+                            <CardGridItem key={meal.id}>
+                                <MealCard
+                                    meal={meal}
                                     onPress={() => {
-                                        router.push(`/kitchens/${String(kitchen.id)}` as never);
+                                        router.push(`/meals/${String(meal.id)}` as never);
+                                    }}
+                                    onAdd={() => {
+                                        basket.add(meal);
                                     }}
                                 />
                             </CardGridItem>
@@ -129,56 +199,105 @@ export function DiscoverScreen() {
             </Stack>
 
             {/*
-             * The families that resolve, with no section header above them.
-             *
-             * `discover.comingTitle` read "Also on the way" and its body said these parts of the
-             * catalogue were being built — true when every family below was a prototype notice,
-             * and a lie now that the two remaining ones are real routes to real screens. Removing
-             * the header is the whole fix; each tile already names itself and says what it holds.
+             * The closing band: one wide panel and a narrower rail beside it, stacking below `lg`.
+             * The design's 1.4fr / 1fr, carried as flex weights.
              */}
-            {AVAILABLE_FAMILIES.length === 0 ? null : (
-                <Stack space="sm" testID="discover-planned">
-                    <CardGrid>
-                        {AVAILABLE_FAMILIES.map((family) => (
-                            <CardGridItem key={family.key}>
-                                <Card
-                                    testID={`discover-family-${family.key}`}
-                                    padding="md"
+            <View className="flex-col gap-4 lg:flex-row" testID="discover-closing">
+                <View className="flex-1 justify-between gap-6 rounded-xl bg-surface-brand-subtle p-8 lg:flex-[1.4]">
+                    <View className="flex-col gap-3">
+                        <RNText className="text-xs font-semibold uppercase tracking-widest text-content-on-brand-subtle text-start">
+                            {t('marketplace:discover.offerEyebrow')}
+                        </RNText>
+                        {/*
+                         * The design's panel announces a priced bundle. There is no offers
+                         * endpoint, and a hardcoded price on a storefront is the one placeholder
+                         * that reads as a promise — the footer on this very shell says nothing here
+                         * is an offer. So the panel keeps its shape and its job, and says something
+                         * the product can actually stand behind.
+                         */}
+                        <RNText
+                            accessibilityRole="header"
+                            aria-level={2}
+                            className="max-w-[420px] font-display text-3xl leading-tight tracking-display text-content-on-brand-subtle text-start"
+                        >
+                            {t('marketplace:discover.offerTitle')}
+                        </RNText>
+                        <RNText className="max-w-[460px] text-base leading-6 text-content-on-brand-subtle text-start">
+                            {t('marketplace:discover.offerBody')}
+                        </RNText>
+                    </View>
+                    <View className="flex-row">
+                        <Button
+                            testID="discover-offer-action"
+                            label={t('marketplace:discover.offerAction')}
+                            onPress={() => {
+                                router.push('/plans');
+                            }}
+                        />
+                    </View>
+                </View>
+
+                {rail.length === 0 || heroMeal === undefined ? null : (
+                    <Card testID="discover-rail" padding="md" className="flex-1">
+                        <Stack space="sm">
+                            <RNText className="text-xs font-semibold uppercase tracking-widest text-content-secondary text-start">
+                                {t('marketplace:discover.railTitle', { meal: heroMeal.name })}
+                            </RNText>
+                            {rail.map((meal) => (
+                                <Pressable
+                                    key={meal.id}
+                                    testID={`discover-rail-${meal.slug}`}
+                                    role="link"
+                                    accessibilityRole="link"
+                                    accessibilityLabel={meal.name}
+                                    focusable
                                     onPress={() => {
-                                        router.push(family.href as never);
+                                        router.push(`/meals/${String(meal.id)}` as never);
                                     }}
-                                    accessibilityLabel={t(
-                                        `marketplace:discover.family.${family.key}`,
-                                    )}
+                                    className="min-h-touch flex-row items-center gap-3"
                                 >
-                                    <Stack space="xs">
+                                    <View className="h-14 w-14 overflow-hidden rounded-lg">
                                         <EntityImage
-                                            source={resolveMarketingImage(
-                                                `discover/${family.key}.tile`,
-                                            )}
+                                            assetId={meal.imagePlaceholderId}
                                             decorative
-                                            seed={`discover-${family.key}`}
-                                            label={t(`marketplace:discover.family.${family.key}`)}
-                                            aspect="wide"
+                                            seed={meal.slug}
+                                            label={meal.name}
+                                            aspect="square"
+                                            flush
                                         />
-                                        <Icon
-                                            name={family.icon}
-                                            size="lg"
-                                            className="text-content-secondary"
-                                        />
-                                        <Text variant="bodyStrong">
-                                            {t(`marketplace:discover.family.${family.key}`)}
-                                        </Text>
-                                        <Text tone="secondary" variant="caption">
-                                            {t(`marketplace:discover.familyBody.${family.key}`)}
-                                        </Text>
-                                    </Stack>
-                                </Card>
-                            </CardGridItem>
-                        ))}
-                    </CardGrid>
-                </Stack>
-            )}
+                                    </View>
+                                    <View className="min-w-0 flex-1 flex-col gap-0.5">
+                                        <RNText
+                                            numberOfLines={1}
+                                            className="text-sm font-semibold text-content-primary text-start"
+                                        >
+                                            {meal.name}
+                                        </RNText>
+                                        <RNText
+                                            numberOfLines={1}
+                                            className="text-xs text-content-secondary text-start"
+                                        >
+                                            {t('marketplace:discover.railFigures', {
+                                                energy: formatter.formatNumber(
+                                                    nutrientValue(meal.nutrition, 'energy'),
+                                                ),
+                                                protein: formatter.formatNumber(
+                                                    nutrientValue(meal.nutrition, 'protein'),
+                                                ),
+                                            })}
+                                        </RNText>
+                                    </View>
+                                    <RNText className="font-display text-base text-content-primary text-end">
+                                        {formatMoney(formatter, meal.price)}
+                                    </RNText>
+                                </Pressable>
+                            ))}
+                        </Stack>
+                    </Card>
+                )}
+            </View>
+
+            {basket.dialog}
         </Stack>
     );
 }

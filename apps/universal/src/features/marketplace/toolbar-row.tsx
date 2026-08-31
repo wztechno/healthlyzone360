@@ -24,6 +24,12 @@ import { Pressable, Text as RNText, View } from 'react-native';
  * chips are that "why", and each one is a control that removes exactly the filter it names, so the
  * fastest way to widen a search does not require opening the panel at all.
  *
+ * `/meals` now shows its filters in a rail beside the grid above `lg`, where there is no panel to
+ * open and no toggle to draw — hence `showFiltersToggle={false}`. The chips stay even there: the
+ * rail says which controls exist, but a selection made three sections down is still quicker to undo
+ * from a pill above the grid than to hunt for, and on the way down to a phone the rail becomes a
+ * disclosure again and the chips become the only visible account of what is applied.
+ *
  * ## The count states a total
  *
  * "Showing 6 of 40" rather than "6 results" — §8 asks for it specifically, and it is the difference
@@ -48,6 +54,12 @@ export interface ToolbarRowProps {
     readonly filtersExpanded: boolean;
     /** `nativeID` of the panel this toggle controls. */
     readonly filtersPanelId: string;
+    /**
+     * `false` for a layout that shows its filters outright — a rail beside the grid — so the row
+     * carries only the chips, the count and the sort. A toggle whose `aria-controls` points at a
+     * panel that is not in the tree is a broken relationship, not a harmless extra control.
+     */
+    readonly showFiltersToggle?: boolean | undefined;
     readonly activeFilters?: readonly ActiveFilterChip[] | undefined;
     readonly onClearAll?: (() => void) | undefined;
     readonly clearAllLabel?: string | undefined;
@@ -71,6 +83,7 @@ export function ToolbarRow({
     onToggleFilters,
     filtersExpanded,
     filtersPanelId,
+    showFiltersToggle = true,
     activeFilters = [],
     onClearAll,
     clearAllLabel,
@@ -90,32 +103,36 @@ export function ToolbarRow({
             // against a label-and-select twice its height.
             className="flex-row flex-wrap items-center gap-2"
         >
-            <Pressable
-                testID={filtersId}
-                role="button"
-                accessibilityRole="button"
-                accessibilityLabel={filtersLabel}
-                accessibilityState={{ expanded: filtersExpanded }}
-                aria-expanded={filtersExpanded}
-                aria-controls={filtersPanelId}
-                focusable
-                onPress={onToggleFilters}
-                className="min-h-touch flex-row items-center gap-2 rounded-lg border border-stroke-subtle bg-surface-raised px-4 shadow-elevation-1"
-            >
-                {/* eslint-disable-next-line no-restricted-syntax -- §1.3 permits brand-500 on graphics: this glyph is decorative, the adjacent label carries the meaning, and 3.05:1 clears the 3:1 non-text threshold. It is not a text colour. */}
-                <Icon name="filter" className="text-brand-500" />
-                <RNText className="text-sm font-medium text-content-primary">{filtersLabel}</RNText>
-                {filtersActive === 0 ? null : (
-                    <View
-                        testID={`${filtersId}-count`}
-                        className="min-w-[22px] items-center justify-center rounded-full bg-surface-brand px-1.5 py-0.5"
-                    >
-                        <RNText className="text-xs font-bold text-content-on-brand">
-                            {String(filtersActive)}
-                        </RNText>
-                    </View>
-                )}
-            </Pressable>
+            {showFiltersToggle ? (
+                <Pressable
+                    testID={filtersId}
+                    role="button"
+                    accessibilityRole="button"
+                    accessibilityLabel={filtersLabel}
+                    accessibilityState={{ expanded: filtersExpanded }}
+                    aria-expanded={filtersExpanded}
+                    aria-controls={filtersPanelId}
+                    focusable
+                    onPress={onToggleFilters}
+                    className="min-h-touch flex-row items-center gap-2 rounded-lg border border-stroke-subtle bg-surface-raised px-4 shadow-elevation-1"
+                >
+                    {/* eslint-disable-next-line no-restricted-syntax -- §1.3 permits brand-500 on graphics: this glyph is decorative, the adjacent label carries the meaning, and 3.05:1 clears the 3:1 non-text threshold. It is not a text colour. */}
+                    <Icon name="filter" className="text-brand-500" />
+                    <RNText className="text-sm font-medium text-content-primary">
+                        {filtersLabel}
+                    </RNText>
+                    {filtersActive === 0 ? null : (
+                        <View
+                            testID={`${filtersId}-count`}
+                            className="min-w-[22px] items-center justify-center rounded-full bg-surface-brand px-1.5 py-0.5"
+                        >
+                            <RNText className="text-xs font-bold text-content-on-brand">
+                                {String(filtersActive)}
+                            </RNText>
+                        </View>
+                    )}
+                </Pressable>
+            ) : null}
 
             {activeFilters.map((chip) => (
                 <Pressable
