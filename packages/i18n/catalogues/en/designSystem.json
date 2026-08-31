@@ -164,6 +164,8 @@
         "breadcrumbCurrent": "Grilled halloumi bowl",
         "amountLabel": "Portion size",
         "rangeLabel": "Calories per meal",
+        "sliderAtMostLabel": "Energy per serving",
+        "sliderAtLeastLabel": "Protein per serving",
         "chipRemovable": "No peanuts",
         "chipFilter": "High protein",
         "dateLabel": "Start date",
@@ -191,5 +193,12 @@
         "motionSlideStart": "Slid in from the leading edge",
         "motionSlideBottom": "Slid in from below",
         "motionNumber": "Animated figure"
+    },
+    "tag": {
+        "join": ", ",
+        "more_one": "{{count}} more: {{labels}}",
+        "more_other": "{{count}} more: {{labels}}",
+        "overflow_one": "+{{count}}",
+        "overflow_other": "+{{count}}"
     }
 }

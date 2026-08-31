@@ -630,6 +630,18 @@ describe('Rating', () => {
         expect(screen.getByTestId('stars-value')).toHaveTextContent('4.0 من 5');
     });
 
+    it('draws one glyph and the bare value when compact, and still announces the scale', async () => {
+        await renderWithI18n(
+            <Rating testID="stars" label="Average kitchen rating" value={4.8} size="sm" compact />,
+        );
+
+        // The figure is still visible text — the glyph beside it is a mark, not the measurement.
+        expect(screen.getByTestId('stars-value')).toHaveTextContent('4.8');
+        expect(screen.getByTestId('stars').props.accessibilityLabel).toBe(
+            'Average kitchen rating: 4.8 out of 5',
+        );
+    });
+
     it('is not pressable — rating submission is not built', async () => {
         await renderWithI18n(<Rating testID="stars" label="Rating" value={4} />);
         expect(screen.getByTestId('stars').props.onPress).toBeUndefined();

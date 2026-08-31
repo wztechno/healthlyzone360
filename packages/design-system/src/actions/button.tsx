@@ -41,27 +41,51 @@ const CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     danger: 'bg-danger border border-transparent',
 };
 
+/*
+ * Weight follows *emphasis*, not size.
+ *
+ * It used to follow size — `sm` and `lg` were semibold, `md` medium — which meant a ghost button
+ * and a primary button at the same size shouted equally loudly, and the same control changed
+ * weight when it changed size. The design draws it the other way round: filled buttons are 600 and
+ * outlined or borderless ones are 500, at every size. That is also what the old comment here was
+ * reaching for when it said a medium weight "on a coloured fill reads as thin" — the fill was
+ * always the real variable, so it belongs on the variant.
+ */
 const LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
-    primary: 'text-content-on-brand',
-    secondary: 'text-content-primary',
-    quiet: 'text-content-secondary',
-    ghost: 'text-content-primary',
-    danger: 'text-danger-on-default',
+    primary: 'text-content-on-brand font-semibold',
+    secondary: 'text-content-primary font-medium',
+    quiet: 'text-content-secondary font-medium',
+    ghost: 'text-content-primary font-medium',
+    danger: 'text-danger-on-default font-semibold',
 };
 
+/*
+ * One corner for every button.
+ *
+ * `sm` was `rounded-md` (8px) against `rounded-lg` (12px) on the others, so a toolbar of mixed
+ * sizes had two different corners in one row. The design uses a single radius across its whole
+ * button family — 9px on the account control, 10px on the basket and on the hero call to action —
+ * and reads as one system because of it. 12px is the token nearest that cluster.
+ *
+ * Padding is more generous than it was at `sm` and `md`: the design's buttons sit at 9–10px
+ * vertical, where these were at 6–8px, which is what made the old toolbar feel cramped next to a
+ * 44px field.
+ */
 const CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'min-h-touch px-3 py-1.5 rounded-md gap-1.5',
-    md: 'min-h-touch px-4 py-2 rounded-lg gap-2',
-    lg: 'min-h-touch px-6 py-3 rounded-lg gap-2',
+    sm: 'min-h-touch px-3.5 py-2 rounded-lg gap-1.5',
+    md: 'min-h-touch px-4 py-2.5 rounded-lg gap-2',
+    lg: 'min-h-touch px-6 py-3.5 rounded-lg gap-2',
 };
 
+/*
+ * `lg` is 16px, not 18px. The largest button the design draws — the hero call to action — sets its
+ * label at 15px, which snaps to `text-base`; `text-lg` overshot it by a step and made a primary CTA
+ * compete with the headline above it.
+ */
 const LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
-    // 14/600 rather than 14/500. Every shell control is a `sm` button, and at 14px a medium weight
-    // on a coloured fill reads as thin. `md` and `lg` are left alone: they are body-sized already
-    // and changing them would restyle every button in the application.
-    sm: 'text-sm font-semibold',
-    md: 'text-base font-medium',
-    lg: 'text-lg font-semibold',
+    sm: 'text-sm',
+    md: 'text-base',
+    lg: 'text-base',
 };
 
 /**

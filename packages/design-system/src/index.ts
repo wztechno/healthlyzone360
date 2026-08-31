@@ -97,6 +97,14 @@ export type { NumberStepperProps } from './forms/number-stepper.tsx';
 export { RangeFilter, isInvertedRange } from './forms/range-filter.tsx';
 export type { RangeFilterProps, RangeValue } from './forms/range-filter.tsx';
 /**
+ * Extensionless for the same reason `DateField` is: Metro resolves `slider-field.web.tsx` on the
+ * web and `slider-field.native.tsx` on iOS and Android, and the two are deliberately different
+ * controls — a real `<input type="range">` against a `NumberStepper`. `slider-field-shared.ts`
+ * carries the props and the reasoning.
+ */
+export { SliderField } from './forms/slider-field';
+export type { SliderFieldProps, SliderDirection } from './forms/slider-field';
+/**
  * Extensionless on purpose — this is the one import in the package that Metro must resolve per
  * platform (`date-field.web.tsx` / `date-field.native.tsx`). Everything both halves share is
  * exported from `date-field-shared.ts`, which is platform-neutral.
@@ -121,6 +129,8 @@ export { BADGE_TONES, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
 export type { BadgeProps, BadgeTone, NutritionLevel } from './content/badge.tsx';
 export { CHIP_TONES, Chip, FilterChip } from './content/chip.tsx';
 export type { ChipProps, ChipTone, FilterChipProps } from './content/chip.tsx';
+export { TAG_TONES, Tag, TagRow } from './content/tag.tsx';
+export type { TagProps, TagRowItem, TagRowProps, TagTone } from './content/tag.tsx';
 export { CALLOUT_ROLES, CALLOUT_TONES, Callout } from './content/callout.tsx';
 export type { CalloutProps, CalloutRole, CalloutTone } from './content/callout.tsx';
 export { Accordion } from './content/accordion.tsx';
@@ -184,8 +194,18 @@ export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
 export type { DrawerPlacement, DrawerProps } from './overlays/drawer.tsx';
 export { ACTION_TONES, ActionSheet } from './overlays/action-sheet.tsx';
 export type { ActionSheetAction, ActionSheetProps, ActionTone } from './overlays/action-sheet.tsx';
-export { POPOVER_TRIGGERS, Popover } from './overlays/popover.tsx';
-export type { PopoverProps, PopoverTrigger } from './overlays/popover.tsx';
+export {
+    POPOVER_ALIGNS,
+    POPOVER_TRIGGER_VARIANTS,
+    POPOVER_TRIGGERS,
+    Popover,
+} from './overlays/popover.tsx';
+export type {
+    PopoverAlign,
+    PopoverProps,
+    PopoverTrigger,
+    PopoverTriggerVariant,
+} from './overlays/popover.tsx';
 export {
     DEFAULT_TOAST_DURATION_MS,
     TOAST_TONES,
