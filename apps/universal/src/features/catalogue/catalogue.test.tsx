@@ -26,6 +26,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { useCartQuery } from '../../data/marketplace-hooks.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import {
     centimetresFromFeetInches,
@@ -708,8 +709,12 @@ describe('MealsScreen', () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
-        // The filters are collapsed by default so the grid leads; open them to reach the ranges.
+        // Two disclosures, and both are shut on a clean visit by design. The outer one is the
+        // narrow-viewport filter panel — the grid leads, the controls are one press away. The inner
+        // one is the numbers' own section: the rail is a contents page of five collapsed groups,
+        // and only the group you ask for opens.
         await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
+        await fireEvent.press(screen.getByTestId('meals-filter-group-ranges'));
         await waitFor(() => screen.getByTestId('meals-ranges-energy'));
         for (const key of [
             'energy',
@@ -821,6 +826,19 @@ describe('NutritionFactsPanel', () => {
         expect(screen.queryByTestId('meal-detail-facts-calculated-at')).toBeNull();
     });
 });
+
+/**
+ * The cart observer every real screen has above it.
+ *
+ * `marketplace-shell.tsx` renders `useCartQuery(signedIn)` for the basket pill, so on a live screen
+ * the current basket is always in the query cache. A stub screen has no shell, so a test that cares
+ * about that cache has to supply the observer itself — otherwise `gcTime: 0` collects the cart the
+ * moment a mutation writes it and the next add has nothing to read.
+ */
+function CartProbe() {
+    useCartQuery(true);
+    return null;
+}
 
 describe('MealDetailScreen', () => {
     it('renders the record: facts, provenance, macros, allergens, availability and price', async () => {
@@ -939,6 +957,74 @@ describe('MealDetailScreen', () => {
         // after a round trip, so the world is asserted once it has actually settled.
         await waitFor(() => {
             expect(itemCount).toBe(1);
+        });
+    });
+
+    /**
+     * Two adds, one `getCart`.
+     *
+     * `useAddCartItemMutation` used to open the basket before every add — `POST /carts` plus a
+     * lookup for every line already in it — to learn an identifier the cache already held. On a
+     * four-line basket that was five requests per press, in series, and it was most of why adding
+     * took seconds. It now reads the cart the shell is already holding and only opens one when
+     * there is genuinely nothing to read.
+     *
+     * `CartProbe` stands in for that shell: it is the observer that keeps the cart query alive,
+     * which is the arrangement every real marketplace screen renders inside. Its own mount is the
+     * one `getCart` this test expects; neither press adds another.
+     */
+    it('opens the basket once and then reuses the identifier it was given', async () => {
+        let itemCount = 0;
+        const cartId = uuid(9, 2) as CartId;
+        const cart = (): Cart => ({
+            id: cartId,
+            items: [],
+            subtotal: { amount: 0, currency: 'AED' },
+            itemCount,
+            updatedAt: '2026-08-11T09:00:00.000Z',
+        });
+
+        const { repositories } = await renderStubScreen(
+            <>
+                <MealDetailScreen mealId={String(DETAIL_MEAL.id)} />
+                <CartProbe />
+            </>,
+            {
+                session: CONSUMER_SESSION,
+                repositories: {
+                    ...CATALOGUE_REPOSITORIES,
+                    commerce: {
+                        getCart: async () => cart(),
+                        addCartItem: async (_id: CartId, request: AddCartItemRequest) => {
+                            itemCount += request.quantity;
+                            return cart();
+                        },
+                    },
+                },
+            },
+        );
+
+        await waitFor(() => screen.getByTestId('meal-detail-add-to-basket'));
+        await waitFor(() => {
+            expect(repositories.commerce.getCart).toHaveBeenCalledTimes(1);
+        });
+
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+        await waitFor(() => {
+            expect(itemCount).toBe(1);
+        });
+
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+        await waitFor(() => {
+            expect(itemCount).toBe(2);
+        });
+
+        // Two meals in the basket, and the basket was opened exactly once — by the probe.
+        expect(repositories.commerce.getCart).toHaveBeenCalledTimes(1);
+        expect(repositories.commerce.addCartItem).toHaveBeenCalledTimes(2);
+        expect(repositories.commerce.addCartItem).toHaveBeenLastCalledWith(cartId, {
+            mealId: DETAIL_MEAL.id,
+            quantity: 1,
         });
     });
 

@@ -1016,6 +1016,9 @@ export interface NamespaceKeys {
     | 'facts.title'
     | 'facts.version'
     | 'filters.activeCount'
+    | 'filters.anyValue'
+    | 'filters.atLeast'
+    | 'filters.atMost'
     | 'filters.carbohydrate'
     | 'filters.clear'
     | 'filters.diet'
@@ -1023,6 +1026,7 @@ export interface NamespaceKeys {
     | 'filters.excludeAllergens'
     | 'filters.excludeAllergensHint'
     | 'filters.fat'
+    | 'filters.groupWithCount'
     | 'filters.kitchen'
     | 'filters.mealType'
     | 'filters.preparationMinutes'
@@ -1118,7 +1122,6 @@ export interface NamespaceKeys {
     | 'meals.loadMore'
     | 'meals.loadingMore'
     | 'meals.searchLabel'
-    | 'meals.searchPlaceholder'
     | 'meals.showing'
     | 'meals.showingUnknownTotal'
     | 'meals.sort.energy'
@@ -1128,7 +1131,6 @@ export interface NamespaceKeys {
     | 'meals.sort.rating'
     | 'meals.sort.relevance'
     | 'meals.sortLabel'
-    | 'meals.subtitle'
     | 'meals.title'
     | 'nav.calorieCalculator'
     | 'nav.compare'
@@ -1862,6 +1864,8 @@ export interface NamespaceKeys {
     | 'showcase.sections.status'
     | 'showcase.sections.typography'
     | 'showcase.showToast'
+    | 'showcase.sliderAtLeastLabel'
+    | 'showcase.sliderAtMostLabel'
     | 'showcase.stepperLabel'
     | 'showcase.stepperStep'
     | 'showcase.subtitle'
@@ -1903,7 +1907,10 @@ export interface NamespaceKeys {
     | 'table.empty'
     | 'table.sortBy'
     | 'table.sortedAscending'
-    | 'table.sortedDescending';
+    | 'table.sortedDescending'
+    | 'tag.join'
+    | 'tag.more'
+    | 'tag.overflow';
   readonly "errors":
     | 'failure.account_verification_required'
     | 'failure.address_area_not_served'
@@ -4618,6 +4625,8 @@ export interface NamespaceKeys {
     | 'diets.pescatarian'
     | 'diets.vegan'
     | 'diets.vegetarian'
+    | 'discover.allMeals'
+    | 'discover.categoriesTitle'
     | 'discover.comingBody'
     | 'discover.comingTitle'
     | 'discover.dietitiansBody'
@@ -4630,8 +4639,22 @@ export interface NamespaceKeys {
     | 'discover.familyBody.meals'
     | 'discover.familyBody.plans'
     | 'discover.familyBody.tools'
+    | 'discover.heroBody'
+    | 'discover.heroBrowseMeals'
+    | 'discover.heroEyebrow'
+    | 'discover.heroImageLabel'
+    | 'discover.heroOverlayLabel'
+    | 'discover.heroTitle'
     | 'discover.kitchensBody'
     | 'discover.kitchensTitle'
+    | 'discover.offerAction'
+    | 'discover.offerBody'
+    | 'discover.offerEyebrow'
+    | 'discover.offerTitle'
+    | 'discover.popularMeta'
+    | 'discover.popularTitle'
+    | 'discover.railFigures'
+    | 'discover.railTitle'
     | 'discover.searchLabel'
     | 'discover.searchPlaceholder'
     | 'discover.searchSubmit'
@@ -4709,15 +4732,31 @@ export interface NamespaceKeys {
     | 'kitchen.zoneFee'
     | 'kitchen.zoneMinimum'
     | 'kitchen.zoneMinutes'
+    | 'kitchens.allKitchens'
+    | 'kitchens.areaSeparator'
     | 'kitchens.cardLabel'
+    | 'kitchens.collectionOnly'
     | 'kitchens.deliversTo'
     | 'kitchens.deliversToTimed'
+    | 'kitchens.deliveryFee'
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
+    | 'kitchens.etaMinutes'
+    | 'kitchens.freeDelivery'
+    | 'kitchens.goalBody.halal_friendly'
+    | 'kitchens.goalBody.high_protein'
+    | 'kitchens.goalBody.low_carb'
+    | 'kitchens.goalBody.vegan'
+    | 'kitchens.goalsTitle'
+    | 'kitchens.heroEyebrow'
+    | 'kitchens.heroEyebrowPending'
+    | 'kitchens.heroTitle'
     | 'kitchens.imageLabel'
+    | 'kitchens.matches'
     | 'kitchens.noPublishedZone'
     | 'kitchens.notRatedYet'
     | 'kitchens.ratingLabel'
+    | 'kitchens.resultsTitle'
     | 'kitchens.searchLabel'
     | 'kitchens.searchPlaceholder'
     | 'kitchens.subtitle'
@@ -4754,6 +4793,7 @@ export interface NamespaceKeys {
     | 'mealTypes.snack'
     | 'medicalDisclaimer.body'
     | 'medicalDisclaimer.title'
+    | 'menu.add'
     | 'menu.allLoaded'
     | 'menu.allergensTitle'
     | 'menu.cardLabel'
@@ -4770,6 +4810,7 @@ export interface NamespaceKeys {
     | 'menu.openMeal'
     | 'menu.perServing'
     | 'menu.preparationMinutes'
+    | 'menu.ratingLabel'
     | 'menu.searchLabel'
     | 'menu.searchPlaceholder'
     | 'menu.stats.carbohydrate'
@@ -4779,6 +4820,7 @@ export interface NamespaceKeys {
     | 'menu.subtitle'
     | 'menu.title'
     | 'menu.titleFor'
+    | 'nav.accountMenu'
     | 'nav.dietitians'
     | 'nav.discover'
     | 'nav.forBusiness'
@@ -4791,6 +4833,8 @@ export interface NamespaceKeys {
     | 'nav.plannedSuffix'
     | 'nav.plans'
     | 'nav.register'
+    | 'nav.searchLabel'
+    | 'nav.searchPlaceholder'
     | 'nav.signIn'
     | 'nav.skipToContent'
     | 'nutrients.carbohydrate'
@@ -4812,6 +4856,27 @@ export interface NamespaceKeys {
     | 'prototype.noticeBody'
     | 'prototype.noticeTitle'
     | 'resume.thisPage'
+    | 'storefront.addLabel'
+    | 'storefront.closedToday'
+    | 'storefront.collectFrom'
+    | 'storefront.dietsEyebrow'
+    | 'storefront.emptyBody'
+    | 'storefront.emptyTitle'
+    | 'storefront.factBranches'
+    | 'storefront.factCuisine'
+    | 'storefront.factDelivery'
+    | 'storefront.factDeliveryValue'
+    | 'storefront.factRating'
+    | 'storefront.fee'
+    | 'storefront.fromAmount'
+    | 'storefront.minimum'
+    | 'storefront.openMeal'
+    | 'storefront.openToday'
+    | 'storefront.orderEyebrow'
+    | 'storefront.productsTitle'
+    | 'storefront.sectionNote'
+    | 'storefront.seePlans'
+    | 'storefront.startOrder'
     | 'subscriptionStates.active'
     | 'subscriptionStates.cancelled'
     | 'subscriptionStates.draft'
@@ -7231,6 +7296,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.title',
   'catalogue:facts.version',
   'catalogue:filters.activeCount',
+  'catalogue:filters.anyValue',
+  'catalogue:filters.atLeast',
+  'catalogue:filters.atMost',
   'catalogue:filters.carbohydrate',
   'catalogue:filters.clear',
   'catalogue:filters.diet',
@@ -7238,6 +7306,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.excludeAllergens',
   'catalogue:filters.excludeAllergensHint',
   'catalogue:filters.fat',
+  'catalogue:filters.groupWithCount',
   'catalogue:filters.kitchen',
   'catalogue:filters.mealType',
   'catalogue:filters.preparationMinutes',
@@ -7333,7 +7402,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.loadMore',
   'catalogue:meals.loadingMore',
   'catalogue:meals.searchLabel',
-  'catalogue:meals.searchPlaceholder',
   'catalogue:meals.showing',
   'catalogue:meals.showingUnknownTotal',
   'catalogue:meals.sort.energy',
@@ -7343,7 +7411,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.sort.rating',
   'catalogue:meals.sort.relevance',
   'catalogue:meals.sortLabel',
-  'catalogue:meals.subtitle',
   'catalogue:meals.title',
   'catalogue:nav.calorieCalculator',
   'catalogue:nav.compare',
@@ -8074,6 +8141,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.sections.status',
   'designSystem:showcase.sections.typography',
   'designSystem:showcase.showToast',
+  'designSystem:showcase.sliderAtLeastLabel',
+  'designSystem:showcase.sliderAtMostLabel',
   'designSystem:showcase.stepperLabel',
   'designSystem:showcase.stepperStep',
   'designSystem:showcase.subtitle',
@@ -8116,6 +8185,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:table.sortBy',
   'designSystem:table.sortedAscending',
   'designSystem:table.sortedDescending',
+  'designSystem:tag.join',
+  'designSystem:tag.more',
+  'designSystem:tag.overflow',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
   'errors:failure.auth_email_unverified',
@@ -10825,6 +10897,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:diets.pescatarian',
   'marketplace:diets.vegan',
   'marketplace:diets.vegetarian',
+  'marketplace:discover.allMeals',
+  'marketplace:discover.categoriesTitle',
   'marketplace:discover.comingBody',
   'marketplace:discover.comingTitle',
   'marketplace:discover.dietitiansBody',
@@ -10837,8 +10911,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.familyBody.meals',
   'marketplace:discover.familyBody.plans',
   'marketplace:discover.familyBody.tools',
+  'marketplace:discover.heroBody',
+  'marketplace:discover.heroBrowseMeals',
+  'marketplace:discover.heroEyebrow',
+  'marketplace:discover.heroImageLabel',
+  'marketplace:discover.heroOverlayLabel',
+  'marketplace:discover.heroTitle',
   'marketplace:discover.kitchensBody',
   'marketplace:discover.kitchensTitle',
+  'marketplace:discover.offerAction',
+  'marketplace:discover.offerBody',
+  'marketplace:discover.offerEyebrow',
+  'marketplace:discover.offerTitle',
+  'marketplace:discover.popularMeta',
+  'marketplace:discover.popularTitle',
+  'marketplace:discover.railFigures',
+  'marketplace:discover.railTitle',
   'marketplace:discover.searchLabel',
   'marketplace:discover.searchPlaceholder',
   'marketplace:discover.searchSubmit',
@@ -10916,15 +11004,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchen.zoneFee',
   'marketplace:kitchen.zoneMinimum',
   'marketplace:kitchen.zoneMinutes',
+  'marketplace:kitchens.allKitchens',
+  'marketplace:kitchens.areaSeparator',
   'marketplace:kitchens.cardLabel',
+  'marketplace:kitchens.collectionOnly',
   'marketplace:kitchens.deliversTo',
   'marketplace:kitchens.deliversToTimed',
+  'marketplace:kitchens.deliveryFee',
   'marketplace:kitchens.emptyBody',
   'marketplace:kitchens.emptyTitle',
+  'marketplace:kitchens.etaMinutes',
+  'marketplace:kitchens.freeDelivery',
+  'marketplace:kitchens.goalBody.halal_friendly',
+  'marketplace:kitchens.goalBody.high_protein',
+  'marketplace:kitchens.goalBody.low_carb',
+  'marketplace:kitchens.goalBody.vegan',
+  'marketplace:kitchens.goalsTitle',
+  'marketplace:kitchens.heroEyebrow',
+  'marketplace:kitchens.heroEyebrowPending',
+  'marketplace:kitchens.heroTitle',
   'marketplace:kitchens.imageLabel',
+  'marketplace:kitchens.matches',
   'marketplace:kitchens.noPublishedZone',
   'marketplace:kitchens.notRatedYet',
   'marketplace:kitchens.ratingLabel',
+  'marketplace:kitchens.resultsTitle',
   'marketplace:kitchens.searchLabel',
   'marketplace:kitchens.searchPlaceholder',
   'marketplace:kitchens.subtitle',
@@ -10961,6 +11065,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:mealTypes.snack',
   'marketplace:medicalDisclaimer.body',
   'marketplace:medicalDisclaimer.title',
+  'marketplace:menu.add',
   'marketplace:menu.allLoaded',
   'marketplace:menu.allergensTitle',
   'marketplace:menu.cardLabel',
@@ -10977,6 +11082,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.openMeal',
   'marketplace:menu.perServing',
   'marketplace:menu.preparationMinutes',
+  'marketplace:menu.ratingLabel',
   'marketplace:menu.searchLabel',
   'marketplace:menu.searchPlaceholder',
   'marketplace:menu.stats.carbohydrate',
@@ -10986,6 +11092,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.subtitle',
   'marketplace:menu.title',
   'marketplace:menu.titleFor',
+  'marketplace:nav.accountMenu',
   'marketplace:nav.dietitians',
   'marketplace:nav.discover',
   'marketplace:nav.forBusiness',
@@ -10998,6 +11105,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nav.plannedSuffix',
   'marketplace:nav.plans',
   'marketplace:nav.register',
+  'marketplace:nav.searchLabel',
+  'marketplace:nav.searchPlaceholder',
   'marketplace:nav.signIn',
   'marketplace:nav.skipToContent',
   'marketplace:nutrients.carbohydrate',
@@ -11019,6 +11128,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:prototype.noticeBody',
   'marketplace:prototype.noticeTitle',
   'marketplace:resume.thisPage',
+  'marketplace:storefront.addLabel',
+  'marketplace:storefront.closedToday',
+  'marketplace:storefront.collectFrom',
+  'marketplace:storefront.dietsEyebrow',
+  'marketplace:storefront.emptyBody',
+  'marketplace:storefront.emptyTitle',
+  'marketplace:storefront.factBranches',
+  'marketplace:storefront.factCuisine',
+  'marketplace:storefront.factDelivery',
+  'marketplace:storefront.factDeliveryValue',
+  'marketplace:storefront.factRating',
+  'marketplace:storefront.fee',
+  'marketplace:storefront.fromAmount',
+  'marketplace:storefront.minimum',
+  'marketplace:storefront.openMeal',
+  'marketplace:storefront.openToday',
+  'marketplace:storefront.orderEyebrow',
+  'marketplace:storefront.productsTitle',
+  'marketplace:storefront.sectionNote',
+  'marketplace:storefront.seePlans',
+  'marketplace:storefront.startOrder',
   'marketplace:subscriptionStates.active',
   'marketplace:subscriptionStates.cancelled',
   'marketplace:subscriptionStates.draft',

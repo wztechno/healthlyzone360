@@ -60,20 +60,32 @@ test.describe('meal catalogue (en)', () => {
         await expect(page.getByTestId('meals-all-loaded')).toBeVisible();
         expect(loaded).toBeGreaterThan(firstPage);
 
-        // Filters are collapsed by default so the grid leads; open the disclosure to reach them.
-        await page.getByTestId('meals-filter-toggle').click();
+        // Desktop Chrome is 1280 px, so the filters are the rail beside the grid rather than a
+        // disclosure — there is nothing to open. The narrow-viewport disclosure has its own test
+        // below; `responsive.ltr` covers the layout at every width.
+        await expect(page.getByTestId('meals-filter-rail')).toBeVisible();
 
-        // A numeric range is a real filter wired to `listMeals`, not a decoration.
-        await page.getByTestId('meals-ranges-protein-min-input').fill('45');
+        // Each group is a section, shut until asked for. The numbers are the last of the five.
+        await page.getByTestId('meals-filter-group-ranges').click();
+
+        // A numeric range is a real filter wired to `listMeals`, not a decoration. Protein is the
+        // one slider that sets a *floor* — "at least 45 g" — so this also pins the direction table
+        // in `meal-filters.tsx`: were it drawn as a ceiling, the parameter would be `proteinMax`.
+        // `fill` works on a range input and moves the thumb to the value.
+        await page.getByTestId('meals-ranges-protein-input').fill('45');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
         await expect(page).toHaveURL(/proteinMin=45/);
+        await expect(page.getByTestId('meals-ranges-protein-readout')).toContainText('45');
 
-        // Allergen exclusion removes a dish that declares the allergen.
+        // Allergen exclusion removes a dish that declares the allergen. Fourteen exclusions is the
+        // largest group and the one fewest people touch, so it is a section like every other —
+        // open it before reaching for a chip.
+        await page.getByTestId('meals-filter-group-exclude').click();
         await page.getByTestId('meals-filter-exclude-milk').click();
         await expect(page).toHaveURL(/exclude=milk/);
         await expect(page.getByTestId('meal-card-daily-pot-halloumi-plate')).toHaveCount(0);
 
-        await page.getByTestId('meals-filter-clear').click();
+        await page.getByTestId('meals-filter-clear-all').click();
         await expect(page.getByTestId('meals-grid')).toBeVisible();
     });
 
@@ -87,6 +99,84 @@ test.describe('meal catalogue (en)', () => {
             'aria-pressed',
             'true',
         );
+    });
+
+    /**
+     * The documented behaviour, now that the desktop no longer exercises it.
+     *
+     * On a phone there is no room for a column of controls beside a column of cards, so the filters
+     * go back behind a disclosure that opens *closed* — the grid is what you came for. It opens
+     * itself only when a filter is already applied on arrival, because then the controls are.
+     */
+    test('below lg the filters are a disclosure that opens closed', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+
+        await page.goto('/meals');
+        await expect(page.getByTestId('meals-grid')).toBeVisible();
+        await expect(page.getByTestId('meals-filter-rail')).toHaveCount(0);
+        await expect(page.getByTestId('meals-filter-toggle')).toHaveAttribute(
+            'aria-expanded',
+            'false',
+        );
+        await expect(page.getByTestId('meals-ranges-energy')).toHaveCount(0);
+
+        await page.getByTestId('meals-filter-toggle').click();
+        // The panel is open; the numbers are a section within it, and still shut.
+        await expect(page.getByTestId('meals-filter-group-ranges')).toBeVisible();
+        await page.getByTestId('meals-filter-group-ranges').click();
+        await expect(page.getByTestId('meals-ranges-energy')).toBeVisible();
+
+        // Arriving with a filter already in force opens it instead.
+        await page.goto('/meals?mealType=breakfast');
+        await expect(page.getByTestId('meals-grid')).toBeVisible();
+        await expect(page.getByTestId('meals-filter-toggle')).toHaveAttribute(
+            'aria-expanded',
+            'true',
+        );
+    });
+
+    /**
+     * Picking a filter must not move the page.
+     *
+     * The rail used to be preceded by a chip band that existed only while something was filtered,
+     * so the first press inserted a row between the title and the body and pushed the rail and
+     * every card down — the grid jumped under the cursor that had just clicked. Above `lg` the lit
+     * control in the rail says what the chip said, so there is no band and nothing to shift.
+     */
+    test('picking a filter does not move the grid', async ({ page }) => {
+        await page.goto('/meals');
+        await expect(page.getByTestId('meals-grid')).toBeVisible();
+
+        const before = await page.getByTestId('meals-grid').boundingBox();
+        expect(before).not.toBeNull();
+
+        await page.getByTestId('meals-filter-mealType-breakfast').click();
+        await expect(page).toHaveURL(/mealType=breakfast/);
+        await expect(page.getByTestId('meals-filter-mealType-breakfast')).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        );
+
+        const after = await page.getByTestId('meals-grid').boundingBox();
+        expect(after).not.toBeNull();
+        // The grid may get shorter as meals drop out; where it *starts* must not move.
+        expect(Math.round(after!.y)).toBe(Math.round(before!.y));
+    });
+
+    /**
+     * The rail is pinned inside the shell's scroller, so the filters stay reachable however far
+     * down the catalogue you are. Before this, scrolling to the third row of cards left the whole
+     * filter column above the fold with no way back to it but scrolling up.
+     */
+    test('the filter rail stays put while the grid scrolls', async ({ page }) => {
+        await page.goto('/meals');
+        await expect(page.getByTestId('meals-filter-rail')).toBeVisible();
+
+        await page
+            .getByTestId('marketplace-shell-content')
+            .evaluate((node) => node.scrollBy(0, 1200));
+
+        await expect(page.getByTestId('meals-filter-rail')).toBeInViewport();
     });
 
     test('the empty state explains itself and offers a way back', async ({ page }) => {
@@ -104,7 +194,7 @@ test.describe('meal detail (en)', () => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
 
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
         await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
         await expect(page.getByTestId('meal-detail-name')).toBeVisible();
         await expect(page.getByTestId('meal-detail-breadcrumbs')).toBeVisible();
@@ -134,7 +224,7 @@ test.describe('meal detail (en)', () => {
     test('a business-supply marker never carries a price', async ({ page }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
         await expect(page.getByTestId('meal-detail-channels')).toBeVisible();
 
         if ((await page.getByTestId('meal-detail-b2b').count()) > 0) {
@@ -148,7 +238,7 @@ test.describe('meal detail (en)', () => {
     }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
 
         await page.getByTestId('meal-detail-add-to-basket').click();
 
@@ -165,7 +255,7 @@ test.describe('meal detail (en)', () => {
     test('the meal record offers only the actions that work', async ({ page }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
         await expect(page.getByTestId('meal-detail-actions')).toBeVisible();
 
         // The planner and the quotation document have no endpoints, so the three controls that
