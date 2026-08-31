@@ -116,7 +116,7 @@ test.describe('public marketplace (en)', () => {
 
         // The in-place summary drawer this menu used before the catalogue wave is gone: the card
         // now navigates to the real record at `/meals/{meal}`.
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
         await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
         await expect(page.getByTestId('meal-detail-facts')).toBeVisible();
         await expect(page.getByTestId('meal-detail-allergens')).toBeVisible();
@@ -124,30 +124,31 @@ test.describe('public marketplace (en)', () => {
     });
 
     /**
-     * The directory's search really narrows, and clearing it really restores.
+     * A term in the address really narrows the directory, and the reset chip really restores.
      *
-     * This used to press a *cuisine* chip. That control is inert against the API and pressing it
-     * proves nothing: `listKitchens` in `packages/api-client/src/api/marketplace-repository.ts`
-     * builds its query from `query`, `country_code`, `area` and `channels` and never sends
-     * `filter.cuisines` at all, and every seeded kitchen answers `cuisines: []` in any case. A test
-     * that pressed it and asserted "the grid still has everything in it" would be a test that
-     * passed whether or not the filter was wired.
+     * This used to type into a search box on the page. There is no longer one: HealthZone's browse
+     * screen filters with chips, and the marketplace bar owns text search for every surface, so a
+     * second input writing the same `?q=` would be two things to keep in step. `KitchensScreen`
+     * still *reads* the parameter — a shared or hand-written link with a term in it narrows the
+     * directory — which is the half that is wired end to end and therefore the half worth driving:
+     * the screen puts the term in `query`, the repository sends it, `GET /marketplace/kitchens`
+     * filters on it.
      *
-     * The search box *is* wired end to end — the screen puts the term in `query`, the repository
-     * sends it, `GET /marketplace/kitchens` filters on it — so that is what is driven here. The
-     * cuisine gap is recorded rather than papered over; when the repository sends cuisines and a
-     * kitchen declares one, this file gains a second test rather than changing this one.
+     * It has never pressed a *cuisine* chip, and now cannot: that control was inert against the API
+     * (`listKitchens` builds its query from `query`, `country_code`, `area` and `channels` and never
+     * sent `filter.cuisines`, and every seeded kitchen answers `cuisines: []`) and has been replaced
+     * by channel and diet chips that do narrow. The reset chip is what this test exercises of the
+     * new row, because it is the one whose effect does not depend on how the world is seeded.
      */
-    test('the directory search narrows to one kitchen and clears again', async ({ page }) => {
-        await page.goto('/kitchens');
+    test('a term in the address narrows the directory, and the reset chip restores it', async ({
+        page,
+    }) => {
+        await page.goto('/kitchens?q=Saffron');
         await expect(page.getByTestId('kitchens-grid')).toBeVisible();
-        await expect(page.getByTestId('kitchen-card-verdant-kitchen')).toBeVisible();
-
-        await page.getByTestId('kitchens-filter-search').locator('input').first().fill('Saffron');
         await expect(page.getByTestId('kitchen-card-saffron-and-sea')).toBeVisible();
         await expect(page.getByTestId('kitchen-card-verdant-kitchen')).toHaveCount(0);
 
-        await page.getByTestId('kitchens-filter-clear').click();
+        await page.getByTestId('kitchens-filter-all').click();
         await expect(page.getByTestId('kitchen-card-verdant-kitchen')).toBeVisible();
     });
 

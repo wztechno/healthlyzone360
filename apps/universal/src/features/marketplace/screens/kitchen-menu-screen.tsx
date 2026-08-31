@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
@@ -55,6 +56,7 @@ export interface KitchenMenuScreenProps {
  */
 export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
     const { t } = useTranslation();
+    const basket = useBasketAdd({ labelKey: 'marketplace:nav.kitchens', testID: 'kitchen-menu' });
     const router = useRouter();
     const filters = useMarketplaceFilters(GROUP_KEYS);
 
@@ -170,6 +172,9 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                                     onPress={() => {
                                         router.push(`/meals/${String(meal.id)}` as never);
                                     }}
+                                    onAdd={() => {
+                                        basket.add(meal);
+                                    }}
                                 />
                             </CardGridItem>
                         ))}
@@ -198,6 +203,8 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
             </QueryStates>
 
             <MedicalDisclaimer />
+
+            {basket.dialog}
         </Stack>
     );
 }

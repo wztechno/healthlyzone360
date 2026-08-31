@@ -20,6 +20,9 @@
         "signIn": "Sign in",
         "register": "Create account",
         "myHome": "My home",
+        "accountMenu": "Account menu for {{name}}",
+        "searchLabel": "Search the menu",
+        "searchPlaceholder": "Meals, ingredients, kitchens",
         "skipToContent": "Skip to content",
         "plannedSuffix": "{{label}} (soon)",
         "plannedNotice": "{{label}} is not built yet. Nothing was changed."
@@ -92,7 +95,23 @@
             "plans": "Subscription plans, side by side, with calorie bands and duration discounts.",
             "diets": "Browse by the way you eat rather than by the kitchen that cooked it.",
             "tools": "Work out a calorie and macro target with no account, and see the method."
-        }
+        },
+        "heroEyebrow": "Fresh today · delivered near you",
+        "heroTitle": "Real food, cooked today, eaten today.",
+        "heroBody": "Chef-built bowls, salads and plates from kitchens that publish their numbers. Energy and protein on every dish, no subscription required.",
+        "heroImageLabel": "A dish from one of the kitchens on the marketplace",
+        "heroOverlayLabel": "Top rated today",
+        "heroBrowseMeals": "Browse today's menu",
+        "categoriesTitle": "Browse by category",
+        "allMeals": "All meals",
+        "popularTitle": "Top rated this week",
+        "popularMeta": "Rated by people who ordered",
+        "offerEyebrow": "On the menu this week",
+        "offerTitle": "Build a week from the kitchens near you",
+        "offerBody": "Fill a week from any kitchen on the marketplace. Every dish carries its energy and protein, so the week adds up before you order.",
+        "offerAction": "Start a week",
+        "railTitle": "More like {{meal}}",
+        "railFigures": "{{energy}} cal · {{protein}}g protein"
     },
     "kitchens": {
         "title": "Kitchens",
@@ -108,7 +127,27 @@
         "deliversToTimed": "Delivers to {{area}} in about {{minutes}} minutes",
         "emptyTitle": "No kitchens match",
         "emptyBody": "Try a different cuisine, or clear the filters to see everything on the marketplace.",
-        "noPublishedZone": "No delivery zone published"
+        "noPublishedZone": "No delivery zone published",
+        "heroEyebrow_one": "{{count}} kitchen delivering right now",
+        "heroEyebrow_other": "{{count}} kitchens delivering right now",
+        "heroEyebrowPending": "Kitchens delivering right now",
+        "heroTitle": "Find a kitchen that cooks the way you eat.",
+        "allKitchens": "All kitchens",
+        "resultsTitle": "Kitchens on the marketplace",
+        "matches_one": "{{count}} match",
+        "matches_other": "{{count}} matches",
+        "etaMinutes": "About {{minutes}} min",
+        "deliveryFee": "{{fee}} delivery",
+        "freeDelivery": "Free delivery",
+        "collectionOnly": "Collection only",
+        "areaSeparator": " · ",
+        "goalsTitle": "Eat by goal",
+        "goalBody": {
+            "high_protein": "Kitchens whose dishes lead on protein.",
+            "vegan": "Plant-based cooking, no animal products.",
+            "low_carb": "Plates built around protein and vegetables.",
+            "halal_friendly": "Kitchens cooking to halal requirements."
+        }
     },
     "kitchen": {
         "loading": "Loading",
@@ -157,7 +196,9 @@
             "carbohydrate": "carbs",
             "fat": "fat"
         },
-        "openMeal": "Open {{meal}}"
+        "openMeal": "Open {{meal}}",
+        "add": "Add",
+        "ratingLabel": "Average rating for {{meal}}"
     },
     "dietitians": {
         "title": "Dietitians",
@@ -429,6 +470,29 @@
         "oil": "Oils",
         "condiment": "Condiments",
         "dairy": "Dairy",
-        "vegetables": "Vegetables"
+        "vegetables": "Vegetables"},
+    "storefront": {
+        "openToday": "Today {{opensAt}} – {{closesAt}}",
+        "closedToday": "Closed today",
+        "factRating": "Rating",
+        "factDelivery": "Delivery",
+        "factDeliveryValue": "about {{minutes}} min",
+        "factCuisine": "Cuisine",
+        "factBranches": "Branches",
+        "dietsEyebrow": "Diets on this menu",
+        "orderEyebrow": "Order from this kitchen",
+        "minimum": "Minimum order",
+        "fee": "Delivery fee",
+        "fromAmount": "from {{amount}}",
+        "collectFrom": "Collect from",
+        "startOrder": "Start an order",
+        "seePlans": "See weekly plans",
+        "productsTitle": "Pantry and packs",
+        "sectionNote_one": "{{count}} dish",
+        "sectionNote_other": "{{count}} dishes",
+        "emptyTitle": "Nothing on the menu yet",
+        "emptyBody": "This kitchen has not published anything to order. Browse the directory to find another.",
+        "addLabel": "Add {{meal}} to the basket",
+        "openMeal": "{{meal}} — open the dish"
     }
 }

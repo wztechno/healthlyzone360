@@ -38,9 +38,9 @@ test.describe('public marketplace (ar, RTL)', () => {
         await expect(page.getByTestId('kitchens-screen')).toBeVisible();
 
         await expect(page.getByTestId('kitchens-title')).toContainText(ARABIC_SCRIPT);
-        await expect(page.getByTestId('kitchens-filter-group-cuisine')).toContainText(
-            ARABIC_SCRIPT,
-        );
+        // The chips are the directory's only filter now, and they live inside the opening panel.
+        await expect(page.getByTestId('kitchens-controls')).toContainText(ARABIC_SCRIPT);
+        await expect(page.getByTestId('kitchens-filter-all')).toContainText(ARABIC_SCRIPT);
         await expect(page.getByTestId('kitchens-grid')).toBeVisible();
         // Kitchen names are tenant data in Latin script; the card still has to lay out in RTL.
         await expect(page.getByTestId('kitchen-card-verdant-kitchen')).toContainText(
