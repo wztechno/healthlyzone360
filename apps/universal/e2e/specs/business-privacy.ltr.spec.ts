@@ -161,7 +161,7 @@ test.describe('B2B price privacy', () => {
         await expectNoContractPricing(page, 'kitchen menu');
 
         await page.goto('/meals');
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
         await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
         await expectNoContractPricing(page, 'meal detail');
 

@@ -75,7 +75,7 @@ async function fillBasket(page: Page): Promise<void> {
     // A named meal rather than "the first card": `grilled-chicken-freekeh` is one of the three
     // Verdant meals `DemoTenantSeeder` writes by hand, so it carries a real price on the web-shop
     // tariff rather than the neutral preview row the ported fixture meals share.
-    await page.getByTestId(`meal-card-${MEAL_SLUG}`).click();
+    await page.getByTestId(`meal-card-${MEAL_SLUG}-open`).click();
     await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
 
     await page.getByTestId('meal-detail-add-to-basket').click();
@@ -314,7 +314,7 @@ test.describe('basket and checkout (en)', () => {
 
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.getByTestId(`meal-card-${MEAL_SLUG}`).click();
+        await page.getByTestId(`meal-card-${MEAL_SLUG}-open`).click();
         await expect(page.getByTestId('meal-detail-add-to-basket')).toBeVisible();
 
         await page.getByTestId('meal-detail-add-to-basket').click();

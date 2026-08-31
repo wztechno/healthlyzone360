@@ -64,7 +64,7 @@ test.beforeEach(() => {
 async function fillBasket(page: Page): Promise<void> {
     await page.getByTestId('cart-browse').click();
     await expect(page.getByTestId('meals-screen')).toBeVisible();
-    await page.getByTestId(`meal-card-${MEAL_SLUG}`).click();
+    await page.getByTestId(`meal-card-${MEAL_SLUG}-open`).click();
     await page.getByTestId('meal-detail-add-to-basket').click();
     await expect(page.getByTestId('basket-added')).toBeVisible();
     await page.goBack();
