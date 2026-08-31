@@ -1102,7 +1102,12 @@ test.describe('kitchen workspace (en)', () => {
         // scrolled — which also proves the new row is in the *query* and not merely addressable.
         await page.getByTestId('meal-detail-breadcrumbs').getByText('Meals').click();
         await expect(page.getByTestId('meals-grid')).toBeVisible({ timeout: JOURNEY_TIMEOUT });
-        await page.getByTestId('meals-filter-search').locator('input').first().fill(name);
+        // Searched through the chrome, which is where the marketplace's one search field lives —
+        // the catalogue no longer carries a second input writing the same `?q=`. Submitting it
+        // routes to `/meals?q=`, so this also proves the term reaches the query rather than
+        // filtering a list already in hand.
+        await page.getByTestId('marketplace-search').fill(name);
+        await page.getByTestId('marketplace-search').press('Enter');
         await expect(page.getByTestId('meals-grid')).toContainText(name, {
             timeout: JOURNEY_TIMEOUT,
         });
