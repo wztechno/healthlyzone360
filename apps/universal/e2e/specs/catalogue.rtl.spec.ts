@@ -45,7 +45,7 @@ test.describe('catalogue (ar, RTL)', () => {
         await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
         await expect(page.getByTestId('meals-title')).toContainText(ARABIC_SCRIPT);
 
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
         await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
 
         // Section headings, the facts panel and the actions are all translated.
@@ -62,7 +62,7 @@ test.describe('catalogue (ar, RTL)', () => {
 
     test('the facts panel keeps both bases and its provenance in Arabic', async ({ page }) => {
         await page.goto('/meals');
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
         await expect(page.getByTestId('meal-detail-facts')).toBeVisible();
 
         const perServing = await page.getByTestId('meal-detail-facts-amount-energy').innerText();

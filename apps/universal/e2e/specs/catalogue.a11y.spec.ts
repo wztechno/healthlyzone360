@@ -41,9 +41,20 @@ test.describe('catalogue accessibility (axe)', () => {
         await expect(page.getByTestId('meals-grid')).toBeVisible();
         await expectNoSeriousViolations(page, 'meals');
 
-        // The filters are collapsed by default so the grid leads; open the disclosure and axe the
-        // panel — the ranges and chip groups are where most of the controls live.
+        // At this width the filters are the rail beside the grid, so the first pass above already
+        // covered them. Narrow the viewport to reach the other arrangement — a disclosure, where
+        // the toggle's `aria-expanded`/`aria-controls` pair is the thing worth axeing — and check
+        // the ranges and chip groups there too.
+        await page.setViewportSize({ width: 390, height: 844 });
+        await expect(page.getByTestId('meals-filter-toggle')).toBeVisible();
         await page.getByTestId('meals-filter-toggle').click();
+
+        // Open every section, so axe sees each group's controls rather than five collapsed
+        // headers. The sliders in particular are the newest control on the page and the one most
+        // worth holding to the label-and-name rules.
+        for (const group of ['diet', 'kitchen', 'exclude', 'ranges']) {
+            await page.getByTestId(`meals-filter-group-${group}`).click();
+        }
         await expect(page.getByTestId('meals-ranges')).toBeVisible();
         await expectNoSeriousViolations(page, 'meals-filters-open');
     });
@@ -51,7 +62,7 @@ test.describe('catalogue accessibility (axe)', () => {
     test('meal detail, on both nutrition bases and with the composition open', async ({ page }) => {
         await page.goto('/meals');
         await expect(page.getByTestId('meals-grid')).toBeVisible();
-        await page.locator('[data-testid^="meal-card-"]').first().click();
+        await page.locator('[data-testid$="-open"][data-testid^="meal-card-"]').first().click();
         await expect(page.getByTestId('meal-detail-screen')).toBeVisible();
         await expectNoSeriousViolations(page, 'meal-detail');
 
