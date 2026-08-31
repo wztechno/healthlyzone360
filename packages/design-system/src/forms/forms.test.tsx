@@ -14,6 +14,8 @@ import {
 } from './date-field-shared.ts';
 import { DateField } from './date-field.native.tsx';
 import { DateField as WebDateField } from './date-field.web.tsx';
+import { SliderField } from './slider-field.native.tsx';
+import { SliderField as WebSliderField } from './slider-field.web.tsx';
 import { FormField } from './form-field.tsx';
 import { NumberStepper, clampToStep } from './number-stepper.tsx';
 import { PasswordInput } from './password-input.tsx';
@@ -1133,5 +1135,164 @@ describe('DateField — web (native date input)', () => {
         }) => void;
         onDomChange({ target: { value: '2026-09-30' } });
         expect(onChange).toHaveBeenCalledWith('2026-08-15');
+    });
+});
+
+function rangeInput(): Record<string, unknown> {
+    const found = findHostByType(screen.toJSON(), 'input');
+    expect(found).not.toBeNull();
+    return found!.props;
+}
+
+/**
+ * The slider is platform-split on purpose, and the two halves are deliberately different controls:
+ * a real `<input type="range">` on the web, a `NumberStepper` on native. Both are held to the same
+ * props contract here, because a screen composes one component and must get a working control
+ * either way. See `slider-field-shared.ts` for why the design system's no-slider rule is not
+ * contradicted by this.
+ */
+describe('SliderField — web (native range input)', () => {
+    it('is a range input carrying the readout as its announced value', async () => {
+        await renderWithI18n(
+            <WebSliderField
+                testID="energy"
+                id="energy"
+                label="Energy per serving"
+                direction="atMost"
+                value={700}
+                min={0}
+                max={1200}
+                step={50}
+                unit="kcal"
+                readout="Under 700 kcal"
+                onChange={jest.fn()}
+            />,
+        );
+
+        const input = rangeInput();
+        expect(input['type']).toBe('range');
+        expect(input['min']).toBe(0);
+        expect(input['max']).toBe(1200);
+        expect(input['step']).toBe(50);
+        expect(input['value']).toBe(700);
+        // A bare number would be announced with no sense of which side of it is being filtered.
+        expect(input['aria-valuetext']).toBe('Under 700 kcal');
+        expect(screen.getByTestId('energy-readout')).toHaveTextContent('Under 700 kcal');
+    });
+
+    it('rests at the floor when the filter is unset', async () => {
+        await renderWithI18n(
+            <WebSliderField
+                testID="protein"
+                id="protein"
+                label="Protein per serving"
+                direction="atLeast"
+                value={null}
+                min={0}
+                max={100}
+                step={5}
+                unit="g"
+                readout="Any"
+                onChange={jest.fn()}
+            />,
+        );
+
+        expect(rangeInput()['value']).toBe(0);
+        expect(screen.getByTestId('protein-readout')).toHaveTextContent('Any');
+    });
+
+    it('reports null when the thumb returns to the floor, so the filter can be lifted', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <WebSliderField
+                testID="energy"
+                id="energy"
+                label="Energy per serving"
+                direction="atMost"
+                value={700}
+                min={0}
+                max={1200}
+                step={50}
+                readout="Under 700 kcal"
+                onChange={onChange}
+            />,
+        );
+
+        const onDomChange = rangeInput()['onChange'] as (event: {
+            target: { value: string };
+        }) => void;
+
+        onDomChange({ target: { value: '450' } });
+        expect(onChange).toHaveBeenLastCalledWith(450);
+
+        // The floor means "no limit" — without this the only way out is Clear all, which
+        // discards every other choice too.
+        onDomChange({ target: { value: '0' } });
+        expect(onChange).toHaveBeenLastCalledWith(null);
+    });
+});
+
+describe('SliderField — native (stepper, not a drag rail)', () => {
+    it('renders the stepper the design system prescribes, with the readout as its hint', async () => {
+        await renderWithI18n(
+            <SliderField
+                testID="energy"
+                id="energy"
+                label="Energy per serving"
+                direction="atMost"
+                value={700}
+                min={0}
+                max={1200}
+                step={50}
+                unit="kcal"
+                readout="Under 700 kcal"
+                onChange={jest.fn()}
+            />,
+        );
+
+        // The stepper's own handles, which is what proves no drag rail reached native.
+        expect(screen.getByTestId('energy-input')).toBeTruthy();
+        expect(screen.getByTestId('energy-increment')).toBeTruthy();
+        expect(screen.getByTestId('energy-decrement')).toBeTruthy();
+    });
+
+    it('steps by the same increment the web track uses', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <SliderField
+                testID="energy"
+                id="energy"
+                label="Energy per serving"
+                direction="atMost"
+                value={700}
+                min={0}
+                max={1200}
+                step={50}
+                readout="Under 700 kcal"
+                onChange={onChange}
+            />,
+        );
+
+        await fireEvent.press(screen.getByTestId('energy-increment'));
+        expect(onChange).toHaveBeenLastCalledWith(750);
+    });
+
+    it('uses no physical direction utility anywhere in its tree', async () => {
+        await renderWithI18n(
+            <SliderField
+                testID="energy"
+                id="energy"
+                label="Energy per serving"
+                direction="atMost"
+                value={700}
+                min={0}
+                max={1200}
+                step={50}
+                readout="Under 700 kcal"
+                onChange={jest.fn()}
+            />,
+            'ar',
+        );
+        assertSubtreeIsLogical(screen.getByTestId('energy'));
     });
 });
