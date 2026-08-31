@@ -164,6 +164,8 @@
     "breadcrumbCurrent": "[[Ĝŕíłłéð ĥáłłóúɱí ƀóŵł āēīōūāēīō]]",
     "amountLabel": "[[Þóŕţíóñ šížé āēīōū]]",
     "rangeLabel": "[[Çáłóŕíéš þéŕ ɱéáł āēīōūāē]]",
+    "sliderAtMostLabel": "[[Éñéŕĝý þéŕ šéŕṽíñĝ āēīōūāēī]]",
+    "sliderAtLeastLabel": "[[Þŕóţéíñ þéŕ šéŕṽíñĝ āēīōūāēī]]",
     "chipRemovable": "[[Ñó þéáñúţš āēīō]]",
     "chipFilter": "[[Ĥíĝĥ þŕóţéíñ āēīōū]]",
     "dateLabel": "[[Šţáŕţ ðáţé āēīō]]",
@@ -191,5 +193,12 @@
     "motionSlideStart": "[[Šłíð íñ ƒŕóɱ ţĥé łéáðíñĝ éðĝé āēīōūāēīōūāē]]",
     "motionSlideBottom": "[[Šłíð íñ ƒŕóɱ ƀéłóŵ āēīōūāēī]]",
     "motionNumber": "[[Áñíɱáţéð ƒíĝúŕé āēīōūā]]"
+  },
+  "tag": {
+    "join": "[[,  ā]]",
+    "more_one": "[[{{count}} ɱóŕé: {{labels}} āēīōūāēīōūā]]",
+    "more_other": "[[{{count}} ɱóŕé: {{labels}} āēīōūāēīōūā]]",
+    "overflow_one": "[[+{{count}} āēīō]]",
+    "overflow_other": "[[+{{count}} āēīō]]"
   }
 }
