@@ -6,14 +6,12 @@ import {
     cardWidth,
     controlGap,
     controlHeight,
-    controlHeightTouch,
     controlPaddingX,
     fieldWidth,
     iconSize,
     rowHeight,
-    rowHeightTouch,
 } from './control.ts';
-import { MIN_TOUCH_TARGET, SPACING_BASE, spacing, spacingAliases } from './layout.ts';
+import { SPACING_BASE, spacing, spacingAliases } from './layout.ts';
 import {
     SCRIPTS,
     TEXT_ROLE_NAMES,
@@ -32,8 +30,7 @@ import {
 describe('control geometry', () => {
     const ladders = {
         controlHeight,
-        controlHeightTouch,
-        controlPaddingX,
+            controlPaddingX,
         controlGap,
         iconSize,
     } as const;
@@ -55,29 +52,14 @@ describe('control geometry', () => {
     });
 
     /**
-     * The invariant `CLAUDE.md` names, expressed as an equality rather than a comment.
+     * The brief, as an equality rather than a comment.
      *
-     * `handoff-claude-code.md` §1.1 asked for `MIN_TOUCH_TARGET` to be deleted and every control
-     * flattened to 32px. It is kept instead, as the floor of the coarse-pointer ladder — the
-     * reading `catalogue-redesign-plan.md` §3.1 proposed so both the compact brief and the
-     * invariant hold. If someone lowers this table, this is the test that says so.
+     * These three numbers are what the Catalogue redesign is *for*, and they are also the numbers
+     * a later "just a little roomier" will reach for first. `MIN_TOUCH_TARGET` used to hold the
+     * other end of this ladder; with it retired, this is the only thing standing between the admin
+     * and a slow drift back to the sizes it was rebuilt to leave behind.
      */
-    it('meets the touch minimum at the default size on a coarse pointer', () => {
-        expect(controlHeightTouch.md).toBe(MIN_TOUCH_TARGET);
-        expect(rowHeightTouch.md).toBe(MIN_TOUCH_TARGET);
-    });
-
-    it('is never shorter on a coarse pointer than on a fine one', () => {
-        for (const size of CONTROL_SIZES) {
-            expect(controlHeightTouch[size]).toBeGreaterThanOrEqual(controlHeight[size]);
-        }
-
-        for (const density of ROW_DENSITIES) {
-            expect(rowHeightTouch[density]).toBeGreaterThanOrEqual(rowHeight[density]);
-        }
-    });
-
-    it('keeps the compact brief on a fine pointer', () => {
+    it('keeps the compact brief', () => {
         expect(controlHeight.sm).toBe(28);
         expect(controlHeight.md).toBe(32);
         expect(rowHeight.md).toBe(32);
@@ -85,8 +67,8 @@ describe('control geometry', () => {
 });
 
 describe('row density', () => {
-    it.each([rowHeight, rowHeightTouch])('covers every density', (ladder) => {
-        expect(Object.keys(ladder).sort()).toEqual([...ROW_DENSITIES].sort());
+    it('covers every density', () => {
+        expect(Object.keys(rowHeight).sort()).toEqual([...ROW_DENSITIES].sort());
     });
 
     /** A row is at least as tall as the control it holds, or the control overflows it. */

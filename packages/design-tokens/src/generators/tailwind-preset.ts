@@ -4,22 +4,12 @@ import {
     cardWidth,
     controlGap,
     controlHeight,
-    controlHeightTouch,
     controlPaddingX,
     fieldWidth,
     iconSize,
     rowHeight,
-    rowHeightTouch,
 } from '../control.ts';
-import {
-    breakpoints,
-    focusRing,
-    MIN_TOUCH_TARGET,
-    radius,
-    spacing,
-    spacingAliases,
-    zIndex,
-} from '../layout.ts';
+import { breakpoints, focusRing, radius, spacing, spacingAliases, zIndex } from '../layout.ts';
 import { DURATION_NAMES, durations, easings } from '../motion.ts';
 import {
     FONT_SIZE_NAMES,
@@ -38,6 +28,25 @@ import {
 import { GENERATED_BANNER, kebab, variableReference } from './shared.ts';
 
 const px = (value: number) => `${value}px`;
+
+/**
+ * The 44px touch floor, as a literal rather than a token — deliberately, and temporarily.
+ *
+ * `MIN_TOUCH_TARGET` is retired: `control.ts` explains why the Catalogue does not want it, and
+ * nothing in the admin reads it any more. But `min-h-touch` and `min-w-touch` are still applied at
+ * two dozen call sites across the design system and the customer app — phone surfaces, where a
+ * fingertip really does need the room. Deleting the utilities along with the token would not have
+ * *changed* those screens so much as quietly stopped generating their classes: NativeWind emits
+ * nothing for a utility the preset does not define, and the minimum would vanish with no error to
+ * notice.
+ *
+ * So the utilities keep working while the admin stops asking for them. This literal is what
+ * survives of the constant, and it should live exactly as long as the last `min-h-touch` in the
+ * customer app — that sweep is its own change, on its own reasoning about the phone.
+ *
+ * @deprecated Remove with the last `min-h-touch` / `min-w-touch` call site.
+ */
+const DEPRECATED_TOUCH_TARGET_PX = 44;
 
 function colours(): Record<string, unknown> {
     const result: Record<string, unknown> = {};
@@ -215,20 +224,10 @@ export function renderTailwindPreset(): string {
                 transitionTimingFunction: Object.fromEntries(
                     Object.entries(easings).map(([name, token]) => [kebab(name), token.css]),
                 ),
-                minWidth: { touch: px(MIN_TOUCH_TARGET), card: px(cardWidth.min) },
-                minHeight: {
-                    touch: px(MIN_TOUCH_TARGET),
-                    // Coarse-pointer floors, applied by `useIsCoarsePointer()` rather than by a
-                    // media query in the preset: native has no media queries to read.
-                    ...Object.fromEntries(
-                        Object.entries(controlHeightTouch).map(([k, v]) => [`control-${k}`, px(v)]),
-                    ),
-                    ...Object.fromEntries(
-                        Object.entries(rowHeightTouch).map(([k, v]) => [`row-${k}`, px(v)]),
-                    ),
-                },
+                minWidth: { touch: px(DEPRECATED_TOUCH_TARGET_PX), card: px(cardWidth.min) },
+                minHeight: { touch: px(DEPRECATED_TOUCH_TARGET_PX) },
                 height: {
-                    // `h-control-sm`, `h-row-md` — the fine-pointer ladders.
+                    // `h-control-sm`, `h-row-md` — the Catalogue's density, one knob.
                     ...Object.fromEntries(
                         Object.entries(controlHeight).map(([k, v]) => [`control-${k}`, px(v)]),
                     ),

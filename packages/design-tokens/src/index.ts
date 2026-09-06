@@ -37,12 +37,10 @@ export {
     cardWidth,
     controlGap,
     controlHeight,
-    controlHeightTouch,
     controlPaddingX,
     fieldWidth,
     iconSize,
     rowHeight,
-    rowHeightTouch,
 } from './control.ts';
 export type { ControlSize, RowDensity } from './control.ts';
 
@@ -94,7 +92,6 @@ export type {
 export {
     BREAKPOINT_NAMES,
     CONTENT_MAX_MEASURE_CH,
-    MIN_TOUCH_TARGET,
     RADIUS_NAMES,
     SPACING_ALIAS_NAMES,
     SPACING_BASE,

@@ -238,6 +238,13 @@ export const nativeTokens = {
     "1.5": 6,
     "2.5": 10
   },
+  "spacingAliases": {
+    "hair": 4,
+    "tight": 8,
+    "snug": 12,
+    "base": 16,
+    "loose": 24
+  },
   "radius": {
     "none": 0,
     "xs": 2,
@@ -269,7 +276,42 @@ export const nativeTokens = {
     "width": 2,
     "offset": 2
   },
-  "minTouchTarget": 44,
+  "control": {
+    "height": {
+      "xs": 24,
+      "sm": 28,
+      "md": 32,
+      "lg": 36
+    },
+    "paddingX": {
+      "xs": 6,
+      "sm": 8,
+      "md": 10,
+      "lg": 14
+    },
+    "gap": {
+      "xs": 4,
+      "sm": 6,
+      "md": 6,
+      "lg": 8
+    },
+    "iconSize": {
+      "xs": 12,
+      "sm": 14,
+      "md": 16,
+      "lg": 18
+    },
+    "rowHeight": {
+      "sm": 28,
+      "md": 32,
+      "lg": 36
+    },
+    "fieldWidth": 280,
+    "cardWidth": {
+      "min": 200,
+      "max": 260
+    }
+  },
   "typography": {
     "fontFamilies": {
       "latin": {
@@ -278,6 +320,38 @@ export const nativeTokens = {
         "semibold": "Inter_600SemiBold",
         "bold": "Inter_700Bold",
         "stack": "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+      },
+      "arabic": {
+        "regular": "IBMPlexSansArabic_400Regular",
+        "medium": "IBMPlexSansArabic_500Medium",
+        "semibold": "IBMPlexSansArabic_600SemiBold",
+        "bold": "IBMPlexSansArabic_700Bold",
+        "stack": "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif"
+      }
+    },
+    "monoFamilies": {
+      "latin": {
+        "regular": "IBMPlexMono_400Regular",
+        "medium": "IBMPlexMono_500Medium",
+        "semibold": "IBMPlexMono_600SemiBold",
+        "bold": "IBMPlexMono_700Bold",
+        "stack": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+      },
+      "arabic": {
+        "regular": "IBMPlexSansArabic_400Regular",
+        "medium": "IBMPlexSansArabic_500Medium",
+        "semibold": "IBMPlexSansArabic_600SemiBold",
+        "bold": "IBMPlexSansArabic_700Bold",
+        "stack": "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif"
+      }
+    },
+    "adminFamilies": {
+      "latin": {
+        "regular": "SchibstedGrotesk_400Regular",
+        "medium": "SchibstedGrotesk_500Medium",
+        "semibold": "SchibstedGrotesk_600SemiBold",
+        "bold": "SchibstedGrotesk_700Bold",
+        "stack": "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
       },
       "arabic": {
         "regular": "IBMPlexSansArabic_400Regular",
@@ -332,6 +406,166 @@ export const nativeTokens = {
         "3xl": 42,
         "4xl": 50,
         "5xl": 67
+      }
+    },
+    "textRoles": {
+      "micro": {
+        "size": 10,
+        "lineHeight": 14,
+        "weight": "600",
+        "letterSpacing": 0.6,
+        "uppercase": true
+      },
+      "caption": {
+        "size": 11,
+        "lineHeight": 16,
+        "weight": "400",
+        "letterSpacing": 0,
+        "uppercase": false
+      },
+      "body": {
+        "size": 12,
+        "lineHeight": 18,
+        "weight": "400",
+        "letterSpacing": 0,
+        "uppercase": false
+      },
+      "label": {
+        "size": 12,
+        "lineHeight": 16,
+        "weight": "500",
+        "letterSpacing": 0,
+        "uppercase": false
+      },
+      "strong": {
+        "size": 13,
+        "lineHeight": 18,
+        "weight": "600",
+        "letterSpacing": 0,
+        "uppercase": false
+      },
+      "section": {
+        "size": 13,
+        "lineHeight": 18,
+        "weight": "600",
+        "letterSpacing": 0.26,
+        "uppercase": true
+      },
+      "title": {
+        "size": 16,
+        "lineHeight": 22,
+        "weight": "600",
+        "letterSpacing": -0.16,
+        "uppercase": false
+      },
+      "display": {
+        "size": 20,
+        "lineHeight": 26,
+        "weight": "700",
+        "letterSpacing": -0.3,
+        "uppercase": false
+      }
+    },
+    "textRoleMetrics": {
+      "latin": {
+        "micro": {
+          "fontSize": 10,
+          "lineHeight": 14,
+          "letterSpacing": 0.6,
+          "fontWeight": "600"
+        },
+        "caption": {
+          "fontSize": 11,
+          "lineHeight": 16,
+          "letterSpacing": 0,
+          "fontWeight": "400"
+        },
+        "body": {
+          "fontSize": 12,
+          "lineHeight": 18,
+          "letterSpacing": 0,
+          "fontWeight": "400"
+        },
+        "label": {
+          "fontSize": 12,
+          "lineHeight": 16,
+          "letterSpacing": 0,
+          "fontWeight": "500"
+        },
+        "strong": {
+          "fontSize": 13,
+          "lineHeight": 18,
+          "letterSpacing": 0,
+          "fontWeight": "600"
+        },
+        "section": {
+          "fontSize": 13,
+          "lineHeight": 18,
+          "letterSpacing": 0.26,
+          "fontWeight": "600"
+        },
+        "title": {
+          "fontSize": 16,
+          "lineHeight": 22,
+          "letterSpacing": -0.16,
+          "fontWeight": "600"
+        },
+        "display": {
+          "fontSize": 20,
+          "lineHeight": 26,
+          "letterSpacing": -0.3,
+          "fontWeight": "700"
+        }
+      },
+      "arabic": {
+        "micro": {
+          "fontSize": 10,
+          "lineHeight": 18,
+          "letterSpacing": 0,
+          "fontWeight": "600"
+        },
+        "caption": {
+          "fontSize": 11,
+          "lineHeight": 19,
+          "letterSpacing": 0,
+          "fontWeight": "400"
+        },
+        "body": {
+          "fontSize": 12,
+          "lineHeight": 21,
+          "letterSpacing": 0,
+          "fontWeight": "400"
+        },
+        "label": {
+          "fontSize": 12,
+          "lineHeight": 21,
+          "letterSpacing": 0,
+          "fontWeight": "500"
+        },
+        "strong": {
+          "fontSize": 13,
+          "lineHeight": 23,
+          "letterSpacing": 0,
+          "fontWeight": "600"
+        },
+        "section": {
+          "fontSize": 13,
+          "lineHeight": 23,
+          "letterSpacing": 0,
+          "fontWeight": "600"
+        },
+        "title": {
+          "fontSize": 16,
+          "lineHeight": 28,
+          "letterSpacing": -0.16,
+          "fontWeight": "600"
+        },
+        "display": {
+          "fontSize": 20,
+          "lineHeight": 35,
+          "letterSpacing": -0.3,
+          "fontWeight": "700"
+        }
       }
     }
   },

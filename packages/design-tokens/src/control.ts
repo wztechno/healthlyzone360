@@ -6,47 +6,30 @@
  * rather than a sweep through forty components. Nothing here carries a colour and nothing here
  * carries a width except the two that are deliberately fixed (see {@link fieldWidth}).
  *
- * **Why there are two height tables.** A mouse pointer resolves to about one pixel; a fingertip
- * covers about forty-four. The Catalogue brief asks for 32px controls, and on a desk with a mouse
- * that is comfortable and correct. On a phone or a tablet it is not — and `apps/universal` is one
- * Expo app that ships to both. So the pointer table is the default and the touch table is the
- * floor applied when the primary pointer is coarse, which is `useIsCoarsePointer()`: always true
- * on native, and the `(pointer: coarse)` media query on the web.
+ * **These are pointer sizes, and that is the whole story.** An earlier pass carried a second,
+ * taller ladder for coarse pointers so that a 44px touch minimum could survive alongside the 32px
+ * brief. It is gone. The kitchen admin is a desk surface driven with a mouse; the phone surface is
+ * the customer app, and the customer app does not read these tables. Sizing the Catalogue for a
+ * fingertip it will never meet cost it a third of its density in exchange for nothing.
  *
- * That is the resolution `catalogue-redesign-plan.md` §3.1 proposed — "so the 44px invariant and
- * the compact brief both hold" — and it is the only reading under which `CLAUDE.md`'s
- * "44px minimum touch target" invariant survives. {@link MIN_TOUCH_TARGET} is therefore *not*
- * retired; `controlHeightTouch.md` is equal to it by construction, and a test asserts so.
- *
- * The cost is honest and worth stating: on a tablet the Catalogue is not as compact as the mock.
- * A design reviewed on an iPad will show 44px rows where the mock shows 32.
+ * So there is no touch ladder here and no `MIN_TOUCH_TARGET` — that constant is retired. The
+ * customer surfaces keep their 44px floor through the `min-h-touch` / `min-w-touch` utilities,
+ * which the Tailwind preset still emits from a literal of its own; the note in
+ * `generators/tailwind-preset.ts` explains why it lives there rather than here.
  */
-
-import { MIN_TOUCH_TARGET } from './layout.ts';
 
 export const CONTROL_SIZES = ['xs', 'sm', 'md', 'lg'] as const;
 export type ControlSize = (typeof CONTROL_SIZES)[number];
 
 /**
- * Control heights for a fine pointer, in dp. The Catalogue default is `sm`; `md` is a page's one
- * primary action. `lg` is unused in admin and exists for the customer surfaces.
+ * Control heights, in dp. The Catalogue default is `sm`; `md` is a page's one primary action.
+ * `lg` is unused in admin and exists for the customer surfaces.
  */
 export const controlHeight: Readonly<Record<ControlSize, number>> = {
     xs: 24,
     sm: 28,
     md: 32,
     lg: 36,
-};
-
-/**
- * The same ladder for a coarse pointer. `md` is {@link MIN_TOUCH_TARGET} exactly — this table is
- * the invariant's implementation, not an exception to it.
- */
-export const controlHeightTouch: Readonly<Record<ControlSize, number>> = {
-    xs: 36,
-    sm: 40,
-    md: MIN_TOUCH_TARGET,
-    lg: 48,
 };
 
 export const controlPaddingX: Readonly<Record<ControlSize, number>> = {
@@ -86,13 +69,6 @@ export const rowHeight: Readonly<Record<RowDensity, number>> = {
     sm: 28,
     md: 32,
     lg: 36,
-};
-
-/** As {@link controlHeightTouch} is to {@link controlHeight}: the coarse-pointer floor for rows. */
-export const rowHeightTouch: Readonly<Record<RowDensity, number>> = {
-    sm: 40,
-    md: MIN_TOUCH_TARGET,
-    lg: 48,
 };
 
 /**

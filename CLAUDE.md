@@ -184,7 +184,12 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
 - **Contrast is a test, not a review note.** `colour.test.ts` fails the build on an AA violation.
 - **i18n**: no literal user-facing strings. Add to `packages/i18n/catalogues/{en,ar,en-XA}/` and
   run `pnpm gen:i18n-keys`.
-- **44px minimum touch target** (`min-touch`).
+- **44px minimum touch target on the customer surfaces** (`min-touch`). It is no longer a global
+  invariant: the kitchen admin is a desk surface driven with a mouse, so the Catalogue sizes from
+  `control.ts` (32px default) and `MIN_TOUCH_TARGET` is retired as a token. The `min-h-touch` /
+  `min-w-touch` utilities are still emitted — a generator test keeps them alive — and every phone
+  surface still uses them. Do not apply them in `kitchen-admin/`, and do not delete them elsewhere
+  without a sweep that reasons about the phone.
 - **RTL**: assert geometry, not classes. The existing Playwright RTL specs must still pass.
 - Documented behaviour survives the redesign: the meals filter panel opens closed **below `lg`**,
   where it is still a disclosure — above `lg` it is a rail beside the grid and there is nothing to
