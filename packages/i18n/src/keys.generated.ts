@@ -3,11 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6186 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
- * 6093 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
- * 6095 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
- * 6092 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
- * 6157 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6277 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1725,6 +1721,7 @@ export interface NamespaceKeys {
     | 'action.back'
     | 'action.cancel'
     | 'action.change'
+    | 'action.clear'
     | 'action.close'
     | 'action.confirm'
     | 'action.continue'
@@ -1735,6 +1732,7 @@ export interface NamespaceKeys {
     | 'action.resend'
     | 'action.retry'
     | 'action.save'
+    | 'action.search'
     | 'action.select'
     | 'action.signIn'
     | 'action.signOut'
@@ -1882,6 +1880,7 @@ export interface NamespaceKeys {
     | 'showcase.tableColumnAmount'
     | 'showcase.tableColumnName'
     | 'showcase.tableColumnTarget'
+    | 'showcase.tableCompactCaption'
     | 'showcase.tableSortableCaption'
     | 'showcase.tabsLabel'
     | 'showcase.title'
@@ -2807,20 +2806,28 @@ export interface NamespaceKeys {
     | 'list.columnAllergens'
     | 'list.columnCategory'
     | 'list.columnName'
+    | 'list.columnReference'
     | 'list.columnStatus'
     | 'list.columnUpdated'
     | 'list.emptyBody'
     | 'list.emptyTitle'
     | 'list.filteredEmptyBody'
     | 'list.filteredEmptyTitle'
+    | 'list.import'
     | 'list.loadMore'
     | 'list.loadingMore'
+    | 'list.mayContain'
     | 'list.missingArabic'
     | 'list.missingArabicHint'
     | 'list.noAllergens'
     | 'list.noCategory'
     | 'list.open'
+    | 'list.rowActions'
     | 'list.subtitle'
+    | 'list.summaryDraft'
+    | 'list.summaryMissingArabic'
+    | 'list.summaryShown'
+    | 'list.summaryUncosted'
     | 'list.tableProvenance'
     | 'list.title'
     | 'list.updatedBy'
@@ -4380,13 +4387,24 @@ export interface NamespaceKeys {
     | 'toolbar.categoryLabel'
     | 'toolbar.clearFilters'
     | 'toolbar.create'
+    | 'toolbar.densityLabel'
+    | 'toolbar.densityLarge'
+    | 'toolbar.densityLargeName'
+    | 'toolbar.densityMedium'
+    | 'toolbar.densityMediumName'
+    | 'toolbar.densitySmall'
+    | 'toolbar.densitySmallName'
     | 'toolbar.filters'
     | 'toolbar.filtersActive'
     | 'toolbar.removeFilter'
     | 'toolbar.resultCount'
     | 'toolbar.searchLabel'
     | 'toolbar.searchPlaceholder'
+    | 'toolbar.segmentDraft'
+    | 'toolbar.segmentLive'
+    | 'toolbar.segmentReview'
     | 'toolbar.showing'
+    | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
     | 'units.cup'
     | 'units.dimensionCount'
@@ -8003,6 +8021,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.back',
   'common:action.cancel',
   'common:action.change',
+  'common:action.clear',
   'common:action.close',
   'common:action.confirm',
   'common:action.continue',
@@ -8013,6 +8032,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.resend',
   'common:action.retry',
   'common:action.save',
+  'common:action.search',
   'common:action.select',
   'common:action.signIn',
   'common:action.signOut',
@@ -8159,6 +8179,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.tableColumnAmount',
   'designSystem:showcase.tableColumnName',
   'designSystem:showcase.tableColumnTarget',
+  'designSystem:showcase.tableCompactCaption',
   'designSystem:showcase.tableSortableCaption',
   'designSystem:showcase.tabsLabel',
   'designSystem:showcase.title',
@@ -9080,20 +9101,28 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.columnAllergens',
   'kitchen:list.columnCategory',
   'kitchen:list.columnName',
+  'kitchen:list.columnReference',
   'kitchen:list.columnStatus',
   'kitchen:list.columnUpdated',
   'kitchen:list.emptyBody',
   'kitchen:list.emptyTitle',
   'kitchen:list.filteredEmptyBody',
   'kitchen:list.filteredEmptyTitle',
+  'kitchen:list.import',
   'kitchen:list.loadMore',
   'kitchen:list.loadingMore',
+  'kitchen:list.mayContain',
   'kitchen:list.missingArabic',
   'kitchen:list.missingArabicHint',
   'kitchen:list.noAllergens',
   'kitchen:list.noCategory',
   'kitchen:list.open',
+  'kitchen:list.rowActions',
   'kitchen:list.subtitle',
+  'kitchen:list.summaryDraft',
+  'kitchen:list.summaryMissingArabic',
+  'kitchen:list.summaryShown',
+  'kitchen:list.summaryUncosted',
   'kitchen:list.tableProvenance',
   'kitchen:list.title',
   'kitchen:list.updatedBy',
@@ -10653,13 +10682,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.categoryLabel',
   'kitchen:toolbar.clearFilters',
   'kitchen:toolbar.create',
+  'kitchen:toolbar.densityLabel',
+  'kitchen:toolbar.densityLarge',
+  'kitchen:toolbar.densityLargeName',
+  'kitchen:toolbar.densityMedium',
+  'kitchen:toolbar.densityMediumName',
+  'kitchen:toolbar.densitySmall',
+  'kitchen:toolbar.densitySmallName',
   'kitchen:toolbar.filters',
   'kitchen:toolbar.filtersActive',
   'kitchen:toolbar.removeFilter',
   'kitchen:toolbar.resultCount',
   'kitchen:toolbar.searchLabel',
   'kitchen:toolbar.searchPlaceholder',
+  'kitchen:toolbar.segmentDraft',
+  'kitchen:toolbar.segmentLive',
+  'kitchen:toolbar.segmentReview',
   'kitchen:toolbar.showing',
+  'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
   'kitchen:units.cup',
   'kitchen:units.dimensionCount',

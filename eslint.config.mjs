@@ -89,6 +89,58 @@ const classNameAttributeSelectors = ['className', 'class'].flatMap((attribute) =
 );
 
 /**
+ * The no-stretch fence — handoff §2, enforced over `apps/universal/src/features/kitchen-admin/**`.
+ *
+ * The Catalogue's whole geometry rests on one rule: a field is 280px at every breakpoint, and a
+ * breakpoint changes the *column count*, never the width. `span` and `fullWidth` are the only
+ * routes to something wider. Every one of the utilities below is a way to lose that rule quietly —
+ * `flex-1` and `w-full` hand a control the container's width, `flexGrow` does the same from a style
+ * object, and an arbitrary `h-`/`w-`/`text-` value is a number with no token behind it and no dark
+ * theme, which is the other half of §2.
+ *
+ * **`flex-1` is legal on a container that *is* the row** — a toolbar spacer, a list row's title
+ * column. That case is real and the rule cannot see the difference, so it takes an
+ * `eslint-disable-next-line` with a reason, the same bargain the brand-500 rule strikes.
+ *
+ * Bracket note, inherited from the class-string rules above: esquery's attribute-regex grammar
+ * terminates at the first *unescaped* `[` or `]`. Balanced sets inside `(?:…)` are fine — the
+ * patterns above use `[a-z0-9-]` freely — and a literal bracket is written `\[`, which reaches
+ * esquery as an escaped one.
+ */
+const STRETCH_CLASS = '(^|\\s)(?:[a-z0-9-]+:)*(?:flex-1|w-full)($|\\s)';
+
+const STRETCH_MESSAGE =
+    'A Catalogue control never takes its width from its container (handoff §2). A field is 280px at every breakpoint; `span={n}` and `fullWidth` on a FormGrid child are the only routes to wider. `flex-1` is legal only on a container that *is* the row — a toolbar spacer, a list row title column — and that case takes an eslint-disable-next-line with a reason.';
+
+const ARBITRARY_SIZE_CLASS = '(^|\\s)(?:[a-z0-9-]+:)*(?:text|h|w)-\\[';
+
+const ARBITRARY_SIZE_MESSAGE =
+    'Arbitrary sizes bypass control.ts and the type ramp with it (handoff §2). Heights come from `h-control-*` / `h-row-*`, widths from `w-field` or a FormGrid track, type from the `text-role-*` steps. If the value you need has no token, add one in `packages/design-tokens/src` rather than inlining it.';
+
+/** The same two patterns over `className` and `class`, in both quoting forms. */
+const noStretchSelectors = ['className', 'class'].flatMap((attribute) =>
+    [
+        { pattern: STRETCH_CLASS, message: STRETCH_MESSAGE },
+        { pattern: ARBITRARY_SIZE_CLASS, message: ARBITRARY_SIZE_MESSAGE },
+    ].flatMap(({ pattern, message }) => [
+        {
+            selector: `JSXAttribute[name.name='${attribute}'] Literal[value=/${pattern}/]`,
+            message,
+        },
+        {
+            selector: `JSXAttribute[name.name='${attribute}'] TemplateElement[value.raw=/${pattern}/]`,
+            message,
+        },
+    ]),
+);
+
+const FLEX_GROW_SELECTOR = {
+    selector: "Property[key.name='flexGrow']",
+    message:
+        'A Catalogue control never grows (handoff §2). `FormGrid` already states `flexGrow: 0` on its own cells; a second one in a screen is a field taking the row’s spare width. Use `span` / `fullWidth` if the field should be wider.',
+};
+
+/**
  * Generated-code containment (plan §15: "Generated code may only be imported through the API
  * repository layer").
  *
@@ -322,6 +374,32 @@ export default tseslint.config(
                     message:
                         'Empty onPress handlers are dead controls. Wire a real action or usePrototypeAction() (plan §5).',
                 },
+            ],
+        },
+    },
+
+    // The Catalogue's no-stretch fence. See STRETCH_MESSAGE above for the rule and its one
+    // exception.
+    //
+    // **Scoped to `catalogue/` rather than to all of `kitchen-admin/`, deliberately and
+    // temporarily.** The handoff scopes the rule to `kitchen-admin/**` (§2) and that is where it
+    // belongs once the migration is done — the kitchen admin is the surface `control.ts` governs,
+    // and the customer app is a phone surface with a 44px floor and a different geometry entirely.
+    // But the 23 screens that have not been rewritten yet carry 53 violations between them, and
+    // pointing the rule at them today buys a red `pnpm check` on every commit until §7 steps 5–9
+    // land, which is how a rule gets disabled rather than obeyed.
+    //
+    // `catalogue/` is where §3 puts the new components, so every line written from here forward is
+    // fenced from its first commit. **Widen this glob as each screen migrates** — the end state is
+    // the handoff's `kitchen-admin/**`, and the last screen pass should be the one that writes it.
+    {
+        files: ['apps/universal/src/features/kitchen-admin/catalogue/**/*.{ts,tsx}'],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                ...classNameAttributeSelectors,
+                ...noStretchSelectors,
+                FLEX_GROW_SELECTOR,
             ],
         },
     },

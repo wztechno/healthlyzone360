@@ -3,8 +3,10 @@ import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
 import { Icon } from '../icons/icon.tsx';
+import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { FieldLabel } from './field-label';
+import type { GridSpanProps } from '../primitives/grid-shared.ts';
 
 /**
  * The accessibility props a `FormField` hands to whatever control it wraps.
@@ -24,7 +26,18 @@ export interface FieldControlProps {
     readonly accessibilityState: { readonly disabled?: boolean };
 }
 
-export interface FormFieldProps {
+/**
+ * `span` and `fullWidth` are declared here and *used* by `FormGrid`, not by this component.
+ *
+ * That reads backwards until you notice where the knowledge lives. How wide a textarea should be is
+ * the field author's judgement; how many columns exist at this viewport is the grid's. So the field
+ * states an intent and the grid clamps it — `span={3}` in a one-column phone layout resolves to one
+ * column rather than overflowing by two. See `primitives/grid-shared.ts`.
+ *
+ * They are the **only** routes to a field wider than 280px. That is the no-stretch rule (§2): a
+ * width that emerges from the container is how a two-character unit field ends up 900px wide.
+ */
+export interface FormFieldProps extends GridSpanProps {
     readonly label: string;
     /** Supporting copy shown under the label and referenced by `aria-describedby`. */
     readonly hint?: string | undefined;
@@ -54,6 +67,7 @@ export function FormField({
     children,
 }: FormFieldProps) {
     const generated = useId();
+    const density = useDensity();
     const base = id ?? `field-${generated.replace(/:/g, '')}`;
 
     const labelId = `${base}-label`;
@@ -72,8 +86,14 @@ export function FormField({
         accessibilityState: { disabled },
     };
 
+    // Helper and error copy drop to the `caption` step in the admin — 11px against the label's 12
+    // — so the supporting line reads as support rather than as a second label. The 4px gap is the
+    // same on both ladders: §4.4's "labels above 28px controls at 4px gap" is already `gap-hair`.
+    const supportClass =
+        density === 'compact' ? 'text-role-caption font-admin' : 'text-xs';
+
     return (
-        <View testID={testID} className={cx('flex-col gap-1', className)}>
+        <View testID={testID} className={cx('flex-col gap-hair', className)}>
             {/*
              * The label is an element in its own right, and on the web it is a real `<label
              * for="…">`. `aria-labelledby` alone reads as "labelled by a hidden thing" to axe the
@@ -93,7 +113,7 @@ export function FormField({
                 <RNText
                     nativeID={hintId}
                     testID={testID === undefined ? undefined : `${testID}-hint`}
-                    className="text-xs text-content-secondary text-start"
+                    className={cx(supportClass, 'text-content-secondary text-start')}
                 >
                     {hint}
                 </RNText>
@@ -111,7 +131,7 @@ export function FormField({
                         role="alert"
                         accessibilityRole="alert"
                         aria-live="polite"
-                        className="flex-1 text-xs text-danger-strong text-start"
+                        className={cx(supportClass, 'flex-1 text-danger-strong text-start')}
                     >
                         {error}
                     </RNText>

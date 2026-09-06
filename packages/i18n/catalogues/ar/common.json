@@ -20,7 +20,9 @@
         "confirm": "تأكيد",
         "dismiss": "تجاهل",
         "goBack": "رجوع",
-        "done": "تم"
+        "done": "تم",
+        "search": "بحث",
+        "clear": "مسح"
     },
     "state": {
         "loading": "جارٍ التحميل…",

@@ -17,6 +17,9 @@ export { cx } from './internal/class-names.ts';
 export { describedBy, descriptionProps, slotId } from './internal/a11y.ts';
 export type { DescriptionProps } from './internal/a11y.ts';
 
+export { DENSITIES, DensityProvider, byDensity, useDensity } from './hooks/use-density.tsx';
+export type { Density, DensityProviderProps } from './hooks/use-density.tsx';
+
 export { useTheme } from './hooks/use-theme.ts';
 export type { UseThemeResult } from './hooks/use-theme.ts';
 export { BREAKPOINT_ORDER, useBreakpoint } from './hooks/use-breakpoint.ts';
@@ -41,6 +44,8 @@ export type {
 } from './icons/icon.tsx';
 
 export {
+    ADMIN_FONT_CLASS,
+    densityFontClass,
     HEADING_LEVELS,
     Heading,
     TEXT_ALIGNMENTS,
@@ -66,13 +71,48 @@ export type {
     StackProps,
 } from './primitives/stack.tsx';
 
-export { BUTTON_SIZES, BUTTON_VARIANTS, Button, IconButton } from './actions/button.tsx';
-export type { ButtonProps, ButtonSize, ButtonVariant, IconButtonProps } from './actions/button.tsx';
+/**
+ * Extensionless for the same reason `date-field` and `slider-field` are: Metro resolves
+ * `grid.web.tsx` on the web and `grid.native.tsx` on iOS and Android, and the two are genuinely
+ * different mechanisms — a CSS grid against a wrapping flex row with fixed-width children.
+ * `grid-shared.ts` carries the geometry both halves agree on.
+ */
+export { CardGrid, FormGrid, Grid } from './primitives/grid';
+export type { GridColumnCount, GridProps, GridSpanProps } from './primitives/grid-shared.ts';
+export {
+    CARD_TRACK,
+    GRID_COLUMNS,
+    GRID_GAP,
+    RESPONSIVE_COLUMNS,
+    fieldWidth,
+    resolveSpan,
+    spanWidth,
+} from './primitives/grid-shared.ts';
+
+export { SEPARATOR_ORIENTATIONS, Separator } from './primitives/separator.tsx';
+export type { SeparatorOrientation, SeparatorProps } from './primitives/separator.tsx';
+
+export { BUTTON_SIZES, BUTTON_VARIANTS, Button } from './actions/button.tsx';
+export type { ButtonProps, ButtonSize, ButtonVariant } from './actions/button.tsx';
+export { IconButton } from './actions/icon-button.tsx';
+export type { IconButtonProps } from './actions/icon-button.tsx';
 
 export { FormField, REQUIRED_MARK } from './forms/form-field.tsx';
 export type { FieldControlProps, FormFieldProps } from './forms/form-field.tsx';
-export { TextInputField, inputControlClassName, inputFrameClassName } from './forms/text-input.tsx';
-export type { TextInputFieldProps } from './forms/text-input.tsx';
+export {
+    INPUT_SIZES,
+    TextInputField,
+    inputControlClass,
+    inputControlClassName,
+    inputFrameClassName,
+} from './forms/text-input.tsx';
+export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
+export { FormSection } from './forms/form-section.tsx';
+export type { FormSectionProps } from './forms/form-section.tsx';
+export { SearchInput } from './forms/search-input.tsx';
+export type { SearchInputProps } from './forms/search-input.tsx';
+export { QuantityInput, parseQuantity } from './forms/quantity-input.tsx';
+export type { QuantityInputProps } from './forms/quantity-input.tsx';
 export { PasswordInput } from './forms/password-input.tsx';
 export type { PasswordInputProps } from './forms/password-input.tsx';
 export { OtpInput, normaliseOtpDigits } from './forms/otp-input.tsx';
@@ -125,6 +165,14 @@ export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
+export {
+    DataList,
+    UNDROPPABLE_PRIORITY,
+    fitColumns,
+} from './content/data-list.tsx';
+export type { DataListColumn, DataListProps } from './content/data-list.tsx';
+export { RECORD_STATUSES, STATUS_TONE, StatusBadge } from './content/status-badge.tsx';
+export type { RecordStatus, StatusBadgeProps } from './content/status-badge.tsx';
 export { BADGE_TONES, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
 export type { BadgeProps, BadgeTone, NutritionLevel } from './content/badge.tsx';
 export { CHIP_TONES, Chip, FilterChip } from './content/chip.tsx';
@@ -164,7 +212,14 @@ export { Pagination, paginationSlots } from './navigation/pagination.tsx';
 export type { PaginationProps } from './navigation/pagination.tsx';
 
 export { Table } from './data/table.tsx';
-export type { TableColumn, TableProps, TableRowAction, TableSortDirection } from './data/table.tsx';
+export type {
+    TableColumn,
+    TableProps,
+    TableRowAction,
+    TableRowSize,
+    TableRowTone,
+    TableSortDirection,
+} from './data/table.tsx';
 export { CalendarGrid } from './data/calendar-grid.tsx';
 export type {
     CalendarCell,
@@ -177,6 +232,8 @@ export type { MeterBarProps, ProgressRingProps, ProgressRingSize } from './data/
 export { RATING_SIZES, RATING_VARIANTS, Rating } from './data/rating.tsx';
 export type { RatingProps, RatingSize, RatingVariant } from './data/rating.tsx';
 
+export { BANNER_TONES, InlineBanner } from './status/inline-banner.tsx';
+export type { BannerTone, InlineBannerProps } from './status/inline-banner.tsx';
 export { SPINNER_SIZES, Spinner } from './status/spinner.tsx';
 export type { SpinnerProps, SpinnerSize } from './status/spinner.tsx';
 export { SKELETON_VARIANTS, Skeleton } from './status/skeleton.tsx';
@@ -188,6 +245,23 @@ export type { ErrorStateProps } from './status/error-state.tsx';
 export { CONNECTIVITY_STATES, OfflineIndicator } from './status/offline-indicator.tsx';
 export type { ConnectivityState, OfflineIndicatorProps } from './status/offline-indicator.tsx';
 
+export {
+    ANCHOR_ALIGNS,
+    GRID_CONTENT_ATTR,
+    anchoredPanelClass,
+    resolveFlip,
+} from './overlays/anchored-surface.ts';
+export type { AnchorAlign, FlipInput } from './overlays/anchored-surface.ts';
+export { Dropdown } from './overlays/dropdown.tsx';
+export type {
+    DropdownProps,
+    DropdownRenderState,
+    DropdownTriggerProps,
+} from './overlays/dropdown.tsx';
+export { Menu } from './overlays/menu.tsx';
+export type { MenuItem, MenuProps, MenuSection } from './overlays/menu.tsx';
+export { ConfirmationDialog } from './overlays/confirmation-dialog.tsx';
+export type { ConfirmationDialogProps } from './overlays/confirmation-dialog.tsx';
 export { Dialog } from './overlays/dialog.tsx';
 export type { DialogProps } from './overlays/dialog.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';

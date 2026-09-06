@@ -20,7 +20,9 @@
         "confirm": "Confirm",
         "dismiss": "Dismiss",
         "goBack": "Go back",
-        "done": "Done"
+        "done": "Done",
+        "search": "Search",
+        "clear": "Clear"
     },
     "state": {
         "loading": "Loading…",
