@@ -65,6 +65,68 @@ export const displayFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
     },
 };
 
+/**
+ * The numeric family — IBM Plex Mono.
+ *
+ * A **new role**, not a replacement: there was no mono token in this project before, so adding one
+ * cannot change how any existing screen renders. It carries what has to line up in a column —
+ * prices, quantities, costs, counts, references, version numbers — and the uppercase micro labels
+ * whose tracking only reads correctly on a fixed advance. Proportional digits in a right-aligned
+ * cost column are the reason a total never appears to sit under its addends.
+ *
+ * Latin only by construction: Arabic locales render numerals in the Arabic family, and a mono
+ * Latin face has no Arabic glyphs to fall back on, so the stack lists Plex Sans Arabic next for the
+ * mixed case the web resolves per glyph.
+ */
+export const monoFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
+    latin: {
+        regular: 'IBMPlexMono_400Regular',
+        medium: 'IBMPlexMono_500Medium',
+        semibold: 'IBMPlexMono_600SemiBold',
+        bold: 'IBMPlexMono_700Bold',
+        stack: "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    },
+    arabic: {
+        regular: 'IBMPlexSansArabic_400Regular',
+        medium: 'IBMPlexSansArabic_500Medium',
+        semibold: 'IBMPlexSansArabic_600SemiBold',
+        bold: 'IBMPlexSansArabic_700Bold',
+        stack: "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif",
+    },
+};
+
+/**
+ * Schibsted Grotesk — the Catalogue's family, scoped to the admin surfaces for now.
+ *
+ * `CLAUDE.md` states the whole product moves to Schibsted Grotesk, and this is that family. It is
+ * a *separate role* rather than a change to {@link fontFamilies} because the move is staged: the
+ * Catalogue adopts it first, the customer surfaces follow, and only then does this merge into
+ * `fontFamilies.latin` and disappear. Until that day two Latin families ship, which is the price
+ * of not reflowing every customer screen in the same commit as an admin redesign.
+ *
+ * **Transitional. When the rest of the product follows, fold this into {@link fontFamilies} and
+ * delete it** — do not let a second permanent family role grow out of a staging step.
+ *
+ * Arabic is unchanged: Schibsted Grotesk carries no Arabic glyphs, and the per-script line-height
+ * multiplier keeps its own leading either way.
+ */
+export const adminFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
+    latin: {
+        regular: 'SchibstedGrotesk_400Regular',
+        medium: 'SchibstedGrotesk_500Medium',
+        semibold: 'SchibstedGrotesk_600SemiBold',
+        bold: 'SchibstedGrotesk_700Bold',
+        stack: "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+    },
+    arabic: {
+        regular: 'IBMPlexSansArabic_400Regular',
+        medium: 'IBMPlexSansArabic_500Medium',
+        semibold: 'IBMPlexSansArabic_600SemiBold',
+        bold: 'IBMPlexSansArabic_700Bold',
+        stack: "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif",
+    },
+};
+
 /** Line-height multipliers, per script. Applied to the font size to get a line height. */
 export const lineHeightMultipliers: Readonly<Record<Script, number>> = {
     latin: 1.5,
@@ -113,6 +175,8 @@ export const fontWeights = {
     bold: '700',
 } as const;
 export type FontWeightName = keyof typeof fontWeights;
+/** The CSS/RN weight string a name resolves to. */
+export type FontWeightValue = (typeof fontWeights)[FontWeightName];
 
 /** Letter spacing in density-independent pixels. Arabic never receives positive tracking. */
 export const letterSpacing = {
@@ -135,6 +199,97 @@ export type LetterSpacingName = keyof typeof letterSpacing;
  * single px value here would be wrong at three of the four display sizes.
  */
 export const displayLetterSpacing = '-0.02em';
+
+/**
+ * The Catalogue's type ramp — eight roles, named for the job rather than the size.
+ *
+ * **Additive.** {@link fontSizes} is untouched, so every screen outside the admin renders exactly
+ * as it did. A role is opted into (`<Text role="body">`), never inherited, which is what keeps the
+ * customer surfaces out of an admin redesign.
+ *
+ * Named rather than numbered because the point of the ramp is that a decision is made once: a
+ * column label is `micro` everywhere, and nobody re-picks between 10 and 11 per screen. The eight
+ * cover what the Catalogue actually renders and no more — `handoff-claude-code.md` §1.2.
+ *
+ * **Tracking is resolved to absolute pixels, not `em`.** {@link displayLetterSpacing} has to be
+ * `em` because one value serves four display sizes; a role has exactly one size, so its `em` can be
+ * multiplied out here — and React Native takes points and cannot read `em` at all, so this is the
+ * only form that means the same thing on both platforms. The source values are 0.06em on `micro`,
+ * 0.02em on `section`, −0.01em on `title` and −0.015em on `display`.
+ */
+export const TEXT_ROLE_NAMES = [
+    'micro',
+    'caption',
+    'body',
+    'label',
+    'strong',
+    'section',
+    'title',
+    'display',
+] as const;
+export type TextRoleName = (typeof TEXT_ROLE_NAMES)[number];
+
+export interface TextRole {
+    /** Size in dp. */
+    readonly size: number;
+    /** Latin line height in dp — hand-tuned per role, not the body multiplier. */
+    readonly lineHeight: number;
+    readonly weight: FontWeightValue;
+    /** Absolute tracking in dp, already resolved from the design's `em`. */
+    readonly letterSpacing: number;
+    readonly uppercase: boolean;
+}
+
+export const textRoles: Readonly<Record<TextRoleName, TextRole>> = {
+    /** Column labels and eyebrows. Uppercase, and the only role that is tracked open. */
+    micro: { size: 10, lineHeight: 14, weight: '600', letterSpacing: 0.6, uppercase: true },
+    /** Helper text, meta, the list summary line. */
+    caption: { size: 11, lineHeight: 16, weight: '400', letterSpacing: 0, uppercase: false },
+    /** Body copy, table cells, input values. */
+    body: { size: 12, lineHeight: 18, weight: '400', letterSpacing: 0, uppercase: false },
+    /** Field labels, tabs, button text. Same size as `body`, tighter leading and more weight. */
+    label: { size: 12, lineHeight: 16, weight: '500', letterSpacing: 0, uppercase: false },
+    /** A list item's or card's title. */
+    strong: { size: 13, lineHeight: 18, weight: '600', letterSpacing: 0, uppercase: false },
+    /** Section headings inside a form. */
+    section: { size: 13, lineHeight: 18, weight: '600', letterSpacing: 0.26, uppercase: true },
+    /** The page title — 16, where the current admin uses 30. */
+    title: { size: 16, lineHeight: 22, weight: '600', letterSpacing: -0.16, uppercase: false },
+    /** One number, rarely. */
+    display: { size: 20, lineHeight: 26, weight: '700', letterSpacing: -0.3, uppercase: false },
+};
+
+/**
+ * Line height for a role in a script.
+ *
+ * Latin takes the role's own hand-tuned value; Arabic is derived from
+ * {@link lineHeightMultipliers} instead, because a ramp tuned to Latin ascenders collides with
+ * Arabic diacritics at every one of these sizes. Rounded to a whole pixel for the same reason
+ * {@link lineHeightFor} rounds.
+ */
+export function textRoleLineHeight(role: TextRoleName, script: Script): number {
+    const { size, lineHeight } = textRoles[role];
+
+    return script === 'latin' ? lineHeight : Math.round(size * lineHeightMultipliers[script]);
+}
+
+/**
+ * Tracking for a role in a script — the enforcement of {@link letterSpacing}'s standing rule that
+ * Arabic never receives positive tracking.
+ *
+ * Latin letters sit apart already, so opening them further is a stylistic choice. Arabic is
+ * cursive: letters in a word are joined, and positive tracking pulls those joins apart into
+ * something that is not merely loose but genuinely harder to read. `micro` and `section` are the
+ * two roles this applies to — column labels and form section headings, both of which are
+ * translated — so the rule is a function rather than a note somebody has to remember.
+ *
+ * Negative tracking is passed through: tightening does not break a join.
+ */
+export function textRoleLetterSpacing(role: TextRoleName, script: Script): number {
+    const { letterSpacing: tracking } = textRoles[role];
+
+    return script !== 'latin' && tracking > 0 ? 0 : tracking;
+}
 
 /**
  * Resolved line height for a size in a script, rounded to a whole pixel so text baselines line up

@@ -47,7 +47,34 @@ export const radius: Readonly<Record<RadiusName, number>> = {
     full: 9999,
 };
 
-/** Minimum touch target, in dp (WCAG 2.2 target size / platform HIG guidance). */
+/**
+ * Named steps of the 4-point scale, for the handful of gaps that recur often enough in the
+ * Catalogue that a number stops reading as an intention.
+ *
+ * Aliases, not new values: every one resolves to a member of {@link spacing}, so nothing here
+ * widens the scale or introduces a gap the grid cannot land on. `scales.test.ts` asserts the
+ * correspondence.
+ */
+export const SPACING_ALIAS_NAMES = ['hair', 'tight', 'snug', 'base', 'loose'] as const;
+export type SpacingAliasName = (typeof SPACING_ALIAS_NAMES)[number];
+
+export const spacingAliases: Readonly<Record<SpacingAliasName, number>> = {
+    hair: spacing['1'],
+    tight: spacing['2'],
+    snug: spacing['3'],
+    base: spacing['4'],
+    loose: spacing['6'],
+};
+
+/**
+ * Minimum touch target, in dp (WCAG 2.2 target size / platform HIG guidance).
+ *
+ * **Not retired.** `handoff-claude-code.md` §1.1 proposed deleting this constant in favour of a
+ * flat 32px; `CLAUDE.md` lists it under "Invariants — do not regress these", and
+ * `catalogue-redesign-plan.md` §3.1 proposed the reading that satisfies both — a compact pointer
+ * ladder with this value as the coarse-pointer floor. That is what `control.ts` implements, and
+ * `controlHeightTouch.md` is this number by construction rather than by coincidence.
+ */
 export const MIN_TOUCH_TARGET = 44;
 
 /** Focus ring geometry, shared by web outline and native border rendering. */

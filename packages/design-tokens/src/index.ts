@@ -32,6 +32,21 @@ export type {
 } from './colour.ts';
 
 export {
+    CONTROL_SIZES,
+    ROW_DENSITIES,
+    cardWidth,
+    controlGap,
+    controlHeight,
+    controlHeightTouch,
+    controlPaddingX,
+    fieldWidth,
+    iconSize,
+    rowHeight,
+    rowHeightTouch,
+} from './control.ts';
+export type { ControlSize, RowDensity } from './control.ts';
+
+export {
     WCAG_AA_LARGE_TEXT,
     WCAG_AA_NON_TEXT,
     WCAG_AA_NORMAL_TEXT,
@@ -50,6 +65,7 @@ export {
     SCRIPTS,
     displayLetterSpacing,
     displayLineHeightMultipliers,
+    adminFamilies,
     fontFamilies,
     fontSizes,
     fontWeights,
@@ -57,14 +73,22 @@ export {
     lineHeightFor,
     lineHeightMultipliers,
     lineHeights,
+    monoFamilies,
     scriptForLocale,
+    TEXT_ROLE_NAMES,
+    textRoleLetterSpacing,
+    textRoleLineHeight,
+    textRoles,
 } from './typography.ts';
 export type {
     FontFamilyTokens,
     FontSizeName,
     FontWeightName,
+    FontWeightValue,
     LetterSpacingName,
     Script,
+    TextRole,
+    TextRoleName,
 } from './typography.ts';
 
 export {
@@ -72,15 +96,23 @@ export {
     CONTENT_MAX_MEASURE_CH,
     MIN_TOUCH_TARGET,
     RADIUS_NAMES,
+    SPACING_ALIAS_NAMES,
     SPACING_BASE,
     SPACING_STEPS,
     breakpoints,
     focusRing,
     radius,
     spacing,
+    spacingAliases,
     zIndex,
 } from './layout.ts';
-export type { BreakpointName, RadiusName, SpacingStep, ZIndexName } from './layout.ts';
+export type {
+    BreakpointName,
+    RadiusName,
+    SpacingAliasName,
+    SpacingStep,
+    ZIndexName,
+} from './layout.ts';
 
 export {
     ELEVATION_LEVELS,
