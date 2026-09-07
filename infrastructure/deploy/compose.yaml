@@ -12,6 +12,13 @@ name: healthy360-deploy
 #     documents, kitchen workbook import) and FILESYSTEM_DISK=local serves them
 #     from the api storage volume, so an S3 node would be a moving part with
 #     nothing to do.
+#
+# A second stack (compose.dev.yaml) borrows this one's Postgres and Redis over
+# the external network `healthy360-shared`. Only the three services dev has to
+# reach — postgres, redis, and caddy (which fronts both hostnames) — join that
+# network. `api` and `web` deliberately do not: dev names its own `api`, and
+# keeping prod's off the shared network is what lets Docker DNS resolve the
+# name unambiguously on each side.
 
 services:
     caddy:
@@ -22,10 +29,15 @@ services:
             - '443:443'
         environment:
             SITE_ADDRESS: ${SITE_ADDRESS:?SITE_ADDRESS is required}
+            # Refused here, loudly, rather than discovered as an empty site
+            # address that crash-loops Caddy — the `email {$ACME_EMAIL}`
+            # failure in a new coat. deploy.sh always writes it.
+            DEV_SITE_ADDRESS: ${DEV_SITE_ADDRESS:?DEV_SITE_ADDRESS is required}
         volumes:
             - ./Caddyfile:/etc/caddy/Caddyfile:ro
             - caddydata:/data
             - caddyconfig:/config
+        networks: [default, shared]
         depends_on:
             - web
 
@@ -101,6 +113,7 @@ services:
         volumes:
             - pgdata:/var/lib/postgresql
             - ./postgres-init:/docker-entrypoint-initdb.d:ro
+        networks: [default, shared]
         healthcheck:
             test: ['CMD-SHELL', 'pg_isready -U postgres']
             interval: 5s
@@ -113,6 +126,7 @@ services:
         command: ['redis-server', '--appendonly', 'yes']
         volumes:
             - redisdata:/data
+        networks: [default, shared]
         healthcheck:
             test: ['CMD', 'redis-cli', 'ping']
             interval: 5s
@@ -125,3 +139,10 @@ volumes:
     apistorage:
     caddydata:
     caddyconfig:
+
+networks:
+    # Created once by deploy.sh (`docker network create healthy360-shared`);
+    # external so that neither stack owns it and `down` on either leaves it.
+    shared:
+        external: true
+        name: healthy360-shared

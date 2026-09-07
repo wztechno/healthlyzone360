@@ -1,9 +1,15 @@
-# TLS termination for the test instance.
+# TLS termination for the test instance — both of them.
 #
-# Caddy obtains and renews a Let's Encrypt certificate for SITE_ADDRESS by
-# itself; nip.io hostnames (e.g. 203-0-113-5.nip.io) resolve to the embedded
-# address with no DNS records to create, and Let's Encrypt issues for them
-# normally, so an instance can have real HTTPS without owning a domain.
+# Caddy obtains and renews a Let's Encrypt certificate for each site address by
+# itself; nip.io hostnames (e.g. 203-0-113-5.nip.io, and any subdomain of one,
+# such as dev.203-0-113-5.nip.io) resolve to the embedded address with no DNS
+# records to create, and Let's Encrypt issues for them normally, so an instance
+# can have real HTTPS without owning a domain.
+#
+# Both variables are always set: compose.yaml refuses to start caddy without
+# them. An unset one would expand to an empty site address, which is the same
+# hard parse error that `email {$ACME_EMAIL}` once crash-looped this container
+# with.
 
 {
 	# No `email` directive on purpose. Caddy registers with Let's Encrypt
@@ -14,6 +20,7 @@
 	admin off
 }
 
+# ---- prod: this stack's own nginx ------------------------------------------
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
@@ -22,6 +29,31 @@
 	# only sound if a client cannot smuggle its own X-Forwarded-For through —
 	# replacing the header rather than extending it is what makes that true.
 	reverse_proxy web:80 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# ---- dev: the other stack's nginx, reached over healthy360-shared ----------
+# `dev-web` resolves only once compose.dev.yaml is up; until then this site
+# answers 502, which is the correct state for a stack that does not exist yet.
+{$DEV_SITE_ADDRESS} {
+	encode zstd gzip
+
+	reverse_proxy dev-web:80 {
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Real-IP {remote_host}
