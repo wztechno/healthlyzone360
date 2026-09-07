@@ -60,34 +60,9 @@ mkdir -p "$STAGE/api" "$STAGE/web"
 # a work-in-progress working copy cannot leak into an image.
 git archive --format=tar "$RESOLVED:apps/api" | tar -x -C "$STAGE/api"
 
-# Deliberate exceptions to "committed code only" — the changes a deployment
-# needs that HEAD does not yet carry. Each is announced rather than applied
-# quietly, because a package that silently differs from the commit it names is
-# a package nobody can reason about.
-#
-#   bootstrap/app.php        reverse-proxy trust; without it the framework
-#                            attributes every request to nginx's container
-#                            address, so one throttle bucket serves everyone
-#                            and generated URLs come out http:// on an https
-#                            site.
-#   config/api.php           makes the api throttle configurable (default
-#                            unchanged at 60/min) so a shared test instance,
-#                            where testers sign in as the same persona, is not
-#                            rate-limited into uselessness.
-#   app/Providers/AppServiceProvider.php
-#                            reads that setting.
-OVERLAY=(
-    bootstrap/app.php
-    config/api.php
-    app/Providers/AppServiceProvider.php
-)
-for path in "${OVERLAY[@]}"; do
-    if [ -f "apps/api/$path" ]; then
-        echo "    overlaying working-copy apps/api/$path"
-        mkdir -p "$STAGE/api/$(dirname "$path")"
-        cp "apps/api/$path" "$STAGE/api/$path"
-    fi
-done
+# The API is the ref's tree and nothing else. An earlier version of this
+# script overlaid three working-copy files here; now that those are committed,
+# overlaying would only ever paste one branch's files over another's.
 
 # ---------------------------------------------------------------------------
 # 2. Web export
@@ -154,7 +129,7 @@ echo "    $(grep -c '^location' "$STAGE/dynamic-routes.conf") dynamic routes map
 # ---------------------------------------------------------------------------
 # 3. Deployment assets
 # ---------------------------------------------------------------------------
-cp "$HERE/Dockerfile" "$HERE/php.ini" "$HERE/compose.yaml" \
+cp "$HERE/Dockerfile" "$HERE/php.ini" "$HERE/compose.yaml" "$HERE/compose.dev.yaml" \
    "$HERE/nginx.conf" "$HERE/Caddyfile" "$HERE/deploy.sh" "$STAGE/"
 cp -r "$HERE/postgres-init" "$STAGE/"
 chmod +x "$STAGE/deploy.sh" "$STAGE/postgres-init/"*.sh

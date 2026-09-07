@@ -1,0 +1,85 @@
+name: healthy360-dev
+
+# The dev stack: a second, independently deployable copy of the application
+# on the same droplet, answering on its own hostname.
+#
+# It has no Postgres, Redis or Caddy of its own. It borrows prod's over the
+# external network `healthy360-shared` (see compose.yaml) and is isolated from
+# prod by configuration alone: its own database (`healthy360_dev`), its own
+# Redis database indices, and an APP_NAME every Redis prefix derives from.
+# deploy.sh with STACK=dev writes all of that into .env.deploy.
+#
+# Service names matter here. Prod's caddy sees this stack's nginx across the
+# shared network, so it is `dev-web` rather than `web` to keep the two names
+# apart; `api`, `queue` and `scheduler` can keep their names because prod's
+# counterparts never join the shared network. nginx.conf's `fastcgi_pass
+# api:9000` therefore resolves to this stack's own api, unchanged.
+#
+# Nothing here publishes a port. Prod's caddy is the only listener.
+
+services:
+    api:
+        build:
+            context: .
+        # A distinct tag, so a dev build never replaces the image prod runs.
+        image: healthy360/api:dev
+        restart: unless-stopped
+        env_file:
+            - .env.deploy
+        volumes:
+            - apistorage:/var/www/html/storage
+        networks: [default, shared]
+        # No depends_on for postgres/redis: they are another project's
+        # services. deploy.sh checks they are reachable before starting this.
+        healthcheck:
+            test: ['CMD-SHELL', 'pidof php-fpm']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    queue:
+        image: healthy360/api:dev
+        restart: unless-stopped
+        command: ['php', 'artisan', 'horizon']
+        env_file:
+            - .env.deploy
+        volumes:
+            - apistorage:/var/www/html/storage
+        networks: [default, shared]
+        depends_on:
+            api:
+                condition: service_healthy
+        stop_grace_period: 30s
+
+    scheduler:
+        image: healthy360/api:dev
+        restart: unless-stopped
+        command: ['php', 'artisan', 'schedule:work']
+        env_file:
+            - .env.deploy
+        volumes:
+            - apistorage:/var/www/html/storage
+        networks: [default, shared]
+        depends_on:
+            api:
+                condition: service_healthy
+
+    dev-web:
+        image: nginx:1.29-alpine
+        restart: unless-stopped
+        volumes:
+            - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+            - ./dynamic-routes.conf:/etc/nginx/dynamic-routes.conf:ro
+            - ./web:/srv/web:ro
+        networks: [default, shared]
+        depends_on:
+            api:
+                condition: service_healthy
+
+volumes:
+    apistorage:
+
+networks:
+    shared:
+        external: true
+        name: healthy360-shared

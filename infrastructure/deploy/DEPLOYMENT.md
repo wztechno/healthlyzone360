@@ -182,6 +182,12 @@ it is what stops a real deployment of this code from inventing tenants — so th
 deployment works around it for one command rather than weakening it. The
 instance itself runs `APP_ENV=production`, `APP_DEBUG=false`.
 
+The seed run also sets `SEED_DEMO_WORLD=true`. Since the kitchen redesign,
+`DatabaseSeeder` builds only the reference layer and the operator login unless
+told to add the demo tenants — a fresh database seeded without it has exactly
+one account (`ops@healthy360.test`) and an empty marketplace. That is how the
+dev stack first came up; the flag is now part of the shared seed command.
+
 ```bash
 # Re-seed (idempotent — converges, does not duplicate)
 docker compose run --rm --no-deps -e APP_ENV=local api \
@@ -353,3 +359,71 @@ destroys it and nothing else has a copy.
 Before this carries anything that matters, in rough order: automated Postgres
 backups off the droplet, a real domain, `APP_DEBUG` confirmed false on every
 path, and demo seeding disabled.
+
+---
+
+## 10. The dev stack
+
+A second copy of the application on the same droplet, at
+<https://dev.157-230-121-66.nip.io>, running whatever branch you point it at
+while prod keeps serving `main` to testers. It lives in `/opt/healthy360-dev`
+and is `compose.dev.yaml` rather than `compose.yaml`.
+
+It has **no Postgres, Redis or Caddy of its own**. It borrows prod's over the
+external Docker network `healthy360-shared`, and is kept apart from prod by
+configuration only:
+
+| | prod | dev |
+| --- | --- | --- |
+| Database | `healthy360` | `healthy360_dev` (same two roles, same passwords) |
+| Redis databases | 0 / 1 | 2 / 3 |
+| `APP_NAME` — every Redis prefix derives from it | `Healthy360` | `Healthy360 Dev` |
+| Containers | 7 | 4: `api`, `queue`, `scheduler`, `dev-web` |
+| Hostname | `157-230-121-66.nip.io` | `dev.157-230-121-66.nip.io` |
+
+Only prod's `postgres`, `redis` and `caddy` join the shared network. That is
+what keeps Docker DNS unambiguous: prod's Caddy resolves `web` on its own
+network and `dev-web` on the shared one, and dev's nginx resolves `api` to dev's
+own api because prod's `api` is never on the shared network.
+
+### Deploying to dev
+
+Prod must have been deployed at least once with the shared network (any deploy
+from this version of the stack onward). Then, **with the branch checked out** —
+the bundle builds from the working tree, and for dev that is the point:
+
+```bash
+git checkout <branch>
+infrastructure/deploy/package.sh dev.157-230-121-66.nip.io
+scp -i ~/.ssh/healthy360_do build/healthy360-deploy.tar.gz root@157.230.121.66:/opt/healthy360-dev/
+ssh -i ~/.ssh/healthy360_do root@157.230.121.66 'cd /opt/healthy360-dev && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && STACK=dev ./deploy.sh dev.157-230-121-66.nip.io'
+```
+
+The first run creates and seeds `healthy360_dev` and adopts prod's database
+credentials and tester password from `/opt/healthy360/.env`. Every later run
+migrates and keeps the data; pass `SKIP_SEED=0` to reseed.
+
+The branch must contain `23cad0d` (the deployment stack) — anything older lacks
+`trustProxies` and `config/api.php` and misbehaves behind Caddy. Check with
+`git merge-base --is-ancestor 23cad0d <branch>`.
+
+### What to expect
+
+- Redeploying **prod** recreates `postgres`, `redis` and `caddy` if their
+  network membership changed — a few seconds of downtime for both stacks; data
+  persists in the volumes.
+- The dev URL answers **502** whenever the dev stack is down. Caddy holds its
+  certificate regardless.
+- `docker compose down -v` on **prod destroys dev's database too**, and
+  restarting Postgres or Redis bounces both stacks. That is the price of one
+  database server; a second Postgres container is the upgrade path if it bites.
+
+### Rollback
+
+```bash
+# dev only — prod untouched
+cd /opt/healthy360-dev && docker compose down
+docker exec healthy360-deploy-postgres-1 psql -U postgres -c 'DROP DATABASE healthy360_dev'
+docker exec healthy360-deploy-redis-1 redis-cli -n 2 FLUSHDB
+docker exec healthy360-deploy-redis-1 redis-cli -n 3 FLUSHDB
+```
