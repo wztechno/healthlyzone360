@@ -427,3 +427,48 @@ docker exec healthy360-deploy-postgres-1 psql -U postgres -c 'DROP DATABASE heal
 docker exec healthy360-deploy-redis-1 redis-cli -n 2 FLUSHDB
 docker exec healthy360-deploy-redis-1 redis-cli -n 3 FLUSHDB
 ```
+
+---
+
+## 11. Automatic deploys
+
+`.github/workflows/deploy.yml` runs the loop above on every push:
+
+| Push to | Deploys to | Stack |
+| --- | --- | --- |
+| `dev` | <https://dev.157-230-121-66.nip.io> | `/opt/healthy360-dev`, `STACK=dev` |
+| `main` | <https://157-230-121-66.nip.io> | `/opt/healthy360`, `STACK=prod` |
+
+So the working rhythm is: commit to `dev`, push, look at the dev URL (about
+ten minutes — most of it the Expo export); when it is right, open a PR from
+`dev` to `main` and merge, and the prod URL testers use updates the same way.
+Nothing is deployed from any other branch.
+
+Every deploy migrates but **never seeds** (`SKIP_SEED=1`): prod holds what
+testers have been doing and dev keeps its state between pushes. When a branch
+changes a seeder, reseed that stack by hand from the droplet:
+
+```bash
+cd /opt/healthy360-dev && SKIP_SEED=0 STACK=dev ./deploy.sh dev.157-230-121-66.nip.io
+```
+
+One deploy per branch runs at a time; a second push while one is in flight
+waits rather than cancelling it.
+
+### What the workflow needs
+
+A repository secret named **`DROPLET_SSH_KEY`** holding the private half of a
+dedicated deploy key whose public half is in the droplet root account
+`authorized_keys`. It is the only secret. The droplet host key is pinned in the
+workflow, so a runner never trusts whatever answers first.
+
+That key is root on the droplet. Acceptable for a test box; the upgrade path
+when it stops being one is a `command=` restriction in `authorized_keys` that
+allows nothing but the deploy.
+
+### Watching a run
+
+The Actions tab on the repository. A failed run leaves the previous deploy
+serving — `deploy.sh` only replaces the web root and restarts containers after
+the new image has built and migrated — so a red run means "not updated", not
+"down". Re-run it from the same tab once the cause is fixed.
