@@ -388,6 +388,9 @@ own api because prod's `api` is never on the shared network.
 
 ### Deploying to dev
 
+A ready-made Claude Code prompt that runs this loop with every guard below is in
+[PROMPT-deploy-dev.md](PROMPT-deploy-dev.md).
+
 Prod must have been deployed at least once with the shared network (any deploy
 from this version of the stack onward). Then, **with the branch checked out** —
 the bundle builds from the working tree, and for dev that is the point:
