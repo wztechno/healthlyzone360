@@ -104,6 +104,11 @@ services:
     postgres:
         image: postgres:18-alpine
         restart: unless-stopped
+        # Loopback only. Reachable through an SSH tunnel (DBeaver, psql) and from
+        # nothing else: the bind is 127.0.0.1 and ufw never opens 5432, so this
+        # widens nothing on the internet side. Both databases sit behind it.
+        ports:
+            - '127.0.0.1:5432:5432'
         environment:
             POSTGRES_USER: postgres
             POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?POSTGRES_SUPERUSER_PASSWORD is required}
