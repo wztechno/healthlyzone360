@@ -12,6 +12,7 @@ use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\AllergenDerivation;
 use Healthy360\Recipes\Enums\CostBasis;
 use Healthy360\Recipes\Enums\DerivationState;
+use Healthy360\Recipes\Enums\PackagingBasis;
 use Healthy360\Recipes\Enums\RecipeCompleteness;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Exceptions\AllergenUnmapped;
@@ -23,6 +24,7 @@ use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
+use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Recipes\Models\RecipeVersionStep;
 use Healthy360\ReferenceData\Models\Currency;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
@@ -103,6 +105,27 @@ final readonly class RecipeVersionService
             $version->yield_piece_count = $copyFrom?->yield_piece_count;
             $version->input_quantity_total = $copyFrom?->input_quantity_total;
             $version->waste_coefficient_percent = $copyFrom === null ? '3.00' : $copyFrom->waste_coefficient_percent;
+
+            // Zero on a blank draft, where process waste starts at the source
+            // sheets' three per cent. The asymmetry is deliberate: three is what
+            // the sheets state for process loss and is a defensible default,
+            // whereas nothing states a conventional packaging loss, and a
+            // version whose packaging nobody has thought about should not
+            // quietly inflate its cost by a figure nobody chose.
+            $version->packaging_waste_percent = $copyFrom === null ? '0.00' : $copyFrom->packaging_waste_percent;
+
+            /*
+             * The list prices carry forward, unlike the derivation state below.
+             * Opening the next draft of a priced recipe is the normal way a
+             * recipe is edited — a line changes, the cost moves — and a draft
+             * that arrived unpriced would present a blank margin against a real
+             * cost, which reads as "this is sold at a loss" rather than "nobody
+             * has retyped the price yet". The currency comes with them because
+             * an amount without one is not a monetary value.
+             */
+            $version->b2b_price_amount = $copyFrom?->b2b_price_amount;
+            $version->b2c_price_amount = $copyFrom?->b2c_price_amount;
+            $version->price_currency_code = $copyFrom?->price_currency_code;
             $version->derivation_state = DerivationState::Stale;
             $version->notes = $copyFrom?->notes;
             $version->lock_version = 0;
@@ -142,7 +165,7 @@ final readonly class RecipeVersionService
 
         $changes = [];
 
-        foreach (['completeness', 'yield_quantity', 'yield_unit_id', 'yield_piece_count', 'input_quantity_total', 'waste_coefficient_percent', 'notes'] as $field) {
+        foreach (['completeness', 'yield_quantity', 'yield_unit_id', 'yield_piece_count', 'input_quantity_total', 'waste_coefficient_percent', 'packaging_waste_percent', 'b2b_price_amount', 'b2c_price_amount', 'price_currency_code', 'notes'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
@@ -154,6 +177,15 @@ final readonly class RecipeVersionService
             }
 
             if ($value === '' && $field === 'notes') {
+                $value = null;
+            }
+
+            // An emptied price box clears the price, the same way an emptied
+            // note clears the note. Without this the trimmed `''` reaches a
+            // decimal column and Postgres refuses the whole save, which reads
+            // to an operator as "the form is broken" rather than "that field
+            // cannot be blank" — and blank is exactly what they meant.
+            if ($value === '' && in_array($field, ['b2b_price_amount', 'b2c_price_amount', 'price_currency_code'], true)) {
                 $value = null;
             }
 
@@ -218,53 +250,9 @@ final readonly class RecipeVersionService
     {
         $this->assertEditable($version);
 
-        $prepared = [];
-        $currencies = [];
+        $prepared = $this->prepareLines($lines);
 
-        foreach ($lines as $index => $line) {
-            $ingredient = $this->usableIngredient((string) $line['ingredient_id'], "lines.{$index}.ingredient_id");
-            $quantity = $this->positiveDecimalOrNull($line['quantity'] ?? null, "lines.{$index}.quantity");
-            $unitId = $this->trimmedOrNull(isset($line['unit_id']) ? (string) $line['unit_id'] : null);
-
-            if ($unitId !== null) {
-                $this->assertUnitExists($unitId, "lines.{$index}.unit_id");
-            }
-
-            [$unitCost, $currency] = $this->costOf($line, $index);
-
-            if ($currency !== null) {
-                $currencies[$currency] = true;
-            }
-
-            $prepared[] = [
-                'line_number' => $index + 1,
-                'ingredient_id' => (string) $ingredient->getKey(),
-                'quantity' => $quantity,
-                'unit_id' => $unitId,
-                'unit_cost_amount' => $unitCost,
-
-                // Derived here, never accepted: quantity × unit cost. Computed
-                // by the costing service rather than inline, so that a line
-                // total written today and a recalculation run tomorrow are
-                // the same arithmetic rather than two implementations of it.
-                'line_cost_amount' => $unitCost === null || $quantity === null
-                    ? null
-                    : $this->costing->lineCost($quantity, $unitCost),
-                'cost_currency_code' => $currency,
-                'source_designation' => $this->trimmedOrNull(isset($line['source_designation']) ? (string) $line['source_designation'] : null),
-                'comment' => $this->trimmedOrNull(isset($line['comment']) ? (string) $line['comment'] : null),
-            ];
-        }
-
-        if (count($currencies) > 1) {
-            throw $this->invalid(
-                'lines',
-                'Every costed line of a version must be in the same currency, and this system never converts between them.',
-                ['currencies' => array_keys($currencies)],
-            );
-        }
-
-        $this->assertMayRewriteCosts($version, $currencies !== []);
+        $this->assertMayRewriteCosts($version, $this->anyCosted($prepared));
 
         $this->replaceWithin($version, $expectedLockVersion, function () use ($version, $prepared): void {
             RecipeVersionLine::withoutTenancy()->where('recipe_version_id', $version->getKey())->delete();
@@ -308,6 +296,305 @@ final readonly class RecipeVersionService
         );
 
         return $version;
+    }
+
+    /**
+     * One submitted formulation, resolved into row attributes — and nothing
+     * written.
+     *
+     * Lifted out of {@see setLines()} so that costing a *draft* runs the same
+     * resolution a save would: the same catalogue lookups, the same
+     * unit-to-unit price conversion, the same `lineCost()`. The alternative was
+     * a second implementation for the preview, and a preview that computes its
+     * total differently from the save is worse than no preview — it teaches a
+     * kitchen a figure that changes when they press the button.
+     *
+     * Refusals are the same too, and deliberately so: a draft naming an
+     * archived ingredient is told, on the step where the line is, rather than
+     * being costed as though the ingredient were fine and refused later.
+     *
+     * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null, source_designation?: string|null, comment?: string|null}>  $lines
+     * @return list<array{line_number: int, ingredient_id: string, quantity: numeric-string|null, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, source_designation: string|null, comment: string|null}>
+     *
+     * @throws ApiException
+     */
+    public function prepareLines(array $lines): array
+    {
+        $prepared = [];
+        $currencies = [];
+
+        foreach ($lines as $index => $line) {
+            $ingredient = $this->usableIngredient((string) $line['ingredient_id'], "lines.{$index}.ingredient_id");
+            $quantity = $this->positiveDecimalOrNull($line['quantity'] ?? null, "lines.{$index}.quantity");
+            $unitId = $this->trimmedOrNull(isset($line['unit_id']) ? (string) $line['unit_id'] : null);
+
+            if ($unitId !== null) {
+                $this->assertUnitExists($unitId, "lines.{$index}.unit_id");
+            }
+
+            [$unitCost, $currency] = $this->costOf($line, $index);
+
+            // Nothing quoted on the request? Take what the catalogue says.
+            if ($unitCost === null && $currency === null) {
+                [$unitCost, $currency] = $this->ingredientCostFor($ingredient, $unitId);
+            }
+
+            if ($currency !== null) {
+                $currencies[$currency] = true;
+            }
+
+            $prepared[] = [
+                'line_number' => $index + 1,
+                'ingredient_id' => (string) $ingredient->getKey(),
+                'quantity' => $quantity,
+                'unit_id' => $unitId,
+                'unit_cost_amount' => $unitCost,
+
+                // Derived here, never accepted: quantity × unit cost. Computed
+                // by the costing service rather than inline, so that a line
+                // total written today and a recalculation run tomorrow are
+                // the same arithmetic rather than two implementations of it.
+                'line_cost_amount' => $unitCost === null || $quantity === null
+                    ? null
+                    : $this->costing->lineCost($quantity, $unitCost),
+                'cost_currency_code' => $currency,
+                'source_designation' => $this->trimmedOrNull(isset($line['source_designation']) ? (string) $line['source_designation'] : null),
+                'comment' => $this->trimmedOrNull(isset($line['comment']) ? (string) $line['comment'] : null),
+            ];
+        }
+
+        if (count($currencies) > 1) {
+            throw $this->invalid(
+                'lines',
+                'Every costed line of a version must be in the same currency, and this system never converts between them.',
+                ['currencies' => array_keys($currencies)],
+            );
+        }
+
+        return $prepared;
+    }
+
+    /**
+     * Whether any prepared row carries a price — the question
+     * `assertMayRewriteCosts()` asks, kept out of the preparation so that
+     * preparing and gating stay separable.
+     *
+     * @param  list<array{unit_cost_amount: numeric-string|null, ...}>  $prepared
+     */
+    private function anyCosted(array $prepared): bool
+    {
+        foreach ($prepared as $attributes) {
+            if ($attributes['unit_cost_amount'] !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Replace a version's packaging — what its output goes out in.
+     *
+     * The sibling of {@see setLines()}, and a PUT for the same reason: the body
+     * is the complete list, so "I removed the sleeve" and "I forgot to send the
+     * sleeve" stay different requests.
+     *
+     * ## Two of the three quantities are computed here, not accepted
+     *
+     * A hand-typed bottle count is wrong the moment the yield changes and
+     * nothing says so — the source workbook is carrying exactly that defect,
+     * with one bottle recorded against a 1.7 kg batch. So the basis says where
+     * the number comes from and this method derives it:
+     *
+     * - `fills_yield`: `ceil(yield / capacity)`, refused when the version
+     *   states no yield or the item states no capacity, because there is
+     *   nothing to divide and a guess would be indistinguishable from a
+     *   measurement.
+     * - `per_container`: the total of every `fills_yield` quantity on this
+     *   submission. Resolved in a second pass, after the first has counted the
+     *   containers — which is why this cannot be one loop.
+     * - `per_batch`: taken from the request, and the only one that is.
+     *
+     * A client that sends a quantity on a derived basis is not corrected
+     * silently, it is told. A form that accepts a figure and then ignores it is
+     * the same failure as the ingredient price this slice began by fixing.
+     *
+     * ## The unit cost is copied, not joined
+     *
+     * Read off the packaging item at write time and stored on the row, exactly
+     * as `setLines()` does with an ingredient's. A sheet costed in March must
+     * still say what it said in March after somebody edits the bottle's price
+     * in April; a join would rewrite history every time a supplier moved.
+     *
+     * @param  list<array{ingredient_id: string, basis: string, quantity?: float|string|null, comment?: string|null}>  $packaging
+     *
+     * @throws ApiException
+     */
+    public function setPackaging(RecipeVersion $version, array $packaging, int $expectedLockVersion): RecipeVersion
+    {
+        $this->assertEditable($version);
+
+        $prepared = $this->preparePackaging($version, $packaging);
+
+        $this->replaceWithin($version, $expectedLockVersion, function () use ($version, $prepared): void {
+            RecipeVersionPackaging::withoutTenancy()->where('recipe_version_id', $version->getKey())->delete();
+
+            foreach ($prepared as $attributes) {
+                $row = new RecipeVersionPackaging;
+                $row->recipe_version_id = (string) $version->getKey();
+                $row->organisation_id = $version->organisation_id;
+                $row->line_number = $attributes['line_number'];
+                $row->ingredient_id = $attributes['ingredient_id'];
+                $row->basis = $attributes['basis'];
+                $row->quantity = (string) $attributes['quantity'];
+                $row->unit_id = $attributes['unit_id'];
+                $row->unit_cost_amount = $attributes['unit_cost_amount'];
+                $row->line_cost_amount = $attributes['line_cost_amount'];
+                $row->cost_currency_code = $attributes['cost_currency_code'];
+                $row->comment = $attributes['comment'];
+                $row->created_by = $this->context->userId();
+                $row->save();
+            }
+        });
+
+        $this->audit->record(
+            'catalogue.recipe_packaging_replaced',
+            actorUserId: $this->context->userId(),
+            subjectType: 'recipe_version',
+            subjectId: (string) $version->getKey(),
+            metadata: [
+                'changed_fields' => ['packaging'],
+                'line_count' => count($prepared),
+
+                // A count, never the amounts. An audit row is readable with
+                // `audit.view_organisation`, which is not the cost permission,
+                // so one figure here would route around the whole split.
+                'costed_line_count' => count(array_filter(
+                    $prepared,
+                    static fn (array $attributes): bool => $attributes['unit_cost_amount'] !== null,
+                )),
+                'lock_version' => $version->lock_version,
+            ],
+        );
+
+        return $version;
+    }
+
+    /**
+     * One submitted packaging set, resolved into row attributes — and nothing
+     * written.
+     *
+     * The sibling of {@see prepareLines()}, lifted out of
+     * {@see setPackaging()} for the same reason: a draft's packaging cost has
+     * to be derived by the arithmetic that will derive it on save, including
+     * the two passes that resolve `fills_yield` and then `per_container`.
+     *
+     * `$version` is read for its yield only, and may be an unsaved instance —
+     * which is what lets a recipe nobody has created yet be costed against the
+     * yield somebody has just typed.
+     *
+     * @param  list<array{ingredient_id: string, basis: string, quantity?: float|string|null, comment?: string|null}>  $packaging
+     * @return list<array{line_number: int, ingredient_id: string, basis: PackagingBasis, quantity: numeric-string, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, comment: string|null}>
+     *
+     * @throws ApiException
+     */
+    public function preparePackaging(RecipeVersion $version, array $packaging): array
+    {
+        $prepared = [];
+        $currencies = [];
+        $containerCount = '0';
+
+        foreach ($packaging as $index => $line) {
+            $item = $this->usablePackagingItem((string) $line['ingredient_id'], "packaging.{$index}.ingredient_id");
+            $basis = PackagingBasis::from((string) $line['basis']);
+
+            $typed = $this->positiveDecimalOrNull($line['quantity'] ?? null, "packaging.{$index}.quantity");
+
+            if (! $basis->isTyped() && $typed !== null) {
+                throw $this->invalid(
+                    "packaging.{$index}.quantity",
+                    'This basis works its own quantity out. Send it without one, or change the basis to a fixed amount per batch.',
+                );
+            }
+
+            $quantity = match ($basis) {
+                PackagingBasis::FillsYield => $this->containersFor($version, $item, $index),
+
+                // Left null here on purpose: the container total is not known
+                // until every `fills_yield` line has been read.
+                PackagingBasis::PerContainer => null,
+                PackagingBasis::PerBatch => $typed ?? throw $this->invalid(
+                    "packaging.{$index}.quantity",
+                    'A fixed amount per batch needs a quantity.',
+                ),
+            };
+
+            if ($basis === PackagingBasis::FillsYield) {
+                $containerCount = bcadd($containerCount, (string) $quantity, 4);
+            }
+
+            [$unitCost, $currency] = $this->packagingCostOf($item);
+
+            if ($currency !== null) {
+                $currencies[$currency] = true;
+            }
+
+            $prepared[] = [
+                'line_number' => $index + 1,
+                'ingredient_id' => (string) $item->getKey(),
+                'basis' => $basis,
+                'quantity' => $quantity,
+                'unit_id' => $item->default_unit_id,
+                'unit_cost_amount' => $unitCost,
+                'cost_currency_code' => $currency,
+                'comment' => $this->trimmedOrNull(isset($line['comment']) ? (string) $line['comment'] : null),
+            ];
+        }
+
+        /*
+         * The second pass. A `per_container` line is one item per container, so
+         * it needs the count every `fills_yield` line added up to — and that is
+         * only known once the whole submission has been read.
+         *
+         * A version with no container line has no containers, so a
+         * `per_container` line on one is a statement about nothing. Refused
+         * rather than costed as zero, because costing it as zero would hide the
+         * fact that the missing container line is the actual mistake.
+         */
+        foreach ($prepared as $index => $attributes) {
+            if ($attributes['basis'] !== PackagingBasis::PerContainer) {
+                continue;
+            }
+
+            if (bccomp($containerCount, '0', 4) !== 1) {
+                throw $this->invalid(
+                    "packaging.{$index}.basis",
+                    'Nothing on this version fills the yield, so there are no containers for this line to go one per. Add the container it belongs to, or price it per batch.',
+                );
+            }
+
+            $prepared[$index]['quantity'] = $containerCount;
+        }
+
+        // `line_cost_amount` is derived and never accepted, through the same
+        // `lineCost()` the formulation uses — so a packaging total written today
+        // and a recalculation run tomorrow are one arithmetic rather than two
+        // implementations of it.
+        foreach ($prepared as $index => $attributes) {
+            $prepared[$index]['line_cost_amount'] = $attributes['unit_cost_amount'] === null
+                ? null
+                : $this->costing->lineCost((string) $prepared[$index]['quantity'], $attributes['unit_cost_amount']);
+        }
+
+        if (count($currencies) > 1) {
+            throw $this->invalid(
+                'packaging',
+                'Every costed packaging line of a version must be in the same currency, and this system never converts between them.',
+                ['currencies' => array_keys($currencies)],
+            );
+        }
+
+        return $prepared;
     }
 
     /**
@@ -683,6 +970,27 @@ final readonly class RecipeVersionService
      */
     private function copyContent(RecipeVersion $from, RecipeVersion $to): void
     {
+        /*
+         * Packaging is copied with everything else, and its *stored* quantities
+         * come with it rather than being recomputed against the new draft.
+         *
+         * The new draft is a copy, so its yield is the old one's and the two
+         * derivations agree by construction. Recomputing here would make the
+         * copy differ from its source the moment a packaging item's capacity
+         * had been edited since — which is precisely the history-rewriting this
+         * table stores its costs to avoid. The next `setPackaging()` is what
+         * re-derives them, on purpose and with somebody looking.
+         */
+        $packaging = RecipeVersionPackaging::withoutTenancy()->where('recipe_version_id', $from->getKey())->orderBy('line_number')->get();
+
+        foreach ($packaging as $row) {
+            $copy = $row->replicate(['id', 'recipe_version_id', 'created_at', 'updated_at']);
+            $copy->recipe_version_id = (string) $to->getKey();
+            $copy->organisation_id = $to->organisation_id;
+            $copy->created_by = $this->context->userId();
+            $copy->save();
+        }
+
         $lines = RecipeVersionLine::withoutTenancy()->where('recipe_version_id', $from->getKey())->orderBy('line_number')->get();
 
         foreach ($lines as $line) {
@@ -770,7 +1078,15 @@ final readonly class RecipeVersionService
      */
     private function usableIngredient(string $id, string $field): Ingredient
     {
-        $ingredient = Ingredient::query()->whereKey($id)->first();
+        /*
+         * Food only.
+         *
+         * Packaging shares this table — a recipe has to be able to cost the box its meal
+         * ships in — but a recipe line or output names a raw material. Without the scope a
+         * bin liner is a legal answer here, and the roll-up would then be asked to derive
+         * nutrition and allergens from it.
+         */
+        $ingredient = Ingredient::query()->excludingPackaging()->whereKey($id)->first();
 
         if (! $ingredient instanceof Ingredient) {
             throw $this->invalid($field, 'This ingredient does not exist, or is not one you can use.');
@@ -791,6 +1107,249 @@ final readonly class RecipeVersionService
         }
 
         return $ingredient;
+    }
+
+    /**
+     * The catalogue's own price for one line's ingredient, as `[amount, currency]`.
+     *
+     * ## Why this exists
+     *
+     * The recipe editor writes lines with no cost on them — it sends the ingredient, the quantity
+     * and the unit, which is everything a *formulation* is — and nothing else in the product ever
+     * filled the gap. So every line this system has written has been uncosted, and the technical
+     * sheet has been correctly reporting that it cannot total a version whose every line is
+     * missing a price. A kitchen could price its whole ingredient catalogue and still see no
+     * recipe cost anywhere, with nothing on screen to say why.
+     *
+     * The packaging path has never had this problem because `setPackaging()` reads the item's
+     * price off the catalogue at write time. This is that same rule for the formulation, and the
+     * two now behave alike.
+     *
+     * ## Only when the caller quoted nothing
+     *
+     * A request that states a cost still wins. The importer records what a source sheet said,
+     * errors included (`as_recorded`), and a fallback that overrode it would replace a
+     * transcription with a guess at what it should have been.
+     *
+     * ## Converted within a dimension, and never across one
+     *
+     * An ingredient's price is per its purchase pack where it records one, and per its issue unit
+     * otherwise. A line may be written in any unit of the same dimension — grams against an
+     * ingredient bought by the kilo, which is how most recipes are actually written.
+     *
+     * This first refused to convert at all, on the reasoning that a silent conversion could produce
+     * a figure a thousandfold wrong. The caution was right and the conclusion was not: `kg` and `g`
+     * are the *same dimension* and `measurement_units.base_ratio` states the exact relationship
+     * between them, so the conversion is arithmetic rather than a guess. Refusing it meant the most
+     * natural way to write a formulation never costed, which sent people to the workaround of
+     * restating every quantity in the purchase unit.
+     *
+     * What is still refused is a conversion **across** dimensions — a price per `piece` against a
+     * line in `kg`. Nothing in the reference data relates those two, and the factor that would is a
+     * property of the specific ingredient (a piece of what, weighing how much?) that this system
+     * does not record. Such a line stays uncosted: the sheet lists it in `uncosted_line_numbers`,
+     * withholds the total, and says which line to go and look at.
+     *
+     * @return array{0: numeric-string|null, 1: string|null}
+     */
+    private function ingredientCostFor(Ingredient $ingredient, ?string $lineUnitId): array
+    {
+        $price = $ingredient->purchase_price_amount;
+        $currency = $ingredient->purchase_price_currency;
+
+        if ($price === null || $currency === null || $lineUnitId === null) {
+            return [null, null];
+        }
+
+        $pricedIn = $ingredient->purchase_unit_id ?? $ingredient->default_unit_id;
+
+        if ($pricedIn === $lineUnitId) {
+            return [(string) $price, mb_strtoupper($currency)];
+        }
+
+        $converted = $this->pricePerUnit((string) $price, $pricedIn, $lineUnitId);
+
+        return $converted === null ? [null, null] : [$converted, mb_strtoupper($currency)];
+    }
+
+    /**
+     * A price stated per one unit, restated per another of the same dimension.
+     *
+     * `base_ratio` is how many base units one of this unit is — 1000 for `kg` against a base of
+     * `g`. So a price per kilogram becomes a price per gram by dividing by the ratio between them,
+     * and 7.88 per kg is 0.00788 per g exactly.
+     *
+     * Null when the two units are not comparable: a different dimension, an unknown unit, or a
+     * ratio of zero. Every one of those is "this system cannot know", and the caller turns it into
+     * an uncosted line rather than a figure.
+     *
+     * Six decimal places, the scale every cost column stores. A price per gram of a cheap bulk
+     * ingredient can round to zero at that scale, and that is the honest floor of what these
+     * columns can hold rather than something to work around here.
+     *
+     * @return numeric-string|null
+     */
+    private function pricePerUnit(string $price, string $fromUnitId, string $toUnitId): ?string
+    {
+        /** @var MeasurementUnit|null $from */
+        $from = MeasurementUnit::query()->whereKey($fromUnitId)->first();
+        /** @var MeasurementUnit|null $to */
+        $to = MeasurementUnit::query()->whereKey($toUnitId)->first();
+
+        if (! $from instanceof MeasurementUnit || ! $to instanceof MeasurementUnit) {
+            return null;
+        }
+
+        if ($from->dimension !== $to->dimension) {
+            return null;
+        }
+
+        $fromRatio = (string) $from->base_ratio;
+        $toRatio = (string) $to->base_ratio;
+
+        if (! is_numeric($fromRatio) || ! is_numeric($toRatio) || bccomp($fromRatio, '0', 9) !== 1) {
+            return null;
+        }
+
+        // price_per_to = price_per_from × (to_ratio ÷ from_ratio).
+        return bcmul($price, bcdiv($toRatio, $fromRatio, 12), 6);
+    }
+
+    /**
+     * A packaging item this organisation may build a version on.
+     *
+     * The exact shape of `usableIngredient()`, one family over, and refusing
+     * the same two states for the same reasons: an archived row is history and
+     * offering it invites somebody to cost a version against a box nobody
+     * stocks, and `inactive` is the operator's "do not use this" switch, which
+     * a recipe editor must honour rather than route around.
+     *
+     * Platform-library rows are usable, unlike tenant rows of another
+     * organisation — the model's own scope handles that distinction, so a
+     * lookup that finds nothing is either "does not exist" or "not yours", and
+     * the message deliberately does not say which.
+     *
+     * @throws ApiException
+     */
+    private function usablePackagingItem(string $id, string $field): Ingredient
+    {
+        /*
+         * Packaging only — the mirror of the food scope on `usableIngredient` above.
+         *
+         * The two families share a table again, so "this id exists" is no longer the same question
+         * as "this id is a box". Without the scope a chef could put chickpeas on the Packaging tab
+         * and the cost cascade would price them per container.
+         */
+        $item = Ingredient::query()->onlyPackaging()->whereKey($id)->first();
+
+        if (! $item instanceof Ingredient) {
+            throw $this->invalid($field, 'This packaging item does not exist, or is not one you can use.');
+        }
+
+        if ($item->status === IngredientStatus::Archived) {
+            throw $this->invalid($field, 'This packaging item is archived and cannot be added to a recipe.');
+        }
+
+        if ($item->status === IngredientStatus::Inactive) {
+            throw $this->invalid($field, 'This packaging item is inactive and cannot be added to a recipe until it is reactivated.');
+        }
+
+        return $item;
+    }
+
+    /**
+     * How many of this container the version's yield fills.
+     *
+     * `ceil(yield / capacity)` — six 0.3 kg bottles for a 1.7 kg batch. Both
+     * inputs are required and neither is guessed at: without a yield there is
+     * nothing to divide, and without a capacity there is nothing to divide by.
+     * Either absence is a refusal rather than a fallback to `1`, because a
+     * fallback would put a plausible number on a technical sheet that nobody
+     * measured and nobody could later tell apart from one that was.
+     *
+     * The unit is not checked against the yield's, and that is the design
+     * rather than an omission: a capacity is *defined* as being stated in the
+     * unit the recipe's yield is stated in (see the migration on
+     * `packaging_items`), which is what keeps this division same-unit and free
+     * of any need for a density.
+     *
+     * `ceil`, because two thirds of a bottle holds nothing. The half-empty last
+     * container is real and is what the packaging waste coefficient accounts
+     * for; rounding the count down would understate the cost instead.
+     *
+     * @return numeric-string
+     *
+     * @throws ApiException
+     */
+    private function containersFor(RecipeVersion $version, Ingredient $item, int $index): string
+    {
+        $yield = $version->yield_quantity;
+
+        if ($yield === null || bccomp((string) $yield, '0', 4) !== 1) {
+            throw $this->invalid(
+                "packaging.{$index}.basis",
+                'This version states no yield, so there is nothing for a container to be filled from. Set the yield, or price this line per batch.',
+            );
+        }
+
+        $capacity = $item->capacity_quantity;
+
+        if ($capacity === null || bccomp((string) $capacity, '0', 4) !== 1) {
+            throw $this->invalid(
+                "packaging.{$index}.ingredient_id",
+                'This packaging item does not say how much it holds, so the number needed cannot be worked out. Record its capacity, or price this line per batch.',
+            );
+        }
+
+        // bcdiv truncates, so the ceiling is the quotient plus one whenever the
+        // division left a remainder. Done in decimal rather than by casting to
+        // float and calling ceil(): a yield of 1.7 into a capacity of 0.1 is
+        // exactly 17 in decimal and 16.999999999999996 in IEEE 754, and the
+        // float route would quietly bill an eighteenth container.
+        $whole = bcdiv((string) $yield, (string) $capacity, 0);
+
+        return bccomp(bcmul($whole, (string) $capacity, 4), (string) $yield, 4) === 0
+            ? $whole
+            : bcadd($whole, '1', 0);
+    }
+
+    /**
+     * The unit cost of one packaging item, as `[amount, currency]`.
+     *
+     * Read from the item rather than accepted from the request — the client has
+     * no business quoting a price the catalogue already holds, and letting it
+     * would make the two disagree. Copied onto the row at write time so that a
+     * sheet costed in March still says what it said in March.
+     *
+     * A pack price divided by the pieces in the pack, when the item states
+     * both: a case of 500 lids at 40.00 is 0.08 a lid, and a recipe consumes
+     * lids rather than cases. Without `items_per_unit` the price is taken as
+     * being per issued piece already, which is what a row that quotes a price
+     * and no pack size is saying.
+     *
+     * Null where nothing is recorded, and null propagates: an unpriced box
+     * contributes no line cost and lands in the sheet's uncosted list, rather
+     * than being totalled as free.
+     *
+     * @return array{0: numeric-string|null, 1: string|null}
+     */
+    private function packagingCostOf(Ingredient $item): array
+    {
+        $price = $item->purchase_price_amount;
+        $currency = $item->purchase_price_currency;
+
+        if ($price === null || $currency === null) {
+            return [null, null];
+        }
+
+        $perUnit = (string) $price;
+        $perPack = $item->items_per_unit;
+
+        if ($perPack !== null && bccomp((string) $perPack, '0', 4) === 1) {
+            $perUnit = bcdiv($perUnit, (string) $perPack, 6);
+        }
+
+        return [$perUnit, mb_strtoupper($currency)];
     }
 
     /**

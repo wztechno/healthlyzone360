@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
+import { controlHeight } from '@healthy360/design-tokens';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { Icon } from '../icons/icon.tsx';
+import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 
 /**
@@ -124,10 +126,34 @@ export function Pagination({
     testID,
 }: PaginationProps) {
     const { t } = useTranslation();
+    const density = useDensity();
 
     // Nothing to page through is not an empty control — it is no control. A row of one disabled
     // button under a list of three rows is furniture that says only that the list is short.
     if (totalPages <= 1) return null;
+
+    /*
+     * Two ladders, as everywhere else.
+     *
+     * A pager is a control like any other, and on the customer surfaces it keeps the 44px touch
+     * floor a thumb needs. The Catalogue's is the design's compact pill — 24px tall, 24px minimum
+     * wide so a three-digit page still fits, 6px of inset and the caption step — which is what
+     * lets it sit under a list of 28px rows without reading as the loudest thing on the page.
+     */
+    const compact = density === 'compact';
+    const boxClass = compact
+        ? 'h-control-xs items-center justify-center rounded-sm border px-control-xs'
+        : 'min-h-touch min-w-touch items-center justify-center rounded-md border px-3';
+    const digitClass = compact ? 'text-role-caption font-admin' : 'text-sm';
+    /*
+     * The square floor, as a style rather than a class.
+     *
+     * The preset emits `h-control-*` but no `min-w-control-*`, and a pager is the one control that
+     * needs both: the box is 24px square, and a three-digit page has to push it wider rather than
+     * be clipped by it. Reading `controlHeight.xs` here spends the same token the class would and
+     * needs no new utility — the technique `DataList` already uses for its track widths.
+     */
+    const boxStyle = compact ? { minWidth: controlHeight.xs } : undefined;
 
     const current = Math.min(Math.max(1, page), totalPages);
     const slots = paginationSlots(current, totalPages, siblingCount);
@@ -140,7 +166,7 @@ export function Pagination({
 
     const stepClass = (inactive: boolean) =>
         cx(
-            'min-h-touch min-w-touch items-center justify-center rounded-md border px-3',
+            boxClass,
             inactive
                 ? 'border-stroke-subtle bg-surface-sunken'
                 : 'border-stroke-subtle bg-surface-raised',
@@ -152,7 +178,11 @@ export function Pagination({
             role="navigation"
             aria-label={label ?? t('designSystem:pagination.label')}
             accessibilityLabel={label ?? t('designSystem:pagination.label')}
-            className={cx('flex-row flex-wrap items-center justify-center gap-1', className)}
+            className={cx(
+                'flex-row flex-wrap items-center justify-center',
+                compact ? 'gap-hair' : 'gap-1',
+                className,
+            )}
         >
             <Pressable
                 testID={testID === undefined ? undefined : `${testID}-previous`}
@@ -164,6 +194,7 @@ export function Pagination({
                 disabled={disabled || atStart}
                 focusable={!(disabled || atStart)}
                 onPress={step(current - 1)}
+                style={boxStyle}
                 className={stepClass(disabled || atStart)}
             >
                 <Icon
@@ -181,7 +212,11 @@ export function Pagination({
                         key={`gap-${String(index)}`}
                         aria-hidden
                         importantForAccessibility="no-hide-descendants"
-                        className="min-w-touch px-1 text-center text-sm text-content-disabled"
+                        style={boxStyle}
+                        className={cx(
+                            'px-1 text-center text-content-disabled',
+                            compact ? 'text-role-caption font-admin' : 'min-w-touch text-sm',
+                        )}
                     >
                         {'…'}
                     </RNText>
@@ -202,8 +237,9 @@ export function Pagination({
                         disabled={disabled}
                         focusable={!disabled}
                         onPress={step(slot.page)}
+                        style={boxStyle}
                         className={cx(
-                            'min-h-touch min-w-touch items-center justify-center rounded-md border px-3',
+                            boxClass,
                             slot.page === current
                                 ? 'border-surface-brand bg-surface-brand'
                                 : 'border-stroke-subtle bg-surface-raised',
@@ -211,7 +247,7 @@ export function Pagination({
                     >
                         <RNText
                             className={cx(
-                                'text-sm',
+                                digitClass,
                                 slot.page === current
                                     ? 'font-bold text-content-on-brand'
                                     : 'text-content-secondary',
@@ -233,6 +269,7 @@ export function Pagination({
                 disabled={disabled || atEnd}
                 focusable={!(disabled || atEnd)}
                 onPress={step(current + 1)}
+                style={boxStyle}
                 className={stepClass(disabled || atEnd)}
             >
                 <Icon

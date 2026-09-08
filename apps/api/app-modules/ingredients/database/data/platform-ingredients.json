@@ -566,7 +566,7 @@
       "name_en": "Croutons",
       "category_code": "baking-starch",
       "subcategory_code": "baking-starch-wheat-gluten",
-      "default_unit_code": "bag",
+      "default_unit_code": "piece",
       "purchase_unit_code": "bag",
       "status": "active",
       "kind": "supplier",
@@ -638,7 +638,7 @@
       "name_en": "Vermicelli (fine pasta)",
       "category_code": "baking-starch",
       "subcategory_code": "baking-starch-wheat-gluten",
-      "default_unit_code": "bag",
+      "default_unit_code": "piece",
       "purchase_unit_code": "bag",
       "status": "active",
       "kind": "supplier",
@@ -716,7 +716,7 @@
       "name_en": "Ketchup",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "gallon",
+      "default_unit_code": "l",
       "purchase_unit_code": "gallon",
       "status": "active",
       "kind": "supplier",
@@ -736,7 +736,7 @@
       "name_en": "Mayonnaise",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "gallon",
+      "default_unit_code": "l",
       "purchase_unit_code": "gallon",
       "status": "active",
       "kind": "supplier",
@@ -784,7 +784,7 @@
       "name_en": "Mustard",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "gallon",
+      "default_unit_code": "l",
       "purchase_unit_code": "gallon",
       "status": "active",
       "kind": "supplier",
@@ -801,7 +801,7 @@
       "name_en": "Mustard, Dijon",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "gallon",
+      "default_unit_code": "l",
       "purchase_unit_code": "gallon",
       "status": "active",
       "kind": "supplier",
@@ -825,7 +825,7 @@
       "name_en": "Mustard, wholegrain (a l'ancienne)",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "gallon",
+      "default_unit_code": "l",
       "purchase_unit_code": "gallon",
       "status": "active",
       "kind": "supplier",
@@ -849,7 +849,7 @@
       "name_en": "Mustard, yellow (American)",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "gallon",
+      "default_unit_code": "l",
       "purchase_unit_code": "gallon",
       "status": "active",
       "kind": "supplier",
@@ -919,7 +919,7 @@
       "name_en": "Soya sauce",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "gallon",
+      "default_unit_code": "l",
       "purchase_unit_code": "gallon",
       "status": "active",
       "kind": "supplier",
@@ -941,7 +941,7 @@
       "name_en": "Tomato paste",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-condiment",
-      "default_unit_code": "can",
+      "default_unit_code": "piece",
       "purchase_unit_code": "can",
       "status": "active",
       "kind": "supplier",
@@ -1076,7 +1076,7 @@
       "name_en": "Chocolate",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "pack",
+      "default_unit_code": "piece",
       "purchase_unit_code": "pack",
       "status": "active",
       "kind": "supplier",
@@ -1137,7 +1137,7 @@
       "name_en": "Chocolate, dark",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "pack",
+      "default_unit_code": "piece",
       "purchase_unit_code": "pack",
       "status": "active",
       "kind": "supplier",
@@ -1225,7 +1225,7 @@
       "name_en": "Sugar, brown",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "pack",
+      "default_unit_code": "piece",
       "purchase_unit_code": "pack",
       "status": "active",
       "kind": "supplier",
@@ -1238,7 +1238,7 @@
       "name_en": "Sugar, powdered (icing)",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "pack",
+      "default_unit_code": "piece",
       "purchase_unit_code": "pack",
       "status": "active",
       "kind": "supplier",
@@ -1251,7 +1251,7 @@
       "name_en": "Sugar, white",
       "category_code": "condiment-sweetener",
       "subcategory_code": "condiment-sweetener-sweetener",
-      "default_unit_code": "pack",
+      "default_unit_code": "piece",
       "purchase_unit_code": "pack",
       "status": "active",
       "kind": "supplier",
@@ -1462,7 +1462,7 @@
       "name_en": "Shanklish",
       "category_code": "dairy",
       "subcategory_code": "dairy-cheese",
-      "default_unit_code": "piece",
+      "default_unit_code": "kg",
       "purchase_unit_code": "piece",
       "status": "active",
       "kind": "supplier",
@@ -1480,7 +1480,7 @@
       "name_en": "Butter",
       "category_code": "dairy",
       "subcategory_code": "dairy-cream-butter",
-      "default_unit_code": "pack",
+      "default_unit_code": "kg",
       "purchase_unit_code": "pack",
       "status": "active",
       "kind": "supplier",
@@ -1534,7 +1534,7 @@
       "name_en": "Ice cream, vanilla",
       "category_code": "dairy",
       "subcategory_code": "dairy-milk-yoghurt",
-      "default_unit_code": "pack",
+      "default_unit_code": "kg",
       "purchase_unit_code": "pack",
       "status": "active",
       "kind": "supplier",
@@ -1668,7 +1668,7 @@
       "name_en": "Lady Finger Biscuits",
       "category_code": "desserts",
       "subcategory_code": "desserts-cakes-cream",
-      "default_unit_code": "pack",
+      "default_unit_code": "piece",
       "purchase_unit_code": "pack",
       "status": "active",
       "kind": "supplier",
@@ -1772,7 +1772,7 @@
       "name_en": "Tuna",
       "category_code": "fish-seafood",
       "subcategory_code": "fish-seafood-fish",
-      "default_unit_code": "can",
+      "default_unit_code": "piece",
       "purchase_unit_code": "can",
       "status": "active",
       "kind": "supplier",
@@ -5196,7 +5196,7 @@
       "default_unit_code": "kg",
       "purchase_unit_code": "kg",
       "status": "active",
-      "kind": "production",
+      "kind": "supplier",
       "allergens": [
         {
           "allergen_code": "milk",
@@ -5211,6 +5211,7 @@
       ],
       "composition": "Onion, butter / oil, sugar, balsamic vinegar, salt",
       "flags": [
+        "kind_forced_supplier",
         "unit_defaulted_kg"
       ]
     },
@@ -5666,7 +5667,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polyethylene"
+      "composition": "Polyethylene",
+      "items_per_unit": 100,
+      "purchase_price_amount": 6.5,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-002",
@@ -5679,7 +5683,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Greaseproof kraft paper"
+      "composition": "Greaseproof kraft paper",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 9,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-003",
@@ -5692,7 +5699,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Kraft paper"
+      "composition": "Kraft paper",
+      "items_per_unit": 500,
+      "purchase_price_amount": 14,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-004",
@@ -5705,7 +5715,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Kraft paper"
+      "composition": "Kraft paper",
+      "items_per_unit": 500,
+      "purchase_price_amount": 9.5,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-005",
@@ -5718,7 +5731,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polyethylene"
+      "composition": "Polyethylene",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 4.5,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-006",
@@ -5731,7 +5747,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Coated paperboard"
+      "composition": "Coated paperboard",
+      "items_per_unit": 250,
+      "purchase_price_amount": 22,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.35,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-007",
@@ -5744,7 +5765,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Kraft paperboard"
+      "composition": "Kraft paperboard",
+      "items_per_unit": 300,
+      "purchase_price_amount": 34,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.75,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-008",
@@ -5757,7 +5783,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Coated paperboard"
+      "composition": "Coated paperboard",
+      "items_per_unit": 500,
+      "purchase_price_amount": 18,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.2,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-009",
@@ -5770,7 +5801,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "PET plastic"
+      "composition": "PET plastic",
+      "items_per_unit": 200,
+      "purchase_price_amount": 42,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.3,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-010",
@@ -5783,7 +5819,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "PET / polypropylene"
+      "composition": "PET / polypropylene",
+      "items_per_unit": 1,
+      "purchase_price_amount": 0.03,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-011",
@@ -5796,7 +5835,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "PET / polypropylene"
+      "composition": "PET / polypropylene",
+      "items_per_unit": 1,
+      "purchase_price_amount": 0.032,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-012",
@@ -5809,7 +5851,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "PET / polypropylene"
+      "composition": "PET / polypropylene",
+      "items_per_unit": 1,
+      "purchase_price_amount": 0.02,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-013",
@@ -5822,7 +5867,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polypropylene"
+      "composition": "Polypropylene",
+      "items_per_unit": 1,
+      "purchase_price_amount": 0.045,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.12,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-014",
@@ -5835,7 +5885,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polypropylene"
+      "composition": "Polypropylene",
+      "items_per_unit": 1,
+      "purchase_price_amount": 0.05,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.15,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-015",
@@ -5848,7 +5903,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polypropylene"
+      "composition": "Polypropylene",
+      "items_per_unit": 1,
+      "purchase_price_amount": 0.018,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.03,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-016",
@@ -5861,7 +5921,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polypropylene"
+      "composition": "Polypropylene",
+      "items_per_unit": 1,
+      "purchase_price_amount": 0.022,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.05,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-017",
@@ -5874,7 +5939,12 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polypropylene"
+      "composition": "Polypropylene",
+      "items_per_unit": 1,
+      "purchase_price_amount": 0.032,
+      "purchase_price_currency": "USD",
+      "capacity_quantity": 0.08,
+      "capacity_unit_code": "kg"
     },
     {
       "source_ref": "PKG-018",
@@ -5887,7 +5957,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polypropylene, paper wrap"
+      "composition": "Polypropylene, paper wrap",
+      "items_per_unit": 500,
+      "purchase_price_amount": 26,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-019",
@@ -5900,7 +5973,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polypropylene"
+      "composition": "Polypropylene",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 8,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-020",
@@ -5913,7 +5989,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Polypropylene"
+      "composition": "Polypropylene",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 8,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-021",
@@ -5926,7 +6005,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Paper / polypropylene, paper wrap"
+      "composition": "Paper / polypropylene, paper wrap",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 11,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-022",
@@ -5939,7 +6021,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Bamboo"
+      "composition": "Bamboo",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 6,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-023",
@@ -5952,7 +6037,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Birch wood"
+      "composition": "Birch wood",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 7.5,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-024",
@@ -5965,7 +6053,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Adhesive label paper"
+      "composition": "Adhesive label paper",
+      "items_per_unit": 1,
+      "purchase_price_amount": 1.2,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-025",
@@ -5978,7 +6069,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Thermal paper"
+      "composition": "Thermal paper",
+      "items_per_unit": 1,
+      "purchase_price_amount": 1.6,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-026",
@@ -5991,7 +6085,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Paper"
+      "composition": "Paper",
+      "items_per_unit": 1,
+      "purchase_price_amount": 1.1,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-027",
@@ -6004,7 +6101,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Greaseproof paper"
+      "composition": "Greaseproof paper",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 12,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-028",
@@ -6017,7 +6117,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "PVC / PE food film"
+      "composition": "PVC / PE food film",
+      "items_per_unit": 1,
+      "purchase_price_amount": 4.2,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-029",
@@ -6030,7 +6133,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "PVC / PE food film"
+      "composition": "PVC / PE food film",
+      "items_per_unit": 1,
+      "purchase_price_amount": 6,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-030",
@@ -6043,7 +6149,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Food-grade paper"
+      "composition": "Food-grade paper",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 10,
+      "purchase_price_currency": "USD"
     },
     {
       "source_ref": "PKG-031",
@@ -6056,7 +6165,10 @@
       "status": "active",
       "kind": "supplier",
       "allergens": [],
-      "composition": "Greaseproof paper"
+      "composition": "Greaseproof paper",
+      "items_per_unit": 1000,
+      "purchase_price_amount": 13,
+      "purchase_price_currency": "USD"
     }
   ],
   "aliases": []

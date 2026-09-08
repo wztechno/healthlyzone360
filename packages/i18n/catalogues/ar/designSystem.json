@@ -200,7 +200,8 @@
         "motionFade": "ظهر بالتلاشي",
         "motionSlideStart": "انزلق من الحافة الأمامية",
         "motionSlideBottom": "انزلق من الأسفل",
-        "motionNumber": "رقم متحرّك"
+        "motionNumber": "رقم متحرّك",
+        "tableCompactCaption": "جدول (صفوف مضغوطة)"
     },
     "tag": {
         "join": "، ",

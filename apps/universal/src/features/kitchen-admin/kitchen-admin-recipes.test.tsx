@@ -18,6 +18,7 @@ import { AllergenCode, IngredientId, KitchenId, RecipeId, RoleId } from '@health
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 import type { ReactNode } from 'react';
 
 import { recipeRollupHash } from '../../data/kitchen-admin-hooks.ts';
@@ -108,6 +109,55 @@ function untilVisible(testID: string) {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * Driving the editor
+ *
+ * The recipe editor is five tabs, not one long form, and its line table is driven by an inline
+ * picker rather than an Add button. Both are recent and both changed how every test below reaches
+ * a control, so the two moves live here rather than being spelled out fifteen times.
+ * ---------------------------------------------------------------------------------------------- */
+
+type EditorTab = 'description' | 'production' | 'packaging' | 'costing' | 'sheet';
+
+/** Switches tabs. Only the active tab's sections are mounted, so this is how a control is reached. */
+async function openTab(tab: EditorTab) {
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`kitchen-recipe-tab-${tab}`));
+    });
+}
+
+const LINE_PICKER = 'kitchen-recipe-lines-table-picker';
+
+/**
+ * The picker's field, which is the part that exists in the tree.
+ *
+ * `Picker` puts its testID on the input, the panel and each option — not on the box around them —
+ * so the field is what a test waits on and what its absence proves on a read-only version.
+ */
+const LINE_PICKER_INPUT = `${LINE_PICKER}-input`;
+
+/** The row testIDs the line table draws, one per drawn line. */
+const LINE_ROWS = /^kitchen-recipe-lines-table-row-.+-name$/;
+
+/**
+ * Adds a raw-material line by picking from the inline field.
+ *
+ * Focusing opens the panel on the catalogue's first page, so nothing has to be typed — which also
+ * keeps the picker's own 250ms search debounce out of tests that are not about it. The pick appends
+ * a row at quantity `1` in the ingredient's own unit.
+ *
+ * The caller must already be on the Production tab.
+ */
+async function addLine(ingredientId: string) {
+    await act(async () => {
+        fireEvent(screen.getByTestId(LINE_PICKER_INPUT), 'focus');
+    });
+    await untilVisible(`${LINE_PICKER}-option-${ingredientId}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`${LINE_PICKER}-option-${ingredientId}`));
+    });
+}
+
+/* ------------------------------------------------------------------------------------------------
  * The world this file authors
  *
  * Every builder is typed against its contract shape, so a contract that grows a required field fails
@@ -148,17 +198,28 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         meta: meta({ status: 'published' }),
         name: { en: `Ingredient ${String(ordinal)}`, ar: `مكوّن ${String(ordinal)}` },
         reference: `IG-00${String(ordinal)}`,
+        subcategoryCode: null,
         categoryCode: 'store-cupboard',
         measurementUnit: 'g',
         purchaseUnit: null,
         composition: null,
         itemsPerUnit: null,
+        // Packaging's three, null on food — which every fixture in this file is.
+        purchasePrice: null,
+        wastePercent: null,
+        capacity: null,
+        b2bPrice: null,
+        b2cPrice: null,
+        unitPrice: null,
+        isSellable: false,
         costPer100g: { amount: 1.25, currency: 'AED' },
         per100g: null,
         allergens: [],
         dietClassifications: [],
         aliases: [],
         organisationId: TEST_ORGANISATION_ID,
+        forkedFromId: null,
+        isEditable: true,
         notes: null,
         ...overrides,
     };
@@ -224,6 +285,9 @@ function recipeVersion({
         yieldUnit: 'portion',
         yieldPieces: null,
         wastePercent: 3,
+        b2bPrice: null,
+        b2cPrice: null,
+        packaging: [],
         lines: [line(MAPPED_INGREDIENT), line(UNMAPPED_INGREDIENT, { quantity: 30 })],
         outputs: [],
         steps: [],
@@ -265,8 +329,10 @@ function recipe({ ordinal, name, currentVersion, overrides = {} }: RecipeSeed): 
         meta: meta(),
         name: { en: label, ar: `${label} بالعربية` },
         slug: label.toLocaleLowerCase().replace(/\s+/g, '-'),
+        reference: null,
         kitchenId: TEST_KITCHEN_ID,
         sourceKind: null,
+        recipeCategory: null,
         currentVersionNumber: version.versionNumber,
         versionCount: version.versionNumber,
         description: { en: 'A dish.', ar: 'طبق.' },
@@ -282,8 +348,10 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
         meta: record.meta,
         name: record.name,
         slug: record.slug,
+        reference: null,
         kitchenId: record.kitchenId,
         sourceKind: record.sourceKind,
+        recipeCategory: record.recipeCategory,
         currentVersionNumber: record.currentVersionNumber,
         versionCount: record.versionCount,
     };
@@ -496,21 +564,29 @@ describe('the recipe list', () => {
         await untilVisible('kitchen-recipes-loading');
         await untilVisible('kitchen-recipes-table');
 
+        const row = `kitchen-recipes-table-row-${String(published.id)}`;
         const base = `kitchen-recipe-${String(published.id)}`;
-        expect(screen.getByTestId(`${base}-name`)).toBeTruthy();
+
+        // Below `md` the Catalogue draws a record two-line rather than as tracks (§4.1), and this
+        // renderer's window is 750px — so what is asserted here is the narrow shape: the title, the
+        // meta run and the headline metric. Version state and Updated are wide-row tracks with no
+        // narrow role, and the Playwright specs, which drive a real desk-width port, cover those.
+        expect(screen.getByTestId(`${row}-title`)).toHaveTextContent('Tabbouleh');
+        expect(screen.getByTestId(`${base}-slug`)).toBeTruthy();
+        expect(screen.getByTestId(`${base}-kitchen`)).toBeTruthy();
+        // The metric is the version pair — which one is current, out of how many. Both are on the
+        // summary, so the cell never waits.
         expect(screen.getByTestId(`${base}-version`)).toHaveTextContent(
             new RegExp(String(published.currentVersionNumber)),
         );
-        // The version's own state is not on the summary; it is read per row and rendered when it
-        // arrives rather than guessed from the recipe's status.
-        await waitFor(() => {
-            expect(screen.getByTestId(`${base}-version-status`)).toHaveTextContent(/Published/);
-        });
-        // The derived label the authored version carries — one declaration, so the cell is the
-        // list, not the "no allergens" fallback beside it.
+
+        // The derived label is *not* on the summary: it is read per row and rendered when it
+        // arrives rather than guessed. While it is in flight the cell holds a skeleton, never the
+        // dash — the dash is what "this version declares none" looks like, which is a different
+        // answer. That frame is not asserted here because it is a race: `untilVisible` above
+        // already flushes the row's own detail read on its way to finding the table.
         await untilVisible(`${base}-allergens`);
         expect(screen.queryByTestId(`${base}-allergens-none`)).toBeNull();
-        expect(screen.getByTestId(`${base}-updated`)).toBeTruthy();
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {
@@ -564,6 +640,167 @@ describe('the recipe list', () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
+ * The list at desk width
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * `/kitchen/recipes` is a desk surface, and above `md` the Catalogue draws a record as tracks
+ * rather than as the two-line row the rest of this file renders (§4.1). The two are different
+ * trees with different element counts — the branch is JavaScript, not a class variant — so the wide
+ * shape has to actually be rendered to be asserted, and this is the one block that widens the
+ * window to do it.
+ *
+ * `Dimensions.set` rather than a mocked `useBreakpoint`: the branch reads the real window, and a
+ * test that stubbed the hook would prove the stub. The narrow default is captured up front and put
+ * back afterwards, so every other block keeps the phone shape it was written against.
+ */
+describe('the recipe list at desk width', () => {
+    const NARROW_WINDOW = Dimensions.get('window');
+    const NARROW_SCREEN = Dimensions.get('screen');
+
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...NARROW_WINDOW, width: 1440, height: 900 },
+            screen: { ...NARROW_SCREEN, width: 1440, height: 900 },
+        });
+    });
+
+    afterAll(() => {
+        Dimensions.set({ window: NARROW_WINDOW, screen: NARROW_SCREEN });
+    });
+
+    it('draws the two tracks the narrow row has no room for', async () => {
+        const published = recipe({
+            ordinal: 1,
+            name: 'Tabbouleh',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 1,
+                versionNumber: 2,
+                overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
+            }),
+            overrides: { meta: meta({ status: 'published', lockVersion: 3 }) },
+        });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [published]),
+                    getRecipe: async () => published,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        const base = `kitchen-recipe-${String(published.id)}`;
+
+        // The record's own status is one track and the *version's* is another, because they answer
+        // different questions: whether the recipe is on the menu, and whether the thing a kitchen
+        // would cook from it is frozen or still being written.
+        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Live/);
+        await waitFor(() => {
+            expect(screen.getByTestId(`${base}-version-status`)).toHaveTextContent(/Live/);
+        });
+        expect(screen.getByTestId(`${base}-updated`)).toBeTruthy();
+
+        // Sorting and filtering live on the column headers (§4.3), so every track that can do
+        // either draws a trigger rather than a plain label.
+        expect(screen.getByTestId('kitchen-recipes-column-name-trigger')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipes-column-kitchen-trigger')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipes-column-version-trigger')).toBeTruthy();
+        // Derived per row and out of order, so neither sorts and neither has a filter parameter:
+        // a header with nothing to do is a plain label, not a target a keyboard can land on.
+        expect(screen.queryByTestId('kitchen-recipes-column-versionState-trigger')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipes-column-allergens-trigger')).toBeNull();
+    });
+
+    it('offers New draft only against a version that cannot be edited in place', async () => {
+        const frozen = recipe({
+            ordinal: 1,
+            name: 'Tabbouleh',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 1,
+                versionNumber: 2,
+                overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
+            }),
+            overrides: { meta: meta({ status: 'published', lockVersion: 3 }) },
+        });
+        const open = recipe({ ordinal: 2, name: 'Fattoush' });
+        const library = [frozen, open];
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => library),
+                    getRecipe: async (recipeId) => {
+                        const found = library.find((row) => row.id === recipeId);
+                        if (found === undefined) throw new Error('No such recipe.');
+                        return found;
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        const frozenRow = `kitchen-recipe-${String(frozen.id)}`;
+        const openRow = `kitchen-recipe-${String(open.id)}`;
+
+        // Three actions on every row, and the fourth only where it would do something: a published
+        // version is immutable, so the only way to change it is to open its successor; a draft that
+        // is already open would take a version bump that changed nothing.
+        await untilVisible(`${frozenRow}-new-draft`);
+        expect(screen.getByTestId(`${frozenRow}-view`)).toBeTruthy();
+        expect(screen.getByTestId(`${frozenRow}-open`)).toBeTruthy();
+        expect(screen.getByTestId(`${frozenRow}-archive`)).toBeTruthy();
+
+        expect(screen.getByTestId(`${openRow}-view`)).toBeTruthy();
+        expect(screen.getByTestId(`${openRow}-open`)).toBeTruthy();
+        expect(screen.getByTestId(`${openRow}-archive`)).toBeTruthy();
+        expect(screen.queryByTestId(`${openRow}-new-draft`)).toBeNull();
+    });
+
+    it('opens the read-only View panel from the row, carrying the derived label', async () => {
+        const published = recipe({
+            ordinal: 1,
+            name: 'Tabbouleh',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 1,
+                versionNumber: 2,
+                overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
+            }),
+            overrides: { meta: meta({ status: 'published', lockVersion: 3 }) },
+        });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [published]),
+                    getRecipe: async () => published,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-recipe-${String(published.id)}-view`));
+        });
+
+        await untilVisible('kitchen-recipes-view');
+        // The slug is a recipe's reference, and the panel states the three facts no track holds:
+        // the source sheet's Kind, the version count in words, and who last touched it.
+        expect(screen.getByTestId('kitchen-recipes-view-reference')).toHaveTextContent(
+            published.slug,
+        );
+        expect(screen.getByTestId('kitchen-recipes-view-field-versionCount')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipes-view-field-updatedBy')).toHaveTextContent(
+            /Rana Haddad/,
+        );
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
  * Creating
  * ---------------------------------------------------------------------------------------------- */
 
@@ -583,6 +820,10 @@ describe('creating a recipe', () => {
             repositories: {
                 kitchenAdmin: {
                     listIngredients: ingredientListing(() => LIBRARY),
+                    // The create form draws the handle the record is about to take. Stubbed
+                    // because it is a real read the screen makes; unstubbed it would reject and
+                    // the box would simply stay empty, which is the behaviour on a failed read.
+                    nextReference: async () => 'RC-0010',
                     createRecipe: async () => created,
                 },
             },
@@ -616,7 +857,10 @@ describe('creating a recipe', () => {
             name: { en: 'Smoked labneh with zaatar', ar: '' },
             description: { en: '', ar: '' },
             yieldQuantity: 1,
-            yieldUnit: 'portion',
+            // Kilograms, not portions. The Yield section fixes the unit — there is no control that
+            // changes it — so a draft that started in `portion` would open in a unit the form has
+            // no way to correct. `EMPTY_DETAILS` records the decision.
+            yieldUnit: 'kg',
             wastePercent: 0,
         });
         expect(created.currentVersion.versionNumber).toBe(1);
@@ -678,10 +922,20 @@ describe('versions', () => {
         );
 
         await untilVisible('kitchen-recipe-versions');
-        // Immutable: no way to add a line, and the one control offered is the successor draft.
+        // Immutable, and the one control offered is the successor draft.
         expect(screen.getByTestId('kitchen-recipe-immutable')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-recipe-lines-add')).toBeNull();
 
+        /*
+         * "No way to add a line" is now the *absence of the picker*, not a missing Add button. The
+         * table itself still draws — a published version is read, constantly — and what it withholds
+         * is the field that would append to it. `RecipeLineTable` renders the picker only when it
+         * may write, so this is the same claim against the control that replaced the button.
+         */
+        await openTab('production');
+        await untilVisible('kitchen-recipe-lines-table');
+        expect(screen.queryByTestId(LINE_PICKER_INPUT)).toBeNull();
+
+        await openTab('description');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-new-draft'));
         });
@@ -694,17 +948,16 @@ describe('versions', () => {
             });
         });
 
-        // The editor rebases onto the new version and becomes editable.
-        await untilVisible('kitchen-recipe-lines-add');
+        // The editor rebases onto the new version and becomes editable — the picker is back.
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
 
-        // A copy, not a blank: the whole point of opening a draft *from* a version. The count the
-        // editor renders is the copied line set, not a fresh one.
+        // A copy, not a blank: the whole point of opening a draft *from* a version. The rows the
+        // table draws are the copied line set, not a fresh one.
         expect(stored.currentVersion.versionNumber).toBe(publishedVersion.versionNumber + 1);
         expect(stored.currentVersion.lines).toHaveLength(publishedVersion.lines.length);
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-recipe-lines-count')).toHaveTextContent(
-                new RegExp(String(publishedVersion.lines.length)),
-            );
+            expect(screen.getAllByTestId(LINE_ROWS)).toHaveLength(publishedVersion.lines.length);
         });
     });
 
@@ -753,8 +1006,23 @@ describe('versions', () => {
  * The line editor
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * The line editor.
+ *
+ * Rewritten against `RecipeLineTable`, which replaced the row-editor list. Three of the controls
+ * these tests used to drive are gone by design and their coverage goes with them: **move up/down**,
+ * **undo a removal** and the **position announcer**. The design draws the table as a sheet — a
+ * picker, rows, a totals line — and the kitchen's own sheets carry no line order that means
+ * anything, so a reorder was a control protecting an order nobody reads. What is left is what the
+ * table can actually do, and it is all still asserted: add, remove, edit a quantity, and save the
+ * set wholesale in the order the table is showing.
+ *
+ * The **per-row unit control** went the same way. A line has to be convertible to the ingredient's
+ * own dimension or the roll-up cannot resolve it, so the unit follows the ingredient rather than
+ * being chosen; `RecipeLineTable`'s docblock is where that is argued.
+ */
 describe('the line editor', () => {
-    it('adds, removes, undoes and reorders, announcing where a row landed', async () => {
+    it('adds a line from the picker, removes one, and saves the set the table is showing', async () => {
         const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
         const seededCount = stored.currentVersion.lines.length;
 
@@ -771,92 +1039,55 @@ describe('the line editor', () => {
             },
         );
 
-        await untilVisible('kitchen-recipe-lines-add');
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
 
         // Two lines, because this test authored two.
         expect(seededCount).toBe(2);
-        expect(screen.getByTestId('kitchen-recipe-lines-count')).toHaveTextContent(
-            new RegExp(String(seededCount)),
-        );
+        expect(screen.getAllByTestId(LINE_ROWS)).toHaveLength(seededCount);
 
         // ── add ──────────────────────────────────────────────────────────────────────────────
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-add'));
-        });
-        const added = 'kitchen-recipe-lines-row-row-1';
+        await addLine(String(UNMAPPED_INGREDIENT.id));
+
+        const added = 'kitchen-recipe-lines-table-row-row-1';
         await untilVisible(added);
+        expect(screen.getAllByTestId(LINE_ROWS)).toHaveLength(seededCount + 1);
 
+        // A picked line starts at quantity 1 in the ingredient's own unit; this one is corrected.
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`${added}-ingredient-trigger`));
-        });
-        await untilVisible(`${added}-ingredient-list`);
-        await act(async () => {
-            fireEvent.press(
-                screen.getByTestId(`${added}-ingredient-option-${String(UNMAPPED_INGREDIENT.id)}`),
-            );
-        });
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId(`${added}-quantity-input`), '120');
+            fireEvent.changeText(screen.getByTestId(`${added}-qty`), '120');
         });
 
-        // ── move ─────────────────────────────────────────────────────────────────────────────
+        // ── remove ───────────────────────────────────────────────────────────────────────────
+        // The first seeded row goes, so the saved set proves the table sends what it draws rather
+        // than what it was loaded with.
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`${added}-move-up`));
+            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-table-row-line-0-remove'));
         });
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-recipe-lines-announcer')).toHaveTextContent(
-                new RegExp(
-                    `moved to position ${String(seededCount)} of ${String(seededCount + 1)}`,
-                ),
-            );
-        });
-        // The row kept its key across the move — the number beside it is its *position*, not its id.
-        expect(screen.getByTestId(`${added}-position`)).toHaveTextContent(
-            new RegExp(`Line ${String(seededCount)}$`),
-        );
-
-        // ── remove, then take it back ────────────────────────────────────────────────────────
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${added}-remove`));
-        });
-        expect(screen.queryByTestId(added)).toBeNull();
-        await untilVisible('kitchen-recipe-lines-undo');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-undo'));
-        });
-        await untilVisible(added);
-        // Restored to the position it was removed from, not appended to the end.
-        expect(screen.getByTestId(`${added}-position`)).toHaveTextContent(
-            new RegExp(`Line ${String(seededCount)}$`),
-        );
+        expect(screen.queryByTestId('kitchen-recipe-lines-table-row-line-0')).toBeNull();
+        expect(screen.getAllByTestId(LINE_ROWS)).toHaveLength(seededCount);
 
         // ── save ─────────────────────────────────────────────────────────────────────────────
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
 
-        // Wholesale, in the order the editor is showing, at the version it opened with: the added
-        // row sits second because that is where the move put it and where the undo restored it.
+        // Wholesale, in the order the table is showing, at the version the editor opened with: the
+        // surviving seeded line first, then the one that was added.
         await waitFor(() => {
             expect(repositories.kitchenAdmin.setRecipeLines).toHaveBeenCalledWith(stored.id, {
                 lockVersion: stored.meta.lockVersion,
                 lines: [
                     {
-                        ingredientId: MAPPED_INGREDIENT.id,
-                        quantity: 200,
+                        ingredientId: UNMAPPED_INGREDIENT.id,
+                        quantity: 30,
                         unit: 'g',
                         isOptional: false,
                     },
                     {
                         ingredientId: UNMAPPED_INGREDIENT.id,
                         quantity: 120,
-                        unit: 'g',
-                        isOptional: false,
-                    },
-                    {
-                        ingredientId: UNMAPPED_INGREDIENT.id,
-                        quantity: 30,
                         unit: 'g',
                         isOptional: false,
                     },
@@ -888,25 +1119,16 @@ describe('the line editor', () => {
             },
         );
 
-        await untilVisible('kitchen-recipe-lines-add');
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
 
         for (const key of ['row-1', 'row-2']) {
-            await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-recipe-lines-add'));
-            });
-            const row = `kitchen-recipe-lines-row-${key}`;
+            await addLine(String(MAPPED_INGREDIENT.id));
+            const row = `kitchen-recipe-lines-table-row-${key}`;
             await untilVisible(row);
             await act(async () => {
-                fireEvent.press(screen.getByTestId(`${row}-ingredient-trigger`));
-            });
-            await untilVisible(`${row}-ingredient-list`);
-            await act(async () => {
-                fireEvent.press(
-                    screen.getByTestId(`${row}-ingredient-option-${String(MAPPED_INGREDIENT.id)}`),
-                );
-            });
-            await act(async () => {
-                fireEvent.changeText(screen.getByTestId(`${row}-quantity-input`), '10');
+                fireEvent.changeText(screen.getByTestId(`${row}-qty`), '10');
             });
         }
 
@@ -914,8 +1136,9 @@ describe('the line editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
 
-        // The original plus the two just added: nothing was merged. A sheet that lists olive oil
-        // twice — once for the pan and once to finish — is describing two things.
+        // The original plus the two just added: nothing was merged, and picking the same row twice
+        // is not treated as a mistake. A sheet that lists olive oil twice — once for the pan and
+        // once to finish — is describing two things.
         await waitFor(() => {
             expect(repositories.kitchenAdmin.setRecipeLines).toHaveBeenCalled();
         });
@@ -931,8 +1154,23 @@ describe('the line editor', () => {
  * Outputs and steps
  * ---------------------------------------------------------------------------------------------- */
 
-describe('the outputs editor', () => {
-    it('refuses to save until exactly one output is the primary one', async () => {
+/**
+ * What used to be the outputs editor and the method editor.
+ *
+ * Both are gone from the screen, at the kitchen's request, and the editor's module note argues each:
+ * a formulation is its lines, and the ordered step list was a second place to say what the lines
+ * already say; outputs make a version's product stockable as an ingredient, which is a real and
+ * rare capability the design draws no editor for.
+ *
+ * The two tests that stood here drove controls that no longer exist. What replaces them is the
+ * claim their removal actually rests on, and the one that would be expensive to get wrong: a save
+ * writes **only the sections this screen edits**. `setRecipeSteps` and `setRecipeOutputs` are still
+ * on the contract and still wholesale, so a save that called either with what this form happens to
+ * hold would clear a version's method and its outputs — silently, on the first save of any recipe
+ * that had them.
+ */
+describe('the sections this screen no longer edits', () => {
+    it('never writes steps or outputs, so a save cannot clear them', async () => {
         const stored = recipe({ ordinal: 7, name: 'Pesto base' });
 
         const { repositories } = await renderStubScreen(
@@ -942,149 +1180,56 @@ describe('the outputs editor', () => {
                 repositories: {
                     kitchenAdmin: {
                         ...editorReads(() => stored),
-                        setRecipeOutputs: async () => stored,
+                        setRecipeLines: async () => stored,
+                        updateRecipe: async () => stored,
                     },
                 },
             },
         );
 
-        await untilVisible('kitchen-recipe-outputs-add');
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
 
-        for (const [key, entry] of [
-            ['row-1', UNMAPPED_INGREDIENT],
-            ['row-2', MAPPED_INGREDIENT],
-        ] as const) {
-            await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-recipe-outputs-add'));
-            });
-            const row = `kitchen-recipe-outputs-row-${key}`;
-            await untilVisible(row);
-            await act(async () => {
-                fireEvent.press(screen.getByTestId(`${row}-ingredient-trigger`));
-            });
-            await untilVisible(`${row}-ingredient-list`);
-            await act(async () => {
-                fireEvent.press(screen.getByTestId(`${row}-ingredient-option-${String(entry.id)}`));
-            });
-            await act(async () => {
-                fireEvent.changeText(screen.getByTestId(`${row}-quantity-input`), '500');
-            });
-        }
+        // Edit both sections the screen *does* own, so the save has real work to do and the
+        // absence below is a decision rather than a no-op.
+        await addLine(String(UNMAPPED_INGREDIENT.id));
+        await openTab('description');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Pesto');
+        });
 
-        // Two outputs and no primary: the field says so and the save is refused before it is sent.
-        await untilVisible('kitchen-recipe-outputs-primary-error');
-        expect(
-            screen.getByTestId('kitchen-recipe-editor-screen-save').props.accessibilityState
-                .disabled,
-        ).toBe(true);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setRecipeLines).toHaveBeenCalled();
+        });
+        expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalled();
+
+        // Not called at all — not called with the existing set, not called with an empty one. A
+        // section this screen does not edit is never in the set a save writes.
+        expect(repositories.kitchenAdmin.setRecipeSteps).not.toHaveBeenCalled();
         expect(repositories.kitchenAdmin.setRecipeOutputs).not.toHaveBeenCalled();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-outputs-primary-trigger'));
-        });
-        await untilVisible('kitchen-recipe-outputs-primary-list');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-outputs-primary-option-row-2'));
-        });
-
-        await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-recipe-outputs-primary-error')).toBeNull();
-        });
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
-        });
-
-        await waitFor(() => {
-            expect(repositories.kitchenAdmin.setRecipeOutputs).toHaveBeenCalledWith(stored.id, {
-                lockVersion: stored.meta.lockVersion,
-                outputs: [
-                    {
-                        ingredientId: UNMAPPED_INGREDIENT.id,
-                        quantity: 500,
-                        unit: 'g',
-                        isPrimary: false,
-                    },
-                    {
-                        ingredientId: MAPPED_INGREDIENT.id,
-                        quantity: 500,
-                        unit: 'g',
-                        isPrimary: true,
-                    },
-                ],
-            });
-        });
     });
-});
 
-describe('the method editor', () => {
-    it('writes a step in both languages and orders by position', async () => {
+    it('draws no method section and no outputs section', async () => {
         const stored = recipe({ ordinal: 8, name: 'Baba ghanoush' });
-        const seededSteps = stored.currentVersion.steps.length;
 
-        const { repositories } = await renderStubScreen(
-            <RecipeEditScreen recipe={String(stored.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        ...editorReads(() => stored),
-                        setRecipeSteps: async () => stored,
-                    },
-                },
-            },
-        );
-
-        await untilVisible('kitchen-recipe-steps-add');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-steps-add'));
-        });
-        const row = 'kitchen-recipe-steps-row-row-1';
-        await untilVisible(row);
-
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId(`${row}-instruction-en-input`),
-                'Rest for ten minutes.',
-            );
-        });
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId(`${row}-instruction-ar-input`),
-                'اتركه يرتاح عشر دقائق.',
-            );
-        });
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId(`${row}-minutes-input`), '10');
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
         });
 
-        // Each half writes in its own direction, whatever the interface does.
-        expect(screen.getByTestId(`${row}-instruction-en-input`).props.style).toEqual(
-            expect.objectContaining({ writingDirection: 'ltr' }),
-        );
-        expect(screen.getByTestId(`${row}-instruction-ar-input`).props.style).toEqual(
-            expect.objectContaining({ writingDirection: 'rtl' }),
-        );
+        await untilVisible('kitchen-recipe-editor-screen-header');
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
-        });
-
-        // Array order *is* step order — the contract says the server assigns the indices — so the
-        // new step travels last, in both languages, with its own duration.
-        await waitFor(() => {
-            expect(repositories.kitchenAdmin.setRecipeSteps).toHaveBeenCalledWith(stored.id, {
-                lockVersion: stored.meta.lockVersion,
-                steps: [
-                    {
-                        instruction: { en: 'Rest for ten minutes.', ar: 'اتركه يرتاح عشر دقائق.' },
-                        minutes: 10,
-                    },
-                ],
-            });
-        });
-        expect(seededSteps).toBe(0);
+        // Every tab, because "it is on another tab" is the one way this assertion could be wrong.
+        for (const tab of ['description', 'production', 'packaging', 'costing', 'sheet'] as const) {
+            await openTab(tab);
+            expect(screen.queryByTestId('kitchen-recipe-steps')).toBeNull();
+            expect(screen.queryByTestId('kitchen-recipe-outputs')).toBeNull();
+        }
     });
 });
 
@@ -1092,6 +1237,21 @@ describe('the method editor', () => {
  * The roll-up preview
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * The roll-up preview, which now surfaces on the Technical sheet tab.
+ *
+ * The dedicated panel these tests drove is gone: Composition renders through the shared
+ * `DerivedPanel` and the allergen classes render as `Tag`s beside it. The debounce policy did not
+ * change and is still the thing worth pinning — a quantity is a stream of intermediate values and
+ * waits; a structural change is a completed decision and does not.
+ *
+ * Two assertions did not survive, and neither was about the policy. The panel no longer *dims*
+ * while a request is in flight and no longer sets `aria-busy` — `DerivedPanel` takes figures and
+ * nothing else — and an allergen chip no longer expands to a source list, because the chip's own
+ * label names the line that put it there. `useRecipeRollupQuery`'s docblock still describes the
+ * dimming, which is now a promise about a panel that does not exist; the half that matters is kept
+ * below, and it is the half a kitchen would notice: the allergen list never flickers to empty.
+ */
 describe('the roll-up preview', () => {
     it('waits out a quantity being typed and refreshes at once when the structure changes', async () => {
         const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
@@ -1105,17 +1265,22 @@ describe('the roll-up preview', () => {
             },
         );
 
-        await untilVisible('kitchen-recipe-rollup-figures');
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+
         const preview = repositories.kitchenAdmin.previewRecipeRollup as jest.Mock;
+        await waitFor(() => {
+            expect(preview.mock.calls.length).toBeGreaterThan(0);
+        });
         const before = preview.mock.calls.length;
-        expect(before).toBeGreaterThan(0);
 
         jest.useFakeTimers();
 
         // A quantity is a stream of intermediate values; nothing is requested for any of them.
         await act(async () => {
             fireEvent.changeText(
-                screen.getByTestId('kitchen-recipe-lines-row-line-1-quantity-input'),
+                screen.getByTestId('kitchen-recipe-lines-table-row-line-1-qty'),
                 '333',
             );
         });
@@ -1126,19 +1291,24 @@ describe('the roll-up preview', () => {
         });
         expect(preview.mock.calls.length).toBe(before + 1);
 
-        // A unit change is a completed decision and is not made to wait.
+        /*
+         * Removing a line is a completed decision and is not made to wait.
+         *
+         * The structural half used to be a per-row unit change, which the table no longer offers —
+         * the unit follows the ingredient. A removal exercises the same branch for the same reason:
+         * `useDebouncedRollupDraft` keys its structure on the ingredient ids and their units, so a
+         * set that loses a member is a new structure and is applied during render rather than on a
+         * timer. Two seeded lines, so one survives and the draft stays runnable.
+         */
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-row-line-1-unit-trigger'));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-row-line-1-unit-option-kg'));
+            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-table-row-line-0-remove'));
         });
         expect(preview.mock.calls.length).toBe(before + 2);
 
         jest.useRealTimers();
     });
 
-    it('keeps the previous allergen list on screen, dimmed, while the next one is fetched', async () => {
+    it('keeps the previous allergen list on screen while the next one is fetched', async () => {
         const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
         // A closure the override reads, so the *next* answer can be held open mid-test — the
         // replacement for wrapping the fixture repository's method.
@@ -1160,30 +1330,34 @@ describe('the roll-up preview', () => {
             },
         });
 
-        await untilVisible('kitchen-recipe-rollup-allergens');
-        const figures = screen.getByTestId('kitchen-recipe-rollup-figures');
-        expect(figures.props['aria-busy']).toBe(false);
-        expect(screen.getByTestId('kitchen-recipe-rollup-allergen-gluten')).toBeTruthy();
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('sheet');
+        await untilVisible('kitchen-recipe-allergen-chips');
+        expect(screen.getByTestId('kitchen-recipe-allergen-gluten')).toBeTruthy();
 
         // Hold the *next* answer open, then make a structural edit so one is requested at once.
         hold = true;
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-row-line-1-unit-trigger'));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-row-line-1-unit-option-kg'));
+            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-table-row-line-0-remove'));
         });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-recipe-rollup-spinner')).toBeTruthy();
-        });
-        // The figures are dimmed and marked busy — and the allergen list is *still there*.
-        expect(screen.getByTestId('kitchen-recipe-rollup-figures').props['aria-busy']).toBe(true);
-        expect(screen.getByTestId('kitchen-recipe-rollup-allergen-gluten')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-recipe-rollup-allergens-none')).toBeNull();
+        await openTab('sheet');
+
+        /*
+         * Still there, and still the previous answer.
+         *
+         * `keepPreviousData` is what does it, and this is the one thing on the screen that must
+         * never flicker to empty: "no allergens" and "not known yet" are the two states a kitchen
+         * most needs told apart, and a panel that blanked between requests would show the first
+         * while meaning the second.
+         */
+        expect(screen.getByTestId('kitchen-recipe-allergen-gluten')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipe-allergens-none')).toBeNull();
     });
 
-    it('expands an allergen to the lines that put it there', async () => {
+    it('names the line that put an allergen on the sheet, on the chip itself', async () => {
         const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
 
         await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
@@ -1191,21 +1365,22 @@ describe('the roll-up preview', () => {
             repositories: { kitchenAdmin: editorReads(() => stored) },
         });
 
-        await untilVisible('kitchen-recipe-rollup-allergens');
-        const chip = 'kitchen-recipe-rollup-allergen-gluten';
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('sheet');
+        await untilVisible('kitchen-recipe-allergen-chips');
 
-        expect(screen.queryByTestId(`${chip}-sources`)).toBeNull();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${chip}-chip`));
+        /*
+         * Named on the chip, not behind a press.
+         *
+         * The old panel hid the sources under an expander. A derived label is only trustworthy if a
+         * reader can see what derived it, and one press away is far enough that most never look —
+         * so the ingredient's name is in the label and the expander is gone.
+         */
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-recipe-allergen-gluten')).toHaveTextContent(
+                new RegExp(MAPPED_INGREDIENT.name.en),
+            );
         });
-
-        await untilVisible(`${chip}-sources`);
-        // Named, not just counted: the ingredient the authored preview blamed.
-        expect(screen.getByTestId(`${chip}-sources`)).toHaveTextContent(/from:/);
-        expect(screen.getByTestId(`${chip}-sources`)).toHaveTextContent(
-            new RegExp(MAPPED_INGREDIENT.name.en),
-        );
     });
 });
 
@@ -1287,8 +1462,10 @@ describe('publishing', () => {
         // control left is the successor draft.
         await untilVisible('kitchen-recipe-immutable');
         await waitFor(() => {
+            // "Live", not "Published": the editor's header badge takes the Catalogue's short status
+            // vocabulary, the same one its lists use.
             expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
-                /Published/,
+                /Live/,
             );
         });
     });
@@ -1356,8 +1533,9 @@ describe('publishing', () => {
         );
 
         await untilVisible('kitchen-recipe-quarantine');
+        // "Review" on the short vocabulary; the Callout beside it is what says the rest.
         expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
-            /Awaiting review/,
+            /Review/,
         );
 
         await act(async () => {
@@ -1413,7 +1591,7 @@ describe('safety', () => {
             },
         );
 
-        await untilVisible('kitchen-recipe-lines-add');
+        await untilVisible('kitchen-recipe-name-en-input');
 
         // Somebody else saves the same recipe. The editor is now holding a superseded version —
         // exactly the state `If-Match` exists to detect.
@@ -1455,13 +1633,17 @@ describe('safety', () => {
             repositories: { kitchenAdmin: editorReads(() => stored) },
         });
 
-        await untilVisible('kitchen-recipe-lines-add');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-lines-add'));
-        });
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+        // An unsaved *line*, specifically: the guard has to fire for a section the header's own
+        // fields know nothing about, which is exactly the edit a person is most likely to lose.
+        await addLine(String(UNMAPPED_INGREDIENT.id));
 
+        // Discard is the way out now — the header is the design's Discard · Save draft · Publish,
+        // and Back went with the two-pane frame. It routes through the same guard.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-back'));
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-discard'));
         });
 
         await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');

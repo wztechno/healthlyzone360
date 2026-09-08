@@ -302,6 +302,23 @@ export const queryKeys = {
         serviceAreas: (filter?: QueryScope) =>
             ['kitchenAdmin', 'service-areas', scope(filter)] as const,
 
+        /**
+         * The category tree. Outside the `ingredients` prefix on purpose: it is a vocabulary, not
+         * a page of the collection, and an ingredient write that invalidates every ingredient
+         * query has no reason to throw away a tree that did not change.
+         */
+        ingredientCategories: () => ['kitchenAdmin', 'ingredient-categories'] as const,
+
+        /**
+         * The next handle in one series — what a create form draws before it saves.
+         *
+         * Keyed by series, and deliberately outside every collection prefix: it is not a page of
+         * ingredients or recipes, and it must go stale when one is *created* rather than when one
+         * is edited. The create hooks invalidate it by this prefix.
+         */
+        nextReference: (prefix: string) => ['kitchenAdmin', 'next-reference', prefix] as const,
+
+
         ingredients: (filter?: QueryScope) =>
             ['kitchenAdmin', 'ingredients', scope(filter)] as const,
         /**

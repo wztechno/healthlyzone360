@@ -5,7 +5,6 @@ import { View } from 'react-native';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { cx } from '../internal/class-names.ts';
 import {
-    CARD_TRACK,
     GRID_GAP,
     RESPONSIVE_COLUMNS,
     fieldWidth,
@@ -70,22 +69,8 @@ function GridBase({
     );
 }
 
-export function Grid(props: GridProps) {
-    return <GridBase {...props} trackWidth={fieldWidth} />;
-}
-
 /** FormGrid — `sm: 1 · md: 2 · lg+: 3`, and 280px at every one of them. */
 export function FormGrid(props: GridProps) {
     return <GridBase {...props} trackWidth={fieldWidth} />;
 }
 
-/**
- * CardGrid — cards take the track's *maximum*.
- *
- * `minmax(200, 260)` has no native equivalent, and of the two ends the ceiling is the one that
- * matters: the floor exists on the web only to stop a track collapsing when the row is short of
- * space, a situation flex-wrap resolves by wrapping instead.
- */
-export function CardGrid(props: GridProps) {
-    return <GridBase {...props} trackWidth={CARD_TRACK.max} />;
-}

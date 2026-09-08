@@ -372,12 +372,21 @@ export type AdminIngredient = {
      */
     organisation_id: Uuid | null;
     /**
-     * Whether this is a platform-library row. On the wire so a client
-     * knows not to offer an edit control, rather than discovering it
-     * from a 403.
+     * Whether this is a platform-library row — which library it is in,
+     * and nothing more. Read `is_editable` before drawing an edit
+     * control: a platform row is editable by the platform operator and
+     * read-only to every kitchen, so the two answers differ by caller.
      *
      */
     is_platform: boolean;
+    /**
+     * Whether **this caller** may write this row, so a client never
+     * offers a control that 403s. True for a caller's own rows, and for
+     * platform-library rows when the selected organisation is the
+     * platform operator.
+     *
+     */
+    is_editable: boolean;
     slug: string;
     name_en: string;
     /**
@@ -405,6 +414,41 @@ export type AdminIngredient = {
     items_per_unit?: string | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
     /**
+     * Trade list price in major currency units, as a six-place decimal
+     * string so no client rounds it. A list price on the article — not
+     * a cost (that is org-specific and lives in the inventory valuation
+     * tables) and not a channel tariff (that is a price list).
+     *
+     */
+    b2b_price_amount?: string | null;
+    /**
+     * Consumer list price, same units and shape as `b2b_price_amount`.
+     */
+    b2c_price_amount?: string | null;
+    /**
+     * List price of one stock unit, same units and shape as
+     * `b2b_price_amount`. Still a list price and still not a cost: what a
+     * kitchen actually paid moves with every receipt and lives in the
+     * inventory valuation tables.
+     *
+     */
+    unit_price_amount?: string | null;
+    /**
+     * ISO 4217 code all three amounts are quoted in. Never null while any
+     * of them is set — a monetary value without its currency is not a
+     * monetary value.
+     *
+     */
+    price_currency_code?: string | null;
+    /**
+     * Offered for sale as-is, outside recipes. Distinct from
+     * `availability_tier`, which describes how hard the ingredient is to
+     * source rather than whether it is on sale. Defaults to false: an
+     * ingredient is a raw material until somebody says otherwise.
+     *
+     */
+    is_sellable?: boolean;
+    /**
      * Decimal with four places, as a string so no client rounds it.
      */
     yield_factor: string;
@@ -421,6 +465,20 @@ export type AdminIngredient = {
     lock_version: number;
     created_at?: string | null;
     updated_at?: string | null;
+    /**
+     * The allergen mappings visible to this caller — the platform
+     * baseline, plus the caller's own overlay in a tenant context. Both
+     * layers, each labelled, for the reason the dedicated sub-resource
+     * gives: a list showing only the overlay would let a kitchen believe
+     * an ingredient carries no allergens when the baseline says milk.
+     *
+     * Present on the collection and the single resource. An empty array
+     * means "none declared"; the property being absent means the
+     * endpoint did not load them, and a client must not render the
+     * second as the first.
+     *
+     */
+    allergens?: Array<IngredientAllergenMapping>;
 };
 
 export type IngredientEnvelope = {
@@ -524,6 +582,26 @@ export type CreateIngredientRequest = {
     composition?: string | null;
     items_per_unit?: number | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
+    /**
+     * Trade list price in major currency units. Requires `price_currency_code`.
+     */
+    b2b_price_amount?: number | null;
+    /**
+     * Consumer list price in major currency units. Requires `price_currency_code`.
+     */
+    b2c_price_amount?: number | null;
+    /**
+     * List price of one stock unit, in major currency units. Requires `price_currency_code`.
+     */
+    unit_price_amount?: number | null;
+    /**
+     * ISO 4217 code. Required whenever any amount is sent.
+     */
+    price_currency_code?: string | null;
+    /**
+     * Offered for sale as-is, outside recipes.
+     */
+    is_sellable?: boolean;
     yield_factor?: number;
     availability_tier?: AvailabilityTier;
     notes?: string | null;
@@ -545,6 +623,26 @@ export type UpdateIngredientRequest = {
     composition?: string | null;
     items_per_unit?: number | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
+    /**
+     * Trade list price in major currency units. Requires `price_currency_code`.
+     */
+    b2b_price_amount?: number | null;
+    /**
+     * Consumer list price in major currency units. Requires `price_currency_code`.
+     */
+    b2c_price_amount?: number | null;
+    /**
+     * List price of one stock unit, in major currency units. Requires `price_currency_code`.
+     */
+    unit_price_amount?: number | null;
+    /**
+     * ISO 4217 code. Required whenever any amount is sent.
+     */
+    price_currency_code?: string | null;
+    /**
+     * Offered for sale as-is, outside recipes.
+     */
+    is_sellable?: boolean;
     yield_factor?: number;
     availability_tier?: AvailabilityTier;
     notes?: string | null;
@@ -718,6 +816,26 @@ export type AdminRecipeVersion = {
      *
      */
     waste_coefficient_percent: string;
+    /**
+     * Trade list price for one unit of the yield, in **major** currency
+     * units, as a string so no client rounds it. A list price and not a
+     * cost: what the version is offered at to a kitchen or corporate
+     * buyer, rather than what its inputs cost to buy.
+     *
+     */
+    b2b_price_amount?: string | null;
+    /**
+     * Consumer list price for one unit of the yield — the counterpart to
+     * `b2b_price_amount`, quoted in the same currency.
+     *
+     */
+    b2c_price_amount?: string | null;
+    /**
+     * One currency for both amounts. A version quoted in two currencies
+     * is a price list, not a column.
+     *
+     */
+    price_currency_code?: CurrencyCode | null;
     derivation_state: DerivationState;
     derived_at?: string | null;
     published_at?: string | null;
@@ -1036,6 +1154,23 @@ export type UpdateRecipeVersionRequest = {
     yield_piece_count?: number | null;
     input_quantity_total?: number | null;
     waste_coefficient_percent?: number;
+    /**
+     * Trade list price per unit of yield, in **major** currency units.
+     * Zero is a real price — a staff meal, a component carried at cost —
+     * and `null` is how a price is cleared, which is a different act.
+     *
+     */
+    b2b_price_amount?: number | null;
+    /**
+     * Consumer list price per unit of yield, in **major** currency units.
+     */
+    b2c_price_amount?: number | null;
+    /**
+     * Required alongside either amount: a monetary value without its
+     * currency is not a monetary value (§4.4).
+     *
+     */
+    price_currency_code?: CurrencyCode | null;
     notes?: string | null;
 };
 
@@ -13039,6 +13174,22 @@ export type ListIngredientsData = {
          * Restrict to one category or sub-category identifier.
          */
         category?: Uuid;
+        /**
+         * Drop a whole branch — the named category and everything filed
+         * under it — from the answer.
+         *
+         * The case it exists for is packaging. Bags, lids and cutlery are
+         * ingredient rows, and have to be: a recipe cannot cost the box its
+         * meal ships in unless the box is a record. They are not raw
+         * materials though, so the ingredient list excludes
+         * `packaging-disposables` and the packaging list asks for it with
+         * `category`. One collection, two pages, read from opposite ends.
+         *
+         * Applied before the count, so a filtered list reports the number of
+         * rows it is actually showing.
+         *
+         */
+        exclude_category?: Uuid;
     };
     url: '/catalogue/ingredients';
 };
@@ -13396,6 +13547,76 @@ export type ArchiveIngredientResponses = {
 };
 
 export type ArchiveIngredientResponse = ArchiveIngredientResponses[keyof ArchiveIngredientResponses];
+
+export type ForkIngredientData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/fork';
+};
+
+export type ForkIngredientErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ForkIngredientError = ForkIngredientErrors[keyof ForkIngredientErrors];
+
+export type ForkIngredientResponses = {
+    /**
+     * The fork this kitchen already had.
+     */
+    200: IngredientEnvelope;
+    /**
+     * The newly created fork.
+     */
+    201: IngredientEnvelope;
+};
+
+export type ForkIngredientResponse = ForkIngredientResponses[keyof ForkIngredientResponses];
 
 export type ListIngredientAllergensData = {
     body?: never;

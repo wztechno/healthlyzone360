@@ -4,7 +4,6 @@ import type { Page } from '@playwright/test';
 import {
     APP_URL,
     KITCHEN_OWNER,
-    openListFilters,
     probeStack,
     selectVerdantKitchenContext,
     signIn,
@@ -75,6 +74,11 @@ async function openFirstIngredient(page: Page) {
     await openKitchen(page);
     await page.getByTestId('kitchen-family-ingredients-open').click();
     await expect(page.getByTestId('kitchen-ingredients-table')).toBeVisible();
+    // The row's Edit lives in the `⋯` menu now (handoff §4.1). Same id, one click earlier.
+    await page
+        .locator('[data-testid^="kitchen-ingredients-table-row-"][data-testid$="-actions-trigger"]')
+        .first()
+        .click();
     await page
         .locator('[data-testid^="kitchen-ingredient-"][data-testid$="-open"]')
         .first()
@@ -110,9 +114,12 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await openKitchen(page);
         await page.getByTestId('kitchen-family-ingredients-open').click();
 
-        await expect(page.getByTestId('kitchen-ingredients-title')).toContainText(ARABIC_SCRIPT);
-        await openListFilters(page, 'kitchen-ingredients-toolbar');
-        await expect(page.getByTestId('kitchen-ingredients-toolbar-status-label')).toContainText(
+        // The screen's own name, which the breadcrumb now carries: the list dropped its page
+        // title, because a heading that repeats the trail directly above it is a wasted row.
+        await expect(page.getByTestId('kitchen-breadcrumbs')).toContainText(ARABIC_SCRIPT);
+        // The status filter is on the row now, not in the disclosure: the panel behind Filters
+        // holds only the category select, and the segmented set is what a reader presses.
+        await expect(page.getByTestId('kitchen-ingredients-toolbar-status-segments')).toContainText(
             ARABIC_SCRIPT,
         );
         await expect(page.getByTestId('kitchen-ingredients-toolbar-create')).toContainText(
@@ -178,7 +185,11 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await page.getByTestId('kitchen-family-products-open').click();
         await expect(page.getByTestId('kitchen-products-table')).toBeVisible();
 
-        await expect(page.getByTestId('kitchen-products-title')).toContainText(ARABIC_SCRIPT);
+        /*
+         * The page's own 16px title is gone — the Catalogue's header is the actions row, because
+         * the shell's trail already ends in "Products" (§4.1). So the Arabic assertion moves onto
+         * the column header, which is the first translated string the list draws for itself.
+         */
         await expect(page.getByTestId('kitchen-products-table-columnheader-name')).toContainText(
             ARABIC_SCRIPT,
         );
@@ -242,7 +253,8 @@ test.describe('kitchen workspace (ar, RTL)', () => {
         await page.getByTestId('kitchen-family-meals-open').click();
         await expect(page.getByTestId('kitchen-meals-table')).toBeVisible();
 
-        await expect(page.getByTestId('kitchen-meals-title')).toContainText(ARABIC_SCRIPT);
+        // Same as the product list: no page title of its own any more, so the primary action is
+        // what carries the Arabic assertion here.
         await expect(page.getByTestId('kitchen-meals-toolbar-create')).toContainText(ARABIC_SCRIPT);
 
         await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-open"]').first().click();

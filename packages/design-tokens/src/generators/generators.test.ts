@@ -146,9 +146,27 @@ describe('renderTailwindPreset', () => {
         expect(preset.theme.extend.minWidth.touch).toBe('44px');
     });
 
-    it('carries no coarse-pointer control ladder', () => {
-        expect(preset.theme.extend.minHeight).not.toHaveProperty('control-md');
-        expect(preset.theme.extend.minHeight).not.toHaveProperty('row-md');
+    /**
+     * `min-h-control-*` and `min-h-row-*` are the ladder as a *floor*, for a box that must clear the
+     * control height but may grow past it — a dropdown option is one line at 28px and two when it
+     * carries a description, which `h-control-sm` would clip.
+     *
+     * What was retired is the *coarse-pointer* ladder: `controlHeightTouch` and `rowHeightTouch`,
+     * which existed only to hold 44px up while the brief asked for 32. So the invariant is about
+     * the value, not the key — these minimums must be the ladder's own, and 44px must reach the
+     * preset only through `touch`, which the customer surfaces still apply.
+     */
+    it('floors the control ladder at its own heights, never at the touch target', () => {
+        expect(preset.theme.extend.minHeight['control-md']).toBe('32px');
+        expect(preset.theme.extend.minHeight['row-md']).toBe('32px');
+
+        const laddered = Object.entries(preset.theme.extend.minHeight).filter(
+            ([key]) => key !== 'touch',
+        );
+        expect(laddered).not.toHaveLength(0);
+        for (const [, value] of laddered) {
+            expect(value).not.toBe('44px');
+        }
     });
 
     it('prefixes the Catalogue ramp so it cannot shadow the numeric scale', () => {

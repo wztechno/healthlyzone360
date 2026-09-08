@@ -83,11 +83,25 @@ async function openIngredients(page: Page) {
 
 async function openFirstIngredient(page: Page) {
     await openIngredients(page);
+    await openFirstRowMenu(page);
     await page
         .locator('[data-testid^="kitchen-ingredient-"][data-testid$="-open"]')
         .first()
         .click();
     await expect(page.getByTestId('kitchen-ingredient-editor-screen')).toBeVisible();
+}
+
+/**
+ * Open the first ingredient row's `⋯` menu.
+ *
+ * The row's actions moved into one overflow menu (handoff §4.1). Their ids are unchanged — they are
+ * simply behind a trigger now, so every path that used to click one clicks this first.
+ */
+async function openFirstRowMenu(page: Page) {
+    await page
+        .locator('[data-testid^="kitchen-ingredients-table-row-"][data-testid$="-actions-trigger"]')
+        .first()
+        .click();
 }
 
 async function openProducts(page: Page) {
@@ -224,7 +238,8 @@ test.describe('kitchen workspace accessibility (axe)', () => {
 
     test('the ingredient list with its searchable category filter open', async ({ page }) => {
         await openIngredients(page);
-        await openListFilters(page, 'kitchen-ingredients-toolbar');
+        // The Filters disclosure is gone: the toolbar is one row (handoff §4.1) and the category
+        // select sits on it directly, so the trigger is reached without opening a panel first.
         await page.getByTestId('kitchen-ingredients-toolbar-category-trigger').click();
         await expect(page.getByTestId('kitchen-ingredients-toolbar-category-list')).toBeVisible();
         await expectNoSeriousViolations(page, 'kitchen-ingredients-category-select');
@@ -232,6 +247,7 @@ test.describe('kitchen workspace accessibility (axe)', () => {
 
     test('the archive confirmation, which is a dialog in its own right', async ({ page }) => {
         await openIngredients(page);
+        await openFirstRowMenu(page);
         await page
             .locator('[data-testid^="kitchen-ingredient-"][data-testid$="-archive"]')
             .first()
@@ -347,7 +363,9 @@ test.describe('kitchen workspace accessibility (axe)', () => {
         page,
     }) => {
         await openMeals(page);
-        await openListFilters(page, 'kitchen-meals-toolbar');
+        // The Filters disclosure is gone: the meal list is a Catalogue list now (handoff §4.1) and
+        // the status set is a segmented control on the one toolbar row, reached without opening a
+        // panel first.
         await page.getByTestId('kitchen-meals-toolbar-status-draft').click();
         await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-open"]').first().click();
         await expect(page.getByTestId('kitchen-meal-editor-screen')).toBeVisible();

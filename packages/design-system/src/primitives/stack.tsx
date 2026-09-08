@@ -58,6 +58,21 @@ export interface StackProps extends Omit<ViewProps, 'className' | 'style'> {
     readonly testID?: string | undefined;
 }
 
+/*
+ * `z-auto` on both, and it is load-bearing rather than tidying.
+ *
+ * React Native Web's base `View` style carries `position: relative; z-index: 0`, so **every View is
+ * a stacking context**. That makes a layout primitive silently decide painting order for everything
+ * inside it: a `Select`'s anchored dropdown, opened in one `Stack`, painted *under* the next
+ * `Stack` down the page no matter how high the panel's own z-index went, because the two Stacks were
+ * being compared and the later one won.
+ *
+ * A row and a column have no opinion about depth. Opting out lets an overlay compete where it
+ * should — against its ancestors' siblings — and changes nothing else: `auto` keeps document order,
+ * which is what a stack of z-0 boxes was already doing.
+ */
+const LAYER_CLASS = 'z-auto';
+
 export function Stack({
     space = 'md',
     align,
@@ -71,6 +86,7 @@ export function Stack({
         <View
             {...rest}
             className={cx(
+                LAYER_CLASS,
                 'flex-col',
                 GAP_CLASS[space],
                 align === undefined ? null : ALIGN_ITEMS_CLASS[align],
@@ -103,6 +119,7 @@ export function Inline({
         <View
             {...rest}
             className={cx(
+                LAYER_CLASS,
                 'flex-row',
                 wrap ? 'flex-wrap' : 'flex-nowrap',
                 GAP_CLASS[space],

@@ -77,10 +77,9 @@ export type {
  * different mechanisms — a CSS grid against a wrapping flex row with fixed-width children.
  * `grid-shared.ts` carries the geometry both halves agree on.
  */
-export { CardGrid, FormGrid, Grid } from './primitives/grid';
+export { FormGrid } from './primitives/grid';
 export type { GridColumnCount, GridProps, GridSpanProps } from './primitives/grid-shared.ts';
 export {
-    CARD_TRACK,
     GRID_COLUMNS,
     GRID_GAP,
     RESPONSIVE_COLUMNS,
@@ -129,9 +128,12 @@ export type {
     PickedFile,
 } from './forms/file-upload-field.tsx';
 export { Checkbox } from './forms/checkbox.tsx';
+
+export { Switch } from './forms/switch.tsx';
+export type { SwitchProps } from './forms/switch.tsx';
 export type { CheckboxProps } from './forms/checkbox.tsx';
-export { Select } from './forms/select.tsx';
-export type { SelectOption, SelectProps } from './forms/select.tsx';
+export { Select } from './forms/select';
+export type { SelectOption, SelectProps } from './forms/select-shared.ts';
 export { NumberStepper, clampToStep } from './forms/number-stepper.tsx';
 export type { NumberStepperProps } from './forms/number-stepper.tsx';
 export { RangeFilter, isInvertedRange } from './forms/range-filter.tsx';
@@ -232,8 +234,6 @@ export type { MeterBarProps, ProgressRingProps, ProgressRingSize } from './data/
 export { RATING_SIZES, RATING_VARIANTS, Rating } from './data/rating.tsx';
 export type { RatingProps, RatingSize, RatingVariant } from './data/rating.tsx';
 
-export { BANNER_TONES, InlineBanner } from './status/inline-banner.tsx';
-export type { BannerTone, InlineBannerProps } from './status/inline-banner.tsx';
 export { SPINNER_SIZES, Spinner } from './status/spinner.tsx';
 export type { SpinnerProps, SpinnerSize } from './status/spinner.tsx';
 export { SKELETON_VARIANTS, Skeleton } from './status/skeleton.tsx';
@@ -260,8 +260,6 @@ export type {
 } from './overlays/dropdown.tsx';
 export { Menu } from './overlays/menu.tsx';
 export type { MenuItem, MenuProps, MenuSection } from './overlays/menu.tsx';
-export { ConfirmationDialog } from './overlays/confirmation-dialog.tsx';
-export type { ConfirmationDialogProps } from './overlays/confirmation-dialog.tsx';
 export { Dialog } from './overlays/dialog.tsx';
 export type { DialogProps } from './overlays/dialog.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';

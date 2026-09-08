@@ -52,3 +52,6 @@ design_handoff_wellness_green/**/assets/
 # `> nul` is a cmd.exe redirect. Run under bash — which is what the Bash tool and most
 # scripts here use — it writes a real file instead of discarding the output.
 nul
+
+# Saved browser session for e2e/screenshot.mjs — never commit.
+apps/universal/e2e/.auth/

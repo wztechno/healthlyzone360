@@ -18,6 +18,7 @@ import type {
 import { AllergenCode, KitchenId, MealId, ProductId, RoleId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { Dimensions } from 'react-native';
 
 import {
     ORGANISATION_OWNER_PERMISSIONS,
@@ -170,6 +171,7 @@ function product({ ordinal, name, overrides = {} }: ProductSeed): ProductAdmin {
         description: { en: 'A jar of it.', ar: 'برطمان منه.' },
         categoryCode: 'store-cupboard',
         itemType: 'product',
+        reference: null,
         kitchenCategory: null,
         kitchenSubcategory: null,
         composition: null,
@@ -402,7 +404,37 @@ describe('catalogue display helpers', () => {
  * The product list
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * Both lists are desk surfaces, and above `md` the Catalogue draws a record as tracks rather than
+ * as the two-line row it falls back to below it (§4.1). The two are different trees with different
+ * element counts — the branch is JavaScript, not a class variant — so a column assertion is only
+ * meaningful once the window is wide enough to draw columns.
+ *
+ * `Dimensions.set` rather than a mocked `useBreakpoint`: the branch reads the real window, and a
+ * test that stubbed the hook would prove the stub. React Native's Jest default window is 750px,
+ * eighteen short of the 768 `md` asks for, which is why this is needed at all. The narrow default
+ * is captured up front and put back afterwards, so the editor blocks below keep the phone shape
+ * they were written against.
+ */
+function atDeskWidth() {
+    const narrowWindow = Dimensions.get('window');
+    const narrowScreen = Dimensions.get('screen');
+
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...narrowWindow, width: 1440, height: 900 },
+            screen: { ...narrowScreen, width: 1440, height: 900 },
+        });
+    });
+
+    afterAll(() => {
+        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+    });
+}
+
 describe('the product list', () => {
+    atDeskWidth();
+
     it('renders skeletons, then the authored rows with their packs, channels and status', async () => {
         const row = product({ ordinal: 1, name: 'Pomegranate molasses' });
 
@@ -446,6 +478,94 @@ describe('the product list', () => {
         expect(screen.getByTestId(`${base}-open`)).toBeTruthy();
         expect(screen.getByTestId(`${base}-archive`)).toBeTruthy();
         expect(screen.queryByTestId(`${base}-publish`)).toBeNull();
+    });
+
+    it('opens the four figures with two of them wired to a filter', async () => {
+        await renderStubScreen(<ProductsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listProducts: productListing(() => [
+                        product({ ordinal: 1, name: 'Pomegranate molasses' }),
+                        product({
+                            ordinal: 2,
+                            name: 'Tahini',
+                            overrides: { meta: meta({ status: 'published' }) },
+                        }),
+                        product({ ordinal: 3, name: 'Sumac', overrides: { packVariants: [] } }),
+                    ]),
+                },
+            },
+        });
+        await untilVisible('kitchen-products-table');
+
+        // Three rows, one of them still draft — and one with no pack at all, which is the figure
+        // this family gets in the slot the ingredient list spends on Uncosted.
+        expect(screen.getByTestId('kitchen-products-stats-shown-value')).toHaveTextContent('3');
+        expect(screen.getByTestId('kitchen-products-stats-draft-value')).toHaveTextContent('2');
+        expect(screen.getByTestId('kitchen-products-stats-noPack-value')).toHaveTextContent('1');
+
+        // Draft is a filter, not a read-out: pressing it narrows the list the card counts.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-products-stats-draft'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-products-stats-shown-value')).toHaveTextContent('2');
+        });
+    });
+
+    it('archives a row at the version the list was showing, and says so', async () => {
+        const row = product({ ordinal: 1, name: 'Pomegranate molasses' });
+        const archived = { ...row, meta: meta({ status: 'retired', lockVersion: 2 }) };
+
+        const { repositories } = await renderStubScreen(<ProductsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listProducts: productListing(() => [row]),
+                    archiveProduct: async () => archived,
+                },
+            },
+        });
+        await untilVisible('kitchen-products-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-product-${String(row.id)}-archive`));
+        });
+
+        await untilVisible('kitchen-products-archive-dialog');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-products-archive-confirm'));
+        });
+
+        await untilVisible('kitchen-products-archived-toast');
+        // The version the row was rendered at, not one the client invented — an archive based on a
+        // stale record is what optimistic locking exists to refuse.
+        expect(repositories.kitchenAdmin.archiveProduct).toHaveBeenCalledWith(row.id, {
+            lockVersion: row.meta.lockVersion,
+        });
+    });
+
+    it('reads a record in the View panel without loading the editor', async () => {
+        const row = product({ ordinal: 1, name: 'Pomegranate molasses' });
+
+        await renderStubScreen(<ProductsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listProducts: productListing(() => [row]) } },
+        });
+        await untilVisible('kitchen-products-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-product-${String(row.id)}-view`));
+        });
+
+        // Every field is read off the record the list already holds, so no second read is made and
+        // nothing routes away from the list.
+        await untilVisible('kitchen-products-view-field-defaultPack');
+        expect(screen.getByTestId('kitchen-products-view-field-packs')).toHaveTextContent(/2/);
+        expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {
@@ -502,6 +622,8 @@ describe('the product list', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the meal list', () => {
+    atDeskWidth();
+
     it('renders skeletons, then the authored rows with their label and publication state', async () => {
         const row = meal({
             ordinal: 1,
@@ -521,10 +643,38 @@ describe('the meal list', () => {
         const base = `kitchen-meal-${String(row.id)}`;
         expect(screen.getByTestId(`${base}-name`)).toBeTruthy();
         expect(screen.getByTestId(`${base}-meal-types`)).toBeTruthy();
-        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Published/);
-        // A published meal says what publication *means* rather than leaving the badge to imply it.
-        expect(screen.getByTestId(`${base}-visible`)).toHaveTextContent(/customers/i);
+        // "Live", not "Published": the Catalogue's status badges take the short vocabulary every
+        // one of its lists uses, so a kitchen reads the same word down every column.
+        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Live/);
         expect(screen.getByTestId(`${base}-updated`)).toBeTruthy();
+    });
+
+    it('states what publication means in the View panel, where a record is read one at a time', async () => {
+        const row = meal({
+            ordinal: 1,
+            name: 'Freekeh bowl',
+            overrides: { meta: meta({ status: 'published' }) },
+        });
+
+        await renderStubScreen(<MealsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listMeals: mealListing(() => [row]) } },
+        });
+        await untilVisible('kitchen-meals-table');
+
+        /*
+         * The row used to carry this as a caption under its status badge. A 28px Catalogue row has
+         * one line, and a sentence that reads the same on every published row is not what it is
+         * worth spending — so the statement moved into the panel, and this is where it is asserted.
+         */
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-meal-${String(row.id)}-view`));
+        });
+
+        await untilVisible('kitchen-meals-view-field-visible');
+        expect(screen.getByTestId('kitchen-meals-view-field-visible')).toHaveTextContent(
+            /customers/i,
+        );
     });
 
     it('offers withdraw rather than archive, because retiring is the archive here', async () => {
@@ -539,6 +689,69 @@ describe('the meal list', () => {
         const base = `kitchen-meal-${String(row.id)}`;
         expect(screen.getByTestId(`${base}-retire`)).toBeTruthy();
         expect(screen.queryByTestId(`${base}-archive`)).toBeNull();
+    });
+
+    it('counts what is live, and pressing that card narrows the list to it', async () => {
+        await renderStubScreen(<MealsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listMeals: mealListing(() => [
+                        meal({
+                            ordinal: 1,
+                            name: 'Freekeh bowl',
+                            overrides: { meta: meta({ status: 'published' }) },
+                        }),
+                        meal({ ordinal: 2, name: 'Lentil soup' }),
+                    ]),
+                },
+            },
+        });
+        await untilVisible('kitchen-meals-table');
+
+        // Live is second here rather than the ingredient list's Uncosted, because publication is
+        // what this catalogue is for: one of these two dishes is on the menu right now.
+        expect(screen.getByTestId('kitchen-meals-stats-live-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-meals-stats-draft-value')).toHaveTextContent('1');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-stats-live'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-meals-stats-shown-value')).toHaveTextContent('1');
+        });
+    });
+
+    it('withdraws a published meal at the version the list was showing', async () => {
+        const row = meal({ ordinal: 1, overrides: { meta: meta({ status: 'published' }) } });
+        const withdrawn = { ...row, meta: meta({ status: 'retired', lockVersion: 2 }) };
+
+        const { repositories } = await renderStubScreen(<MealsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listMeals: mealListing(() => [row]),
+                    retireMeal: async () => withdrawn,
+                },
+            },
+        });
+        await untilVisible('kitchen-meals-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-meal-${String(row.id)}-retire`));
+        });
+
+        await untilVisible('kitchen-meals-retire-dialog');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-retire-confirm'));
+        });
+
+        await untilVisible('kitchen-meals-retired-toast');
+        expect(repositories.kitchenAdmin.retireMeal).toHaveBeenCalledWith(row.id, {
+            lockVersion: row.meta.lockVersion,
+        });
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {

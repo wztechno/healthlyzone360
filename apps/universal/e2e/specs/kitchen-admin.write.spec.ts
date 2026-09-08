@@ -177,8 +177,23 @@ async function openIngredients(page: Page) {
     );
 }
 
+/**
+ * Open the first ingredient row's `⋯` menu, and leave it open.
+ *
+ * The row's Edit and Archive moved into one overflow menu (handoff §4.1). Their ids did not change,
+ * so every path below still addresses them by name — they are simply behind a trigger now, and this
+ * is the click that reveals them.
+ */
+async function openFirstRowMenu(page: Page): Promise<void> {
+    await page
+        .locator('[data-testid^="kitchen-ingredients-table-row-"][data-testid$="-actions-trigger"]')
+        .first()
+        .click();
+}
+
 /** The `kitchen-ingredient-{id}` prefix of the first row that offers an open control. */
 async function firstRowBase(page: Page): Promise<string> {
+    await openFirstRowMenu(page);
     const control = page
         .locator('[data-testid^="kitchen-ingredient-"][data-testid$="-open"]')
         .first();
@@ -234,6 +249,7 @@ async function rowMatching(page: Page, query: string): Promise<string> {
         .first()
         .fill(query);
 
+    await openFirstRowMenu(page);
     const control = page
         .locator('[data-testid^="kitchen-ingredient-"][data-testid$="-open"]')
         .first();
@@ -952,7 +968,9 @@ test.describe('kitchen workspace (en)', () => {
         // A product has no publish action on this contract, so no row offers one.
         await expect(page.getByTestId(`${base}-publish`)).toHaveCount(0);
         await expect(page.getByTestId(`${base}-archive`)).toBeVisible();
-        await expect(page.getByTestId('kitchen-products-toolbar-result-summary')).toContainText(
+        // The count moved off the toolbar and onto the pager, which is where §4.1 puts it: the
+        // toolbar is one row holding search and the status set, and nothing else.
+        await expect(page.getByTestId('kitchen-products-pagination-range')).toContainText(
             'Showing',
         );
     });
@@ -1063,14 +1081,18 @@ test.describe('kitchen workspace (en)', () => {
 
         const row = page.locator('[data-testid^="kitchen-meal-"][data-testid$="-status"]').first();
         await expect(row).toBeVisible();
-        await expect(page.getByTestId('kitchen-meals-toolbar-result-summary')).toContainText(
-            'Showing',
-        );
+        await expect(page.getByTestId('kitchen-meals-pagination-range')).toContainText('Showing');
 
-        // A published meal says what publication *means* rather than leaving a badge to imply it.
-        await expect(
-            page.locator('[data-testid^="kitchen-meal-"][data-testid$="-visible"]').first(),
-        ).toContainText('customers');
+        /*
+         * A published meal still says what publication *means* — but in the View panel rather than
+         * as a caption under its status badge. A 28px Catalogue row has one line, and a sentence
+         * that reads the same on every published row is not what it is worth spending.
+         */
+        await page.getByTestId('kitchen-meals-toolbar-status-published').click();
+        await page.locator('[data-testid^="kitchen-meal-"][data-testid$="-view"]').first().click();
+        await expect(page.getByTestId('kitchen-meals-view-field-visible')).toContainText(
+            'customers',
+        );
     });
 
     /**

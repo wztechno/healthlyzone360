@@ -23,6 +23,17 @@ export interface FormSectionProps {
     readonly title: string;
     /** One line under the title. Long enough to explain a rule, short enough not to be read twice. */
     readonly description?: string | undefined;
+    /**
+     * Sits immediately after the title, on its baseline — a `From database` badge, or the one line
+     * of eyebrow copy the Catalogue's Sale section carries.
+     *
+     * Distinct from {@link actions}, which the row pushes to the inline end. The pair is the same
+     * one `CataloguePageHeader` already draws: something that qualifies the title belongs beside
+     * it, and something you can press belongs at the far end where every other control on the page
+     * is. Folding both into one slot put a status badge under the primary button's alignment, which
+     * reads as an action nobody can press.
+     */
+    readonly aside?: ReactNode | undefined;
     /** Controls that belong to the section rather than to a field — an "Add line" button. */
     readonly actions?: ReactNode | undefined;
     /** Suppresses the leading hairline. Pass on the first section of a form. */
@@ -35,6 +46,7 @@ export interface FormSectionProps {
 export function FormSection({
     title,
     description,
+    aside,
     actions,
     first = false,
     children,
@@ -42,19 +54,31 @@ export function FormSection({
     testID,
 }: FormSectionProps) {
     return (
-        <View testID={testID} className={cx('flex-col', className)}>
+        // `z-auto` for the reason `FormField` states: every React Native Web `View` is a stacking
+        // context at z-0, and a section that is one traps a dropdown opened in its first field
+        // under the section below it.
+        <View testID={testID} className={cx('z-auto flex-col', className)}>
             {first ? null : <Separator className="mb-loose" />}
 
             <View className="mb-snug flex-col gap-hair">
                 <View className="flex-row items-center justify-between gap-tight">
-                    <RNText
-                        testID={testID === undefined ? undefined : `${testID}-title`}
-                        accessibilityRole="header"
-                        aria-level={3}
-                        className="text-role-section font-admin uppercase text-content-primary text-start"
-                    >
-                        {title}
-                    </RNText>
+                    {/*
+                     * The title and its aside are one group so `justify-between` separates *them*
+                     * from the actions rather than separating the badge from the title it
+                     * qualifies. `min-w-0` lets a long title truncate instead of shoving the
+                     * actions off the row.
+                     */}
+                    <View className="min-w-0 flex-row items-baseline gap-tight">
+                        <RNText
+                            testID={testID === undefined ? undefined : `${testID}-title`}
+                            accessibilityRole="header"
+                            aria-level={3}
+                            className="text-role-section font-admin uppercase text-content-primary text-start"
+                        >
+                            {title}
+                        </RNText>
+                        {aside}
+                    </View>
                     {actions}
                 </View>
 

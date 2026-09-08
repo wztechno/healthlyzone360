@@ -7,6 +7,7 @@ namespace Healthy360\Recipes\Services;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Recipes\Presenters\TechnicalSheetPresenter;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -29,6 +30,8 @@ final class RecipeRollupPreviewService
         private readonly AllergenRollupService $rollup,
         private readonly RecipeVersionReadiness $readiness,
         private readonly RecipeCostingService $costing,
+        private readonly DraftCostService $draftCost,
+        private readonly TechnicalSheetPresenter $sheet,
         private readonly TenantContext $context,
     ) {}
 
@@ -37,7 +40,12 @@ final class RecipeRollupPreviewService
      *     recipe_id: string|null,
      *     servings: float|string,
      *     waste_percent: float|string|null,
-     *     lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>
+     *     lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>,
+     *     yield_quantity?: string|null,
+     *     yield_unit_id?: string|null,
+     *     yield_piece_count?: int|null,
+     *     packaging_waste_percent?: string|null,
+     *     packaging?: list<array{packaging_item_id: string, basis: string, quantity?: float|string|null}>
      * }  $draft
      * @return array{
      *     per_recipe: null,
@@ -45,6 +53,7 @@ final class RecipeRollupPreviewService
      *     per_100g: null,
      *     allergen_sources: list<array{allergen_code: string, containment: string, ingredient_ids: list<string>}>,
      *     estimated_cost: array{amount: string, currency: string}|null,
+     *     computed_cost: array<string, mixed>|null,
      *     warnings: list<array{code: string, message: string, ingredient_ids?: list<string>}>
      * }
      */
@@ -111,8 +120,45 @@ final class RecipeRollupPreviewService
             'per_100g' => null,
             'allergen_sources' => $this->allergenSources($orderedIngredientIds, $effective),
             'estimated_cost' => $includeCost ? $this->estimatedCost($draft['lines'], $draft['waste_percent'], $warnings) : null,
+            'computed_cost' => $includeCost ? $this->computedCost($draft) : null,
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * The source workbook's whole cost block over the draft — production over
+     * the yield, packaging over the same yield, and the two added.
+     *
+     * The technical sheet's `computed` block for a version that does not exist
+     * yet, presented through {@see TechnicalSheetPresenter::computed()} so the
+     * two are the same shape as well as the same arithmetic. A recipe editor
+     * can therefore render one panel from either source and a person filling in
+     * the create form sees the figures they will see after saving.
+     *
+     * `null` when the draft states no yield, which is every existing caller:
+     * the older roll-up carries a summed line total in `estimated_cost` and
+     * nothing else, and it stays exactly as it was.
+     *
+     * @param  array{lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>, waste_percent: float|string|null, yield_quantity?: string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: string|null, packaging?: list<array{packaging_item_id: string, basis: string, quantity?: float|string|null}>}  $draft
+     * @return array<string, mixed>|null
+     */
+    private function computedCost(array $draft): ?array
+    {
+        $costed = $this->draftCost->cost(
+            $draft['lines'],
+            $draft['packaging'] ?? [],
+            $draft['yield_quantity'] ?? null,
+            $draft['yield_unit_id'] ?? null,
+            $draft['yield_piece_count'] ?? null,
+            $draft['waste_percent'] === null ? null : (string) $draft['waste_percent'],
+            $draft['packaging_waste_percent'] ?? null,
+        );
+
+        if ($costed === null) {
+            return null;
+        }
+
+        return $this->sheet->computed($costed['production'], $costed['packaging'], $costed['total']);
     }
 
     /**
@@ -237,7 +283,15 @@ final class RecipeRollupPreviewService
      */
     private function usableIngredient(string $id, string $field): Ingredient
     {
-        $ingredient = Ingredient::query()->whereKey($id)->first();
+        /*
+         * Food only.
+         *
+         * Packaging shares this table — a recipe has to be able to cost the box its meal
+         * ships in — but a roll-up line names a raw material. Without the scope a
+         * bin liner is a legal answer here, and the roll-up would then be asked to derive
+         * nutrition and allergens from it.
+         */
+        $ingredient = Ingredient::query()->excludingPackaging()->whereKey($id)->first();
 
         if (! $ingredient instanceof Ingredient) {
             throw $this->invalid($field, 'This ingredient does not exist, or is not one you can use.');

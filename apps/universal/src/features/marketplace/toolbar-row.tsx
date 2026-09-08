@@ -52,7 +52,23 @@ export interface ToolbarRowProps {
      * narrow screen, ~300px from `md` up — the kitchen lists put their search here; `/meals`
      * keeps its search in the hero and leaves this empty.
      */
+    /**
+     * The screen's search control, rendered first in the row.
+     *
+     * A `ReactNode` rather than a value/handler pair: the two callers want different inputs — the
+     * admin lists a labelled `TextInputField` with a trailing glyph, the marketplace a plain one —
+     * and a row that owned the control would have to grow a prop per difference.
+     */
     readonly search?: ReactNode | undefined;
+    /**
+     * A always-visible filter that sits between the search field and the Filters disclosure — the
+     * Catalogue's segmented status set.
+     *
+     * On the row rather than in the panel because it is the filter every reader of an admin list
+     * reaches for: "show me the drafts" is one press here and three behind a disclosure. Everything
+     * rarer stays in the panel, which is what keeps the row one row.
+     */
+    readonly quickFilter?: ReactNode | undefined;
     /** Label for the disclosure toggle — already carrying its count, e.g. "Filters (3)". */
     readonly filtersLabel: string;
     readonly filtersActive: number;
@@ -74,6 +90,14 @@ export interface ToolbarRowProps {
     /** The sort control, which keeps its own visible label. */
     readonly sort?: ReactNode | undefined;
     /**
+     * The screen's primary action, rendered last on the row.
+     *
+     * On the row rather than on a title line of its own: the Catalogue lists drop the page title
+     * (the breadcrumb above already names the screen), and a row that exists only to hold one
+     * button is the kind of stacked box the redesign is removing.
+     */
+    readonly actions?: ReactNode | undefined;
+    /**
      * Override the derived handles for the two controls that existed before this row did. A
      * testID is a contract with the suites that already point at it, and renaming one to suit a
      * new component's naming scheme is churn paid for by whoever has to re-find them.
@@ -85,6 +109,7 @@ export interface ToolbarRowProps {
 
 export function ToolbarRow({
     search,
+    quickFilter,
     filtersLabel,
     filtersActive,
     onToggleFilters,
@@ -96,6 +121,7 @@ export function ToolbarRow({
     clearAllLabel,
     resultSummary,
     sort,
+    actions,
     filtersTestID,
     countTestID,
     testID = 'toolbar-row',
@@ -110,6 +136,8 @@ export function ToolbarRow({
             // against a label-and-select twice its height.
             className="flex-row flex-wrap items-center gap-2"
         >
+            {search === undefined ? null : <View className="min-w-[240px]">{search}</View>}
+            {quickFilter}
             {showFiltersToggle ? (
                 <Pressable
                     testID={filtersId}
@@ -195,6 +223,9 @@ export function ToolbarRow({
             )}
 
             {sort}
+            {actions === undefined ? null : (
+                <View className="ms-auto flex-row items-center gap-2">{actions}</View>
+            )}
         </View>
     );
 }

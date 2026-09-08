@@ -20,7 +20,7 @@ import { FormField } from './form-field.tsx';
 import { NumberStepper, clampToStep } from './number-stepper.tsx';
 import { PasswordInput } from './password-input.tsx';
 import { RangeFilter, isInvertedRange } from './range-filter.tsx';
-import { Select } from './select.tsx';
+import { Select } from './select.native.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
 
 describe('FormField', () => {

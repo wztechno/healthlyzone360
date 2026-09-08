@@ -24,6 +24,24 @@
             "runtimeExecutable": "pnpm",
             "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8085"],
             "port": 8085
+        },
+        {
+            "name": "universal-web-fresh",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8087"],
+            "port": 8087
+        },
+        {
+            "name": "universal-web-ingredient-editor",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8093"],
+            "port": 8093
+        },
+        {
+            "name": "universal-web-catalogue-lists",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8095"],
+            "port": 8095
         }
     ]
 }

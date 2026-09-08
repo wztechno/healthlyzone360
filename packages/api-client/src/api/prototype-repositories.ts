@@ -80,6 +80,7 @@ import type {
     DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
+    IngredientCategoryAdmin,
     KitchenAdminRepository,
     LockedRequest,
     MealAdmin,
@@ -93,6 +94,7 @@ import type {
     ProductAdminFilter,
     RecipeAdmin,
     RecipeAdminFilter,
+    ReferenceSeries,
     RecipeAdminSummary,
     RecipeRollupDraft,
     RecipeRollupPreview,
@@ -109,6 +111,7 @@ import type {
     SetPlanVariantsRequest,
     SetPriceListEntriesRequest,
     SetRecipeLinesRequest,
+    SetRecipePackagingRequest,
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
@@ -715,6 +718,13 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`GET ${BASE}/reference/delivery-areas`);
     },
 
+    nextReference(_prefix: ReferenceSeries): Promise<string> {
+        return notImplemented(`GET ${BASE}/catalogue/references/next`);
+    },
+
+    listIngredientCategories(): Promise<readonly IngredientCategoryAdmin[]> {
+        return notImplemented(`GET ${BASE}/catalogue/ingredient-categories`);
+    },
     listIngredients(_filter?: IngredientAdminFilter): Promise<CursorPage<IngredientAdmin>> {
         return notImplemented(`GET ${BASE}/catalogue/ingredients`);
     },
@@ -735,6 +745,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _request: LockedRequest,
     ): Promise<IngredientAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/ingredients/{ingredient}/archive`);
+    },
+    forkIngredient(_ingredientId: IngredientId): Promise<IngredientAdmin> {
+        return notImplemented(`POST ${BASE}/catalogue/ingredients/{ingredient}/fork`);
     },
     setIngredientAllergens(
         _ingredientId: IngredientId,
@@ -768,6 +781,13 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
     setRecipeSteps(_recipeId: RecipeId, _request: SetRecipeStepsRequest): Promise<RecipeAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/steps`);
+    },
+    setRecipePackaging(
+        _recipeId: RecipeId,
+        _versionId: RecipeVersionId,
+        _request: SetRecipePackagingRequest,
+    ): Promise<RecipeAdmin> {
+        return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/packaging`);
     },
     setRecipeOutputs(_recipeId: RecipeId, _request: SetRecipeOutputsRequest): Promise<RecipeAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/outputs`);

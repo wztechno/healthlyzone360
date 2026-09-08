@@ -5,9 +5,12 @@ import type { TextInputProps as RNTextInputProps } from 'react-native';
 
 import { neutral } from '@healthy360/design-tokens';
 
+import { useDensity } from '../hooks/use-density.tsx';
+import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { FormField } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
+import type { GridSpanProps } from '../primitives/grid-shared.ts';
 
 /**
  * Text input.
@@ -15,17 +18,37 @@ import type { FieldControlProps } from './form-field.tsx';
  * `textAlign="auto"` is React Native's *logical* alignment: the caret and the text follow the
  * writing direction instead of being pinned to a physical side. It is one of the few places an
  * inline style prop is correct — there is no Tailwind utility for it on a `TextInput`.
+ *
+ * Under `compact` the frame takes its height from `controlHeight` and its inset from
+ * `controlPaddingX`, at a 4px corner; under `comfortable` it keeps the 44px floor and the 12px
+ * corner the customer app ships. **The frame never states a width** — a field is 280px because
+ * `FormGrid` says so, not because the input decided.
  */
 
-export interface TextInputFieldProps extends Omit<
-    RNTextInputProps,
-    'className' | 'style' | 'editable' | 'accessibilityLabel' | 'nativeID' | 'onChange'
-> {
+/**
+ * `xs` is the 24px step, and it exists for one shape: a cell input inside a dense line table.
+ *
+ * The Catalogue's recipe editor draws its raw-material rows at 32px with the Qty and Unit price
+ * boxes inset inside them, which is the one place on the admin where a field is *not* the page's
+ * ordinary control. Everywhere else `sm` is the floor. On the comfortable ladder it resolves to the
+ * same 44px touch minimum as every other size, because a customer surface has no dense table to put
+ * it in.
+ */
+export const INPUT_SIZES = ['xs', 'sm', 'md', 'lg'] as const;
+export type InputSize = (typeof INPUT_SIZES)[number];
+
+export interface TextInputFieldProps
+    extends Omit<
+            RNTextInputProps,
+            'className' | 'style' | 'editable' | 'accessibilityLabel' | 'nativeID' | 'onChange'
+        >,
+        GridSpanProps {
     readonly label: string;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
+    readonly size?: InputSize | undefined;
     readonly id?: string | undefined;
     /** Rendered inside the input frame on the trailing edge — reveal toggles, unit suffixes. */
     readonly trailing?: ReactNode | undefined;
@@ -33,13 +56,47 @@ export interface TextInputFieldProps extends Omit<
     readonly testID?: string | undefined;
 }
 
+const COMFORTABLE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
+    xs: 'min-h-touch gap-2 rounded-lg px-3',
+    sm: 'min-h-touch gap-2 rounded-lg px-3',
+    md: 'min-h-touch gap-2 rounded-lg px-3',
+    lg: 'min-h-touch gap-2 rounded-lg px-3',
+};
+
+const COMPACT_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
+    xs: 'h-control-xs gap-control-xs rounded-sm px-control-xs',
+    sm: 'h-control-sm gap-control-sm rounded-sm px-control-sm',
+    md: 'h-control-md gap-control-md rounded-sm px-control-md',
+    lg: 'h-control-lg gap-control-lg rounded-sm px-control-lg',
+};
+
+const FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>> = {
+    comfortable: COMFORTABLE_FRAME_SIZE,
+    compact: COMPACT_FRAME_SIZE,
+};
+
 export function inputFrameClassName(options: {
     readonly invalid: boolean;
     readonly focused: boolean;
     readonly disabled: boolean;
+    /**
+     * Optional so the call sites that predate the ladder keep the geometry they shipped with —
+     * `marketplace-shell.tsx`'s search field is a customer control and stays a customer control.
+     */
+    readonly density?: Density | undefined;
+    readonly size?: InputSize | undefined;
 }): string {
+    const density = options.density ?? 'comfortable';
+    const size = options.size ?? 'md';
+
     return cx(
-        'flex-row items-center gap-2 rounded-lg border bg-surface-base px-3 min-h-touch',
+        // `surfaceRaised`, not `surfaceBase`. The handoff's own role mapping puts *cards and
+        // inputs* on `#ffffff` and reserves `#f7fcf9` for the page canvas, and a field the same
+        // colour as the paper behind it is a field whose edges are doing all the work — on a
+        // Catalogue form of twelve of them the eye has nothing to land on. The sunken fill for a
+        // disabled or derived value is set below and still wins, because it is stated after.
+        'flex-row items-center border bg-surface-raised',
+        FRAME_SIZE[density][size],
         options.invalid ? 'border-danger-border' : 'border-stroke',
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
         // default to fall back on, so it is drawn explicitly.
@@ -69,21 +126,38 @@ export function inputFrameClassName(options: {
 export const inputControlClassName =
     'flex-1 border-0 bg-transparent text-base text-content-primary outline-none';
 
+/**
+ * The same styles at a stated density. A separate function rather than a `cx` on the constant:
+ * two competing `text-*` utilities resolve by stylesheet order, not attribute order, so the size
+ * has to be chosen once rather than layered.
+ */
+export function inputControlClass(density: Density): string {
+    if (density !== 'compact') return inputControlClassName;
+    return 'flex-1 border-0 bg-transparent text-role-body font-admin text-content-primary outline-none';
+}
+
 export function TextInputField({
     label,
     hint,
     error,
     required = false,
     disabled = false,
+    size = 'md',
     id,
     trailing,
     className,
     testID,
     onFocus,
     onBlur,
+    // Read by `FormGrid` off this element's props, never by the control. Destructured here so it
+    // stops travelling: `...rest` lands on the `TextInput`, which on the web is a real `<input>`
+    // and would carry `span="2"` into the DOM as an unknown attribute.
+    span: _span,
+    fullWidth: _fullWidth,
     ...rest
 }: TextInputFieldProps) {
     const [focused, setFocused] = useState(false);
+    const density = useDensity();
 
     return (
         <FormField
@@ -102,6 +176,8 @@ export function TextInputField({
                         invalid: error !== undefined,
                         focused,
                         disabled,
+                        density,
+                        size,
                     })}
                 >
                     <RNTextInput
@@ -109,7 +185,7 @@ export function TextInputField({
                         {...control}
                         testID={testID === undefined ? undefined : `${testID}-input`}
                         editable={!disabled}
-                        className={inputControlClassName}
+                        className={inputControlClass(density)}
                         // neutral.600: placeholder text is still text to WCAG - neutral.500 sits
                         // just below the 4.5:1 AA threshold on the base surface (axe caught it).
                         placeholderTextColor={neutral[600]}

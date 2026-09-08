@@ -84,6 +84,49 @@ final readonly class AllergenMappingService
     }
 
     /**
+     * The same two-layer visibility as {@see mappingsFor}, for a whole page of
+     * ingredients in one query.
+     *
+     * The list needs this because the alternative is one round trip per row:
+     * the ingredient index draws an allergen column, and a page of 25 rows
+     * asking `mappingsFor` twenty-five times is the N+1 that makes a
+     * regulatory column too expensive to draw — which is how it ended up not
+     * being drawn at all, and every row reading "none declared" whether or not
+     * it carried milk.
+     *
+     * @param  list<string>  $ingredientIds
+     * @return array<string, list<IngredientAllergen>> ingredient id → its mappings
+     */
+    public function mappingsForMany(array $ingredientIds, ?string $organisationId): array
+    {
+        if ($ingredientIds === []) {
+            return [];
+        }
+
+        $rows = IngredientAllergen::withoutTenancy()
+            ->whereIn('ingredient_id', $ingredientIds)
+            ->where(function ($query) use ($organisationId): void {
+                $query->whereNull('organisation_id');
+
+                if ($organisationId !== null) {
+                    $query->orWhere('organisation_id', $organisationId);
+                }
+            })
+            ->orderBy('allergen_code')
+            ->orderByRaw('organisation_id nulls first')
+            ->get();
+
+        /** @var array<string, list<IngredientAllergen>> $grouped */
+        $grouped = [];
+
+        foreach ($rows as $row) {
+            $grouped[$row->ingredient_id][] = $row;
+        }
+
+        return $grouped;
+    }
+
+    /**
      * Replace the caller's layer for one market scope.
      *
      * @param  list<array{

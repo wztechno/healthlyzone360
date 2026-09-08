@@ -40,6 +40,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $yield_piece_count
  * @property string|null $input_quantity_total
  * @property string $waste_coefficient_percent
+ * @property string $packaging_waste_percent
+ * @property string|null $b2b_price_amount
+ * @property string|null $b2c_price_amount
+ * @property string|null $price_currency_code
  * @property DerivationState $derivation_state
  * @property CarbonImmutable|null $derived_at
  * @property string|null $derived_input_hash
@@ -56,7 +60,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Classified(DataClassification::Confidential, 'notes', 'review_reason', 'yield_quantity', 'input_quantity_total', 'waste_coefficient_percent')]
+/*
+ * `b2b_price_amount` and `b2c_price_amount` are deliberately **not** in the
+ * declaration below, and their omission is the claim rather than an oversight.
+ * Everything named there is an input to what the kitchen paid — a yield, a
+ * waste coefficient, a note on the method — and reading it backwards tells a
+ * competitor what a recipe costs to make. A list price is the opposite kind of
+ * figure: the B2C one is printed on a menu, and the B2B one is quoted to the
+ * buyer it names. Classifying them Confidential would make the eventual
+ * consumer projection have to argue its way past its own model, which is the
+ * wrong shape of argument to have to make. `ingredients` classifies neither of
+ * its two price columns for the same reason.
+ */
+#[Classified(DataClassification::Confidential, 'notes', 'review_reason', 'yield_quantity', 'input_quantity_total', 'waste_coefficient_percent', 'packaging_waste_percent')]
 class RecipeVersion extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
@@ -78,6 +94,9 @@ class RecipeVersion extends BaseModel implements OrganisationScoped
             'yield_piece_count' => 'integer',
             'input_quantity_total' => 'decimal:4',
             'waste_coefficient_percent' => 'decimal:2',
+            'packaging_waste_percent' => 'decimal:2',
+            'b2b_price_amount' => 'decimal:6',
+            'b2c_price_amount' => 'decimal:6',
             'derived_at' => 'immutable_datetime',
             'published_at' => 'immutable_datetime',
             'seeded_at' => 'immutable_datetime',

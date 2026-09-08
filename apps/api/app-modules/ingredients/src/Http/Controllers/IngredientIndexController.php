@@ -7,12 +7,15 @@ namespace Healthy360\Ingredients\Http\Controllers;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Presenters\IngredientPresenter;
+use Healthy360\Ingredients\Services\AllergenMappingService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\OffsetPage;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,18 +35,25 @@ use Illuminate\Http\Request;
  */
 final class IngredientIndexController
 {
-    public function __construct(private readonly IngredientPresenter $presenter) {}
+    public function __construct(
+        private readonly IngredientPresenter $presenter,
+        private readonly AllergenMappingService $mappings,
+        private readonly TenantContext $context,
+    ) {}
 
     /**
      * @throws ApiException
      */
     public function __invoke(Request $request): JsonResponse
     {
-        $query = Ingredient::query()->with(['defaultUnit', 'purchaseUnit']);
+        $query = Ingredient::query()->with(['defaultUnit', 'purchaseUnit', 'capacityUnit']);
 
         $this->applyStatus($request, $query);
         $this->applyCategory($request, $query);
+        $this->applyExcludedCategory($request, $query);
+        $this->applyReferenceSeries($request, $query);
         $this->applySearch($request, $query);
+        $this->hideForkedPlatformRows($query);
 
         $requestedPage = OffsetPage::page($request);
 
@@ -59,7 +69,7 @@ final class IngredientIndexController
             $rows = $query->get();
 
             return ApiResponse::data(
-                $rows->map(fn (Ingredient $ingredient): array => $this->presenter->ingredient($ingredient))->all(),
+                $this->present($rows),
                 OffsetPage::meta($rows, $requestedPage, $perPage, $total),
             );
         }
@@ -69,9 +79,71 @@ final class IngredientIndexController
 
         $page = CursorPage::page($query->get(), $limit);
 
-        return ApiResponse::data(
-            $page['items']->map(fn (Ingredient $ingredient): array => $this->presenter->ingredient($ingredient))->all(),
-            $page['meta'],
+        return ApiResponse::data($this->present($page['items']), $page['meta']);
+    }
+
+    /**
+     * One page of ingredients, each carrying the allergen mappings this caller
+     * can see.
+     *
+     * The mappings are fetched for the whole page in one query rather than per
+     * row: an allergen column that costs a round trip per row is a column
+     * nobody can afford to draw, and this list draws one.
+     *
+     * @param  Collection<int, Ingredient>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function present(Collection $rows): array
+    {
+        $mappings = $this->mappings->mappingsForMany(
+            $rows->map(fn (Ingredient $ingredient): string => (string) $ingredient->getKey())->values()->all(),
+            $this->mappings->callerLayer(),
+        );
+
+        return $rows
+            ->map(fn (Ingredient $ingredient): array => $this->presenter->ingredient(
+                $ingredient,
+                $mappings[(string) $ingredient->getKey()] ?? [],
+            ))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * A library row this kitchen has forked is dropped, so the fork replaces it
+     * rather than sitting beside it.
+     *
+     * Without this the two layers both surface and the catalogue lists "Olive
+     * oil" twice — the platform row and the kitchen's copy of it — with nothing
+     * on either to say which one a cook should pick, and a search for it
+     * returning a read-only row half the time. The fork is the newer, editable,
+     * kitchen-specific answer, so it is the one that survives.
+     *
+     * A `WHERE id NOT IN (subquery)` rather than a join: the set is small (a
+     * kitchen forks a handful of rows, not thousands), the subquery is a single
+     * indexed read on `(organisation_id, forked_from_ingredient_id)`, and a
+     * join would have to be an anti-join to avoid multiplying the page.
+     *
+     * Only the *shadowed* row goes. The fork is a normal tenant row and is
+     * listed by the ordinary scope, and a platform row nobody has forked is
+     * untouched.
+     *
+     * @param  Builder<Ingredient>  $query
+     */
+    private function hideForkedPlatformRows(Builder $query): void
+    {
+        $organisationId = $this->context->organisationId();
+
+        if ($organisationId === null) {
+            return;
+        }
+
+        $query->whereNotIn(
+            'id',
+            Ingredient::withoutTenancy()
+                ->where('organisation_id', $organisationId)
+                ->whereNotNull('forked_from_ingredient_id')
+                ->select('forked_from_ingredient_id'),
         );
     }
 
@@ -120,6 +192,81 @@ final class IngredientIndexController
             $scoped->where('ingredient_category_id', $category)
                 ->orWhere('ingredient_subcategory_id', $category);
         });
+    }
+
+    /**
+     * Drops a whole branch of the taxonomy from the answer.
+     *
+     * The case it exists for is packaging. Bags, lids and cutlery are
+     * ingredient rows — they have to be, or a recipe cannot cost the box its
+     * meal ships in — but they are not *raw materials*, and a catalogue of 306
+     * foods reads worse with 31 disposables shuffled into it. The recipe
+     * editor already made its two pickers disjoint this way; this is the same
+     * separation, moved to where the count is computed so the list says 306
+     * rather than saying 337 and showing 306.
+     *
+     * A parameter rather than a hardcoded rule: the endpoint serves the
+     * ingredient list *and* the packaging list, and a server that silently hid
+     * a branch from both would leave the second one impossible to write.
+     * Subcategories go with their parent, matching `applyCategory`.
+     *
+     * @param  Builder<Ingredient>  $query
+     */
+    private function applyExcludedCategory(Request $request, Builder $query): void
+    {
+        $excluded = $request->query('exclude_category');
+
+        if (! is_string($excluded) || $excluded === '') {
+            return;
+        }
+
+        $query->where(function (Builder $scoped) use ($excluded): void {
+            $scoped->where('ingredient_category_id', '!=', $excluded)
+                ->orWhereNull('ingredient_category_id');
+        })->where(function (Builder $scoped) use ($excluded): void {
+            $scoped->where('ingredient_subcategory_id', '!=', $excluded)
+                ->orWhereNull('ingredient_subcategory_id');
+        });
+    }
+
+    /**
+     * Keeps only the rows numbered in one series — the ingredient list asks for `ING-`.
+     *
+     * A whitelist, and it has to be, because everything that ends up in this table wearing another
+     * handle got here for a reason of its own. The v6 import writes an ingredient beside every
+     * sellable row it brings in — 43 `SAC-` sauces, 19 `DRS-` dressings, 69 `PRD-`/`RSL-` product
+     * and resale lines — because a sauce is both sold and consumed and a formulation has to be able
+     * to name it. The packaging rows carry `PKG-`. None of them are raw materials, and a library of
+     * 306 foods reads badly with a hundred and thirty finished goods shuffled into it.
+     *
+     * **A whitelist rather than a list of exclusions**, because the exclusions kept losing. Filing
+     * cannot separate these: the sauces sit under `sauce`, but the product and resale twins sit
+     * under `meat-egg`, `bread` and `dairy`, the same branches real food uses. Clearing the rows by
+     * hand cannot either — the import recreates whatever is missing, by design, so every cleanup
+     * was undone by the next run. A series a row either carries or does not is the one property
+     * that survives both.
+     *
+     * It follows that a row **must** carry `ING-` to be seen here, which is why `create` assigns the
+     * next one and `fork` does too. A kitchen's own ingredient joins the library's sequence at 307
+     * rather than arriving without a handle and vanishing from the list it was typed into.
+     *
+     * A parameter rather than a rule, for the reason `applyExcludedCategory` gives: this endpoint
+     * serves the browse list *and* the recipe line picker, and a cook writing a burger has every
+     * reason to add Garlic Mayo Sauce as a line. The list passes it; the picker does not.
+     *
+     * @param  Builder<Ingredient>  $query
+     */
+    private function applyReferenceSeries(Request $request, Builder $query): void
+    {
+        $series = $request->query('reference_series');
+
+        if (! is_string($series) || $series === '') {
+            return;
+        }
+
+        // Anchored, and digits only after the prefix: `ING-` must not also admit
+        // `v6-recipe-designations.json#…` or any other shape that happens to start with it.
+        $query->where('source_ref', '~', '^'.preg_quote($series, '/').'[0-9]+$');
     }
 
     /**

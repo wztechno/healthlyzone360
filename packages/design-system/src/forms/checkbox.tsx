@@ -2,6 +2,7 @@ import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { descriptionProps } from '../internal/a11y.ts';
@@ -26,7 +27,10 @@ export interface CheckboxProps {
  * Checkbox.
  *
  * The whole row is the hit target, which is what gets a 44 px touch area without stretching the box
- * itself. `accessibilityRole="checkbox"` plus `accessibilityState.checked` is the pair
+ * itself — on the customer surfaces. Under `compact` the row drops to `controlHeight.sm`, because a
+ * Catalogue filter list of fifteen allergen classes at 44px a row is a scrollbar rather than a
+ * filter, and the admin is driven with a mouse. The box itself is unchanged in both: it is the
+ * *target* that differs, not the mark. `accessibilityRole="checkbox"` plus `accessibilityState.checked` is the pair
  * react-native-web turns into `role="checkbox"` + `aria-checked`; omitting the state leaves axe
  * reporting a checkbox with no checked state, which is a serious violation rather than a nicety.
  */
@@ -43,6 +47,7 @@ export function Checkbox({
     testID,
     labelSlot,
 }: CheckboxProps) {
+    const density = useDensity();
     const generated = useId();
     const base = id ?? `checkbox-${generated.replace(/:/g, '')}`;
     const descriptionId = description === undefined ? undefined : `${base}-description`;
@@ -67,7 +72,10 @@ export function Checkbox({
                     if (!disabled) onChange(!checked);
                 }}
                 className={cx(
-                    'flex-row items-start gap-3 min-h-touch py-1',
+                    'flex-row items-start',
+                    density === 'compact'
+                        ? 'gap-control-sm py-hair'
+                        : 'min-h-touch gap-3 py-1',
                     disabled ? 'opacity-50' : null,
                 )}
             >
@@ -86,7 +94,12 @@ export function Checkbox({
 
                 <View className="flex-1 flex-col gap-0.5">
                     {labelSlot ?? (
-                        <RNText className="text-sm text-content-primary text-start">
+                        <RNText
+                            className={cx(
+                                'text-content-primary text-start',
+                                density === 'compact' ? 'text-role-body font-admin' : 'text-sm',
+                            )}
+                        >
                             {label}
                             {required ? (
                                 <RNText className="text-danger-strong">{' *'}</RNText>
@@ -96,7 +109,10 @@ export function Checkbox({
                     {description === undefined ? null : (
                         <RNText
                             nativeID={descriptionId}
-                            className="text-xs text-content-secondary text-start"
+                            className={cx(
+                                'text-content-secondary text-start',
+                                density === 'compact' ? 'text-role-caption font-admin' : 'text-xs',
+                            )}
                         >
                             {description}
                         </RNText>
@@ -112,7 +128,10 @@ export function Checkbox({
                         testID={testID === undefined ? undefined : `${testID}-error`}
                         role="alert"
                         accessibilityRole="alert"
-                        className="flex-1 text-xs text-danger-strong text-start"
+                        className={cx(
+                            'flex-1 text-danger-strong text-start',
+                            density === 'compact' ? 'text-role-caption font-admin' : 'text-xs',
+                        )}
                     >
                         {error}
                     </RNText>

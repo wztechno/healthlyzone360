@@ -11,9 +11,12 @@ use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Allergens\Models\Allergen;
 use Healthy360\Ingredients\Enums\AllergenContainment;
+use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
+use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Services\PackagingBranch;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
@@ -141,6 +144,79 @@ final class RecipeWorld
         ]);
 
         return $ingredient;
+    }
+
+    /**
+     * A priced packaging item this kitchen owns.
+     *
+     * `$capacity` is how much *product* the item holds, in `$capacityUnit` —
+     * the unit a recipe's yield is stated in, not the container's nominal
+     * volume. A 300 ml bottle is created here as holding `0.3` kg, which is
+     * what keeps `ceil(yield / capacity)` same-unit and free of any density.
+     *
+     * Null capacity is the ordinary case for a cap or a label, and is what a
+     * `per_container` or `per_batch` line is built on.
+     */
+    public static function packagingItem(
+        Organisation $organisation,
+        string $name,
+        string $price,
+        ?string $capacity = null,
+        string $capacityUnit = 'kg',
+        string $currency = 'USD',
+    ): Ingredient {
+        $item = new Ingredient;
+        $item->organisation_id = $organisation->getKey();
+        $item->slug = mb_strtolower(str_replace(' ', '-', $name)).'-'.uniqid();
+        $item->name_en = $name;
+        $item->name_ar = $name;
+        // Filed under the packaging branch, which is what *makes* it packaging now that the two
+        // families share a table. A row created without it is food, and `onlyPackaging()` — the
+        // scope a recipe's packaging line resolves through — would refuse it.
+        $item->ingredient_category_id = self::packagingCategory();
+        $item->default_unit_id = self::unit('piece');
+        $item->purchase_unit_id = self::unit('piece');
+        $item->purchase_price_amount = $price;
+        $item->purchase_price_currency = $currency;
+        $item->capacity_quantity = $capacity;
+        $item->capacity_unit_id = $capacity === null ? null : self::unit($capacityUnit);
+        $item->status = IngredientStatus::Active;
+        $item->verification_status = IngredientVerificationStatus::Verified;
+        $item->yield_factor = 1;
+        $item->lock_version = 0;
+        $item->save();
+
+        return $item;
+    }
+
+    /**
+     * The platform taxonomy node that marks a row as packaging.
+     *
+     * Created once per test database rather than per item, and at the platform layer, because that
+     * is where the seeder puts it and where {@see PackagingBranch} looks for it.
+     */
+    public static function packagingCategory(): string
+    {
+        $existing = IngredientCategory::withoutTenancy()
+            ->where('code', PackagingBranch::CODE)
+            ->first();
+
+        if ($existing !== null) {
+            return (string) $existing->getKey();
+        }
+
+        return (string) IngredientCategory::asPlatformRow(static function (): IngredientCategory {
+            $category = new IngredientCategory;
+            $category->organisation_id = null;
+            $category->code = PackagingBranch::CODE;
+            $category->name_en = 'Packaging & disposables';
+            $category->name_ar = 'Packaging & disposables';
+            $category->display_order = 99;
+            $category->is_active = true;
+            $category->save();
+
+            return $category;
+        })->getKey();
     }
 
     /**

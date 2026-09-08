@@ -1,27 +1,64 @@
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
+import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 
-export const CARD_TONES = ['default', 'raised', 'sunken', 'brand', 'danger'] as const;
+export const CARD_TONES = ['default', 'raised', 'sunken', 'brand', 'warning', 'danger'] as const;
 export type CardTone = (typeof CARD_TONES)[number];
 
-const TONE_CLASS: Readonly<Record<CardTone, string>> = {
+const COMFORTABLE_TONE_CLASS: Readonly<Record<CardTone, string>> = {
     default: 'bg-surface-base border-stroke-subtle',
     raised: 'bg-surface-raised border-stroke-subtle shadow-elevation-card',
     sunken: 'bg-surface-sunken border-stroke-subtle',
     brand: 'bg-surface-brand-subtle border-transparent',
+    warning: 'bg-warning-subtle border-warning-border',
     danger: 'bg-danger-subtle border-danger-border',
+};
+
+/**
+ * The admin has two elevations, and a card is the flat one.
+ *
+ * The handoff allows exactly flat and the popover shadow, so `raised` keeps its lighter fill and
+ * loses its cast: on a dense list page a shadow per card is what turns a screen of records into a
+ * screen of objects, and the Catalogue's separation comes from the hairline instead.
+ */
+const COMPACT_TONE_CLASS: Readonly<Record<CardTone, string>> = {
+    default: 'bg-surface-base border-stroke-subtle',
+    raised: 'bg-surface-raised border-stroke-subtle',
+    sunken: 'bg-surface-sunken border-stroke-subtle',
+    brand: 'bg-surface-brand-subtle border-transparent',
+    warning: 'bg-warning-subtle border-warning-border',
+    danger: 'bg-danger-subtle border-danger-border',
+};
+
+const TONE_CLASS: Readonly<Record<Density, Readonly<Record<CardTone, string>>>> = {
+    comfortable: COMFORTABLE_TONE_CLASS,
+    compact: COMPACT_TONE_CLASS,
 };
 
 export const CARD_PADDINGS = ['none', 'sm', 'md', 'lg'] as const;
 export type CardPadding = (typeof CARD_PADDINGS)[number];
 
-const PADDING_CLASS: Readonly<Record<CardPadding, string>> = {
+const COMFORTABLE_PADDING_CLASS: Readonly<Record<CardPadding, string>> = {
     none: 'p-0',
     sm: 'p-3',
     md: 'p-4',
     lg: 'p-6',
+};
+
+/** The 4-point aliases, so a panel's inset is named rather than counted. */
+const COMPACT_PADDING_CLASS: Readonly<Record<CardPadding, string>> = {
+    none: 'p-0',
+    sm: 'p-tight',
+    md: 'p-snug',
+    lg: 'p-base',
+};
+
+const PADDING_CLASS: Readonly<Record<Density, Readonly<Record<CardPadding, string>>>> = {
+    comfortable: COMFORTABLE_PADDING_CLASS,
+    compact: COMPACT_PADDING_CLASS,
 };
 
 export interface CardProps {
@@ -103,21 +140,37 @@ export function Card({
     className,
     testID,
 }: CardProps) {
+    const density = useDensity();
     const hasFooter = footer !== undefined;
 
     const content = (
         <>
             {title === undefined ? null : (
                 <View className="flex-col gap-1">
+                    {/* Not `Heading`: level 3 is 20px on the customer ladder and this title has
+                        always been 16px there. The role and the level are what matter for the
+                        outline; the size follows the density. */}
                     <RNText
                         accessibilityRole="header"
                         aria-level={3}
-                        className="text-base font-semibold text-content-primary text-start"
+                        className={cx(
+                            'text-content-primary text-start',
+                            density === 'compact'
+                                ? 'text-role-strong font-admin'
+                                : 'text-base font-semibold',
+                        )}
                     >
                         {title}
                     </RNText>
                     {subtitle === undefined ? null : (
-                        <RNText className="text-sm text-content-secondary text-start">
+                        <RNText
+                            className={cx(
+                                'text-content-secondary text-start',
+                                density === 'compact'
+                                    ? 'text-role-caption font-admin'
+                                    : 'text-sm',
+                            )}
+                        >
                             {subtitle}
                         </RNText>
                     )}
@@ -131,7 +184,7 @@ export function Card({
         <>
             <View
                 testID={testID === undefined ? undefined : `${testID}-body`}
-                className="flex-1 flex-col gap-3"
+                className={cx('flex-1 flex-col', density === 'compact' ? 'gap-tight' : 'gap-3')}
             >
                 {content}
             </View>
@@ -147,18 +200,25 @@ export function Card({
     );
 
     const classes = cx(
-        'flex-col rounded-xl border',
+        'flex-col border',
+        // 8px panels in the admin (§1.3 — no 14px, no 16px), the customer app's 16px elsewhere.
+        density === 'compact' ? 'rounded' : 'rounded-xl',
         // Clipping is what lets media sit flush to the corner instead of a 12px image floating
         // inside a 16px card — but it is scoped to `padding="none"`, which is the only way a card
         // gets edge-to-edge media in the first place. Clipping unconditionally would cut off
         // `Popover`, whose panel is an absolutely positioned sibling rather than a modal; the
         // showcase's own `Section` is a padded card containing exactly that.
         padding === 'none' ? 'overflow-hidden' : null,
-        hasFooter ? 'self-stretch' : 'gap-3',
-        TONE_CLASS[tone],
-        PADDING_CLASS[padding],
+        hasFooter ? 'self-stretch' : density === 'compact' ? 'gap-tight' : 'gap-3',
+        TONE_CLASS[density][tone],
+        PADDING_CLASS[density][padding],
+        // The lift is a customer affordance. In the admin `interactive` still marks the card as a
+        // target — it takes a hover tint, matching the Catalogue's list rows — but it does not
+        // float, because the compact ladder has no second elevation to float to.
         interactive
-            ? 'transition duration-normal ease-standard hover:-translate-y-1 hover:shadow-elevation-card-hover'
+            ? density === 'compact'
+                ? 'transition duration-normal ease-standard hover:bg-surface-sunken'
+                : 'transition duration-normal ease-standard hover:-translate-y-1 hover:shadow-elevation-card-hover'
             : null,
         className,
     );

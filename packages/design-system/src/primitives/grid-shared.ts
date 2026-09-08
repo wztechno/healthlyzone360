@@ -1,4 +1,4 @@
-import { cardWidth, fieldWidth } from '@healthy360/design-tokens';
+import { fieldWidth } from '@healthy360/design-tokens';
 import type { ReactNode } from 'react';
 
 /**
@@ -74,6 +74,4 @@ export function resolveSpan(
     return Math.min(Math.max(1, Math.trunc(span)), columns);
 }
 
-/** The card grid's track bounds. `minmax(200px, 260px)`, never `1fr` — same reasoning as fields. */
-export const CARD_TRACK = cardWidth;
 export { fieldWidth };

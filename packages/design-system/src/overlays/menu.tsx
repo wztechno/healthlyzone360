@@ -44,6 +44,15 @@ export interface MenuItem {
     readonly selected?: boolean | undefined;
     /** `danger` for a destructive command. Paired with its own icon, never colour alone. */
     readonly tone?: 'default' | 'danger' | undefined;
+    /**
+     * Overrides the derived `{menu}-item-{key}` id.
+     *
+     * For the case where a row action *moved into* a menu and the id it carried outside one is a
+     * contract with a suite: the Catalogue's `⋯` holds the Edit and Archive that used to be two
+     * buttons on the row, and those ids are clicked by name in three specs. Stating the id here
+     * lets the control change shape without the assertion changing meaning.
+     */
+    readonly testID?: string | undefined;
 }
 
 export interface MenuSection {
@@ -146,9 +155,7 @@ function MenuRow({
             <RNText
                 className={cx(
                     'flex-1 text-role-body font-admin text-start',
-                    disabled
-                        ? 'text-content-disabled'
-                        : ITEM_TONE_CLASS[item.tone ?? 'default'],
+                    disabled ? 'text-content-disabled' : ITEM_TONE_CLASS[item.tone ?? 'default'],
                 )}
             >
                 {item.label}
@@ -199,7 +206,9 @@ export function Menu({
              * command menu out to the width of a filter list. It would also be an arbitrary number
              * with no token behind it, which is the thing §2 bans.
              */
-            panelClassName="py-1"
+            // `w-max`: the panel is absolutely positioned, so without it it takes the trigger's
+            // width and a two-word item wraps to three lines under a narrow column header.
+            panelClassName="w-max max-w-xs py-1"
         >
             {(state: DropdownRenderState) => (
                 <View
@@ -246,7 +255,7 @@ export function Menu({
                                             setActive(index);
                                         }}
                                         onClose={state.close}
-                                        testID={`${base}-item-${item.key}`}
+                                        testID={item.testID ?? `${base}-item-${item.key}`}
                                     />
                                 );
                             })}

@@ -225,7 +225,19 @@ export function renderTailwindPreset(): string {
                     Object.entries(easings).map(([name, token]) => [kebab(name), token.css]),
                 ),
                 minWidth: { touch: px(DEPRECATED_TOUCH_TARGET_PX), card: px(cardWidth.min) },
-                minHeight: { touch: px(DEPRECATED_TOUCH_TARGET_PX) },
+                minHeight: {
+                    touch: px(DEPRECATED_TOUCH_TARGET_PX),
+                    // `min-h-control-sm` — the ladder as a *floor* rather than a fixed height, for
+                    // a row that must clear the control height but may grow past it. A dropdown
+                    // option is the case: one line at 28px, two when it carries a description, and
+                    // `h-control-sm` would clip the second.
+                    ...Object.fromEntries(
+                        Object.entries(controlHeight).map(([k, v]) => [`control-${k}`, px(v)]),
+                    ),
+                    ...Object.fromEntries(
+                        Object.entries(rowHeight).map(([k, v]) => [`row-${k}`, px(v)]),
+                    ),
+                },
                 height: {
                     // `h-control-sm`, `h-row-md` — the Catalogue's density, one knob.
                     ...Object.fromEntries(

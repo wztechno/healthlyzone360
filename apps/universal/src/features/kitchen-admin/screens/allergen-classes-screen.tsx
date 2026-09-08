@@ -6,7 +6,6 @@ import {
     Card,
     EmptyState,
     ErrorState,
-    Heading,
     Inline,
     Skeleton,
     Stack,

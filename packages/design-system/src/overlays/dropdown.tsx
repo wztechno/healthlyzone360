@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
@@ -62,6 +62,20 @@ export interface DropdownProps {
     /** What the panel is, for assistive technology. `menu` for `Menu`, `listbox` for a result list. */
     readonly role?: 'menu' | 'listbox' | 'dialog' | undefined;
     readonly label: string;
+    /**
+     * Told when the panel opens or closes, whatever moved it — the trigger, an outside press,
+     * Escape or the panel's own `close`.
+     *
+     * A trigger that keeps state of its own has no other way to learn this. `Select`'s search
+     * trigger is the case: it holds a query that must not outlive the panel, and the routes that
+     * close a `Dropdown` do not all blur the input, so there is no event of its own to hang the
+     * reset on. Deriving it inside the trigger render prop is not the alternative it looks like —
+     * that render runs inside *this* component's render, so writing trigger state there is a
+     * cross-component update during render, which is the warning this callback exists to avoid.
+     *
+     * Fired after commit and only on a real change, so it is safe to set state from.
+     */
+    readonly onOpenChange?: ((open: boolean) => void) | undefined;
     readonly panelClassName?: string | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -73,6 +87,7 @@ export function Dropdown({
     align = 'start',
     role = 'menu',
     label,
+    onOpenChange,
     panelClassName,
     className,
     testID,
@@ -92,6 +107,15 @@ export function Dropdown({
         setOpen((current) => !current);
     }, []);
 
+    // Guarded on the previous value rather than fired bare, so mounting closed is not reported as
+    // a close and an inline `onOpenChange` re-running the effect is not reported as anything.
+    const previousOpen = useRef(open);
+    useEffect(() => {
+        if (previousOpen.current === open) return;
+        previousOpen.current = open;
+        onOpenChange?.(open);
+    }, [open, onOpenChange]);
+
     useDismiss({ open, onClose: close, containerRef });
     const resolvedAlign = useAnchorFlip({ open, anchorRef: containerRef, panelRef, preferred: align });
     const swallow = usePointerSwallow();
@@ -109,7 +133,20 @@ export function Dropdown({
     };
 
     return (
-        <View ref={containerRef} testID={testID} className={cx('flex-col', className)}>
+        /*
+         * The container takes the stacking context while open, not just the panel.
+         *
+         * `z-tooltip` on an absolutely positioned panel only orders it against *its own* stacking
+         * context. Its ancestors have none, so a section further down the form — a later sibling,
+         * painted later — covered the panel regardless of how high its own z-index went. The fix is
+         * to raise the whole subtree the panel hangs from; `z-base` when closed so a form of twelve
+         * fields is not twelve competing layers.
+         */
+        <View
+            ref={containerRef}
+            testID={testID}
+            className={cx('flex-col', open ? 'z-tooltip' : 'z-base', className)}
+        >
             {trigger(state)}
 
             {open ? (

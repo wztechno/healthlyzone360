@@ -409,7 +409,14 @@ module.exports = {
         "card": "200px"
       },
       "minHeight": {
-        "touch": "44px"
+        "touch": "44px",
+        "control-xs": "24px",
+        "control-sm": "28px",
+        "control-md": "32px",
+        "control-lg": "36px",
+        "row-sm": "28px",
+        "row-md": "32px",
+        "row-lg": "36px"
       },
       "height": {
         "control-xs": "24px",

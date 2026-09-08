@@ -392,8 +392,16 @@ export default tseslint.config(
     // `catalogue/` is where §3 puts the new components, so every line written from here forward is
     // fenced from its first commit. **Widen this glob as each screen migrates** — the end state is
     // the handoff's `kitchen-admin/**`, and the last screen pass should be the one that writes it.
+    //
+    // Migrated so far: the Catalogue shell components, and `ingredients-screen.tsx` (§7.6, the
+    // reference implementation). Each screen joins this list in the pass that rewrites it — never
+    // ahead of one, because a rule pointed at code nobody has rewritten yet is a red `pnpm check`
+    // that gets disabled rather than obeyed.
     {
-        files: ['apps/universal/src/features/kitchen-admin/catalogue/**/*.{ts,tsx}'],
+        files: [
+            'apps/universal/src/features/kitchen-admin/catalogue/**/*.{ts,tsx}',
+            'apps/universal/src/features/kitchen-admin/screens/ingredients-screen.tsx',
+        ],
         rules: {
             'no-restricted-syntax': [
                 'error',

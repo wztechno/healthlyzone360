@@ -53,7 +53,12 @@ export interface DataListColumn<Row> {
      * at or above {@link UNDROPPABLE_PRIORITY} survives every width.
      */
     readonly priority: number;
-    readonly align?: 'start' | 'end' | undefined;
+    /**
+     * Cell and header alignment. `center` is the Catalogue's own step: the design centres the
+     * short numeric tracks — unit price, updated — because an end-aligned 84px column reads as if
+     * it were pushed against the column after it.
+     */
+    readonly align?: 'start' | 'end' | 'center' | undefined;
     /** Sets the cell in the mono role. Quantities, costs, references and versions (§1.2). */
     readonly mono?: boolean | undefined;
     /** Draws the header as a plain label instead of a sort/filter trigger. Action columns. */
@@ -128,11 +133,23 @@ const ROW_HEIGHT_CLASS: Readonly<Record<RowDensity, string>> = {
     lg: 'h-row-lg',
 };
 
+const TEXT_ALIGN_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
+    start: 'text-start',
+    end: 'text-end',
+    center: 'text-center',
+};
+
+const JUSTIFY_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
+    start: 'justify-start',
+    end: 'justify-end',
+    center: 'justify-center',
+};
+
 function cellClass(column: DataListColumn<unknown>): string {
     return cx(
         'text-role-body font-admin text-content-primary',
         column.mono === true ? 'font-mono' : null,
-        column.align === 'end' ? 'text-end' : 'text-start',
+        TEXT_ALIGN_CLASS[column.align ?? 'start'],
     );
 }
 
@@ -179,14 +196,37 @@ export function DataList<Row>({
             >
                 <View
                     role="row"
+                    /*
+                     * `z-raised`: react-native-web gives every view `z-index: 0`, which makes the
+                     * header its own stacking context and paints the rows — later siblings — over
+                     * anything hanging out of it. A column's sort/filter panel is exactly that.
+                     *
+                     * `web:sticky web:top-0`: the labels stay put while the rows run under them, so
+                     * row 200 is still readable as a row rather than as eight unlabelled values.
+                     * `top-0` is right and a design's `top: 130px` would not be — the scroll port
+                     * here is the shell's `ScrollView`, not the document (CLAUDE.md), so zero
+                     * already means "just under the top bar". It needs the page's own ground behind
+                     * it (`bg-surface-base`) or the rows show through as they pass.
+                     *
+                     * `web:` because `position: sticky` has no React Native counterpart at all;
+                     * NativeWind emits the variant on the web preset only, so native never sees a
+                     * value its layout engine would reject. The list is a scroller in its own right
+                     * there.
+                     */
                     className={cx(
-                        'h-row-sm flex-row items-center border-b border-stroke-subtle',
+                        'h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
+                        'bg-surface-base web:sticky web:top-0',
                     )}
                 >
                     {visible.map((column) => (
                         <View
                             key={column.key}
                             role="columnheader"
+                            testID={
+                                testID === undefined
+                                    ? undefined
+                                    : `${testID}-columnheader-${column.key}`
+                            }
                             style={{ width: column.width }}
                             className="px-control-sm"
                         >
@@ -200,7 +240,7 @@ export function DataList<Row>({
                                 <RNText
                                     className={cx(
                                         'text-role-micro font-admin uppercase text-content-secondary',
-                                        column.align === 'end' ? 'text-end' : 'text-start',
+                                        TEXT_ALIGN_CLASS[column.align ?? 'start'],
                                     )}
                                 >
                                     {column.label}
@@ -223,15 +263,13 @@ export function DataList<Row>({
                                   style={{ width: column.width }}
                                   className={cx(
                                       'flex-row items-center px-control-sm',
-                                      column.align === 'end' ? 'justify-end' : 'justify-start',
+                                      JUSTIFY_CLASS[column.align ?? 'start'],
                                   )}
                               >
                                   {column.render === undefined ? (
                                       <RNText
                                           numberOfLines={1}
-                                          className={cellClass(
-                                              column as DataListColumn<unknown>,
-                                          )}
+                                          className={cellClass(column as DataListColumn<unknown>)}
                                       >
                                           {column.value?.(row) ?? ''}
                                       </RNText>

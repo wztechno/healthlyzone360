@@ -8,6 +8,7 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Services\IngredientCatalogueService;
 
 /**
  * The administrative wire shapes of the ingredient catalogue.
@@ -20,14 +21,31 @@ use Healthy360\Ingredients\Models\IngredientCategory;
  * `is_platform` is on the wire because the client has to know which rows it
  * may not edit before it offers an edit control; discovering it from a 403 is
  * a worse experience and a worse contract.
+ *
+ * `is_editable` is the answer that flag was being asked for and could not
+ * give. "Platform row" is a fact about the row; "you may not edit it" is a
+ * fact about the row *and the caller*, because the platform operator writes
+ * exactly the rows a kitchen may not. Clients read `is_editable`;
+ * `is_platform` stays for what it actually says — which library the row is in.
  */
 final class IngredientPresenter
 {
+    public function __construct(private readonly IngredientCatalogueService $catalogue) {}
+
     /**
+     * @param  iterable<IngredientAllergen>|null  $allergens  the mappings visible to this caller,
+     *                                                        when the endpoint has already loaded
+     *                                                        them; omitted from the shape entirely
+     *                                                        rather than sent as an empty list,
+     *                                                        because "none declared" and "not
+     *                                                        loaded" are different answers and a
+     *                                                        client must not render the second as
+     *                                                        the first
      * @return array{
      *     id: string,
      *     organisation_id: string|null,
      *     is_platform: bool,
+     *     is_editable: bool,
      *     slug: string,
      *     name_en: string,
      *     name_ar: string,
@@ -39,7 +57,17 @@ final class IngredientPresenter
      *     purchase_unit_code: string|null,
      *     composition: string|null,
      *     items_per_unit: string|null,
+     *     purchase_price_amount: string|null,
+     *     purchase_price_currency: string|null,
+     *     waste_percent: string|null,
+     *     capacity_quantity: string|null,
+     *     capacity_unit_code: string|null,
      *     nutrition_per_100g: array<string, mixed>|null,
+     *     b2b_price_amount: string|null,
+     *     b2c_price_amount: string|null,
+     *     unit_price_amount: string|null,
+     *     price_currency_code: string|null,
+     *     is_sellable: bool,
      *     yield_factor: string,
      *     forked_from_ingredient_id: string|null,
      *     availability_tier: string|null,
@@ -50,15 +78,17 @@ final class IngredientPresenter
      *     source_ref: string|null,
      *     lock_version: int,
      *     created_at: string|null,
-     *     updated_at: string|null
+     *     updated_at: string|null,
+     *     allergens?: list<array<string, mixed>>
      * }
      */
-    public function ingredient(Ingredient $ingredient): array
+    public function ingredient(Ingredient $ingredient, ?iterable $allergens = null): array
     {
         return [
             'id' => (string) $ingredient->getKey(),
             'organisation_id' => $ingredient->organisation_id,
             'is_platform' => $ingredient->isPlatformRow(),
+            'is_editable' => $this->catalogue->isWritable($ingredient),
             'slug' => $ingredient->slug,
             'name_en' => $ingredient->name_en,
             'name_ar' => $ingredient->name_ar,
@@ -70,7 +100,29 @@ final class IngredientPresenter
             'purchase_unit_code' => $ingredient->relationLoaded('purchaseUnit') ? $ingredient->purchaseUnit?->code : null,
             'composition' => $ingredient->composition,
             'items_per_unit' => $ingredient->items_per_unit === null ? null : (string) $ingredient->items_per_unit,
+            /*
+             * The three figures packaging brought with it when it came back into this table.
+             *
+             * `purchase_price_amount` is per **purchase pack**, not per issued unit — a sleeve at
+             * $6.50, never a bag at $0.065 — which is why it is a separate field from
+             * `unit_price_amount` beside it rather than the same one wearing two hats. Confusing
+             * the two scales a cost by `items_per_unit`, and does it silently.
+             *
+             * All three are null on food, and that is not the same as zero: a null
+             * `waste_percent` says nobody has measured this one, a `0` says they did and there is
+             * none.
+             */
+            'purchase_price_amount' => $ingredient->purchase_price_amount === null ? null : (string) $ingredient->purchase_price_amount,
+            'purchase_price_currency' => $ingredient->purchase_price_currency,
+            'waste_percent' => $ingredient->waste_percent === null ? null : (string) $ingredient->waste_percent,
+            'capacity_quantity' => $ingredient->capacity_quantity === null ? null : (string) $ingredient->capacity_quantity,
+            'capacity_unit_code' => $ingredient->relationLoaded('capacityUnit') ? $ingredient->capacityUnit?->code : null,
             'nutrition_per_100g' => $ingredient->nutrition_per_100g,
+            'b2b_price_amount' => $ingredient->b2b_price_amount === null ? null : (string) $ingredient->b2b_price_amount,
+            'b2c_price_amount' => $ingredient->b2c_price_amount === null ? null : (string) $ingredient->b2c_price_amount,
+            'unit_price_amount' => $ingredient->unit_price_amount === null ? null : (string) $ingredient->unit_price_amount,
+            'price_currency_code' => $ingredient->price_currency_code,
+            'is_sellable' => $ingredient->is_sellable,
             'yield_factor' => (string) $ingredient->yield_factor,
             'forked_from_ingredient_id' => $ingredient->forked_from_ingredient_id,
             'availability_tier' => $ingredient->availability_tier?->value,
@@ -82,6 +134,12 @@ final class IngredientPresenter
             'lock_version' => $ingredient->lock_version,
             'created_at' => $ingredient->created_at?->toIso8601String(),
             'updated_at' => $ingredient->updated_at?->toIso8601String(),
+            ...($allergens === null ? [] : [
+                'allergens' => array_values(array_map(
+                    fn (IngredientAllergen $mapping): array => $this->mapping($mapping),
+                    is_array($allergens) ? $allergens : iterator_to_array($allergens),
+                )),
+            ]),
         ];
     }
 

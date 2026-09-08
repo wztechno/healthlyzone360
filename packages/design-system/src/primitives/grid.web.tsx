@@ -4,7 +4,6 @@ import type { CSSProperties, ReactElement, ReactNode } from 'react';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { cx } from '../internal/class-names.ts';
 import {
-    CARD_TRACK,
     GRID_GAP,
     RESPONSIVE_COLUMNS,
     fieldWidth,
@@ -58,10 +57,11 @@ function cells(children: ReactNode, columns: number): ReactNode {
 }
 
 /**
- * Grid — fixed-width tracks, responsive count.
+ * The grid — fixed-width tracks, responsive count.
  *
- * `trackWidth` is the one knob: {@link FormGrid} spends `fieldWidth`, {@link CardGrid} spends the
- * card bounds. Neither lets a track grow past its ceiling.
+ * `template` is the one knob, and {@link FormGrid} is the only caller: a track is `fieldWidth`
+ * wide and never grows past it. The base stays factored out because the native half draws the
+ * same arithmetic a different way, and the two must not drift.
  */
 function GridBase({
     children,
@@ -91,10 +91,6 @@ function GridBase({
     );
 }
 
-export function Grid(props: GridProps) {
-    return <GridBase {...props} template={`minmax(0, ${String(fieldWidth)}px)`} />;
-}
-
 /**
  * FormGrid — the field layout. `sm: 1 · md: 2 · lg+: 3`, 280px tracks at every one of them.
  *
@@ -103,14 +99,4 @@ export function Grid(props: GridProps) {
  */
 export function FormGrid(props: GridProps) {
     return <GridBase {...props} template={`minmax(0, ${String(fieldWidth)}px)`} />;
-}
-
-/** CardGrid — `minmax(200px, 260px)` tracks, same start-aligned, non-stretching flow. */
-export function CardGrid(props: GridProps) {
-    return (
-        <GridBase
-            {...props}
-            template={`minmax(${String(CARD_TRACK.min)}px, ${String(CARD_TRACK.max)}px)`}
-        />
-    );
 }

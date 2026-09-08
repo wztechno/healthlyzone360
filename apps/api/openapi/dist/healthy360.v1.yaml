@@ -1549,6 +1549,59 @@ paths:
           description: Restrict to one category or sub-category identifier.
           schema:
             $ref: '#/components/schemas/Uuid'
+        - name: exclude_category
+          in: query
+          required: false
+          description: |
+            Drop a whole branch — the named category and everything filed
+            under it — from the answer.
+
+            The case it exists for is packaging. Bags, lids and cutlery are
+            ingredient rows, and have to be: a recipe cannot cost the box its
+            meal ships in unless the box is a record. They are not raw
+            materials though, so the ingredient list excludes
+            `packaging-disposables` and the packaging list asks for it with
+            `category`. One collection, two pages, read from opposite ends.
+
+            Applied before the count, so a filtered list reports the number of
+            rows it is actually showing.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: reference_series
+          in: query
+          required: false
+          description: |
+            Keep only the rows numbered in one series. The ingredient list asks
+            for `ING-`.
+
+            A whitelist, because everything else in this table earned its place
+            another way. The v6 import writes an ingredient beside every
+            sellable row it brings in — 43 `SAC-` sauces, 19 `DRS-` dressings,
+            69 `PRD-`/`RSL-` product and resale lines — because a sauce is both
+            sold and consumed and a formulation has to be able to name it.
+            Packaging carries `PKG-`. None of them are raw materials.
+
+            Exclusions were tried and kept losing: filing cannot separate them,
+            since the resale twins sit under `meat-egg`, `bread` and `dairy`
+            alongside real food, and clearing the rows cannot either, because
+            the import recreates whatever is missing. A series a row either
+            carries or does not is the one property that survives both.
+
+            Matched anchored and digits-only, so `ING-` admits `ING-307` and not
+            a source path that happens to start the same way.
+
+            A parameter and not a rule, for the same reason as
+            `exclude_category`: this endpoint serves the browse list *and* the
+            recipe line picker, and a cook writing a burger has every reason to
+            add a sauce as a line. The list passes it; the picker does not.
+
+            Applied before the count, so a filtered list reports the number of
+            rows it is actually showing.
+          schema:
+            type: string
+            enum:
+              - ING-
+              - PKG-
         - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
@@ -1791,6 +1844,84 @@ paths:
           $ref: '#/components/responses/IngredientArchiveConflict'
         '428':
           $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/ingredients/{ingredient}/fork:
+    post:
+      operationId: forkIngredient
+      tags:
+        - Kitchen catalogue
+      summary: Copy a library ingredient into this kitchen
+      description: |
+        How a kitchen makes a platform-library row its own so it can edit it.
+        The library is shared and read-only to a kitchen; `is_editable` on the
+        ingredient says so, and this is the way out of it.
+
+        The copy carries the parent's fields, its aliases and **both allergen
+        layers**. The mappings matter: a fork is a new `ingredient_id` and
+        mappings are keyed on that column, so a copy that skipped them would
+        silently drop a declared allergen. The baseline stays at
+        `organisation_id NULL` on the copy, so it still reads as
+        `platform_baseline` and still cannot be weakened.
+
+        `forked_from_ingredient_id` on the copy points back at the library row.
+        The link is provenance, not a subscription: later corrections to the
+        library row do not reach the copy.
+
+        **Recipes are not repointed.** Formulations already built on the library
+        row keep pointing at it; the fork applies to new use. Repointing a
+        published version and its cost snapshots is a decision of its own.
+
+        **Idempotent.** A kitchen that has already forked this row gets the fork
+        it already has — `200` with `meta.created: false` — rather than a second
+        copy competing with the first in every search. The first call answers
+        `201` with `meta.created: true`.
+
+        No `If-Match`: this creates a row rather than changing one, so there is
+        no version to be stale against.
+
+        The library row is then **hidden from that kitchen's ingredient list**,
+        so the fork replaces it rather than sitting beside it.
+
+        `400 request.invalid` when the target is not a platform-library row —
+        a kitchen's own ingredient is already editable and has nothing to fork.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The fork this kitchen already had.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientEnvelope'
+        '201':
+          description: The newly created fork.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/ingredients/{ingredient}/allergens:
@@ -3967,6 +4098,76 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '428':
           $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/references/next:
+    get:
+      operationId: nextCatalogueReference
+      tags:
+        - Sellable catalogue
+      summary: The handle the next record of a kind will take
+      description: |
+        A reference is assigned on create — `ING-307`, `SAC-016` — and a create
+        form draws it before there is a record to read it from. This is the same
+        scan the create performs, exposed so the number on the form and the
+        number on the record come from one implementation rather than two.
+
+        **A preview, never a reservation.** Two people opening a create form at
+        the same moment are both told `ING-307`; the first to save takes it and
+        the second saves at `ING-308`. That is the honest behaviour of a series
+        derived by scanning, and it is deliberate: a counter handing out
+        reservations would leave permanent holes wherever a form was abandoned,
+        in a sequence whose whole purpose is to be read down a column. Nothing
+        may treat this answer as a promise — the record's reference is whatever
+        the create response carries back.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: prefix
+          in: query
+          required: true
+          description: |
+            Which series to read, and each is counted in the table its existing
+            handles are in: `ING-` among the ingredients, `RC-` among the
+            recipes, and `SAC-` and `DRS-` among the catalogue items — where the
+            import wrote forty-three sauces and nineteen dressings.
+          schema:
+            type: string
+            enum:
+              - ING-
+              - RC-
+              - SAC-
+              - DRS-
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The next handle in that series.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - reference
+                    properties:
+                      reference:
+                        type: string
+                        maxLength: 40
+                        example: ING-307
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/items:
@@ -21692,6 +21893,7 @@ components:
         - id
         - organisation_id
         - is_platform
+        - is_editable
         - slug
         - name_en
         - name_ar
@@ -21717,9 +21919,17 @@ components:
         is_platform:
           type: boolean
           description: |
-            Whether this is a platform-library row. On the wire so a client
-            knows not to offer an edit control, rather than discovering it
-            from a 403.
+            Whether this is a platform-library row — which library it is in,
+            and nothing more. Read `is_editable` before drawing an edit
+            control: a platform row is editable by the platform operator and
+            read-only to every kitchen, so the two answers differ by caller.
+        is_editable:
+          type: boolean
+          description: |
+            Whether **this caller** may write this row, so a client never
+            offers a control that 403s. True for a caller's own rows, and for
+            platform-library rows when the selected organisation is the
+            platform operator.
         slug:
           type: string
           maxLength: 120
@@ -21767,6 +21977,52 @@ components:
           oneOf:
             - $ref: '#/components/schemas/IngredientNutritionPer100g'
             - type: 'null'
+        b2b_price_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            Trade list price in major currency units, as a six-place decimal
+            string so no client rounds it. A list price on the article — not
+            a cost (that is org-specific and lives in the inventory valuation
+            tables) and not a channel tariff (that is a price list).
+          examples:
+            - '5.000000'
+        b2c_price_amount:
+          type:
+            - string
+            - 'null'
+          description: Consumer list price, same units and shape as `b2b_price_amount`.
+          examples:
+            - '3.000000'
+        unit_price_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            List price of one stock unit, same units and shape as
+            `b2b_price_amount`. Still a list price and still not a cost: what a
+            kitchen actually paid moves with every receipt and lives in the
+            inventory valuation tables.
+          examples:
+            - '3.500000'
+        price_currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: |
+            ISO 4217 code all three amounts are quoted in. Never null while any
+            of them is set — a monetary value without its currency is not a
+            monetary value.
+        is_sellable:
+          type: boolean
+          description: |
+            Offered for sale as-is, outside recipes. Distinct from
+            `availability_tier`, which describes how hard the ingredient is to
+            source rather than whether it is on sale. Defaults to false: an
+            ingredient is a raw material until somebody says otherwise.
         yield_factor:
           type: string
           description: Decimal with four places, as a string so no client rounds it.
@@ -21808,6 +22064,21 @@ components:
             - string
             - 'null'
           format: date-time
+        allergens:
+          type: array
+          description: |
+            The allergen mappings visible to this caller — the platform
+            baseline, plus the caller's own overlay in a tenant context. Both
+            layers, each labelled, for the reason the dedicated sub-resource
+            gives: a list showing only the overlay would let a kitchen believe
+            an ingredient carries no allergens when the baseline says milk.
+
+            Present on the collection and the single resource. An empty array
+            means "none declared"; the property being absent means the
+            endpoint did not load them, and a client must not render the
+            second as the first.
+          items:
+            $ref: '#/components/schemas/IngredientAllergenMapping'
       additionalProperties: false
     IngredientEnvelope:
       type: object
@@ -22044,6 +22315,34 @@ components:
           oneOf:
             - $ref: '#/components/schemas/IngredientNutritionPer100g'
             - type: 'null'
+        b2b_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          description: Trade list price in major currency units. Requires `price_currency_code`.
+        b2c_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          description: Consumer list price in major currency units. Requires `price_currency_code`.
+        unit_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          description: List price of one stock unit, in major currency units. Requires `price_currency_code`.
+        price_currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217 code. Required whenever any amount is sent.
+        is_sellable:
+          type: boolean
+          description: Offered for sale as-is, outside recipes.
         yield_factor:
           type: number
           exclusiveMinimum: 0
@@ -22098,6 +22397,34 @@ components:
           oneOf:
             - $ref: '#/components/schemas/IngredientNutritionPer100g'
             - type: 'null'
+        b2b_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          description: Trade list price in major currency units. Requires `price_currency_code`.
+        b2c_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          description: Consumer list price in major currency units. Requires `price_currency_code`.
+        unit_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          description: List price of one stock unit, in major currency units. Requires `price_currency_code`.
+        price_currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217 code. Required whenever any amount is sent.
+        is_sellable:
+          type: boolean
+          description: Offered for sale as-is, outside recipes.
         yield_factor:
           type: number
           exclusiveMinimum: 0
@@ -22405,6 +22732,33 @@ components:
             allowance the source technical sheets apply across the board.
           examples:
             - '3.00'
+        b2b_price_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            Trade list price for one unit of the yield, in **major** currency
+            units, as a string so no client rounds it. A list price and not a
+            cost: what the version is offered at to a kitchen or corporate
+            buyer, rather than what its inputs cost to buy.
+          examples:
+            - '18.500000'
+        b2c_price_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            Consumer list price for one unit of the yield — the counterpart to
+            `b2b_price_amount`, quoted in the same currency.
+          examples:
+            - '24.000000'
+        price_currency_code:
+          oneOf:
+            - $ref: '#/components/schemas/CurrencyCode'
+            - type: 'null'
+          description: |
+            One currency for both amounts. A version quoted in two currencies
+            is a price list, not a column.
         derivation_state:
           $ref: '#/components/schemas/DerivationState'
         derived_at:
@@ -22965,6 +23319,30 @@ components:
           type: number
           minimum: 0
           maximum: 999.99
+        b2b_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 1000000000000
+          description: |
+            Trade list price per unit of yield, in **major** currency units.
+            Zero is a real price — a staff meal, a component carried at cost —
+            and `null` is how a price is cleared, which is a different act.
+        b2c_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 1000000000000
+          description: Consumer list price per unit of yield, in **major** currency units.
+        price_currency_code:
+          oneOf:
+            - $ref: '#/components/schemas/CurrencyCode'
+            - type: 'null'
+          description: |
+            Required alongside either amount: a monetary value without its
+            currency is not a monetary value (§4.4).
         notes:
           type:
             - string

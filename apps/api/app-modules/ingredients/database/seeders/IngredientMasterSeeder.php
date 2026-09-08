@@ -23,9 +23,23 @@ use RuntimeException;
 /**
  * The platform ingredient library, transcribed from the v6 workbook
  * (`Ingredients_Sauces_Dressings_v6.xlsx` via scripts/convert-v6-workbook.py):
- * 306 ingredients (ING-001..306), 31 packaging & disposables rows
- * (PKG-001..031, non-food supplier goods — no allergens, no nutrition), a
- * two-level taxonomy and the allergen baseline that goes with them.
+ * 306 ingredients (ING-001..306) plus sheet 6's 31 packaging rows, a two-level
+ * taxonomy and the allergen baseline that goes with them.
+ *
+ * **Sheet 6's packaging rows are back, and the objection to them is answered
+ * rather than forgotten.** They were pulled once because the only visible
+ * effect was cutlery in every ingredient picker — a real complaint about a
+ * picker, not about the data. The recipe editor now asks for its two halves
+ * separately: the raw-material picker excludes `packaging-disposables`, and
+ * the Packaging tab requests that category by name through
+ * `IngredientAdminFilter::categoryCode`. With the pickers disjoint, a bottle
+ * and a cap have to exist as records for a recipe to cost its packaging at
+ * all, which is what sheet 6 is for.
+ *
+ * They still carry no allergen, no nutrition and no yield, and procurement
+ * still receives them without an ingredient behind them
+ * (`ReceiptLineCosting`); none of that changed, and none of it required them
+ * to be absent.
  *
  * **Committed and production-safe.** This is mechanism (a) of the three in
  * the data register (D-046): a public list of ingredient names, categories,
@@ -42,6 +56,10 @@ use RuntimeException;
  *   of a food name that ends up on an allergen label is not an improvement
  *   on an honest fallback.
  * - *Availability tier.* No such column in the source; left NULL.
+ * - *Prices.* Sheet 1's `Price` column is empty in all 306 rows, so
+ *   `b2b_price_amount` and `b2c_price_amount` are left NULL for an operator
+ *   to fill. The B2B/B2C figures the workbook does carry belong to the
+ *   sellable sheets, and land on `catalogue_items` rather than here.
  * - *Status.* Two v6 rows carry no Status; the converter recorded them
  *   `inactive` — visible but greyed and unusable until a human decides.
  *
@@ -185,6 +203,19 @@ class IngredientMasterSeeder extends Seeder
             $purchaseUnitCode = SeedDataFile::nullableString($row, 'purchase_unit_code');
             $itemsPerUnit = $row['items_per_unit'] ?? null;
 
+            /*
+             * The three fields only packaging carries, absent on every food row.
+             *
+             * They arrive on the same document because packaging shares this table: the rows are
+             * filed under `packaging-disposables` and are otherwise ordinary ingredients. The
+             * figures are curated rather than transcribed — the workbook's packaging sheet has no
+             * cost column — and the document records that provenance in `packaging_price_note`.
+             */
+            $purchasePrice = $row['purchase_price_amount'] ?? null;
+            $wastePercent = $row['waste_percent'] ?? null;
+            $capacityQuantity = $row['capacity_quantity'] ?? null;
+            $capacityUnitCode = SeedDataFile::nullableString($row, 'capacity_unit_code');
+
             $id = $existingIds[$sourceRef] ?? null;
 
             if ($id === null) {
@@ -203,6 +234,18 @@ class IngredientMasterSeeder extends Seeder
                     'purchase_unit_id' => $purchaseUnitCode === null ? null : $this->unitIdFor($unitIds, $purchaseUnitCode),
                     'composition' => SeedDataFile::nullableString($row, 'composition'),
                     'items_per_unit' => is_numeric($itemsPerUnit) ? (string) $itemsPerUnit : null,
+                    'purchase_price_amount' => is_numeric($purchasePrice) ? (string) $purchasePrice : null,
+                    // Both halves or neither, which the column's own CHECK also enforces.
+                    'purchase_price_currency' => is_numeric($purchasePrice)
+                        ? (SeedDataFile::nullableString($row, 'purchase_price_currency') ?? 'USD')
+                        : null,
+                    'waste_percent' => is_numeric($wastePercent) ? (string) $wastePercent : null,
+                    'capacity_quantity' => is_numeric($capacityQuantity) && $capacityUnitCode !== null
+                        ? (string) $capacityQuantity
+                        : null,
+                    'capacity_unit_id' => is_numeric($capacityQuantity) && $capacityUnitCode !== null
+                        ? $this->unitIdFor($unitIds, $capacityUnitCode)
+                        : null,
                     'nutrition_per_100g' => null,
                     'yield_factor' => 1,
                     'forked_from_ingredient_id' => null,

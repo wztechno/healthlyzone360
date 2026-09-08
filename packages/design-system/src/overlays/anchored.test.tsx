@@ -3,7 +3,6 @@ import { Platform, Pressable, Text as RNText } from 'react-native';
 
 import { Dropdown } from './dropdown.tsx';
 import { Menu } from './menu.tsx';
-import { ConfirmationDialog } from './confirmation-dialog.tsx';
 import { renderWithI18n } from '../testing/render.tsx';
 
 /**
@@ -233,42 +232,5 @@ describe('Menu', () => {
         await fireEvent.press(screen.getByTestId('row-trigger'));
         await fireEvent.press(screen.getByTestId('row-item-archive'));
         expect(onSelect).not.toHaveBeenCalled();
-    });
-});
-
-describe('ConfirmationDialog', () => {
-    it('puts the confirming action last and names its verb', async () => {
-        const onConfirm = jest.fn();
-        const onCancel = jest.fn();
-        await renderWithI18n(
-            <ConfirmationDialog
-                testID="confirm"
-                open
-                onCancel={onCancel}
-                onConfirm={onConfirm}
-                title="Archive Tahini paste?"
-                confirmLabel="Archive ingredient"
-                destructive
-            />,
-        );
-
-        await fireEvent.press(screen.getByTestId('confirm-confirm'));
-        expect(onConfirm).toHaveBeenCalledTimes(1);
-        expect(onCancel).not.toHaveBeenCalled();
-    });
-
-    it('falls back to the translated generic confirm label', async () => {
-        await renderWithI18n(
-            <ConfirmationDialog
-                testID="confirm"
-                open
-                onCancel={() => undefined}
-                onConfirm={() => undefined}
-                title="Discard changes?"
-            />,
-        );
-
-        expect(screen.getByTestId('confirm-confirm')).toHaveTextContent('Confirm');
-        expect(screen.getByTestId('confirm-cancel')).toHaveTextContent('Cancel');
     });
 });

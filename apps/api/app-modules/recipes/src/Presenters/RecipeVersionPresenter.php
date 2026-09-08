@@ -8,6 +8,7 @@ use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
+use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Recipes\Models\RecipeVersionStep;
 
 /**
@@ -43,6 +44,10 @@ final class RecipeVersionPresenter
      *     yield_piece_count: int|null,
      *     input_quantity_total: string|null,
      *     waste_coefficient_percent: string,
+     *     packaging_waste_percent: string,
+     *     b2b_price_amount: string|null,
+     *     b2c_price_amount: string|null,
+     *     price_currency_code: string|null,
      *     derivation_state: string,
      *     derived_at: string|null,
      *     published_at: string|null,
@@ -66,6 +71,28 @@ final class RecipeVersionPresenter
             'yield_piece_count' => $version->yield_piece_count,
             'input_quantity_total' => $version->input_quantity_total === null ? null : (string) $version->input_quantity_total,
             'waste_coefficient_percent' => (string) $version->waste_coefficient_percent,
+
+            // A second coefficient, beside the process one and never merged
+            // with it. Process loss is sauce left in the pot; packaging loss is
+            // mis-fed labels and split film. The source sheet states different
+            // percentages for each, and one field for both would make
+            // correcting either silently rewrite the other.
+            'packaging_waste_percent' => (string) $version->packaging_waste_percent,
+
+            /*
+             * The two list prices, per unit of yield — and the only money this
+             * presenter serves. They are not a breach of the "no cost fields"
+             * rule the class docblock states: a cost is what the kitchen paid
+             * for the inputs and stays behind `recipe.view_costs_organisation`
+             * with the rest of K1.3, whereas a list price is what the version
+             * is offered at. The B2C figure ends up on a menu.
+             *
+             * Strings, like every other decimal here, so no client rounds a
+             * price on the way in.
+             */
+            'b2b_price_amount' => $version->b2b_price_amount === null ? null : (string) $version->b2b_price_amount,
+            'b2c_price_amount' => $version->b2c_price_amount === null ? null : (string) $version->b2c_price_amount,
+            'price_currency_code' => $version->price_currency_code,
 
             // On the wire because a client must be able to say "this label was
             // computed before the mappings changed" without asking a second
@@ -106,6 +133,38 @@ final class RecipeVersionPresenter
             'unit_id' => $line->unit_id,
             'source_designation' => $line->source_designation,
             'comment' => $line->comment,
+        ];
+    }
+
+    /**
+     * One packaging line. **No cost fields** — see the class docblock.
+     *
+     * `basis` travels beside `quantity` and always, because without it the
+     * quantity is unreadable: `6` means "the yield fills six of these" on one
+     * basis and "somebody typed six" on another, and only the first will still
+     * be right after the yield changes. A client renders the two together or
+     * renders a number nobody can check.
+     *
+     * @return array{
+     *     id: string,
+     *     line_number: int,
+     *     ingredient_id: string,
+     *     basis: string,
+     *     quantity: string,
+     *     unit_id: string|null,
+     *     comment: string|null
+     * }
+     */
+    public function packaging(RecipeVersionPackaging $row): array
+    {
+        return [
+            'id' => (string) $row->getKey(),
+            'line_number' => $row->line_number,
+            'ingredient_id' => $row->ingredient_id,
+            'basis' => $row->basis->value,
+            'quantity' => (string) $row->quantity,
+            'unit_id' => $row->unit_id,
+            'comment' => $row->comment,
         ];
     }
 

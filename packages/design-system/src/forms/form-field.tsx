@@ -93,7 +93,17 @@ export function FormField({
         density === 'compact' ? 'text-role-caption font-admin' : 'text-xs';
 
     return (
-        <View testID={testID} className={cx('flex-col gap-hair', className)}>
+        /*
+         * `z-auto` is load-bearing, not tidying.
+         *
+         * React Native Web's base `View` style carries `position: relative; z-index: 0`, so **every
+         * View is a stacking context** — and a field wrapper that is one traps any anchored panel
+         * opened inside it at z-0, however high the panel's own z-index goes. A `Select`'s dropdown
+         * was painting *under* the next section of the form for exactly this reason. A layout
+         * container has no business ordering anything, so it opts out and lets the panel compete
+         * where it should: against its ancestors' siblings.
+         */
+        <View testID={testID} className={cx('z-auto flex-col gap-hair', className)}>
             {/*
              * The label is an element in its own right, and on the web it is a real `<label
              * for="…">`. `aria-labelledby` alone reads as "labelled by a hidden thing" to axe the

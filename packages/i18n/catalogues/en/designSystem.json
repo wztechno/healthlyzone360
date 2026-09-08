@@ -192,7 +192,8 @@
         "motionFade": "Faded in",
         "motionSlideStart": "Slid in from the leading edge",
         "motionSlideBottom": "Slid in from below",
-        "motionNumber": "Animated figure"
+        "motionNumber": "Animated figure",
+        "tableCompactCaption": "Table (compact rows)"
     },
     "tag": {
         "join": ", ",

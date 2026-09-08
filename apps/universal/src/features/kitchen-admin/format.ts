@@ -105,6 +105,29 @@ export function statusTone(status: PublishableStatus): BadgeTone {
     return STATUS_TONES[status];
 }
 
+/**
+ * The **short** status vocabulary — Live · Draft · Review · Archived.
+ *
+ * A second vocabulary rather than a rewrite of {@link statusKey}, because the two say the same
+ * thing at two densities and both are needed. `kitchen:status.*` is the sentence-length name every
+ * other kitchen screen shows in a form field, a filter panel and a confirmation dialog
+ * ("Awaiting review"); this is the one-word chip the Catalogue's 78px Status track and its
+ * four-segment toolbar can actually hold, and it is the wording the design draws.
+ *
+ * Renaming the long vocabulary to fit the chip would have changed the word on a dozen screens that
+ * have room for it; deriving the chip by truncation would have produced "Awaiting…".
+ */
+const STATUS_SHORT_KEYS: Readonly<Record<PublishableStatus, string>> = {
+    draft: 'kitchen:statusShort.draft',
+    review_required: 'kitchen:statusShort.reviewRequired',
+    published: 'kitchen:statusShort.published',
+    retired: 'kitchen:statusShort.retired',
+};
+
+export function statusShortKey(status: PublishableStatus): string {
+    return STATUS_SHORT_KEYS[status];
+}
+
 /** Statuses the list filter offers, in lifecycle order. Archived rows are included deliberately. */
 export const INGREDIENT_STATUS_FILTERS: readonly PublishableStatus[] = [
     'draft',
@@ -182,6 +205,22 @@ export function unitDimensionKey(dimension: UnitDimension): string {
 
 export function unitKey(unit: MeasureUnit): string {
     return `kitchen:units.${unit}`;
+}
+
+/**
+ * The **abbreviated** unit — `kg`, `L`, `pc` — for a column, not a picker.
+ *
+ * {@link unitKey} resolves to "Kilograms (kg)", which is the right label on a select where the
+ * reader is choosing between dimensions and needs the word. It is the wrong label in a 56px track,
+ * where the abbreviation is what the kitchen writes on the sheet anyway. Two keys, one per job,
+ * for the same reason the status vocabulary is two.
+ *
+ * Still translated. `kg` and `L` are the same in Arabic script contexts that use Latin unit marks,
+ * but `pc`, `pack` and `bag` are not, and a symbol table welded into the presentation layer is how
+ * a catalogue ends up half-translated.
+ */
+export function unitShortKey(unit: MeasureUnit): string {
+    return `kitchen:unitsShort.${unit}`;
 }
 
 /* ── category codes ──────────────────────────────────────────────────────────────────────────── */
@@ -289,6 +328,64 @@ export function parseQuantity(value: string): number | null {
     if (trimmed === '' || !/^\d*\.?\d*$/.test(trimmed)) return null;
     const parsed = Number(trimmed);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+/* ── list prices ─────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A stored price as an input string.
+ *
+ * Two decimals is what a price is *typed* at, but `CostAmount` is stored at six
+ * (`decimal(18, 6)`, because a cost comes from dividing a purchase price by a yield). Padding to
+ * two would round a six-decimal figure into the box and then save the rounded value back on the
+ * next edit, which is a silent write nobody asked for. So only a figure that already fits two
+ * decimals is padded; one that carries more is shown in full.
+ */
+export function amountToInput(cost: CostAmount | null): string {
+    if (cost === null) return '';
+    const padded = cost.amount.toFixed(2);
+    return Number(padded) === cost.amount ? padded : String(cost.amount);
+}
+
+/**
+ * A typed amount, or the two kinds of absence.
+ *
+ * `null` is "the field is empty", which clears the price. `undefined` is "that is not a number",
+ * which is a validation error rather than a clear — the difference between deleting a price on
+ * purpose and losing one to a typo.
+ *
+ * Looser than {@link parseQuantity}, which refuses anything but digits and a point. A price is
+ * pasted at least as often as it is typed, and `Number` accepts the shapes a paste arrives in.
+ */
+export function parseAmount(value: string): number | null | undefined {
+    const trimmed = value.trim();
+    if (trimmed === '') return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+/**
+ * Gross margin of a list price over what the thing cost, as a percentage.
+ *
+ * A percentage rather than a ratio, because `%` is the field's *unit suffix* and not part of the
+ * value — `QuantityInput`'s own rule: a unit inside the value is a string no cost cascade can
+ * multiply. So the number is scaled here, and `Intl`'s `percent` style, which would scale it a
+ * second time, is deliberately not used.
+ *
+ * `null` whenever the sum cannot be stated — no price, no cost, or a cost of zero, which is a
+ * division rather than an infinite margin.
+ *
+ * Shared by the ingredient and recipe editors rather than written twice. The two read the same
+ * figure against different bases — an ingredient's unit price against its unit cost, a recipe
+ * version's price per yield unit against its cost per yield unit with waste — and the arithmetic
+ * being literally the same function is what keeps the two readouts comparable.
+ */
+export function marginPercent(
+    price: number | null | undefined,
+    cost: number | null | undefined,
+): number | null {
+    if (typeof price !== 'number' || typeof cost !== 'number' || cost === 0) return null;
+    return ((price - cost) / cost) * 100;
 }
 
 /* ── products and meals (K1.4) ───────────────────────────────────────────────────────────────── */

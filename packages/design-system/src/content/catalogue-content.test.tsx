@@ -4,7 +4,6 @@ import { DataList, fitColumns } from './data-list.tsx';
 import type { DataListColumn } from './data-list.tsx';
 import { StatusBadge } from './status-badge.tsx';
 import { DensityProvider } from '../hooks/use-density.tsx';
-import { InlineBanner } from '../status/inline-banner.tsx';
 import { FormSection } from '../forms/form-section.tsx';
 import { QuantityInput, parseQuantity } from '../forms/quantity-input.tsx';
 import { SearchInput } from '../forms/search-input.tsx';
@@ -161,25 +160,6 @@ describe('StatusBadge', () => {
         // differ in greyscale too.
         await renderWithI18n(compact(<StatusBadge testID="badge" status="draft" label="Draft" />));
         expect(screen.getByTestId('badge-icon')).toBeTruthy();
-    });
-});
-
-describe('InlineBanner', () => {
-    it('merely announces a save', async () => {
-        await renderWithI18n(compact(<InlineBanner testID="saved" message="Saved" tone="success" />));
-        expect(screen.getByTestId('saved').props['aria-live']).toBe('polite');
-    });
-
-    it('interrupts for a conflict', async () => {
-        // A lost edit is worth cutting across whatever the screen reader is currently saying; a
-        // successful save is not.
-        await renderWithI18n(
-            compact(
-                <InlineBanner testID="conflict" message="Someone else saved first" tone="danger" />,
-            ),
-        );
-        expect(screen.getByTestId('conflict').props['aria-live']).toBe('assertive');
-        expect(screen.getByTestId('conflict').props.role).toBe('alert');
     });
 });
 

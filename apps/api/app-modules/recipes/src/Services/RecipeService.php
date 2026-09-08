@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Recipes\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Catalogues\Services\CatalogueItemService;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeCompleteness;
 use Healthy360\Recipes\Enums\RecipeConfidentiality;
@@ -32,6 +33,20 @@ use Illuminate\Support\Str;
  */
 final readonly class RecipeService
 {
+    /** The reference series for a kitchen's own recipes. */
+    private const string REFERENCE_PREFIX = 'RC-';
+
+    /**
+     * The series a recipe may be numbered in — one, and it is the library's.
+     *
+     * `SAC-` and `DRS-` were briefly here, on the reading that a sauce is a recipe. The data says
+     * otherwise: those handles are on `catalogue_items` and on the ingredient twin the import
+     * writes beside each one, forty-three and nineteen of them, while this table holds two rows. A
+     * series scanned here would have handed a new sauce `SAC-001`, which a kitchen already has.
+     * {@see CatalogueItemService::nextReferenceFor}.
+     */
+    public const array REFERENCE_PREFIXES = ['RC-'];
+
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
@@ -44,6 +59,7 @@ final readonly class RecipeService
      *     slug?: string|null,
      *     branch_id?: string|null,
      *     recipe_category?: string|null,
+     *     source_ref?: string|null,
      *     source_kind?: string|null,
      *     confidentiality?: string|null,
      *     notes?: string|null
@@ -64,6 +80,8 @@ final readonly class RecipeService
             $recipe->slug = $this->uniqueSlug($attributes['slug'] ?? $nameEn, $organisationId);
             $recipe->name_en = $nameEn;
             $recipe->name_ar = $this->trimmedOrNull($attributes['name_ar'] ?? null) ?? $nameEn;
+            $recipe->source_ref = $this->trimmedOrNull($attributes['source_ref'] ?? null)
+                ?? $this->nextReferenceFor($organisationId, self::REFERENCE_PREFIX);
             $recipe->recipe_category = $this->trimmedOrNull($attributes['recipe_category'] ?? null);
             $recipe->source_kind = $this->trimmedOrNull($attributes['source_kind'] ?? null);
             $recipe->confidentiality = RecipeConfidentiality::tryFrom((string) ($attributes['confidentiality'] ?? ''))
@@ -95,7 +113,11 @@ final readonly class RecipeService
                 actorUserId: $this->context->userId(),
                 subjectType: 'recipe',
                 subjectId: (string) $recipe->getKey(),
-                metadata: ['slug' => $recipe->slug, 'status' => $recipe->status->value],
+                metadata: [
+                    'slug' => $recipe->slug,
+                    'source_ref' => $recipe->source_ref,
+                    'status' => $recipe->status->value,
+                ],
             );
 
             $this->audit->record(
@@ -250,6 +272,53 @@ final readonly class RecipeService
         }
 
         return $organisationId;
+    }
+
+    /**
+     * The next `RC-0001` for this kitchen.
+     *
+     * The same idea as the ingredient library's `ING-001`: a short, sequential, human-quotable
+     * handle a cook can read down a column and say out loud. A slug cannot do that job — it is
+     * derived from the name, so it changes meaning when the name does and sorts alphabetically
+     * rather than by age — which is why the editor was showing a slug in a field labelled
+     * "Reference" and why that read as no reference at all.
+     *
+     * Per organisation, not global: two kitchens both having an `RC-0001` is correct, because the
+     * reference is theirs. Derived by scanning rather than by a counter column, so an imported
+     * recipe that already carries `RC-0042` is respected and the next one lands at `RC-0043`.
+     *
+     * Zero-padded to four, matching the design's `RC-0104`. A kitchen past 9,999 recipes simply gets
+     * a five-digit reference; nothing breaks, the number just grows.
+     */
+    /**
+     * The next number in one series, for this kitchen.
+     *
+     * Public because the form asks for it *before* it saves: a create screen draws the handle the
+     * record is about to take, and the only way for that to be the real one is for the same scan to
+     * answer both questions. It is a read, so it is a preview and not a reservation — two people
+     * starting a sauce at the same moment both see the same number and the second one saves at the
+     * next. That is the honest behaviour for a series derived by scanning, and the alternative — a
+     * counter column handing out reservations nobody may ever use — leaves permanent holes in a
+     * sequence a cook reads down a column.
+     */
+    public function nextReferenceFor(string $organisationId, string $prefix): string
+    {
+        $highest = 0;
+
+        $existing = Recipe::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereNotNull('source_ref')
+            ->pluck('source_ref');
+
+        foreach ($existing as $reference) {
+            if (preg_match('/^'.preg_quote($prefix, '/').'(\d+)$/', (string) $reference, $matches) !== 1) {
+                continue;
+            }
+
+            $highest = max($highest, (int) $matches[1]);
+        }
+
+        return $prefix.str_pad((string) ($highest + 1), 4, '0', STR_PAD_LEFT);
     }
 
     private function uniqueSlug(string $source, string $organisationId): string
