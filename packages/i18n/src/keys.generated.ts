@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6186 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6500 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1016,6 +1016,9 @@ export interface NamespaceKeys {
     | 'facts.title'
     | 'facts.version'
     | 'filters.activeCount'
+    | 'filters.anyValue'
+    | 'filters.atLeast'
+    | 'filters.atMost'
     | 'filters.carbohydrate'
     | 'filters.clear'
     | 'filters.diet'
@@ -1023,6 +1026,7 @@ export interface NamespaceKeys {
     | 'filters.excludeAllergens'
     | 'filters.excludeAllergensHint'
     | 'filters.fat'
+    | 'filters.groupWithCount'
     | 'filters.kitchen'
     | 'filters.mealType'
     | 'filters.preparationMinutes'
@@ -1118,7 +1122,6 @@ export interface NamespaceKeys {
     | 'meals.loadMore'
     | 'meals.loadingMore'
     | 'meals.searchLabel'
-    | 'meals.searchPlaceholder'
     | 'meals.showing'
     | 'meals.showingUnknownTotal'
     | 'meals.sort.energy'
@@ -1128,7 +1131,6 @@ export interface NamespaceKeys {
     | 'meals.sort.rating'
     | 'meals.sort.relevance'
     | 'meals.sortLabel'
-    | 'meals.subtitle'
     | 'meals.title'
     | 'nav.calorieCalculator'
     | 'nav.compare'
@@ -1719,6 +1721,7 @@ export interface NamespaceKeys {
     | 'action.back'
     | 'action.cancel'
     | 'action.change'
+    | 'action.clear'
     | 'action.close'
     | 'action.confirm'
     | 'action.continue'
@@ -1729,6 +1732,7 @@ export interface NamespaceKeys {
     | 'action.resend'
     | 'action.retry'
     | 'action.save'
+    | 'action.search'
     | 'action.select'
     | 'action.signIn'
     | 'action.signOut'
@@ -1763,6 +1767,8 @@ export interface NamespaceKeys {
     | 'theme.dark'
     | 'theme.label'
     | 'theme.light'
+    | 'theme.switchToDark'
+    | 'theme.switchToLight'
     | 'theme.system';
   readonly "designSystem":
     | 'breadcrumbs.label'
@@ -1860,6 +1866,8 @@ export interface NamespaceKeys {
     | 'showcase.sections.status'
     | 'showcase.sections.typography'
     | 'showcase.showToast'
+    | 'showcase.sliderAtLeastLabel'
+    | 'showcase.sliderAtMostLabel'
     | 'showcase.stepperLabel'
     | 'showcase.stepperStep'
     | 'showcase.subtitle'
@@ -1872,6 +1880,7 @@ export interface NamespaceKeys {
     | 'showcase.tableColumnAmount'
     | 'showcase.tableColumnName'
     | 'showcase.tableColumnTarget'
+    | 'showcase.tableCompactCaption'
     | 'showcase.tableSortableCaption'
     | 'showcase.tabsLabel'
     | 'showcase.title'
@@ -1901,7 +1910,10 @@ export interface NamespaceKeys {
     | 'table.empty'
     | 'table.sortBy'
     | 'table.sortedAscending'
-    | 'table.sortedDescending';
+    | 'table.sortedDescending'
+    | 'tag.join'
+    | 'tag.more'
+    | 'tag.overflow';
   readonly "errors":
     | 'failure.account_verification_required'
     | 'failure.address_area_not_served'
@@ -2276,9 +2288,11 @@ export interface NamespaceKeys {
     | 'availability.sectionTitle'
     | 'bilingual.arabicHint'
     | 'bilingual.arabicLabel'
+    | 'bilingual.arabicShort'
     | 'bilingual.copyFromEnglish'
     | 'bilingual.englishHint'
     | 'bilingual.englishLabel'
+    | 'bilingual.englishShort'
     | 'bilingual.missingArabic'
     | 'bilingual.missingArabicHint'
     | 'branchHours.allClosedBody'
@@ -2337,6 +2351,26 @@ export interface NamespaceKeys {
     | 'calendar.subtitle'
     | 'calendar.thisWeek'
     | 'calendar.title'
+    | 'catalogue.archive'
+    | 'catalogue.clearFilter'
+    | 'catalogue.close'
+    | 'catalogue.columnMenu'
+    | 'catalogue.columnUpdated'
+    | 'catalogue.edit'
+    | 'catalogue.fields'
+    | 'catalogue.filter'
+    | 'catalogue.navToggle'
+    | 'catalogue.pagerLabel'
+    | 'catalogue.pagerRange'
+    | 'catalogue.rowActions'
+    | 'catalogue.sortAscending'
+    | 'catalogue.sortDescending'
+    | 'catalogue.statsAsCards'
+    | 'catalogue.statsAsLine'
+    | 'catalogue.statsCaption'
+    | 'catalogue.statsViewLabel'
+    | 'catalogue.title'
+    | 'catalogue.view'
     | 'channels.createFirst'
     | 'channels.fromHint'
     | 'channels.fromLabel'
@@ -2347,6 +2381,11 @@ export interface NamespaceKeys {
     | 'channels.sectionTitle'
     | 'channels.untilHint'
     | 'channels.untilLabel'
+    | 'classes.columnClass'
+    | 'classes.columnExamples'
+    | 'classes.columnMarkets'
+    | 'classes.columnReference'
+    | 'classes.columnThreshold'
     | 'classes.count'
     | 'classes.emptyBody'
     | 'classes.emptyTitle'
@@ -2354,13 +2393,10 @@ export interface NamespaceKeys {
     | 'classes.governanceBody'
     | 'classes.governanceTitle'
     | 'classes.inactive'
-    | 'classes.marketsLabel'
     | 'classes.noMarkets'
-    | 'classes.referenceLabel'
     | 'classes.severe'
     | 'classes.subtitle'
     | 'classes.thresholdAny'
-    | 'classes.thresholdLabel'
     | 'classes.thresholdValue'
     | 'classes.title'
     | 'common.add'
@@ -2368,6 +2404,7 @@ export interface NamespaceKeys {
     | 'common.cancel'
     | 'common.discard'
     | 'common.listSeparator'
+    | 'common.no'
     | 'common.notRecorded'
     | 'common.optional'
     | 'common.remove'
@@ -2375,6 +2412,11 @@ export interface NamespaceKeys {
     | 'common.saveDraft'
     | 'common.saving'
     | 'common.undo'
+    | 'common.yes'
+    | 'composition.description'
+    | 'composition.fromDatabase'
+    | 'composition.per100g'
+    | 'composition.title'
     | 'conflict.body'
     | 'conflict.keepEditing'
     | 'conflict.reload'
@@ -2605,8 +2647,10 @@ export interface NamespaceKeys {
     | 'dressings.emptyBody'
     | 'dressings.emptyTitle'
     | 'dressings.resultCount'
+    | 'dressings.searchPlaceholder'
     | 'dressings.subtitle'
     | 'dressings.title'
+    | 'dressings.viewKind'
     | 'driver.assignedAt'
     | 'driver.deliver'
     | 'driver.deliverBody'
@@ -2641,27 +2685,39 @@ export interface NamespaceKeys {
     | 'editor.archiveConfirm'
     | 'editor.archiveTitle'
     | 'editor.backToList'
+    | 'editor.cancel'
     | 'editor.categoryRequired'
     | 'editor.createTitle'
     | 'editor.createdToast'
     | 'editor.editTitle'
+    | 'editor.forkAction'
+    | 'editor.forkError'
+    | 'editor.forkedFromBody'
+    | 'editor.forkedFromTitle'
+    | 'editor.forkedToast'
     | 'editor.lastUpdated'
     | 'editor.lastUpdatedBy'
     | 'editor.lastUpdatedBySeed'
     | 'editor.loadErrorTitle'
+    | 'editor.metaSeparator'
     | 'editor.nameRequired'
     | 'editor.neverSaved'
     | 'editor.notFoundBody'
     | 'editor.notFoundTitle'
     | 'editor.platformLibraryBody'
     | 'editor.platformLibraryTitle'
+    | 'editor.save'
     | 'editor.saveError'
     | 'editor.savedToast'
     | 'editor.sectionAliases'
     | 'editor.sectionAllergens'
     | 'editor.sectionClassification'
     | 'editor.sectionDetails'
+    | 'editor.sectionIdentity'
+    | 'editor.sectionMeasurement'
     | 'editor.sectionNotes'
+    | 'editor.sectionNotesTitle'
+    | 'editor.sectionOtherNames'
     | 'editor.unsaved'
     | 'families.allergenClasses.description'
     | 'families.allergenClasses.name'
@@ -2691,6 +2747,8 @@ export interface NamespaceKeys {
     | 'families.orderRequirements.name'
     | 'families.orders.description'
     | 'families.orders.name'
+    | 'families.packaging.description'
+    | 'families.packaging.name'
     | 'families.plans.description'
     | 'families.plans.name'
     | 'families.priceLists.description'
@@ -2724,6 +2782,8 @@ export interface NamespaceKeys {
     | 'fields.categoryPlaceholder'
     | 'fields.composition'
     | 'fields.compositionHint'
+    | 'fields.designation'
+    | 'fields.itemsPerPurchaseUnit'
     | 'fields.itemsPerUnit'
     | 'fields.itemsPerUnitHint'
     | 'fields.name'
@@ -2735,8 +2795,16 @@ export interface NamespaceKeys {
     | 'fields.purchaseUnitNoneHint'
     | 'fields.reference'
     | 'fields.referenceHint'
+    | 'fields.stockUnit'
+    | 'fields.stockUnitHint'
+    | 'fields.subcategory'
+    | 'fields.subcategoryHint'
+    | 'fields.subcategoryNone'
+    | 'fields.subcategoryPlaceholder'
     | 'fields.unit'
     | 'fields.unitHint'
+    | 'fields.unitPrice'
+    | 'fields.unitPriceHint'
     | 'hub.countUnavailable'
     | 'hub.draftCount'
     | 'hub.emptyBody'
@@ -2792,24 +2860,58 @@ export interface NamespaceKeys {
     | 'list.columnAllergens'
     | 'list.columnCategory'
     | 'list.columnName'
+    | 'list.columnReference'
     | 'list.columnStatus'
+    | 'list.columnUnit'
+    | 'list.columnUnitPrice'
     | 'list.columnUpdated'
     | 'list.emptyBody'
     | 'list.emptyTitle'
     | 'list.filteredEmptyBody'
     | 'list.filteredEmptyTitle'
+    | 'list.import'
+    | 'list.importUnavailable'
     | 'list.loadMore'
     | 'list.loadingMore'
+    | 'list.mayContain'
     | 'list.missingArabic'
     | 'list.missingArabicHint'
     | 'list.noAllergens'
     | 'list.noCategory'
+    | 'list.noValue'
     | 'list.open'
+    | 'list.rowActions'
+    | 'list.statDraft'
+    | 'list.statDraftAction'
+    | 'list.statDraftCaption'
+    | 'list.statLive'
+    | 'list.statLiveCaption'
+    | 'list.statMissingArabic'
+    | 'list.statMissingArabicCaption'
+    | 'list.statRecords'
+    | 'list.statShown'
+    | 'list.statShownAction'
+    | 'list.statShownFiltered'
+    | 'list.statShownUnfiltered'
+    | 'list.statShownUnit'
+    | 'list.statTotal'
+    | 'list.statTotalCaption'
+    | 'list.statUncosted'
+    | 'list.statUncostedCaption'
     | 'list.subtitle'
+    | 'list.summaryDraft'
+    | 'list.summaryMissingArabic'
+    | 'list.summaryShown'
+    | 'list.summaryUncosted'
     | 'list.tableProvenance'
     | 'list.title'
     | 'list.updatedBy'
     | 'list.updatedBySeed'
+    | 'list.view'
+    | 'list.viewAllergensCaption'
+    | 'list.viewAllergensSource'
+    | 'list.viewFields'
+    | 'list.viewKind'
     | 'meals.allergensLabel'
     | 'meals.allergensNoProvenance'
     | 'meals.allergensNone'
@@ -2846,6 +2948,7 @@ export interface NamespaceKeys {
     | 'meals.noChannels'
     | 'meals.notFoundBody'
     | 'meals.notFoundTitle'
+    | 'meals.notVisibleToConsumers'
     | 'meals.openRecipe'
     | 'meals.portionHint'
     | 'meals.portionInvalid'
@@ -2872,14 +2975,21 @@ export interface NamespaceKeys {
     | 'meals.retiredBody'
     | 'meals.retiredTitle'
     | 'meals.retiredToast'
+    | 'meals.searchPlaceholder'
     | 'meals.sectionDetails'
     | 'meals.sectionMargin'
     | 'meals.sectionRecipe'
+    | 'meals.statLiveAction'
+    | 'meals.statLiveCaption'
     | 'meals.subtitle'
     | 'meals.title'
     | 'meals.typeFilterAll'
     | 'meals.typeFilterLabel'
+    | 'meals.viewAllergensCaption'
+    | 'meals.viewAllergensSource'
+    | 'meals.viewKind'
     | 'meals.viewPublic'
+    | 'meals.viewVisibility'
     | 'meals.visibleToConsumers'
     | 'nav.groups.catalogue'
     | 'nav.groups.commercial'
@@ -3731,6 +3841,25 @@ export interface NamespaceKeys {
     | 'ops.unpricedReceipts.receivedQuantity'
     | 'ops.unpricedReceipts.subtitle'
     | 'ops.unpricedReceipts.title'
+    | 'packaging.archiveBody'
+    | 'packaging.archiveConfirm'
+    | 'packaging.archiveFailed'
+    | 'packaging.archiveTitle'
+    | 'packaging.archivedToast'
+    | 'packaging.caption'
+    | 'packaging.columnCapacity'
+    | 'packaging.columnPackPrice'
+    | 'packaging.columnWaste'
+    | 'packaging.emptyBody'
+    | 'packaging.emptyTitle'
+    | 'packaging.searchPlaceholder'
+    | 'packaging.statInactive'
+    | 'packaging.statInactiveAction'
+    | 'packaging.statInactiveCaption'
+    | 'packaging.statMissingArabicCaption'
+    | 'packaging.statUnpriced'
+    | 'packaging.statUnpricedCaption'
+    | 'packaging.viewKind'
     | 'plans.addCombination'
     | 'plans.addDuration'
     | 'plans.backToList'
@@ -4066,6 +4195,7 @@ export interface NamespaceKeys {
     | 'products.categoryHint'
     | 'products.columnCategory'
     | 'products.columnChannels'
+    | 'products.columnFlags'
     | 'products.columnName'
     | 'products.columnPacks'
     | 'products.create'
@@ -4084,6 +4214,8 @@ export interface NamespaceKeys {
     | 'products.emptyTitle'
     | 'products.filteredEmptyBody'
     | 'products.filteredEmptyTitle'
+    | 'products.formulationStart'
+    | 'products.formulationStartedToast'
     | 'products.loadErrorTitle'
     | 'products.marketPricedHint'
     | 'products.marketPricedLabel'
@@ -4105,6 +4237,7 @@ export interface NamespaceKeys {
     | 'products.packQuantityInvalid'
     | 'products.packQuantityLabel'
     | 'products.packRemoved'
+    | 'products.packSummary'
     | 'products.packUnitLabel'
     | 'products.packsEmpty'
     | 'products.packsHint'
@@ -4113,18 +4246,26 @@ export interface NamespaceKeys {
     | 'products.quarantineTitle'
     | 'products.recipeHint'
     | 'products.recipeLabel'
+    | 'products.recipeMissingBody'
+    | 'products.recipeMissingTitle'
     | 'products.recipeNone'
     | 'products.recipeNoneHint'
     | 'products.resultCount'
+    | 'products.searchPlaceholder'
     | 'products.sectionDetails'
     | 'products.sectionPacks'
     | 'products.sectionRecipe'
+    | 'products.statNoPack'
+    | 'products.statNoPackCaption'
     | 'products.subtitle'
     | 'products.title'
     | 'products.unitsPerPackHint'
     | 'products.unitsPerPackInvalid'
     | 'products.unitsPerPackLabel'
     | 'products.unnamedPack'
+    | 'products.viewChannelsCaption'
+    | 'products.viewDefaultPack'
+    | 'products.viewKind'
     | 'publish.action'
     | 'publish.allergenRow'
     | 'publish.allergenRowsNone'
@@ -4153,37 +4294,58 @@ export interface NamespaceKeys {
     | 'publish.title'
     | 'publish.unmappedBody'
     | 'publish.unmappedTitle'
+    | 'recipes.addIngredientPlaceholder'
     | 'recipes.addLine'
     | 'recipes.addOutput'
     | 'recipes.addStep'
+    | 'recipes.allergenVia'
+    | 'recipes.allergensInheritedFrom'
     | 'recipes.archive'
     | 'recipes.archiveBody'
     | 'recipes.archiveConfirm'
     | 'recipes.archiveFailed'
     | 'recipes.archiveTitle'
     | 'recipes.archivedToast'
+    | 'recipes.b2bPriceHint'
+    | 'recipes.b2bPricePerUnit'
+    | 'recipes.b2cPriceHint'
+    | 'recipes.b2cPricePerUnit'
     | 'recipes.backToCurrentVersion'
     | 'recipes.backToList'
     | 'recipes.caption'
+    | 'recipes.coefficientsHint'
     | 'recipes.columnAllergens'
+    | 'recipes.columnKitchen'
     | 'recipes.columnName'
     | 'recipes.columnVersion'
+    | 'recipes.columnVersionShort'
+    | 'recipes.columnVersionState'
     | 'recipes.completenessOutstanding'
     | 'recipes.completenessReady'
+    | 'recipes.compositionHint'
     | 'recipes.confidential'
     | 'recipes.confidentialHint'
+    | 'recipes.costCascadeHint'
+    | 'recipes.costPackaging'
+    | 'recipes.costPerBatch'
+    | 'recipes.costPerUnit'
+    | 'recipes.costProduction'
+    | 'recipes.costTotal'
+    | 'recipes.costTotalCard'
+    | 'recipes.costWithWaste'
     | 'recipes.create'
-    | 'recipes.createHintBody'
-    | 'recipes.createHintTitle'
     | 'recipes.createTitle'
     | 'recipes.createdToast'
     | 'recipes.currentVersion'
     | 'recipes.descriptionLabel'
+    | 'recipes.discard'
     | 'recipes.draftOpenedToast'
     | 'recipes.emptyBody'
     | 'recipes.emptyTitle'
     | 'recipes.filteredEmptyBody'
     | 'recipes.filteredEmptyTitle'
+    | 'recipes.grossMargin'
+    | 'recipes.identityDescription'
     | 'recipes.immutableBody'
     | 'recipes.immutableTitle'
     | 'recipes.kitchenFilterAll'
@@ -4201,7 +4363,10 @@ export interface NamespaceKeys {
     | 'recipes.lineUnitUnknownDimension'
     | 'recipes.linesDescription'
     | 'recipes.linesEmpty'
+    | 'recipes.linesPickerHint'
     | 'recipes.loadErrorTitle'
+    | 'recipes.marginHint'
+    | 'recipes.marginNoBasis'
     | 'recipes.markOptional'
     | 'recipes.markRequired'
     | 'recipes.nameRequired'
@@ -4218,29 +4383,49 @@ export interface NamespaceKeys {
     | 'recipes.outputsEmpty'
     | 'recipes.outputsExplainerBody'
     | 'recipes.outputsExplainerTitle'
+    | 'recipes.packagingHint'
+    | 'recipes.packagingPlaceholder'
+    | 'recipes.packagingWasteHint'
+    | 'recipes.packagingWastePercent'
+    | 'recipes.pickerNoMatch'
+    | 'recipes.pickerSearching'
     | 'recipes.primaryOutput'
     | 'recipes.primaryOutputHint'
     | 'recipes.primaryOutputLabel'
     | 'recipes.primaryOutputPlaceholder'
     | 'recipes.primaryOutputRequired'
+    | 'recipes.productionWastePercent'
     | 'recipes.quarantined'
     | 'recipes.recipeCount'
+    | 'recipes.removeLine'
+    | 'recipes.restricted'
     | 'recipes.resultCount'
     | 'recipes.retire'
     | 'recipes.saveErrorTitle'
     | 'recipes.saveFailed'
     | 'recipes.savedToast'
+    | 'recipes.sectionAllergenClasses'
+    | 'recipes.sectionCoefficients'
+    | 'recipes.sectionCostCascade'
     | 'recipes.sectionDetails'
+    | 'recipes.sectionIdentity'
     | 'recipes.sectionLines'
     | 'recipes.sectionOutputs'
+    | 'recipes.sectionPackaging'
+    | 'recipes.sectionPackagingWaste'
+    | 'recipes.sectionRawMaterials'
     | 'recipes.sectionSteps'
     | 'recipes.sectionVersions'
     | 'recipes.sectionYield'
+    | 'recipes.sectionYieldWaste'
+    | 'recipes.sheetAfterSave'
     | 'recipes.sheetBasisMismatch'
     | 'recipes.sheetColComments'
     | 'recipes.sheetColDesignation'
     | 'recipes.sheetColLineTotal'
+    | 'recipes.sheetColLineTotalLong'
     | 'recipes.sheetColQuantity'
+    | 'recipes.sheetColQuantityShort'
     | 'recipes.sheetColUnit'
     | 'recipes.sheetColUnitPrice'
     | 'recipes.sheetConfidential'
@@ -4255,11 +4440,16 @@ export interface NamespaceKeys {
     | 'recipes.sheetKind'
     | 'recipes.sheetKindUnstated'
     | 'recipes.sheetNoLines'
+    | 'recipes.sheetPrintHint'
     | 'recipes.sheetQuantityProduced'
     | 'recipes.sheetQuantityWithPieces'
     | 'recipes.sheetRawMaterial'
     | 'recipes.sheetTitle'
     | 'recipes.sheetTotalRow'
+    | 'recipes.sourceKindLabel'
+    | 'recipes.statReview'
+    | 'recipes.statReviewAction'
+    | 'recipes.statReviewCaption'
     | 'recipes.stepCount'
     | 'recipes.stepInstruction'
     | 'recipes.stepMinutes'
@@ -4269,21 +4459,33 @@ export interface NamespaceKeys {
     | 'recipes.stepsDescription'
     | 'recipes.stepsEmpty'
     | 'recipes.subtitle'
+    | 'recipes.summaryLines'
+    | 'recipes.summaryPerUnit'
+    | 'recipes.summaryYield'
+    | 'recipes.tabCosting'
+    | 'recipes.tabDescription'
+    | 'recipes.tabPackaging'
+    | 'recipes.tabProduction'
+    | 'recipes.tabSheet'
+    | 'recipes.tabsLabel'
     | 'recipes.title'
     | 'recipes.unnamedLine'
     | 'recipes.unnamedOutput'
     | 'recipes.versionCount'
     | 'recipes.versionNumber'
+    | 'recipes.versionOfCount'
     | 'recipes.versionSelect'
     | 'recipes.versionSelected'
     | 'recipes.versionUnavailableBody'
     | 'recipes.versionUnavailableTitle'
     | 'recipes.versionsDescription'
+    | 'recipes.viewAllergensCaption'
+    | 'recipes.viewAllergensSource'
+    | 'recipes.viewKind'
     | 'recipes.wastePercent'
     | 'recipes.wastePercentHint'
     | 'recipes.yieldDescription'
     | 'recipes.yieldPieces'
-    | 'recipes.yieldPiecesHint'
     | 'recipes.yieldQuantity'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
@@ -4342,13 +4544,34 @@ export interface NamespaceKeys {
     | 'rows.moveUp'
     | 'rows.movedAnnouncement'
     | 'rows.remove'
+    | 'sale.b2bPrice'
+    | 'sale.b2bPriceHint'
+    | 'sale.b2cPrice'
+    | 'sale.b2cPriceHint'
+    | 'sale.currencyUnknown'
+    | 'sale.eyebrow'
+    | 'sale.margin'
+    | 'sale.marginHint'
+    | 'sale.marginNoBasis'
+    | 'sale.marginUnavailable'
+    | 'sale.priceInvalid'
+    | 'sale.stateOff'
+    | 'sale.stateOn'
+    | 'sale.title'
+    | 'sale.toggleLabel'
     | 'sauces.caption'
     | 'sauces.create'
     | 'sauces.emptyBody'
     | 'sauces.emptyTitle'
+    | 'sauces.kindColdSauce'
+    | 'sauces.kindCookingSauce'
+    | 'sauces.kindDessertSauce'
+    | 'sauces.kindMarinadePrep'
     | 'sauces.resultCount'
+    | 'sauces.searchPlaceholder'
     | 'sauces.subtitle'
     | 'sauces.title'
+    | 'sauces.viewKind'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -4358,6 +4581,10 @@ export interface NamespaceKeys {
     | 'status.published'
     | 'status.retired'
     | 'status.reviewRequired'
+    | 'statusShort.draft'
+    | 'statusShort.published'
+    | 'statusShort.retired'
+    | 'statusShort.reviewRequired'
     | 'time.formatHint'
     | 'time.placeholder'
     | 'title'
@@ -4365,13 +4592,27 @@ export interface NamespaceKeys {
     | 'toolbar.categoryLabel'
     | 'toolbar.clearFilters'
     | 'toolbar.create'
+    | 'toolbar.createRecipe'
+    | 'toolbar.densityLabel'
+    | 'toolbar.densityLarge'
+    | 'toolbar.densityLargeName'
+    | 'toolbar.densityMedium'
+    | 'toolbar.densityMediumName'
+    | 'toolbar.densitySmall'
+    | 'toolbar.densitySmallName'
     | 'toolbar.filters'
     | 'toolbar.filtersActive'
     | 'toolbar.removeFilter'
     | 'toolbar.resultCount'
+    | 'toolbar.searchIngredients'
     | 'toolbar.searchLabel'
     | 'toolbar.searchPlaceholder'
+    | 'toolbar.searchRecipes'
+    | 'toolbar.segmentDraft'
+    | 'toolbar.segmentLive'
+    | 'toolbar.segmentReview'
     | 'toolbar.showing'
+    | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
     | 'units.cup'
     | 'units.dimensionCount'
@@ -4388,6 +4629,21 @@ export interface NamespaceKeys {
     | 'units.slice'
     | 'units.tbsp'
     | 'units.tsp'
+    | 'unitsShort.bag'
+    | 'unitsShort.bottle'
+    | 'unitsShort.can'
+    | 'unitsShort.cup'
+    | 'unitsShort.g'
+    | 'unitsShort.gallon'
+    | 'unitsShort.kg'
+    | 'unitsShort.l'
+    | 'unitsShort.ml'
+    | 'unitsShort.pack'
+    | 'unitsShort.piece'
+    | 'unitsShort.portion'
+    | 'unitsShort.slice'
+    | 'unitsShort.tbsp'
+    | 'unitsShort.tsp'
     | 'unsaved.body'
     | 'unsaved.browserPrompt'
     | 'unsaved.discard'
@@ -4614,6 +4870,8 @@ export interface NamespaceKeys {
     | 'diets.pescatarian'
     | 'diets.vegan'
     | 'diets.vegetarian'
+    | 'discover.allMeals'
+    | 'discover.categoriesTitle'
     | 'discover.comingBody'
     | 'discover.comingTitle'
     | 'discover.dietitiansBody'
@@ -4626,8 +4884,22 @@ export interface NamespaceKeys {
     | 'discover.familyBody.meals'
     | 'discover.familyBody.plans'
     | 'discover.familyBody.tools'
+    | 'discover.heroBody'
+    | 'discover.heroBrowseMeals'
+    | 'discover.heroEyebrow'
+    | 'discover.heroImageLabel'
+    | 'discover.heroOverlayLabel'
+    | 'discover.heroTitle'
     | 'discover.kitchensBody'
     | 'discover.kitchensTitle'
+    | 'discover.offerAction'
+    | 'discover.offerBody'
+    | 'discover.offerEyebrow'
+    | 'discover.offerTitle'
+    | 'discover.popularMeta'
+    | 'discover.popularTitle'
+    | 'discover.railFigures'
+    | 'discover.railTitle'
     | 'discover.searchLabel'
     | 'discover.searchPlaceholder'
     | 'discover.searchSubmit'
@@ -4705,15 +4977,31 @@ export interface NamespaceKeys {
     | 'kitchen.zoneFee'
     | 'kitchen.zoneMinimum'
     | 'kitchen.zoneMinutes'
+    | 'kitchens.allKitchens'
+    | 'kitchens.areaSeparator'
     | 'kitchens.cardLabel'
+    | 'kitchens.collectionOnly'
     | 'kitchens.deliversTo'
     | 'kitchens.deliversToTimed'
+    | 'kitchens.deliveryFee'
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
+    | 'kitchens.etaMinutes'
+    | 'kitchens.freeDelivery'
+    | 'kitchens.goalBody.halal_friendly'
+    | 'kitchens.goalBody.high_protein'
+    | 'kitchens.goalBody.low_carb'
+    | 'kitchens.goalBody.vegan'
+    | 'kitchens.goalsTitle'
+    | 'kitchens.heroEyebrow'
+    | 'kitchens.heroEyebrowPending'
+    | 'kitchens.heroTitle'
     | 'kitchens.imageLabel'
+    | 'kitchens.matches'
     | 'kitchens.noPublishedZone'
     | 'kitchens.notRatedYet'
     | 'kitchens.ratingLabel'
+    | 'kitchens.resultsTitle'
     | 'kitchens.searchLabel'
     | 'kitchens.searchPlaceholder'
     | 'kitchens.subtitle'
@@ -4750,6 +5038,7 @@ export interface NamespaceKeys {
     | 'mealTypes.snack'
     | 'medicalDisclaimer.body'
     | 'medicalDisclaimer.title'
+    | 'menu.add'
     | 'menu.allLoaded'
     | 'menu.allergensTitle'
     | 'menu.cardLabel'
@@ -4766,6 +5055,7 @@ export interface NamespaceKeys {
     | 'menu.openMeal'
     | 'menu.perServing'
     | 'menu.preparationMinutes'
+    | 'menu.ratingLabel'
     | 'menu.searchLabel'
     | 'menu.searchPlaceholder'
     | 'menu.stats.carbohydrate'
@@ -4775,6 +5065,7 @@ export interface NamespaceKeys {
     | 'menu.subtitle'
     | 'menu.title'
     | 'menu.titleFor'
+    | 'nav.accountMenu'
     | 'nav.dietitians'
     | 'nav.discover'
     | 'nav.forBusiness'
@@ -4787,6 +5078,8 @@ export interface NamespaceKeys {
     | 'nav.plannedSuffix'
     | 'nav.plans'
     | 'nav.register'
+    | 'nav.searchLabel'
+    | 'nav.searchPlaceholder'
     | 'nav.signIn'
     | 'nav.skipToContent'
     | 'nutrients.carbohydrate'
@@ -4808,6 +5101,27 @@ export interface NamespaceKeys {
     | 'prototype.noticeBody'
     | 'prototype.noticeTitle'
     | 'resume.thisPage'
+    | 'storefront.addLabel'
+    | 'storefront.closedToday'
+    | 'storefront.collectFrom'
+    | 'storefront.dietsEyebrow'
+    | 'storefront.emptyBody'
+    | 'storefront.emptyTitle'
+    | 'storefront.factBranches'
+    | 'storefront.factCuisine'
+    | 'storefront.factDelivery'
+    | 'storefront.factDeliveryValue'
+    | 'storefront.factRating'
+    | 'storefront.fee'
+    | 'storefront.fromAmount'
+    | 'storefront.minimum'
+    | 'storefront.openMeal'
+    | 'storefront.openToday'
+    | 'storefront.orderEyebrow'
+    | 'storefront.productsTitle'
+    | 'storefront.sectionNote'
+    | 'storefront.seePlans'
+    | 'storefront.startOrder'
     | 'subscriptionStates.active'
     | 'subscriptionStates.cancelled'
     | 'subscriptionStates.draft'
@@ -7227,6 +7541,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.title',
   'catalogue:facts.version',
   'catalogue:filters.activeCount',
+  'catalogue:filters.anyValue',
+  'catalogue:filters.atLeast',
+  'catalogue:filters.atMost',
   'catalogue:filters.carbohydrate',
   'catalogue:filters.clear',
   'catalogue:filters.diet',
@@ -7234,6 +7551,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.excludeAllergens',
   'catalogue:filters.excludeAllergensHint',
   'catalogue:filters.fat',
+  'catalogue:filters.groupWithCount',
   'catalogue:filters.kitchen',
   'catalogue:filters.mealType',
   'catalogue:filters.preparationMinutes',
@@ -7329,7 +7647,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.loadMore',
   'catalogue:meals.loadingMore',
   'catalogue:meals.searchLabel',
-  'catalogue:meals.searchPlaceholder',
   'catalogue:meals.showing',
   'catalogue:meals.showingUnknownTotal',
   'catalogue:meals.sort.energy',
@@ -7339,7 +7656,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.sort.rating',
   'catalogue:meals.sort.relevance',
   'catalogue:meals.sortLabel',
-  'catalogue:meals.subtitle',
   'catalogue:meals.title',
   'catalogue:nav.calorieCalculator',
   'catalogue:nav.compare',
@@ -7928,6 +8244,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.back',
   'common:action.cancel',
   'common:action.change',
+  'common:action.clear',
   'common:action.close',
   'common:action.confirm',
   'common:action.continue',
@@ -7938,6 +8255,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.resend',
   'common:action.retry',
   'common:action.save',
+  'common:action.search',
   'common:action.select',
   'common:action.signIn',
   'common:action.signOut',
@@ -7972,6 +8290,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:theme.dark',
   'common:theme.label',
   'common:theme.light',
+  'common:theme.switchToDark',
+  'common:theme.switchToLight',
   'common:theme.system',
   'designSystem:breadcrumbs.label',
   'designSystem:chip.remove',
@@ -8068,6 +8388,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.sections.status',
   'designSystem:showcase.sections.typography',
   'designSystem:showcase.showToast',
+  'designSystem:showcase.sliderAtLeastLabel',
+  'designSystem:showcase.sliderAtMostLabel',
   'designSystem:showcase.stepperLabel',
   'designSystem:showcase.stepperStep',
   'designSystem:showcase.subtitle',
@@ -8080,6 +8402,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.tableColumnAmount',
   'designSystem:showcase.tableColumnName',
   'designSystem:showcase.tableColumnTarget',
+  'designSystem:showcase.tableCompactCaption',
   'designSystem:showcase.tableSortableCaption',
   'designSystem:showcase.tabsLabel',
   'designSystem:showcase.title',
@@ -8110,6 +8433,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:table.sortBy',
   'designSystem:table.sortedAscending',
   'designSystem:table.sortedDescending',
+  'designSystem:tag.join',
+  'designSystem:tag.more',
+  'designSystem:tag.overflow',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
   'errors:failure.auth_email_unverified',
@@ -8480,9 +8806,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:availability.sectionTitle',
   'kitchen:bilingual.arabicHint',
   'kitchen:bilingual.arabicLabel',
+  'kitchen:bilingual.arabicShort',
   'kitchen:bilingual.copyFromEnglish',
   'kitchen:bilingual.englishHint',
   'kitchen:bilingual.englishLabel',
+  'kitchen:bilingual.englishShort',
   'kitchen:bilingual.missingArabic',
   'kitchen:bilingual.missingArabicHint',
   'kitchen:branchHours.allClosedBody',
@@ -8541,6 +8869,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:calendar.subtitle',
   'kitchen:calendar.thisWeek',
   'kitchen:calendar.title',
+  'kitchen:catalogue.archive',
+  'kitchen:catalogue.clearFilter',
+  'kitchen:catalogue.close',
+  'kitchen:catalogue.columnMenu',
+  'kitchen:catalogue.columnUpdated',
+  'kitchen:catalogue.edit',
+  'kitchen:catalogue.fields',
+  'kitchen:catalogue.filter',
+  'kitchen:catalogue.navToggle',
+  'kitchen:catalogue.pagerLabel',
+  'kitchen:catalogue.pagerRange',
+  'kitchen:catalogue.rowActions',
+  'kitchen:catalogue.sortAscending',
+  'kitchen:catalogue.sortDescending',
+  'kitchen:catalogue.statsAsCards',
+  'kitchen:catalogue.statsAsLine',
+  'kitchen:catalogue.statsCaption',
+  'kitchen:catalogue.statsViewLabel',
+  'kitchen:catalogue.title',
+  'kitchen:catalogue.view',
   'kitchen:channels.createFirst',
   'kitchen:channels.fromHint',
   'kitchen:channels.fromLabel',
@@ -8551,6 +8899,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:channels.sectionTitle',
   'kitchen:channels.untilHint',
   'kitchen:channels.untilLabel',
+  'kitchen:classes.columnClass',
+  'kitchen:classes.columnExamples',
+  'kitchen:classes.columnMarkets',
+  'kitchen:classes.columnReference',
+  'kitchen:classes.columnThreshold',
   'kitchen:classes.count',
   'kitchen:classes.emptyBody',
   'kitchen:classes.emptyTitle',
@@ -8558,13 +8911,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:classes.governanceBody',
   'kitchen:classes.governanceTitle',
   'kitchen:classes.inactive',
-  'kitchen:classes.marketsLabel',
   'kitchen:classes.noMarkets',
-  'kitchen:classes.referenceLabel',
   'kitchen:classes.severe',
   'kitchen:classes.subtitle',
   'kitchen:classes.thresholdAny',
-  'kitchen:classes.thresholdLabel',
   'kitchen:classes.thresholdValue',
   'kitchen:classes.title',
   'kitchen:common.add',
@@ -8572,6 +8922,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:common.cancel',
   'kitchen:common.discard',
   'kitchen:common.listSeparator',
+  'kitchen:common.no',
   'kitchen:common.notRecorded',
   'kitchen:common.optional',
   'kitchen:common.remove',
@@ -8579,6 +8930,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:common.saveDraft',
   'kitchen:common.saving',
   'kitchen:common.undo',
+  'kitchen:common.yes',
+  'kitchen:composition.description',
+  'kitchen:composition.fromDatabase',
+  'kitchen:composition.per100g',
+  'kitchen:composition.title',
   'kitchen:conflict.body',
   'kitchen:conflict.keepEditing',
   'kitchen:conflict.reload',
@@ -8809,8 +9165,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:dressings.emptyBody',
   'kitchen:dressings.emptyTitle',
   'kitchen:dressings.resultCount',
+  'kitchen:dressings.searchPlaceholder',
   'kitchen:dressings.subtitle',
   'kitchen:dressings.title',
+  'kitchen:dressings.viewKind',
   'kitchen:driver.assignedAt',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
@@ -8845,27 +9203,39 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.archiveConfirm',
   'kitchen:editor.archiveTitle',
   'kitchen:editor.backToList',
+  'kitchen:editor.cancel',
   'kitchen:editor.categoryRequired',
   'kitchen:editor.createTitle',
   'kitchen:editor.createdToast',
   'kitchen:editor.editTitle',
+  'kitchen:editor.forkAction',
+  'kitchen:editor.forkError',
+  'kitchen:editor.forkedFromBody',
+  'kitchen:editor.forkedFromTitle',
+  'kitchen:editor.forkedToast',
   'kitchen:editor.lastUpdated',
   'kitchen:editor.lastUpdatedBy',
   'kitchen:editor.lastUpdatedBySeed',
   'kitchen:editor.loadErrorTitle',
+  'kitchen:editor.metaSeparator',
   'kitchen:editor.nameRequired',
   'kitchen:editor.neverSaved',
   'kitchen:editor.notFoundBody',
   'kitchen:editor.notFoundTitle',
   'kitchen:editor.platformLibraryBody',
   'kitchen:editor.platformLibraryTitle',
+  'kitchen:editor.save',
   'kitchen:editor.saveError',
   'kitchen:editor.savedToast',
   'kitchen:editor.sectionAliases',
   'kitchen:editor.sectionAllergens',
   'kitchen:editor.sectionClassification',
   'kitchen:editor.sectionDetails',
+  'kitchen:editor.sectionIdentity',
+  'kitchen:editor.sectionMeasurement',
   'kitchen:editor.sectionNotes',
+  'kitchen:editor.sectionNotesTitle',
+  'kitchen:editor.sectionOtherNames',
   'kitchen:editor.unsaved',
   'kitchen:families.allergenClasses.description',
   'kitchen:families.allergenClasses.name',
@@ -8895,6 +9265,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.orderRequirements.name',
   'kitchen:families.orders.description',
   'kitchen:families.orders.name',
+  'kitchen:families.packaging.description',
+  'kitchen:families.packaging.name',
   'kitchen:families.plans.description',
   'kitchen:families.plans.name',
   'kitchen:families.priceLists.description',
@@ -8928,6 +9300,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.categoryPlaceholder',
   'kitchen:fields.composition',
   'kitchen:fields.compositionHint',
+  'kitchen:fields.designation',
+  'kitchen:fields.itemsPerPurchaseUnit',
   'kitchen:fields.itemsPerUnit',
   'kitchen:fields.itemsPerUnitHint',
   'kitchen:fields.name',
@@ -8939,8 +9313,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.purchaseUnitNoneHint',
   'kitchen:fields.reference',
   'kitchen:fields.referenceHint',
+  'kitchen:fields.stockUnit',
+  'kitchen:fields.stockUnitHint',
+  'kitchen:fields.subcategory',
+  'kitchen:fields.subcategoryHint',
+  'kitchen:fields.subcategoryNone',
+  'kitchen:fields.subcategoryPlaceholder',
   'kitchen:fields.unit',
   'kitchen:fields.unitHint',
+  'kitchen:fields.unitPrice',
+  'kitchen:fields.unitPriceHint',
   'kitchen:hub.countUnavailable',
   'kitchen:hub.draftCount',
   'kitchen:hub.emptyBody',
@@ -8996,24 +9378,58 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.columnAllergens',
   'kitchen:list.columnCategory',
   'kitchen:list.columnName',
+  'kitchen:list.columnReference',
   'kitchen:list.columnStatus',
+  'kitchen:list.columnUnit',
+  'kitchen:list.columnUnitPrice',
   'kitchen:list.columnUpdated',
   'kitchen:list.emptyBody',
   'kitchen:list.emptyTitle',
   'kitchen:list.filteredEmptyBody',
   'kitchen:list.filteredEmptyTitle',
+  'kitchen:list.import',
+  'kitchen:list.importUnavailable',
   'kitchen:list.loadMore',
   'kitchen:list.loadingMore',
+  'kitchen:list.mayContain',
   'kitchen:list.missingArabic',
   'kitchen:list.missingArabicHint',
   'kitchen:list.noAllergens',
   'kitchen:list.noCategory',
+  'kitchen:list.noValue',
   'kitchen:list.open',
+  'kitchen:list.rowActions',
+  'kitchen:list.statDraft',
+  'kitchen:list.statDraftAction',
+  'kitchen:list.statDraftCaption',
+  'kitchen:list.statLive',
+  'kitchen:list.statLiveCaption',
+  'kitchen:list.statMissingArabic',
+  'kitchen:list.statMissingArabicCaption',
+  'kitchen:list.statRecords',
+  'kitchen:list.statShown',
+  'kitchen:list.statShownAction',
+  'kitchen:list.statShownFiltered',
+  'kitchen:list.statShownUnfiltered',
+  'kitchen:list.statShownUnit',
+  'kitchen:list.statTotal',
+  'kitchen:list.statTotalCaption',
+  'kitchen:list.statUncosted',
+  'kitchen:list.statUncostedCaption',
   'kitchen:list.subtitle',
+  'kitchen:list.summaryDraft',
+  'kitchen:list.summaryMissingArabic',
+  'kitchen:list.summaryShown',
+  'kitchen:list.summaryUncosted',
   'kitchen:list.tableProvenance',
   'kitchen:list.title',
   'kitchen:list.updatedBy',
   'kitchen:list.updatedBySeed',
+  'kitchen:list.view',
+  'kitchen:list.viewAllergensCaption',
+  'kitchen:list.viewAllergensSource',
+  'kitchen:list.viewFields',
+  'kitchen:list.viewKind',
   'kitchen:meals.allergensLabel',
   'kitchen:meals.allergensNoProvenance',
   'kitchen:meals.allergensNone',
@@ -9050,6 +9466,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.noChannels',
   'kitchen:meals.notFoundBody',
   'kitchen:meals.notFoundTitle',
+  'kitchen:meals.notVisibleToConsumers',
   'kitchen:meals.openRecipe',
   'kitchen:meals.portionHint',
   'kitchen:meals.portionInvalid',
@@ -9076,14 +9493,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.retiredBody',
   'kitchen:meals.retiredTitle',
   'kitchen:meals.retiredToast',
+  'kitchen:meals.searchPlaceholder',
   'kitchen:meals.sectionDetails',
   'kitchen:meals.sectionMargin',
   'kitchen:meals.sectionRecipe',
+  'kitchen:meals.statLiveAction',
+  'kitchen:meals.statLiveCaption',
   'kitchen:meals.subtitle',
   'kitchen:meals.title',
   'kitchen:meals.typeFilterAll',
   'kitchen:meals.typeFilterLabel',
+  'kitchen:meals.viewAllergensCaption',
+  'kitchen:meals.viewAllergensSource',
+  'kitchen:meals.viewKind',
   'kitchen:meals.viewPublic',
+  'kitchen:meals.viewVisibility',
   'kitchen:meals.visibleToConsumers',
   'kitchen:nav.groups.catalogue',
   'kitchen:nav.groups.commercial',
@@ -9935,6 +10359,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.unpricedReceipts.receivedQuantity',
   'kitchen:ops.unpricedReceipts.subtitle',
   'kitchen:ops.unpricedReceipts.title',
+  'kitchen:packaging.archiveBody',
+  'kitchen:packaging.archiveConfirm',
+  'kitchen:packaging.archiveFailed',
+  'kitchen:packaging.archiveTitle',
+  'kitchen:packaging.archivedToast',
+  'kitchen:packaging.caption',
+  'kitchen:packaging.columnCapacity',
+  'kitchen:packaging.columnPackPrice',
+  'kitchen:packaging.columnWaste',
+  'kitchen:packaging.emptyBody',
+  'kitchen:packaging.emptyTitle',
+  'kitchen:packaging.searchPlaceholder',
+  'kitchen:packaging.statInactive',
+  'kitchen:packaging.statInactiveAction',
+  'kitchen:packaging.statInactiveCaption',
+  'kitchen:packaging.statMissingArabicCaption',
+  'kitchen:packaging.statUnpriced',
+  'kitchen:packaging.statUnpricedCaption',
+  'kitchen:packaging.viewKind',
   'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',
   'kitchen:plans.backToList',
@@ -10270,6 +10713,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.categoryHint',
   'kitchen:products.columnCategory',
   'kitchen:products.columnChannels',
+  'kitchen:products.columnFlags',
   'kitchen:products.columnName',
   'kitchen:products.columnPacks',
   'kitchen:products.create',
@@ -10288,6 +10732,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.emptyTitle',
   'kitchen:products.filteredEmptyBody',
   'kitchen:products.filteredEmptyTitle',
+  'kitchen:products.formulationStart',
+  'kitchen:products.formulationStartedToast',
   'kitchen:products.loadErrorTitle',
   'kitchen:products.marketPricedHint',
   'kitchen:products.marketPricedLabel',
@@ -10309,6 +10755,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.packQuantityInvalid',
   'kitchen:products.packQuantityLabel',
   'kitchen:products.packRemoved',
+  'kitchen:products.packSummary',
   'kitchen:products.packUnitLabel',
   'kitchen:products.packsEmpty',
   'kitchen:products.packsHint',
@@ -10317,18 +10764,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.quarantineTitle',
   'kitchen:products.recipeHint',
   'kitchen:products.recipeLabel',
+  'kitchen:products.recipeMissingBody',
+  'kitchen:products.recipeMissingTitle',
   'kitchen:products.recipeNone',
   'kitchen:products.recipeNoneHint',
   'kitchen:products.resultCount',
+  'kitchen:products.searchPlaceholder',
   'kitchen:products.sectionDetails',
   'kitchen:products.sectionPacks',
   'kitchen:products.sectionRecipe',
+  'kitchen:products.statNoPack',
+  'kitchen:products.statNoPackCaption',
   'kitchen:products.subtitle',
   'kitchen:products.title',
   'kitchen:products.unitsPerPackHint',
   'kitchen:products.unitsPerPackInvalid',
   'kitchen:products.unitsPerPackLabel',
   'kitchen:products.unnamedPack',
+  'kitchen:products.viewChannelsCaption',
+  'kitchen:products.viewDefaultPack',
+  'kitchen:products.viewKind',
   'kitchen:publish.action',
   'kitchen:publish.allergenRow',
   'kitchen:publish.allergenRowsNone',
@@ -10357,37 +10812,58 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:publish.title',
   'kitchen:publish.unmappedBody',
   'kitchen:publish.unmappedTitle',
+  'kitchen:recipes.addIngredientPlaceholder',
   'kitchen:recipes.addLine',
   'kitchen:recipes.addOutput',
   'kitchen:recipes.addStep',
+  'kitchen:recipes.allergenVia',
+  'kitchen:recipes.allergensInheritedFrom',
   'kitchen:recipes.archive',
   'kitchen:recipes.archiveBody',
   'kitchen:recipes.archiveConfirm',
   'kitchen:recipes.archiveFailed',
   'kitchen:recipes.archiveTitle',
   'kitchen:recipes.archivedToast',
+  'kitchen:recipes.b2bPriceHint',
+  'kitchen:recipes.b2bPricePerUnit',
+  'kitchen:recipes.b2cPriceHint',
+  'kitchen:recipes.b2cPricePerUnit',
   'kitchen:recipes.backToCurrentVersion',
   'kitchen:recipes.backToList',
   'kitchen:recipes.caption',
+  'kitchen:recipes.coefficientsHint',
   'kitchen:recipes.columnAllergens',
+  'kitchen:recipes.columnKitchen',
   'kitchen:recipes.columnName',
   'kitchen:recipes.columnVersion',
+  'kitchen:recipes.columnVersionShort',
+  'kitchen:recipes.columnVersionState',
   'kitchen:recipes.completenessOutstanding',
   'kitchen:recipes.completenessReady',
+  'kitchen:recipes.compositionHint',
   'kitchen:recipes.confidential',
   'kitchen:recipes.confidentialHint',
+  'kitchen:recipes.costCascadeHint',
+  'kitchen:recipes.costPackaging',
+  'kitchen:recipes.costPerBatch',
+  'kitchen:recipes.costPerUnit',
+  'kitchen:recipes.costProduction',
+  'kitchen:recipes.costTotal',
+  'kitchen:recipes.costTotalCard',
+  'kitchen:recipes.costWithWaste',
   'kitchen:recipes.create',
-  'kitchen:recipes.createHintBody',
-  'kitchen:recipes.createHintTitle',
   'kitchen:recipes.createTitle',
   'kitchen:recipes.createdToast',
   'kitchen:recipes.currentVersion',
   'kitchen:recipes.descriptionLabel',
+  'kitchen:recipes.discard',
   'kitchen:recipes.draftOpenedToast',
   'kitchen:recipes.emptyBody',
   'kitchen:recipes.emptyTitle',
   'kitchen:recipes.filteredEmptyBody',
   'kitchen:recipes.filteredEmptyTitle',
+  'kitchen:recipes.grossMargin',
+  'kitchen:recipes.identityDescription',
   'kitchen:recipes.immutableBody',
   'kitchen:recipes.immutableTitle',
   'kitchen:recipes.kitchenFilterAll',
@@ -10405,7 +10881,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.lineUnitUnknownDimension',
   'kitchen:recipes.linesDescription',
   'kitchen:recipes.linesEmpty',
+  'kitchen:recipes.linesPickerHint',
   'kitchen:recipes.loadErrorTitle',
+  'kitchen:recipes.marginHint',
+  'kitchen:recipes.marginNoBasis',
   'kitchen:recipes.markOptional',
   'kitchen:recipes.markRequired',
   'kitchen:recipes.nameRequired',
@@ -10422,29 +10901,49 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.outputsEmpty',
   'kitchen:recipes.outputsExplainerBody',
   'kitchen:recipes.outputsExplainerTitle',
+  'kitchen:recipes.packagingHint',
+  'kitchen:recipes.packagingPlaceholder',
+  'kitchen:recipes.packagingWasteHint',
+  'kitchen:recipes.packagingWastePercent',
+  'kitchen:recipes.pickerNoMatch',
+  'kitchen:recipes.pickerSearching',
   'kitchen:recipes.primaryOutput',
   'kitchen:recipes.primaryOutputHint',
   'kitchen:recipes.primaryOutputLabel',
   'kitchen:recipes.primaryOutputPlaceholder',
   'kitchen:recipes.primaryOutputRequired',
+  'kitchen:recipes.productionWastePercent',
   'kitchen:recipes.quarantined',
   'kitchen:recipes.recipeCount',
+  'kitchen:recipes.removeLine',
+  'kitchen:recipes.restricted',
   'kitchen:recipes.resultCount',
   'kitchen:recipes.retire',
   'kitchen:recipes.saveErrorTitle',
   'kitchen:recipes.saveFailed',
   'kitchen:recipes.savedToast',
+  'kitchen:recipes.sectionAllergenClasses',
+  'kitchen:recipes.sectionCoefficients',
+  'kitchen:recipes.sectionCostCascade',
   'kitchen:recipes.sectionDetails',
+  'kitchen:recipes.sectionIdentity',
   'kitchen:recipes.sectionLines',
   'kitchen:recipes.sectionOutputs',
+  'kitchen:recipes.sectionPackaging',
+  'kitchen:recipes.sectionPackagingWaste',
+  'kitchen:recipes.sectionRawMaterials',
   'kitchen:recipes.sectionSteps',
   'kitchen:recipes.sectionVersions',
   'kitchen:recipes.sectionYield',
+  'kitchen:recipes.sectionYieldWaste',
+  'kitchen:recipes.sheetAfterSave',
   'kitchen:recipes.sheetBasisMismatch',
   'kitchen:recipes.sheetColComments',
   'kitchen:recipes.sheetColDesignation',
   'kitchen:recipes.sheetColLineTotal',
+  'kitchen:recipes.sheetColLineTotalLong',
   'kitchen:recipes.sheetColQuantity',
+  'kitchen:recipes.sheetColQuantityShort',
   'kitchen:recipes.sheetColUnit',
   'kitchen:recipes.sheetColUnitPrice',
   'kitchen:recipes.sheetConfidential',
@@ -10459,11 +10958,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetKind',
   'kitchen:recipes.sheetKindUnstated',
   'kitchen:recipes.sheetNoLines',
+  'kitchen:recipes.sheetPrintHint',
   'kitchen:recipes.sheetQuantityProduced',
   'kitchen:recipes.sheetQuantityWithPieces',
   'kitchen:recipes.sheetRawMaterial',
   'kitchen:recipes.sheetTitle',
   'kitchen:recipes.sheetTotalRow',
+  'kitchen:recipes.sourceKindLabel',
+  'kitchen:recipes.statReview',
+  'kitchen:recipes.statReviewAction',
+  'kitchen:recipes.statReviewCaption',
   'kitchen:recipes.stepCount',
   'kitchen:recipes.stepInstruction',
   'kitchen:recipes.stepMinutes',
@@ -10473,21 +10977,33 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.stepsDescription',
   'kitchen:recipes.stepsEmpty',
   'kitchen:recipes.subtitle',
+  'kitchen:recipes.summaryLines',
+  'kitchen:recipes.summaryPerUnit',
+  'kitchen:recipes.summaryYield',
+  'kitchen:recipes.tabCosting',
+  'kitchen:recipes.tabDescription',
+  'kitchen:recipes.tabPackaging',
+  'kitchen:recipes.tabProduction',
+  'kitchen:recipes.tabSheet',
+  'kitchen:recipes.tabsLabel',
   'kitchen:recipes.title',
   'kitchen:recipes.unnamedLine',
   'kitchen:recipes.unnamedOutput',
   'kitchen:recipes.versionCount',
   'kitchen:recipes.versionNumber',
+  'kitchen:recipes.versionOfCount',
   'kitchen:recipes.versionSelect',
   'kitchen:recipes.versionSelected',
   'kitchen:recipes.versionUnavailableBody',
   'kitchen:recipes.versionUnavailableTitle',
   'kitchen:recipes.versionsDescription',
+  'kitchen:recipes.viewAllergensCaption',
+  'kitchen:recipes.viewAllergensSource',
+  'kitchen:recipes.viewKind',
   'kitchen:recipes.wastePercent',
   'kitchen:recipes.wastePercentHint',
   'kitchen:recipes.yieldDescription',
   'kitchen:recipes.yieldPieces',
-  'kitchen:recipes.yieldPiecesHint',
   'kitchen:recipes.yieldQuantity',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
@@ -10546,13 +11062,34 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:rows.moveUp',
   'kitchen:rows.movedAnnouncement',
   'kitchen:rows.remove',
+  'kitchen:sale.b2bPrice',
+  'kitchen:sale.b2bPriceHint',
+  'kitchen:sale.b2cPrice',
+  'kitchen:sale.b2cPriceHint',
+  'kitchen:sale.currencyUnknown',
+  'kitchen:sale.eyebrow',
+  'kitchen:sale.margin',
+  'kitchen:sale.marginHint',
+  'kitchen:sale.marginNoBasis',
+  'kitchen:sale.marginUnavailable',
+  'kitchen:sale.priceInvalid',
+  'kitchen:sale.stateOff',
+  'kitchen:sale.stateOn',
+  'kitchen:sale.title',
+  'kitchen:sale.toggleLabel',
   'kitchen:sauces.caption',
   'kitchen:sauces.create',
   'kitchen:sauces.emptyBody',
   'kitchen:sauces.emptyTitle',
+  'kitchen:sauces.kindColdSauce',
+  'kitchen:sauces.kindCookingSauce',
+  'kitchen:sauces.kindDessertSauce',
+  'kitchen:sauces.kindMarinadePrep',
   'kitchen:sauces.resultCount',
+  'kitchen:sauces.searchPlaceholder',
   'kitchen:sauces.subtitle',
   'kitchen:sauces.title',
+  'kitchen:sauces.viewKind',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',
@@ -10562,6 +11099,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:status.published',
   'kitchen:status.retired',
   'kitchen:status.reviewRequired',
+  'kitchen:statusShort.draft',
+  'kitchen:statusShort.published',
+  'kitchen:statusShort.retired',
+  'kitchen:statusShort.reviewRequired',
   'kitchen:time.formatHint',
   'kitchen:time.placeholder',
   'kitchen:title',
@@ -10569,13 +11110,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.categoryLabel',
   'kitchen:toolbar.clearFilters',
   'kitchen:toolbar.create',
+  'kitchen:toolbar.createRecipe',
+  'kitchen:toolbar.densityLabel',
+  'kitchen:toolbar.densityLarge',
+  'kitchen:toolbar.densityLargeName',
+  'kitchen:toolbar.densityMedium',
+  'kitchen:toolbar.densityMediumName',
+  'kitchen:toolbar.densitySmall',
+  'kitchen:toolbar.densitySmallName',
   'kitchen:toolbar.filters',
   'kitchen:toolbar.filtersActive',
   'kitchen:toolbar.removeFilter',
   'kitchen:toolbar.resultCount',
+  'kitchen:toolbar.searchIngredients',
   'kitchen:toolbar.searchLabel',
   'kitchen:toolbar.searchPlaceholder',
+  'kitchen:toolbar.searchRecipes',
+  'kitchen:toolbar.segmentDraft',
+  'kitchen:toolbar.segmentLive',
+  'kitchen:toolbar.segmentReview',
   'kitchen:toolbar.showing',
+  'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
   'kitchen:units.cup',
   'kitchen:units.dimensionCount',
@@ -10592,6 +11147,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:units.slice',
   'kitchen:units.tbsp',
   'kitchen:units.tsp',
+  'kitchen:unitsShort.bag',
+  'kitchen:unitsShort.bottle',
+  'kitchen:unitsShort.can',
+  'kitchen:unitsShort.cup',
+  'kitchen:unitsShort.g',
+  'kitchen:unitsShort.gallon',
+  'kitchen:unitsShort.kg',
+  'kitchen:unitsShort.l',
+  'kitchen:unitsShort.ml',
+  'kitchen:unitsShort.pack',
+  'kitchen:unitsShort.piece',
+  'kitchen:unitsShort.portion',
+  'kitchen:unitsShort.slice',
+  'kitchen:unitsShort.tbsp',
+  'kitchen:unitsShort.tsp',
   'kitchen:unsaved.body',
   'kitchen:unsaved.browserPrompt',
   'kitchen:unsaved.discard',
@@ -10817,6 +11387,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:diets.pescatarian',
   'marketplace:diets.vegan',
   'marketplace:diets.vegetarian',
+  'marketplace:discover.allMeals',
+  'marketplace:discover.categoriesTitle',
   'marketplace:discover.comingBody',
   'marketplace:discover.comingTitle',
   'marketplace:discover.dietitiansBody',
@@ -10829,8 +11401,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.familyBody.meals',
   'marketplace:discover.familyBody.plans',
   'marketplace:discover.familyBody.tools',
+  'marketplace:discover.heroBody',
+  'marketplace:discover.heroBrowseMeals',
+  'marketplace:discover.heroEyebrow',
+  'marketplace:discover.heroImageLabel',
+  'marketplace:discover.heroOverlayLabel',
+  'marketplace:discover.heroTitle',
   'marketplace:discover.kitchensBody',
   'marketplace:discover.kitchensTitle',
+  'marketplace:discover.offerAction',
+  'marketplace:discover.offerBody',
+  'marketplace:discover.offerEyebrow',
+  'marketplace:discover.offerTitle',
+  'marketplace:discover.popularMeta',
+  'marketplace:discover.popularTitle',
+  'marketplace:discover.railFigures',
+  'marketplace:discover.railTitle',
   'marketplace:discover.searchLabel',
   'marketplace:discover.searchPlaceholder',
   'marketplace:discover.searchSubmit',
@@ -10908,15 +11494,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchen.zoneFee',
   'marketplace:kitchen.zoneMinimum',
   'marketplace:kitchen.zoneMinutes',
+  'marketplace:kitchens.allKitchens',
+  'marketplace:kitchens.areaSeparator',
   'marketplace:kitchens.cardLabel',
+  'marketplace:kitchens.collectionOnly',
   'marketplace:kitchens.deliversTo',
   'marketplace:kitchens.deliversToTimed',
+  'marketplace:kitchens.deliveryFee',
   'marketplace:kitchens.emptyBody',
   'marketplace:kitchens.emptyTitle',
+  'marketplace:kitchens.etaMinutes',
+  'marketplace:kitchens.freeDelivery',
+  'marketplace:kitchens.goalBody.halal_friendly',
+  'marketplace:kitchens.goalBody.high_protein',
+  'marketplace:kitchens.goalBody.low_carb',
+  'marketplace:kitchens.goalBody.vegan',
+  'marketplace:kitchens.goalsTitle',
+  'marketplace:kitchens.heroEyebrow',
+  'marketplace:kitchens.heroEyebrowPending',
+  'marketplace:kitchens.heroTitle',
   'marketplace:kitchens.imageLabel',
+  'marketplace:kitchens.matches',
   'marketplace:kitchens.noPublishedZone',
   'marketplace:kitchens.notRatedYet',
   'marketplace:kitchens.ratingLabel',
+  'marketplace:kitchens.resultsTitle',
   'marketplace:kitchens.searchLabel',
   'marketplace:kitchens.searchPlaceholder',
   'marketplace:kitchens.subtitle',
@@ -10953,6 +11555,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:mealTypes.snack',
   'marketplace:medicalDisclaimer.body',
   'marketplace:medicalDisclaimer.title',
+  'marketplace:menu.add',
   'marketplace:menu.allLoaded',
   'marketplace:menu.allergensTitle',
   'marketplace:menu.cardLabel',
@@ -10969,6 +11572,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.openMeal',
   'marketplace:menu.perServing',
   'marketplace:menu.preparationMinutes',
+  'marketplace:menu.ratingLabel',
   'marketplace:menu.searchLabel',
   'marketplace:menu.searchPlaceholder',
   'marketplace:menu.stats.carbohydrate',
@@ -10978,6 +11582,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.subtitle',
   'marketplace:menu.title',
   'marketplace:menu.titleFor',
+  'marketplace:nav.accountMenu',
   'marketplace:nav.dietitians',
   'marketplace:nav.discover',
   'marketplace:nav.forBusiness',
@@ -10990,6 +11595,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nav.plannedSuffix',
   'marketplace:nav.plans',
   'marketplace:nav.register',
+  'marketplace:nav.searchLabel',
+  'marketplace:nav.searchPlaceholder',
   'marketplace:nav.signIn',
   'marketplace:nav.skipToContent',
   'marketplace:nutrients.carbohydrate',
@@ -11011,6 +11618,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:prototype.noticeBody',
   'marketplace:prototype.noticeTitle',
   'marketplace:resume.thisPage',
+  'marketplace:storefront.addLabel',
+  'marketplace:storefront.closedToday',
+  'marketplace:storefront.collectFrom',
+  'marketplace:storefront.dietsEyebrow',
+  'marketplace:storefront.emptyBody',
+  'marketplace:storefront.emptyTitle',
+  'marketplace:storefront.factBranches',
+  'marketplace:storefront.factCuisine',
+  'marketplace:storefront.factDelivery',
+  'marketplace:storefront.factDeliveryValue',
+  'marketplace:storefront.factRating',
+  'marketplace:storefront.fee',
+  'marketplace:storefront.fromAmount',
+  'marketplace:storefront.minimum',
+  'marketplace:storefront.openMeal',
+  'marketplace:storefront.openToday',
+  'marketplace:storefront.orderEyebrow',
+  'marketplace:storefront.productsTitle',
+  'marketplace:storefront.sectionNote',
+  'marketplace:storefront.seePlans',
+  'marketplace:storefront.startOrder',
   'marketplace:subscriptionStates.active',
   'marketplace:subscriptionStates.cancelled',
   'marketplace:subscriptionStates.draft',

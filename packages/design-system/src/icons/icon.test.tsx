@@ -80,7 +80,7 @@ describe('Icon', () => {
  * rather than being discovered by a user on a phone the team does not own.
  */
 describe('glyph repertoire', () => {
-    /** Every glyph, with the name of the character it must remain. Reviewed 2026-08-08. */
+    /** Every glyph, with the name of the character it must remain. Reviewed 2026-08-25. */
     const REVIEWED: Readonly<Record<keyof typeof ICON_GLYPHS, string>> = {
         chevronForward: 'SINGLE RIGHT-POINTING ANGLE QUOTATION MARK',
         chevronBackward: 'SINGLE LEFT-POINTING ANGLE QUOTATION MARK',
@@ -113,6 +113,8 @@ describe('glyph repertoire', () => {
         filter: 'WHITE DOWN-POINTING TRIANGLE',
         calendar: 'SQUARE WITH HORIZONTAL FILL',
         more: 'MIDLINE HORIZONTAL ELLIPSIS',
+        pen: 'LOWER RIGHT PENCIL',
+        archive: 'SQUARE WITH VERTICAL FILL',
         basket: 'WHITE SQUARE CONTAINING BLACK SMALL SQUARE',
         home: 'HOUSE',
         plate: 'LARGE CIRCLE',
@@ -120,6 +122,8 @@ describe('glyph repertoire', () => {
         leaf: 'BLACK CLUB SUIT',
         medicalCross: 'HEAVY GREEK CROSS',
         sparkle: 'WHITE FOUR POINTED STAR',
+        sun: 'BLACK SUN WITH RAYS',
+        moon: 'LAST QUARTER MOON',
     };
 
     it('has a reviewed entry for every glyph, and no entry without one', () => {
@@ -198,6 +202,8 @@ const CODEPOINT_BY_UNICODE_NAME: Readonly<Record<string, number>> = {
     'WHITE DOWN-POINTING TRIANGLE': 0x25bd,
     'SQUARE WITH HORIZONTAL FILL': 0x25a4,
     'MIDLINE HORIZONTAL ELLIPSIS': 0x22ef,
+    'LOWER RIGHT PENCIL': 0x270e,
+    'SQUARE WITH VERTICAL FILL': 0x25a5,
     'WHITE SQUARE CONTAINING BLACK SMALL SQUARE': 0x25a3,
     HOUSE: 0x2302,
     'LARGE CIRCLE': 0x25ef,
@@ -205,4 +211,6 @@ const CODEPOINT_BY_UNICODE_NAME: Readonly<Record<string, number>> = {
     'BLACK CLUB SUIT': 0x2663,
     'HEAVY GREEK CROSS': 0x271a,
     'WHITE FOUR POINTED STAR': 0x2727,
+    'BLACK SUN WITH RAYS': 0x2600,
+    'LAST QUARTER MOON': 0x263e,
 };

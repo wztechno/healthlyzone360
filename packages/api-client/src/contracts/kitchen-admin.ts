@@ -253,6 +253,31 @@ export interface IngredientAllergenMapping {
  * `costPer100g` is **confidential** and has no counterpart in `./foods.ts`: the consumer `Food`
  * shape carries facts and allergens and no purchase price at all.
  */
+/**
+ * One node of the ingredient category tree.
+ *
+ * `ingredient_categories` is a single self-referencing table, so a parent and a leaf are the same
+ * shape and `parentCode` is the only thing that separates them: `null` is a top-level category,
+ * anything else is a sub-category of that code.
+ *
+ * This is the declared vocabulary, not an observed one. The distinction matters: the pickers used
+ * to derive both lists from a page of ingredients — the codes actually in use — which meant a
+ * sub-category nobody had filed anything under yet did not exist as far as the editor was
+ * concerned, and one that only appeared on page four of the library did not exist either. Reading
+ * the tree means every leaf is offerable the moment it is created, whether or not anything sits
+ * under it.
+ */
+export interface IngredientCategoryAdmin {
+    readonly code: string;
+    readonly name: LocalisedText;
+    /** `null` for a top-level category; otherwise the code of the parent it hangs from. */
+    readonly parentCode: string | null;
+    /** The order the catalogue wants them listed in. Ties fall back to the label. */
+    readonly displayOrder: number;
+    /** A retired branch stays on the wire so existing rows still resolve a name for it. */
+    readonly isActive: boolean;
+}
+
 export interface IngredientAdmin {
     readonly id: IngredientId;
     readonly meta: AdminEntityMeta;
@@ -260,6 +285,16 @@ export interface IngredientAdmin {
     /** The kitchen's own reference, e.g. `IG-014`. `null` for a platform-library row. */
     readonly reference: string | null;
     readonly categoryCode: string;
+    /**
+     * The leaf the ingredient is filed under, `null` when it is filed at the top level.
+     *
+     * Separate from {@link categoryCode} rather than folded into it. `ingredient_categories` is one
+     * self-referencing table, and the two ids used to be collapsed into a single code with the
+     * child preferred — which read back fine and then wrote the *child's* id into the parent column
+     * on the next save, because the write layer only ever sent one of the two. Two fields in, two
+     * ids out, and the pair stays the pair.
+     */
+    readonly subcategoryCode: string | null;
     /** The unit the kitchen issues it in. */
     readonly measurementUnit: MeasureUnit;
     /** The pack the kitchen buys it in, when recorded. */
@@ -268,8 +303,63 @@ export interface IngredientAdmin {
     readonly composition: string | null;
     /** Pieces per purchase pack, when the source knows it. */
     readonly itemsPerUnit: number | null;
+    /**
+     * CONFIDENTIAL — what the kitchen pays for one **purchase pack**, not one issued unit.
+     *
+     * Per {@link purchaseUnit}: a sleeve at $6.50, never a bag at $0.065. Deliberately a different
+     * field from {@link unitPrice} beside it, which is per *stock unit* — the two are denominated
+     * differently and confusing them scales a cost by {@link itemsPerUnit}, silently. A recipe
+     * consuming a single bag divides this by that.
+     *
+     * Carried by packaging in practice, and `null` on food, which records its cost through
+     * {@link costPer100g} instead.
+     */
+    readonly purchasePrice: CostAmount | null;
+    /**
+     * Proportion discarded, as a percentage. `null` and `0` are different answers — "nobody has
+     * measured this" against "measured, and there is none".
+     *
+     * Packaging's figure. Food states its loss as a yield on the recipe line instead.
+     */
+    readonly wastePercent: number | null;
+    /**
+     * How much product one item holds, in the *recipe's* own unit rather than the container's
+     * nominal volume — a 300 cc bottle carries `0.3` kg of sauce.
+     *
+     * Same-unit arithmetic on purpose: a nominal volume would need a density to become a mass, and
+     * a missing density is the kind of gap that silently produces a plausible wrong number. `null`
+     * on food, and on the packaging that holds nothing measurable — a label, a cap.
+     */
+    readonly capacity: { readonly quantity: number; readonly unit: MeasureUnit } | null;
     /** CONFIDENTIAL — purchase cost of 100 g, major units. `null` when no cost is recorded. */
     readonly costPer100g: CostAmount | null;
+    /**
+     * Trade list price on the article, `null` when none is recorded.
+     *
+     * A list price, not a cost and not a tariff: what this ingredient is
+     * offered at, rather than what a kitchen paid (`costPer100g`, which moves
+     * with every receipt) or what a channel charges on a date (a price list).
+     * On a platform-library row it is one price for every kitchen.
+     */
+    readonly b2bPrice: CostAmount | null;
+    /** Consumer list price on the article; the counterpart to `b2bPrice`. */
+    readonly b2cPrice: CostAmount | null;
+    /**
+     * List price of one stock unit, `null` when none is recorded.
+     *
+     * The figure an operator types onto the ingredient sheet, and the denominator the editor's
+     * margin readout divides `b2bPrice` by. Still a list price: `costPer100g` is what a kitchen
+     * actually paid, and it moves with every receipt.
+     */
+    readonly unitPrice: CostAmount | null;
+    /**
+     * Offered for sale as-is, outside recipes.
+     *
+     * Not the same question as `availabilityTier` on the wire, which is about how hard the thing is
+     * to source. An ingredient is a raw material until somebody says otherwise, so this is false
+     * rather than null when nothing has been decided.
+     */
+    readonly isSellable: boolean;
     /** Per-100 g reference facts, when the ingredient has any. Never fabricated to fill the field. */
     readonly per100g: NutritionFacts | null;
     readonly allergens: readonly IngredientAllergenMapping[];
@@ -278,25 +368,105 @@ export interface IngredientAdmin {
     readonly aliases: readonly string[];
     /** `null` for the shared platform library; set once a kitchen forks the row. */
     readonly organisationId: OrganisationId | null;
+    /**
+     * Whether this caller may write this row — the flag a screen gates its edit controls on.
+     *
+     * Not derivable from {@link organisationId}. A null organisation means "platform library",
+     * which a kitchen reads and the platform operator writes, so the same row is editable or not
+     * depending on who asked. Screens that inferred read-only from `organisationId === null` left
+     * the shared library with no writer anywhere in the product.
+     */
+    readonly isEditable: boolean;
+    /**
+     * The library row this one was forked from, or `null` for a row that is
+     * nobody's copy — every platform row, and anything a kitchen typed itself.
+     *
+     * On the wire so the editor can say *why* a row it can edit looks identical
+     * to one in the shared library, and so a kitchen can find its way back to
+     * the original it diverged from.
+     */
+    readonly forkedFromId: IngredientId | null;
     readonly notes: string | null;
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * Packaging
+ *
+ * Packaging has no types of its own. It is an {@link IngredientAdmin} filed under
+ * {@link PACKAGING_CATEGORY_CODE}, and the three fields it needs that food does not —
+ * `purchasePrice`, `wastePercent`, `capacity` — sit on that interface, null on food.
+ *
+ * It had its own table, its own status enum and its own eight repository methods for one
+ * slice. What that bought was a guarantee no query could return a bin liner by accident; what
+ * it cost was two of everything, and a `PackagingStatus` that turned out to be the ingredient
+ * vocabulary spelled again. The guarantee is now the pair below: one list asks for the branch,
+ * the other excludes it, and neither is expressible without naming it.
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The taxonomy branch that holds bags, boxes, lids, cutlery and labels.
+ *
+ * Packaging lives in `ingredients` because a recipe has to be able to cost the
+ * box its meal ships in, and a cost line needs a record to point at. It is not
+ * a *raw material* though, so every surface that means "food" excludes this
+ * branch and the one surface that means "packaging" asks for it by name. One
+ * constant rather than the string in six places, because the day it is
+ * mistyped in one of them the ingredient list silently grows 31 rows of
+ * cutlery and nothing fails.
+ */
+export const PACKAGING_CATEGORY_CODE = 'packaging-disposables';
 
 export interface IngredientAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly categoryCode?: string | undefined;
+    /**
+     * Drops a whole branch, subcategories included. The mirror of
+     * {@link categoryCode}, and the two are usually used as a pair by two
+     * screens reading the same collection from opposite ends — the ingredient
+     * list excluding {@link PACKAGING_CATEGORY_CODE}, the packaging list
+     * asking for it.
+     */
+    readonly excludeCategoryCode?: string | undefined;
+    /**
+     * Keeps only the rows numbered in one series. The ingredient list asks for `ING-`.
+     *
+     * A whitelist, because everything else in that table earned its place there another way: the
+     * import writes a `SAC-`/`DRS-`/`RSL-` ingredient beside every sellable row so a formulation
+     * can name it, and packaging carries `PKG-`. None are raw materials. Filing cannot separate
+     * them — the resale twins sit in the same categories as real food — and deleting them cannot
+     * either, because the next import writes them back. The series survives both.
+     *
+     * The browse list passes it; the recipe line picker does not, because a burger has every reason
+     * to name Garlic Mayo Sauce as a line.
+     */
+    readonly referenceSeries?: IngredientReferenceSeries | undefined;
     readonly allergenCodes?: readonly AllergenCode[] | undefined;
     /** Only rows this organisation owns; omit for the library plus the kitchen's own forks. */
     readonly ownedOnly?: boolean | undefined;
 }
 
+/**
+ * The two series the ingredient table is numbered in.
+ *
+ * Narrower than {@link ReferenceSeries}: `RC-`, `SAC-` and `DRS-` are recipe and catalogue handles,
+ * and asking this list for one would be asking for rows it is written to leave out.
+ */
+export type IngredientReferenceSeries = 'ING-' | 'PKG-';
+
 export interface CreateIngredientRequest {
     readonly name: LocalisedText;
     readonly categoryCode: string;
+    /** Must be a child of `categoryCode`; the server refuses a leaf from another branch. */
+    readonly subcategoryCode?: string | undefined;
     readonly measurementUnit: MeasureUnit;
     readonly purchaseUnit?: MeasureUnit | undefined;
     readonly composition?: string | undefined;
     readonly itemsPerUnit?: number | undefined;
+    readonly b2bPrice?: CostAmount | undefined;
+    readonly b2cPrice?: CostAmount | undefined;
+    readonly unitPrice?: CostAmount | undefined;
+    readonly isSellable?: boolean | undefined;
     readonly reference?: string | undefined;
     readonly costPer100g?: CostAmount | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
@@ -307,10 +477,20 @@ export interface CreateIngredientRequest {
 export interface UpdateIngredientRequest extends LockedRequest {
     readonly name?: LocalisedText | undefined;
     readonly categoryCode?: string | undefined;
+    /** `null` files the ingredient at the top level. Must be a child of the effective category. */
+    readonly subcategoryCode?: string | null | undefined;
     readonly measurementUnit?: MeasureUnit | undefined;
     readonly purchaseUnit?: MeasureUnit | null | undefined;
     readonly composition?: string | null | undefined;
     readonly itemsPerUnit?: number | null | undefined;
+    /** `null` clears the price. Both prices share one currency. */
+    readonly b2bPrice?: CostAmount | null | undefined;
+    /** `null` clears the price. Both prices share one currency. */
+    readonly b2cPrice?: CostAmount | null | undefined;
+    /** `null` clears it. Shares the same currency as the two list prices. */
+    readonly unitPrice?: CostAmount | null | undefined;
+    /** No null state: the column defaults to false, so omit the field to leave it alone. */
+    readonly isSellable?: boolean | undefined;
     /** Per-100 g reference facts; `null` clears them. */
     readonly per100g?: NutritionFacts | null | undefined;
     readonly reference?: string | null | undefined;
@@ -336,6 +516,53 @@ export interface SetIngredientAllergensRequest extends LockedRequest {
  * ---------------------------------------------------------------------------------------------- */
 
 /** One raw-material line of a recipe version. `lineCost` is confidential. */
+/**
+ * How a packaging line works out how many it needs.
+ *
+ * The three are genuinely different arithmetic, not three labels for one sum, which is why the
+ * server returns the stored rows rather than echoing the request: two of them compute their own
+ * quantity, so what comes back is not what went in.
+ *
+ * - `fills_yield` — the batch is divided into these. One 0.3 kg bottle for a 1.7 kg yield is six
+ *   bottles, and the count moves when the yield does.
+ * - `per_container` — one per container already counted by another line. A lid for each bottle.
+ * - `per_batch` — a flat count however big the batch is. One label on the tray.
+ */
+export const PACKAGING_BASES = ['fills_yield', 'per_container', 'per_batch'] as const;
+export type PackagingBasis = (typeof PACKAGING_BASES)[number];
+
+/** One packaging line on a recipe version. */
+export interface RecipePackagingLine {
+    readonly ingredientId: IngredientId;
+    readonly basis: PackagingBasis;
+    /**
+     * The count. Server-computed for `fills_yield` and `per_container`, which is why this is read
+     * back rather than trusted from the draft.
+     */
+    readonly quantity: number;
+    readonly unit: MeasureUnit;
+    readonly comment: string | null;
+}
+
+/** One packaging line as a write states it. `quantity` is ignored for the computed bases. */
+export interface RecipePackagingLineInput {
+    readonly ingredientId: IngredientId;
+    readonly basis: PackagingBasis;
+    readonly quantity?: number | undefined;
+    readonly comment?: string | undefined;
+}
+
+/**
+ * Replaces the whole packaging set on a version.
+ *
+ * Wholesale like {@link SetRecipeLinesRequest}, and for the same reason: the set is the unit of
+ * change, so "I removed the sleeve" and "I forgot to send the sleeve" have to stay different
+ * requests. `lockVersion` is the *version's*, not a line's.
+ */
+export interface SetRecipePackagingRequest extends LockedRequest {
+    readonly packaging: readonly RecipePackagingLineInput[];
+}
+
 export interface RecipeLine {
     readonly ingredientId: IngredientId;
     readonly ingredientName: LocalisedText;
@@ -417,7 +644,23 @@ export interface RecipeVersionAdmin {
     readonly yieldPieces: number | null;
     /** Process loss, whole percent. The source sheets state 3 %. */
     readonly wastePercent: number;
+    /**
+     * Trade list price for one unit of `yieldUnit`, `null` when none is recorded.
+     *
+     * A list price, not a cost: what this version is offered at to a kitchen or corporate buyer,
+     * rather than what its inputs cost to make (`estimatedCost`, which moves with every receipt
+     * behind it) or what a channel charges on a date (a price list). It is the numerator of the
+     * gross margin the editor reads back, and `estimatedCost` per yield unit is the denominator.
+     *
+     * On the version rather than the recipe: publishing freezes a version, and a price on the
+     * recipe would let a later reprice silently restate what a published version was sold for.
+     * Opening the next draft carries both figures forward.
+     */
+    readonly b2bPrice: CostAmount | null;
+    /** Consumer list price for one unit of `yieldUnit`; the counterpart to `b2bPrice`. */
+    readonly b2cPrice: CostAmount | null;
     readonly lines: readonly RecipeLine[];
+    readonly packaging: readonly RecipePackagingLine[];
     readonly outputs: readonly RecipeOutput[];
     readonly steps: readonly RecipeStepAdmin[];
     readonly allergens: readonly RecipeAllergenDeclaration[];
@@ -433,9 +676,24 @@ export interface RecipeAdminSummary {
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     readonly slug: string;
+    /**
+     * The kitchen's own sequential handle — `RC-0001`, the recipe counterpart of an ingredient's
+     * `ING-002`. Assigned on create and stable for the life of the record. `null` only on rows that
+     * predate the series.
+     */
+    readonly reference: string | null;
     readonly kitchenId: KitchenId;
     /** The source sheet's own Kind wording ("Production", "Preparation"), verbatim. */
     readonly sourceKind: string | null;
+    /**
+     * How the kitchen files this formulation within its family — `cooking_sauce`, `marinade_prep`.
+     *
+     * Free text with a length bound and no enumeration, and deliberately so: the column carries no
+     * CHECK constraint because a kitchen's own filing words are not a vocabulary a schema gets to
+     * fix. The sauce and dressing routes offer the four the v6 sheets use; anything already in the
+     * column survives being read and written back.
+     */
+    readonly recipeCategory: string | null;
     readonly currentVersionNumber: number;
     readonly versionCount: number;
 }
@@ -503,22 +761,52 @@ export interface TechnicalSheetAdmin {
     readonly recalculated: RecipeCostFigures | null;
 }
 
+/**
+ * The reference series a record is numbered in.
+ *
+ * `ING-` is the ingredient library's. The other three are the recipe table's: the library, sauces
+ * and dressings are all recipes, read off different sheets and quoted by different handles, so they
+ * number separately. A client names the series; the number in it is always the server's.
+ */
+export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-';
+
+/*
+ * Where each series is counted, which is the table its existing handles are in: `ING-` among the
+ * ingredients, `RC-` among the recipes, `SAC-` and `DRS-` among the catalogue items — the import
+ * wrote forty-three sauces and nineteen dressings there, and on the ingredient twin it writes
+ * beside each one. A series counted anywhere else would offer a handle a kitchen already has.
+ */
+
 export interface CreateRecipeRequest {
     readonly name: LocalisedText;
     readonly description: LocalisedText;
+    /** See {@link RecipeAdminSummary.recipeCategory}. Omitted leaves it unfiled. */
+    readonly recipeCategory?: string | undefined;
     readonly yieldQuantity: number;
     readonly yieldUnit: MeasureUnit;
     readonly yieldPieces?: number | undefined;
     readonly wastePercent?: number | undefined;
+    /** Trade list price per yield unit. Omitted leaves it unpriced. */
+    readonly b2bPrice?: CostAmount | undefined;
+    readonly b2cPrice?: CostAmount | undefined;
 }
 
 export interface UpdateRecipeRequest extends LockedRequest {
     readonly name?: LocalisedText | undefined;
     readonly description?: LocalisedText | undefined;
+    /** See {@link RecipeAdminSummary.recipeCategory}. `null` clears it. */
+    readonly recipeCategory?: string | null | undefined;
     readonly yieldQuantity?: number | undefined;
     readonly yieldUnit?: MeasureUnit | undefined;
     readonly yieldPieces?: number | null | undefined;
     readonly wastePercent?: number | undefined;
+    /**
+     * Trade list price per yield unit. `null` **clears** it, `undefined` leaves it alone — the same
+     * three-way distinction the ingredient editor's prices draw, and the reason an emptied price box
+     * removes a price rather than being read as "no opinion".
+     */
+    readonly b2bPrice?: CostAmount | null | undefined;
+    readonly b2cPrice?: CostAmount | null | undefined;
 }
 
 /** A line as a caller writes it. Costs and names are derived server-side, never client-supplied. */
@@ -625,6 +913,14 @@ export interface ProductAdmin {
      * {@link ProductAdminFilter.itemType}.
      */
     readonly itemType: 'product' | 'sauce' | 'dressing';
+    /**
+     * The kitchen's own handle — `SAC-001`, `DRS-019`, `RSL-055`.
+     *
+     * The v6 sheets number every row they publish, and the number is how a kitchen quotes one on a
+     * phone. It comes from `source_ref`, the same column the ingredient library's `ING-002` lives
+     * in; `null` on a row that predates the series or was typed in before one was assigned.
+     */
+    readonly reference: string | null;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;
@@ -1168,7 +1464,30 @@ export interface KitchenAdminRepository {
     /** The delivery-area gazetteer a zone selects from. Read-only for the same reason. */
     listServiceAreas(filter?: ServiceAreaFilter): Promise<CursorPage<ServiceArea>>;
 
+    /* ── references ─────────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The handle the next record of a kind will take — `ING-307`, `SAC-0016`.
+     *
+     * A create form draws its reference before there is a record to read one from, and this is the
+     * same scan the create itself performs, so the two agree. **A preview, never a reservation**:
+     * two people opening a form at the same moment are both told `ING-307`, the first to save takes
+     * it, and the second saves at 308. Nothing may treat this as the record's reference — that is
+     * whatever the create answers with.
+     */
+    nextReference(prefix: ReferenceSeries): Promise<string>;
+
     /* ── ingredients ────────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * The whole category tree, both levels, in one unpaginated answer.
+     *
+     * Unpaginated for the same reason as {@link listAllergenClasses}: it is a small controlled
+     * vocabulary that two pickers and a filter all need in full before they can offer a single
+     * choice, and a cursor over it would only mean the third page of leaves is missing from the
+     * menu. Retired branches are included — see {@link IngredientCategoryAdmin.isActive}.
+     */
+    listIngredientCategories(): Promise<readonly IngredientCategoryAdmin[]>;
 
     listIngredients(filter?: IngredientAdminFilter): Promise<CursorPage<IngredientAdmin>>;
     getIngredient(ingredientId: IngredientId): Promise<IngredientAdmin>;
@@ -1179,6 +1498,24 @@ export interface KitchenAdminRepository {
     ): Promise<IngredientAdmin>;
     /** Retires the row. Nothing is deleted: recipes and cost snapshots still point at it. */
     archiveIngredient(ingredientId: IngredientId, request: LockedRequest): Promise<IngredientAdmin>;
+    /**
+     * Copies a platform-library row into this kitchen so it can be edited, and
+     * answers with the copy.
+     *
+     * The library is shared and read-only to a kitchen; this is how a kitchen
+     * makes one row its own. The copy carries the parent's fields, its aliases
+     * and **both allergen layers** — a fork is a new id, and allergen mappings
+     * are keyed on that id, so a copy that skipped them would silently drop a
+     * declared allergen.
+     *
+     * Safe to call twice: a kitchen that already forked the row gets the fork
+     * it already has, not a second one. Recipes already built on the library
+     * row keep pointing at the library row; the fork applies to new use.
+     *
+     * Takes no lock version — nothing is being changed, so there is nothing to
+     * be stale against.
+     */
+    forkIngredient(ingredientId: IngredientId): Promise<IngredientAdmin>;
     setIngredientAllergens(
         ingredientId: IngredientId,
         request: SetIngredientAllergensRequest,
@@ -1202,6 +1539,15 @@ export interface KitchenAdminRepository {
     updateRecipe(recipeId: RecipeId, request: UpdateRecipeRequest): Promise<RecipeAdmin>;
     setRecipeLines(recipeId: RecipeId, request: SetRecipeLinesRequest): Promise<RecipeAdmin>;
     setRecipeSteps(recipeId: RecipeId, request: SetRecipeStepsRequest): Promise<RecipeAdmin>;
+    /**
+     * Replaces the packaging set. The costed view of it is the technical sheet, behind the costs
+     * permission; this returns the stored rows with their computed quantities.
+     */
+    setRecipePackaging(
+        recipeId: RecipeId,
+        versionId: RecipeVersionId,
+        request: SetRecipePackagingRequest,
+    ): Promise<RecipeAdmin>;
     setRecipeOutputs(recipeId: RecipeId, request: SetRecipeOutputsRequest): Promise<RecipeAdmin>;
     /** A query over an unsaved draft. Stores nothing; safe to call while a person is typing. */
     previewRecipeRollup(draft: RecipeRollupDraft): Promise<RecipeRollupPreview>;

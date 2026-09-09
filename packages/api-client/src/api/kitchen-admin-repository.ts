@@ -18,6 +18,7 @@ import type {
     DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
+    IngredientCategoryAdmin,
     KitchenAdminRepository,
     MealAdmin,
     MealAdminFilter,
@@ -30,10 +31,11 @@ import type {
     ProductAdminFilter,
     RecipeAdmin,
     RecipeAdminFilter,
+    ReferenceSeries,
     RecipeAdminSummary,
     TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
-import { ApiError } from '../contracts/failure.ts';
+import { ApiError, apiFailure, throwFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     AdminCatalogueItem,
@@ -50,7 +52,6 @@ import type {
     DeliveryZone,
     DerivedAllergen,
     EnergyBand,
-    IngredientAllergenMapping as WireAllergenMapping,
     IngredientCategory as WireIngredientCategory,
     MealCombinationOption,
     NumberedPaginationMeta,
@@ -71,6 +72,8 @@ import type {
 import {
     apiStatusForPublishableFilter,
     buildCategoryLookup,
+    mapIngredientCategoryAdmin,
+    type WireRecipePackagingLine,
     buildSalesChannelLookup,
     mapBranchOperating,
     mapChannelAssignments,
@@ -78,7 +81,6 @@ import {
     mapDeliveryWindow,
     mapDeliveryZoneAdmin,
     mapIngredientAdmin,
-    mapIngredientAllergenMapping,
     mapMealAdminFromItem,
     mapPlanAdminFromItem,
     mapPlanCombination,
@@ -193,8 +195,10 @@ type CatalogueItemShowPayload = {
  */
 export type ApiKitchenAdminReads = Pick<
     KitchenAdminRepository,
+    | 'nextReference'
     | 'listIngredients'
     | 'getIngredient'
+    | 'listIngredientCategories'
     | 'listRecipes'
     | 'getRecipe'
     | 'getRecipeTechnicalSheet'
@@ -262,18 +266,30 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
     }
 
     let categoryLookup: CategoryLookup | null = null;
+    // The rows the lookup was built from, kept rather than discarded: `listIngredientCategories`
+    // answers from the same fetch the id↔code translation already needs, so a screen that shows the
+    // tree and a write that resolves a code do not make two requests for one response.
+    let categoryRows: readonly WireIngredientCategory[] | null = null;
     let salesChannelLookup: SalesChannelLookup | null = null;
 
-    async function loadCategoryLookup(): Promise<CategoryLookup> {
-        if (categoryLookup !== null) return categoryLookup;
+    async function loadCategories(): Promise<readonly WireIngredientCategory[]> {
+        if (categoryRows !== null) return categoryRows;
 
         const categories = await transport.request<WireIngredientCategory[]>({
             method: 'GET',
             path: '/catalogue/ingredient-categories',
         });
 
+        categoryRows = categories;
         categoryLookup = buildCategoryLookup(categories);
-        return categoryLookup;
+        return categories;
+    }
+
+    async function loadCategoryLookup(): Promise<CategoryLookup> {
+        if (categoryLookup !== null) return categoryLookup;
+
+        await loadCategories();
+        return categoryLookup ?? buildCategoryLookup([]);
     }
 
     async function loadSalesChannelLookup(): Promise<SalesChannelLookup> {
@@ -314,6 +330,31 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
     }
 
     return {
+        async nextReference(prefix: ReferenceSeries): Promise<string> {
+            const envelope = await transport.requestEnvelope<{ readonly reference: string }>({
+                method: 'GET',
+                path: `/catalogue/references/next?prefix=${encodeURIComponent(prefix)}`,
+            });
+
+            return envelope.data.reference;
+        },
+
+        async listIngredientCategories(): Promise<readonly IngredientCategoryAdmin[]> {
+            const rows = await loadCategories();
+            const idToCode = new Map(rows.map((row) => [row.id, row.code]));
+
+            // Sorted here rather than at each call site: three consumers need the same order and
+            // the endpoint's own is not guaranteed. `display_order` is the catalogue's stated
+            // intent; the code breaks ties so the list is at least stable when it is unset.
+            return rows
+                .map((row) => mapIngredientCategoryAdmin(row, idToCode))
+                .sort(
+                    (left, right) =>
+                        left.displayOrder - right.displayOrder ||
+                        left.code.localeCompare(right.code),
+                );
+        },
+
         async listIngredients(
             filter?: IngredientAdminFilter,
         ): Promise<CursorPage<IngredientAdmin>> {
@@ -338,7 +379,58 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
             if (filter?.categoryCode !== undefined) {
                 const categoryId = lookup.codeToId.get(filter.categoryCode);
-                if (categoryId !== undefined) search.set('category', categoryId);
+
+                /*
+                 * An unresolvable category returns nothing rather than everything.
+                 *
+                 * This used to drop the filter, and the packaging page is what that cost: it asked
+                 * for one branch, the branch was removed from the taxonomy, the code stopped
+                 * resolving, and the request degraded to the unfiltered list — so a page meant to
+                 * show thirty-one boxes showed three hundred ingredients and looked like it had
+                 * worked. Widening a request nobody widened is the worse of the two failures,
+                 * because an empty page is obviously wrong and a full one is not.
+                 */
+                if (categoryId === undefined) {
+                    return { items: [], nextCursor: null, hasMore: false, totalCount: 0 };
+                }
+
+                search.set('category', categoryId);
+            }
+
+            /*
+             * An unresolvable *exclusion* is refused, not dropped.
+             *
+             * The mirror of the rule above, and the half that was still open. This used to skip
+             * the constraint when the code did not resolve, on the argument that an exclusion
+             * which cannot be translated must not become a narrower request by accident — and the
+             * honest failure was said to be the unfiltered list.
+             *
+             * That argument does not survive packaging moving back into this table. The unfiltered
+             * list is now food *and* thirty-three boxes, so a dropped exclusion is not the caller
+             * getting "what they would have got before the filter existed" — it is the ingredient
+             * picker quietly offering bin liners, which is the same failure the inclusive branch
+             * above documents, pointed the other way. Neither list may widen by accident.
+             *
+             * It throws rather than returning empty because the two cases differ: an unresolvable
+             * *inclusion* has an honest empty answer, while an unresolvable exclusion has no honest
+             * answer at all — every row is a candidate and none can be ruled out.
+             */
+            if (filter?.excludeCategoryCode !== undefined) {
+                const excludedId = lookup.codeToId.get(filter.excludeCategoryCode);
+
+                if (excludedId === undefined) {
+                    throwFailure(
+                        apiFailure('server', {
+                            message: `The category "${filter.excludeCategoryCode}" could not be resolved, so it cannot be excluded. Refusing rather than returning a list that would include it.`,
+                        }),
+                    );
+                }
+
+                search.set('exclude_category', excludedId);
+            }
+
+            if (filter?.referenceSeries !== undefined) {
+                search.set('reference_series', filter.referenceSeries);
             }
 
             const rendered = search.toString();
@@ -396,18 +488,13 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}`,
             });
 
-            const allergenWire = await transport.request<WireAllergenMapping[]>({
-                method: 'GET',
-                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/allergens`,
-            });
-
+            // The allergen mappings ride on the resource now, so the second request this used to
+            // make is gone. `/catalogue/ingredients/{id}/allergens` remains the mapping editor's
+            // own resource and is what the PUT writes against; it is simply not needed to render a
+            // record whose declaration arrived with it.
             const aliases = envelope.data.aliases.map((row) => row.alias);
-            const allergens = allergenWire.map(mapIngredientAllergenMapping);
 
-            return mapIngredientAdmin(envelope.data.ingredient, lookup, {
-                aliases,
-                allergens,
-            });
+            return mapIngredientAdmin(envelope.data.ingredient, lookup, { aliases });
         },
 
         async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
@@ -480,7 +567,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                         derivation_state: 'current',
                         lock_version: 1,
                     },
-                    { lines: [], outputs: [], steps: [], allergens: [] },
+                    { lines: [], packaging: [], outputs: [], steps: [], allergens: [] },
                 );
 
                 return mapRecipeAdmin(recipeWire, versionsWire, emptyVersion);
@@ -489,6 +576,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const versionEnvelope = await transport.requestEnvelope<{
                 version: AdminRecipeVersion;
                 lines: WireRecipeLine[];
+                packaging: WireRecipePackagingLine[];
                 outputs: WireRecipeOutput[];
                 steps: WireRecipeStep[];
                 allergens: RecipeVersionAllergen[];
@@ -502,6 +590,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 versionEnvelope.data.version,
                 {
                     lines: versionEnvelope.data.lines,
+                    packaging: versionEnvelope.data.packaging,
                     outputs: versionEnvelope.data.outputs,
                     steps: versionEnvelope.data.steps,
                     allergens: versionEnvelope.data.allergens,

@@ -395,6 +395,23 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        // Its own family rather than a tab on Ingredients: it is a different question. Somebody
+        // opens Ingredients to ask what goes *in* a dish and Packaging to ask what it ships in,
+        // and the second was unanswerable while thirty-one boxes were scattered through three
+        // hundred foods. Same permissions, because it is the same table underneath.
+        key: 'packaging',
+        kind: 'managed',
+        group: 'catalogue',
+        nameKey: 'kitchen:families.packaging.name',
+        descriptionKey: 'kitchen:families.packaging.description',
+        // The closest the set has to a box. There is no packaging glyph, and adding one is a
+        // design-system change rather than this slice's.
+        icon: 'basket',
+        href: '/kitchen/packaging',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
         key: 'recipes',
         kind: 'managed',
         group: 'catalogue',

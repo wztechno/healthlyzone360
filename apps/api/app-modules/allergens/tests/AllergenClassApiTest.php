@@ -54,7 +54,7 @@ it('serves the fourteen classes to an anonymous caller in English by default', f
         // One localised name, never both language columns (master plan §4.18).
         ->and($first)->not->toHaveKeys(['name_en', 'name_ar', 'is_active'])
         ->and(collect($response->json('data'))->pluck('code')->all())
-        ->toBe(['gluten', 'crustaceans', 'egg', 'fish', 'peanut', 'soy', 'milk', 'tree_nut', 'celery', 'mustard', 'sesame', 'sulphites', 'lupin', 'mollusc']);
+        ->toBe(['gluten', 'crustaceans', 'egg', 'fish', 'peanut', 'soy', 'milk', 'tree_nut', 'sesame', 'celery', 'mustard', 'sulphites', 'lupin', 'mollusc']);
 });
 
 it('serves Arabic when Arabic is asked for', function (string $header, string $expectedLocale, string $expectedName): void {

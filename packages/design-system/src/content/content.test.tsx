@@ -9,6 +9,7 @@ import { BADGE_TONES, Badge, NUTRITION_LEVELS } from './badge.tsx';
 import { CALLOUT_TONES, Callout } from './callout.tsx';
 import { CARD_TONES, Card } from './card.tsx';
 import { Chip, FilterChip } from './chip.tsx';
+import { Tag, TagRow } from './tag.tsx';
 import { ListItem } from './list-item.tsx';
 
 describe('Card', () => {
@@ -320,6 +321,18 @@ describe('Chip', () => {
         expect(screen.getByTestId('tag').props.className).toContain('min-h-touch');
     });
 
+    /**
+     * …and only when there is something to touch. A tag on a card is a label; holding it at button
+     * height makes a row of tags read as a row of dead buttons.
+     */
+    it('drops to label size when it is not activatable', async () => {
+        await renderWithI18n(<Chip testID="tag" label="Vegetarian" />);
+        expect(screen.getByTestId('tag').props.className).not.toContain('min-h-touch');
+
+        await renderWithI18n(<Chip testID="removable" label="Peanuts" onRemove={jest.fn()} />);
+        expect(screen.getByTestId('removable').props.className).toContain('min-h-touch');
+    });
+
     it('does not fire while disabled', async () => {
         const onPress = jest.fn();
         await renderWithI18n(<Chip testID="tag" label="Vegetarian" onPress={onPress} disabled />);
@@ -334,6 +347,73 @@ describe('Chip', () => {
             'ar',
         );
         assertSubtreeIsLogical(screen.getByTestId('tag'));
+    });
+});
+
+describe('Tag', () => {
+    /** A word about something. There is no target in it, so there is no 44 dp floor either. */
+    it('is a label, not a control', async () => {
+        await renderWithI18n(<Tag testID="tag" label="Vegan" />);
+
+        const node = screen.getByTestId('tag');
+        expect(node.props.accessibilityRole).toBe('text');
+        expect(node.props.onPress).toBeUndefined();
+        expect(node.props.className).not.toContain('min-h-touch');
+        // HealthZone reserves the hairline for the pills that are interactive or semantic.
+        expect(node.props.className).not.toMatch(/(^|\s)border(\s|$)/);
+        expect(node.props.className).toMatch(/bg-surface-sunken/);
+    });
+
+    it('renders an inert chip as one, so the two shapes cannot drift', async () => {
+        await renderWithI18n(
+            <>
+                <Chip testID="chip" label="Vegan" />
+                <Tag testID="tag" label="Vegan" />
+            </>,
+        );
+
+        expect(screen.getByTestId('chip').props.className).toBe(
+            screen.getByTestId('tag').props.className,
+        );
+    });
+
+    it('uses no physical direction utility anywhere in its tree', async () => {
+        await renderWithI18n(<Tag testID="tag" label="نباتي" icon="leaf" />, 'ar');
+        assertSubtreeIsLogical(screen.getByTestId('tag'));
+    });
+});
+
+describe('TagRow', () => {
+    const items = [
+        { key: 'vegan', label: 'Vegan' },
+        { key: 'halal', label: 'Halal' },
+        { key: 'keto', label: 'Keto' },
+        { key: 'nut-free', label: 'Nut free' },
+    ] as const;
+
+    it('draws every tag when there is no cap', async () => {
+        await renderWithI18n(<TagRow testID="tags" items={items} />);
+
+        expect(screen.getByTestId('tags-vegan')).toBeTruthy();
+        expect(screen.getByTestId('tags-nut-free')).toBeTruthy();
+        expect(screen.queryByTestId('tags-more')).toBeNull();
+    });
+
+    /** A "+2" only a sighted reader can resolve is two facts removed from everybody else. */
+    it('collapses the rest into a counter that names what it hides', async () => {
+        await renderWithI18n(<TagRow testID="tags" items={items} max={2} />);
+
+        expect(screen.getByTestId('tags-halal')).toBeTruthy();
+        expect(screen.queryByTestId('tags-keto')).toBeNull();
+
+        const more = screen.getByTestId('tags-more');
+        expect(more).toHaveTextContent('+2');
+        expect(more.props.accessibilityLabel).toBe('2 more: Keto, Nut free');
+    });
+
+    it('renders nothing at all when there is nothing to say', async () => {
+        await renderWithI18n(<TagRow testID="tags" items={[]} />);
+        expect(screen.queryByTestId('tags')).toBeNull();
     });
 });
 
@@ -369,17 +449,24 @@ describe('FilterChip', () => {
         expect(onChange).toHaveBeenCalledWith(true);
     });
 
-    /** Selection is never carried by colour alone. */
-    it('adds a check mark when selected', async () => {
+    /**
+     * Selection is never carried by colour alone. It is carried by a luminance inversion: the lit
+     * chip is the ink surface with its inverse text, the unlit one the card surface inside a
+     * hairline, and the difference survives greyscale as well as any colour-vision deficiency.
+     */
+    it('inverts the surface when selected rather than tinting it', async () => {
         await renderWithI18n(
             <FilterChip testID="filter" label="High protein" selected onChange={jest.fn()} />,
         );
-        expect(screen.getByTestId('filter-check')).toBeTruthy();
+        expect(screen.getByTestId('filter').props.className).toMatch(/bg-surface-inverse/);
+        expect(screen.getByTestId('filter')).toHaveTextContent('High protein');
 
         await renderWithI18n(
             <FilterChip testID="off" label="High protein" selected={false} onChange={jest.fn()} />,
         );
-        expect(screen.queryByTestId('off-check')).toBeNull();
+        const unlit = screen.getByTestId('off').props.className;
+        expect(unlit).not.toMatch(/bg-surface-inverse/);
+        expect(unlit).toMatch(/bg-surface-raised/);
     });
 
     it('shows a result count when it has one', async () => {

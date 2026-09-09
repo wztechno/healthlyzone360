@@ -12,6 +12,7 @@ import type {
     DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
+    IngredientCategoryAdmin,
     LockedRequest,
     MealAdmin,
     MealAdminFilter,
@@ -27,6 +28,7 @@ import type {
     RecipeAdminSummary,
     RecipeRollupDraft,
     RecipeRollupPreview,
+    ReferenceSeries,
     ReplacePlanMenuRequest,
     ServiceArea,
     SetBranchOperatingRequest,
@@ -39,6 +41,7 @@ import type {
     SetPlanVariantsRequest,
     SetPriceListEntriesRequest,
     SetRecipeLinesRequest,
+    SetRecipePackagingRequest,
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
@@ -50,7 +53,7 @@ import type {
     UpdateRecipeRequest,
     TechnicalSheetAdmin,
 } from '@healthy360/api-client/contracts';
-import { pageCount } from '@healthy360/api-client/contracts';
+import { PACKAGING_CATEGORY_CODE, pageCount } from '@healthy360/api-client/contracts';
 import type {
     DeliveryZoneId,
     IngredientId,
@@ -68,6 +71,7 @@ import {
     keepPreviousData,
     useInfiniteQuery,
     useMutation,
+    useQueries,
     useQuery,
     useQueryClient,
 } from '@tanstack/react-query';
@@ -301,38 +305,127 @@ export function useIngredientQuery(
     });
 }
 
-/** One category the kitchen actually uses, with how many rows carry it. */
-export interface IngredientCategory {
-    readonly code: string;
-    readonly count: number;
+/**
+ * The specific ingredients a set of ids names, read one request at a time.
+ *
+ * The recipe editor's line table has to show a designation and a unit price for every row it draws,
+ * and the row only stores an id. It cannot get those from the listing: `CursorPage::MAX_LIMIT` is
+ * 100 and the library is several hundred, so a line whose ingredient happens to sort onto page two
+ * would render with a blank name and no price — which is what "not all ingredients are showing"
+ * looks like from inside a saved recipe.
+ *
+ * It cannot get them from the recipe either. `RecipeVersionPresenter` omits `unit_cost_amount` and
+ * `line_cost_amount` on purpose until the `recipe.view_costs_organisation` split exists (K1.3), so
+ * `RecipeLine.lineCost` is `null` on the wire, and `ingredientName` is really the line's
+ * `source_designation` — often empty. The ingredient record is the only place both facts live.
+ *
+ * So the ids are resolved directly, and the cost is bounded by the length of a recipe rather than by
+ * the size of the library: twenty lines is twenty cached reads, and every one of them is the same
+ * cache entry the ingredient editor opens.
+ */
+export function useIngredientsByIds(
+    ingredientIds: readonly IngredientId[],
+): Readonly<Record<string, IngredientAdmin>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQueries({
+        queries: ingredientIds.map((ingredientId) => ({
+            queryKey: queryKeys.kitchenAdmin.ingredient(ingredientId),
+            enabled: repositories !== null,
+            queryFn: () => {
+                if (repositories === null) throw new Error('Repositories are not ready.');
+                return repositories.kitchenAdmin.getIngredient(ingredientId);
+            },
+        })),
+        // A plain record, for the reason `useRecipeDetails` gives: `combine` runs through the same
+        // structural sharing every other query result does, and its memoisation is what keeps the
+        // callers' `useMemo`s from rebuilding on every render.
+        combine: (results): Readonly<Record<string, IngredientAdmin>> => {
+            const byId: Record<string, IngredientAdmin> = {};
+            for (const result of results) {
+                if (result.data !== undefined) byId[String(result.data.id)] = result.data;
+            }
+            return byId;
+        },
+    });
 }
 
 /**
- * The category vocabulary, derived from the codes in use.
+ * The declared category tree — both levels, every branch, whether or not anything is filed under it.
  *
- * See the module note: there is no category resource on the contract. The derivation reads one
- * unfiltered page rather than every page, because a filter control that made the reader wait for the
- * whole library before it could offer a choice would be worse than one that offers the codes the
- * first page proves exist. `limit` is the repository's maximum so the common case is complete.
+ * This used to be derived: one unfiltered page of a hundred ingredients, reduced to the set of
+ * `categoryCode`s that appeared on it. That answered "which categories are in use on page one",
+ * which is not the question either picker asks. A category whose ingredients all sat on page two
+ * was missing from the filter; a sub-category with nothing under it yet could not be chosen at all,
+ * so the only way to file the first ingredient under a new leaf was to not use it. The contract now
+ * carries {@link KitchenAdminRepository.listIngredientCategories}, so this is a read.
+ *
+ * Unpaginated and effectively static, so it is left to the client's default staleness rather than
+ * refetched per keystroke of a filter.
  */
-export function useIngredientCategoriesQuery(): UseQueryResult<readonly IngredientCategory[]> {
+export function useIngredientCategoriesQuery(): UseQueryResult<readonly IngredientCategoryAdmin[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenAdmin.ingredients({ derive: 'categories' }),
+        queryKey: queryKeys.kitchenAdmin.ingredientCategories(),
         enabled: repositories !== null,
-        queryFn: async (): Promise<readonly IngredientCategory[]> => {
+        queryFn: (): Promise<readonly IngredientCategoryAdmin[]> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            const page = await repositories.kitchenAdmin.listIngredients({ limit: 100 });
-            const counts = new Map<string, number>();
-            for (const row of page.items) {
-                counts.set(row.categoryCode, (counts.get(row.categoryCode) ?? 0) + 1);
-            }
-            return [...counts.entries()]
-                .map(([code, count]) => ({ code, count }))
-                .sort((left, right) => left.code.localeCompare(right.code));
+            return repositories.kitchenAdmin.listIngredientCategories();
         },
     });
+}
+
+/**
+ * The handle the next record of a kind will take — `ING-307`, `SAC-0016`.
+ *
+ * For a create form, which draws its reference before there is a record to read one from. It is
+ * the same scan the create itself performs, so the two agree; it is a *preview* and not a
+ * reservation, so two forms open at once are both told 307 and the second save lands at 308.
+ *
+ * `enabled` is the caller's, because the only screen that wants this is one that is creating.
+ * Failure is not an error state anybody should see: a form whose reference box is empty is the
+ * behaviour that existed before this endpoint, so callers render `''` and carry on.
+ */
+export function useNextReferenceQuery(
+    prefix: ReferenceSeries,
+    enabled = true,
+): UseQueryResult<string> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.nextReference(prefix),
+        enabled: enabled && repositories !== null,
+        // A handle taken while this form was open is one this form must not offer. Short, because
+        // the cost of a stale answer is a save that lands one number later than the box said.
+        staleTime: 0,
+        retry: false,
+        queryFn: (): Promise<string> => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.nextReference(prefix);
+        },
+    });
+}
+
+/** The top-level categories, in catalogue order. */
+export function topLevelCategories(
+    categories: readonly IngredientCategoryAdmin[] | undefined,
+): readonly IngredientCategoryAdmin[] {
+    return (categories ?? []).filter((entry) => entry.parentCode === null);
+}
+
+/**
+ * The leaves under one category, in catalogue order.
+ *
+ * Empty for a category with no leaves, which is a real answer — some branches are one level deep —
+ * and the caller renders "filed at the top level" alone rather than an error.
+ */
+export function subcategoriesOf(
+    categories: readonly IngredientCategoryAdmin[] | undefined,
+    categoryCode: string,
+): readonly IngredientCategoryAdmin[] {
+    if (categoryCode === '') return [];
+    return (categories ?? []).filter((entry) => entry.parentCode === categoryCode);
 }
 
 /** What the hub card for a managed family reports. */
@@ -490,6 +583,33 @@ export function useArchiveIngredientMutation(): UseMutationResult<
     });
 }
 
+/**
+ * Copies a platform-library ingredient into this kitchen so it can be edited.
+ *
+ * Resolves to the **fork**, not the row that was passed in, so a caller routes to
+ * `result.id` afterwards rather than staying on the library row it just left. The write
+ * effects then seed the fork's own cache entry and invalidate the lists, which is what
+ * makes the shadowed library row disappear from the catalogue on the next read.
+ *
+ * Retry-safe by contract: a second call returns the fork that already exists. That is
+ * worth knowing here, because a double-pressed button on a slow connection is exactly
+ * how a kitchen would otherwise end up with two copies of one ingredient.
+ */
+export function useForkIngredientMutation(): UseMutationResult<
+    IngredientAdmin,
+    unknown,
+    IngredientId
+> {
+    const repositories = useRepositories();
+    const onWritten = useIngredientWriteEffects();
+
+    return useMutation({
+        mutationFn: (ingredientId: IngredientId) =>
+            repositories.kitchenAdmin.forkIngredient(ingredientId),
+        onSuccess: onWritten,
+    });
+}
+
 export interface SetIngredientAllergensVariables {
     readonly ingredientId: IngredientId;
     readonly request: SetIngredientAllergensRequest;
@@ -578,6 +698,55 @@ export function useRecipeQuery(recipeId: RecipeId | null): UseQueryResult<Recipe
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (recipeId === null) throw new Error('No recipe identifier.');
             return repositories.kitchenAdmin.getRecipe(recipeId);
+        },
+    });
+}
+
+/**
+ * Every recipe on the page in hand, read one request at a time.
+ *
+ * `RecipeAdminSummary` carries a version *number* and a version *count*, and nothing about the
+ * state that version is in or the allergens it derived — which are the two questions a kitchen
+ * brings to a recipe index ("which of these still have a draft open?", "which declare sesame?").
+ * Both live on `RecipeAdmin.currentVersion`, so the list reads the detail of every row it draws.
+ *
+ * It is an N+1 and it is written down rather than hidden. What changed when the list moved onto the
+ * Catalogue shell is *where* it happens: three cell components each calling {@link useRecipeQuery}
+ * became one call here, so the list holds the answers synchronously and its column spec stays a
+ * plain array — a cell cannot call a hook, and the row-action callback that decides whether a
+ * version is immutable is not a component at all.
+ *
+ * The cost buys something back, exactly as it did before: each entry filled is the one the editor
+ * opens, so following a row costs no further request. A real `GET /kitchen/recipes` that returned
+ * the derived label and the version state on the summary retires this hook and turns both columns
+ * into plain fields.
+ *
+ * Keyed on {@link queryKeys}`.kitchenAdmin.recipe`, the same key {@link useRecipeQuery} uses, so the
+ * two share one cache entry per recipe and neither refetches what the other has.
+ */
+export function useRecipeDetails(
+    recipeIds: readonly RecipeId[],
+): Readonly<Record<string, RecipeAdmin>> {
+    const { repositories } = useRepositoryContext();
+
+    return useQueries({
+        queries: recipeIds.map((recipeId) => ({
+            queryKey: queryKeys.kitchenAdmin.recipe(recipeId),
+            enabled: repositories !== null,
+            queryFn: () => {
+                if (repositories === null) throw new Error('Repositories are not ready.');
+                return repositories.kitchenAdmin.getRecipe(recipeId);
+            },
+        })),
+        // A plain record rather than a Map: `combine` runs through the same structural sharing every
+        // other query result does, so the value it returns has to be one that sharing understands.
+        // Its memoisation is what keeps the column spec's `useMemo` from rebuilding every render.
+        combine: (results): Readonly<Record<string, RecipeAdmin>> => {
+            const byId: Record<string, RecipeAdmin> = {};
+            for (const result of results) {
+                if (result.data !== undefined) byId[String(result.data.id)] = result.data;
+            }
+            return byId;
         },
     });
 }
@@ -831,6 +1000,34 @@ export function useSetRecipeLinesMutation(): UseMutationResult<
     });
 }
 
+export interface SetRecipePackagingVariables {
+    readonly recipeId: RecipeId;
+    readonly versionId: RecipeVersionId;
+    readonly request: SetRecipePackagingRequest;
+}
+
+/**
+ * Replaces the packaging set on a recipe version.
+ *
+ * Wholesale like the lines setter, and read back rather than trusted: two of the three bases
+ * compute their own quantity server-side, so the counts in the answer are genuinely not the counts
+ * in the request. A screen that echoed its own draft would render a bottle count of nothing.
+ */
+export function useSetRecipePackagingMutation(): UseMutationResult<
+    RecipeAdmin,
+    unknown,
+    SetRecipePackagingVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useRecipeWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ recipeId, versionId, request }: SetRecipePackagingVariables) =>
+            repositories.kitchenAdmin.setRecipePackaging(recipeId, versionId, request),
+        onSuccess: onWritten,
+    });
+}
+
 export interface SetRecipeOutputsVariables {
     readonly recipeId: RecipeId;
     readonly request: SetRecipeOutputsRequest;
@@ -998,16 +1195,24 @@ export interface ProductCategory {
  * resource on the contract, one unfiltered page rather than every page, and a code nobody has
  * assigned yet is invisible. `ProductAdminFilter.categoryCode` is a real filter parameter, so
  * narrowing by the value it produces is a server concern already.
+ *
+ * `itemType` is part of the derivation, not decoration on it. Sauces and dressings are their own
+ * pages over their own rows, and a vocabulary derived from the *product* page offered the sauces
+ * list a category filter whose every option matched nothing on it — the filter looked real, ran a
+ * request, and came back empty. Deriving per family is what makes the options on a page the codes
+ * that page's own rows carry.
  */
-export function useProductCategoriesQuery(): UseQueryResult<readonly ProductCategory[]> {
+export function useProductCategoriesQuery(
+    itemType: 'product' | 'sauce' | 'dressing' = 'product',
+): UseQueryResult<readonly ProductCategory[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenAdmin.products({ derive: 'categories' }),
+        queryKey: queryKeys.kitchenAdmin.products({ derive: 'categories', itemType }),
         enabled: repositories !== null,
         queryFn: async (): Promise<readonly ProductCategory[]> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            const page = await repositories.kitchenAdmin.listProducts({ limit: 100 });
+            const page = await repositories.kitchenAdmin.listProducts({ itemType, limit: 100 });
             const counts = new Map<string, number>();
             for (const row of page.items) {
                 counts.set(row.categoryCode, (counts.get(row.categoryCode) ?? 0) + 1);
@@ -2573,8 +2778,21 @@ function keepAcrossPages<T>(key: readonly unknown[]) {
     ) => (samePageSet(previousQuery?.queryKey, key) ? previous : undefined);
 }
 
-/** Rows per page across the kitchen catalogue. Matches the backend's own default. */
-export const KITCHEN_PAGE_SIZE = 25;
+/**
+ * Rows per page across the kitchen catalogue.
+ *
+ * Eighteen, which is what `Catalogue.dc.html` draws and what a 28px row lets a desk viewport hold
+ * without scrolling: the whole page of results sits in the fold, so paging is a deliberate act
+ * rather than the thing that happens when you reach the bottom of a half-shown page.
+ *
+ * Below the backend's own default of 25, and deliberately not equal to it — a client that wants a
+ * particular page shape should say so rather than inherit whatever the server happens to prefer.
+ * `per_page` accepts 1–100, so this is well inside the contract.
+ *
+ * One number for all seven families. A page size that differed per list would make "next page" mean
+ * a different amount of work on each of them for no reason a reader could see.
+ */
+export const KITCHEN_PAGE_SIZE = 18;
 
 export type PagedListResult<T> = UseQueryResult<CursorPage<T>, Error>;
 
@@ -2613,6 +2831,45 @@ export function useIngredientPageQuery(
             });
         },
     });
+}
+
+/**
+ * One numbered page of the packaging catalogue.
+ *
+ * Not its own endpoint any more. Packaging is back in `ingredients`, filed under
+ * {@link PACKAGING_CATEGORY_CODE}, so this is the ingredient page asking for that one branch —
+ * and its counterpart is the ingredient list asking for everything *but* that branch.
+ *
+ * The pair is what replaced the separate table, and the failure that produced the table is closed
+ * on both sides now: `listIngredients` returns an empty page for an inclusion it cannot resolve,
+ * and *refuses* an exclusion it cannot resolve. Neither list can widen by accident, which is the
+ * only property the split was ever buying.
+ */
+export function usePackagingPageQuery(
+    filter: ListFilter<IngredientAdminFilter> | undefined,
+    page: number,
+    enabled = true,
+): PagedListResult<IngredientAdmin> {
+    return useIngredientPageQuery(
+        { ...filter, categoryCode: filter?.categoryCode ?? PACKAGING_CATEGORY_CODE },
+        page,
+        enabled,
+    );
+}
+
+/**
+ * The packaging taxonomy — the branch of the ingredient tree, not a tree of its own.
+ *
+ * Returns the branch's own nodes: the root and its children, which is what the packaging list's
+ * sub-category filter offers. The whole tree is {@link useIngredientCategoriesQuery}.
+ */
+export function usePackagingCategoriesQuery(): UseQueryResult<readonly IngredientCategoryAdmin[]> {
+    const categories = useIngredientCategoriesQuery();
+
+    return {
+        ...categories,
+        data: categories.data?.filter((entry) => entry.code.startsWith(PACKAGING_CATEGORY_CODE)),
+    } as UseQueryResult<readonly IngredientCategoryAdmin[]>;
 }
 
 export function useRecipePageQuery(

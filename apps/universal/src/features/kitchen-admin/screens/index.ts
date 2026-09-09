@@ -32,6 +32,7 @@ export { DeliveryZoneEditScreen } from './delivery-zone-edit-screen.tsx';
 export { DeliveryZonesScreen } from './delivery-zones-screen.tsx';
 export { IngredientEditScreen } from './ingredient-edit-screen.tsx';
 export { IngredientsScreen } from './ingredients-screen.tsx';
+export { PackagingScreen } from './packaging-screen.tsx';
 export { KitchenHomeScreen } from './kitchen-home-screen.tsx';
 export { MealEditScreen } from './meal-edit-screen.tsx';
 export { MealsScreen } from './meals-screen.tsx';

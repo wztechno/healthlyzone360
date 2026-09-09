@@ -44,10 +44,16 @@ importers:
 
   apps/universal:
     dependencies:
+      '@expo-google-fonts/ibm-plex-mono':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@expo-google-fonts/ibm-plex-sans-arabic':
         specifier: ^0.4.2
         version: 0.4.2
       '@expo-google-fonts/inter':
+        specifier: ^0.4.2
+        version: 0.4.2
+      '@expo-google-fonts/schibsted-grotesk':
         specifier: ^0.4.2
         version: 0.4.2
       '@expo-google-fonts/space-grotesk':
@@ -929,6 +935,9 @@ packages:
     resolution: {integrity: sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
+  '@expo-google-fonts/ibm-plex-mono@0.4.1':
+    resolution: {integrity: sha512-/yYz1mPZq8Nd4tSiH0SBDPEdJUqiOGBwVgSrQvLuw7SPh6C7ezBzmi6eFyHY4QaQwjHDmOLSBKsxzq8ZDFXVAg==}
+
   '@expo-google-fonts/ibm-plex-sans-arabic@0.4.2':
     resolution: {integrity: sha512-Cx24iSo/4pWBKHVf69tbVLDUiHWCSTHrhKPw/+SYWLDnyiX10WXh+amNWRSo9N3ruwd+qk9AQgDaIY1KO0u1Ig==}
 
@@ -937,6 +946,9 @@ packages:
 
   '@expo-google-fonts/material-symbols@0.4.42':
     resolution: {integrity: sha512-KZmHZRcthJ3KFZZlpzHjopA9guZgWR9fb3uVZlTR0BNlvG2pw1bnYBCpkze2PB0vRllwGhAM7lWXsfmcWCbXYg==}
+
+  '@expo-google-fonts/schibsted-grotesk@0.4.2':
+    resolution: {integrity: sha512-OqscHDqXmG/noftZFsGvGXiYoJGIZ1HFKXO7dNNEuitIKVA/qzNhrfoBK7upnxsVlC/AubnYEWeTS5QNw2A+HA==}
 
   '@expo-google-fonts/space-grotesk@0.4.1':
     resolution: {integrity: sha512-ZVQYw4Ok/pgcSJiufP8oRZE3AVxS9xtmKEUfsurbHkHNdMc/GA1gDXP9G4Cr7KL4KqSc0haexR2TuMigotCn4Q==}
@@ -6244,11 +6256,15 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
+  '@expo-google-fonts/ibm-plex-mono@0.4.1': {}
+
   '@expo-google-fonts/ibm-plex-sans-arabic@0.4.2': {}
 
   '@expo-google-fonts/inter@0.4.2': {}
 
   '@expo-google-fonts/material-symbols@0.4.42': {}
+
+  '@expo-google-fonts/schibsted-grotesk@0.4.2': {}
 
   '@expo-google-fonts/space-grotesk@0.4.1': {}
 

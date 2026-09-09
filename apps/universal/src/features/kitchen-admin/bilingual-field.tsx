@@ -6,9 +6,12 @@ import {
     Inline,
     Stack,
     Text,
+    cx,
+    inputControlClass,
     inputFrameClassName,
+    useDensity,
 } from '@healthy360/design-system';
-import type { FieldControlProps } from '@healthy360/design-system';
+import type { FieldControlProps, GridSpanProps } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TextInput, View } from 'react-native';
@@ -48,7 +51,8 @@ export type BilingualDirection = 'ltr' | 'rtl';
 interface HalfProps {
     readonly testID: string;
     readonly label: string;
-    readonly hint: string;
+    /** Omitted by the `row` layout, which draws the two labels and nothing else. */
+    readonly hint?: string | undefined;
     readonly value: string;
     readonly onChangeText: (value: string) => void;
     readonly direction: BilingualDirection;
@@ -74,13 +78,23 @@ function BilingualHalf({
     multiline = false,
 }: HalfProps) {
     const [focused, setFocused] = useState(false);
+    /*
+     * The frame and the value follow the density ladder, exactly as `TextInputField` does.
+     *
+     * Omitting them was the bug behind "the designation fields are a different size": with no
+     * density stated, `inputFrameClassName` falls back to the *customer* ladder and its 44px touch
+     * floor, so under `DensityProvider value="compact"` these two boxes came out 44px tall in a row
+     * of 28px ones — the only pair on the form that did. The size is not this component's to choose;
+     * it is the surface's, and the surface already said.
+     */
+    const density = useDensity();
 
     return (
         <FormField
             testID={testID}
             id={testID}
             label={label}
-            hint={hint}
+            {...(hint === undefined ? {} : { hint })}
             required={required}
             disabled={disabled}
             {...(error === undefined ? {} : { error })}
@@ -91,6 +105,8 @@ function BilingualHalf({
                         invalid: error !== undefined,
                         focused,
                         disabled,
+                        density,
+                        size: density === 'compact' ? 'sm' : 'md',
                     })}
                 >
                     <TextInput
@@ -103,7 +119,7 @@ function BilingualHalf({
                         {...(multiline ? { multiline: true, numberOfLines: 3 } : {})}
                         autoCapitalize="none"
                         autoCorrect={false}
-                        className="flex-1 text-base text-content-primary"
+                        className={cx(inputControlClass(density), 'text-content-primary')}
                         // `textAlign: 'auto'` keeps the text on the side the *writing direction*
                         // says, and `writingDirection` is what fixes that direction to the field's
                         // own language rather than the interface's. `textAlignVertical` only
@@ -127,7 +143,7 @@ function BilingualHalf({
     );
 }
 
-export interface BilingualFieldProps {
+export interface BilingualFieldProps extends GridSpanProps {
     /** Name of the thing being written, e.g. "Name". Both labels are built from it. */
     readonly fieldLabel: string;
     readonly value: LocalisedText;
@@ -147,6 +163,24 @@ export interface BilingualFieldProps {
     readonly multiline?: boolean | undefined;
     /** Locks both halves — used for platform-library rows a kitchen may read but not rename. */
     readonly disabled?: boolean | undefined;
+    /**
+     * `row` is the Catalogue presentation: two 280px fields side by side, and nothing else.
+     *
+     * The layout is the smaller half of it. `stacked` also carries a per-language hint under each
+     * label, a `No Arabic yet` badge, a copy-across button and a footnote about publication — four
+     * pieces of scaffolding for someone filling in a bilingual record for the first time. The
+     * Catalogue draws none of them, and on a desk surface used forty times a day they are four
+     * lines of furniture around two inputs whose labels already say `(EN)` and `(AR)`.
+     *
+     * What is *lost* with them is the missing-translation marker, and that is a real cost rather
+     * than a tidy-up: an Arabic name is required to publish and this was where a reader found out
+     * it was absent. The readiness evaluator still refuses the publication (plan §4.7), so nothing
+     * ships half-translated — the warning simply arrives later, at the gate rather than in the
+     * field. `stacked` stays the default so every other editor keeps the marker.
+     *
+     * It wraps rather than overflowing below `md`, where one 280px column cannot hold two.
+     */
+    readonly layout?: 'stacked' | 'row' | undefined;
     readonly testID: string;
 }
 
@@ -158,13 +192,59 @@ export function BilingualField({
     englishError,
     multiline = false,
     disabled = false,
+    layout = 'stacked',
     testID,
 }: BilingualFieldProps) {
     const { t } = useTranslation();
     const arabicMissing = value.ar.trim() === '';
+    const row = layout === 'row';
 
-    return (
-        <Stack space="sm" testID={testID}>
+    if (row) {
+        return (
+            /*
+             * A wrapping flex row of two fixed fields, not a nested `FormGrid`.
+             *
+             * The grid was the first attempt and it does not compose: an inner grid resolves its own
+             * column count from the viewport while the outer one resolves the span, so the pair
+             * rendered stacked inside a two-track cell — one field wide, one column empty. Two
+             * `w-field` boxes in a `flex-wrap` row are the same 280px tracks with the same 16px gap
+             * and no second opinion about how many fit.
+             */
+            <View testID={testID} className="flex-row flex-wrap gap-base">
+                <View className="w-field">
+                    <BilingualHalf
+                        testID={`${testID}-en`}
+                        label={t('kitchen:bilingual.englishShort', { field: fieldLabel })}
+                        value={value.en}
+                        onChangeText={(next) => {
+                            onChange({ ...value, en: next });
+                        }}
+                        direction="ltr"
+                        required={requiredEnglish}
+                        multiline={multiline}
+                        disabled={disabled}
+                        {...(englishError === undefined ? {} : { error: englishError })}
+                    />
+                </View>
+                <View className="w-field">
+                    <BilingualHalf
+                        testID={`${testID}-ar`}
+                        label={t('kitchen:bilingual.arabicShort', { field: fieldLabel })}
+                        value={value.ar}
+                        onChangeText={(next) => {
+                            onChange({ ...value, ar: next });
+                        }}
+                        direction="rtl"
+                        multiline={multiline}
+                        disabled={disabled}
+                    />
+                </View>
+            </View>
+        );
+    }
+
+    const halves = (
+        <>
             <BilingualHalf
                 testID={`${testID}-en`}
                 label={t('kitchen:bilingual.englishLabel', { field: fieldLabel })}
@@ -192,6 +272,12 @@ export function BilingualField({
                 multiline={multiline}
                 disabled={disabled}
             />
+        </>
+    );
+
+    return (
+        <Stack space="sm" testID={testID}>
+            {halves}
 
             <Inline space="sm" align="center" wrap>
                 {arabicMissing ? (

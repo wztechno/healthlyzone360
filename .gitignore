@@ -43,3 +43,15 @@ Thumbs.db
 # §9 says not to re-add them — two megabytes of duplicate binaries, permanent in git, for
 # artwork the repository already has.
 design_handoff_wellness_green/**/assets/
+
+# HealthZone.dc.html reads this to fill its image slots, and it is 150 KB of base64
+# photography the repository already holds as real files. It belongs to the design project
+# rather than to the code — see CLAUDE.md, "Opening it".
+.image-slots.state.json
+
+# `> nul` is a cmd.exe redirect. Run under bash — which is what the Bash tool and most
+# scripts here use — it writes a real file instead of discarding the output.
+nul
+
+# Saved browser session for e2e/screenshot.mjs — never commit.
+apps/universal/e2e/.auth/

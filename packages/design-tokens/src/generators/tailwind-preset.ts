@@ -1,20 +1,52 @@
 import { NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES } from '../colour.ts';
 import { ELEVATION_LEVELS, NAMED_ELEVATIONS, elevation, namedElevation } from '../elevation.ts';
-import { breakpoints, focusRing, MIN_TOUCH_TARGET, radius, spacing, zIndex } from '../layout.ts';
+import {
+    cardWidth,
+    controlGap,
+    controlHeight,
+    controlPaddingX,
+    fieldWidth,
+    iconSize,
+    rowHeight,
+} from '../control.ts';
+import { breakpoints, focusRing, radius, spacing, spacingAliases, zIndex } from '../layout.ts';
 import { DURATION_NAMES, durations, easings } from '../motion.ts';
 import {
     FONT_SIZE_NAMES,
     displayFamilies,
     displayLetterSpacing,
+    adminFamilies,
     fontFamilies,
     fontSizes,
     fontWeights,
     letterSpacing,
     lineHeights,
+    monoFamilies,
+    TEXT_ROLE_NAMES,
+    textRoles,
 } from '../typography.ts';
 import { GENERATED_BANNER, kebab, variableReference } from './shared.ts';
 
 const px = (value: number) => `${value}px`;
+
+/**
+ * The 44px touch floor, as a literal rather than a token — deliberately, and temporarily.
+ *
+ * `MIN_TOUCH_TARGET` is retired: `control.ts` explains why the Catalogue does not want it, and
+ * nothing in the admin reads it any more. But `min-h-touch` and `min-w-touch` are still applied at
+ * two dozen call sites across the design system and the customer app — phone surfaces, where a
+ * fingertip really does need the room. Deleting the utilities along with the token would not have
+ * *changed* those screens so much as quietly stopped generating their classes: NativeWind emits
+ * nothing for a utility the preset does not define, and the minimum would vanish with no error to
+ * notice.
+ *
+ * So the utilities keep working while the admin stops asking for them. This literal is what
+ * survives of the constant, and it should live exactly as long as the last `min-h-touch` in the
+ * customer app — that sweep is its own change, on its own reasoning about the phone.
+ *
+ * @deprecated Remove with the last `min-h-touch` / `min-w-touch` call site.
+ */
+const DEPRECATED_TOUCH_TARGET_PX = 44;
 
 function colours(): Record<string, unknown> {
     const result: Record<string, unknown> = {};
@@ -114,7 +146,21 @@ export function renderTailwindPreset(): string {
         theme: {
             extend: {
                 colors: colours(),
-                spacing: Object.fromEntries(Object.entries(spacing).map(([k, v]) => [k, px(v)])),
+                // Aliases only. `control-*` is deliberately NOT here: padding and gap carry
+                // different values at the same size name, so one shared `spacing` entry would
+                // make `gap-control-sm` silently resolve to the padding number.
+                spacing: {
+                    ...Object.fromEntries(Object.entries(spacing).map(([k, v]) => [k, px(v)])),
+                    ...Object.fromEntries(
+                        Object.entries(spacingAliases).map(([k, v]) => [k, px(v)]),
+                    ),
+                },
+                padding: Object.fromEntries(
+                    Object.entries(controlPaddingX).map(([k, v]) => [`control-${k}`, px(v)]),
+                ),
+                gap: Object.fromEntries(
+                    Object.entries(controlGap).map(([k, v]) => [`control-${k}`, px(v)]),
+                ),
                 borderRadius: Object.fromEntries(
                     Object.entries(radius).map(([k, v]) => [k === 'md' ? 'DEFAULT' : k, px(v)]),
                 ),
@@ -124,8 +170,30 @@ export function renderTailwindPreset(): string {
                     latin: [fontFamilies.latin.regular, ...fontFamilies.latin.stack.split(', ')],
                     arabic: [fontFamilies.arabic.regular, ...fontFamilies.arabic.stack.split(', ')],
                     display: [displayFamilies.latin.bold, ...displayFamilies.latin.stack.split(', ')],
+                    // New numeric role — see `monoFamilies`. Nothing rendered before this existed.
+                    mono: [monoFamilies.latin.regular, ...monoFamilies.latin.stack.split(', ')],
+                    // Transitional, Catalogue-scoped. Folds into `latin` when the product follows.
+                    admin: [adminFamilies.latin.regular, ...adminFamilies.latin.stack.split(', ')],
                 },
-                fontSize: fontSizeScale(),
+                fontSize: {
+                    ...fontSizeScale(),
+                    // The Catalogue ramp — `text-role-body`, `text-role-micro`. Prefixed so it
+                    // cannot collide with the numeric scale above, which is untouched: a screen
+                    // outside the admin keeps rendering exactly as it did.
+                    ...Object.fromEntries(
+                        TEXT_ROLE_NAMES.map((name) => [
+                            `role-${name}`,
+                            [
+                                px(textRoles[name].size),
+                                {
+                                    lineHeight: px(textRoles[name].lineHeight),
+                                    letterSpacing: px(textRoles[name].letterSpacing),
+                                    fontWeight: textRoles[name].weight,
+                                },
+                            ],
+                        ]),
+                    ),
+                },
                 lineHeight: lineHeightScale(),
                 fontWeight: fontWeights,
                 letterSpacing: {
@@ -156,8 +224,40 @@ export function renderTailwindPreset(): string {
                 transitionTimingFunction: Object.fromEntries(
                     Object.entries(easings).map(([name, token]) => [kebab(name), token.css]),
                 ),
-                minWidth: { touch: px(MIN_TOUCH_TARGET) },
-                minHeight: { touch: px(MIN_TOUCH_TARGET) },
+                minWidth: { touch: px(DEPRECATED_TOUCH_TARGET_PX), card: px(cardWidth.min) },
+                minHeight: {
+                    touch: px(DEPRECATED_TOUCH_TARGET_PX),
+                    // `min-h-control-sm` — the ladder as a *floor* rather than a fixed height, for
+                    // a row that must clear the control height but may grow past it. A dropdown
+                    // option is the case: one line at 28px, two when it carries a description, and
+                    // `h-control-sm` would clip the second.
+                    ...Object.fromEntries(
+                        Object.entries(controlHeight).map(([k, v]) => [`control-${k}`, px(v)]),
+                    ),
+                    ...Object.fromEntries(
+                        Object.entries(rowHeight).map(([k, v]) => [`row-${k}`, px(v)]),
+                    ),
+                },
+                height: {
+                    // `h-control-sm`, `h-row-md` — the Catalogue's density, one knob.
+                    ...Object.fromEntries(
+                        Object.entries(controlHeight).map(([k, v]) => [`control-${k}`, px(v)]),
+                    ),
+                    ...Object.fromEntries(
+                        Object.entries(rowHeight).map(([k, v]) => [`row-${k}`, px(v)]),
+                    ),
+                    ...Object.fromEntries(
+                        Object.entries(iconSize).map(([k, v]) => [`icon-${k}`, px(v)]),
+                    ),
+                },
+                width: {
+                    // `w-field` is the no-stretch rule's one fixed width.
+                    field: px(fieldWidth),
+                    ...Object.fromEntries(
+                        Object.entries(iconSize).map(([k, v]) => [`icon-${k}`, px(v)]),
+                    ),
+                },
+                maxWidth: { field: px(fieldWidth), card: px(cardWidth.max) },
             },
         },
     };

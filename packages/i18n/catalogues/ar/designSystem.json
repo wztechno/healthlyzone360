@@ -172,6 +172,8 @@
         "breadcrumbCurrent": "طبق الحلوم المشوي",
         "amountLabel": "حجم الحصة",
         "rangeLabel": "السعرات لكل وجبة",
+        "sliderAtMostLabel": "الطاقة لكل حصة",
+        "sliderAtLeastLabel": "البروتين لكل حصة",
         "chipRemovable": "بدون فول سوداني",
         "chipFilter": "عالي البروتين",
         "dateLabel": "تاريخ البدء",
@@ -198,6 +200,22 @@
         "motionFade": "ظهر بالتلاشي",
         "motionSlideStart": "انزلق من الحافة الأمامية",
         "motionSlideBottom": "انزلق من الأسفل",
-        "motionNumber": "رقم متحرّك"
+        "motionNumber": "رقم متحرّك",
+        "tableCompactCaption": "جدول (صفوف مضغوطة)"
+    },
+    "tag": {
+        "join": "، ",
+        "more_few": "{{count}} إضافية: {{labels}}",
+        "more_many": "{{count}} إضافيًا: {{labels}}",
+        "more_one": "واحد إضافي: {{labels}}",
+        "more_other": "{{count}} إضافي: {{labels}}",
+        "more_two": "اثنان إضافيان: {{labels}}",
+        "more_zero": "لا مزيد",
+        "overflow_few": "+{{count}}",
+        "overflow_many": "+{{count}}",
+        "overflow_one": "+{{count}}",
+        "overflow_other": "+{{count}}",
+        "overflow_two": "+{{count}}",
+        "overflow_zero": "+{{count}}"
     }
 }

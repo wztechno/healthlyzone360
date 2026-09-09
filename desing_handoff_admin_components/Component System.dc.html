@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f7fcf9; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Schibsted Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; color: #1f2937; }
+  input, select, textarea, button { font-family: inherit; color: inherit; }
+  a { color: #157043; text-decoration: none; }
+  a:hover { color: #11532e; text-decoration: underline; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid #157043; outline-offset: 1px; }
+  ::placeholder { color: #94a3b8; }
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #f7fcf9; padding: 24px 28px 64px">
+  <div style="max-width: 1120px; margin: 0 auto">
+
+    <header style="padding-bottom: 14px; border-bottom: 1px solid #aaddc0">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <div style="width: 22px; height: 22px; border-radius: 5px; background: #157043; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 700">H</div>
+        <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Healthy360 · Kitchen ops</span>
+      </div>
+      <h1 style="margin: 8px 0 0; font-size: 20px; line-height: 26px; font-weight: 700; letter-spacing: -0.015em">Component system</h1>
+      <p style="margin: 4px 0 0; max-width: 620px; font-size: 12px; line-height: 18px; color: #5b6673">Schibsted Grotesk + IBM Plex Mono. One 32px control height, an eight-step type ramp, five spacing steps, one border colour and two elevations. Every Catalogue screen is built from exactly these parts.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px">
+        <sc-for list="{{ facts }}" as="fact" hint-placeholder-count="5">
+          <span style="display: inline-flex; align-items: baseline; gap: 5px; height: 22px; padding: 0 8px; border-radius: 4px; background: #edf6f0; font-size: 11px; color: #5b6673">
+            <span style="font-weight: 600; color: #1f2937">{{ fact.value }}</span>
+            <span>{{ fact.label }}</span>
+          </span>
+        </sc-for>
+      </div>
+    </header>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">01 · Typography</h2>
+        <span style="font-size: 11px; color: #5b6673">Page titles are 16px, not 30px. Numerics take the mono role so columns align.</span>
+      </div>
+      <div style="display: flex; flex-direction: column">
+        <sc-for list="{{ typeRamp }}" as="row" hint-placeholder-count="8">
+          <div style="display: grid; grid-template-columns: 96px 92px 1fr; align-items: baseline; column-gap: 16px; padding: 7px 0; border-bottom: 1px solid #cceeda">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #157043">{{ row.token }}</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5b6673">{{ row.spec }}</span>
+            <span style="font-size: {{ row.size }}; line-height: {{ row.lh }}; font-weight: {{ row.weight }}; letter-spacing: {{ row.ls }}; text-transform: {{ row.tt }}">{{ row.sample }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">02 · Control heights &amp; spacing</h2>
+        <span style="font-size: 11px; color: #5b6673">One table drives every control. Change a number here, everything follows.</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 24px">
+        <div>
+          <div style="display: grid; grid-template-columns: 52px 60px 60px 56px; column-gap: 14px; padding-bottom: 5px; border-bottom: 1px solid #aaddc0">
+            <sc-for list="{{ controlHead }}" as="h" hint-placeholder-count="4">
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ h.label }}</span>
+            </sc-for>
+          </div>
+          <sc-for list="{{ controlScale }}" as="row" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: 52px 60px 60px 56px; column-gap: 14px; align-items: center; height: 26px; border-bottom: 1px solid #cceeda">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #157043">{{ row.size }}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px">{{ row.height }}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673">{{ row.padding }}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673">{{ row.icon }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div>
+          <div style="padding-bottom: 5px; border-bottom: 1px solid #aaddc0; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Spacing steps in use</div>
+          <sc-for list="{{ spacingScale }}" as="step" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 10px; height: 26px; border-bottom: 1px solid #cceeda">
+              <span style="width: 62px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #157043">{{ step.token }}</span>
+              <span style="width: 30px; font-family: 'IBM Plex Mono', monospace; font-size: 11px">{{ step.px }}</span>
+              <span style="height: 8px; width: {{ step.px }}; background: #8ad79b; border-radius: 2px"></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">03 · Buttons</h2>
+        <span style="font-size: 11px; color: #5b6673">Four variants × three sizes. No button sets its own height or width.</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 92px repeat(3, minmax(0, 180px)); justify-content: start; align-items: center; gap: 10px 14px">
+        <span></span>
+        <sc-for list="{{ buttonSizeHead }}" as="h" hint-placeholder-count="3">
+          <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ h.label }}</span>
+        </sc-for>
+        <sc-for list="{{ buttonMatrix }}" as="cell" hint-placeholder-count="16">
+          <div>
+            <sc-if value="{{ cell.isLabel }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size: 12px; font-weight: 500">{{ cell.label }}</span>
+            </sc-if>
+            <sc-if value="{{ cell.isButton }}" hint-placeholder-val="{{ true }}">
+              <button type="button" disabled="{{ cell.disabled }}" style="display: inline-flex; align-items: center; gap: 6px; height: {{ cell.height }}; padding: {{ cell.padding }}; border: 1px solid {{ cell.border }}; border-radius: 5px; background: {{ cell.bg }}; color: {{ cell.fg }}; font-size: {{ cell.font }}; font-weight: 500; cursor: {{ cell.cursor }}; opacity: {{ cell.opacity }}" style-hover="filter: brightness(0.94)">
+                <sc-if value="{{ cell.hasIcon }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size: {{ cell.font }}; line-height: 1">+</span>
+                </sc-if>
+                <span>{{ cell.label }}</span>
+              </button>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #cceeda">
+        <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; width: 92px">States</span>
+        <button type="button" style="height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer">Default</button>
+        <button type="button" style="height: 32px; padding: 0 12px; border: 1px solid #11532e; border-radius: 5px; background: #11532e; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer">Hover</button>
+        <button type="button" style="height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer; outline: 2px solid #157043; outline-offset: 1px">Focus</button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: progress">
+          <span style="width: 10px; height: 10px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%"></span>
+          <span>Saving</span>
+        </button>
+        <button type="button" disabled="disabled" style="height: 32px; padding: 0 12px; border: 1px solid #cceeda; border-radius: 5px; background: #edf6f0; color: #646e7c; font-size: 12px; font-weight: 500; cursor: not-allowed">Disabled</button>
+        <span style="width: 1px; height: 24px; background: #cceeda"></span>
+        <sc-for list="{{ iconButtons }}" as="ib" hint-placeholder-count="4">
+          <span role="button" tabindex="0" title="{{ ib.title }}" style="display: inline-flex; align-items: center; justify-content: center; width: {{ ib.size }}; height: {{ ib.size }}; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: {{ ib.font }}; color: #5b6673; cursor: pointer" style-hover="background: #edf6f0; color: #1f2937">{{ ib.icon }}</span>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">04 · Fields</h2>
+        <span style="font-size: 11px; color: #5b6673">28px in dense contexts, 32px standalone. Label 12px above, helper 11px below.</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 14px 16px">
+        <label style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 500">Default</span>
+          <input value="Thousand Islands" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+          <span style="font-size: 11px; color: #5b6673">Helper text sits at 11px.</span>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 500">Focused</span>
+          <input value="Caesar Dressing" style="height: 28px; padding: 0 8px; border: 1px solid #157043; border-radius: 5px; background: #fff; font-size: 12px; outline: 2px solid #157043; outline-offset: 1px" />
+          <span style="font-size: 11px; color: #5b6673">Ring is the focus token, never a shadow.</span>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 500">Invalid</span>
+          <input value="RC-01" style="height: 28px; padding: 0 8px; border: 1px solid #c02722; border-radius: 5px; background: #fff; font-size: 12px" />
+          <span style="font-size: 11px; color: #8f1f1a">Reference must be six characters.</span>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 500">Disabled</span>
+          <input value="Derived on save" disabled="disabled" style="height: 28px; padding: 0 8px; border: 1px solid #cceeda; border-radius: 5px; background: #edf6f0; color: #646e7c; font-size: 12px" />
+          <span style="font-size: 11px; color: #5b6673">Read-only values use the sunken fill.</span>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 500">Numeric</span>
+          <input value="1.700" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: end" />
+          <span style="font-size: 11px; color: #5b6673">Mono + end-aligned so columns line up.</span>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 500">Select</span>
+          <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+            <option>Production</option><option>Assembly</option>
+          </select>
+          <span style="font-size: 11px; color: #5b6673">Native select for short enums only.</span>
+        </label>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #cceeda">
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer">
+          <span style="width: 14px; height: 14px; border-radius: 3px; background: #157043; color: #fff; display: grid; place-items: center; font-size: 9px">✓</span>
+          <span>Checked</span>
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer">
+          <span style="width: 14px; height: 14px; border: 1px solid #aaddc0; border-radius: 3px; background: #fff"></span>
+          <span>Unchecked</span>
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer">
+          <span style="width: 26px; height: 15px; border-radius: 8px; background: #157043; padding: 2px; display: flex; justify-content: flex-end">
+            <span style="width: 11px; height: 11px; border-radius: 50%; background: #fff"></span>
+          </span>
+          <span>Restricted sheet</span>
+        </label>
+        <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 4px; background: #e2f1fb; color: #0b4a6f; font-size: 11px">
+          <span style="font-weight: 600">Note</span><span>Every control here is one of four heights.</span>
+        </span>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 4px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">05 · FormGrid — the no-stretch rule</h2>
+        <span style="font-size: 11px; color: #5b6673">The requirement, proven.</span>
+      </div>
+      <p style="margin: 8px 0 14px; max-width: 660px; font-size: 12px; line-height: 18px; color: #5b6673">FormGrid resolves to <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #1f2937">repeat(n, minmax(0, 280px))</span> with <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #1f2937">justify-content: start</span> — never <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #1f2937">1fr</span>. A lone field in the last row keeps field width; the remaining columns are genuinely empty. Column count changes at breakpoints, field width never does.</p>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <div style="flex: 0 0 auto">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px">
+            <span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 3px; background: #dcfce7; color: #14532d; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase">Correct</span>
+            <span style="font-size: 11px; color: #5b6673">4 fields · 3 columns</span>
+          </div>
+          <div style="padding: 12px; border: 1px solid #cceeda; border-radius: 8px; background: #fff">
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 176px)); justify-content: start; gap: 10px 12px">
+              <sc-for list="{{ goodFields }}" as="f" hint-placeholder-count="4">
+                <label style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 12px; font-weight: 500">{{ f.label }}</span>
+                  <input value="{{ f.value }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+                </label>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex: 0 0 auto">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px">
+            <span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 3px; background: #fde5e3; color: #8f1f1a; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase">Banned</span>
+            <span style="font-size: 11px; color: #5b6673">the same 4 fields with 1fr columns</span>
+          </div>
+          <div style="padding: 12px; border: 1px solid #d16a64; border-radius: 8px; background: #fff">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 12px; width: 564px">
+              <sc-for list="{{ goodFields }}" as="f" hint-placeholder-count="4">
+                <label style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 12px; font-weight: 500">{{ f.label }}</span>
+                  <input value="{{ f.value }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+                </label>
+              </sc-for>
+            </div>
+            <p style="margin: 8px 0 0; font-size: 11px; line-height: 16px; color: #8f1f1a">The fourth field inherits the whole row. This is the pattern being removed.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px">
+          <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Explicit spanning</span>
+          <span style="font-size: 11px; color: #5b6673">the only way a field gets wider</span>
+        </div>
+        <div style="padding: 12px; border: 1px solid #cceeda; border-radius: 8px; background: #fff">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 10px 16px">
+            <label style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 12px; font-weight: 500">Designation</span>
+              <input value="Thousand Islands" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 12px; font-weight: 500">Reference</span>
+              <input value="RC-0104" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 12px; font-weight: 500">Kind</span>
+              <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px"><option>Production</option></select>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px; grid-column: span 2">
+              <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500">
+                <span>Preparation notes</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #157043">span={2}</span>
+              </span>
+              <textarea rows="3" style="padding: 6px 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; line-height: 18px; resize: vertical">Deliberately wide — declared, not inherited from empty space.</textarea>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px">
+          <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">CardGrid</span>
+          <span style="font-size: 11px; color: #5b6673">same rule · 5 cards in 4 columns, the fifth keeps card width</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 220px)); justify-content: start; gap: 12px">
+          <sc-for list="{{ cards }}" as="card" hint-placeholder-count="5">
+            <div style="padding: 10px; border: 1px solid #cceeda; border-radius: 8px; background: #fff">
+              <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ card.label }}</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; margin-top: 2px">{{ card.value }}</div>
+              <div style="font-size: 11px; color: #5b6673">{{ card.meta }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">06 · SearchSelect</h2>
+        <span style="font-size: 11px; color: #5b6673">Replaces the modal picker. Six call sites across the Catalogue.</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <sc-for list="{{ selectStates }}" as="st" hint-placeholder-count="4">
+          <div style="width: 300px">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px">
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ st.label }}</span>
+            </div>
+            <div style="padding: 10px; border: 1px solid #cceeda; border-radius: 8px; background: #fff; min-height: 132px">
+              <input value="{{ st.query }}" placeholder="Add an ingredient…" readonly="readonly" style="width: 100%; height: 28px; padding: 0 8px; border: 1px solid {{ st.border }}; border-radius: 5px; background: #fff; font-size: 12px" />
+              <div style="margin-top: 4px; padding: 4px; border: 1px solid #aaddc0; border-radius: 6px; box-shadow: 0 6px 20px -6px rgba(16, 42, 30, 0.22)">
+                <sc-for list="{{ st.rows }}" as="r" hint-placeholder-count="3">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 26px; padding: 0 8px; border-radius: 4px; background: {{ r.bg }}">
+                    <sc-if value="{{ r.isSkeleton }}" hint-placeholder-val="{{ false }}">
+                      <span style="height: 9px; width: {{ r.width }}; border-radius: 3px; background: #edf6f0"></span>
+                    </sc-if>
+                    <sc-if value="{{ r.isReal }}" hint-placeholder-val="{{ true }}">
+                      <span style="display: flex; align-items: baseline; gap: 6px; min-width: 0">
+                        <span style="font-size: 12px; font-weight: 500; white-space: nowrap">{{ r.name }}</span>
+                        <span style="font-size: 11px; color: #5b6673; white-space: nowrap">{{ r.meta }}</span>
+                      </span>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673">{{ r.price }}</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ st.isEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding: 8px; font-size: 11px; line-height: 16px; color: #5b6673">No ingredient matches “{{ st.query }}”. <span style="color: #157043; font-weight: 500">Create it →</span></div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">07 · Status, tabs, pagination</h2>
+        <span style="font-size: 11px; color: #5b6673">One badge shape for every lifecycle state.</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+        <sc-for list="{{ badges }}" as="b" hint-placeholder-count="6">
+          <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: {{ b.bg }}; color: {{ b.fg }}">{{ b.label }}</span>
+        </sc-for>
+        <span style="width: 1px; height: 20px; background: #cceeda; margin: 0 4px"></span>
+        <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="4">
+          <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; background: #fdf2d6; color: #79480a; font-size: 11px; font-weight: 500">{{ chip.label }}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 24px; margin-top: 16px">
+        <div style="display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #aaddc0">
+          <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="5">
+            <span role="button" tabindex="0" style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; font-weight: {{ tab.weight }}; color: {{ tab.fg }}; box-shadow: {{ tab.underline }}">
+              <span>{{ tab.label }}</span>
+              <sc-if value="{{ tab.hasCount }}" hint-placeholder-val="{{ false }}">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5b6673">{{ tab.count }}</span>
+              </sc-if>
+            </span>
+          </sc-for>
+        </div>
+        <div style="display: flex; align-items: center; gap: 3px">
+          <sc-for list="{{ pages }}" as="p" hint-placeholder-count="5">
+            <span role="button" tabindex="0" style="min-width: 24px; height: 24px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid {{ p.border }}; border-radius: 4px; background: {{ p.bg }}; color: {{ p.fg }}; font-size: 11px; font-weight: {{ p.weight }}; cursor: pointer">{{ p.label }}</span>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">08 · DataList row density</h2>
+        <span style="font-size: 11px; color: #5b6673">Hairline separators, no cell borders, no zebra. 32px is the default.</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <sc-for list="{{ densityDemos }}" as="demo" hint-placeholder-count="3">
+          <div style="width: 336px">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px">
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ demo.label }}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #157043">{{ demo.height }}</span>
+            </div>
+            <div style="border: 1px solid #cceeda; border-radius: 8px; background: #fff; overflow: hidden">
+              <div style="display: grid; grid-template-columns: 1fr 64px 60px; column-gap: 10px; align-items: center; height: 22px; padding: 0 8px; border-bottom: 1px solid #aaddc0; background: #edf6f0">
+                <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Designation</span>
+                <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: end">Cost</span>
+                <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Status</span>
+              </div>
+              <sc-for list="{{ demo.rows }}" as="r" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 1fr 64px 60px; column-gap: 10px; align-items: center; height: {{ demo.height }}; padding: 0 8px; border-bottom: 1px solid #cceeda" style-hover="background: #edf6f0">
+                  <span style="font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.name }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-align: end">{{ r.cost }}</span>
+                  <span><span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: {{ r.bg }}; color: {{ r.fg }}">{{ r.status }}</span></span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">09 · Overlays &amp; status</h2>
+        <span style="font-size: 11px; color: #5b6673">One popover shadow, one confirm shape. Nothing else casts.</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+        <div style="width: 190px; padding: 4px; background: #fff; border: 1px solid #aaddc0; border-radius: 6px; box-shadow: 0 6px 20px -4px rgba(16, 42, 30, 0.24)">
+          <div style="padding: 4px 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Row actions</div>
+          <sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="4">
+            <div role="button" tabindex="0" style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 4px; font-size: 12px; color: {{ m.fg }}; cursor: pointer" style-hover="background: #edf6f0">
+              <span style="width: 12px; text-align: center; font-size: 11px; color: #5b6673">{{ m.icon }}</span>
+              <span>{{ m.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="width: 300px; padding: 14px; background: #fff; border: 1px solid #aaddc0; border-radius: 8px; box-shadow: 0 6px 20px -4px rgba(16, 42, 30, 0.24)">
+          <div style="font-size: 13px; font-weight: 600">Archive Vinaigrette Classic?</div>
+          <p style="margin: 4px 0 12px; font-size: 11px; line-height: 16px; color: #5b6673">It is referenced by 3 published plans. Archiving hides it from new orders but keeps historical costings.</p>
+          <div style="display: flex; justify-content: flex-end; gap: 6px">
+            <button type="button" style="height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer">Cancel</button>
+            <button type="button" style="height: 28px; padding: 0 10px; border: 1px solid #c02722; border-radius: 5px; background: #c02722; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer">Archive</button>
+          </div>
+        </div>
+        <div style="width: 260px; display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{ banners }}" as="b" hint-placeholder-count="3">
+            <div style="display: flex; gap: 7px; padding: 7px 9px; border-radius: 6px; background: {{ b.bg }}">
+              <span style="font-size: 11px; font-weight: 600; color: {{ b.fg }}">{{ b.tag }}</span>
+              <span style="font-size: 11px; line-height: 16px; color: {{ b.fg }}">{{ b.text }}</span>
+            </div>
+          </sc-for>
+          <div style="display: flex; flex-direction: column; gap: 5px; padding: 9px; border: 1px solid #cceeda; border-radius: 8px; background: #fff">
+            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Skeleton</span>
+            <sc-for list="{{ skeleton }}" as="sk" hint-placeholder-count="4">
+              <span style="height: 9px; width: {{ sk.width }}; border-radius: 3px; background: #edf6f0"></span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="width: 260px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 14px; border: 1px dashed #aaddc0; border-radius: 8px; background: #fff; text-align: center">
+          <div style="font-size: 13px; font-weight: 600">No sauces yet</div>
+          <div style="font-size: 11px; line-height: 16px; color: #5b6673">Sauces added to the catalogue appear here with their cost per kg.</div>
+          <button type="button" style="margin-top: 2px; height: 28px; padding: 0 10px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer">New sauce</button>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top: 26px">
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 12px">
+        <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">10 · Colour roles</h2>
+        <span style="font-size: 11px; color: #5b6673">Every value read from <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px">colour.ts</span> · <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px">themeLight</span> + <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px">semanticLight</span>. No new hexes.</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 152px)); justify-content: start; gap: 10px">
+        <sc-for list="{{ swatches }}" as="sw" hint-placeholder-count="12">
+          <div>
+            <div style="height: 40px; border: 1px solid #cceeda; border-radius: 6px; background: {{ sw.hex }}"></div>
+            <div style="margin-top: 4px; font-size: 11px; font-weight: 500">{{ sw.name }}</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5b6673">{{ sw.hex }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1180, &quot;height&quot;: 900}, &quot;fieldWidth&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 280, &quot;min&quot;: 200, &quot;max&quot;: 360, &quot;step&quot;: 20, &quot;unit&quot;: &quot;px&quot;, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Layout&quot;}, &quot;controlHeight&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;28&quot;, &quot;32&quot;, &quot;36&quot;], &quot;default&quot;: &quot;32&quot;, &quot;tsType&quot;: &quot;'28' | '32' | '36'&quot;, &quot;section&quot;: &quot;Layout&quot;}, &quot;showBannedExample&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Content&quot;}}">
+const TONE = {
+  Live: { bg: '#dcfce7', fg: '#14532d' },
+  Draft: { bg: '#fdf2d6', fg: '#79480a' },
+  Review: { bg: '#e2f1fb', fg: '#0b4a6f' },
+  Archived: { bg: '#f1f5f9', fg: '#4b5563' },
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    const demoRows = [
+      { name: 'Thousand Islands', cost: '4.57', status: 'Draft' },
+      { name: 'Caesar Dressing', cost: '5.12', status: 'Live' },
+      { name: 'Barbecue Sauce', cost: '2.86', status: 'Live' },
+      { name: 'Tahini Dressing', cost: '6.20', status: 'Review' },
+    ].map((r) => ({ ...r, bg: TONE[r.status].bg, fg: TONE[r.status].fg }));
+
+    const buttonSizes = [
+      { key: 'sm', height: '28px', padding: '0 10px', font: '12px' },
+      { key: 'md', height: '32px', padding: '0 12px', font: '12px' },
+      { key: 'lg', height: '36px', padding: '0 14px', font: '13px' },
+    ];
+    const variants = [
+      { label: 'Primary', bg: '#157043', fg: '#ffffff', border: '#157043' },
+      { label: 'Secondary', bg: '#ffffff', fg: '#1f2937', border: '#aaddc0' },
+      { label: 'Ghost', bg: 'transparent', fg: '#157043', border: 'transparent' },
+      { label: 'Danger', bg: '#c02722', fg: '#ffffff', border: '#c02722' },
+    ];
+    const buttonMatrix = [];
+    variants.forEach((v) => {
+      buttonMatrix.push({ isLabel: true, isButton: false, label: v.label });
+      buttonSizes.forEach((sz, i) => {
+        buttonMatrix.push({
+          isButton: true, isLabel: false,
+          label: v.label === 'Danger' ? 'Archive' : 'New recipe',
+          hasIcon: v.label !== 'Danger' && i === 1,
+          height: sz.height, padding: sz.padding, font: sz.font,
+          bg: v.bg, fg: v.fg, border: v.border,
+          cursor: 'pointer', opacity: 1, disabled: false,
+        });
+      });
+    });
+
+    const selectStates = [
+      { label: 'Idle', query: '', border: '#aaddc0', isEmpty: false, rows: [
+        { isReal: true, isSkeleton: false, name: 'Mayonnaise', meta: 'Condiments · kg', price: '3.50', bg: '#edf6f0' },
+        { isReal: true, isSkeleton: false, name: 'Red Pepper', meta: 'Produce · kg', price: '2.50', bg: 'transparent' },
+        { isReal: true, isSkeleton: false, name: 'Barbecue', meta: 'Sauces · kg', price: '2.20', bg: 'transparent' },
+      ] },
+      { label: 'Typing', query: 'pep', border: '#157043', isEmpty: false, rows: [
+        { isReal: true, isSkeleton: false, name: 'Red Pepper', meta: 'Produce · kg', price: '2.50', bg: '#edf6f0' },
+        { isReal: true, isSkeleton: false, name: 'Black Pepper', meta: 'Spices · kg', price: '11.00', bg: 'transparent' },
+      ] },
+      { label: 'Loading', query: 'tah', border: '#157043', isEmpty: false, rows: [
+        { isSkeleton: true, isReal: false, width: '58%' },
+        { isSkeleton: true, isReal: false, width: '74%' },
+        { isSkeleton: true, isReal: false, width: '46%' },
+      ] },
+      { label: 'No results', query: 'zaatar', border: '#157043', isEmpty: true, rows: [] },
+    ];
+
+    return {
+      facts: [
+        { value: '32px', label: 'control height' },
+        { value: '8', label: 'type steps' },
+        { value: '5', label: 'spacing steps' },
+        { value: '1', label: 'border colour' },
+        { value: '2', label: 'elevations' },
+        { value: '280px', label: 'field width' },
+      ],
+      typeRamp: [
+        { token: 'micro', spec: '10/14 · 600', size: '10px', lh: '14px', weight: 600, ls: '0.06em', tt: 'uppercase', sample: 'Column label' },
+        { token: 'caption', spec: '11/16 · 400', size: '11px', lh: '16px', weight: 400, ls: '0', tt: 'none', sample: 'Helper and meta text' },
+        { token: 'body', spec: '12/18 · 400', size: '12px', lh: '18px', weight: 400, ls: '0', tt: 'none', sample: 'Default body and cell text' },
+        { token: 'label', spec: '12/16 · 500', size: '12px', lh: '16px', weight: 500, ls: '0', tt: 'none', sample: 'Field label · tab · button' },
+        { token: 'strong', spec: '13/18 · 600', size: '13px', lh: '18px', weight: 600, ls: '0', tt: 'none', sample: 'List item and card title' },
+        { token: 'section', spec: '13/18 · 600', size: '13px', lh: '18px', weight: 600, ls: '0.02em', tt: 'uppercase', sample: 'Section title' },
+        { token: 'title', spec: '16/22 · 600', size: '16px', lh: '22px', weight: 600, ls: '-0.01em', tt: 'none', sample: 'Page title — was 30px' },
+        { token: 'display', spec: '20/26 · 700', size: '20px', lh: '26px', weight: 700, ls: '-0.015em', tt: 'none', sample: 'One number, rarely' },
+      ],
+      controlHead: [{ label: 'Size' }, { label: 'Height' }, { label: 'Pad X' }, { label: 'Icon' }],
+      controlScale: [
+        { size: 'xs', height: '24px', padding: '6px', icon: '12px' },
+        { size: 'sm', height: '28px', padding: '8px', icon: '14px' },
+        { size: 'md', height: '32px', padding: '10px', icon: '16px' },
+        { size: 'lg', height: '36px', padding: '14px', icon: '18px' },
+      ],
+      spacingScale: [
+        { token: 'hair', px: '4px' },
+        { token: 'tight', px: '8px' },
+        { token: 'snug', px: '12px' },
+        { token: 'base', px: '16px' },
+        { token: 'loose', px: '24px' },
+      ],
+      buttonSizeHead: [{ label: 'sm · 28' }, { label: 'md · 32' }, { label: 'lg · 36' }],
+      buttonMatrix,
+      iconButtons: [
+        { icon: '⌕', title: 'Search', size: '24px', font: '11px' },
+        { icon: '⚙', title: 'Fields', size: '28px', font: '12px' },
+        { icon: '⋯', title: 'More', size: '28px', font: '13px' },
+        { icon: '⟳', title: 'Recost', size: '32px', font: '13px' },
+      ],
+      goodFields: [
+        { label: 'Designation', value: 'Thousand Islands' },
+        { label: 'Reference', value: 'RC-0104' },
+        { label: 'Kind', value: 'Production' },
+        { label: 'Shelf life', value: '14 days' },
+      ],
+      cards: [
+        { label: 'Ingredients', value: '248', meta: '3 missing Arabic' },
+        { label: 'Recipes', value: '86', meta: '4 in review' },
+        { label: 'Sauces', value: '31', meta: '1 uncosted' },
+        { label: 'Packaging', value: '54', meta: 'all costed' },
+        { label: 'Plans', value: '12', meta: 'the fifth card' },
+      ],
+      selectStates,
+      badges: [
+        { label: 'Live', bg: '#dcfce7', fg: '#14532d' },
+        { label: 'Draft', bg: '#fdf2d6', fg: '#79480a' },
+        { label: 'In review', bg: '#e2f1fb', fg: '#0b4a6f' },
+        { label: 'Archived', bg: '#f1f5f9', fg: '#4b5563' },
+        { label: 'Restricted', bg: '#fde5e3', fg: '#8f1f1a' },
+        { label: 'From database', bg: '#ede9fe', fg: '#5b21b6' },
+      ],
+      chips: [{ label: 'Egg' }, { label: 'Milk' }, { label: 'Sesame' }, { label: 'Mustard' }],
+      tabs: [
+        { label: 'Description', weight: 600, fg: '#157043', underline: 'inset 0 -2px 0 0 #157043', hasCount: false },
+        { label: 'Production', weight: 500, fg: '#5b6673', underline: 'none', hasCount: true, count: '9' },
+        { label: 'Packaging', weight: 500, fg: '#5b6673', underline: 'none', hasCount: true, count: '3' },
+        { label: 'Costing', weight: 500, fg: '#5b6673', underline: 'none', hasCount: false },
+        { label: 'Technical sheet', weight: 500, fg: '#5b6673', underline: 'none', hasCount: false },
+      ],
+      pages: ['‹', '1', '2', '3', '›'].map((p) => ({
+        label: p,
+        bg: p === '1' ? '#157043' : '#ffffff',
+        fg: p === '1' ? '#ffffff' : '#5b6673',
+        border: p === '1' ? '#157043' : '#aaddc0',
+        weight: p === '1' ? 600 : 400,
+      })),
+      densityDemos: [
+        { label: 'Compact', height: '28px', rows: demoRows },
+        { label: 'Default', height: '32px', rows: demoRows },
+        { label: 'Comfortable', height: '36px', rows: demoRows },
+      ],
+      menuItems: [
+        { label: 'Open', icon: '↗', fg: '#1f2937' },
+        { label: 'Duplicate', icon: '⧉', fg: '#1f2937' },
+        { label: 'Recost', icon: '⟳', fg: '#1f2937' },
+        { label: 'Archive', icon: '⌫', fg: '#8f1f1a' },
+      ],
+      banners: [
+        { tag: 'Saved', text: 'Costs recalculated from 9 raw materials.', bg: '#dcfce7', fg: '#14532d' },
+        { tag: 'Check', text: '2 ingredients have no Arabic name.', bg: '#fdf2d6', fg: '#79480a' },
+        { tag: 'Conflict', text: 'Someone edited v4 while you were away.', bg: '#fde5e3', fg: '#8f1f1a' },
+      ],
+      skeleton: [{ width: '72%' }, { width: '54%' }, { width: '84%' }, { width: '40%' }],
+      swatches: [
+        { name: 'surfaceBase', hex: '#f7fcf9' },
+        { name: 'surfaceRaised', hex: '#ffffff' },
+        { name: 'surfaceSunken', hex: '#edf6f0' },
+        { name: 'brandSurface', hex: '#157043' },
+        { name: 'brandSurfaceSubtle', hex: '#dcfce7' },
+        { name: 'textPrimary', hex: '#1f2937' },
+        { name: 'textSecondary', hex: '#5b6673' },
+        { name: 'borderSubtle', hex: '#cceeda' },
+        { name: 'borderDefault', hex: '#aaddc0' },
+        { name: 'warning.subtle', hex: '#fdf2d6' },
+        { name: 'danger.default', hex: '#c02722' },
+        { name: 'info.subtle', hex: '#e2f1fb' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

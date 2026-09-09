@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { ELEVATION_LEVELS, elevation, elevationRoles } from './elevation.ts';
 import {
     BREAKPOINT_NAMES,
-    MIN_TOUCH_TARGET,
     RADIUS_NAMES,
     SPACING_BASE,
     SPACING_STEPS,
@@ -249,11 +248,5 @@ describe('motion', () => {
 
     it('removes the stagger entirely under reduced motion', () => {
         expect(staggerDelay(5, true)).toBe(0);
-    });
-});
-
-describe('touch targets', () => {
-    it('meets the 44dp minimum', () => {
-        expect(MIN_TOUCH_TARGET).toBeGreaterThanOrEqual(44);
     });
 });

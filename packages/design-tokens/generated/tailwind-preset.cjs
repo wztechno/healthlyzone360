@@ -147,7 +147,24 @@ module.exports = {
         "32": "128px",
         "0.5": "2px",
         "1.5": "6px",
-        "2.5": "10px"
+        "2.5": "10px",
+        "hair": "4px",
+        "tight": "8px",
+        "snug": "12px",
+        "base": "16px",
+        "loose": "24px"
+      },
+      "padding": {
+        "control-xs": "6px",
+        "control-sm": "8px",
+        "control-md": "10px",
+        "control-lg": "14px"
+      },
+      "gap": {
+        "control-xs": "4px",
+        "control-sm": "6px",
+        "control-md": "6px",
+        "control-lg": "8px"
       },
       "borderRadius": {
         "none": "0px",
@@ -194,6 +211,25 @@ module.exports = {
           "'Segoe UI'",
           "Roboto",
           "sans-serif"
+        ],
+        "mono": [
+          "IBMPlexMono_400Regular",
+          "'IBM Plex Mono'",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          "monospace"
+        ],
+        "admin": [
+          "SchibstedGrotesk_400Regular",
+          "'Schibsted Grotesk'",
+          "'IBM Plex Sans Arabic'",
+          "system-ui",
+          "-apple-system",
+          "'Segoe UI'",
+          "Roboto",
+          "sans-serif"
         ]
       },
       "fontSize": {
@@ -232,6 +268,70 @@ module.exports = {
         "5xl": [
           "48px",
           "58px"
+        ],
+        "role-micro": [
+          "10px",
+          {
+            "lineHeight": "14px",
+            "letterSpacing": "0.6px",
+            "fontWeight": "600"
+          }
+        ],
+        "role-caption": [
+          "11px",
+          {
+            "lineHeight": "16px",
+            "letterSpacing": "0px",
+            "fontWeight": "400"
+          }
+        ],
+        "role-body": [
+          "12px",
+          {
+            "lineHeight": "18px",
+            "letterSpacing": "0px",
+            "fontWeight": "400"
+          }
+        ],
+        "role-label": [
+          "12px",
+          {
+            "lineHeight": "16px",
+            "letterSpacing": "0px",
+            "fontWeight": "500"
+          }
+        ],
+        "role-strong": [
+          "13px",
+          {
+            "lineHeight": "18px",
+            "letterSpacing": "0px",
+            "fontWeight": "600"
+          }
+        ],
+        "role-section": [
+          "13px",
+          {
+            "lineHeight": "18px",
+            "letterSpacing": "0.26px",
+            "fontWeight": "600"
+          }
+        ],
+        "role-title": [
+          "16px",
+          {
+            "lineHeight": "22px",
+            "letterSpacing": "-0.16px",
+            "fontWeight": "600"
+          }
+        ],
+        "role-display": [
+          "20px",
+          {
+            "lineHeight": "26px",
+            "letterSpacing": "-0.3px",
+            "fontWeight": "700"
+          }
         ]
       },
       "lineHeight": {
@@ -305,10 +405,42 @@ module.exports = {
         "emphasised": "cubic-bezier(0.2, 0, 0, 1.2)"
       },
       "minWidth": {
-        "touch": "44px"
+        "touch": "44px",
+        "card": "200px"
       },
       "minHeight": {
-        "touch": "44px"
+        "touch": "44px",
+        "control-xs": "24px",
+        "control-sm": "28px",
+        "control-md": "32px",
+        "control-lg": "36px",
+        "row-sm": "28px",
+        "row-md": "32px",
+        "row-lg": "36px"
+      },
+      "height": {
+        "control-xs": "24px",
+        "control-sm": "28px",
+        "control-md": "32px",
+        "control-lg": "36px",
+        "row-sm": "28px",
+        "row-md": "32px",
+        "row-lg": "36px",
+        "icon-xs": "12px",
+        "icon-sm": "14px",
+        "icon-md": "16px",
+        "icon-lg": "18px"
+      },
+      "width": {
+        "field": "280px",
+        "icon-xs": "12px",
+        "icon-sm": "14px",
+        "icon-md": "16px",
+        "icon-lg": "18px"
+      },
+      "maxWidth": {
+        "field": "280px",
+        "card": "260px"
       }
     }
   }

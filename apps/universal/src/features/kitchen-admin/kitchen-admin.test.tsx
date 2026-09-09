@@ -7,11 +7,13 @@ import type {
     IngredientAdmin,
     IngredientAdminFilter,
     IngredientAllergenMapping,
+    IngredientCategoryAdmin,
 } from '@healthy360/api-client/contracts';
 import { AllergenCode, IngredientId, KitchenBranchId, RoleId } from '@healthy360/domain-types';
 import type { AccessState } from '@healthy360/permissions';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { Dimensions } from 'react-native';
 
 import {
     ORGANISATION_OWNER_PERMISSIONS,
@@ -150,31 +152,53 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         meta: meta(),
         name: { en: `Ingredient ${String(ordinal)}`, ar: `مكوّن ${String(ordinal)}` },
         reference: `IG-00${String(ordinal)}`,
+        subcategoryCode: null,
         categoryCode: 'store-cupboard',
         measurementUnit: 'g',
         purchaseUnit: null,
         composition: null,
         itemsPerUnit: null,
+        // Packaging's three, null on food — which every fixture in this file is.
+        purchasePrice: null,
+        wastePercent: null,
+        capacity: null,
+        b2bPrice: null,
+        b2cPrice: null,
+        unitPrice: null,
+        isSellable: false,
         costPer100g: null,
         per100g: null,
         allergens: [],
         dietClassifications: [],
         aliases: [],
         organisationId: TEST_ORGANISATION_ID,
+        forkedFromId: null,
+    isEditable: true,
         notes: null,
         ...overrides,
     };
 }
 
 /**
- * A shared-library row: `organisationId === null` is what makes the editor read-only and its
- * allergen determination a platform baseline (plan §4.6).
+ * A shared-library row *as a kitchen sees it*: `organisationId === null` makes its allergen
+ * determination a platform baseline (plan §4.6), and `isEditable: false` is what makes the editor
+ * read-only.
+ *
+ * The two are separate on purpose. Read-only is not a property of the row — the platform operator
+ * writes exactly these rows — so a fixture that wants a read-only editor has to say so rather than
+ * leaving it to be inferred from a null owner, which is the inference that left the shared library
+ * with no writer anywhere in the product.
  */
 function platformIngredient(
     ordinal: number,
     overrides: Partial<IngredientAdmin> = {},
 ): IngredientAdmin {
-    return ingredient(ordinal, { organisationId: null, reference: null, ...overrides });
+    return ingredient(ordinal, {
+        organisationId: null,
+        isEditable: false,
+        reference: null,
+        ...overrides,
+    });
 }
 
 const ALLERGEN_CLASS_CODES: readonly string[] = [
@@ -292,10 +316,40 @@ function hubRepositories(ingredients: readonly IngredientAdmin[]): RepositoryOve
 }
 
 /** The two reads every editor render needs: the class vocabulary and the category derivation. */
+/**
+ * The category tree the editor's two Selects read.
+ *
+ * A real read now, not a derivation. The category field used to build its vocabulary from the codes
+ * the listing happened to return; it reads `listIngredientCategories` instead, so a branch nothing
+ * is filed under yet is still offerable and a leaf resolves to the catalogue's own name rather than
+ * to `humaniseCode`. A test that only stubs the listing therefore opens the Select onto an empty
+ * dialog, which is what this fixture exists to prevent.
+ */
+const CATEGORY_TREE: readonly IngredientCategoryAdmin[] = [
+    {
+        code: 'store-cupboard',
+        name: { en: 'Store cupboard', ar: 'مؤونة' },
+        parentCode: null,
+        displayOrder: 1,
+        isActive: true,
+    },
+    {
+        code: 'store-cupboard-grains',
+        name: { en: 'Grains', ar: 'حبوب' },
+        parentCode: 'store-cupboard',
+        displayOrder: 2,
+        isActive: true,
+    },
+];
+
 function editorReads(library: () => readonly IngredientAdmin[]) {
     return {
         listAllergenClasses: async () => ALLERGEN_CLASSES,
         listIngredients: ingredientListing(library),
+        listIngredientCategories: async () => CATEGORY_TREE,
+        // The create form states the handle the record is about to take. A saved row never asks,
+        // so this answers only the `new` cases below.
+        nextReference: async () => 'ING-307',
     };
 }
 
@@ -440,7 +494,37 @@ describe('the kitchen hub', () => {
  * The list
  * ---------------------------------------------------------------------------------------------- */
 
-describe('the ingredient list', () => {
+/**
+ * Above `md` the Catalogue draws a record as tracks; below it the same record renders two-line and
+ * the per-column cells do not exist at all (§4.1). The two are different trees with different
+ * element counts — the branch is JavaScript, not a class variant — so a column assertion is only
+ * meaningful once the window is wide enough to draw columns. React Native's Jest default window is
+ * 750px, eighteen short of the 768 `md` asks for.
+ *
+ * `Dimensions.set` rather than a mocked `useBreakpoint`: the branch reads the real window, and a
+ * test that stubbed the hook would prove the stub. The narrow default is captured up front and put
+ * back afterwards — the archive test below is written against the *narrow* row deliberately,
+ * because the overflow menu is the shape a phone gets.
+ */
+function atDeskWidth() {
+    const narrowWindow = Dimensions.get('window');
+    const narrowScreen = Dimensions.get('screen');
+
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...narrowWindow, width: 1440, height: 900 },
+            screen: { ...narrowScreen, width: 1440, height: 900 },
+        });
+    });
+
+    afterAll(() => {
+        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+    });
+}
+
+describe('the ingredient list at desk width', () => {
+    atDeskWidth();
+
     it('renders skeletons, then the authored rows with their allergens and status', async () => {
         const mapped = ingredient(1, {
             meta: meta({ status: 'published' }),
@@ -465,14 +549,20 @@ describe('the ingredient list', () => {
         expect(
             screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-allergens`),
         ).toBeTruthy();
+        // "Live", not "Published": the Catalogue's badges take the short status vocabulary, so a
+        // kitchen reads the same word down every one of its lists.
         expect(
             screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-status`),
-        ).toHaveTextContent(/Published/);
+        ).toHaveTextContent(/Live/);
+        // An allergen set that is empty says so. On the one column read for safety, "this record
+        // declares none" and "nothing has loaded" must not look alike.
         expect(
             screen.getByTestId(`kitchen-ingredient-${String(unmapped.id)}-allergens-none`),
         ).toBeTruthy();
     });
+});
 
+describe('the ingredient list', () => {
     it('answers a search nothing matches with the filtered empty state', async () => {
         await renderStubScreen(<IngredientsScreen />, {
             session: kitchenManagerSession(),
@@ -535,6 +625,14 @@ describe('the ingredient list', () => {
             },
         });
         await untilVisible('kitchen-ingredients-table');
+
+        // Archive is a row-menu item now, not a button on the row (handoff §4.1), so the menu is
+        // opened first. The id it carries is unchanged: what moved is the control, not the target.
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(`kitchen-ingredients-table-row-${String(target.id)}-actions-trigger`),
+            );
+        });
 
         await act(async () => {
             fireEvent.press(screen.getByTestId(`kitchen-ingredient-${String(target.id)}-archive`));
@@ -644,10 +742,14 @@ describe('the ingredient editor', () => {
             name: { en: 'Toasted burghul', ar: '' },
             categoryCode: 'store-cupboard',
             measurementUnit: 'g',
+            // Stated, and stated false. The Sale section's toggle is a field the form collects, so
+            // omitting it would leave the server to pick — and "can this be sold on its own?"
+            // defaulting to anything is the wrong shape of answer for a new record.
+            isSellable: false,
         });
     });
 
-    it('keeps platform-library details read-only and leaves allergen mapping as the writable path', async () => {
+    it('keeps a platform-library record read-only and offers the fork as the writable path', async () => {
         const record = platformIngredient(5, {
             meta: meta({ status: 'published' }),
             allergens: [mapping('gluten')],
@@ -666,9 +768,22 @@ describe('the ingredient editor', () => {
         await untilVisible('kitchen-ingredient-platform-library');
         expect(screen.queryByTestId('kitchen-ingredient-editor-screen-save')).toBeNull();
         expect(screen.queryByTestId('kitchen-ingredient-archive')).toBeNull();
-        expect(screen.queryByTestId('kitchen-ingredient-alias-input-input')).toBeNull();
 
-        await untilVisible('kitchen-ingredient-mapping-save');
+        /*
+         * Fork, and nothing else.
+         *
+         * This test used to end on the allergen mapping editor, on the argument that a shared
+         * library row could not be renamed but *could* have its determination corrected in place.
+         * The screen no longer works that way: composition and allergens are read-only for every
+         * record (§6.2), so there is no writable path on a platform row at all — copying it into
+         * this kitchen is the one thing that can happen next, and offering it is the whole point of
+         * the banner above.
+         */
+        await untilVisible('kitchen-ingredient-fork');
+        // The determination is still *shown*, as a chip on the read-only panel — read-only is not
+        // the same as hidden, and a kitchen deciding whether to fork needs to see what it is
+        // forking.
+        expect(screen.getByTestId('kitchen-ingredient-allergen-gluten')).toBeTruthy();
     });
 
     it('saves a rename and rebases onto the version the write produced', async () => {
@@ -789,8 +904,25 @@ describe('the ingredient editor', () => {
         });
     });
 
-    it('adds and removes an alias, and can take the removal back', async () => {
-        const record = ingredient(3, { name: { en: 'Alias me', ar: 'سمّني' } });
+    /**
+     * The four fields the form no longer collects, and the write that must not clear them.
+     *
+     * Kitchen reference, Composition, Other names and Notes left the form when the editor was cut
+     * down to the design's four sections. They are still on the record and still writable through
+     * the contract — this screen simply stopped being where they are edited. That makes the *shape
+     * of the request* the thing worth pinning: `UpdateIngredientRequest` treats a field it does not
+     * receive as untouched and an explicit `null` as a clear, so a form that posted the four blanks
+     * it no longer collects would erase four columns on the first save of any record that had them.
+     *
+     * This replaces the alias-editing test, which covered a control the form no longer has. What it
+     * was really protecting is here instead: the aliases survive the save.
+     */
+    it('never sends the fields it stopped collecting, so a save cannot clear them', async () => {
+        const record = ingredient(3, {
+            name: { en: 'Keep my extras', ar: 'احتفظ' },
+            aliases: ['Chuck'],
+            reference: 'IG-777',
+        });
 
         const { repositories } = await renderStubScreen(
             <IngredientEditScreen ingredient={String(record.id)} />,
@@ -802,7 +934,6 @@ describe('the ingredient editor', () => {
                         getIngredient: async () => record,
                         updateIngredient: async (_id, request) => ({
                             ...record,
-                            aliases: request.aliases ?? record.aliases,
                             meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
                         }),
                     },
@@ -810,42 +941,30 @@ describe('the ingredient editor', () => {
             },
         );
 
-        await untilVisible('kitchen-ingredient-alias-input-input');
+        await untilVisible('kitchen-ingredient-name-ar-input');
+        // The reference is still *read* — it opens the meta line, as the design draws it — which is
+        // exactly the distinction the request has to preserve.
+        expect(screen.queryByTestId('kitchen-ingredient-alias-input-input')).toBeNull();
 
         await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-ingredient-alias-input-input'),
-                'Chuck',
-            );
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-ar-input'), 'اسم جديد');
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-alias-add'));
-        });
-
-        expect(screen.getByTestId('kitchen-ingredient-alias-Chuck')).toBeTruthy();
-
-        // Removing offers an explicit undo rather than only a toast that scrolls away.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-alias-Chuck-remove'));
-        });
-        expect(screen.queryByTestId('kitchen-ingredient-alias-Chuck')).toBeNull();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-alias-undo'));
-        });
-        expect(screen.getByTestId('kitchen-ingredient-alias-Chuck')).toBeTruthy();
-
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        // Aliases are a *field*, not a sub-resource: the whole list travels with the next save.
         await waitFor(() => {
-            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalledWith(
-                record.id,
-                expect.objectContaining({ aliases: ['Chuck'] }),
-            );
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalled();
         });
+
+        const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
+            .calls[0] as [IngredientId, Record<string, unknown>];
+        // Absent, not null. `null` is a clear on this contract and `undefined` is "untouched", and
+        // the difference is four columns of somebody else's data.
+        expect(request).not.toHaveProperty('aliases');
+        expect(request).not.toHaveProperty('reference');
+        expect(request).not.toHaveProperty('composition');
+        expect(request).not.toHaveProperty('notes');
     });
 });
 
@@ -853,11 +972,67 @@ describe('the ingredient editor', () => {
  * Allergen mapping
  * ---------------------------------------------------------------------------------------------- */
 
-describe('the allergen mapping editor', () => {
-    it('marks a platform baseline row and refuses to weaken it', async () => {
-        const record = platformIngredient(5, {
-            meta: meta({ status: 'published' }),
-            allergens: [mapping('gluten', { containment: 'contains' })],
+/**
+ * What used to be the allergen mapping editor.
+ *
+ * Composition and allergens are **read-only on this screen** — handoff §6.2, and the editor's own
+ * module note says so. The three tests that stood here drove a mapping editor that no longer
+ * exists: an add button, a class picker, a containment toggle with an upgrade-only rule, and a
+ * wholesale save. Rewriting them against the current screen would have meant asserting controls
+ * nobody can reach, so what survives is the claim the screen still makes — the determination is
+ * *shown*, in full, and cannot be changed from here.
+ *
+ * The rule those tests protected has not gone anywhere: `setIngredientAllergens` is still on the
+ * contract, still wholesale, and still the only way a determination changes. When an editor for it
+ * lands, the upgrade-only refusal and the quarantine-in-a-successful-write case are the two things
+ * it has to prove, and they are worth re-deriving from `AllergenMappingService` rather than from
+ * the tests that used to sit here.
+ */
+describe('composition and allergens, read-only', () => {
+    it('shows every determination as a chip and offers no way to change one', async () => {
+        const record = ingredient(6, {
+            allergens: [
+                mapping('gluten', { containment: 'contains' }),
+                mapping('sesame', { containment: 'may_contain' }),
+            ],
+        });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-ingredient-composition');
+
+        // Both claims are drawn. `contains` and `may_contain` are two different statements and
+        // never one colour, but both are *present*: a panel that showed only the certain ones would
+        // under-report the label.
+        expect(screen.getByTestId('kitchen-ingredient-allergen-gluten')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-allergen-sesame')).toBeTruthy();
+
+        // And nothing here can write. Not "the button is disabled" — the controls are not rendered,
+        // which is the difference between a path that is closed and one that is merely guarded.
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-add')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-save')).toBeNull();
+        expect(repositories.kitchenAdmin.setIngredientAllergens).not.toHaveBeenCalled();
+    });
+
+    it('renders the quarantine a write elsewhere put the record into', async () => {
+        // The store quarantines an ingredient whose dropped allergen a *published* recipe derives
+        // from it — the burghul/pita contradiction the master plan calls out. The determination is
+        // no longer changed from this screen, so what the editor still owns is the *rendering*: a
+        // record that comes back `review_required` says so, rather than looking publishable.
+        const record = ingredient(7, {
+            meta: meta({ status: 'review_required' }),
+            allergens: [],
         });
 
         await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
@@ -868,149 +1043,6 @@ describe('the allergen mapping editor', () => {
                     getIngredient: async () => record,
                 },
             },
-        });
-
-        const baselineKey = 'kitchen-ingredient-mapping-baseline-gluten';
-
-        await untilVisible(baselineKey);
-        expect(screen.getByTestId(`${baselineKey}-baseline`)).toBeTruthy();
-
-        // The authored determination is `contains`; asking for `may_contain` is a downgrade.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${baselineKey}-containment-may_contain`));
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId(`${baselineKey}-error`)).toBeTruthy();
-        });
-        expect(screen.getByTestId('kitchen-ingredient-mapping-blocked')).toBeTruthy();
-        expect(
-            screen.getByTestId('kitchen-ingredient-mapping-save').props.accessibilityState.disabled,
-        ).toBe(true);
-
-        // Putting it back clears the refusal — the rule is upgrade-only, not immutable.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${baselineKey}-containment-contains`));
-        });
-        await waitFor(() => {
-            expect(screen.queryByTestId(`${baselineKey}-error`)).toBeNull();
-        });
-    });
-
-    it('adds a mapping and saves the whole set', async () => {
-        const record = ingredient(6, { allergens: [] });
-
-        const { repositories } = await renderStubScreen(
-            <IngredientEditScreen ingredient={String(record.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        ...editorReads(() => [record]),
-                        getIngredient: async () => record,
-                        setIngredientAllergens: async (_id, request) => ({
-                            ...record,
-                            allergens: request.mappings,
-                            meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
-                        }),
-                    },
-                },
-            },
-        );
-
-        await untilVisible('kitchen-ingredient-allergen-empty');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-add'));
-        });
-
-        const rowId = 'kitchen-ingredient-mapping-overlay-1';
-        await untilVisible(rowId);
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${rowId}-class-trigger`));
-        });
-        await untilVisible(`${rowId}-class-list`);
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${rowId}-class-option-gluten`));
-        });
-
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId(`${rowId}-evidence-input`),
-                'Supplier sheet 4.',
-            );
-        });
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-save'));
-        });
-
-        // Wholesale, at the version the editor opened with: an allergen determination is judged as
-        // a set, and applying half of one would leave a label nobody meant to publish.
-        await waitFor(() => {
-            expect(repositories.kitchenAdmin.setIngredientAllergens).toHaveBeenCalledWith(
-                record.id,
-                {
-                    lockVersion: record.meta.lockVersion,
-                    mappings: [
-                        {
-                            allergenCode: 'gluten',
-                            containment: 'contains',
-                            marketScope: [],
-                            verification: 'unverified',
-                            sourceNote: 'Supplier sheet 4.',
-                        },
-                    ],
-                },
-            );
-        });
-    });
-
-    it('renders the quarantine the server answers with when a determination is dropped', async () => {
-        // The store quarantines an ingredient whose dropped allergen a *published* recipe derives
-        // from it — the burghul/pita contradiction the master plan calls out. That derivation is a
-        // server decision, so the honest thing for a test to assert is the half the screen owns:
-        // the quarantine comes back inside a *successful* write, and the editor renders it rather
-        // than swallowing it.
-        const record = ingredient(7, {
-            meta: meta({ status: 'published' }),
-            allergens: [mapping('gluten')],
-        });
-
-        // Stateful on purpose: the save invalidates the editor's reads, and a refetch that still
-        // answered with the pre-save record would race the assertion back to `published`.
-        let current = record;
-
-        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...editorReads(() => [current]),
-                    getIngredient: async () => current,
-                    setIngredientAllergens: async (_id, request) => {
-                        current = {
-                            ...record,
-                            allergens: request.mappings,
-                            meta: meta({
-                                status: 'review_required',
-                                lockVersion: request.lockVersion + 1,
-                            }),
-                        };
-                        return current;
-                    },
-                },
-            },
-        });
-
-        const rowId = 'kitchen-ingredient-mapping-baseline-gluten';
-        await untilVisible(rowId);
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${rowId}-remove`));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-save'));
         });
 
         await untilVisible('kitchen-ingredient-quarantine');
@@ -1130,7 +1162,9 @@ describe('the allergen class reference', () => {
         expect(screen.getByTestId('kitchen-allergen-classes-governance')).toBeTruthy();
 
         for (const entry of ALLERGEN_CLASSES) {
-            expect(screen.getByTestId(`kitchen-allergen-class-${String(entry.code)}`)).toBeTruthy();
+            expect(
+                screen.getByTestId(`kitchen-allergen-class-${String(entry.code)}-name`),
+            ).toBeTruthy();
         }
 
         // Sulphites carry a stated threshold; most classes carry none, and that is printed.

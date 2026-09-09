@@ -42,3 +42,22 @@ export function keyDownProps(handler: (event: WebKeyEvent) => void): WebKeyboard
     if (Platform.OS !== 'web') return {};
     return { onKeyDown: handler };
 }
+
+/**
+ * ARIA roles React Native does not model, applied on the web only.
+ *
+ * `Role` in React Native's types is the subset of ARIA its native accessibility bridges implement.
+ * `listbox`, `menuitemcheckbox` and `table` roles beyond that subset are real and necessary on the
+ * web — a result list that does not announce as a listbox is a list of buttons to a screen reader
+ * user — but they are not values `role` will accept.
+ *
+ * So the same shape as {@link keyDownProps}: a spreadable object, real on the web and empty
+ * everywhere else. The return type is deliberately `object` rather than `{ role: string }`, because
+ * a declared `role` would be checked against React Native's union and rejected for exactly the
+ * values this helper exists to pass. Native keeps its own `accessibilityRole`, which every call
+ * site sets alongside this.
+ */
+export function webRole(role: string): object {
+    if (Platform.OS !== 'web') return {};
+    return { role };
+}

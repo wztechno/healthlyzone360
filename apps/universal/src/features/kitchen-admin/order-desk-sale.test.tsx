@@ -103,6 +103,7 @@ function adminProduct(): ProductAdmin {
         description: { en: 'A bottle of it.', ar: 'زجاجة منه.' },
         categoryCode: 'drinks',
         itemType: 'product',
+        reference: null,
         kitchenCategory: null,
         kitchenSubcategory: null,
         composition: null,

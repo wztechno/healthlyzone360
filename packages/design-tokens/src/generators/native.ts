@@ -1,20 +1,36 @@
 import { NUTRITION_LEVELS, SEMANTIC_ROLES, themes } from '../colour.ts';
 import {
+    cardWidth,
+    controlGap,
+    controlHeight,
+    controlPaddingX,
+    fieldWidth,
+    iconSize,
+    rowHeight,
+} from '../control.ts';
+import {
     ELEVATION_LEVELS,
     NAMED_ELEVATIONS,
     elevation,
     elevationRoles,
     namedElevation,
 } from '../elevation.ts';
-import { breakpoints, focusRing, MIN_TOUCH_TARGET, radius, spacing, zIndex } from '../layout.ts';
+import { breakpoints, focusRing, radius, spacing, spacingAliases, zIndex } from '../layout.ts';
 import { durations, easings, reducedDurations } from '../motion.ts';
 import {
+    SCRIPTS,
+    TEXT_ROLE_NAMES,
+    adminFamilies,
     displayLetterSpacing,
     fontFamilies,
     fontSizes,
     fontWeights,
     letterSpacing,
     lineHeights,
+    monoFamilies,
+    textRoleLetterSpacing,
+    textRoleLineHeight,
+    textRoles,
 } from '../typography.ts';
 import { GENERATED_BANNER } from './shared.ts';
 
@@ -43,18 +59,49 @@ export function renderTokensNative(): string {
             ]),
         ),
         spacing,
+        spacingAliases,
         radius,
         breakpoints,
         zIndex,
         focusRing,
-        minTouchTarget: MIN_TOUCH_TARGET,
+        control: {
+            height: controlHeight,
+            paddingX: controlPaddingX,
+            gap: controlGap,
+            iconSize,
+            rowHeight,
+            fieldWidth,
+            cardWidth,
+        },
         typography: {
             fontFamilies,
+            monoFamilies,
+            adminFamilies,
             fontSizes,
             fontWeights,
             letterSpacing,
             displayLetterSpacing,
             lineHeights,
+            textRoles,
+            // Pre-resolved per script, because the caller here is a `StyleSheet` and cannot run
+            // the resolver: React Native takes a number for `lineHeight` and `letterSpacing`, and
+            // the value it takes depends on which script is being set.
+            textRoleMetrics: Object.fromEntries(
+                SCRIPTS.map((script) => [
+                    script,
+                    Object.fromEntries(
+                        TEXT_ROLE_NAMES.map((role) => [
+                            role,
+                            {
+                                fontSize: textRoles[role].size,
+                                lineHeight: textRoleLineHeight(role, script),
+                                letterSpacing: textRoleLetterSpacing(role, script),
+                                fontWeight: textRoles[role].weight,
+                            },
+                        ]),
+                    ),
+                ]),
+            ),
         },
         elevation: Object.fromEntries(
             ELEVATION_LEVELS.map((level) => [level, elevation[level].native]),

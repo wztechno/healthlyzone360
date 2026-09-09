@@ -6,11 +6,12 @@ import {
     RecipeId,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
-import type { KitchenBranchId, PriceListId } from '@healthy360/domain-types';
+import type { KitchenBranchId, PriceListId, RecipeVersionId } from '@healthy360/domain-types';
 import type { MeasureUnit } from '@healthy360/nutrition';
 
 import type {
     BranchOperating,
+    CostAmount,
     CreateDeliveryZoneRequest,
     CreateIngredientRequest,
     CreateMealRequest,
@@ -42,6 +43,7 @@ import type {
     SetPlanVariantsRequest,
     SetPriceListEntriesRequest,
     SetRecipeLinesRequest,
+    SetRecipePackagingRequest,
     SetRecipeOutputsRequest,
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
@@ -86,10 +88,12 @@ export type ApiKitchenAdminWrites = Pick<
     | 'createIngredient'
     | 'updateIngredient'
     | 'archiveIngredient'
+    | 'forkIngredient'
     | 'setIngredientAllergens'
     | 'createRecipe'
     | 'updateRecipe'
     | 'setRecipeLines'
+    | 'setRecipePackaging'
     | 'setRecipeSteps'
     | 'setRecipeOutputs'
     | 'previewRecipeRollup'
@@ -479,10 +483,55 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         });
     }
 
+    /**
+     * The price fields of an ingredient body, and of a recipe version's.
+     *
+     * The two resources carry the same pair under the same names, so they share
+     * one helper rather than two that drift. A recipe version has no unit price
+     * — it is priced per unit of its yield, and the yield is already on the
+     * body — so it passes `undefined` there and the field is never emitted.
+     *
+     * The server keeps **one** currency for all three amounts — an article
+     * quoted in two currencies is a price list, not a column — so the code is
+     * taken from whichever price carries one and sent once. A set that
+     * disagrees is refused by the server rather than silently resolved here;
+     * this module states the server's shape, it does not arbitrate it.
+     *
+     * `null` clears an amount, and clearing every amount leaves the currency
+     * alone: the CHECK only requires a currency while an amount survives.
+     *
+     * The unit price is a third parameter rather than a second function. It
+     * shares the currency, so a caller sending only a unit price has to reach
+     * the same precedence chain — splitting them is how one of the two ends up
+     * sending an amount with no code and collecting a 422.
+     */
+    function priceFields(
+        b2b: CostAmount | null | undefined,
+        b2c: CostAmount | null | undefined,
+        unit: CostAmount | null | undefined,
+    ): Record<string, unknown> {
+        if (b2b === undefined && b2c === undefined && unit === undefined) return {};
+
+        const currency = b2b?.currency ?? b2c?.currency ?? unit?.currency;
+
+        return {
+            ...(b2b === undefined ? {} : { b2b_price_amount: b2b === null ? null : b2b.amount }),
+            ...(b2c === undefined ? {} : { b2c_price_amount: b2c === null ? null : b2c.amount }),
+            ...(unit === undefined
+                ? {}
+                : { unit_price_amount: unit === null ? null : unit.amount }),
+            ...(currency === undefined ? {} : { price_currency_code: currency }),
+        };
+    }
+
     return {
         async createIngredient(request: CreateIngredientRequest): Promise<IngredientAdmin> {
             const lookup = await loadCategoryLookup();
             const categoryId = lookup.codeToId.get(request.categoryCode);
+            const subcategoryId =
+                request.subcategoryCode === undefined
+                    ? undefined
+                    : lookup.codeToId.get(request.subcategoryCode);
             const unitId = await units.resolve(transport, request.measurementUnit);
 
             const envelope = await transport.requestEnvelope<{
@@ -494,7 +543,14 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     name_en: request.name.en,
                     ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
                     ...(categoryId === undefined ? {} : { ingredient_category_id: categoryId }),
+                    ...(subcategoryId === undefined
+                        ? {}
+                        : { ingredient_subcategory_id: subcategoryId }),
                     ...(unitId === null ? {} : { default_unit_id: unitId }),
+                    ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
+                    ...(request.isSellable === undefined
+                        ? {}
+                        : { is_sellable: request.isSellable }),
                     ...(request.notes === undefined ? {} : { notes: request.notes }),
                 },
             });
@@ -528,6 +584,19 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 const categoryId = lookup.codeToId.get(request.categoryCode);
                 if (categoryId !== undefined) body.ingredient_category_id = categoryId;
             }
+            if (request.subcategoryCode !== undefined) {
+                // `null` is a real instruction — file it at the top level — so it is sent as null
+                // rather than skipped. An unknown code is dropped: sending an id we could not
+                // resolve would be worse than leaving the leaf where it is.
+                if (request.subcategoryCode === null) {
+                    body.ingredient_subcategory_id = null;
+                } else {
+                    const subcategoryId = lookup.codeToId.get(request.subcategoryCode);
+                    if (subcategoryId !== undefined) {
+                        body.ingredient_subcategory_id = subcategoryId;
+                    }
+                }
+            }
             if (request.measurementUnit !== undefined) {
                 const unitId = await units.resolve(transport, request.measurementUnit);
                 if (unitId !== null) body.default_unit_id = unitId;
@@ -542,6 +611,8 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
             if (request.composition !== undefined) body.composition = request.composition;
             if (request.itemsPerUnit !== undefined) body.items_per_unit = request.itemsPerUnit;
+            Object.assign(body, priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice));
+            if (request.isSellable !== undefined) body.is_sellable = request.isSellable;
             if (request.per100g !== undefined) {
                 body.nutrition_per_100g =
                     request.per100g === null
@@ -602,6 +673,30 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getIngredient(ingredientId);
         },
 
+        /**
+         * Copies a library row into this kitchen and answers with the copy.
+         *
+         * The response carries the fork, so the id in the envelope is the *new*
+         * row's — not the one that was posted to. Read back through
+         * `getIngredient` on that id rather than the argument, or the caller
+         * gets the library row it was trying to leave behind.
+         *
+         * No `If-Match`: nothing is being changed, so there is no version to
+         * send. Retrying is safe — the server returns the existing fork rather
+         * than making a second copy — which is what lets this be a plain POST
+         * with no idempotency key.
+         */
+        async forkIngredient(ingredientId: IngredientId): Promise<IngredientAdmin> {
+            const envelope = await transport.requestEnvelope<{
+                readonly ingredient: { readonly id: string };
+            }>({
+                method: 'POST',
+                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/fork`,
+            });
+
+            return reads.getIngredient(IngredientId.unsafe(envelope.data.ingredient.id));
+        },
+
         async setIngredientAllergens(
             ingredientId: IngredientId,
             request: SetIngredientAllergensRequest,
@@ -626,6 +721,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     name_en: request.name.en,
                     ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
                     notes: request.description.en,
+                    ...(request.recipeCategory === undefined
+                        ? {}
+                        : { recipe_category: request.recipeCategory }),
                 },
             });
 
@@ -645,6 +743,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(request.wastePercent === undefined
                         ? {}
                         : { waste_coefficient_percent: request.wastePercent }),
+                    ...priceFields(request.b2bPrice, request.b2cPrice, undefined),
                 },
             });
 
@@ -660,6 +759,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body.name_ar = request.name.ar;
             }
             if (request.description !== undefined) body.notes = request.description.en;
+            // `null` clears it, `undefined` leaves it alone — `RecipeService::update` reads its
+            // payload key by key and treats the empty string as a clear for this column.
+            if (request.recipeCategory !== undefined) body.recipe_category = request.recipeCategory;
 
             if (Object.keys(body).length > 0) {
                 await transport.request({
@@ -682,6 +784,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.wastePercent !== undefined) {
                 versionBody.waste_coefficient_percent = request.wastePercent;
             }
+
+            // On the version body and not the record's: the prices are stated against *this*
+            // version's yield and cost, and the server stores them on the row that carries both.
+            Object.assign(versionBody, priceFields(request.b2bPrice, request.b2cPrice, undefined));
 
             if (Object.keys(versionBody).length > 0) {
                 const ctx = await versionContext(id);
@@ -722,6 +828,44 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 path: `/catalogue/recipes/${encodeURIComponent(id)}/versions/${encodeURIComponent(String(ctx.versionNumber))}/lines`,
                 headers: ifMatch(ctx.lockVersion),
                 body: { lines },
+            });
+
+            return reads.getRecipe(recipeId);
+        },
+
+        /**
+         * Replaces the packaging set on the current version.
+         *
+         * `versionContext` rather than the `versionId` argument, matching `setRecipeLines`: the
+         * write always targets the version the recipe is currently on, and its `lock_version` is
+         * the precondition. The argument is kept on the contract because a future editor of an
+         * older version needs it, and a signature that could not name a version would have to be
+         * broken to add one.
+         *
+         * `quantity` is sent only where the caller set it. Two of the three bases compute their own
+         * count server-side, so sending a stale draft figure for those would be noise the server
+         * has to ignore — and the read-back is what the screen renders anyway.
+         */
+        async setRecipePackaging(
+            recipeId: RecipeId,
+            _versionId: RecipeVersionId,
+            request: SetRecipePackagingRequest,
+        ): Promise<RecipeAdmin> {
+            const id = String(recipeId);
+            const ctx = await versionContext(id);
+
+            await transport.request({
+                method: 'PUT',
+                path: `/catalogue/recipes/${encodeURIComponent(id)}/versions/${encodeURIComponent(String(ctx.versionNumber))}/packaging`,
+                headers: ifMatch(ctx.lockVersion),
+                body: {
+                    packaging: request.packaging.map((line) => ({
+                        ingredient_id: String(line.ingredientId),
+                        basis: line.basis,
+                        ...(line.quantity === undefined ? {} : { quantity: line.quantity }),
+                        ...(line.comment === undefined ? {} : { comment: line.comment }),
+                    })),
+                },
             });
 
             return reads.getRecipe(recipeId);

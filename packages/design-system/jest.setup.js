@@ -19,4 +19,17 @@ jest.mock('expo-font', () => ({
  * see the whole tree.
  */
 const { configure } = require('@testing-library/react-native');
-configure({ defaultIncludeHiddenElements: true });
+/**
+ * `waitFor` keeps its own clock, and `testTimeout` is not it.
+ *
+ * React Native Testing Library defaults `asyncUtilTimeout` to **1000 ms**, independent of Jest's
+ * per-test budget. So a `waitFor` that needs longer than a second fails as "unable to find an
+ * element" — an assertion-shaped failure, not a timeout — and raising `testTimeout` does nothing
+ * for it. Under `pnpm turbo run test` that is exactly what a starved suite hits: the element is on
+ * its way and the clock runs out first.
+ *
+ * Five seconds is headroom for a loaded machine while still failing fast on a query that is simply
+ * wrong — the alternative, letting it ride Jest's 30 s budget, turns every genuine typo in a
+ * testID into a half-minute wait.
+ */
+configure({ defaultIncludeHiddenElements: true, asyncUtilTimeout: 5000 });

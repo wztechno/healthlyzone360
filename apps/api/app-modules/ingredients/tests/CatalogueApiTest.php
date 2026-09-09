@@ -11,6 +11,7 @@ use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
+use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
@@ -53,6 +54,50 @@ function catalogueOrganisation(): Organisation
 function catalogueTenant(string $email): object
 {
     $organisation = catalogueOrganisation();
+    $user = User::factory()->create(['email' => $email]);
+
+    $membership = OrganisationMembership::factory()->create([
+        'organisation_id' => $organisation->getKey(),
+        'user_id' => $user->getKey(),
+    ]);
+
+    $role = Role::factory()->create(['organisation_id' => $organisation->getKey()]);
+
+    foreach (['catalogue.view_organisation', 'catalogue.manage_organisation'] as $code) {
+        RolePermission::factory()->create([
+            'organisation_id' => $organisation->getKey(),
+            'role_id' => $role->getKey(),
+            'permission_id' => Permission::query()->where('code', $code)->sole()->getKey(),
+        ]);
+    }
+
+    MembershipRole::factory()->create([
+        'organisation_id' => $organisation->getKey(),
+        'membership_id' => $membership->getKey(),
+        'role_id' => $role->getKey(),
+    ]);
+
+    return (object) compact('organisation', 'user');
+}
+
+/**
+ * The platform operator: same catalogue permissions, an organisation whose
+ * *type* is `platform_operator`.
+ *
+ * The type is what the write guard reads, not the permission — a tenant that
+ * somehow held `catalogue.manage_organisation` on a bespoke role still is not
+ * the platform, and must not be able to rewrite the library every kitchen
+ * inherits.
+ */
+function platformCatalogueOperator(string $email): object
+{
+    $organisation = Organisation::factory()->create([
+        'organisation_type_id' => OrganisationType::query()->where('code', 'platform_operator')->sole()->getKey(),
+        'country_code' => 'LB',
+        'default_currency_code' => 'USD',
+        'default_language_code' => 'en',
+    ]);
+
     $user = User::factory()->create(['email' => $email]);
 
     $membership = OrganisationMembership::factory()->create([
@@ -177,6 +222,92 @@ it('refuses to write a platform row and says why', function (): void {
         ->assertJsonPath('error.details.reason', 'policy_denied');
 
     expect(Ingredient::withoutTenancy()->whereKey($platform->getKey())->value('name_en'))->toBe('Chickpeas');
+});
+
+it('tells a kitchen a platform row is not editable by it', function (): void {
+    $platform = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', 'chickpeas')->sole();
+
+    $this->actingAs($this->a->user);
+
+    // The pair a client gates on: which library the row is in, and whether
+    // *this* caller may write it. They differ for exactly this row.
+    $this->getJson('/api/v1/catalogue/ingredients/'.$platform->getKey(), catalogueHeaders($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.is_platform', true)
+        ->assertJsonPath('data.ingredient.is_editable', false);
+});
+
+it('lets the platform operator write the library every kitchen reads', function (): void {
+    $platform = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', 'chickpeas')->sole();
+    $operator = platformCatalogueOperator('catalogue-ops@platform.test');
+
+    $this->actingAs($operator->user);
+
+    // Same row, different caller, opposite answer — which is the whole reason
+    // `is_editable` exists beside `is_platform`.
+    $this->getJson('/api/v1/catalogue/ingredients/'.$platform->getKey(), catalogueHeaders($operator))
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.is_platform', true)
+        ->assertJsonPath('data.ingredient.is_editable', true);
+
+    $this->patchJson('/api/v1/catalogue/ingredients/'.$platform->getKey(),
+        ['b2b_price_amount' => '4.50', 'b2c_price_amount' => '6.00', 'price_currency_code' => 'USD'],
+        catalogueHeaders($operator) + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.b2b_price_amount', '4.500000')
+        ->assertJsonPath('data.ingredient.b2c_price_amount', '6.000000');
+
+    $stored = Ingredient::withoutTenancy()->whereKey($platform->getKey())->sole();
+    expect((string) $stored->b2b_price_amount)->toBe('4.500000')
+        ->and((string) $stored->b2c_price_amount)->toBe('6.000000')
+        ->and($stored->price_currency_code)->toBe('USD');
+});
+
+it('carries the allergen declaration on the list as well as the record', function (): void {
+    $platform = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('slug', 'chickpeas')->sole();
+
+    IngredientAllergen::factory()->create([
+        'ingredient_id' => $platform->getKey(),
+        'organisation_id' => null,
+        'allergen_code' => 'gluten',
+        'containment' => 'may_contain',
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    // On the collection, because a list that had to fetch a sub-resource per
+    // row could not afford to draw the column at all — and drew "none
+    // declared" on every row instead, including the ones carrying gluten.
+    $listed = collect($this->getJson('/api/v1/catalogue/ingredients?query=chickpeas', catalogueHeaders($this->a))
+        ->assertOk()
+        ->json('data'))
+        ->firstWhere('id', (string) $platform->getKey());
+
+    expect($listed)->not->toBeNull()
+        ->and($listed['allergens'])->toHaveCount(1)
+        ->and($listed['allergens'][0]['allergen_code'])->toBe('gluten')
+        ->and($listed['allergens'][0]['containment'])->toBe('may_contain')
+        ->and($listed['allergens'][0]['layer'])->toBe('platform_baseline');
+
+    // And on the single resource, so one shape answers both.
+    $this->getJson('/api/v1/catalogue/ingredients/'.$platform->getKey(), catalogueHeaders($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.allergens.0.allergen_code', 'gluten');
+});
+
+it('reports an empty allergen set as empty rather than as absent', function (): void {
+    $this->actingAs($this->a->user);
+
+    $created = $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Rock salt',
+        'default_unit_id' => gramsId(),
+    ], catalogueHeaders($this->a))->assertCreated()->json('data.ingredient.id');
+
+    // "Declares none" and "nobody loaded them" are different answers, and a
+    // regulated field must not render the second as the first.
+    $this->getJson('/api/v1/catalogue/ingredients/'.$created, catalogueHeaders($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.allergens', []);
 });
 
 it('demands a precondition, refuses a stale one and accepts the current one', function (): void {
@@ -358,13 +489,13 @@ it('creates categories and refuses one that shadows a platform code', function (
         ->assertJsonPath('data.category.is_platform', false);
 
     $this->postJson('/api/v1/catalogue/ingredient-categories', [
-        'code' => 'herbs-spices',
+        'code' => 'herb-spice',
         'name_en' => 'My herbs',
     ], $headers)
         ->assertStatus(409)
         ->assertJsonPath('error.code', 'resource.conflict');
 
-    $platform = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->where('code', 'herbs-spices')->sole();
+    $platform = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->where('code', 'herb-spice')->sole();
 
     $this->patchJson('/api/v1/catalogue/ingredient-categories/'.$platform->getKey(), ['name_en' => 'Hijacked'], $headers)
         ->assertForbidden()
@@ -510,4 +641,161 @@ it('answers page 1 of an empty collection rather than refusing it', function ():
     expect($response->json('data'))->toBe([])
         ->and($response->json('meta.total_count'))->toBe(0)
         ->and($response->json('meta.total_pages'))->toBe(0);
+});
+
+/**
+ * Prices and the sale flag.
+ *
+ * The B2B/B2C columns shipped with no coverage at all, which is how the
+ * currency CHECK stayed a 500 waiting to happen rather than a 422. These
+ * assert the contract the database actually enforces: an amount is never
+ * stored without the currency it is quoted in, and the flag is a real column
+ * rather than a value the presenter invents.
+ */
+it('round-trips the three prices and the sale flag on create', function (): void {
+    $this->actingAs($this->a->user);
+
+    $response = $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Sesame Paste',
+        'default_unit_id' => gramsId(),
+        'unit_price_amount' => 3.5,
+        'b2b_price_amount' => 4.2,
+        'b2c_price_amount' => 6.9,
+        'price_currency_code' => 'USD',
+        'is_sellable' => true,
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.ingredient.unit_price_amount', '3.500000')
+        ->assertJsonPath('data.ingredient.b2b_price_amount', '4.200000')
+        ->assertJsonPath('data.ingredient.b2c_price_amount', '6.900000')
+        ->assertJsonPath('data.ingredient.price_currency_code', 'USD')
+        ->assertJsonPath('data.ingredient.is_sellable', true);
+
+    $id = $response->json('data.ingredient.id');
+
+    expect(Ingredient::withoutTenancy()->whereKey($id)->value('unit_price_amount'))->toBe('3.500000')
+        ->and(Ingredient::withoutTenancy()->whereKey($id)->value('is_sellable'))->toBeTrue();
+});
+
+it('defaults an ingredient to not for sale', function (): void {
+    $this->actingAs($this->a->user);
+
+    // A raw material until somebody says otherwise: omitting the flag must not
+    // put the row on sale.
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Plain Flour',
+        'default_unit_id' => gramsId(),
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.ingredient.is_sellable', false);
+});
+
+it('refuses a price with no currency rather than letting the database refuse it', function (): void {
+    $this->actingAs($this->a->user);
+
+    // Without `required_with` naming the new column, this would reach the CHECK
+    // and come back as a 500.
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Unpriced',
+        'default_unit_id' => gramsId(),
+        'unit_price_amount' => 3.5,
+    ], catalogueHeaders($this->a))
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+});
+
+it('updates the unit price and the sale flag behind the lock', function (): void {
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Olive Oil',
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    $this->patchJson($url, [
+        'unit_price_amount' => 12.75,
+        'price_currency_code' => 'USD',
+        'is_sellable' => true,
+    ], $headers + ['If-Match' => (string) $etag])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.unit_price_amount', '12.750000')
+        ->assertJsonPath('data.ingredient.is_sellable', true)
+        ->assertJsonPath('data.ingredient.lock_version', 1);
+
+    expect(Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->value('unit_price_amount'))
+        ->toBe('12.750000');
+});
+
+/**
+ * Sub-category integrity.
+ *
+ * Both columns point at the same self-referencing table, so `Rule::exists` on
+ * either proves only that the row is *a* category. Nothing stopped an
+ * ingredient being filed under one branch with a leaf from another — and the
+ * client reads the pair back together, so the mismatch would surface later as a
+ * category that appeared to change on its own.
+ */
+it('accepts a sub-category that belongs to the category, and refuses one that does not', function (): void {
+    $herbs = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->where('code', 'herb-spice')->sole();
+    $spice = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->where('code', 'herb-spice-spice')->sole();
+    $starch = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->where('code', 'baking-starch-starch')->sole();
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Sumac',
+        'default_unit_id' => gramsId(),
+        'ingredient_category_id' => $herbs->getKey(),
+        'ingredient_subcategory_id' => $spice->getKey(),
+    ], $headers)
+        ->assertCreated()
+        ->assertJsonPath('data.ingredient.ingredient_subcategory_id', (string) $spice->getKey());
+
+    // A leaf from another branch.
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Mismatched',
+        'default_unit_id' => gramsId(),
+        'ingredient_category_id' => $herbs->getKey(),
+        'ingredient_subcategory_id' => $starch->getKey(),
+    ], $headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    // A leaf with no branch at all.
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Orphaned',
+        'default_unit_id' => gramsId(),
+        'ingredient_subcategory_id' => $spice->getKey(),
+    ], $headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+});
+
+it('checks a partial sub-category move against the stored category', function (): void {
+    $herbs = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->where('code', 'herb-spice')->sole();
+    $starch = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->where('code', 'baking-starch-starch')->sole();
+
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'ingredient_category_id' => $herbs->getKey(),
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    // The PATCH names only the leaf, so the parent it must belong to is the one
+    // already stored.
+    $this->patchJson($url, [
+        'ingredient_subcategory_id' => $starch->getKey(),
+    ], $headers + ['If-Match' => (string) $etag])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
 });

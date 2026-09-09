@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 
@@ -49,6 +50,7 @@ export function Breadcrumbs({
     testID,
 }: BreadcrumbsProps) {
     const { t } = useTranslation();
+    const density = useDensity();
     const lastIndex = items.length - 1;
     const onCanopy = tone === 'canopy';
     // 75 and 90 rather than the §1.3 floor of 62: a trail is small text and the current crumb is
@@ -57,6 +59,9 @@ export function Breadcrumbs({
     const currentClass = onCanopy
         ? 'font-semibold text-content-on-canopy-muted/90'
         : 'font-semibold text-content-primary';
+    // 11px on the admin — the handoff's breadcrumb line. `caption` rather than `micro`: a trail is
+    // sentence case and reads as prose, and `micro` is uppercase by definition.
+    const sizeClass = density === 'compact' ? 'text-role-caption font-admin' : 'text-sm';
 
     return (
         <View
@@ -64,12 +69,22 @@ export function Breadcrumbs({
             role="navigation"
             aria-label={label ?? t('designSystem:breadcrumbs.label')}
             accessibilityLabel={label ?? t('designSystem:breadcrumbs.label')}
-            className={cx('flex-row flex-wrap items-center gap-1', className)}
+            className={cx(
+                'flex-row flex-wrap items-center',
+                density === 'compact' ? 'gap-control-xs' : 'gap-1',
+                className,
+            )}
         >
             {items.map((item, index) => {
                 const isCurrent = index === lastIndex;
                 return (
-                    <View key={item.key} className="flex-row items-center gap-1">
+                    <View
+                        key={item.key}
+                        className={cx(
+                            'flex-row items-center',
+                            density === 'compact' ? 'gap-control-xs' : 'gap-1',
+                        )}
+                    >
                         {index === 0 ? null : (
                             <Icon
                                 name="chevronEnd"
@@ -89,7 +104,8 @@ export function Breadcrumbs({
                                 aria-current={isCurrent ? 'page' : undefined}
                                 numberOfLines={1}
                                 className={cx(
-                                    'text-sm text-start',
+                                    sizeClass,
+                                    'text-start',
                                     isCurrent ? currentClass : mutedClass,
                                 )}
                             >
@@ -103,11 +119,16 @@ export function Breadcrumbs({
                                 accessibilityLabel={item.label}
                                 focusable
                                 onPress={item.onPress}
-                                className="min-h-touch justify-center px-1"
+                                className={cx(
+                                    'justify-center',
+                                    density === 'compact'
+                                        ? 'h-control-xs px-control-xs'
+                                        : 'min-h-touch px-1',
+                                )}
                             >
                                 <RNText
                                     numberOfLines={1}
-                                    className={cx('text-sm underline text-start', mutedClass)}
+                                    className={cx(sizeClass, 'underline text-start', mutedClass)}
                                 >
                                     {item.label}
                                 </RNText>

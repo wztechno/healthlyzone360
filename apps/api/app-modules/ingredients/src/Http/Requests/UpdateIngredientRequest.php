@@ -41,7 +41,12 @@ class UpdateIngredientRequest extends FormRequest
             'items_per_unit' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:99999999.99'],
             'yield_factor' => ['sometimes', 'required', 'numeric', 'gt:0', 'max:99.9999'],
             'availability_tier' => ['sometimes', 'nullable', new Enum(AvailabilityTier::class)],
+            // `required` rather than `nullable`, mirroring `yield_factor`: the
+            // column has no null state, so a PATCH either says which of the two
+            // values it wants or does not mention the field at all.
+            'is_sellable' => ['sometimes', 'required', 'boolean'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            ...StoreIngredientRequest::priceRules(),
             ...StoreIngredientRequest::nutritionRules(),
         ];
     }

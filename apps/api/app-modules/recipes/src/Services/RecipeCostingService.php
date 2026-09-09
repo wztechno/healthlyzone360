@@ -12,6 +12,7 @@ use Healthy360\Recipes\Exceptions\MixedCostCurrency;
 use Healthy360\Recipes\Models\RecipeCostSnapshot;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
+use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
@@ -150,6 +151,167 @@ final readonly class RecipeCostingService
             costPerYieldUnitWithWasteAmount: $perYieldUnit === null ? null : $this->withWaste($perYieldUnit, $waste),
             costPerPieceWithWasteAmount: $perPiece === null ? null : $this->withWaste($perPiece, $waste),
         );
+    }
+
+    /**
+     * Cost a version's packaging from its packaging lines.
+     *
+     * The same three steps the source workbook runs down its second table —
+     * total the lines, divide by the yield, apply a coefficient — and
+     * deliberately the same arithmetic as {@see computeRecalculated()}, reusing
+     * this class's rounding and `withWaste()` rather than restating them. Two
+     * implementations of one sum is how a sheet ends up disagreeing with
+     * itself.
+     *
+     * Three things differ from the formulation and each is load-bearing.
+     *
+     * **The divisor is the same yield.** Packaging cost per kilo is the
+     * packaging total over the *recipe's* yield, not over the container count —
+     * which is what makes the two halves of the sheet addable at the end. The
+     * workbook does exactly this: `B36 = B35 / B8`, the same `B8` the raw
+     * material block divides by.
+     *
+     * **The coefficient is `packaging_waste_percent`.** Process loss and
+     * packaging loss are different losses and the sheet applies different
+     * percentages to each. Reusing one for both would make correcting either
+     * silently rewrite the other.
+     *
+     * **There is no per-piece figure.** Packaging is already counted per
+     * container; dividing it again by the version's piece count would produce a
+     * number that means nothing wherever pieces and containers are not the same
+     * thing.
+     *
+     * A line contributes when it carries a unit cost and a currency. The
+     * quantity is never null on this table — two of the three bases compute one
+     * and the third requires it — so unlike a formulation line there is no
+     * "priced but unmeasured" case to exclude.
+     *
+     * @param  Collection<int, RecipeVersionPackaging>|null  $packaging  pre-loaded rows, to save a second query
+     */
+    public function computePackaging(RecipeVersion $version, ?Collection $packaging = null): PackagingCostComputation
+    {
+        $packaging ??= RecipeVersionPackaging::query()
+            ->where('recipe_version_id', $version->getKey())
+            ->orderBy('line_number')
+            ->get();
+
+        if ($packaging->isEmpty()) {
+            return PackagingCostComputation::none();
+        }
+
+        $lineCosts = [];
+        $uncosted = [];
+        $currencies = [];
+        $total = '0';
+
+        foreach ($packaging as $row) {
+            if ($row->unit_cost_amount === null || $row->cost_currency_code === null) {
+                $uncosted[] = $row->line_number;
+
+                continue;
+            }
+
+            $currencies[$row->cost_currency_code] = true;
+
+            $cost = $this->lineCost($this->numeric((string) $row->quantity), $this->numeric((string) $row->unit_cost_amount));
+
+            $lineCosts[$row->line_number] = $cost;
+            $total = bcadd($total, $cost, self::WORKING_SCALE);
+        }
+
+        sort($uncosted);
+
+        /*
+         * Mixed currencies are reported as "nothing is costed" rather than
+         * thrown, and this is the one place the packaging path parts company
+         * with the formulation's.
+         *
+         * `computeRecalculated()` throws `MixedCostCurrency` because a
+         * formulation in two currencies is an import defect somebody has to go
+         * and fix. Packaging currencies are not typed on the recipe at all —
+         * they are copied off whatever the catalogue rows happen to say — so
+         * the same state here is reachable by picking two boxes, and blowing up
+         * the whole technical sheet in response would be a wildly
+         * disproportionate answer to "these two boxes are priced differently".
+         * Every line lands in the uncosted list, which blocks the total and
+         * says so.
+         */
+        if (count($currencies) > 1) {
+            return new PackagingCostComputation(
+                currencyCode: null,
+                totalPackagingCostAmount: '0.000000',
+                lineCosts: [],
+                uncostedLineNumbers: $packaging->map(
+                    static fn (RecipeVersionPackaging $row): int => $row->line_number,
+                )->sort()->values()->all(),
+                costPerYieldUnitAmount: null,
+                yieldUnitId: null,
+                wastePercent: $this->numeric((string) $version->packaging_waste_percent),
+                costPerYieldUnitWithWasteAmount: null,
+            );
+        }
+
+        // The sum of the rounded line costs, not the rounded sum of exact ones
+        // — a technical sheet is read by a human adding up the line column.
+        $total = $this->round($total);
+        $waste = $this->numeric((string) $version->packaging_waste_percent);
+
+        $yield = $version->yield_quantity === null ? null : $this->numeric((string) $version->yield_quantity);
+
+        $perYieldUnit = $yield !== null && $version->yield_unit_id !== null && bccomp($yield, '0', self::WORKING_SCALE) === 1
+            ? $this->round(bcdiv($total, $yield, self::WORKING_SCALE))
+            : null;
+
+        return new PackagingCostComputation(
+            currencyCode: $lineCosts === [] ? null : array_key_first($currencies),
+            totalPackagingCostAmount: $total,
+            lineCosts: $lineCosts,
+            uncostedLineNumbers: $uncosted,
+            costPerYieldUnitAmount: $perYieldUnit,
+            yieldUnitId: $perYieldUnit === null ? null : $version->yield_unit_id,
+            wastePercent: $waste,
+            costPerYieldUnitWithWasteAmount: $perYieldUnit === null ? null : $this->withWaste($perYieldUnit, $waste),
+        );
+    }
+
+    /**
+     * The sheet's bottom line: production cost per yield unit plus packaging
+     * cost per yield unit, each already carrying its own waste coefficient.
+     *
+     * The workbook's `B39 = B27 + B37`, and the reason both halves are computed
+     * from the same read rather than one being snapshotted: a total that adds a
+     * figure pinned in March to one derived this morning is not a total of
+     * anything.
+     *
+     * Null unless **both** halves are whole. A production cost with an uncosted
+     * line and a packaging cost without one still sum to a number, and that
+     * number reads exactly like a complete answer while being short by whatever
+     * nobody has priced. The caller is expected to show the two halves and the
+     * uncosted lists separately in that case, which is what says where the gap
+     * actually is.
+     *
+     * @return numeric-string|null
+     */
+    public function totalCostPerYieldUnit(CostComputation $production, PackagingCostComputation $packaging): ?string
+    {
+        if (! $production->isComplete() || ! $packaging->isComplete()) {
+            return null;
+        }
+
+        $productionPerUnit = $production->costPerYieldUnitWithWasteAmount;
+
+        if ($productionPerUnit === null) {
+            return null;
+        }
+
+        // Packaging with no lines contributes zero rather than nothing, which
+        // is why this coalesces instead of bailing out. A version somebody has
+        // costed and not yet packaged has a real, complete per-kilo cost.
+        return $this->round(bcadd(
+            $this->numeric($productionPerUnit),
+            $this->numeric($packaging->costPerYieldUnitWithWasteAmount ?? '0'),
+            self::WORKING_SCALE,
+        ));
     }
 
     /**

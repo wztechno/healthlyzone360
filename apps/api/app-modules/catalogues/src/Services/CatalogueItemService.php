@@ -58,6 +58,24 @@ use Illuminate\Support\Str;
  */
 final readonly class CatalogueItemService
 {
+    /**
+     * The series each sellable kind is numbered in, and what the v6 sheets already wrote.
+     *
+     * These handles are the kitchen's own — `SAC-001`, `DRS-019` — and the import put the same one
+     * on the item *and* on the ingredient twin it writes beside it, so a sauce is quotable whether
+     * a cook is looking at what is sold or at what a recipe consumes. A row created here joins the
+     * series rather than arriving without a handle.
+     *
+     * Products and meals are absent on purpose. The sheets number them `RSL-`/`PRD-`, but not all
+     * of them — a fifth of the products carry a source path instead of a handle — so a generated
+     * `RSL-056` would sit in a column where the existing values do not agree on what a reference
+     * is. That is a decision about those two families, and it is not this change's to make.
+     */
+    private const array REFERENCE_SERIES = [
+        'sauce' => 'SAC-',
+        'dressing' => 'DRS-',
+    ];
+
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
@@ -130,6 +148,12 @@ final readonly class CatalogueItemService
             $item->status = CatalogueItemStatus::Draft;
             $item->image_placeholder_id = $this->trimmedOrNull($attributes['image_placeholder_id'] ?? null);
             $item->lock_version = 0;
+            // The kitchen's own handle, where its kind has a series. `source_system` stays null, so
+            // nothing here is mistaken for an imported row: the import matches on the pair.
+            $prefix = self::REFERENCE_SERIES[$type->value] ?? null;
+            if ($prefix !== null) {
+                $item->source_ref = $this->nextReferenceFor($organisationId, $prefix);
+            }
             $item->created_by = $this->context->userId();
             $item->updated_by = $this->context->userId();
             $item->save();
@@ -539,7 +563,15 @@ final readonly class CatalogueItemService
      */
     private function usableIngredient(string $id, string $field): Ingredient
     {
-        $ingredient = Ingredient::query()->whereKey($id)->first();
+        /*
+         * Food only.
+         *
+         * Packaging shares this table — a recipe has to be able to cost the box its meal
+         * ships in — but a catalogue item's ingredient list names a raw material. Without the scope a
+         * bin liner is a legal answer here, and the roll-up would then be asked to derive
+         * nutrition and allergens from it.
+         */
+        $ingredient = Ingredient::query()->excludingPackaging()->whereKey($id)->first();
 
         if (! $ingredient instanceof Ingredient) {
             throw $this->invalid($field, 'This ingredient does not exist, or is not one you can use.');
@@ -562,6 +594,37 @@ final readonly class CatalogueItemService
     /**
      * @throws ApiException
      */
+    /**
+     * The next number in one series, for this kitchen.
+     *
+     * Scanned over the items rather than over a counter column, and over *this* table rather than
+     * the recipes': `SAC-043` and `DRS-019` are here, written by the import, and a series that
+     * counted somewhere else would hand out `SAC-001` again to a kitchen that already has one.
+     *
+     * Public because a create form draws the handle before it saves, and the only way the number it
+     * shows can be the one the record takes is for the same scan to answer both. A preview, not a
+     * reservation — two forms open at once are both told 044, and the second save lands at 045.
+     */
+    public function nextReferenceFor(string $organisationId, string $prefix): string
+    {
+        $highest = 0;
+
+        $existing = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereNotNull('source_ref')
+            ->pluck('source_ref');
+
+        foreach ($existing as $reference) {
+            if (preg_match('/^'.preg_quote($prefix, '/').'(\d+)$/', (string) $reference, $matches) !== 1) {
+                continue;
+            }
+
+            $highest = max($highest, (int) $matches[1]);
+        }
+
+        return $prefix.str_pad((string) ($highest + 1), 3, '0', STR_PAD_LEFT);
+    }
+
     private function requireOrganisation(): string
     {
         $organisationId = $this->context->organisationId();

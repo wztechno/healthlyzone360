@@ -12,7 +12,7 @@
     "scripts": {
         "lint": "eslint . --max-warnings=0",
         "typecheck": "tsc --noEmit",
-        "test": "jest --ci"
+        "test": "jest --ci --maxWorkers=2"
     },
     "dependencies": {
         "@healthy360/api-client": "workspace:*",

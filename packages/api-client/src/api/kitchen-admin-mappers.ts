@@ -29,6 +29,9 @@ import type {
     DeliveryZoneAdmin,
     IngredientAdmin,
     IngredientAllergenMapping,
+    IngredientCategoryAdmin,
+    PackagingBasis,
+    RecipePackagingLine,
     MealAdmin,
     MealAvailabilityDay,
     PlanAdmin,
@@ -138,6 +141,15 @@ export function apiStatusForPublishableFilter(status: PublishableStatus): Ingred
 export interface CategoryLookup {
     readonly codeToId: ReadonlyMap<string, string>;
     readonly idToCode: ReadonlyMap<string, string>;
+    /**
+     * Child code → parent code, for the codes that have a parent.
+     *
+     * `ingredient_categories` is one self-referencing table and the endpoint returns the whole tree
+     * with `parent_id` on every row, so the shape is available here and was simply being discarded.
+     * Keeping it is what lets a two-level picker exist at all, and what lets a caller check a leaf
+     * belongs to the branch it is being filed under without a second round trip.
+     */
+    readonly parentOf: ReadonlyMap<string, string>;
 }
 
 export function buildCategoryLookup(categories: readonly WireIngredientCategory[]): CategoryLookup {
@@ -149,25 +161,73 @@ export function buildCategoryLookup(categories: readonly WireIngredientCategory[
         idToCode.set(category.id, category.code);
     }
 
-    return { codeToId, idToCode };
+    // Second pass: a child can appear before its parent in the response, so the parent's code is
+    // only reliably resolvable once every id is known.
+    const parentOf = new Map<string, string>();
+
+    for (const category of categories) {
+        if (category.parent_id === null || category.parent_id === undefined) continue;
+        const parent = idToCode.get(category.parent_id);
+        if (parent !== undefined) parentOf.set(category.code, parent);
+    }
+
+    return { codeToId, idToCode, parentOf };
 }
 
-function categoryCodeFor(
+/**
+ * One category row, wire → contract.
+ *
+ * `parent_id` is translated to the parent's *code* rather than passed through: the whole client
+ * side of this feature — the filter, both pickers, the ingredient's own `categoryCode` — speaks
+ * codes, and an id here would make every consumer carry the id→code map to use it. A parent id
+ * that resolves to nothing is treated as top-level rather than dropped: a category with an
+ * unresolvable parent is still a real category, and hiding it would hide the ingredients filed
+ * under it.
+ */
+export function mapIngredientCategoryAdmin(
+    wire: WireIngredientCategory,
+    idToCode: ReadonlyMap<string, string>,
+): IngredientCategoryAdmin {
+    const parentCode =
+        wire.parent_id === null || wire.parent_id === undefined
+            ? null
+            : (idToCode.get(wire.parent_id) ?? null);
+
+    return {
+        code: wire.code,
+        name: { en: wire.name_en, ar: wire.name_ar },
+        parentCode,
+        displayOrder: wire.display_order,
+        isActive: wire.is_active,
+    };
+}
+
+/**
+ * The category the ingredient is filed under, and the leaf within it.
+ *
+ * These used to be one value, with the child preferred — which read back plausibly and then
+ * corrupted the record on the next save, because the write layer only ever sent
+ * `ingredient_category_id`. Saving a sub-categorised ingredient unchanged therefore wrote the
+ * *child's* id into the parent column. Returning the pair is what makes the round trip lossless.
+ *
+ * A sub-category id that resolves to no known code is dropped rather than guessed at: the category
+ * is still right, and a leaf nobody can name is not information.
+ */
+function categoryPairFor(
     lookup: CategoryLookup,
     categoryId: string | null,
     subcategoryId: string | null | undefined,
-): string {
-    if (subcategoryId !== null && subcategoryId !== undefined) {
-        const sub = lookup.idToCode.get(subcategoryId);
-        if (sub !== undefined) return sub;
-    }
+): { readonly categoryCode: string; readonly subcategoryCode: string | null } {
+    const categoryCode = categoryId === null ? undefined : lookup.idToCode.get(categoryId);
+    const subcategoryCode =
+        subcategoryId === null || subcategoryId === undefined
+            ? undefined
+            : lookup.idToCode.get(subcategoryId);
 
-    if (categoryId !== null) {
-        const parent = lookup.idToCode.get(categoryId);
-        if (parent !== undefined) return parent;
-    }
-
-    return 'uncategorized';
+    return {
+        categoryCode: categoryCode ?? 'uncategorized',
+        subcategoryCode: subcategoryCode ?? null,
+    };
 }
 
 function mapMeasureUnit(code: string | null | undefined): MeasureUnit {
@@ -208,8 +268,25 @@ export function mapIngredientAllergenMapping(wire: WireAllergenMapping): Ingredi
     };
 }
 
+/**
+ * The three fields packaging brought back with it, which the generated `AdminIngredient` does not
+ * know about yet.
+ *
+ * `apps/api/openapi/healthy360.v1.yaml` describes the ingredient resource as it was before the two
+ * families were merged. Widening here rather than editing the generated types keeps the generator
+ * authoritative: regenerate the spec and this alias becomes `AdminIngredient` again, deletable in
+ * one line.
+ */
+type WireIngredient = AdminIngredient & {
+    readonly purchase_price_amount?: string | null;
+    readonly purchase_price_currency?: string | null;
+    readonly waste_percent?: string | null;
+    readonly capacity_quantity?: string | null;
+    readonly capacity_unit_code?: string | null;
+};
+
 export function mapIngredientAdmin(
-    wire: AdminIngredient,
+    wire: WireIngredient,
     lookup: CategoryLookup,
     options?: {
         readonly aliases?: readonly string[];
@@ -228,23 +305,59 @@ export function mapIngredientAdmin(
         },
         name: { en: wire.name_en, ar: wire.name_ar },
         reference: wire.source_ref ?? null,
-        categoryCode: categoryCodeFor(
-            lookup,
-            wire.ingredient_category_id,
-            wire.ingredient_subcategory_id,
-        ),
+        ...categoryPairFor(lookup, wire.ingredient_category_id, wire.ingredient_subcategory_id),
         measurementUnit: mapMeasureUnit(wire.default_unit_code),
         purchaseUnit:
             wire.purchase_unit_code == null ? null : mapMeasureUnit(wire.purchase_unit_code),
         composition: wire.composition ?? null,
         itemsPerUnit: wire.items_per_unit == null ? null : parseDecimal(wire.items_per_unit),
+        /*
+         * Packaging's three figures, null on food.
+         *
+         * `purchasePrice` is per purchase *pack* and `unitPrice` below is per issued *unit*; they
+         * are two fields because they are two denominators, and folding them together scales a
+         * cost by `itemsPerUnit` without saying so.
+         */
+        purchasePrice: mapCostAmount(
+            wire.purchase_price_amount ?? null,
+            wire.purchase_price_currency ?? null,
+        ),
+        wastePercent: wire.waste_percent == null ? null : parseDecimal(wire.waste_percent),
+        // Both halves or nothing: a quantity with no unit is not a capacity, it is a number.
+        capacity:
+            wire.capacity_quantity == null || wire.capacity_unit_code == null
+                ? null
+                : {
+                      quantity: parseDecimal(wire.capacity_quantity),
+                      unit: mapMeasureUnit(wire.capacity_unit_code),
+                  },
+        b2bPrice: mapCostAmount(wire.b2b_price_amount, wire.price_currency_code),
+        b2cPrice: mapCostAmount(wire.b2c_price_amount, wire.price_currency_code),
+        unitPrice: mapCostAmount(wire.unit_price_amount, wire.price_currency_code),
+        // The column defaults to false and the presenter always sends it; `undefined` here means an
+        // older payload, and "not on sale" is the safe reading of one.
+        isSellable: wire.is_sellable ?? false,
         costPer100g: null,
         per100g: mapIngredientPer100g(wire),
-        allergens: options?.allergens ?? [],
+        // Both the collection and the single resource carry the mappings, so the list's allergen
+        // column and its View panel state the real declaration rather than "none declared" on every
+        // row — which is what they did while this could only be filled from the dedicated
+        // sub-resource, and no list can afford a request per row. The override stays for the callers
+        // that read that sub-resource directly.
+        allergens: options?.allergens ?? (wire.allergens ?? []).map(mapIngredientAllergenMapping),
         dietClassifications: [],
         aliases: options?.aliases ?? [],
         organisationId:
             wire.organisation_id === null ? null : OrganisationId.unsafe(wire.organisation_id),
+        // `is_editable` answers for this caller; `is_platform` only says which library the row is
+        // in. A platform row is writable by the platform operator, so the client must not infer the
+        // first from the second. `undefined` means an older payload, where read-only is the safe
+        // reading.
+        isEditable: wire.is_editable ?? false,
+        forkedFromId:
+            wire.forked_from_ingredient_id == null
+                ? null
+                : IngredientId.unsafe(wire.forked_from_ingredient_id),
         notes: wire.notes ?? null,
     };
 }
@@ -430,6 +543,7 @@ export function mapProductAdminFromItem(
             wire.item_type === 'sauce' || wire.item_type === 'dressing'
                 ? wire.item_type
                 : 'product',
+        reference: wire.source_ref ?? null,
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
         categoryCode: wire.product_category_code ?? 'uncategorized',
@@ -641,7 +755,9 @@ export function mapRecipeAdminSummary(
             wire.branch_id === null || wire.branch_id === undefined
                 ? mapKitchenId(wire.organisation_id)
                 : KitchenId.unsafe(wire.branch_id),
+        reference: wire.source_ref ?? null,
         sourceKind: wire.source_kind ?? null,
+        recipeCategory: wire.recipe_category ?? null,
         currentVersionNumber,
         versionCount: options?.versionCount ?? 1,
     };
@@ -726,10 +842,40 @@ function mapRecipeAllergen(wire: RecipeVersionAllergen): RecipeAllergenDeclarati
     };
 }
 
+/** One packaging line on a recipe version, wire → contract. */
+export interface WireRecipePackagingLine {
+    readonly id: string;
+    readonly line_number: number;
+    readonly ingredient_id: string;
+    readonly basis: string;
+    readonly quantity: string | null;
+    readonly unit_id: string | null;
+    readonly comment: string | null;
+}
+
+function mapPackagingBasis(basis: string): PackagingBasis {
+    return basis === 'per_container' || basis === 'per_batch' ? basis : 'fills_yield';
+}
+
+export function mapRecipePackagingLine(
+    wire: WireRecipePackagingLine,
+    units: UnitCodeLookup = NO_UNIT_LOOKUP,
+): RecipePackagingLine {
+    return {
+        ingredientId: IngredientId.unsafe(wire.ingredient_id),
+        basis: mapPackagingBasis(wire.basis),
+        // The server computes this for two of the three bases, so it is read rather than echoed.
+        quantity: parseDecimal(wire.quantity ?? '0', 0),
+        unit: measureUnitById(wire.unit_id, units),
+        comment: wire.comment ?? null,
+    };
+}
+
 export function mapRecipeVersionAdmin(
     wire: AdminRecipeVersion,
     details: {
         readonly lines: readonly WireRecipeLine[];
+        readonly packaging?: readonly WireRecipePackagingLine[] | undefined;
         readonly outputs: readonly WireRecipeOutput[];
         readonly steps: readonly WireRecipeStep[];
         readonly allergens: readonly RecipeVersionAllergen[];
@@ -745,7 +891,12 @@ export function mapRecipeVersionAdmin(
         yieldUnit: measureUnitById(wire.yield_unit_id, units),
         yieldPieces: wire.yield_piece_count ?? null,
         wastePercent: parseDecimal(wire.waste_coefficient_percent, 3),
+        // The two list prices share one currency by construction — the column CHECK refuses an
+        // amount without one — so both read the same code rather than each carrying its own.
+        b2bPrice: mapCostAmount(wire.b2b_price_amount, wire.price_currency_code),
+        b2cPrice: mapCostAmount(wire.b2c_price_amount, wire.price_currency_code),
         lines: details.lines.map((line) => mapRecipeLine(line, units)),
+        packaging: (details.packaging ?? []).map((line) => mapRecipePackagingLine(line, units)),
         outputs: details.outputs.map((output) => mapRecipeOutput(output, units)),
         steps: details.steps.map(mapRecipeStep),
         allergens: details.allergens.map(mapRecipeAllergen),

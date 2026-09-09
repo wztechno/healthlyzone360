@@ -40,6 +40,31 @@ class StoreIngredientRequest extends FormRequest
     }
 
     /**
+     * The three prices and the currency they are quoted in.
+     *
+     * `price_currency_code` is `required_with` **every** amount rather than
+     * merely optional, because the database CHECK refuses an amount with no
+     * currency — a caller that omitted it would otherwise learn about the
+     * rule as a 500 instead of a 422. The list must name all three: when
+     * `unit_price_amount` was added, leaving it off here would have reopened
+     * exactly that hole for the new column.
+     *
+     * One currency covers all three: an article quoted in two currencies is a
+     * price list, not a column.
+     *
+     * @return array<string, mixed>
+     */
+    public static function priceRules(): array
+    {
+        return [
+            'b2b_price_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999999.999999'],
+            'b2c_price_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999999.999999'],
+            'unit_price_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999999.999999'],
+            'price_currency_code' => ['required_with:b2b_price_amount,b2c_price_amount,unit_price_amount', 'nullable', 'string', 'size:3', Rule::exists('currencies', 'code')],
+        ];
+    }
+
+    /**
      * Authorisation is the route's `permission` middleware and the service's
      * platform-row rule; a form request that also guessed would give two
      * answers to one question.
@@ -66,7 +91,12 @@ class StoreIngredientRequest extends FormRequest
             'items_per_unit' => ['nullable', 'numeric', 'gt:0', 'max:99999999.99'],
             'yield_factor' => ['nullable', 'numeric', 'gt:0', 'max:99.9999'],
             'availability_tier' => ['nullable', new Enum(AvailabilityTier::class)],
+            // Not nullable: the column is `default(false)`, so "absent" means
+            // false rather than unknown, and an explicit null would be a third
+            // state the schema cannot hold.
+            'is_sellable' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            ...self::priceRules(),
             ...self::nutritionRules(),
         ];
     }

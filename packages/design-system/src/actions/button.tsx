@@ -1,8 +1,13 @@
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text as RNText } from 'react-native';
 import type { PressableProps } from 'react-native';
 import type { ReactNode } from 'react';
 
+import { useDensity } from '../hooks/use-density.tsx';
+import type { Density } from '../hooks/use-density.tsx';
+import { ADMIN_FONT_CLASS } from '../primitives/text.tsx';
 import { cx } from '../internal/class-names.ts';
+import { BUTTON_SIZES, BUTTON_VARIANTS, CONTAINER_VARIANT, LABEL_VARIANT } from './button-shared.ts';
+import type { ButtonSize, ButtonVariant } from './button-shared.ts';
 
 /**
  * Button.
@@ -11,57 +16,74 @@ import { cx } from '../internal/class-names.ts';
  * by *source order* inside a `flex-row`. Flexbox rows follow the writing direction, so a start slot
  * ends up on the right in Arabic without a single mirrored style — which is the only mirroring
  * technique that survives a live `dir` flip on the web (notes/nativewind-spike.md §4).
+ *
+ * ## Size is a ladder, and which ladder depends on density
+ *
+ * Under `compact` — the kitchen admin — `sm`/`md`/`lg` are `controlHeight`'s 28/32/36px and nothing
+ * else: no padding-driven height, no `min-h-touch`, no per-size radius. Under `comfortable` — the
+ * customer app, and the default — they keep the 44px floor the phone surfaces are held to. See
+ * `hooks/use-density.tsx` for why one prop cannot mean both.
  */
 
-/**
- * `quiet` is the demoted-but-still-a-button level, and it is what Sign out becomes.
+/*
+ * One corner for every button.
  *
- * It keeps its border on purpose. Borderless was tried and rejected: a bare text control sitting in
- * a row of filled and outlined buttons reads as disabled rather than as low priority. The border
- * says "still a button"; the neutral fill and the secondary label say "not the one you came for".
+ * `sm` was `rounded-md` (8px) against `rounded-lg` (12px) on the others, so a toolbar of mixed
+ * sizes had two different corners in one row. The design uses a single radius across its whole
+ * button family — 9px on the account control, 10px on the basket and on the hero call to action —
+ * and reads as one system because of it. 12px is the token nearest that cluster.
  *
- * It sits between `secondary` and `ghost`: `secondary` is a real alternative action and keeps
- * primary-strength text on a full-weight border, while `ghost` has no box at all and belongs inside
- * dense rows where a border per control would be noise.
+ * Padding is more generous than it was at `sm` and `md`: the design's buttons sit at 9–10px
+ * vertical, where these were at 6–8px, which is what made the old toolbar feel cramped next to a
+ * 44px field.
  */
-export const BUTTON_VARIANTS = ['primary', 'secondary', 'quiet', 'ghost', 'danger'] as const;
-export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
-
-export const BUTTON_SIZES = ['sm', 'md', 'lg'] as const;
-export type ButtonSize = (typeof BUTTON_SIZES)[number];
-
-const CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
-    // Hovers to the canopy rather than to a lighter green: the primary is already `brand-surface`
-    // because `brand-500` cannot legally carry small white text (§1.3), so there is nowhere to go
-    // but darker.
-    primary: 'bg-surface-brand border border-transparent hover:bg-surface-canopy',
-    secondary: 'bg-surface-raised border border-stroke',
-    quiet: 'bg-surface-raised border border-stroke-subtle',
-    ghost: 'bg-transparent border border-transparent',
-    danger: 'bg-danger border border-transparent',
+const COMFORTABLE_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
+    sm: 'min-h-touch px-3.5 py-2 rounded-lg gap-1.5',
+    md: 'min-h-touch px-4 py-2.5 rounded-lg gap-2',
+    lg: 'min-h-touch px-6 py-3.5 rounded-lg gap-2',
 };
 
-const LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
-    primary: 'text-content-on-brand',
-    secondary: 'text-content-primary',
-    quiet: 'text-content-secondary',
-    ghost: 'text-content-primary',
-    danger: 'text-danger-on-default',
+/*
+ * The admin ladder: height from `controlHeight`, inset from `controlPaddingX`, gap from
+ * `controlGap`, corner 4px for every size. Nothing is written as a number and nothing is derived
+ * from padding, so "make the admin two pixels tighter" stays one edit in `control.ts`.
+ */
+const COMPACT_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
+    sm: 'h-control-sm px-control-sm gap-control-sm rounded-sm',
+    md: 'h-control-md px-control-md gap-control-md rounded-sm',
+    lg: 'h-control-lg px-control-lg gap-control-lg rounded-sm',
 };
 
-const CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'min-h-touch px-3 py-1.5 rounded-md gap-1.5',
-    md: 'min-h-touch px-4 py-2 rounded-lg gap-2',
-    lg: 'min-h-touch px-6 py-3 rounded-lg gap-2',
+const CONTAINER_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
+    comfortable: COMFORTABLE_CONTAINER_SIZE,
+    compact: COMPACT_CONTAINER_SIZE,
 };
 
-const LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
-    // 14/600 rather than 14/500. Every shell control is a `sm` button, and at 14px a medium weight
-    // on a coloured fill reads as thin. `md` and `lg` are left alone: they are body-sized already
-    // and changing them would restyle every button in the application.
-    sm: 'text-sm font-semibold',
-    md: 'text-base font-medium',
-    lg: 'text-lg font-semibold',
+/*
+ * `lg` is 16px, not 18px. The largest button the design draws — the hero call to action — sets its
+ * label at 15px, which snaps to `text-base`; `text-lg` overshot it by a step and made a primary CTA
+ * compete with the headline above it.
+ */
+const COMFORTABLE_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
+    sm: 'text-sm',
+    md: 'text-base',
+    lg: 'text-base',
+};
+
+/*
+ * One label size across the admin ladder — `role-label`, the ramp's 12/16 500. A 28px and a 36px
+ * button in the same toolbar are the same control at two emphases, not two type sizes; the ramp
+ * gives the size and the variant gives the weight, so the two never disagree.
+ */
+const COMPACT_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
+    sm: 'text-role-label',
+    md: 'text-role-label',
+    lg: 'text-role-label',
+};
+
+const LABEL_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
+    comfortable: COMFORTABLE_LABEL_SIZE,
+    compact: COMPACT_LABEL_SIZE,
 };
 
 /**
@@ -113,6 +135,7 @@ export function Button({
     testID,
     ...rest
 }: ButtonProps) {
+    const density = useDensity();
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
     const inert = disabled || loading;
@@ -132,7 +155,7 @@ export function Button({
             className={cx(
                 'flex-row items-center justify-center',
                 CONTAINER_VARIANT[variant],
-                CONTAINER_SIZE[size],
+                CONTAINER_SIZE[density][size],
                 block ? 'self-stretch' : 'self-start',
                 inert ? 'opacity-50' : null,
                 className,
@@ -152,7 +175,12 @@ export function Button({
                 iconStart
             )}
             <RNText
-                className={cx(LABEL_VARIANT[variant], LABEL_SIZE[size], 'text-center')}
+                className={cx(
+                    LABEL_VARIANT[variant],
+                    LABEL_SIZE[density][size],
+                    density === 'compact' ? ADMIN_FONT_CLASS : null,
+                    'text-center',
+                )}
                 numberOfLines={1}
             >
                 {label}
@@ -162,58 +190,11 @@ export function Button({
     );
 }
 
-export interface IconButtonProps extends Omit<
-    PressableProps,
-    'children' | 'className' | 'style' | 'disabled' | 'aria-label'
-> {
-    /** Required: an icon-only control has no visible text, so this *is* its accessible name. */
-    readonly label: string;
-    readonly icon: ReactNode;
-    readonly variant?: ButtonVariant | undefined;
-    readonly size?: ButtonSize | undefined;
-    readonly disabled?: boolean | undefined;
-    readonly className?: string | undefined;
-    readonly testID?: string | undefined;
-}
-
-const ICON_BUTTON_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'min-h-touch min-w-touch rounded-md',
-    md: 'min-h-touch min-w-touch rounded-lg',
-    lg: 'min-h-touch min-w-touch rounded-lg p-2',
-};
-
-export function IconButton({
-    label,
-    icon,
-    variant = 'ghost',
-    size = 'md',
-    disabled = false,
-    className,
-    onPress,
-    testID,
-    ...rest
-}: IconButtonProps) {
-    return (
-        <Pressable
-            {...rest}
-            testID={testID}
-            role="button"
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            aria-label={label}
-            accessibilityState={{ disabled }}
-            aria-disabled={disabled}
-            disabled={disabled}
-            onPress={disabled ? undefined : onPress}
-            className={cx(
-                'items-center justify-center',
-                CONTAINER_VARIANT[variant],
-                ICON_BUTTON_SIZE[size],
-                disabled ? 'opacity-50' : null,
-                className,
-            )}
-        >
-            <View className={LABEL_VARIANT[variant]}>{icon}</View>
-        </Pressable>
-    );
-}
+/**
+ * `IconButton` moved to its own file, per the handoff's §3 list. It is re-exported here because
+ * deep imports of `actions/button.tsx` predate the split and there is no reason to break them.
+ */
+export { BUTTON_SIZES, BUTTON_VARIANTS };
+export type { ButtonSize, ButtonVariant };
+export { IconButton } from './icon-button.tsx';
+export type { IconButtonProps } from './icon-button.tsx';

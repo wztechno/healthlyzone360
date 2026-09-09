@@ -2,6 +2,8 @@ import { useIsRtl } from '@healthy360/i18n';
 import { Text as RNText, View } from 'react-native';
 import { Pressable } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
+import type { Density } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
@@ -15,6 +17,18 @@ export interface TabItem<T extends string = string> {
     readonly value: T;
     readonly label: string;
     readonly icon?: IconName | undefined;
+    /**
+     * A figure the tab's own content holds — the nine raw materials behind Production.
+     *
+     * Rendered after the label in the mono role, one step down and in secondary ink, so it reads as
+     * an annotation on the tab rather than as part of its name. It stays out of
+     * `accessibilityLabel` for the same reason: a screen reader announcing "Production 9, tab, 2 of
+     * 5" buries the position behind a number that changes every time a line is added. A caller that
+     * needs the count spoken puts it in the label instead.
+     *
+     * `0` draws; `undefined` does not. An empty tab saying so is the point of the figure.
+     */
+    readonly count?: number | undefined;
     readonly disabled?: boolean | undefined;
     readonly testID?: string | undefined;
 }
@@ -32,14 +46,41 @@ export interface TabsProps<T extends string = string> {
     readonly testID?: string | undefined;
 }
 
-const LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
+const COMFORTABLE_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'flex-row flex-wrap items-end gap-1 border-b border-stroke-subtle',
     segmented: 'flex-row flex-wrap items-stretch gap-1 rounded-lg bg-surface-sunken p-1',
 };
 
-const TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
+/**
+ * The admin's five recipe tabs are a 32px row, not a 44px one, and the segmented set loses its
+ * 12px corner for the control radius. `p-hair` on the segmented track rather than `p-1`: the track
+ * is a control, so its inset comes from the 4-point aliases like every other admin inset.
+ */
+const COMPACT_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
+    underline: 'flex-row flex-wrap items-end gap-hair border-b border-stroke-subtle',
+    segmented: 'flex-row flex-wrap items-stretch gap-hair rounded-sm bg-surface-sunken p-hair',
+};
+
+const LIST_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
+    comfortable: COMFORTABLE_LIST_VARIANT,
+    compact: COMPACT_LIST_VARIANT,
+};
+
+const COMFORTABLE_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'min-h-touch flex-row items-center justify-center gap-2 border-b-2 px-3 py-2',
     segmented: 'min-h-touch flex-row items-center justify-center gap-2 rounded-md px-3 py-2',
+};
+
+const COMPACT_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
+    underline:
+        'h-control-md flex-row items-center justify-center gap-control-md border-b-2 px-control-md',
+    segmented:
+        'h-control-sm flex-row items-center justify-center gap-control-sm rounded-sm px-control-sm',
+};
+
+const TAB_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
+    comfortable: COMFORTABLE_TAB_VARIANT,
+    compact: COMPACT_TAB_VARIANT,
 };
 
 const TAB_SELECTED: Readonly<Record<TabsVariant, string>> = {
@@ -81,6 +122,7 @@ export function Tabs<T extends string = string>({
     testID,
 }: TabsProps<T>) {
     const isRtl = useIsRtl();
+    const density = useDensity();
 
     const selectableIndexes = items
         .map((item, index) => (item.disabled === true ? -1 : index))
@@ -130,7 +172,7 @@ export function Tabs<T extends string = string>({
             aria-label={label}
             accessibilityLabel={label}
             aria-orientation="horizontal"
-            className={cx(LIST_VARIANT[variant], className)}
+            className={cx(LIST_VARIANT[density][variant], className)}
         >
             {items.map((item) => {
                 const selected = item.value === value;
@@ -153,7 +195,7 @@ export function Tabs<T extends string = string>({
                             onChange(item.value);
                         }}
                         className={cx(
-                            TAB_VARIANT[variant],
+                            TAB_VARIANT[density][variant],
                             selected ? TAB_SELECTED[variant] : TAB_UNSELECTED[variant],
                             block ? 'flex-1' : null,
                             disabled ? 'opacity-50' : null,
@@ -175,7 +217,10 @@ export function Tabs<T extends string = string>({
                         <RNText
                             numberOfLines={1}
                             className={cx(
-                                'text-sm text-center',
+                                'text-center',
+                                density === 'compact'
+                                    ? 'text-role-label font-admin'
+                                    : 'text-sm',
                                 selected
                                     ? variant === 'segmented'
                                         ? 'font-semibold text-content-on-brand-subtle'
@@ -185,6 +230,17 @@ export function Tabs<T extends string = string>({
                         >
                             {item.label}
                         </RNText>
+                        {item.count === undefined ? null : (
+                            <RNText
+                                aria-hidden
+                                testID={
+                                    item.testID === undefined ? undefined : `${item.testID}-count`
+                                }
+                                className="font-mono text-role-micro text-content-secondary"
+                            >
+                                {String(item.count)}
+                            </RNText>
+                        )}
                     </Pressable>
                 );
             })}

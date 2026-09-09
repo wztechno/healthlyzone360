@@ -68,8 +68,15 @@ describe('renderTailwindPreset', () => {
                 screens: Record<string, string>;
                 boxShadow: Record<string, string>;
                 letterSpacing: Record<string, string>;
-                fontSize: Record<string, [string, string]>;
+                fontSize: Record<string, [string, string] | [string, Record<string, string>]>;
                 lineHeight: Record<string, string>;
+                height: Record<string, string>;
+                width: Record<string, string>;
+                minHeight: Record<string, string>;
+                minWidth: Record<string, string>;
+                padding: Record<string, string>;
+                gap: Record<string, string>;
+                fontFamily: Record<string, readonly string[]>;
             };
         };
     };
@@ -118,6 +125,66 @@ describe('renderTailwindPreset', () => {
         expect(preset.theme.extend.fontSize.base).toEqual(['16px', '24px']);
         expect(preset.theme.extend.lineHeight['arabic-base']).toBe('28px');
         expect(preset.theme.extend.lineHeight['latin-base']).toBe('24px');
+    });
+
+    it('turns the control ladders into utilities a component can name', () => {
+        expect(preset.theme.extend.height['control-sm']).toBe('28px');
+        expect(preset.theme.extend.height['row-md']).toBe('32px');
+        expect(preset.theme.extend.padding['control-sm']).toBe('8px');
+        expect(preset.theme.extend.gap['control-sm']).toBe('6px');
+        expect(preset.theme.extend.width.field).toBe('280px');
+    });
+
+    /**
+     * `MIN_TOUCH_TARGET` is retired, and `min-h-touch` is not — see the note on
+     * `DEPRECATED_TOUCH_TARGET_PX`. Two dozen customer call sites still apply these classes, and a
+     * utility the preset stops defining fails silently: NativeWind emits nothing and the minimum
+     * disappears with no error. This test is what keeps the shim from being tidied away early.
+     */
+    it('keeps emitting the touch utilities the customer surfaces still apply', () => {
+        expect(preset.theme.extend.minHeight.touch).toBe('44px');
+        expect(preset.theme.extend.minWidth.touch).toBe('44px');
+    });
+
+    /**
+     * `min-h-control-*` and `min-h-row-*` are the ladder as a *floor*, for a box that must clear the
+     * control height but may grow past it — a dropdown option is one line at 28px and two when it
+     * carries a description, which `h-control-sm` would clip.
+     *
+     * What was retired is the *coarse-pointer* ladder: `controlHeightTouch` and `rowHeightTouch`,
+     * which existed only to hold 44px up while the brief asked for 32. So the invariant is about
+     * the value, not the key — these minimums must be the ladder's own, and 44px must reach the
+     * preset only through `touch`, which the customer surfaces still apply.
+     */
+    it('floors the control ladder at its own heights, never at the touch target', () => {
+        expect(preset.theme.extend.minHeight['control-md']).toBe('32px');
+        expect(preset.theme.extend.minHeight['row-md']).toBe('32px');
+
+        const laddered = Object.entries(preset.theme.extend.minHeight).filter(
+            ([key]) => key !== 'touch',
+        );
+        expect(laddered).not.toHaveLength(0);
+        for (const [, value] of laddered) {
+            expect(value).not.toBe('44px');
+        }
+    });
+
+    it('prefixes the Catalogue ramp so it cannot shadow the numeric scale', () => {
+        expect(preset.theme.extend.fontSize['role-micro']).toEqual([
+            '10px',
+            { lineHeight: '14px', letterSpacing: '0.6px', fontWeight: '600' },
+        ]);
+        expect(preset.theme.extend.fontSize.xs).toEqual(['12px', '18px']);
+    });
+
+    /**
+     * Additive families, not a swap. `font-admin` and `font-mono` are opt-in; `latin` is what the
+     * app actually renders in, and this asserts the Catalogue's fonts did not reach it.
+     */
+    it('adds the admin and mono families without touching the default one', () => {
+        expect(preset.theme.extend.fontFamily.admin?.[0]).toContain('SchibstedGrotesk');
+        expect(preset.theme.extend.fontFamily.mono?.[0]).toContain('IBMPlexMono');
+        expect(preset.theme.extend.fontFamily.latin?.[0]).toContain('Inter');
     });
 
     it('exposes the six ramp elevations plus the two named ones as box shadows', () => {
@@ -189,7 +256,27 @@ describe('renderTokensCss', () => {
 
     it('includes theme-independent scales once, in :root only', () => {
         expect(output.match(/--h360-space-4:/g)).toHaveLength(1);
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-min-touch-target: 44px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-space-snug: 12px;`);
+    });
+
+    it('carries the control geometry and the Catalogue ramp', () => {
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-control-height-sm: 28px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-row-height-md: 32px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-field-width: 280px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-size: 10px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-line-height-latin: 14px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-tracking-arabic: 0px;`);
+    });
+
+    /**
+     * The admin family is declared here and bound in no rule, which is the point: `global.css`
+     * applies `--h360-font-family-latin` to `html`, so a surface opts into Schibsted Grotesk and
+     * the customer app keeps the face it has.
+     */
+    it('declares the admin and mono families without binding either', () => {
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-admin`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-mono`);
+        expect(output).not.toMatch(/font-family:\s*var\(--h360-font-family-(admin|mono)\)/);
     });
 });
 
@@ -207,6 +294,12 @@ describe('renderTokensNative', () => {
         expect(output).toContain('"shadowOpacity"');
         expect(output).toContain('"shadowRadius"');
         expect(output).not.toContain('box-shadow');
+    });
+
+    it('carries the control geometry and the per-script ramp metrics', () => {
+        expect(output).toContain('"fieldWidth": 280');
+        expect(output).toContain('"textRoleMetrics"');
+        expect(output).not.toContain('"minTouchTarget"');
     });
 
     it('includes both themes with their nutrition patterns', () => {

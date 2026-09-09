@@ -6,15 +6,14 @@ import {
     Callout,
     Card,
     Chip,
-    Dialog,
     EmptyState,
     Heading,
     Inline,
     Rating,
     Stack,
+    TagRow,
     Text,
     useBreakpoint,
-    useToast,
 } from '@healthy360/design-system';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
@@ -23,16 +22,15 @@ import { MealId } from '@healthy360/domain-types';
 import type { DietClassification } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { useAddCartItemMutation, useMealQuery } from '../../../data/catalogue-hooks.ts';
+import { useMealQuery } from '../../../data/catalogue-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
+import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { AllergenList } from '../allergen-list.tsx';
 import { MacroRings } from '../macro-rings.tsx';
 import { NutritionFactsPanel } from '../nutrition-facts-panel.tsx';
@@ -73,56 +71,19 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
     const router = useRouter();
     const { atLeast } = useBreakpoint();
     const formatter = useFormatter();
-    const toast = useToast();
     const { me } = useSession();
     const signedIn = me !== null;
 
     const parsed = mealId === undefined ? null : MealId.safeParse(mealId);
     const meal = useMealQuery(parsed);
 
-    const addToBasket = useAddCartItemMutation();
-
-    const [dialog, setDialog] = useState<'guest-entry' | null>(null);
-
-    const here = parsed === null ? '/meals' : `/meals/${String(parsed)}`;
-    const goSignIn = () => {
-        recordResumeIntent({ href: here, labelKey: 'catalogue:nav.meals' });
-        router.push('/sign-in');
-    };
-
-    /**
-     * Adding to the basket while signed out.
-     *
-     * **This used to redirect to sign-in, and that was the wall G1 exists to remove.** An anonymous
-     * visitor who has decided what they want is at the moment of highest intent, and answering it
-     * with "make an account first" is where most of them stop. So the choice is offered instead:
-     * carry on as a guest, or sign in — and signing in stays a *visible* option rather than being
-     * replaced, because somebody who already has an account is better served by it (their addresses
-     * and past orders are there).
-     *
-     * The item goes into the basket either way before we navigate. The basket is not part of the
-     * guest session — it exists before one is started and survives one expiring — so putting the
-     * meal in it first means the guest checkout opens on a basket that already holds what the
-     * person just chose, rather than on an empty one they have to fill again.
+    /*
+     * The same "add to basket" the grids use — the mutation, the confirmation, and the guest-entry
+     * dialog for somebody who is not signed in. It used to live here and only here, which is why
+     * the grids either had no Add or hid it from guests. `testID: 'meal-detail'` keeps this
+     * screen's existing dialog handles.
      */
-    const onAddToBasket = (item: MarketplaceMeal) => {
-        if (!signedIn) {
-            setDialog('guest-entry');
-            return;
-        }
-        addToBasket.mutate(
-            { mealId: item.id, quantity: 1 },
-            {
-                onSuccess: (cart) => {
-                    toast.show({
-                        testID: 'basket-added',
-                        tone: 'success',
-                        message: t('catalogue:meal.addedToBasket', { items: cart.itemCount }),
-                    });
-                },
-            },
-        );
-    };
+    const basket = useBasketAdd({ labelKey: 'catalogue:nav.meals', testID: 'meal-detail' });
 
     const item = meal.data;
 
@@ -303,10 +264,10 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                         <MealCommercePanel
                                             item={item}
                                             signedIn={signedIn}
-                                            pending={addToBasket.isPending}
-                                            errored={addToBasket.isError}
+                                            pending={basket.pending}
+                                            errored={basket.errored}
                                             onAdd={() => {
-                                                onAddToBasket(item);
+                                                basket.add(item);
                                             }}
                                         />
                                     ) : null}
@@ -434,10 +395,10 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                 <MealCommercePanel
                                     item={item}
                                     signedIn={signedIn}
-                                    pending={addToBasket.isPending}
-                                    errored={addToBasket.isError}
+                                    pending={basket.pending}
+                                    errored={basket.errored}
                                     onAdd={() => {
-                                        onAddToBasket(item);
+                                        basket.add(item);
                                     }}
                                 />
                             )}
@@ -449,53 +410,13 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
             )}
 
             {/*
-             * The guest entry point (plan Phase G1).
-             *
-             * A real dialog rather than a redirect, and both routes out of it are real: "continue
-             * as a guest" puts the meal in the basket and opens `/guest-checkout`, "sign in
-             * instead" does exactly what this button used to do — including recording the page, so
-             * somebody who signs in lands back here.
+             * The guest entry point (plan Phase G1), now drawn by `useBasketAdd` so that every grid
+             * offers the same one. A real dialog rather than a redirect, and both routes out of it
+             * are real: "continue as a guest" puts the meal in the basket and opens
+             * `/guest-checkout`, "sign in instead" records the page so somebody who signs in lands
+             * back on it.
              */}
-            <Dialog
-                testID="meal-detail-guest-entry-dialog"
-                open={dialog === 'guest-entry'}
-                onClose={() => {
-                    setDialog(null);
-                }}
-                title={t('guest:entry.title')}
-                description={t('guest:entry.body')}
-                actions={
-                    <>
-                        <Button
-                            testID="meal-detail-guest-sign-in"
-                            variant="secondary"
-                            label={t('guest:entry.signIn')}
-                            onPress={() => {
-                                setDialog(null);
-                                goSignIn();
-                            }}
-                        />
-                        <Button
-                            testID="meal-detail-guest-continue"
-                            label={t('guest:entry.continueAsGuest')}
-                            loading={addToBasket.isPending}
-                            onPress={() => {
-                                const item = meal.data;
-                                if (item === undefined) return;
-                                setDialog(null);
-                                addToBasket.mutate(
-                                    { mealId: item.id, quantity: 1 },
-                                    {
-                                        onSuccess: () => {
-                                            router.push('/guest-checkout');
-                                        },
-                                    },
-                                );
-                            }}
-                        />
-                    </>
-                }
-            />
+            {basket.dialog}
         </Stack>
     );
 }
@@ -516,16 +437,14 @@ function MealDietTags({ diets }: { readonly diets: readonly DietClassification[]
     return (
         <Stack space="xs" testID="meal-detail-diets">
             <Text variant="label">{t('catalogue:meal.dietTagsTitle')}</Text>
-            <Inline space="xs" wrap>
-                {diets.map((diet) => (
-                    <Chip
-                        key={diet}
-                        testID={`meal-detail-diet-${diet}`}
-                        tone="brand"
-                        label={t(`marketplace:diets.${diet}`)}
-                    />
-                ))}
-            </Inline>
+            <TagRow
+                testID="meal-detail-diet"
+                items={diets.map((diet) => ({
+                    key: diet,
+                    label: t(`marketplace:diets.${diet}`),
+                    tone: 'brand' as const,
+                }))}
+            />
         </Stack>
     );
 }
