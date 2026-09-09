@@ -127,11 +127,22 @@ echo "==> generating dynamic-route rules"
 echo "    $(grep -c '^location' "$STAGE/dynamic-routes.conf") dynamic routes mapped"
 
 # ---------------------------------------------------------------------------
-# 3. Deployment assets
+# 3. Deployment assets — from the ref, never from the working tree
 # ---------------------------------------------------------------------------
-cp "$HERE/Dockerfile" "$HERE/php.ini" "$HERE/compose.yaml" "$HERE/compose.dev.yaml" \
-   "$HERE/nginx.conf" "$HERE/Caddyfile" "$HERE/deploy.sh" "$STAGE/"
-cp -r "$HERE/postgres-init" "$STAGE/"
+# The script that deploys a commit has to be the one that commit carries. This
+# used to copy whatever infrastructure/deploy the checked-out branch had, and a
+# feature branch older than the dev stack shipped a deploy.sh with no STACK
+# support: it read prod's compose file inside the dev directory, rewrote dev's
+# .env.deploy with prod's database name, and only then failed. Taking the
+# assets from the same ref as the API closes that class entirely.
+git archive --format=tar "$RESOLVED" infrastructure/deploy \
+    | tar -x --strip-components=2 -C "$STAGE"
+for required in Dockerfile compose.yaml compose.dev.yaml deploy.sh nginx.conf Caddyfile; do
+    [ -f "$STAGE/$required" ] || {
+        echo "package.sh: $REF carries no infrastructure/deploy/$required — it predates the deploy stack." >&2
+        exit 1
+    }
+done
 chmod +x "$STAGE/deploy.sh" "$STAGE/postgres-init/"*.sh
 
 # ---------------------------------------------------------------------------

@@ -406,9 +406,9 @@ The first run creates and seeds `healthy360_dev` and adopts prod's database
 credentials and tester password from `/opt/healthy360/.env`. Every later run
 migrates and keeps the data; pass `SKIP_SEED=0` to reseed.
 
-The branch must contain `23cad0d` (the deployment stack) — anything older lacks
+The branch must contain `215be25` (the deployment stack) — anything older lacks
 `trustProxies` and `config/api.php` and misbehaves behind Caddy. Check with
-`git merge-base --is-ancestor 23cad0d <branch>`.
+`git merge-base --is-ancestor 215be25 <branch>`.
 
 ### What to expect
 
