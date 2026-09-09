@@ -35,7 +35,7 @@ infrastructure/deploy/DEPLOYMENT.md sections 2 and 10 before doing anything.
 - `git rev-parse --abbrev-ref HEAD` is `dev` (or the branch I named) and `git status` is clean.
   The web bundle is built from the WORKING TREE, so uncommitted files would ship — refuse if dirty
   unless I confirm that is intended.
-- `git merge-base --is-ancestor 23cad0d HEAD` succeeds (the branch carries the deploy stack).
+- `git merge-base --is-ancestor 215be25 HEAD` succeeds (the branch carries the deploy stack).
 - Node 24 and pnpm via `corepack enable`; then `pnpm install --frozen-lockfile`.
 - SSH: use the key at ~/.ssh/healthy360_do if it exists, otherwise the path in $H360_SSH_KEY.
   Test with `ssh -i <key> -o BatchMode=yes -o ConnectTimeout=15 root@157.230.121.66 true`.
