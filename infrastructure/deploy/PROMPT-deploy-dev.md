@@ -28,7 +28,8 @@ infrastructure/deploy/DEPLOYMENT.md sections 2 and 10 before doing anything.
 - In /opt/healthy360-dev always pass `-f compose.dev.yaml` to docker compose (a compose.yaml
   also exists there and would read the wrong .env).
 - Never print the contents of .env or .env.deploy on the droplet.
-- Do not reseed (SKIP_SEED=0) unless I explicitly ask; dev keeps its data between deploys.
+- The database policy: a deploy migrates and touches nothing else. Never pass SEED=1 or
+  DEMO_PASSWORD unless I explicitly ask; never run an import or a rebuild unless I ask.
 - If a step fails, stop and report exactly what failed. Do not improvise fixes on the server.
 
 ## Step 1 — pre-flight (all must pass before building)
@@ -61,7 +62,7 @@ the dev origin (https://dev.157-230-121-66.nip.io) must appear in ≥1 file and 
 (https://157-230-121-66.nip.io, without "dev.") in 0 files. If not, ABORT and report; do not deploy.
 Then:
     STACK=dev ./deploy.sh dev.157-230-121-66.nip.io
-Expect "==> migrating", "==> setting the shared tester password" / "updated 9 accounts", and the
+Expect "==> migrating" (no seeding, no password step — a plain deploy leaves data alone) and the
 three smoke checks (api health, web bundle, seeded data) all OK. Takes ~1–3 minutes.
 
 ## Step 4 — verify from outside
@@ -70,7 +71,7 @@ three smoke checks (api health, web bundle, seeded data) all OK. Takes ~1–3 mi
 - On the droplet: `docker compose -f compose.dev.yaml ps` shows api (healthy), queue, scheduler,
   dev-web all Up.
 - Sign-in check: POST https://dev.157-230-121-66.nip.io/api/v1/auth/token with
-  {"email":"owner@verdant.test","password":"<from infrastructure/deploy/TESTERS.md>",
+  {"email":"owner@healthzone360.test","password":"<from infrastructure/deploy/TESTERS.md>",
    "device_name":"deploy-check","platform":"web"} → 201.
 - Confirm prod is untouched: `curl -sS -o /dev/null -w '%{http_code}' https://157-230-121-66.nip.io/up` → 200.
 

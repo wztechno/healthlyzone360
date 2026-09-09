@@ -28,6 +28,18 @@ else changes.
 
 ---
 
+## Database policy
+
+**A deploy applies pending schema migrations and does nothing else to the
+database.** No seeding, no password writes, no imports — those happen only when
+a person names them on the command line for that one run (`SEED=1`,
+`DEMO_PASSWORD=…`), and nothing remembers them as defaults. Both stacks run the
+one-kitchen HealthZone360 world built by `healthzone-rebuild.sh`; the demo
+tenants are gone and `SEED_DEMO_WORLD` stays off unless asked. A rebuild is its
+own deliberate command, never a side effect of shipping code.
+
+---
+
 ## 2. Shipping a new commit
 
 Three commands from the repository root. This is the whole loop.
@@ -41,7 +53,7 @@ scp -i ~/.ssh/healthy360_do build/healthy360-deploy.tar.gz root@157.230.121.66:/
 ```
 
 ```bash
-ssh -i ~/.ssh/healthy360_do root@157.230.121.66 'cd /opt/healthy360 && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && SKIP_SEED=1 ./deploy.sh 157-230-121-66.nip.io'
+ssh -i ~/.ssh/healthy360_do root@157.230.121.66 'cd /opt/healthy360 && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && ./deploy.sh 157-230-121-66.nip.io'
 ```
 
 Roughly 4–6 minutes end to end, most of it the Expo export and the image build.
@@ -167,7 +179,7 @@ volume. Add it back the moment anything needs pre-signed URLs.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `SKIP_SEED` | unset | `1` migrates without touching data |
+| `SEED` | unset | `1` runs the seeders — never automatic |
 | `DEMO_PASSWORD` | `password` | Sets one shared password on all nine personas |
 | `API_RATE_LIMIT` | 600 here, 60 shipped | Requests/minute — see §7 |
 | `SWAP_SIZE` | `5G` | `bootstrap-droplet.sh` only |
@@ -204,7 +216,7 @@ docker compose down -v && ./deploy.sh 157-230-121-66.nip.io
 Rotating the shared tester password:
 
 ```bash
-DEMO_PASSWORD='a-better-password' SKIP_SEED=1 ./deploy.sh 157-230-121-66.nip.io
+DEMO_PASSWORD='a-better-password' ./deploy.sh 157-230-121-66.nip.io
 ```
 
 ---
@@ -452,7 +464,7 @@ testers have been doing and dev keeps its state between pushes. When a branch
 changes a seeder, reseed that stack by hand from the droplet:
 
 ```bash
-cd /opt/healthy360-dev && SKIP_SEED=0 STACK=dev ./deploy.sh dev.157-230-121-66.nip.io
+cd /opt/healthy360-dev && SEED=1 STACK=dev ./deploy.sh dev.157-230-121-66.nip.io
 ```
 
 One deploy per branch runs at a time; a second push while one is in flight
