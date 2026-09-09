@@ -24,7 +24,7 @@
 #   STACK=dev      run as the dev stack: compose.dev.yaml, database
 #                  healthy360_dev, Redis databases 2/3, sharing prod's Postgres
 #                  and Redis over the healthy360-shared network. Its data is
-#                  kept between deploys (SKIP_SEED defaults to 1 there).
+#                  kept between deploys; a deploy never seeds.
 set -euo pipefail
 cd "$(dirname "$0")"
 
