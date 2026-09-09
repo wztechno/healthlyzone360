@@ -6,9 +6,9 @@ name: Deploy
 # infrastructure/deploy/DEPLOYMENT.md uses, so a green run here and a deploy
 # by hand produce the same server.
 #
-# Migrations run on every deploy. Seeding does not (SKIP_SEED=1): the prod
-# database holds what testers have been doing, and the dev database keeps its
-# state between pushes by design. Reseed by hand when a branch changes a seeder.
+# Migrations run on every deploy and nothing else touches the database:
+# seeding and password writes are explicit, named, by-hand operations
+# (DEPLOYMENT.md "Database policy"). A push never adds, removes or rewrites data.
 on:
   push:
     branches: [main, dev]
@@ -101,7 +101,7 @@ jobs:
           scp -i "$HOME/.ssh/deploy" -o IdentitiesOnly=yes -o BatchMode=yes \
             build/healthy360-deploy.tar.gz "root@$DROPLET:$DIR/healthy360-deploy.tar.gz"
           $SSH "root@$DROPLET" \
-            "cd '$DIR' && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && chmod +x deploy.sh postgres-init/*.sh && STACK='$STACK' SKIP_SEED=1 ./deploy.sh '$SITE'"
+            "cd '$DIR' && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && chmod +x deploy.sh postgres-init/*.sh && STACK='$STACK' ./deploy.sh '$SITE'"
 
       # deploy.sh already smoke-checks from inside the droplet; this is the
       # view a tester has, through Caddy, after the web container was replaced.
