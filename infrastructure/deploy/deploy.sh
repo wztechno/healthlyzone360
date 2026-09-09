@@ -9,14 +9,22 @@
 # invalidating sessions, tokens or anything encrypted with the old key.
 #
 # Environment knobs:
-#   DEMO_PASSWORD  password every seeded persona ends up with. Remembered in
-#                  .env after the first run, so later deploys keep it without
-#                  being told again; pass it to change it.
-#   SKIP_SEED=1    migrate but leave existing data alone
+# The database policy: a deploy applies pending schema migrations and does
+# nothing else to the data. Seeding and password writes happen only when named
+# on that run's command line, and are never remembered as defaults.
+#
+#   SEED=1               run the seeders (reference layer + operator login).
+#   SEED_DEMO_WORLD=true with SEED=1, also add the demo tenants — Verdant, the
+#                        preview kitchens, the clinic, the corporate buyer.
+#                        Off unless asked: the stacks run the one-kitchen
+#                        HealthZone world (see healthzone-rebuild.sh).
+#   DEMO_PASSWORD=...    set the shared tester password on the known logins,
+#                        this run only. The value is remembered in .env for
+#                        healthzone-rebuild.sh, but a deploy never re-applies it.
 #   STACK=dev      run as the dev stack: compose.dev.yaml, database
 #                  healthy360_dev, Redis databases 2/3, sharing prod's Postgres
 #                  and Redis over the healthy360-shared network. Its data is
-#                  kept between deploys (SKIP_SEED defaults to 1 there).
+#                  kept between deploys; a deploy never seeds.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -42,7 +50,6 @@ case "$STACK" in
         # indices are belt and braces on top, so flushing dev cannot touch prod.
         APP_NAME="Healthy360 Dev"; DB_DATABASE=healthy360_dev; REDIS_DB=2; REDIS_CACHE_DB=3
         PROD_DIR="${PROD_DIR:-/opt/healthy360}"
-        SKIP_SEED="${SKIP_SEED:-1}"
         ;;
     *)
         echo "STACK must be 'prod' or 'dev', not '$STACK'" >&2
@@ -245,9 +252,10 @@ fi
 echo "==> migrating"
 docker compose run --rm --no-deps api php artisan migrate --database=pgsql_migrations --force
 
-# A database this run created is always seeded — there is no first-run flag
-# to forget. After that, dev keeps its data unless told otherwise.
-if [ "$DB_CREATED" = 1 ] || [ "${SKIP_SEED:-0}" != "1" ]; then
+# Seeding is opt-in. The one exception is a database this run just created:
+# an empty schema with no operator login is a system nobody can open, so it
+# receives the reference layer — still without the demo world unless asked.
+if [ "$DB_CREATED" = 1 ] || [ "${SEED:-0}" = "1" ]; then
     # APP_ENV=local for this container only. Every demo seeder refuses to run
     # outside local/testing, and that guard is worth keeping: it is the reason
     # a real deployment of this code cannot invent tenants. The instance itself
@@ -256,11 +264,13 @@ if [ "$DB_CREATED" = 1 ] || [ "${SKIP_SEED:-0}" != "1" ]; then
     # tenants only when told to. Without it a fresh database has exactly one
     # login (the platform operator) and an empty marketplace.
     echo "==> seeding demo data"
-    docker compose run --rm --no-deps -e APP_ENV=local -e SEED_DEMO_WORLD=true api \
+    docker compose run --rm --no-deps -e APP_ENV=local -e SEED_DEMO_WORLD="${SEED_DEMO_WORLD:-false}" api \
         php artisan db:seed --database=pgsql_migrations --force
 fi
 
-if [ "$DEMO_PASSWORD" != "password" ]; then
+# Only when this run was given a password. The remembered one stays in .env for
+# healthzone-rebuild.sh; a plain deploy leaves every users row untouched.
+if [ -n "$DEMO_PASSWORD_ARG" ]; then
     echo "==> setting the shared tester password"
     docker compose run --rm --no-deps -e DEMO_PASSWORD="$DEMO_PASSWORD" api \
         php artisan tinker --execute='
@@ -270,6 +280,8 @@ if [ "$DEMO_PASSWORD" != "password" ]; then
                     "two-factor@cedar.test", "owner@verdant.test", "chef@verdant.test",
                     "patient@healthy360.test", "nour@healthy360.test",
                     "buyer@acme-wellness.test",
+                    "owner@healthzone360.test", "staff@healthzone360.test",
+                    "customer@healthzone360.test",
                 ])
                 ->update(["password" => Illuminate\Support\Facades\Hash::make(getenv("DEMO_PASSWORD"))]);
             echo "updated {$count} accounts\n";

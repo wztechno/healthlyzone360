@@ -28,6 +28,18 @@ else changes.
 
 ---
 
+## Database policy
+
+**A deploy applies pending schema migrations and does nothing else to the
+database.** No seeding, no password writes, no imports — those happen only when
+a person names them on the command line for that one run (`SEED=1`,
+`DEMO_PASSWORD=…`), and nothing remembers them as defaults. Both stacks run the
+one-kitchen HealthZone360 world built by `healthzone-rebuild.sh`; the demo
+tenants are gone and `SEED_DEMO_WORLD` stays off unless asked. A rebuild is its
+own deliberate command, never a side effect of shipping code.
+
+---
+
 ## 2. Shipping a new commit
 
 Three commands from the repository root. This is the whole loop.
@@ -41,7 +53,7 @@ scp -i ~/.ssh/healthy360_do build/healthy360-deploy.tar.gz root@157.230.121.66:/
 ```
 
 ```bash
-ssh -i ~/.ssh/healthy360_do root@157.230.121.66 'cd /opt/healthy360 && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && SKIP_SEED=1 ./deploy.sh 157-230-121-66.nip.io'
+ssh -i ~/.ssh/healthy360_do root@157.230.121.66 'cd /opt/healthy360 && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && ./deploy.sh 157-230-121-66.nip.io'
 ```
 
 Roughly 4–6 minutes end to end, most of it the Expo export and the image build.
@@ -167,7 +179,7 @@ volume. Add it back the moment anything needs pre-signed URLs.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `SKIP_SEED` | unset | `1` migrates without touching data |
+| `SEED` | unset | `1` runs the seeders — never automatic |
 | `DEMO_PASSWORD` | `password` | Sets one shared password on all nine personas |
 | `API_RATE_LIMIT` | 600 here, 60 shipped | Requests/minute — see §7 |
 | `SWAP_SIZE` | `5G` | `bootstrap-droplet.sh` only |
@@ -204,7 +216,7 @@ docker compose down -v && ./deploy.sh 157-230-121-66.nip.io
 Rotating the shared tester password:
 
 ```bash
-DEMO_PASSWORD='a-better-password' SKIP_SEED=1 ./deploy.sh 157-230-121-66.nip.io
+DEMO_PASSWORD='a-better-password' ./deploy.sh 157-230-121-66.nip.io
 ```
 
 ---
@@ -388,6 +400,9 @@ own api because prod's `api` is never on the shared network.
 
 ### Deploying to dev
 
+A ready-made Claude Code prompt that runs this loop with every guard below is in
+[PROMPT-deploy-dev.md](PROMPT-deploy-dev.md).
+
 Prod must have been deployed at least once with the shared network (any deploy
 from this version of the stack onward). Then, **with the branch checked out** —
 the bundle builds from the working tree, and for dev that is the point:
@@ -403,9 +418,9 @@ The first run creates and seeds `healthy360_dev` and adopts prod's database
 credentials and tester password from `/opt/healthy360/.env`. Every later run
 migrates and keeps the data; pass `SKIP_SEED=0` to reseed.
 
-The branch must contain `23cad0d` (the deployment stack) — anything older lacks
+The branch must contain `215be25` (the deployment stack) — anything older lacks
 `trustProxies` and `config/api.php` and misbehaves behind Caddy. Check with
-`git merge-base --is-ancestor 23cad0d <branch>`.
+`git merge-base --is-ancestor 215be25 <branch>`.
 
 ### What to expect
 
@@ -427,3 +442,48 @@ docker exec healthy360-deploy-postgres-1 psql -U postgres -c 'DROP DATABASE heal
 docker exec healthy360-deploy-redis-1 redis-cli -n 2 FLUSHDB
 docker exec healthy360-deploy-redis-1 redis-cli -n 3 FLUSHDB
 ```
+
+---
+
+## 11. Automatic deploys
+
+`.github/workflows/deploy.yml` runs the loop above on every push:
+
+| Push to | Deploys to | Stack |
+| --- | --- | --- |
+| `dev` | <https://dev.157-230-121-66.nip.io> | `/opt/healthy360-dev`, `STACK=dev` |
+| `main` | <https://157-230-121-66.nip.io> | `/opt/healthy360`, `STACK=prod` |
+
+So the working rhythm is: commit to `dev`, push, look at the dev URL (about
+ten minutes — most of it the Expo export); when it is right, open a PR from
+`dev` to `main` and merge, and the prod URL testers use updates the same way.
+Nothing is deployed from any other branch.
+
+Every deploy migrates but **never seeds** (`SKIP_SEED=1`): prod holds what
+testers have been doing and dev keeps its state between pushes. When a branch
+changes a seeder, reseed that stack by hand from the droplet:
+
+```bash
+cd /opt/healthy360-dev && SEED=1 STACK=dev ./deploy.sh dev.157-230-121-66.nip.io
+```
+
+One deploy per branch runs at a time; a second push while one is in flight
+waits rather than cancelling it.
+
+### What the workflow needs
+
+A repository secret named **`DROPLET_SSH_KEY`** holding the private half of a
+dedicated deploy key whose public half is in the droplet root account
+`authorized_keys`. It is the only secret. The droplet host key is pinned in the
+workflow, so a runner never trusts whatever answers first.
+
+That key is root on the droplet. Acceptable for a test box; the upgrade path
+when it stops being one is a `command=` restriction in `authorized_keys` that
+allows nothing but the deploy.
+
+### Watching a run
+
+The Actions tab on the repository. A failed run leaves the previous deploy
+serving — `deploy.sh` only replaces the web root and restarts containers after
+the new image has built and migrated — so a red run means "not updated", not
+"down". Re-run it from the same tab once the cause is fixed.

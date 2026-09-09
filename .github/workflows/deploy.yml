@@ -1,0 +1,121 @@
+name: Deploy
+
+# Push to dev → the dev stack; push to main → the prod stack. The two branches
+# differ only in hostname, directory and STACK on the droplet; the package and
+# deploy scripts are the same ones the manual loop in
+# infrastructure/deploy/DEPLOYMENT.md uses, so a green run here and a deploy
+# by hand produce the same server.
+#
+# Migrations run on every deploy and nothing else touches the database:
+# seeding and password writes are explicit, named, by-hand operations
+# (DEPLOYMENT.md "Database policy"). A push never adds, removes or rewrites data.
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+# One deploy per branch at a time, and queued rather than cancelled — a deploy
+# interrupted mid-migration is worse than a late one.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DROPLET: 157.230.121.66
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Map the branch to a stack
+        id: stack
+        run: |
+          case "$GITHUB_REF_NAME" in
+            main)
+              echo "site=157-230-121-66.nip.io" >> "$GITHUB_OUTPUT"
+              echo "stack=prod"                 >> "$GITHUB_OUTPUT"
+              echo "dir=/opt/healthy360"        >> "$GITHUB_OUTPUT"
+              ;;
+            dev)
+              echo "site=dev.157-230-121-66.nip.io" >> "$GITHUB_OUTPUT"
+              echo "stack=dev"                      >> "$GITHUB_OUTPUT"
+              echo "dir=/opt/healthy360-dev"        >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "no stack is mapped to branch '$GITHUB_REF_NAME'" >&2
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm through Corepack
+        run: corepack enable
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # package.sh archives the API from HEAD and builds the web bundle from the
+      # working tree — which on a runner is the pushed commit and nothing else,
+      # so the working-tree caveat in DEPLOYMENT.md does not apply here. The
+      # heap is raised because Metro's worker has run out of memory exporting
+      # this bundle before.
+      - name: Package
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+          SITE: ${{ steps.stack.outputs.site }}
+        run: infrastructure/deploy/package.sh "$SITE"
+
+      - name: Prepare SSH
+        env:
+          DROPLET_SSH_KEY: ${{ secrets.DROPLET_SSH_KEY }}
+        run: |
+          if [ -z "$DROPLET_SSH_KEY" ]; then
+            echo "The repository secret DROPLET_SSH_KEY is not set. It must hold the private half of the deploy key installed on the droplet (see DEPLOYMENT.md §11)." >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DROPLET_SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          # Pinned rather than scanned at run time: a runner that trusts
+          # whatever answers on first use would hand the deploy key to anything
+          # that managed to answer as the droplet.
+          echo "$DROPLET ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINv1Mpwpy0btJzL7KYN+FFoV7UPPULjrcCuAsDUb7T3E" > ~/.ssh/known_hosts
+
+      - name: Ship and deploy
+        env:
+          SITE: ${{ steps.stack.outputs.site }}
+          STACK: ${{ steps.stack.outputs.stack }}
+          DIR: ${{ steps.stack.outputs.dir }}
+        run: |
+          SSH="ssh -i $HOME/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes"
+          scp -i "$HOME/.ssh/deploy" -o IdentitiesOnly=yes -o BatchMode=yes \
+            build/healthy360-deploy.tar.gz "root@$DROPLET:$DIR/healthy360-deploy.tar.gz"
+          $SSH "root@$DROPLET" \
+            "cd '$DIR' && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && chmod +x deploy.sh postgres-init/*.sh && STACK='$STACK' ./deploy.sh '$SITE'"
+
+      # deploy.sh already smoke-checks from inside the droplet; this is the
+      # view a tester has, through Caddy, after the web container was replaced.
+      - name: Public smoke
+        env:
+          SITE: ${{ steps.stack.outputs.site }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /dev/null -m 20 -w '%{http_code}' "https://$SITE/up" || true)
+            if [ "$code" = 200 ]; then
+              echo "https://$SITE/up -> 200"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "https://$SITE/up did not answer 200 after the deploy (last: $code)" >&2
+          exit 1
