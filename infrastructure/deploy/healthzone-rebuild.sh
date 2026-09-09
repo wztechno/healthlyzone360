@@ -117,7 +117,7 @@ docker compose restart api queue scheduler >/dev/null
 
 echo
 echo "==> world now"
-docker exec "$PG" psql -U postgres -d "$ACTUAL_DB" -tA -F' | ' <<'SQL'
+docker exec -i "$PG" psql -U postgres -d "$ACTUAL_DB" -tA -F' | ' <<'SQL'
 select 'organisations',  count(*) from organisations
 union all select 'users',            count(*) from users
 union all select 'catalogue_items',  count(*) from catalogue_items
