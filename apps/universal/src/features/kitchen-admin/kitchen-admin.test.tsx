@@ -1149,6 +1149,9 @@ describe('optimistic concurrency', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the allergen class reference', () => {
+    // It is a Catalogue list now, so the per-column cells only exist above `md` — see `atDeskWidth`.
+    atDeskWidth();
+
     it('lists the fourteen classes and offers no way to change one', async () => {
         await renderStubScreen(<AllergenClassesScreen />, {
             session: kitchenManagerSession(),
@@ -1157,10 +1160,16 @@ describe('the allergen class reference', () => {
             },
         });
 
-        await untilVisible('kitchen-allergen-classes-list');
+        await untilVisible('kitchen-allergen-classes-table');
 
         expect(ALLERGEN_CLASSES).toHaveLength(14);
-        expect(screen.getByTestId('kitchen-allergen-classes-count')).toHaveTextContent(/14/);
+        // The count moved from a caption line under the list to the Shown stat card every other
+        // Catalogue page opens with — the same figure, where a reader now looks for it.
+        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
+            /14/,
+        );
+        // The governance note stays. It is the reason this page has no primary and no row Edit, and
+        // a reader who wonders why should not have to infer it from their absence.
         expect(screen.getByTestId('kitchen-allergen-classes-governance')).toBeTruthy();
 
         for (const entry of ALLERGEN_CLASSES) {
@@ -1175,5 +1184,25 @@ describe('the allergen class reference', () => {
         expect(
             screen.getByTestId(`kitchen-allergen-class-${String(sulphites?.code)}-threshold`),
         ).toHaveTextContent(new RegExp(String(sulphites?.declarationThreshold?.value)));
+
+        // Nothing here writes, which is the claim this test has always been making and now has to
+        // make against a row that *has* controls. View is the only one, and the header carries no
+        // primary: an allergen code is a regulatory identity the platform owns, and
+        // `listAllergenClasses` has no writer beside it.
+        expect(screen.queryByTestId('kitchen-allergen-classes-toolbar-create')).toBeNull();
+        expect(screen.queryByTestId('kitchen-allergen-classes-toolbar-import')).toBeNull();
+        expect(screen.queryByTestId('kitchen-allergen-classes-toolbar-export')).toBeNull();
+
+        const first = ALLERGEN_CLASSES[0];
+        expect(first).toBeDefined();
+        expect(
+            screen.getByTestId(`kitchen-allergen-class-${String(first?.code)}-view`),
+        ).toBeTruthy();
+        expect(
+            screen.queryByTestId(`kitchen-allergen-class-${String(first?.code)}-open`),
+        ).toBeNull();
+        expect(
+            screen.queryByTestId(`kitchen-allergen-class-${String(first?.code)}-archive`),
+        ).toBeNull();
     });
 });

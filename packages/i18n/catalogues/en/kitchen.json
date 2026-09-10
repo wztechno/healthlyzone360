@@ -1928,7 +1928,20 @@
         "count_other": "{{count}} classes",
         "emptyTitle": "No allergen classes are published",
         "emptyBody": "The platform reference data has not been seeded for this environment.",
-        "errorTitle": "The allergen classes could not be loaded"
+        "errorTitle": "The allergen classes could not be loaded",
+        "active": "Active",
+        "withdrawn": "Withdrawn",
+        "severeNot": "Ordinary declaration rules apply",
+        "searchPlaceholder": "Search classes, codes or regulations",
+        "viewKind": "Allergen class",
+        "statUnit": "classes",
+        "statSevere": "Severe",
+        "statSevereCaption": "trace exposure is dangerous",
+        "statWithdrawnCaption": "no longer declarable",
+        "statWithdrawnAction": "Show only withdrawn classes",
+        "statThreshold": "With a threshold",
+        "statThresholdCaption": "declarable above an amount",
+        "severeShort": "Severe"
     },
     "a11y": {
         "listUpdated": "The ingredient list was updated.",

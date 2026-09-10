@@ -2136,7 +2136,20 @@
         "count_other": "{{count}} صنف",
         "emptyTitle": "لا توجد أصناف مسبّبات حساسية منشورة",
         "emptyBody": "لم تُزرع بيانات المنصّة المرجعية في هذه البيئة.",
-        "errorTitle": "تعذّر تحميل أصناف مسبّبات الحساسية"
+        "errorTitle": "تعذّر تحميل أصناف مسبّبات الحساسية",
+        "active": "سارٍ",
+        "withdrawn": "مسحوب",
+        "severeNot": "تنطبق قواعد الإفصاح المعتادة",
+        "searchPlaceholder": "ابحث في الفئات أو الرموز أو اللوائح",
+        "viewKind": "فئة مسبّب حساسية",
+        "statUnit": "فئات",
+        "statSevere": "شديدة",
+        "statSevereCaption": "التعرّض الضئيل خطر",
+        "statWithdrawnCaption": "لم تعد واجبة الإفصاح",
+        "statWithdrawnAction": "اعرض الفئات المسحوبة فقط",
+        "statThreshold": "ذات حدّ",
+        "statThresholdCaption": "واجبة الإفصاح فوق مقدار",
+        "severeShort": "شديدة"
     },
     "a11y": {
         "listUpdated": "حُدّثت قائمة المكوّنات.",

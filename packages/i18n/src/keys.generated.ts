@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6549 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6562 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2382,6 +2382,7 @@ export interface NamespaceKeys {
     | 'channels.sectionTitle'
     | 'channels.untilHint'
     | 'channels.untilLabel'
+    | 'classes.active'
     | 'classes.columnClass'
     | 'classes.columnExamples'
     | 'classes.columnMarkets'
@@ -2395,11 +2396,23 @@ export interface NamespaceKeys {
     | 'classes.governanceTitle'
     | 'classes.inactive'
     | 'classes.noMarkets'
+    | 'classes.searchPlaceholder'
     | 'classes.severe'
+    | 'classes.severeNot'
+    | 'classes.severeShort'
+    | 'classes.statSevere'
+    | 'classes.statSevereCaption'
+    | 'classes.statThreshold'
+    | 'classes.statThresholdCaption'
+    | 'classes.statUnit'
+    | 'classes.statWithdrawnAction'
+    | 'classes.statWithdrawnCaption'
     | 'classes.subtitle'
     | 'classes.thresholdAny'
     | 'classes.thresholdValue'
     | 'classes.title'
+    | 'classes.viewKind'
+    | 'classes.withdrawn'
     | 'common.add'
     | 'common.back'
     | 'common.cancel'
@@ -8949,6 +8962,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:channels.sectionTitle',
   'kitchen:channels.untilHint',
   'kitchen:channels.untilLabel',
+  'kitchen:classes.active',
   'kitchen:classes.columnClass',
   'kitchen:classes.columnExamples',
   'kitchen:classes.columnMarkets',
@@ -8962,11 +8976,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:classes.governanceTitle',
   'kitchen:classes.inactive',
   'kitchen:classes.noMarkets',
+  'kitchen:classes.searchPlaceholder',
   'kitchen:classes.severe',
+  'kitchen:classes.severeNot',
+  'kitchen:classes.severeShort',
+  'kitchen:classes.statSevere',
+  'kitchen:classes.statSevereCaption',
+  'kitchen:classes.statThreshold',
+  'kitchen:classes.statThresholdCaption',
+  'kitchen:classes.statUnit',
+  'kitchen:classes.statWithdrawnAction',
+  'kitchen:classes.statWithdrawnCaption',
   'kitchen:classes.subtitle',
   'kitchen:classes.thresholdAny',
   'kitchen:classes.thresholdValue',
   'kitchen:classes.title',
+  'kitchen:classes.viewKind',
+  'kitchen:classes.withdrawn',
   'kitchen:common.add',
   'kitchen:common.back',
   'kitchen:common.cancel',
