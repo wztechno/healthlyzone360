@@ -1,6 +1,12 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
+import {
+    Pressable,
+    ScrollView,
+    Text as RNText,
+    TextInput as RNTextInput,
+    View,
+} from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
@@ -58,6 +64,7 @@ export type { SelectOption, SelectProps } from './select-shared.ts';
 
 export function Select<T extends string = string>({
     label,
+    labelHidden = false,
     options,
     value,
     onChange,
@@ -94,6 +101,7 @@ export function Select<T extends string = string>({
     return (
         <FormField
             label={label}
+            labelHidden={labelHidden}
             {...(hint === undefined ? {} : { hint })}
             {...(error === undefined ? {} : { error })}
             required={required}

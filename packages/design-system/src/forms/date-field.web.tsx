@@ -22,6 +22,7 @@ export type { DateFieldProps } from './date-field-shared.ts';
  */
 export function DateField({
     label,
+    labelHidden = false,
     value,
     onChange,
     min,
@@ -37,6 +38,7 @@ export function DateField({
     return (
         <FormField
             label={label}
+            labelHidden={labelHidden}
             hint={hint}
             error={error}
             required={required}

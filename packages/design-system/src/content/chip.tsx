@@ -172,6 +172,15 @@ export interface FilterChipProps {
     readonly onChange: (selected: boolean) => void;
     /** Result count shown after the label, e.g. the number of meals matching this filter. */
     readonly count?: number | undefined;
+    /**
+     * `sm` is the admin step: the same chip at the `xs` type size and half the vertical inset.
+     *
+     * A row of four closed-enum toggles inside a form section is not the page's primary filter bar,
+     * and at the default size four of them out-weigh the section heading above them. On a coarse
+     * pointer the 44px touch floor still applies and the chip grows back — the size sets type and
+     * inset, never the hit target.
+     */
+    readonly size?: 'sm' | 'md' | undefined;
     readonly disabled?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -209,6 +218,7 @@ export function FilterChip({
     selected,
     onChange,
     count,
+    size = 'md',
     disabled = false,
     className,
     testID,
@@ -230,7 +240,8 @@ export function FilterChip({
                 onChange(!selected);
             }}
             className={cx(
-                'flex-row items-center justify-center gap-1.5 self-start rounded-full border px-3.5 py-1.5',
+                'flex-row items-center justify-center gap-1.5 self-start rounded-full border',
+                size === 'sm' ? 'px-2.5 py-0.5' : 'px-3.5 py-1.5',
                 coarse ? 'min-h-touch' : null,
                 selected
                     ? 'border-surface-inverse bg-surface-inverse'
@@ -242,7 +253,7 @@ export function FilterChip({
             <RNText
                 numberOfLines={1}
                 className={cx(
-                    'text-sm font-medium',
+                    size === 'sm' ? 'text-xs font-medium' : 'text-sm font-medium',
                     selected ? 'text-content-inverse' : 'text-content-primary',
                 )}
             >

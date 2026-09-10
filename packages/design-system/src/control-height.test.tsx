@@ -39,9 +39,17 @@ function resolveControlHeight(className: unknown): number | null {
     return controlHeight[size] ?? null;
 }
 
+/**
+ * `min-h-row-sm` → 28.
+ *
+ * A floor rather than a fixed height: a cell whose value outgrows its track wraps and takes the row
+ * with it instead of clipping mid-word. What the ladder still owns is where a row *starts*, which
+ * is what this asserts — the suffix must name a real `rowHeight` key, so a density that resolved to
+ * nothing fails here.
+ */
 function resolveRowHeight(className: unknown): number | null {
     if (typeof className !== 'string') return null;
-    const match = /(?:^|\s)h-row-([a-z]+)(?:$|\s)/.exec(className);
+    const match = /(?:^|\s)min-h-row-([a-z]+)(?:$|\s)/.exec(className);
     if (match === null) return null;
     const size = match[1] as keyof typeof rowHeight;
     return rowHeight[size] ?? null;
@@ -107,9 +115,7 @@ describe('control heights', () => {
 
     it('SearchInput is a 28px control — the toolbar row height', async () => {
         await renderWithI18n(
-            compact(
-                <SearchInput testID="search" value="" onChangeText={() => undefined} />,
-            ),
+            compact(<SearchInput testID="search" value="" onChangeText={() => undefined} />),
         );
 
         expect(resolveControlHeight(screen.getByTestId('search').props.className)).toBe(

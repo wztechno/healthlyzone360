@@ -20,6 +20,8 @@ export interface SelectOption<T extends string = string> {
 
 export interface SelectProps<T extends string = string> {
     readonly label: string;
+    /** See `FormField`'s `labelHidden` — for a control named by a column header. */
+    readonly labelHidden?: boolean | undefined;
     readonly options: readonly SelectOption<T>[];
     readonly value: T | null;
     readonly onChange: (value: T) => void;

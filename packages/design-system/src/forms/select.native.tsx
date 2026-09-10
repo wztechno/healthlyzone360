@@ -43,6 +43,7 @@ export type { SelectOption, SelectProps } from './select-shared.ts';
  */
 export function Select<T extends string = string>({
     label,
+    labelHidden = false,
     options,
     value,
     onChange,
@@ -92,17 +93,21 @@ export function Select<T extends string = string>({
 
     return (
         <View className={cx('flex-col gap-1', className)} testID={testID}>
-            <RNText
-                nativeID={labelId}
-                className={cx(
-                    'text-start',
-                    density === 'compact' ? 'text-role-label font-admin' : 'text-sm font-medium',
-                    disabled ? 'text-content-disabled' : 'text-content-primary',
-                )}
-            >
-                {label}
-                {required ? <RNText className="text-danger-strong">{' *'}</RNText> : null}
-            </RNText>
+            {labelHidden ? null : (
+                <RNText
+                    nativeID={labelId}
+                    className={cx(
+                        'text-start',
+                        density === 'compact'
+                            ? 'text-role-label font-admin'
+                            : 'text-sm font-medium',
+                        disabled ? 'text-content-disabled' : 'text-content-primary',
+                    )}
+                >
+                    {label}
+                    {required ? <RNText className="text-danger-strong">{' *'}</RNText> : null}
+                </RNText>
+            )}
 
             {hint === undefined ? null : (
                 <RNText
@@ -125,7 +130,7 @@ export function Select<T extends string = string>({
                 aria-expanded={open}
                 accessibilityLabel={accessibleName}
                 aria-label={accessibleName}
-                aria-labelledby={labelId}
+                {...(labelHidden ? {} : { 'aria-labelledby': labelId })}
                 {...descriptionProps([hintId, errorId], error ?? hint)}
                 aria-invalid={error !== undefined}
                 /*

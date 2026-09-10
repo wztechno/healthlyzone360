@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { RowDensity } from '@healthy360/design-tokens';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
 import { cx } from '../internal/class-names.ts';
@@ -37,6 +37,15 @@ import { GRID_CONTENT_ATTR } from '../overlays/anchored-surface.ts';
  * columns until the rest fit rather than letting the row scroll sideways (§4.1), because a row that
  * scrolls hides its overflow menu — the one control that must always be reachable. Designation
  * (100) and the action column (95) are pinned above the drop threshold and never leave.
+ *
+ * ## And the tracks fill the port they fit in
+ *
+ * Dropping answers the narrow case. The wide one is the opposite problem: eight fixed tracks add up
+ * to about 1050px and the shell's content area on a laptop is nearer 1450, so the list drew itself
+ * against the leading edge with 400px of nothing after the last column — while the cells inside
+ * those tracks clipped their values to one line. `spreadColumns` shares the leftover out over the
+ * columns in proportion to their declared width, so the row ends where the page ends and the
+ * designation column gets most of what was going spare.
  */
 
 export const UNDROPPABLE_PRIORITY = 95;
@@ -45,7 +54,11 @@ export interface DataListColumn<Row> {
     readonly key: string;
     /** Column label, translated. Rendered on the `micro` step — 10px, uppercase. */
     readonly label: string;
-    /** Track width in dp. Fixed: these are columns, not a fluid layout. */
+    /**
+     * The track's floor in dp — what {@link fitColumns} charges against the port, and what the
+     * column is drawn at when the tracks exactly fill it. It is not the final width: leftover port
+     * width is shared out over the growable columns by {@link spreadColumns}.
+     */
     readonly width: number;
     /**
      * Ranks the column for narrow viewports. Handoff's ladder: Designation 100, the overflow menu
@@ -54,9 +67,18 @@ export interface DataListColumn<Row> {
      */
     readonly priority: number;
     /**
-     * Cell and header alignment. `center` is the Catalogue's own step: the design centres the
-     * short numeric tracks — unit price, updated — because an end-aligned 84px column reads as if
-     * it were pushed against the column after it.
+     * Whether the column takes a share of the port's leftover width. Defaults to `true`.
+     *
+     * `false` is for a track whose width is its content and nothing else — the row-action column,
+     * which is sized to the buttons in it. Widening that one only pushes the buttons away from the
+     * edge they are anchored to, and spends on padding the width the designation column needs to
+     * say `Condiments and sweeteners` without an ellipsis.
+     */
+    readonly grow?: boolean | undefined;
+    /**
+     * Cell and header alignment. Defaults to `start`, which is where the Catalogue's numeric
+     * columns sit too: a price read down a left edge lines up with the label above it, and the
+     * tracks are no longer narrow enough for `end` or `center` to be doing any work.
      */
     readonly align?: 'start' | 'end' | 'center' | undefined;
     /** Sets the cell in the mono role. Quantities, costs, references and versions (§1.2). */
@@ -112,6 +134,67 @@ export function fitColumns<Row>(
     return columns.filter((column) => kept.has(column.key));
 }
 
+/**
+ * The drawn width of each column, once the port's leftover width has been shared out.
+ *
+ * `fitColumns` answers "which columns"; this answers "how wide". They are separate because the
+ * first is charged against a floor — the narrowest a column is worth drawing at — and the widths
+ * that come out of it almost never add up to the port. On a 1440px window with the nav open that
+ * is roughly 400px of nothing after the last column, and every text cell clipped to one line
+ * *inside* its track while the space it needed sat unused beside it.
+ *
+ * ## The share is equal, not proportional
+ *
+ * Every growable column takes the same number of pixels. The first version of this shared the slack
+ * out in proportion to the declared width, on the argument that a column declared at 260 holds a
+ * sentence and one declared at 88 holds `4%`, so the wide one has more use for the space. What that
+ * actually does is compound the widest track: `Designation` was already the biggest gap on the row
+ * and proportional handed it the biggest share of the remainder as well, so the run between a short
+ * name and the category beside it opened to nearly 200px while `Condiment & Sweetener` wrapped in
+ * the column next door.
+ *
+ * Equal shares put the leftover where it is least visible — spread thinly across every boundary
+ * instead of banked behind one. The declared width still says how much room a column's *content*
+ * needs, which is what `fitColumns` ranks and drops on; it just stops being a claim on the page's
+ * spare width too.
+ *
+ * Exported and pure for the same reason as `fitColumns`: "nine columns in a 1213px port" is
+ * arithmetic, and arithmetic is worth a test rather than a screenshot.
+ *
+ * Integer widths throughout, with the division's remainder given to the widest growable column, so
+ * the tracks sum to the port exactly and no sub-pixel seam opens between the header and its rows.
+ */
+export function spreadColumns<Row>(
+    columns: readonly DataListColumn<Row>[],
+    available: number,
+): readonly number[] {
+    const widths = columns.map((column) => column.width);
+    const floor = widths.reduce((sum, width) => sum + width, 0);
+    const slack = Math.floor(available) - floor;
+    if (slack <= 0) return widths;
+
+    const growable = columns.map((column) => column.grow !== false);
+    const count = growable.filter((grows) => grows).length;
+    if (count === 0) return widths;
+
+    // `count > 0` guarantees a growable column, so this always resolves to one of them.
+    let widest = 0;
+    let widestWidth = -1;
+    widths.forEach((width, index) => {
+        if (growable[index] !== true || width <= widestWidth) return;
+        widest = index;
+        widestWidth = width;
+    });
+
+    const share = Math.floor(slack / count);
+    const remainder = slack - share * count;
+
+    return widths.map((width, index) => {
+        if (growable[index] !== true) return width;
+        return width + share + (index === widest ? remainder : 0);
+    });
+}
+
 export interface DataListProps<Row> {
     readonly columns: readonly DataListColumn<Row>[];
     readonly rows: readonly Row[];
@@ -127,10 +210,19 @@ export interface DataListProps<Row> {
     readonly testID?: string | undefined;
 }
 
+/**
+ * The density ladder, as a *floor* rather than a fixed height.
+ *
+ * `h-row-md` clipped: a cell whose value does not fit its track was cut mid-word — `Condiments and
+ * sweet…` — and there was nothing a reader could do about it short of opening the row. Every track
+ * now grows to fill the port (see {@link spreadColumns}), which is enough for almost every value,
+ * and `min-h-` is what covers the rest: the outliers wrap to a second line and take the row with
+ * them instead of losing their tail. A page of ordinary rows is the same 28 / 32 / 36px it was.
+ */
 const ROW_HEIGHT_CLASS: Readonly<Record<RowDensity, string>> = {
-    sm: 'h-row-sm',
-    md: 'h-row-md',
-    lg: 'h-row-lg',
+    sm: 'min-h-row-sm',
+    md: 'min-h-row-md',
+    lg: 'min-h-row-lg',
 };
 
 const TEXT_ALIGN_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
@@ -166,15 +258,68 @@ export function DataList<Row>({
 }: DataListProps<Row>) {
     // Measured rather than derived from the breakpoint: the list's port is the shell's content
     // area, not the window, and the two differ by the 224px nav rail — which is itself
-    // collapsible. §4.2's warning applies here, and `onLayout` is the measurement that survives
-    // the nav's width transition on both platforms.
+    // collapsible. §4.2's warning applies here.
     const [available, setAvailable] = useState(0);
     const visible = fitColumns(columns, available);
     const trackSum = visible.reduce((sum, column) => sum + column.width, 0);
+    // `width` is the floor; this is what each column is actually drawn at once the port's leftover
+    // width has been shared out. Before the first measurement there is no port to share, and
+    // `spreadColumns` returns the declared widths unchanged.
+    const tracks = spreadColumns(visible, available);
 
-    const onLayout = (event: LayoutChangeEvent) => {
-        setAvailable(event.nativeEvent.layout.width);
+    // A zero is never a port. It is what a node reports before it has been laid out, and taking it
+    // would fit every column against nothing and then need a second pass to undo that.
+    const measure = (width: number) => {
+        if (width <= 0) return;
+        setAvailable((current) => (current === width ? current : width));
     };
+
+    /**
+     * Native's measurement, and the only one it needs — `onLayout` is the real layout system there
+     * and fires on mount, on rotation and in split view.
+     */
+    const onLayout = (event: LayoutChangeEvent) => {
+        measure(event.nativeEvent.layout.width);
+    };
+
+    /*
+     * The web's measurement, read from the node rather than waited for.
+     *
+     * `onLayout` is the wrong instrument on this platform, which is the same conclusion
+     * `useCataloguePort` reached and this component had not: react-native-web implements it as a
+     * `ResizeObserver`, and here it never delivered a usable observation at all. The list sat on
+     * `available = 0` — every column at its declared track, no fitting pass, no share of the port —
+     * and stayed there through a window resize.
+     *
+     * So the node is held and read on demand, at the two moments the port can have changed: after
+     * every commit, which covers mount and the nav rail's width transition (the shell re-renders
+     * across it), and on `resize`. `measure` ignores an unchanged width, so a layout effect with no
+     * dependency list settles after one pass instead of looping.
+     */
+    const port = useRef<View | null>(null);
+
+    const readPort = useCallback(() => {
+        const node = port.current as unknown as {
+            getBoundingClientRect?: () => { width: number };
+        } | null;
+        const rect = node?.getBoundingClientRect?.();
+        if (rect === undefined) return;
+        if (rect.width <= 0) return;
+        setAvailable((current) => (current === rect.width ? current : rect.width));
+    }, []);
+
+    useLayoutEffect(() => {
+        if (Platform.OS !== 'web') return;
+        readPort();
+    });
+
+    useEffect(() => {
+        if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
+        window.addEventListener('resize', readPort);
+        return () => {
+            window.removeEventListener('resize', readPort);
+        };
+    }, [readPort]);
 
     return (
         <View
@@ -182,6 +327,7 @@ export function DataList<Row>({
             role="table"
             aria-label={label}
             accessibilityLabel={label}
+            ref={port}
             onLayout={onLayout}
             className={cx('flex-col', className)}
         >
@@ -214,11 +360,11 @@ export function DataList<Row>({
                      * there.
                      */
                     className={cx(
-                        'h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
+                        'min-h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
                         'bg-surface-base web:sticky web:top-0',
                     )}
                 >
-                    {visible.map((column) => (
+                    {visible.map((column, index) => (
                         <View
                             key={column.key}
                             role="columnheader"
@@ -227,7 +373,7 @@ export function DataList<Row>({
                                     ? undefined
                                     : `${testID}-columnheader-${column.key}`
                             }
-                            style={{ width: column.width }}
+                            style={{ width: tracks[index] ?? column.width }}
                             className="px-control-sm"
                         >
                             {column.renderHeader === undefined ? (
@@ -256,19 +402,25 @@ export function DataList<Row>({
                     ? null
                     : rows.map((row) => {
                           const key = rowKey(row);
-                          const cells = visible.map((column) => (
+                          const cells = visible.map((column, index) => (
                               <View
                                   key={column.key}
                                   role="cell"
-                                  style={{ width: column.width }}
+                                  style={{ width: tracks[index] ?? column.width }}
                                   className={cx(
+                                      // No vertical padding: `min-h-row-*` is what sets the row's
+                                      // floor, and a padded cell would raise every row above the
+                                      // density it was asked for.
                                       'flex-row items-center px-control-sm',
                                       JUSTIFY_CLASS[column.align ?? 'start'],
                                   )}
                               >
                                   {column.render === undefined ? (
+                                      // No `numberOfLines`. A track wide enough for its value is
+                                      // the fix for a long one; the clamp was the fix for a track
+                                      // that was not, and all it ever did was hide the problem
+                                      // behind an ellipsis.
                                       <RNText
-                                          numberOfLines={1}
                                           className={cellClass(column as DataListColumn<unknown>)}
                                       >
                                           {column.value?.(row) ?? ''}
