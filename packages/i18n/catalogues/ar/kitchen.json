@@ -1887,7 +1887,7 @@
         "summaryMissingArabic": "{{n}} بدون اسم عربي",
         "summaryUncosted": "{{n}} بدون تكلفة",
         "rowActions": "إجراءات الصف",
-        "columnReference": "المرجع",
+        "columnReference": "المعرّف",
         "mayContain": "قد يحتوي على: {{classes}}",
         "import": "استيراد",
         "importUnavailable": "الاستيراد غير متاح بعد",
@@ -1914,7 +1914,8 @@
         "viewKind": "مكوّن",
         "viewFields": "الحقول",
         "viewAllergensSource": "من قاعدة البيانات",
-        "viewAllergensCaption": "مُستخرجة من قاعدة بيانات المكوّنات. صحّحها على السجل نفسه، لا هنا."
+        "viewAllergensCaption": "مُستخرجة من قاعدة بيانات المكوّنات. صحّحها على السجل نفسه، لا هنا.",
+        "columnItem": "صنف"
     },
     "editor": {
         "createTitle": "مكوّن جديد",
@@ -1996,7 +1997,11 @@
         "stockUnit": "وحدة المخزون",
         "stockUnitHint": "الوحدة التي يُصرف ويُسعّر بها هذا المكوّن.",
         "itemsPerPurchaseUnit": "القطع في وحدة الشراء",
-        "designation": "التسمية"
+        "designation": "التسمية",
+        "referencePlaceholder": "يُسنَد عند الحفظ",
+        "unitPlaceholder": "اختر وحدة",
+        "unitPricePlaceholder": "0.00",
+        "itemsPerUnitPlaceholder": "0"
     },
     "units": {
         "dimensionMass": "كتلة",
@@ -3480,6 +3485,7 @@
         "archiveBody": "لن يُعرض بعد الآن على الوصفات الجديدة. لا يُحذف شيء: الوصفة التي تستخدمه تبقى كذلك، وتبقى تكلفته في ورقتها الفنية.",
         "archiveConfirm": "أرشفه",
         "archivedToast": "تمت أرشفة {{name}}.",
-        "archiveFailed": "تعذّرت أرشفة صنف التغليف."
+        "archiveFailed": "تعذّرت أرشفة صنف التغليف.",
+        "createTitle": "تغليف جديد"
     }
 }

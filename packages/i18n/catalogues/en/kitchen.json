@@ -1687,7 +1687,7 @@
         "summaryMissingArabic": "{{n}} missing Arabic",
         "summaryUncosted": "{{n}} uncosted",
         "rowActions": "Row actions",
-        "columnReference": "Ref.",
+        "columnReference": "Id",
         "mayContain": "may contain: {{classes}}",
         "import": "Import",
         "importUnavailable": "Import is not available yet",
@@ -1714,7 +1714,8 @@
         "viewKind": "Ingredient",
         "viewFields": "Fields",
         "viewAllergensSource": "From database",
-        "viewAllergensCaption": "Resolved from the ingredient database. Correct it on the record itself, not here."
+        "viewAllergensCaption": "Resolved from the ingredient database. Correct it on the record itself, not here.",
+        "columnItem": "Item"
     },
     "editor": {
         "createTitle": "New ingredient",
@@ -1796,7 +1797,11 @@
         "stockUnit": "Stock unit",
         "stockUnitHint": "The unit this ingredient is issued and costed in.",
         "itemsPerPurchaseUnit": "Items per purchase unit",
-        "designation": "Designation"
+        "designation": "Designation",
+        "referencePlaceholder": "Assigned on save",
+        "unitPlaceholder": "Choose a unit",
+        "unitPricePlaceholder": "0.00",
+        "itemsPerUnitPlaceholder": "0"
     },
     "units": {
         "dimensionMass": "Mass",
@@ -3016,6 +3021,7 @@
         "archiveBody": "It stops being offered on new recipes. Nothing is deleted: a recipe that already names it keeps naming it, and its technical sheet keeps costing it.",
         "archiveConfirm": "Archive it",
         "archivedToast": "{{name}} was archived.",
-        "archiveFailed": "That packaging item could not be archived."
+        "archiveFailed": "That packaging item could not be archived.",
+        "createTitle": "New packaging"
     }
 }

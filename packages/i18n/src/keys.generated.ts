@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6500 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6506 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2786,6 +2786,7 @@ export interface NamespaceKeys {
     | 'fields.itemsPerPurchaseUnit'
     | 'fields.itemsPerUnit'
     | 'fields.itemsPerUnitHint'
+    | 'fields.itemsPerUnitPlaceholder'
     | 'fields.name'
     | 'fields.notes'
     | 'fields.notesHint'
@@ -2795,6 +2796,7 @@ export interface NamespaceKeys {
     | 'fields.purchaseUnitNoneHint'
     | 'fields.reference'
     | 'fields.referenceHint'
+    | 'fields.referencePlaceholder'
     | 'fields.stockUnit'
     | 'fields.stockUnitHint'
     | 'fields.subcategory'
@@ -2803,8 +2805,10 @@ export interface NamespaceKeys {
     | 'fields.subcategoryPlaceholder'
     | 'fields.unit'
     | 'fields.unitHint'
+    | 'fields.unitPlaceholder'
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
+    | 'fields.unitPricePlaceholder'
     | 'hub.countUnavailable'
     | 'hub.draftCount'
     | 'hub.emptyBody'
@@ -2859,6 +2863,7 @@ export interface NamespaceKeys {
     | 'list.caption'
     | 'list.columnAllergens'
     | 'list.columnCategory'
+    | 'list.columnItem'
     | 'list.columnName'
     | 'list.columnReference'
     | 'list.columnStatus'
@@ -3850,6 +3855,7 @@ export interface NamespaceKeys {
     | 'packaging.columnCapacity'
     | 'packaging.columnPackPrice'
     | 'packaging.columnWaste'
+    | 'packaging.createTitle'
     | 'packaging.emptyBody'
     | 'packaging.emptyTitle'
     | 'packaging.searchPlaceholder'
@@ -9304,6 +9310,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.itemsPerPurchaseUnit',
   'kitchen:fields.itemsPerUnit',
   'kitchen:fields.itemsPerUnitHint',
+  'kitchen:fields.itemsPerUnitPlaceholder',
   'kitchen:fields.name',
   'kitchen:fields.notes',
   'kitchen:fields.notesHint',
@@ -9313,6 +9320,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.purchaseUnitNoneHint',
   'kitchen:fields.reference',
   'kitchen:fields.referenceHint',
+  'kitchen:fields.referencePlaceholder',
   'kitchen:fields.stockUnit',
   'kitchen:fields.stockUnitHint',
   'kitchen:fields.subcategory',
@@ -9321,8 +9329,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.subcategoryPlaceholder',
   'kitchen:fields.unit',
   'kitchen:fields.unitHint',
+  'kitchen:fields.unitPlaceholder',
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
+  'kitchen:fields.unitPricePlaceholder',
   'kitchen:hub.countUnavailable',
   'kitchen:hub.draftCount',
   'kitchen:hub.emptyBody',
@@ -9377,6 +9387,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.caption',
   'kitchen:list.columnAllergens',
   'kitchen:list.columnCategory',
+  'kitchen:list.columnItem',
   'kitchen:list.columnName',
   'kitchen:list.columnReference',
   'kitchen:list.columnStatus',
@@ -10368,6 +10379,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:packaging.columnCapacity',
   'kitchen:packaging.columnPackPrice',
   'kitchen:packaging.columnWaste',
+  'kitchen:packaging.createTitle',
   'kitchen:packaging.emptyBody',
   'kitchen:packaging.emptyTitle',
   'kitchen:packaging.searchPlaceholder',
