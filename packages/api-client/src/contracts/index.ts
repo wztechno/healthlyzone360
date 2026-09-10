@@ -269,6 +269,7 @@ export {
     PACKAGING_BASES,
     PLAN_MENU_SLOTS,
     PRICE_STATUSES,
+    PRODUCT_FAMILY_CATEGORY_CODES,
     PUBLISHABLE_STATUSES,
     isConsumerVisible,
     isPlanDurationConsistent,

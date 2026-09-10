@@ -169,6 +169,7 @@ function product({ ordinal, name, overrides = {} }: ProductSeed): ProductAdmin {
         meta: meta(),
         name: { en: label, ar: `${label} بالعربية` },
         description: { en: 'A jar of it.', ar: 'برطمان منه.' },
+        categoryId: null,
         categoryCode: 'store-cupboard',
         itemType: 'product',
         reference: null,

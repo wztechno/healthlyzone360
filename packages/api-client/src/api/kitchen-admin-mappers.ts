@@ -546,6 +546,7 @@ export function mapProductAdminFromItem(
         reference: wire.source_ref ?? null,
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
+        categoryId: wire.product_category_id ?? null,
         categoryCode: wire.product_category_code ?? 'uncategorized',
         kitchenCategory: wire.kitchen_category ?? null,
         kitchenSubcategory: wire.kitchen_subcategory ?? null,

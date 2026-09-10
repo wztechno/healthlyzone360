@@ -416,6 +416,34 @@ export interface IngredientAdmin {
  */
 export const PACKAGING_CATEGORY_CODE = 'packaging-disposables';
 
+/**
+ * Branches of the ingredient taxonomy that hold no raw materials — only finished goods.
+ *
+ * The v6 import writes an ingredient beside every sellable row it brings in, because a sauce is
+ * both sold and consumed and a formulation has to be able to name it: 43 `SAC-` sauces, 19 `DRS-`
+ * dressings, and the `PRD-`/`RSL-` product and resale lines. Those rows are filed under Sauce,
+ * Dressings, Beverage and Bread, and **nothing numbered `ING-` is**.
+ *
+ * The ingredient list keeps only the `ING-` series (`IngredientIndexController::applySeries`), so
+ * these four can never return a row there. They are not junk data and they are not deletable — the
+ * sauces and dressings screens are built on the rows filed under them — they simply do not belong
+ * in a picker whose subject is raw materials.
+ *
+ * Two surfaces read this, and they have to agree: the list's category filter hides them because a
+ * choice that can only ever produce an empty page is worse than no choice, and the ingredient
+ * editor hides them so a new raw material cannot be filed somewhere the list that created it would
+ * never show it. The second is what keeps the first true.
+ *
+ * Not applied to the recipe line picker, which serves a cook writing a burger who has every reason
+ * to reach for Garlic Mayo Sauce.
+ */
+export const PRODUCT_FAMILY_CATEGORY_CODES: readonly string[] = [
+    'sauce',
+    'dressings',
+    'beverage',
+    'bread',
+];
+
 export interface IngredientAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
@@ -923,6 +951,14 @@ export interface ProductAdmin {
     readonly reference: string | null;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
+    /**
+     * The category's id, which is what `/catalogue/items` filters by.
+     *
+     * Carried beside the code rather than instead of it: the code is what a reader sees and what
+     * the row groups by, the id is what the request needs, and a screen holding only one of the two
+     * has to guess at the other. `null` on a row the catalogue never filed.
+     */
+    readonly categoryId: string | null;
     readonly categoryCode: string;
     /** The kitchen's own nested filing pair, transcribed from its sheets. */
     readonly kitchenCategory: string | null;
@@ -947,6 +983,16 @@ export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly categoryCode?: string | undefined;
+    /**
+     * The category the endpoint narrows by, as its id.
+     *
+     * `product_category_id` is what `/catalogue/items` takes, and it is an id rather than a code -
+     * so a screen that knows only the code cannot ask the server, which is why this list filtered
+     * the loaded page for a long time and reported a count for the whole collection while doing it.
+     * The id travels on the row (`ProductAdmin.categoryId`), so the picker builds its values and
+     * their ids from the same read.
+     */
+    readonly categoryId?: string | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
     /** Which packaged kind to list. Defaults to `product`. */
     readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
@@ -1092,6 +1138,8 @@ export interface MealAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly kitchenId?: KitchenId | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
+    /** See `ProductAdminFilter.categoryId` — meals are catalogue items and take the same param. */
+    readonly categoryId?: string | undefined;
 }
 
 export interface CreateMealRequest {

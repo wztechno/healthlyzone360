@@ -316,12 +316,19 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         itemType: AdminCatalogueItem['item_type'],
         filter?: CursorQueryFilter,
         status?: string | undefined,
+        categoryId?: string | undefined,
     ): Promise<CursorPage<AdminCatalogueItem>> {
         const envelope = await transport.requestEnvelope<AdminCatalogueItem[]>({
             method: 'GET',
+            /*
+             * `product_category_id` was never sent, which is why the products list's category
+             * filter narrowed the page in hand and left the count describing the whole collection.
+             * The endpoint has taken it all along; only the client had not asked.
+             */
             path: `/catalogue/items${cursorQuery(pickCursorFilter(filter), {
                 item_type: itemType,
                 status,
+                product_category_id: categoryId,
             })}`,
         });
 
@@ -433,6 +440,25 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 search.set('reference_series', filter.referenceSeries);
             }
 
+            /*
+             * One code goes to the server; more than one stays client-side.
+             *
+             * `allergen` narrows the whole collection, which is what a paged browse list needs — a
+             * filter applied to the loaded page narrows that page while the count and every page
+             * after it go on describing the unfiltered set. The endpoint takes a single class
+             * because that is the question a list column asks; a caller passing several is asking
+             * for a union the endpoint cannot express, so it keeps the page-local pass below and
+             * the page-local caveat that comes with it.
+             */
+            const serverAllergen =
+                filter?.allergenCodes !== undefined && filter.allergenCodes.length === 1
+                    ? filter.allergenCodes[0]
+                    : undefined;
+
+            if (serverAllergen !== undefined) {
+                search.set('allergen', serverAllergen);
+            }
+
             const rendered = search.toString();
             const path =
                 rendered === '' ? '/catalogue/ingredients' : `/catalogue/ingredients?${rendered}`;
@@ -455,8 +481,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ));
 
             if (!needsClientStatusFilter && filter?.ownedOnly !== true) {
+                // The single-code case was answered by the server above; only a union is left.
                 const allergenFilter =
-                    filter?.allergenCodes !== undefined && filter.allergenCodes.length > 0;
+                    serverAllergen === undefined &&
+                    filter?.allergenCodes !== undefined &&
+                    filter.allergenCodes.length > 0;
                 if (!allergenFilter) return page;
             }
 
@@ -465,7 +494,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     if (!filter.statuses.includes(row.meta.status)) return false;
                 }
                 if (filter?.ownedOnly === true && row.organisationId === null) return false;
-                if (filter?.allergenCodes !== undefined && filter.allergenCodes.length > 0) {
+                if (
+                    serverAllergen === undefined &&
+                    filter?.allergenCodes !== undefined &&
+                    filter.allergenCodes.length > 0
+                ) {
                     const codes = filter.allergenCodes;
                     if (!row.allergens.some((mapping) => codes.includes(mapping.allergenCode))) {
                         return false;
@@ -611,6 +644,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 filter?.itemType ?? 'product',
                 pickCursorFilter(filter),
                 status,
+                filter?.categoryId,
             );
             return {
                 ...page,
@@ -637,7 +671,12 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems('meal', pickCursorFilter(filter), status);
+            const page = await listCatalogueItems(
+                'meal',
+                pickCursorFilter(filter),
+                status,
+                filter?.categoryId,
+            );
             return {
                 ...page,
                 items: page.items.map((wire) => mapMealAdminFromItem(wire)),
