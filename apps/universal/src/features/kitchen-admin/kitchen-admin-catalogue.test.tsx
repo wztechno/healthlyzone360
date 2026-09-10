@@ -201,7 +201,14 @@ interface MealSeed {
     readonly overrides?: Partial<MealAdmin>;
 }
 
-/** A meal complete enough to publish: both languages on both fields, and a meal type. */
+/**
+ * A saved draft meal: both languages on both fields, and a meal type.
+ *
+ * Deliberately *not* publishable — `availability` is empty, and the publish gate counts one service
+ * day. Most of this suite is about the record rather than the calendar, and the availability tests
+ * add their own days from an empty list, so a seeded day here would have to be undone more often
+ * than it was wanted. The tests that need the gate cleared use {@link publishableMeal}.
+ */
 function meal({ ordinal, name, overrides = {} }: MealSeed): MealAdmin {
     const label = name ?? `Meal ${String(ordinal)}`;
     return {
@@ -463,7 +470,10 @@ describe('the product list', () => {
         expect(screen.getByTestId(`${base}-channels`)).toBeTruthy();
         expect(screen.queryByTestId(`${base}-channels-none`)).toBeNull();
         expect(screen.getByTestId(`${base}-status`)).toBeTruthy();
-        expect(screen.getByTestId(`${base}-updated`)).toBeTruthy();
+        // Updated has left every Catalogue list: when a record last moved is a fact about
+        // that record, not about a list, and the View panel still carries it along with who
+        // moved it — which the 96px track never had room for.
+        expect(screen.queryByTestId(`${base}-updated`)).toBeNull();
     });
 
     it('offers no publish control, because the contract publishes none for a product', async () => {
@@ -646,8 +656,11 @@ describe('the meal list', () => {
         expect(screen.getByTestId(`${base}-meal-types`)).toBeTruthy();
         // "Live", not "Published": the Catalogue's status badges take the short vocabulary every
         // one of its lists uses, so a kitchen reads the same word down every column.
-        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Live/);
-        expect(screen.getByTestId(`${base}-updated`)).toBeTruthy();
+        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Published/);
+        // Updated has left every Catalogue list: when a record last moved is a fact about
+        // that record, not about a list, and the View panel still carries it along with who
+        // moved it — which the 96px track never had room for.
+        expect(screen.queryByTestId(`${base}-updated`)).toBeNull();
     });
 
     it('states what publication means in the View panel, where a record is read one at a time', async () => {
@@ -839,6 +852,22 @@ describe('creating and editing a product', () => {
             fireEvent.press(screen.getByTestId('kitchen-product-category-option-store-cupboard'));
         });
 
+        /*
+         * And a pack, because the save gate counts one. A product with no pack is a record no price
+         * list can point at and no order line can measure, so the editor refuses it rather than
+         * writing a row that every downstream screen would then have to special-case.
+         */
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
+        });
+        const pack = 'kitchen-product-pack-editor-row-pack-1';
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${pack}-code-input`), 'RSL-055');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${pack}-quantity-input`), '500');
+        });
+
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
         });
@@ -859,7 +888,15 @@ describe('creating and editing a product', () => {
             itemType: 'product',
             isMarketPriced: false,
             isAssorted: false,
-            packVariants: [],
+            packVariants: [
+                {
+                    code: 'RSL-055',
+                    label: { en: '', ar: '' },
+                    netQuantity: 500,
+                    netUnit: 'g',
+                    unitsPerPack: 1,
+                },
+            ],
         });
     });
 
@@ -883,21 +920,31 @@ describe('creating and editing a product', () => {
         const firstRow = `kitchen-product-pack-editor-row-seed-0-${first.code}`;
         const secondRow = `kitchen-product-pack-editor-row-seed-1-${second.code}`;
 
-        expect(screen.getByTestId(`${firstRow}-default`)).toBeTruthy();
-        expect(screen.queryByTestId(`${secondRow}-default`)).toBeNull();
+        /*
+         * Position is the only ordering a pack list has — the first row is the default pack — so
+         * "to its own position" is read off the codes in document order rather than a badge. The
+         * editor draws no default marker now that the rows are a table under one header; the order
+         * is the statement, and it is what the request is built from.
+         */
+        const packCodes = () =>
+            screen
+                .getAllByTestId(/^kitchen-product-pack-editor-row-.+-code-input$/)
+                .map((node) => String(node.props.value));
 
-        // Remove the first pack; the second inherits the default badge, and undo puts it back.
+        expect(packCodes()).toEqual([first.code, second.code]);
+
+        // Remove the first pack; undo puts it back at the head, not on the end.
         await act(async () => {
             fireEvent.press(screen.getByTestId(`${firstRow}-remove`));
         });
         expect(screen.queryByTestId(firstRow)).toBeNull();
-        expect(screen.getByTestId(`${secondRow}-default`)).toBeTruthy();
+        expect(packCodes()).toEqual([second.code]);
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-pack-editor-removed-bar-undo'));
         });
-        await untilVisible(`${firstRow}-default`);
-        expect(screen.queryByTestId(`${secondRow}-default`)).toBeNull();
+        await untilVisible(firstRow);
+        expect(packCodes()).toEqual([first.code, second.code]);
 
         // A duplicate code is refused on the offending row and blocks the save, because a price
         // list points at a pack by its code and two of them make the reference ambiguous.
@@ -1508,8 +1555,16 @@ describe('creating a meal', () => {
         });
         await untilVisible('kitchen-meal-name-en-input');
 
-        // Nothing that needs an identifier is offered yet, and that is the create form's promise.
-        expect(screen.getByTestId('kitchen-meal-availability-unavailable')).toBeTruthy();
+        /*
+         * Service days are offered on the create form, and that is deliberate: the rows are held in
+         * local state and written by the create branch the moment the meal has an id, so a day
+         * typed before the first save is not lost. The section opens on its empty state.
+         *
+         * Publishing is the thing that genuinely needs an identifier, and it is the thing withheld
+         * — there is no record yet for the server to make public.
+         */
+        expect(screen.getByTestId('kitchen-meal-availability-empty')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-meal-availability-add')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-meal-publish')).toBeNull();
 
         await act(async () => {
@@ -1596,9 +1651,30 @@ describe('creating a meal', () => {
     });
 });
 
+/**
+ * A meal the publish gate lets through.
+ *
+ * `meal()` is deliberately left with no service days — most of this suite is about the record, not
+ * the calendar — but publication now blocks on one, for the reason the gate states: a meal nobody
+ * can order on any date is a listing that reads as broken the moment a shopper opens it. These
+ * tests are about what happens *after* the gate, so they clear it here rather than re-asserting it
+ * in five places.
+ */
+function publishableMeal(seed: MealSeed): MealAdmin {
+    return meal({
+        ...seed,
+        overrides: {
+            availability: [
+                { date: '2026-09-01', isAvailable: true, remaining: null, orderCutOffAt: null },
+            ],
+            ...seed.overrides,
+        },
+    });
+}
+
 describe('publishing a meal', () => {
     it('claims public visibility only once the server has answered published', async () => {
-        let stored = meal({ ordinal: 3, name: 'Charred aubergine bowl' });
+        let stored = publishableMeal({ ordinal: 3, name: 'Charred aubergine bowl' });
 
         const { repositories } = await renderStubScreen(
             <MealEditScreen meal={String(stored.id)} />,
@@ -1673,7 +1749,11 @@ describe('publishing a meal', () => {
      * workspace permanently disabled.
      */
     it('does not withhold publication over a meal type this contract cannot store', async () => {
-        let stored = meal({ ordinal: 7, name: 'Bought-in bowl', overrides: { mealTypes: [] } });
+        let stored = publishableMeal({
+            ordinal: 7,
+            name: 'Bought-in bowl',
+            overrides: { mealTypes: [] },
+        });
 
         const { repositories } = await renderStubScreen(
             <MealEditScreen meal={String(stored.id)} />,
@@ -1723,7 +1803,7 @@ describe('publishing a meal', () => {
         // `MealAdmin.allergens` is frozen at publication from that version. Inheriting a label from
         // anywhere else would publish a food-safety claim nobody made about this dish — so the
         // dialog that is about to make it public says plainly that there is none.
-        const stored = meal({
+        const stored = publishableMeal({
             ordinal: 4,
             name: 'Plain rice',
             overrides: { allergens: [], recipeId: null, recipeVersionId: null },
@@ -1758,7 +1838,7 @@ describe('publishing a meal', () => {
      * `validation.failed` on `status` produces, and that is what is asserted here.
      */
     it('renders a refusal on `status` as a quarantine, and the meal stays unpublished', async () => {
-        const stored = meal({ ordinal: 5, name: 'Contested tabbouleh' });
+        const stored = publishableMeal({ ordinal: 5, name: 'Contested tabbouleh' });
 
         await renderStubScreen(<MealEditScreen meal={String(stored.id)} />, {
             session: kitchenManagerSession(),

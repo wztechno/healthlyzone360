@@ -7,16 +7,16 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     Checkbox,
     Dialog,
     ErrorState,
-    Heading,
+    FormSection,
     Inline,
     Select,
     Skeleton,
     Stack,
     Text,
+    TextInputField,
     useToast,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
@@ -26,6 +26,7 @@ import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -49,6 +50,7 @@ import {
 } from '../catalogue-row-editors.tsx';
 import type { ChannelDraft, PackDraft } from '../catalogue-row-editors.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
+import { GateRailCard } from '../gate-rail-card.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     dietClassificationKey,
@@ -329,7 +331,48 @@ function ProductEditor({
 
     const nameMissing = details.name.en.trim() === '';
     const categoryMissing = details.categoryCode.trim() === '';
-    const detailsBlocked = nameMissing || categoryMissing || packRowErrors.size > 0;
+    const packsBlocked = details.packs.length === 0 || packRowErrors.size > 0;
+    const detailsBlocked = nameMissing || categoryMissing || packsBlocked;
+
+    /**
+     * The rail's rows, and the save button's `disabled`, from one set of predicates.
+     *
+     * "Before you can save" rather than "before you can publish": this catalogue has no publish
+     * action - a resale item is live once it is saved and routed - so the gate names the act it
+     * actually guards.
+     *
+     * Channels are on the list and are the one row the save does not block on. The channels write
+     * is a separate call against a separate lock, so refusing to save the record because a route is
+     * unticked would trap a valid record behind a second endpoint.
+     */
+    const gateChecks = [
+        {
+            key: 'name',
+            label: t('kitchen:products.gateCheckName'),
+            passed: !nameMissing,
+            note: t('kitchen:products.blockName'),
+        },
+        {
+            key: 'category',
+            label: t('kitchen:products.gateCheckCategory'),
+            passed: !categoryMissing,
+            note: t('kitchen:products.blockCategory'),
+        },
+        {
+            key: 'packs',
+            label: t('kitchen:products.gateCheckPacks'),
+            passed: !packsBlocked,
+            note: t('kitchen:products.blockPacks'),
+        },
+        {
+            key: 'channels',
+            label: t('kitchen:products.gateCheckChannels', {
+                count: channels.filter((row) => row.isAvailable).length,
+            }),
+            passed: channels.some((row) => row.isAvailable),
+            note: t('kitchen:products.blockChannels'),
+        },
+    ];
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -350,7 +393,6 @@ function ProductEditor({
                 },
                 {
                     onSuccess: (created) => {
-                        settle(false, false);
                         toast.show({
                             testID: 'kitchen-product-created-toast',
                             tone: 'success',
@@ -358,7 +400,36 @@ function ProductEditor({
                                 name: displayName(created.name, locale).value,
                             }),
                         });
-                        router.replace(`${routeBase}/${String(created.id)}` as never);
+
+                        const open = () => {
+                            settle(false, false);
+                            router.replace(`${routeBase}/${String(created.id)}` as never);
+                        };
+
+                        /*
+                         * Routes to market can be ticked before the product exists, so they arrive
+                         * here with nowhere to have been written yet - the channels endpoint takes
+                         * a product id. This is the first moment there is one.
+                         *
+                         * `onSettled`, not `onSuccess`: the record itself is saved either way, and
+                         * stranding somebody on a create form for a record that already exists is
+                         * worse than landing them on it with the gate saying the routes are unset.
+                         */
+                        if (!channels.some((row) => row.isAvailable)) {
+                            open();
+                            return;
+                        }
+
+                        setChannels.mutate(
+                            {
+                                productId: created.id,
+                                request: {
+                                    lockVersion: created.meta.lockVersion,
+                                    availability: channelRequest(channels),
+                                },
+                            },
+                            { onSettled: open },
+                        );
                     },
                 },
             );
@@ -490,10 +561,72 @@ function ProductEditor({
             saveLabel={t('kitchen:common.saveDraft')}
             saving={create.isPending || update.isPending}
             saveDisabled={!canManage || detailsBlocked}
-            backLabel={t('kitchen:products.backToList')}
+            backLabel={t('kitchen:common.cancel')}
             onBack={() => {
                 router.push(routeBase as never);
             }}
+            actionsPlacement="header"
+            headerVariant="plain"
+            rail={
+                <Stack space="md">
+                    <GateRailCard
+                        testID="kitchen-product-gate"
+                        title={t('kitchen:products.gateTitle')}
+                        checks={gateChecks}
+                    />
+
+                    {/*
+                     * Derived, and labelled as derived. `ProductAdmin.dietClassifications` is
+                     * answered from the linked recipe published version - see the module note - so
+                     * this is a fact about the recipe shown where somebody looking at the product
+                     * needs it, not a field they can disagree with here.
+                     */}
+                    <View
+                        testID="kitchen-product-diets"
+                        className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                    >
+                        <Inline space="xs" align="center" wrap>
+                            <Text
+                                variant="label"
+                                tone="secondary"
+                                className="uppercase tracking-widest"
+                            >
+                                {t('kitchen:products.dietsRailTitle')}
+                            </Text>
+                            <Badge
+                                testID="kitchen-product-diets-source"
+                                tone="neutral"
+                                label={t('kitchen:products.dietsFromRecipe')}
+                            />
+                        </Inline>
+
+                        {data === undefined || data.dietClassifications.length === 0 ? (
+                            <Text
+                                testID="kitchen-product-diets-none"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {t('kitchen:products.dietsRailEmpty')}
+                            </Text>
+                        ) : (
+                            <Inline space="xs" wrap>
+                                {data.dietClassifications.map((diet) => (
+                                    <Badge
+                                        key={diet}
+                                        testID={`kitchen-product-diet-${diet}`}
+                                        tone="neutral"
+                                        label={t(dietClassificationKey(diet))}
+                                    />
+                                ))}
+                            </Inline>
+                        )}
+
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:products.dietsProvenance')}
+                        </Text>
+                    </View>
+                </Stack>
+            }
             primaryAction={
                 isCreating || !canManage || data?.meta.status === 'retired' ? null : (
                     <Button
@@ -514,6 +647,27 @@ function ProductEditor({
                      * determination it came from, on the ingredient. This product family has no
                      * publish action at all, so the notice explains rather than offering a way out.
                      */}
+                    {data === undefined || data.dataQualityFlags.length === 0 ? null : (
+                        <Callout
+                            testID="kitchen-product-data-quality"
+                            role="note"
+                            tone="warning"
+                            title={t('kitchen:products.dataQualityTitle')}
+                            body={t('kitchen:products.dataQualityBody')}
+                        >
+                            <Inline space="xs" wrap>
+                                {data.dataQualityFlags.map((flag) => (
+                                    <Badge
+                                        key={flag}
+                                        testID={`kitchen-product-flag-${flag}`}
+                                        tone="warning"
+                                        label={humaniseCode(flag)}
+                                    />
+                                ))}
+                            </Inline>
+                        </Callout>
+                    )}
+
                     {quarantined ? (
                         <Callout
                             testID="kitchen-product-quarantine"
@@ -544,98 +698,227 @@ function ProductEditor({
                 </Stack>
             }
         >
-            {/* ── the record ───────────────────────────────────────────────────────────────── */}
-            <Card testID="kitchen-product-details" padding="md">
-                <Stack space="md">
-                    <Heading level={2}>{t('kitchen:products.sectionDetails')}</Heading>
-
-                    <BilingualField
-                        testID="kitchen-product-name"
-                        fieldLabel={t('kitchen:fields.name')}
-                        value={details.name}
-                        requiredEnglish
-                        {...(nameMissing
-                            ? { englishError: t('kitchen:products.nameRequired') }
-                            : {})}
-                        onChange={(next) => {
-                            setDetails({ ...details, name: next });
-                            markDetailsDirty();
-                        }}
-                    />
-
-                    <BilingualField
-                        testID="kitchen-product-description"
-                        fieldLabel={t('kitchen:products.descriptionLabel')}
-                        multiline
-                        value={details.description}
-                        onChange={(next) => {
-                            setDetails({ ...details, description: next });
-                            markDetailsDirty();
-                        }}
-                    />
-
-                    <Select
-                        testID="kitchen-product-category"
-                        id="kitchen-product-category"
-                        label={t('kitchen:fields.category')}
-                        hint={t('kitchen:products.categoryHint')}
-                        placeholder={t('kitchen:fields.categoryPlaceholder')}
-                        searchable
-                        required
-                        disabled={!canManage}
-                        options={categoryOptions}
-                        value={details.categoryCode === '' ? null : details.categoryCode}
-                        {...(categoryMissing
-                            ? { error: t('kitchen:editor.categoryRequired') }
-                            : {})}
-                        onChange={(next) => {
-                            setDetails({ ...details, categoryCode: next });
-                            markDetailsDirty();
-                        }}
-                    />
-
+            {/*
+             * 12px between sections, not 24. `FormSection` already draws 24px under its own
+             * hairline and 12px under its title; a `loose` container gap on top of that spends a
+             * third of the panel on separation. This is the space above each rule only.
+             */}
+            <View className="z-auto flex-col gap-snug">
+                {/* ── the record ───────────────────────────────────────────────────────────────── */}
+                {/*
+                 * `FormSection`, not a `Card` with a `Heading` — the shape every Catalogue editor
+                 * takes, and the reason a reader moving between them meets one form rather than
+                 * several.
+                 *
+                 * The field layout is stated row by row rather than left to `FormGrid`; see the
+                 * note on the rows themselves for why a bilingual pair cannot be auto-placed.
+                 */}
+                <FormSection
+                    first
+                    testID="kitchen-product-details"
+                    title={t('kitchen:products.sectionIdentity')}
+                >
                     {/*
-                     * Two flags, two sentences. `isMarketPriced` is not decoration: a product priced
-                     * at the day's rate carries no confirmed price, and the price list records that
-                     * absence as `market_priced` with a NULL amount rather than a number nobody
-                     * agreed. `isAssorted` says the row stands for a mixed selection, which is how
-                     * the source material's "assorted" lines survive without being invented into
-                     * articles that do not exist.
+                     * Explicit two-up rows, not `FormGrid`.
+                     *
+                     * The grid places fields on 280px tracks in source order and wraps them, which is
+                     * right for a form of short independent answers and wrong for this one: a name and
+                     * its translation are one answer in two boxes, and auto-placement kept splitting
+                     * the pairs across rows and columns - Category ended up beside a description, and
+                     * the two halves of a bilingual field landed in different rows. Each row here is a
+                     * pair that belongs together, and each half fills its share of the panel.
                      */}
-                    <Checkbox
-                        testID="kitchen-product-market-priced"
-                        id="kitchen-product-market-priced"
-                        label={t('kitchen:products.marketPricedLabel')}
-                        description={t('kitchen:products.marketPricedHint')}
-                        checked={details.isMarketPriced}
-                        disabled={!canManage}
-                        onChange={(checked) => {
-                            setDetails({ ...details, isMarketPriced: checked });
-                            markDetailsDirty();
-                        }}
-                    />
+                    <Stack space="md">
+                        {/*
+                         * Drawn only once the record has one.
+                         *
+                         * Nothing issues a resale reference - `ReferenceSeries` is `ING-` | `RC-` |
+                         * `SAC-` | `DRS-`, with no resale series to count - so while creating this was a
+                         * permanently empty, permanently disabled box at the top of the form. A field
+                         * that can never hold anything on the screen it is drawn on is furniture; on a
+                         * saved record the handle is real and worth reading, so it stays there.
+                         */}
+                        {data?.reference == null ? null : (
+                            <TextInputField
+                                testID="kitchen-product-reference"
+                                id="kitchen-product-reference"
+                                label={t('kitchen:list.columnReference')}
+                                size="sm"
+                                value={data.reference}
+                                disabled
+                                onChangeText={() => undefined}
+                            />
+                        )}
 
-                    <Checkbox
-                        testID="kitchen-product-assorted"
-                        id="kitchen-product-assorted"
-                        label={t('kitchen:products.assortedLabel')}
-                        description={t('kitchen:products.assortedHint')}
-                        checked={details.isAssorted}
-                        disabled={!canManage}
-                        onChange={(checked) => {
-                            setDetails({ ...details, isAssorted: checked });
-                            markDetailsDirty();
-                        }}
-                    />
-                </Stack>
-            </Card>
+                        <BilingualField
+                            testID="kitchen-product-name"
+                            layout="fill"
+                            fieldLabel={t('kitchen:fields.name')}
+                            value={details.name}
+                            requiredEnglish
+                            {...(nameMissing
+                                ? { englishError: t('kitchen:products.nameRequired') }
+                                : {})}
+                            onChange={(next) => {
+                                setDetails({ ...details, name: next });
+                                markDetailsDirty();
+                            }}
+                        />
 
-            {/* ── packs ────────────────────────────────────────────────────────────────────── */}
-            <Card testID="kitchen-product-packs" padding="md">
-                <Stack space="md">
-                    <Inline space="sm" align="center" justify="between" wrap>
-                        <Heading level={2}>{t('kitchen:products.sectionPacks')}</Heading>
-                        {canManage ? (
+                        <BilingualField
+                            testID="kitchen-product-description"
+                            layout="fill"
+                            fieldLabel={t('kitchen:products.descriptionLabel')}
+                            multiline
+                            value={details.description}
+                            onChange={(next) => {
+                                setDetails({ ...details, description: next });
+                                markDetailsDirty();
+                            }}
+                        />
+
+                        {/*
+                         * "What is it filed under" and "where does it come from" are asked of a new
+                         * resale item in the same breath, so they share a row. The recipe hint answers
+                         * the state the field is in: with no recipe there is nothing to derive.
+                         */}
+                        <View className="z-auto flex-col gap-base md:flex-row">
+                            <View className="z-auto min-w-0 flex-1">
+                                <Select
+                                    testID="kitchen-product-category"
+                                    id="kitchen-product-category"
+                                    label={t('kitchen:fields.category')}
+                                    placeholder={t('kitchen:fields.categoryPlaceholder')}
+                                    searchable
+                                    required
+                                    disabled={!canManage}
+                                    options={categoryOptions}
+                                    value={
+                                        details.categoryCode === '' ? null : details.categoryCode
+                                    }
+                                    {...(categoryMissing
+                                        ? { error: t('kitchen:editor.categoryRequired') }
+                                        : {})}
+                                    onChange={(next) => {
+                                        setDetails({ ...details, categoryCode: next });
+                                        markDetailsDirty();
+                                    }}
+                                />
+                            </View>
+
+                            <View className="z-auto min-w-0 flex-1">
+                                <Select
+                                    testID="kitchen-product-recipe-select"
+                                    id="kitchen-product-recipe-select"
+                                    label={t('kitchen:products.recipeLabel')}
+                                    placeholder={t('kitchen:products.recipePlaceholder')}
+                                    searchable
+                                    disabled={!canManage}
+                                    options={recipeOptions}
+                                    value={
+                                        details.recipeId === null
+                                            ? NO_RECIPE
+                                            : String(details.recipeId)
+                                    }
+                                    {...(details.recipeId === null
+                                        ? { hint: t('kitchen:products.recipeHintNone') }
+                                        : {})}
+                                    onChange={(next) => {
+                                        setDetails({
+                                            ...details,
+                                            recipeId:
+                                                next === NO_RECIPE ? null : (next as RecipeId),
+                                        });
+                                        markDetailsDirty();
+                                    }}
+                                />
+                            </View>
+                        </View>
+
+                        {/*
+                         * Two flags, two words each. `isMarketPriced` is not decoration: a product
+                         * priced at the day's rate carries no confirmed price, and the price list
+                         * records that absence as `market_priced` with a NULL amount rather than a
+                         * number nobody agreed. `isAssorted` says the row stands for a mixed selection,
+                         * which is how the source material's "assorted" lines survive without being
+                         * invented into articles that do not exist. Both sentences moved to the label's
+                         * own hint rather than a paragraph under each box: side by side, two
+                         * three-line explanations were taller than the form above them.
+                         */}
+                        <Inline space="md" wrap>
+                            <Checkbox
+                                testID="kitchen-product-market-priced"
+                                id="kitchen-product-market-priced"
+                                label={t('kitchen:products.marketPricedShort')}
+                                checked={details.isMarketPriced}
+                                disabled={!canManage}
+                                onChange={(checked) => {
+                                    setDetails({ ...details, isMarketPriced: checked });
+                                    markDetailsDirty();
+                                }}
+                            />
+
+                            <Checkbox
+                                testID="kitchen-product-assorted"
+                                id="kitchen-product-assorted"
+                                label={t('kitchen:products.assortedShort')}
+                                checked={details.isAssorted}
+                                disabled={!canManage}
+                                onChange={(checked) => {
+                                    setDetails({ ...details, isAssorted: checked });
+                                    markDetailsDirty();
+                                }}
+                            />
+                        </Inline>
+
+                        {details.recipeId === null ? null : (
+                            <Inline space="sm" align="center" wrap>
+                                <Text testID="kitchen-product-recipe-linked">
+                                    {linkedRecipe === null
+                                        ? String(details.recipeId)
+                                        : displayName(linkedRecipe.name, locale).value}
+                                </Text>
+                                <Button
+                                    testID="kitchen-product-recipe-open"
+                                    size="sm"
+                                    variant="ghost"
+                                    label={t('kitchen:products.openRecipe')}
+                                    onPress={() => {
+                                        const target = details.recipeId;
+                                        if (target === null) return;
+                                        guard.intercept(() => {
+                                            router.push(
+                                                `/kitchen/recipes/${String(target)}` as never,
+                                            );
+                                        });
+                                    }}
+                                />
+                            </Inline>
+                        )}
+                    </Stack>
+                </FormSection>
+
+                {/* ── packs ────────────────────────────────────────────────────────────────────── */}
+                {/*
+                 * `actions` rather than an `Inline … justify="between"` of my own: the section already
+                 * owns that row, and hand-rolling it put the Add button on a different baseline from
+                 * every other section header in the workspace. `description` likewise replaces the
+                 * caption `Text` under the title.
+                 */}
+                <FormSection
+                    testID="kitchen-product-packs"
+                    title={t('kitchen:products.sectionPacks')}
+                    aside={
+                        <Text
+                            testID="kitchen-product-packs-count"
+                            variant="caption"
+                            tone="secondary"
+                        >
+                            {t('kitchen:products.packCount', { count: details.packs.length })}
+                        </Text>
+                    }
+                    actions={
+                        canManage ? (
                             <Button
                                 testID="kitchen-product-packs-add"
                                 size="sm"
@@ -649,177 +932,67 @@ function ProductEditor({
                                     markDetailsDirty();
                                 }}
                             />
-                        ) : null}
-                    </Inline>
-
-                    <Text tone="secondary" variant="caption">
-                        {t('kitchen:products.packsHint')}
-                    </Text>
-
-                    <PackVariantEditor
-                        testID="kitchen-product-pack-editor"
-                        rows={details.packs}
-                        errors={packRowErrors}
-                        canManage={canManage}
-                        onChange={(next) => {
-                            setDetails({ ...details, packs: next });
-                            markDetailsDirty();
-                        }}
-                    />
-                </Stack>
-            </Card>
-
-            {/* ── source transcription ─────────────────────────────────────────────────────── */}
-            {data?.composition == null && data?.kitchenCategory == null ? null : (
-                <Card testID="kitchen-product-composition" padding="md">
-                    <Stack space="sm">
-                        <Heading level={2}>{t('kitchen:fields.composition')}</Heading>
-                        {data.kitchenCategory === null ? null : (
-                            <Text
-                                testID="kitchen-product-composition-category"
-                                variant="caption"
-                                tone="secondary"
-                            >
-                                {data.kitchenSubcategory === null
-                                    ? data.kitchenCategory
-                                    : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
-                            </Text>
-                        )}
-                        {data.composition === null ? null : (
-                            <Text testID="kitchen-product-composition-text">
-                                {data.composition}
-                            </Text>
-                        )}
-                    </Stack>
-                </Card>
-            )}
-
-            {/* ── recipe linkage ───────────────────────────────────────────────────────────── */}
-            <Card testID="kitchen-product-recipe" padding="md">
-                <Stack space="md">
-                    <Heading level={2}>{t('kitchen:products.sectionRecipe')}</Heading>
-
-                    <Text tone="secondary" variant="caption">
-                        {t('kitchen:products.recipeHint')}
-                    </Text>
-
-                    <Select
-                        testID="kitchen-product-recipe-select"
-                        id="kitchen-product-recipe-select"
-                        label={t('kitchen:products.recipeLabel')}
-                        searchable
-                        disabled={!canManage}
-                        options={recipeOptions}
-                        value={details.recipeId === null ? NO_RECIPE : String(details.recipeId)}
-                        onChange={(next) => {
-                            setDetails({
-                                ...details,
-                                recipeId: next === NO_RECIPE ? null : (next as RecipeId),
-                            });
-                            markDetailsDirty();
-                        }}
-                    />
-
-                    {details.recipeId === null ? (
-                        <Text testID="kitchen-product-recipe-none" tone="secondary">
-                            {t('kitchen:products.recipeNoneHint')}
-                        </Text>
-                    ) : (
-                        <Inline space="sm" align="center" wrap>
-                            <Text testID="kitchen-product-recipe-linked">
-                                {linkedRecipe === null
-                                    ? String(details.recipeId)
-                                    : displayName(linkedRecipe.name, locale).value}
-                            </Text>
-                            <Button
-                                testID="kitchen-product-recipe-open"
-                                size="sm"
-                                variant="ghost"
-                                label={t('kitchen:products.openRecipe')}
-                                onPress={() => {
-                                    const target = details.recipeId;
-                                    if (target === null) return;
-                                    guard.intercept(() => {
-                                        router.push(`/kitchen/recipes/${String(target)}` as never);
-                                    });
-                                }}
-                            />
-                        </Inline>
-                    )}
-
-                    {/*
-                     * Derived, and labelled as derived. `ProductAdmin.dietClassifications` is
-                     * answered from the linked recipe's published version — see the module note —
-                     * so this is a fact about the recipe rendered where a person looking at the
-                     * product needs it, not a field they can disagree with here.
-                     */}
-                    <Stack space="xs" testID="kitchen-product-diets">
-                        <Text variant="label">{t('kitchen:products.dietsLabel')}</Text>
-                        {data === undefined || data.dietClassifications.length === 0 ? (
-                            <Text
-                                testID="kitchen-product-diets-none"
-                                tone="secondary"
-                                variant="caption"
-                            >
-                                {t('kitchen:products.dietsNone')}
-                            </Text>
-                        ) : (
-                            <Inline space="xs" wrap>
-                                {data.dietClassifications.map((diet) => (
-                                    <Badge
-                                        key={diet}
-                                        testID={`kitchen-product-diet-${diet}`}
-                                        tone="neutral"
-                                        label={t(dietClassificationKey(diet))}
-                                    />
-                                ))}
-                            </Inline>
-                        )}
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:products.dietsProvenance')}
-                        </Text>
-                    </Stack>
-
-                    {data === undefined || data.dataQualityFlags.length === 0 ? null : (
-                        <Callout
-                            testID="kitchen-product-data-quality"
-                            role="note"
-                            tone="warning"
-                            title={t('kitchen:products.dataQualityTitle')}
-                            body={t('kitchen:products.dataQualityBody')}
-                        >
-                            <Inline space="xs" wrap>
-                                {data.dataQualityFlags.map((flag) => (
-                                    <Badge
-                                        key={flag}
-                                        testID={`kitchen-product-flag-${flag}`}
-                                        tone="warning"
-                                        label={humaniseCode(flag)}
-                                    />
-                                ))}
-                            </Inline>
-                        </Callout>
-                    )}
-                </Stack>
-            </Card>
-
-            {/* ── channels ─────────────────────────────────────────────────────────────────── */}
-            {isCreating ? (
-                <Card testID="kitchen-product-channels-unavailable" padding="md">
-                    <Stack space="sm">
-                        <Heading level={2}>{t('kitchen:channels.sectionTitle')}</Heading>
-                        <Text tone="secondary">{t('kitchen:channels.createFirst')}</Text>
-                    </Stack>
-                </Card>
-            ) : (
-                <Card testID="kitchen-product-channels" padding="md">
+                        ) : undefined
+                    }
+                >
                     <Stack space="md">
-                        <Heading level={2}>{t('kitchen:channels.sectionTitle')}</Heading>
+                        <PackVariantEditor
+                            testID="kitchen-product-pack-editor"
+                            rows={details.packs}
+                            errors={packRowErrors}
+                            canManage={canManage}
+                            onChange={(next) => {
+                                setDetails({ ...details, packs: next });
+                                markDetailsDirty();
+                            }}
+                        />
+                    </Stack>
+                </FormSection>
 
-                        <Text tone="secondary" variant="caption">
-                            {t('kitchen:channels.sectionHint')}
+                {/* ── source transcription ─────────────────────────────────────────────────────── */}
+                {data?.composition == null && data?.kitchenCategory == null ? null : (
+                    <FormSection
+                        testID="kitchen-product-composition"
+                        title={t('kitchen:fields.composition')}
+                    >
+                        <Stack space="sm">
+                            {data.kitchenCategory === null ? null : (
+                                <Text
+                                    testID="kitchen-product-composition-category"
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {data.kitchenSubcategory === null
+                                        ? data.kitchenCategory
+                                        : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
+                                </Text>
+                            )}
+                            {data.composition === null ? null : (
+                                <Text testID="kitchen-product-composition-text">
+                                    {data.composition}
+                                </Text>
+                            )}
+                        </Stack>
+                    </FormSection>
+                )}
+
+                {/* ── channels ─────────────────────────────────────────────────────────────────── */}
+                {/*
+                 * Ticked before the record exists, not after it. The rows are held in local state and
+                 * written by the create branch the moment the product has an id - see `saveDetails`.
+                 * That is also why the aside says the section saves separately: it is a different
+                 * endpoint against a different lock, which is the contract's split, not a UI choice.
+                 */}
+                <FormSection
+                    testID="kitchen-product-channels"
+                    title={t('kitchen:channels.sectionTitle')}
+                    aside={
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:channels.savedSeparately')}
                         </Text>
-
+                    }
+                >
+                    <Stack space="md">
                         {channelFailure === null ? null : (
                             <Callout
                                 testID="kitchen-product-channels-error"
@@ -840,7 +1013,13 @@ function ProductEditor({
                             }}
                         />
 
-                        {canManage ? (
+                        {/*
+                         * The separate save appears once there is a record to save against, and
+                         * only when something has actually changed - on a new product the create
+                         * writes these rows itself, so a second button would be a second way to do
+                         * the same thing, disabled most of the time.
+                         */}
+                        {isCreating || !canManage || !channelsDirty ? null : (
                             <Inline space="sm" wrap justify="end">
                                 <Button
                                     testID="kitchen-product-channels-save"
@@ -851,10 +1030,10 @@ function ProductEditor({
                                     onPress={saveChannels}
                                 />
                             </Inline>
-                        ) : null}
+                        )}
                     </Stack>
-                </Card>
-            )}
+                </FormSection>
+            </View>
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
             <Dialog

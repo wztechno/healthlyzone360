@@ -59,6 +59,23 @@ export interface EditorFrameProps {
     readonly onBack: () => void;
     readonly backLabel: string;
     /**
+     * Where the save and back controls sit.
+     *
+     * `footer` is the treatment eight of the nine editors ship: a bar at the end of the flow, for
+     * the reason the bar's own note gives. `header` puts the same two controls right-aligned on the
+     * title row instead — the meal editor's handoff draws them there, beside the status the save
+     * changes. Opt-in rather than a switch, so adopting it is a decision each editor makes with its
+     * own design in hand.
+     */
+    readonly actionsPlacement?: 'footer' | 'header' | undefined;
+    /**
+     * `band` wraps the title, status and actions in their own raised panel — the treatment eight of
+     * the nine editors ship. `plain` drops the panel and its padding, leaving the same content on
+     * the page canvas: a header card above a form card is two rectangles for one page, and on a desk
+     * surface it costs a fifth of the viewport before a single field is visible.
+     */
+    readonly headerVariant?: 'band' | 'plain' | undefined;
+    /**
      * A right-hand column beside the form on wide screens — the meal editor's publication gate.
      * Stacks after the form below `lg`, so the reading order is the same at every width.
      */
@@ -81,12 +98,15 @@ export function EditorFrame({
     banner,
     onBack,
     backLabel,
+    actionsPlacement = 'footer',
+    headerVariant = 'band',
     rail,
     children,
     testID,
 }: EditorFrameProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const inHeader = actionsPlacement === 'header';
 
     const updatedLine = (): string => {
         if (meta === null) return t('kitchen:editor.neverSaved');
@@ -95,26 +115,49 @@ export function EditorFrame({
         return t('kitchen:editor.lastUpdatedBy', { when, name: meta.updatedByName });
     };
 
+    /*
+     * One definition each, rendered in whichever slot `actionsPlacement` names. The test ids do not
+     * move with them: a suite that presses `-save` presses the same control in both treatments.
+     */
+    const backButton = (
+        <Button
+            testID={`${testID}-back`}
+            variant={inHeader ? 'secondary' : 'ghost'}
+            {...(inHeader ? {} : { size: 'sm' as const })}
+            label={backLabel}
+            onPress={() => {
+                guard.intercept(onBack);
+            }}
+        />
+    );
+
+    const saveButton = hideSave ? null : (
+        <Button
+            testID={`${testID}-save`}
+            label={saveLabel}
+            loading={saving}
+            disabled={saveDisabled || saving}
+            onPress={onSaveDraft}
+        />
+    );
+
     return (
         <PageTransition testID={testID} transitionKey={testID}>
             <Stack space="lg">
                 <KitchenPageHeader
                     testID={`${testID}-header`}
-                    variant="band"
+                    variant={headerVariant}
                     title={title}
                     titleTestID={`${testID}-title`}
-                    back={
-                        <View className="flex-row">
-                            <Button
-                                testID={`${testID}-back`}
-                                variant="ghost"
-                                size="sm"
-                                label={backLabel}
-                                onPress={() => {
-                                    guard.intercept(onBack);
-                                }}
-                            />
-                        </View>
+                    back={inHeader ? undefined : <View className="flex-row">{backButton}</View>}
+                    actions={
+                        inHeader ? (
+                            <Inline space="xs" align="center" wrap justify="end">
+                                {backButton}
+                                {primaryAction}
+                                {saveButton}
+                            </Inline>
+                        ) : undefined
                     }
                     meta={
                         <Inline space="sm" align="center" wrap testID={`${testID}-meta`}>
@@ -170,21 +213,15 @@ export function EditorFrame({
                  * web it also fights the software keyboard. Brand-tinted border keeps it reachable
                  * visually without stealing viewport height.
                  */}
-                <View
-                    testID={`${testID}-actions`}
-                    className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
-                >
-                    {primaryAction}
-                    {hideSave ? null : (
-                        <Button
-                            testID={`${testID}-save`}
-                            label={saveLabel}
-                            loading={saving}
-                            disabled={saveDisabled || saving}
-                            onPress={onSaveDraft}
-                        />
-                    )}
-                </View>
+                {inHeader ? null : (
+                    <View
+                        testID={`${testID}-actions`}
+                        className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
+                    >
+                        {primaryAction}
+                        {saveButton}
+                    </View>
+                )}
 
                 <Dialog
                     testID={`${testID}-unsaved-dialog`}

@@ -57,21 +57,32 @@ export function GateRailCard({
                         testID={`${testID}-check-${check.key}`}
                         className="flex-row items-start gap-2"
                     >
+                        {/*
+                         * An unmet check is a dot, not a red cross.
+                         *
+                         * Nothing here has gone *wrong*: a record being unfinished is its ordinary
+                         * state for most of the time somebody is filling it in, and four red crosses
+                         * on an empty form reads as four errors rather than four things still to do.
+                         * The pair is still a shape as well as a colour - a filled tick against a
+                         * small hollow dot - so the standing rule that meaning is never carried by
+                         * colour alone holds. Danger ink is kept for the things that are actually
+                         * wrong, which on this page are the field errors.
+                         */}
                         <View
                             aria-hidden
                             className={
                                 check.passed
                                     ? 'h-5 w-5 items-center justify-center rounded-full bg-surface-brand-subtle'
-                                    : 'h-5 w-5 items-center justify-center rounded-full bg-danger-subtle'
+                                    : 'h-5 w-5 items-center justify-center rounded-full bg-surface-sunken'
                             }
                         >
                             <Icon
-                                name={check.passed ? 'check' : 'close'}
+                                name={check.passed ? 'check' : 'dot'}
                                 size="sm"
                                 className={
                                     check.passed
                                         ? 'text-content-on-brand-subtle'
-                                        : 'text-danger-on-subtle'
+                                        : 'text-content-secondary'
                                 }
                             />
                         </View>

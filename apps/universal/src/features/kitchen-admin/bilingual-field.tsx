@@ -107,6 +107,7 @@ function BilingualHalf({
                         disabled,
                         density,
                         size: density === 'compact' ? 'sm' : 'md',
+                        multiline,
                     })}
                 >
                     <TextInput
@@ -179,8 +180,15 @@ export interface BilingualFieldProps extends GridSpanProps {
      * field. `stacked` stays the default so every other editor keeps the marker.
      *
      * It wraps rather than overflowing below `md`, where one 280px column cannot hold two.
+     *
+     * `fill` is `row` with the two halves sharing the container instead of sitting at 280px, and
+     * with the English half labelled by the bare field name — the meal editor's handoff draws its
+     * identity pair edge to edge across the panel. It is the one place the no-stretch rule
+     * (`grid-shared.ts`) is deliberately not applied: a name and its translation are prose, and a
+     * pair of 280px boxes under a 900px panel reads as a form that failed to load rather than as a
+     * restrained one. Nothing else on the page stretches, and no other editor opts in.
      */
-    readonly layout?: 'stacked' | 'row' | undefined;
+    readonly layout?: 'stacked' | 'row' | 'fill' | undefined;
     readonly testID: string;
 }
 
@@ -198,6 +206,41 @@ export function BilingualField({
     const { t } = useTranslation();
     const arabicMissing = value.ar.trim() === '';
     const row = layout === 'row';
+
+    if (layout === 'fill') {
+        return (
+            <View testID={testID} className="z-auto flex-col gap-base md:flex-row">
+                <View className="z-auto min-w-0 flex-1">
+                    <BilingualHalf
+                        testID={`${testID}-en`}
+                        label={fieldLabel}
+                        value={value.en}
+                        onChangeText={(next) => {
+                            onChange({ ...value, en: next });
+                        }}
+                        direction="ltr"
+                        required={requiredEnglish}
+                        multiline={multiline}
+                        disabled={disabled}
+                        {...(englishError === undefined ? {} : { error: englishError })}
+                    />
+                </View>
+                <View className="z-auto min-w-0 flex-1">
+                    <BilingualHalf
+                        testID={`${testID}-ar`}
+                        label={t('kitchen:bilingual.arabicLabel', { field: fieldLabel })}
+                        value={value.ar}
+                        onChangeText={(next) => {
+                            onChange({ ...value, ar: next });
+                        }}
+                        direction="rtl"
+                        multiline={multiline}
+                        disabled={disabled}
+                    />
+                </View>
+            </View>
+        );
+    }
 
     if (row) {
         return (
