@@ -7,7 +7,6 @@ import {
     ErrorState,
     Icon,
     Inline,
-    Menu,
     Skeleton,
     Stack,
     Text,
@@ -26,11 +25,12 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { CatalogueColumnHeader } from '../catalogue/catalogue-column-header.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
 import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
@@ -148,20 +148,6 @@ function MealsList() {
     return (
         <Stack space="md" testID="kitchen-meals-screen">
             <Stack space="xs">
-                <CataloguePageHeader
-                    testID="kitchen-meals-header"
-                    primaryAction={
-                        canManage ? (
-                            <Button
-                                testID="kitchen-meals-toolbar-create"
-                                label={t('kitchen:meals.create')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={list.createNew}
-                            />
-                        ) : undefined
-                    }
-                />
-
                 {list.isPending ? null : (
                     <CatalogueStatCards testID="kitchen-meals-stats" cards={statCards(list, t)} />
                 )}
@@ -179,7 +165,19 @@ function MealsList() {
                 onStatusChange={(status) => {
                     list.setStatuses(status === 'all' ? [] : [status]);
                 }}
-            />
+            >
+                {canManage ? (
+                    <Inline space="xs" align="center">
+                        <CatalogueTransferActions testID="kitchen-meals-toolbar" />
+                        <Button
+                            testID="kitchen-meals-toolbar-create"
+                            label={t('kitchen:meals.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={list.createNew}
+                        />
+                    </Inline>
+                ) : undefined}
+            </CatalogueToolbar>
 
             {list.isPending ? (
                 <Stack space="xs" testID="kitchen-meals-loading">
@@ -349,7 +347,11 @@ function MealsList() {
                                   <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
                               ) : (
                                   list.viewing.allergens.map((code) => (
-                                      <Badge key={String(code)} tone="danger" label={String(code)} />
+                                      <Badge
+                                          key={String(code)}
+                                          tone="danger"
+                                          label={String(code)}
+                                      />
                                   ))
                               ),
                       })}
@@ -474,7 +476,11 @@ function statCards(list: MealListState, t: TFunction): readonly CatalogueStatCar
  * catalogue *view* permission. It renders in the editor, labelled, behind the read that is entitled
  * to it.
  */
-function viewFields(row: MealAdmin, t: TFunction, formatter: Formatter): readonly CatalogueViewField[] {
+function viewFields(
+    row: MealAdmin,
+    t: TFunction,
+    formatter: Formatter,
+): readonly CatalogueViewField[] {
     const dash = t('kitchen:list.noValue');
     const channels = availableChannels(row.channelAvailability);
 
@@ -566,56 +572,48 @@ function headerMenu(
     if (sortKey === null && filter.length === 0) return undefined;
 
     const active = sortKey !== null && list.sortKey === sortKey;
-    const mark = !active ? '' : list.sortDirection === 'asc' ? ' ↑' : ' ↓';
+    // Any value in this column's own list that is currently applied. Derived from the items
+    // rather than restated per entity: the screens already mark the applied value `selected`
+    // so the menu can tick it, and "the menu has a tick" is exactly "the column is filtered".
+    const filtered = filter.some((item) => item.selected === true);
 
-    const sortItems: readonly MenuItem[] =
-        sortKey === null
-            ? []
-            : [
-                  {
-                      key: 'asc',
-                      label: t('kitchen:catalogue.sortAscending'),
-                      selected: active && list.sortDirection === 'asc',
-                      testID: `kitchen-meals-column-${column.key}-asc`,
-                      onSelect: () => {
-                          list.setSort(sortKey, 'asc');
-                      },
-                  },
-                  {
-                      key: 'desc',
-                      label: t('kitchen:catalogue.sortDescending'),
-                      selected: active && list.sortDirection === 'desc',
-                      testID: `kitchen-meals-column-${column.key}-desc`,
-                      onSelect: () => {
-                          list.setSort(sortKey, 'desc');
-                      },
-                  },
-              ];
+    /*
+     * A column with nothing to filter by sorts on the press itself - see `onToggleSort`. The cycle
+     * is the one a reader expects from a table: first press sorts ascending, pressing the column
+     * already sorted flips it.
+     */
+    const toggleSort =
+        sortKey === null || filter.length > 0
+            ? undefined
+            : () => {
+                  list.setSort(sortKey, active && list.sortDirection === 'asc' ? 'desc' : 'asc');
+              };
 
     return () => (
-        <Menu
-            label={t('kitchen:catalogue.columnMenu', { column: column.label })}
-            align="start"
-            className="z-sticky"
-            sections={[
-                ...(sortItems.length === 0 ? [] : [{ items: sortItems }]),
-                ...(filter.length === 0
-                    ? []
-                    : [{ label: t('kitchen:catalogue.filter'), items: filter }]),
-            ]}
-            trigger={({ triggerProps, toggle }) => (
-                <Text
-                    {...triggerProps}
-                    variant="micro"
-                    tone={active ? 'primary' : 'secondary'}
-                    align={column.align === 'center' ? 'center' : undefined}
-                    role="button"
-                    onPress={toggle}
-                    testID={`kitchen-meals-column-${column.key}-trigger`}
-                >
-                    {`${column.label}${mark}`}
-                </Text>
-            )}
+        <CatalogueColumnHeader
+            label={column.label}
+            align={column.align}
+            {...(toggleSort === undefined ? {} : { onToggleSort: toggleSort })}
+            /*
+             * Values only. The sort pair used to lead this list, which meant a column that could
+             * only sort still opened a panel to ask "ascending or descending" - a second press for
+             * something the first press already meant. Sorting is the press itself now, so a column
+             * with no values to choose from has no menu at all, and `sections` being empty is
+             * exactly what tells the header that.
+             */
+            sections={
+                filter.length === 0 ? [] : [{ label: t('kitchen:catalogue.filter'), items: filter }]
+            }
+            // Three states, not two: `undefined` where the column cannot sort at all, so the
+            // header knows to draw no arrow rather than a grey one pointing at nothing.
+            sortDirection={
+                sortKey === null || filter.length > 0
+                    ? undefined
+                    : active
+                      ? list.sortDirection
+                      : null
+            }
+            filtered={filtered}
             testID={`kitchen-meals-column-${column.key}`}
         />
     );

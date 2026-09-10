@@ -31,7 +31,7 @@ export type {
     CatalogueStatTone,
 } from './catalogue-stat-cards.tsx';
 
-export { CATALOGUE_SEARCH_WIDTH, CatalogueToolbar } from './catalogue-toolbar.tsx';
+export { CatalogueToolbar } from './catalogue-toolbar.tsx';
 export type { CatalogueStatusSegment, CatalogueToolbarProps } from './catalogue-toolbar.tsx';
 
 export { CatalogueList } from './catalogue-list.tsx';

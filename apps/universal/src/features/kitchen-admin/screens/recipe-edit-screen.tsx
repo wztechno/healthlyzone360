@@ -1267,11 +1267,44 @@ function RecipeEditor({
                         description={t('kitchen:recipes.identityDescription')}
                     >
                         <FormGrid testID="kitchen-recipe-identity-grid">
+                            {/*
+                             * Id first, before the designation.
+                             *
+                             * It is the field a reader identifies the record by and the one they
+                             * read back to somebody on the phone, so it opens the section rather
+                             * than closing it. Read, never written: the series is the server's to
+                             * issue.
+                             *
+                             * Creating, it is the handle this record is *about* to take, read from
+                             * the same scan the save performs. A preview and not a reservation:
+                             * two forms open at once are both shown it, and the second save lands
+                             * one number later. Empty while it is in flight, and empty if the read
+                             * fails — better than a number nothing stands behind.
+                             */}
+                            <TextInputField
+                                testID="kitchen-recipe-reference"
+                                id="kitchen-recipe-reference"
+                                label={t('kitchen:list.columnReference')}
+                                size="sm"
+                                placeholder={t('kitchen:fields.referencePlaceholder')}
+                                // The record's own `RC-0001`, not its slug: a slug follows the name,
+                                // so it moves when the name is edited and sorts alphabetically
+                                // rather than by age.
+                                value={
+                                    isCreating
+                                        ? (nextReference.data ?? '')
+                                        : (data?.reference ?? '')
+                                }
+                                disabled
+                                onChangeText={() => undefined}
+                            />
                             <BilingualField
                                 span={2}
                                 layout="row"
                                 testID="kitchen-recipe-name"
-                                fieldLabel={t('kitchen:fields.designation')}
+                                // The word the recipe list's own title column uses, so the form
+                                // and the table name the same thing the same way.
+                                fieldLabel={t('kitchen:recipes.columnName')}
                                 value={details.name}
                                 requiredEnglish
                                 disabled={!editable}
@@ -1338,37 +1371,6 @@ function RecipeEditor({
                                 />
                             )}
 
-                            {/*
-                             * Read, never written. The slug is the server's, and `sourceKind` is the
-                             * source sheet's own wording kept verbatim — the design draws both as
-                             * fields because its prototype owns them; here they are facts about the
-                             * record and the recessed fill says so.
-                             */}
-                            <TextInputField
-                                testID="kitchen-recipe-reference"
-                                id="kitchen-recipe-reference"
-                                label={t('kitchen:list.columnReference')}
-                                size="sm"
-                                // The record's own `RC-0001`, not its slug. A slug is derived from
-                                // the name, so it changes when the name does and sorts
-                                // alphabetically rather than by age — which is not what anybody
-                                // reading a column of references is looking for.
-                                //
-                                // Creating, it is the handle this record is *about* to take, read
-                                // from the same scan the save performs. A preview and not a
-                                // reservation: two forms open at once are both shown it, and the
-                                // second save lands one number later. Empty while it is in flight,
-                                // and empty if the read fails — which is what this box did before
-                                // the series existed, and better than a number nothing stands
-                                // behind.
-                                value={
-                                    isCreating
-                                        ? (nextReference.data ?? '')
-                                        : (data?.reference ?? '')
-                                }
-                                disabled
-                                onChangeText={() => undefined}
-                            />
                         </FormGrid>
                     </FormSection>
 

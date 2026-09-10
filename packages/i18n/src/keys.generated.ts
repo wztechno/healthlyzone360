@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6506 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6549 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2355,6 +2355,7 @@ export interface NamespaceKeys {
     | 'catalogue.clearFilter'
     | 'catalogue.close'
     | 'catalogue.columnMenu'
+    | 'catalogue.columnSort'
     | 'catalogue.columnUpdated'
     | 'catalogue.edit'
     | 'catalogue.fields'
@@ -2831,6 +2832,45 @@ export interface NamespaceKeys {
     | 'hub.referenceOnly'
     | 'hub.subtitle'
     | 'hub.title'
+    | 'ingredientDetail.b2bValue'
+    | 'ingredientDetail.b2cValue'
+    | 'ingredientDetail.backToList'
+    | 'ingredientDetail.basisValue'
+    | 'ingredientDetail.fieldBasis'
+    | 'ingredientDetail.fieldItemsPerUnit'
+    | 'ingredientDetail.fieldLastChange'
+    | 'ingredientDetail.fieldPackCost'
+    | 'ingredientDetail.fieldSellable'
+    | 'ingredientDetail.historyBody'
+    | 'ingredientDetail.historyTitle'
+    | 'ingredientDetail.kpiB2bPrice'
+    | 'ingredientDetail.kpiMarginBasis'
+    | 'ingredientDetail.kpiMarginOnCost'
+    | 'ingredientDetail.kpiPurchasePack'
+    | 'ingredientDetail.kpiUnitPrice'
+    | 'ingredientDetail.marginValue'
+    | 'ingredientDetail.packCostValue'
+    | 'ingredientDetail.packSummary'
+    | 'ingredientDetail.purchaseUnitValue'
+    | 'ingredientDetail.sectionChangeHistory'
+    | 'ingredientDetail.sectionDefinition'
+    | 'ingredientDetail.sectionPackCost'
+    | 'ingredientDetail.sectionSoldAsIs'
+    | 'ingredientDetail.sectionSuppliers'
+    | 'ingredientDetail.sectionWhereUsed'
+    | 'ingredientDetail.sellableNo'
+    | 'ingredientDetail.sellableYes'
+    | 'ingredientDetail.stockUnitValue'
+    | 'ingredientDetail.suppliersBody'
+    | 'ingredientDetail.suppliersTitle'
+    | 'ingredientDetail.tabComposition'
+    | 'ingredientDetail.tabHistory'
+    | 'ingredientDetail.tabOverview'
+    | 'ingredientDetail.tabPurchasing'
+    | 'ingredientDetail.tabSale'
+    | 'ingredientDetail.tabsLabel'
+    | 'ingredientDetail.whereUsedBody'
+    | 'ingredientDetail.whereUsedTitle'
     | 'kds.column.done'
     | 'kds.column.incoming'
     | 'kds.column.preparing'
@@ -2872,6 +2912,8 @@ export interface NamespaceKeys {
     | 'list.columnUpdated'
     | 'list.emptyBody'
     | 'list.emptyTitle'
+    | 'list.export'
+    | 'list.exportUnavailable'
     | 'list.filteredEmptyBody'
     | 'list.filteredEmptyTitle'
     | 'list.import'
@@ -3855,6 +3897,7 @@ export interface NamespaceKeys {
     | 'packaging.columnCapacity'
     | 'packaging.columnPackPrice'
     | 'packaging.columnWaste'
+    | 'packaging.create'
     | 'packaging.createTitle'
     | 'packaging.emptyBody'
     | 'packaging.emptyTitle'
@@ -8879,6 +8922,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.clearFilter',
   'kitchen:catalogue.close',
   'kitchen:catalogue.columnMenu',
+  'kitchen:catalogue.columnSort',
   'kitchen:catalogue.columnUpdated',
   'kitchen:catalogue.edit',
   'kitchen:catalogue.fields',
@@ -9355,6 +9399,45 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.referenceOnly',
   'kitchen:hub.subtitle',
   'kitchen:hub.title',
+  'kitchen:ingredientDetail.b2bValue',
+  'kitchen:ingredientDetail.b2cValue',
+  'kitchen:ingredientDetail.backToList',
+  'kitchen:ingredientDetail.basisValue',
+  'kitchen:ingredientDetail.fieldBasis',
+  'kitchen:ingredientDetail.fieldItemsPerUnit',
+  'kitchen:ingredientDetail.fieldLastChange',
+  'kitchen:ingredientDetail.fieldPackCost',
+  'kitchen:ingredientDetail.fieldSellable',
+  'kitchen:ingredientDetail.historyBody',
+  'kitchen:ingredientDetail.historyTitle',
+  'kitchen:ingredientDetail.kpiB2bPrice',
+  'kitchen:ingredientDetail.kpiMarginBasis',
+  'kitchen:ingredientDetail.kpiMarginOnCost',
+  'kitchen:ingredientDetail.kpiPurchasePack',
+  'kitchen:ingredientDetail.kpiUnitPrice',
+  'kitchen:ingredientDetail.marginValue',
+  'kitchen:ingredientDetail.packCostValue',
+  'kitchen:ingredientDetail.packSummary',
+  'kitchen:ingredientDetail.purchaseUnitValue',
+  'kitchen:ingredientDetail.sectionChangeHistory',
+  'kitchen:ingredientDetail.sectionDefinition',
+  'kitchen:ingredientDetail.sectionPackCost',
+  'kitchen:ingredientDetail.sectionSoldAsIs',
+  'kitchen:ingredientDetail.sectionSuppliers',
+  'kitchen:ingredientDetail.sectionWhereUsed',
+  'kitchen:ingredientDetail.sellableNo',
+  'kitchen:ingredientDetail.sellableYes',
+  'kitchen:ingredientDetail.stockUnitValue',
+  'kitchen:ingredientDetail.suppliersBody',
+  'kitchen:ingredientDetail.suppliersTitle',
+  'kitchen:ingredientDetail.tabComposition',
+  'kitchen:ingredientDetail.tabHistory',
+  'kitchen:ingredientDetail.tabOverview',
+  'kitchen:ingredientDetail.tabPurchasing',
+  'kitchen:ingredientDetail.tabSale',
+  'kitchen:ingredientDetail.tabsLabel',
+  'kitchen:ingredientDetail.whereUsedBody',
+  'kitchen:ingredientDetail.whereUsedTitle',
   'kitchen:kds.column.done',
   'kitchen:kds.column.incoming',
   'kitchen:kds.column.preparing',
@@ -9396,6 +9479,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.columnUpdated',
   'kitchen:list.emptyBody',
   'kitchen:list.emptyTitle',
+  'kitchen:list.export',
+  'kitchen:list.exportUnavailable',
   'kitchen:list.filteredEmptyBody',
   'kitchen:list.filteredEmptyTitle',
   'kitchen:list.import',
@@ -10379,6 +10464,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:packaging.columnCapacity',
   'kitchen:packaging.columnPackPrice',
   'kitchen:packaging.columnWaste',
+  'kitchen:packaging.create',
   'kitchen:packaging.createTitle',
   'kitchen:packaging.emptyBody',
   'kitchen:packaging.emptyTitle',

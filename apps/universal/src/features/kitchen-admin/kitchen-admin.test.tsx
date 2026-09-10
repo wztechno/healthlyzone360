@@ -549,11 +549,13 @@ describe('the ingredient list at desk width', () => {
         expect(
             screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-allergens`),
         ).toBeTruthy();
-        // "Live", not "Published": the Catalogue's badges take the short status vocabulary, so a
-        // kitchen reads the same word down every one of its lists.
+        // "Published", the word the short status vocabulary now uses. It used to read "Live" —
+        // shorter, and the design's own wording — and was renamed by request so the chip says the
+        // same thing the lifecycle does. The vocabulary is still shared, so a kitchen reads one
+        // word down every one of its lists.
         expect(
             screen.getByTestId(`kitchen-ingredient-${String(mapped.id)}-status`),
-        ).toHaveTextContent(/Live/);
+        ).toHaveTextContent(/Published/);
         // An allergen set that is empty says so. On the one column read for safety, "this record
         // declares none" and "nothing has loaded" must not look alike.
         expect(

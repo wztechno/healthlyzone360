@@ -697,7 +697,9 @@ test.describe('kitchen workspace (en)', () => {
         await expect(page.getByTestId(`${base}-name`)).toBeVisible();
         await expect(page.getByTestId(`${base}-category`)).toBeVisible();
         await expect(page.getByTestId(`${base}-status`)).toBeVisible();
-        await expect(page.getByTestId(`${base}-updated`)).toBeVisible();
+        // Updated has left every Catalogue list — the View panel carries it, with the author the
+        // 96px track could never fit beside it.
+        await expect(page.getByTestId(`${base}-updated`)).toHaveCount(0);
 
         /*
          * The allergen column, in whichever of its two honest forms this API can produce.

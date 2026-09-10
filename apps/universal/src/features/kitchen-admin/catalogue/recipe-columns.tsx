@@ -1,4 +1,4 @@
-import type { PublishableStatus, RecipeAdmin, RecipeAdminSummary } from '@healthy360/api-client/contracts';
+import type { RecipeAdmin, RecipeAdminSummary } from '@healthy360/api-client/contracts';
 import { Badge, Inline, Skeleton, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -20,14 +20,16 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  *
  * | column        | track | floor | priority | note                                        |
  * | ------------- | ----: | ----: | -------: | ------------------------------------------- |
- * | Ref.          |   112 |    84 |       88 | mono; the slug                              |
- * | Recipe        |   260 |   150 |      100 | the title; never dropped                    |
+ * | Id            |    96 |    84 |       88 | mono; the `RC-` handle                      |
+ * | Production It.|   200 |   150 |      100 | the title; never dropped                    |
  * | Kitchen       |   140 |   120 |       40 | secondary; hosts the kitchen filter         |
- * | Version       |    96 |    76 |       85 | mono, centred — "2 of 3"                    |
- * | Version state |   118 |    86 |       75 | badge, derived per row                      |
  * | Allergens     |   168 |   132 |       30 | secondary, comma run, derived per row       |
  * | Status        |   110 |    78 |       80 | badge                                       |
- * | Updated       |    96 |    72 |       20 | secondary, centred, relative                |
+ *
+ * Version, Version state and Updated were all drawn here and are not any more — the first two by
+ * request, the third across every Catalogue list at once. What a version is doing is a question
+ * about one recipe, which is what the View panel and the editor are for; what a list is scanned for
+ * is which recipes exist and which are live.
  *
  * The tracks are the ingredient spec's, moved across one position at a time rather than re-derived:
  * a kitchen that has learnt to read one Catalogue list down its reference column should not have to
@@ -36,23 +38,21 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * a badge carries its own inset. Allergens takes 168 rather than 160 because a *derived* label runs
  * longer than a declared one — it is the union of every line's classes, not one record's own.
  *
- * ## Version is the metric, because a recipe has no price
+ * ## This list has no headline metric
  *
  * The priority ladder reserves 85 for "the entity's headline metric", and on the ingredient list
  * that is the unit price. `RecipeAdminSummary` carries no money at all — cost lives on
  * `RecipeVersionAdmin.estimatedCost`, is CONFIDENTIAL, and needs a permission this list does not
- * ask for. What a recipe row is actually scanned for after its name is *which version is live and
- * how many there have been*, so that pair is the 85 and it renders as one mono figure, "2 of 3".
+ * ask for. The version pair used to hold that slot; with it gone the 85 is simply unspent here,
+ * which is a better answer than promoting a column to a rank it does not earn.
  *
- * Both numbers are on the summary, so this cell never waits and never blanks.
+ * ## Allergens is derived, and says so while it waits
  *
- * ## Two columns are derived, and say so while they wait
+ * It lives on `RecipeAdmin.currentVersion`, which the summary does not carry — the N+1
+ * `useRecipeDetails` documents. It is fed a lookup rather than calling a query of its own: a column
+ * spec is an array, and an array cannot call a hook.
  *
- * Version state and Allergens both live on `RecipeAdmin.currentVersion`, which the summary does not
- * carry — the N+1 `useRecipeDetails` documents. They are fed a lookup rather than calling a query
- * of their own: a column spec is an array, and an array cannot call a hook.
- *
- * While a row's detail is in flight each renders a `Skeleton` at its own width rather than a dash.
+ * While a row's detail is in flight it renders a `Skeleton` at its own width rather than a dash.
  * A dash is a *fact* on this list — the Allergens column uses it to say "this version derived
  * none" — so spending it on "not known yet" would make the one column a kitchen reads for safety
  * ambiguous between "nothing to declare" and "nothing has loaded".
@@ -69,6 +69,11 @@ export interface RecipeColumnDeps {
     readonly t: TFunction;
     /** The resolved locale, as `useLocale()` reports it. */
     readonly locale: string;
+    /**
+     * Still on the deps, unread since Updated left the row: the caller has it to hand and the
+     * next figure this list draws will want it. Not destructured, because an unread binding is
+     * a lint error and a silent one is worse than a stated one.
+     */
     readonly formatter: Formatter;
     /**
      * The detail behind one row, or `undefined` while it is in flight. Supplied by the list state,
@@ -80,12 +85,8 @@ export interface RecipeColumnDeps {
 export function recipeColumns({
     t,
     locale,
-    formatter,
     detailOf,
 }: RecipeColumnDeps): readonly CatalogueColumn<RecipeAdminSummary>[] {
-    const versionState = (row: RecipeAdminSummary): PublishableStatus | undefined =>
-        detailOf(row)?.currentVersion.status;
-
     const allergenLabel = (row: RecipeAdminSummary): string | undefined => {
         const detail = detailOf(row);
         if (detail === undefined) return undefined;
@@ -99,31 +100,38 @@ export function recipeColumns({
         {
             key: 'reference',
             label: t('kitchen:list.columnReference'),
-            width: 112,
+            width: 96,
             min: 84,
             priority: CATALOGUE_PRIORITY.reference,
             role: 'meta',
             mono: true,
             sortable: true,
             sortType: 'text',
-            // The slug is a recipe's reference: it is what an address, a print-out and a support
-            // conversation name it by, and it is the one identifier that does not change with a
-            // translation.
-            value: (row) => row.slug,
+            // The record's own `RC-0001`, not its slug.
+            //
+            // The slug reads `tabbouleh-v2` and is derived from the name, so it changes when the
+            // name is edited and sorts alphabetically rather than by age — which is not what a
+            // column of identifiers is for. The reference is the handle the kitchen writes on a
+            // sheet, it sits in the same series the recipe editor's own Id field has been showing
+            // all along, and it is the one the `ING-` / `PKG-` columns next door are a series of.
+            //
+            // The prefix is `RC-`, set by `referenceSeries` on the editor and by the server that
+            // issues the number. Renaming the series to `REC-` is a backend change and a migration
+            // of every existing handle, not a display decision this file can make.
+            //
+            // `?? row.slug` because `reference` is null on rows that predate the series — a blank
+            // identifier column is worse than the old handle for the rows that only have one.
+            value: (row) => row.reference ?? row.slug,
             render: (row) => (
-                <Text
-                    testID={`${recipeRowTestId(String(row.id))}-slug`}
-                    variant="mono"
-                    numberOfLines={1}
-                >
-                    {row.slug}
+                <Text testID={`${recipeRowTestId(String(row.id))}-reference`} variant="mono">
+                    {row.reference ?? row.slug}
                 </Text>
             ),
         },
         {
             key: 'name',
             label: t('kitchen:recipes.columnName'),
-            width: 260,
+            width: 200,
             min: 150,
             priority: CATALOGUE_PRIORITY.designation,
             role: 'title',
@@ -134,11 +142,7 @@ export function recipeColumns({
                 const name = displayName(row.name, locale);
                 return (
                     <Inline space="xs" align="center">
-                        <Text
-                            variant="label"
-                            numberOfLines={1}
-                            testID={`${recipeRowTestId(String(row.id))}-name`}
-                        >
+                        <Text variant="label" testID={`${recipeRowTestId(String(row.id))}-name`}>
                             {name.value}
                         </Text>
                         {name.isFallback ? (
@@ -167,81 +171,10 @@ export function recipeColumns({
             // what makes this header's Filter honest across every page rather than only this one.
             value: (row) => String(row.kitchenId),
             render: (row) => (
-                <Text
-                    testID={`${recipeRowTestId(String(row.id))}-kitchen`}
-                    tone="secondary"
-                    numberOfLines={1}
-                >
+                <Text testID={`${recipeRowTestId(String(row.id))}-kitchen`} tone="secondary">
                     {String(row.kitchenId)}
                 </Text>
             ),
-        },
-        {
-            key: 'version',
-            label: t('kitchen:recipes.columnVersionShort'),
-            width: 96,
-            min: 76,
-            priority: CATALOGUE_PRIORITY.metric,
-            role: 'metric',
-            align: 'center',
-            mono: true,
-            sortable: true,
-            sortType: 'number',
-            value: (row) =>
-                t('kitchen:recipes.versionOfCount', {
-                    number: row.currentVersionNumber,
-                    count: row.versionCount,
-                }),
-            render: (row) => (
-                <Text
-                    testID={`${recipeRowTestId(String(row.id))}-version`}
-                    variant="mono"
-                    numberOfLines={1}
-                >
-                    {t('kitchen:recipes.versionOfCount', {
-                        number: row.currentVersionNumber,
-                        count: row.versionCount,
-                    })}
-                </Text>
-            ),
-        },
-        {
-            key: 'versionState',
-            label: t('kitchen:recipes.columnVersionState'),
-            width: 118,
-            min: 86,
-            priority: CATALOGUE_PRIORITY.unitPrice,
-            badge: true,
-            // No `role`, so this column belongs to the wide row alone. The narrow row already leads
-            // with the *recipe's* status badge, and two badges on one two-line row is a reader
-            // deciding which of them the row is in — a question the desk surface has the width to
-            // answer with two labelled tracks and the phone does not.
-            //
-            // Not sortable: the value arrives per row and out of order, so a sort would order the
-            // rows that had answered and shuffle the rest in underneath as they landed.
-            value: (row) => {
-                const status = versionState(row);
-                return status === undefined ? '' : t(statusShortKey(status));
-            },
-            render: (row) => {
-                const status = versionState(row);
-                if (status === undefined) {
-                    return (
-                        <Skeleton
-                            testID={`${recipeRowTestId(String(row.id))}-version-loading`}
-                            heightClassName="h-4"
-                            widthClassName="w-16"
-                        />
-                    );
-                }
-                return (
-                    <Badge
-                        testID={`${recipeRowTestId(String(row.id))}-version-status`}
-                        tone={statusTone(status)}
-                        label={t(statusShortKey(status))}
-                    />
-                );
-            },
         },
         {
             key: 'allergens',
@@ -269,9 +202,12 @@ export function recipeColumns({
                         // Two ids, because "this version declares nothing" and "this version
                         // declares Sesame" are different answers and a suite has to be able to tell
                         // them apart without reading the copy.
-                        testID={derived.length === 0 ? `${testID}-allergens-none` : `${testID}-allergens`}
+                        testID={
+                            derived.length === 0
+                                ? `${testID}-allergens-none`
+                                : `${testID}-allergens`
+                        }
                         tone="secondary"
-                        numberOfLines={1}
                     >
                         {label}
                     </Text>
@@ -293,31 +229,10 @@ export function recipeColumns({
                 <Badge
                     testID={`${recipeRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
+                    // No mark on Published — see the note in `ingredient-columns.tsx`.
+                    icon={row.meta.status === 'published' ? null : undefined}
                     label={t(statusShortKey(row.meta.status))}
                 />
-            ),
-        },
-        {
-            key: 'updatedAt',
-            label: t('kitchen:catalogue.columnUpdated'),
-            width: 96,
-            min: 72,
-            priority: CATALOGUE_PRIORITY.updated,
-            align: 'center',
-            sortable: true,
-            sortType: 'text',
-            // One line, relative. The author's name went with the second line for the reason the
-            // ingredient spec records: it is a fact about a record, not about a list. The View
-            // drawer and the editor both still state it.
-            value: (row) => formatter.formatRelativeTime(row.meta.updatedAt),
-            render: (row) => (
-                <Text
-                    testID={`${recipeRowTestId(String(row.id))}-updated`}
-                    tone="secondary"
-                    numberOfLines={1}
-                >
-                    {formatter.formatRelativeTime(row.meta.updatedAt)}
-                </Text>
             ),
         },
     ];

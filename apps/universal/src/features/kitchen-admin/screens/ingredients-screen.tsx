@@ -1,12 +1,10 @@
 import {
-    Badge,
     Button,
     Dialog,
     EmptyState,
     ErrorState,
     Icon,
     Inline,
-    Menu,
     Skeleton,
     Stack,
     Text,
@@ -15,7 +13,6 @@ import {
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
-import type { Formatter } from '@healthy360/i18n';
 import { useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -24,13 +21,13 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { CatalogueColumnHeader } from '../catalogue/catalogue-column-header.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { IngredientDetail } from '../catalogue/ingredient-detail.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ingredientColumns } from '../catalogue/ingredient-columns.tsx';
@@ -42,8 +39,6 @@ import {
     humaniseCode,
     ingredientRowTestId,
     statusShortKey,
-    statusTone,
-    unitShortKey,
 } from '../format.ts';
 
 /**
@@ -163,6 +158,28 @@ function IngredientsList() {
         })),
     ];
 
+    /*
+     * View takes the whole page rather than a 400px drawer beside it.
+     *
+     * The record is opened *instead of* the list, not on a route of its own: `list.viewing` already
+     * holds the full `IngredientAdmin` the row was drawn from, so this costs no second fetch and no
+     * loading state, and Back is a state change rather than a navigation that would drop the list's
+     * page, sort and filters on the way out. The cost is that the record is not deep-linkable — see
+     * `ingredient-detail.tsx` for what that would take.
+     */
+    if (list.viewing !== null) {
+        return (
+            <Stack space="md" testID="kitchen-ingredients-screen">
+                <IngredientDetail
+                    testID="kitchen-ingredients-detail"
+                    ingredient={list.viewing}
+                    categoryName={categoryName}
+                    onBack={list.closeView}
+                />
+            </Stack>
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-ingredients-screen">
             {/*
@@ -179,31 +196,6 @@ function IngredientsList() {
              * shrinks is the one inside the opening, and the rhythm below it is untouched.
              */}
             <Stack space="xs">
-                <CataloguePageHeader
-                    testID="kitchen-ingredients-header"
-                    primaryAction={
-                        <Inline space="xs" align="center">
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-ingredients-toolbar-import"
-                                    variant="secondary"
-                                    disabled
-                                    label={t('kitchen:list.import')}
-                                    accessibilityLabel={t('kitchen:list.importUnavailable')}
-                                />
-                            ) : null}
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-ingredients-toolbar-create"
-                                    label={t('kitchen:toolbar.create')}
-                                    iconStart={<Icon name="plus" size="sm" />}
-                                    onPress={list.createNew}
-                                />
-                            ) : null}
-                        </Inline>
-                    }
-                />
-
                 {list.isPending ? null : (
                     <CatalogueStatCards
                         testID="kitchen-ingredients-stats"
@@ -225,7 +217,21 @@ function IngredientsList() {
                 onStatusChange={(status) => {
                     list.setStatuses(status === 'all' ? [] : [status]);
                 }}
-            />
+            >
+                <Inline space="xs" align="center">
+                    {canManage ? (
+                        <CatalogueTransferActions testID="kitchen-ingredients-toolbar" />
+                    ) : null}
+                    {canManage ? (
+                        <Button
+                            testID="kitchen-ingredients-toolbar-create"
+                            label={t('kitchen:toolbar.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={list.createNew}
+                        />
+                    ) : null}
+                </Inline>
+            </CatalogueToolbar>
 
             {list.isPending ? (
                 <Stack space="xs" testID="kitchen-ingredients-loading">
@@ -311,17 +317,31 @@ function IngredientsList() {
                                     list.openEditor(String(row.id));
                                 },
                             },
-                            // Archive is offered only where it would be accepted: the permission,
-                            // and the server's own answer for this row. A kitchen browsing the
-                            // shared library used to be offered Archive on all 306 platform rows
-                            // and got a 403 on every one.
-                            ...(canManage && row.isEditable && row.meta.status !== 'retired'
+                            /*
+                             * Archive is *drawn* wherever the reader could plausibly want it and
+                             * *enabled* only where the server would accept it.
+                             *
+                             * It used to be omitted entirely on a row the server would refuse —
+                             * every platform-library row, which is most of the 306 — so the action
+                             * column held two buttons on some rows and three on others and a reader
+                             * had no way to tell whether Archive was missing because this row
+                             * cannot be archived or because the feature was not there. Rendering it
+                             * disabled answers that: the control is where it always is, and it does
+                             * not fire a request the server will 403.
+                             *
+                             * The permission is still a hard gate, because an action a role cannot
+                             * perform at all is not a disabled control, it is somebody else's
+                             * button.
+                             */
+                            ...(canManage
                                 ? [
                                       {
                                           key: 'archive',
                                           label: t('kitchen:list.archive'),
                                           icon: CATALOGUE_ROW_ICONS.archive,
                                           tone: 'danger' as const,
+                                          disabled:
+                                              !row.isEditable || row.meta.status === 'retired',
                                           testID: `${ingredientRowTestId(row.id)}-archive`,
                                           onSelect: () => {
                                               list.askToArchive(row);
@@ -345,69 +365,6 @@ function IngredientsList() {
                     />
                 </Stack>
             )}
-
-            <CatalogueViewDrawer
-                testID="kitchen-ingredients-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:list.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    const viewed = list.viewing;
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
-                }}
-                {...(list.viewing === null || list.viewing.reference === null
-                    ? {}
-                    : { reference: list.viewing.reference })}
-                title={list.viewing === null ? '' : displayName(list.viewing.name, locale).value}
-                status={
-                    list.viewing === null ? undefined : (
-                        <Badge
-                            tone={statusTone(list.viewing.meta.status)}
-                            label={t(statusShortKey(list.viewing.meta.status))}
-                        />
-                    )
-                }
-                fields={
-                    list.viewing === null
-                        ? []
-                        : viewFields(list.viewing, t, formatter, categoryName)
-                }
-                /*
-                 * Drawn even when the set is empty, which it was not before. An allergen section
-                 * that disappears makes "this ingredient declares none" indistinguishable from
-                 * "nobody has looked", and on a regulated field those are the two answers a reader
-                 * most needs told apart. The list carries the mappings now, so an empty set here is
-                 * a real declaration rather than a column the page never fetched.
-                 */
-                {...(list.viewing === null
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:list.columnAllergens'),
-                          chipsSource: t('kitchen:list.viewAllergensSource'),
-                          chipsCaption: t('kitchen:list.viewAllergensCaption'),
-                          chips:
-                              list.viewing.allergens.length === 0 ? (
-                                  <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
-                              ) : (
-                                  list.viewing.allergens.map((mapping) => (
-                                      <Badge
-                                          key={mapping.allergenCode}
-                                          tone={
-                                              mapping.containment === 'contains'
-                                                  ? 'danger'
-                                                  : 'warning'
-                                          }
-                                          label={mapping.allergenCode}
-                                      />
-                                  ))
-                              ),
-                      })}
-            />
 
             <Dialog
                 testID="kitchen-ingredients-archive-dialog"
@@ -521,95 +478,6 @@ function statCards(list: IngredientListState, t: TFunction): readonly CatalogueS
  * Absent values render the dash rather than being dropped: a panel whose rows change position
  * depending on what is filled in cannot be scanned twice the same way.
  */
-function viewFields(
-    row: IngredientAdmin,
-    t: TFunction,
-    formatter: Formatter,
-    categoryName: (code: string) => string,
-): readonly CatalogueViewField[] {
-    const dash = t('kitchen:list.noValue');
-
-    return [
-        {
-            key: 'reference',
-            label: t('kitchen:list.columnReference'),
-            value: row.reference ?? dash,
-            mono: true,
-        },
-        {
-            key: 'category',
-            label: t('kitchen:list.columnCategory'),
-            value:
-                row.categoryCode === ''
-                    ? t('kitchen:list.noCategory')
-                    : categoryName(row.categoryCode),
-        },
-        // Stated here and not on the row: the leaf is the second half of an answer whose first half
-        // is already a column, and a 140px track cannot hold both. The panel is where a record is
-        // read field by field, so this is where the pair belongs together.
-        {
-            key: 'subcategory',
-            label: t('kitchen:fields.subcategory'),
-            value:
-                row.subcategoryCode === null
-                    ? t('kitchen:fields.subcategoryNone')
-                    : categoryName(row.subcategoryCode),
-        },
-        {
-            key: 'unit',
-            label: t('kitchen:list.columnUnit'),
-            value: t(unitShortKey(row.measurementUnit)),
-        },
-        {
-            key: 'unitPrice',
-            label: t('kitchen:list.columnUnitPrice'),
-            value:
-                row.unitPrice === null
-                    ? dash
-                    : formatter.formatCurrency(row.unitPrice.amount, row.unitPrice.currency),
-            mono: true,
-        },
-        // The two sale prices are stated here and nowhere on the row. The list is scanned, and the
-        // figure a row is scanned for is the one price every ingredient has; B2B and B2C exist only
-        // on the few that are sold as-is, so two more numeric tracks would be empty on most rows and
-        // would cost the columns that are not. This panel is where a record is checked field by
-        // field, which is the reading they are wanted for.
-        {
-            key: 'b2bPrice',
-            label: t('kitchen:sale.b2bPrice'),
-            value:
-                row.b2bPrice === null
-                    ? dash
-                    : formatter.formatCurrency(row.b2bPrice.amount, row.b2bPrice.currency),
-            mono: true,
-        },
-        {
-            key: 'b2cPrice',
-            label: t('kitchen:sale.b2cPrice'),
-            value:
-                row.b2cPrice === null
-                    ? dash
-                    : formatter.formatCurrency(row.b2cPrice.amount, row.b2cPrice.currency),
-            mono: true,
-        },
-        {
-            key: 'status',
-            label: t('kitchen:status.label'),
-            value: t(statusShortKey(row.meta.status)),
-        },
-        {
-            key: 'updated',
-            label: t('kitchen:catalogue.columnUpdated'),
-            value: formatter.formatRelativeTime(row.meta.updatedAt),
-        },
-        {
-            key: 'updatedBy',
-            label: t('kitchen:list.updatedBy', { name: '' }).trim(),
-            value:
-                row.meta.updatedByName ?? t('kitchen:list.updatedBySeed'),
-        },
-    ];
-}
 
 /**
  * The header control for one column — §4.3's sort-and-filter menu.
@@ -628,58 +496,48 @@ function headerMenu(
     if (sortKey === null && filter.length === 0) return undefined;
 
     const active = sortKey !== null && list.sortKey === sortKey;
-    const mark = !active ? '' : list.sortDirection === 'asc' ? ' ↑' : ' ↓';
+    // Any value in this column's own list that is currently applied. Derived from the items
+    // rather than restated per entity: the screens already mark the applied value `selected`
+    // so the menu can tick it, and "the menu has a tick" is exactly "the column is filtered".
+    const filtered = filter.some((item) => item.selected === true);
 
-    const sortItems: readonly MenuItem[] =
-        sortKey === null
-            ? []
-            : [
-                  {
-                      key: 'asc',
-                      label: t('kitchen:catalogue.sortAscending'),
-                      selected: active && list.sortDirection === 'asc',
-                      testID: `kitchen-ingredients-column-${column.key}-asc`,
-                      onSelect: () => {
-                          list.setSort(sortKey, 'asc');
-                      },
-                  },
-                  {
-                      key: 'desc',
-                      label: t('kitchen:catalogue.sortDescending'),
-                      selected: active && list.sortDirection === 'desc',
-                      testID: `kitchen-ingredients-column-${column.key}-desc`,
-                      onSelect: () => {
-                          list.setSort(sortKey, 'desc');
-                      },
-                  },
-              ];
+    /*
+     * A column with nothing to filter by sorts on the press itself - see `onToggleSort`. The cycle
+     * is the one a reader expects from a table: first press sorts ascending, pressing the column
+     * already sorted flips it.
+     */
+    const toggleSort =
+        sortKey === null || filter.length > 0
+            ? undefined
+            : () => {
+                  list.setSort(sortKey, active && list.sortDirection === 'asc' ? 'desc' : 'asc');
+              };
 
     return () => (
-        <Menu
-            label={t('kitchen:catalogue.columnMenu', { column: column.label })}
-            align="start"
-            // The header cell is inside the list's own stacking context and the rows paint after
-            // it, so a panel hanging from the header lands *under* the first rows without this.
-            className="z-sticky"
-            sections={[
-                ...(sortItems.length === 0 ? [] : [{ items: sortItems }]),
-                ...(filter.length === 0
-                    ? []
-                    : [{ label: t('kitchen:catalogue.filter'), items: filter }]),
-            ]}
-            trigger={({ triggerProps, toggle }) => (
-                <Text
-                    {...triggerProps}
-                    variant="micro"
-                    tone={active ? 'primary' : 'secondary'}
-                    align={column.align === 'center' ? 'center' : undefined}
-                    role="button"
-                    onPress={toggle}
-                    testID={`kitchen-ingredients-column-${column.key}-trigger`}
-                >
-                    {`${column.label}${mark}`}
-                </Text>
-            )}
+        <CatalogueColumnHeader
+            label={column.label}
+            align={column.align}
+            {...(toggleSort === undefined ? {} : { onToggleSort: toggleSort })}
+            /*
+             * Values only. The sort pair used to lead this list, which meant a column that could
+             * only sort still opened a panel to ask "ascending or descending" - a second press for
+             * something the first press already meant. Sorting is the press itself now, so a column
+             * with no values to choose from has no menu at all, and `sections` being empty is
+             * exactly what tells the header that.
+             */
+            sections={
+                filter.length === 0 ? [] : [{ label: t('kitchen:catalogue.filter'), items: filter }]
+            }
+            // Three states, not two: `undefined` where the column cannot sort at all, so the
+            // header knows to draw no arrow rather than a grey one pointing at nothing.
+            sortDirection={
+                sortKey === null || filter.length > 0
+                    ? undefined
+                    : active
+                      ? list.sortDirection
+                      : null
+            }
+            filtered={filtered}
             testID={`kitchen-ingredients-column-${column.key}`}
         />
     );
@@ -733,6 +591,35 @@ function filterItemsFor(
                 : [
                       clearItem('status', t, () => {
                           list.setStatuses([]);
+                      }),
+                  ]),
+        ];
+    }
+
+    if (key === 'allergens') {
+        /*
+         * Every class the platform declares, not only the ones on the loaded page.
+         *
+         * The page-derived alternative is the trap the sub-category picker already fell into: the
+         * eighteen rows in front of you carry four classes between them, so the menu offers four
+         * and the other ten look as though nothing declares them. The vocabulary is closed and on
+         * the contract, so it is read from there.
+         */
+        return [
+            ...list.allergenClasses.map((entry) => ({
+                key: entry.code,
+                label: displayName(entry.name, locale).value,
+                selected: list.allergen === entry.code,
+                testID: `kitchen-ingredients-column-allergens-${entry.code}`,
+                onSelect: () => {
+                    list.setAllergen(list.allergen === entry.code ? null : entry.code);
+                },
+            })),
+            ...(list.allergen === null
+                ? []
+                : [
+                      clearItem('allergens', t, () => {
+                          list.setAllergen(null);
                       }),
                   ]),
         ];

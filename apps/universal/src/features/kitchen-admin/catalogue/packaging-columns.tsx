@@ -72,7 +72,7 @@ export function packagingColumns({
         {
             key: 'reference',
             label: t('kitchen:list.columnReference'),
-            width: 112,
+            width: 96,
             min: 84,
             priority: CATALOGUE_PRIORITY.reference,
             role: 'meta',
@@ -85,7 +85,6 @@ export function packagingColumns({
                     testID={`${packagingRowTestId(row.id)}-reference`}
                     variant="mono"
                     tone={row.reference === null ? 'secondary' : 'primary'}
-                    numberOfLines={1}
                 >
                     {row.reference ?? dash}
                 </Text>
@@ -93,8 +92,11 @@ export function packagingColumns({
         },
         {
             key: 'name',
-            label: t('kitchen:list.columnName'),
-            width: 260,
+            // The same `columnItem` the ingredient list takes. `list.columnName` still reads
+            // "Designation" and still names the recipe line table's title column, which is a
+            // different surface with a different word for it.
+            label: t('kitchen:list.columnItem'),
+            width: 200,
             min: 150,
             priority: CATALOGUE_PRIORITY.designation,
             role: 'title',
@@ -111,7 +113,7 @@ export function packagingColumns({
             // only value on the branch that narrows anything.
             key: 'category',
             label: t('kitchen:list.columnCategory'),
-            width: 152,
+            width: 160,
             min: 112,
             priority: CATALOGUE_PRIORITY.category,
             role: 'meta',
@@ -124,7 +126,6 @@ export function packagingColumns({
                 <Text
                     testID={`${packagingRowTestId(row.id)}-category`}
                     tone={row.categoryCode === '' ? 'secondary' : 'primary'}
-                    numberOfLines={1}
                 >
                     {row.categoryCode === '' ? dash : categoryName(row.categoryCode)}
                 </Text>
@@ -133,17 +134,25 @@ export function packagingColumns({
         {
             // The pack, not the issued unit: this is the denominator of the price beside it, and a
             // price whose unit is not on the row is a number nobody can check.
+            //
+            // 108 is the *header's* width, not the value's. `pack` and `btl` need 44px; `PURCHASE
+            // UNIT` sets at 88 and with the cell's insets needs 104, and at 96 it wrapped to
+            // `PURCHASE / UNIT` over a column of three-letter values. Where a label is longer than
+            // anything under it, the label is what the track has to hold — the same reading applies
+            // to `itemsPerUnit` below, which is why the two share a number.
             key: 'purchaseUnit',
             label: t('kitchen:fields.purchaseUnit'),
-            width: 96,
+            width: 108,
             min: 64,
             priority: CATALOGUE_PRIORITY.unit,
+            align: 'center',
             value: (row) => (row.purchaseUnit === null ? dash : t(unitShortKey(row.purchaseUnit))),
         },
         {
+            // `ITEMS PER PACK` sets at 89 — see `purchaseUnit` above.
             key: 'itemsPerUnit',
             label: t('kitchen:fields.itemsPerUnit'),
-            width: 88,
+            width: 108,
             min: 68,
             priority: CATALOGUE_PRIORITY.unit,
             align: 'center',
@@ -154,13 +163,13 @@ export function packagingColumns({
         {
             key: 'purchasePrice',
             label: t('kitchen:packaging.columnPackPrice'),
-            width: 112,
+            width: 96,
             min: 88,
             priority: CATALOGUE_PRIORITY.unitPrice,
+            align: 'center',
             // The page's headline number. Packaging exists as records so a recipe can cost what it
             // ships in, and this is that cost.
             role: 'metric',
-            align: 'center',
             mono: true,
             sortable: true,
             sortType: 'number',
@@ -173,7 +182,6 @@ export function packagingColumns({
                     testID={`${packagingRowTestId(row.id)}-purchase-price`}
                     variant="mono"
                     tone={row.purchasePrice === null ? 'secondary' : 'primary'}
-                    numberOfLines={1}
                 >
                     {row.purchasePrice === null
                         ? dash
@@ -186,9 +194,14 @@ export function packagingColumns({
             // bottle. It is on the row rather than in the panel because it is the other half of the
             // costing question: the price says what the container costs, this says how many of them
             // a batch needs.
+            //
+            // 88 rather than 104: `HOLDS` is a five-letter label and `0.35 kg` the widest figure
+            // under it at 51px, so the old track carried 37px of nothing. The three trimmed here —
+            // this, `purchasePrice` and `waste` — are what pay for the two headers above, and the
+            // equal share hands the rest of the difference back across the whole row.
             key: 'capacity',
             label: t('kitchen:packaging.columnCapacity'),
-            width: 104,
+            width: 88,
             min: 80,
             priority: CATALOGUE_PRIORITY.metric,
             align: 'center',
@@ -201,7 +214,7 @@ export function packagingColumns({
         {
             key: 'waste',
             label: t('kitchen:packaging.columnWaste'),
-            width: 88,
+            width: 80,
             min: 68,
             priority: CATALOGUE_PRIORITY.updated,
             align: 'center',
@@ -225,6 +238,11 @@ export function packagingColumns({
                 <Badge
                     testID={`${packagingRowTestId(row.id)}-status`}
                     tone={packagingStatusTone(row.meta.status)}
+                    // No mark on Published. The tone's default `✓` is `Badge`'s way of keeping
+                    // meaning off colour alone, and "Published" is a word that needs no help —
+                    // §prop docs allow `null` for exactly that case. Draft and Review keep theirs,
+                    // because those two are the states a reader is scanning *for*.
+                    icon={row.meta.status === 'published' ? null : undefined}
                     label={t(packagingStatusKey(row.meta.status))}
                 />
             ),

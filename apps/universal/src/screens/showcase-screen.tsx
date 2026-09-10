@@ -101,6 +101,8 @@ import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
+import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
 import { CatalogueViewDrawer } from '../features/kitchen-admin/catalogue/catalogue-view-drawer.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
@@ -247,13 +249,21 @@ const PASS_TABLE_COLUMNS: readonly TableColumn<NutrientRow>[] = [
         key: 'amount',
         header: 'Amount',
         numeric: true,
-        render: (row) => <Text variant="mono" align="end">{row.amount}</Text>,
+        render: (row) => (
+            <Text variant="mono" align="end">
+                {row.amount}
+            </Text>
+        ),
     },
     {
         key: 'target',
         header: 'Target',
         numeric: true,
-        render: (row) => <Text variant="mono" align="end">{row.target}</Text>,
+        render: (row) => (
+            <Text variant="mono" align="end">
+                {row.target}
+            </Text>
+        ),
     },
 ];
 
@@ -338,6 +348,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [restricted, setRestricted] = useState(false);
     const [tab, setTab] = useState<string>('description');
     const [segment, setSegment] = useState('all');
+    const [toolbarSearch, setToolbarSearch] = useState('');
+    const [toolbarStatus, setToolbarStatus] = useState('all');
     const [viewOpen, setViewOpen] = useState(false);
     const [pressedRow, setPressedRow] = useState<string | null>(null);
     const [kinds, setKinds] = useState<readonly string[]>(['paste']);
@@ -355,11 +367,18 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
      * then `Clear` in the footer only while a filter is on. `scope` keeps the testIDs unique across
      * the three density copies of the list below — the menu is the same menu in each.
      */
+    /*
+     * A column header with its sort-and-filter menu, in the shape every Catalogue list now draws.
+     * `kinds` is the filter, so pressing a value here flips the header from its idle `⌄` to the
+     * filter mark — which is the whole point of the component and the thing the previous header
+     * had no way of saying.
+     */
     const columnMenu = (scope: string) => (
-        <Menu
-            testID={id(`${scope}-column-menu`)}
+        <CatalogueColumnHeader
             label="Kind"
-            maxHeight={240}
+            sortDirection={null}
+            filtered={kinds.length > 0}
+            testID={id(`${scope}-column-menu`)}
             sections={[
                 {
                     items: [
@@ -379,38 +398,28 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 },
                 {
                     label: 'Kind',
-                    items: CATALOGUE_KINDS.map((kind) => ({
-                        key: kind,
-                        label: kind,
-                        onSelect: () => toggleKind(kind),
-                        selected: kinds.includes(kind),
-                    })),
+                    items: [
+                        ...CATALOGUE_KINDS.map((kind) => ({
+                            key: kind,
+                            label: kind,
+                            onSelect: () => toggleKind(kind),
+                            selected: kinds.includes(kind),
+                        })),
+                        ...(kinds.length === 0
+                            ? []
+                            : [
+                                  {
+                                      key: 'clear',
+                                      label: 'Clear',
+                                      testID: id(`${scope}-column-menu-clear`),
+                                      onSelect: () => {
+                                          setKinds([]);
+                                      },
+                                  },
+                              ]),
+                    ],
                 },
             ]}
-            footer={
-                kinds.length > 0 ? (
-                    <Button
-                        testID={id(`${scope}-column-menu-clear`)}
-                        size="sm"
-                        variant="ghost"
-                        label="Clear"
-                        onPress={() => setKinds([])}
-                    />
-                ) : undefined
-            }
-            trigger={({ triggerProps, toggle }) => (
-                <Button
-                    {...triggerProps}
-                    testID={id(`${scope}-column-menu-trigger`)}
-                    size="sm"
-                    variant="ghost"
-                    label="Kind"
-                    iconEnd={
-                        <Icon name={kinds.length > 0 ? 'filter' : 'chevronDown'} size="sm" />
-                    }
-                    onPress={toggle}
-                />
-            )}
         />
     );
 
@@ -452,7 +461,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             label: 'Cost / kg',
             width: 100,
             priority: 85,
-            align: 'end',
             mono: true,
             sortable: true,
             value: (row) => row.cost,
@@ -469,10 +477,11 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             label: 'Updated',
             width: 90,
             priority: 20,
-            // `center`, the third alignment: a short track whose header is wider than its values
-            // reads as pushed against its neighbour when it is end-aligned. The ingredient list
-            // spends it on Unit price and Updated, which is where the design draws it.
-            align: 'center',
+            // Start-aligned, like every other Catalogue column including the numeric ones. `end`
+            // and `center` both exist and both were spent here, on the argument that a short track
+            // reads as pushed against its neighbour — but the tracks are no longer short: they
+            // grow to fill the port, and a figure read down a ragged inner edge is harder to scan
+            // than one that starts under its own label.
             value: (row) => row.updated,
         },
         {
@@ -481,6 +490,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             width: 72,
             priority: UNDROPPABLE_PRIORITY,
             align: 'end',
+            // Sized to its control, so it takes no share of the port's leftover width.
+            grow: false,
             render: (row) => (
                 <Menu
                     testID={id(`${scope}-row-menu-${row.key}`)}
@@ -1011,9 +1022,9 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     </FormField>
                 </FormGrid>
                 {/*
-                  * The input ladder, including the `xs` step the recipe editor's line table added:
-                  * 24px, and the only place a field is smaller than the page's ordinary control.
-                  */}
+                 * The input ladder, including the `xs` step the recipe editor's line table added:
+                 * 24px, and the only place a field is smaller than the page's ordinary control.
+                 */}
                 <FormGrid testID={id('form-grid-input-sizes')} columns={3}>
                     <TextInputField
                         testID={id('field-size-xs')}
@@ -1229,12 +1240,12 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     Search and quantity
                 </Text>
                 {/*
-                  * Each variant is captioned. `SearchInput`'s own `label` is an accessible name
-                  * only — it renders `aria-label` and draws nothing — so a ladder of it is four
-                  * boxes a reader cannot tell apart, unlike the `QuantityInput` grid below, whose
-                  * labels come from `FormField` and are visible. The caption is what makes this
-                  * read as a ladder rather than as the same control four times.
-                  */}
+                 * Each variant is captioned. `SearchInput`'s own `label` is an accessible name
+                 * only — it renders `aria-label` and draws nothing — so a ladder of it is four
+                 * boxes a reader cannot tell apart, unlike the `QuantityInput` grid below, whose
+                 * labels come from `FormField` and are visible. The caption is what makes this
+                 * read as a ladder rather than as the same control four times.
+                 */}
                 <View className="flex-row flex-wrap gap-3">
                     {INPUT_SIZES.map((size) => (
                         <Stack key={size} space="xs" className="w-[240px]">
@@ -1483,6 +1494,34 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             </Stack>
 
             {/*
+             * The Catalogue's toolbar, drawn on a full-width ground so its centring is visible.
+             * The row holds a 240px search and the status set and nothing else, and it is centred
+             * because the stat-card row above it is — a left-hung control row under a centred band
+             * reads as the start of a column that never arrives.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Catalogue toolbar
+                </Text>
+                <CatalogueToolbar
+                    testID={id('toolbar')}
+                    search={toolbarSearch}
+                    onSearchChange={setToolbarSearch}
+                    searchLabel="Search the catalogue"
+                    searchPlaceholder="Search ingredients"
+                    statusLabel="Status"
+                    statusSegments={[
+                        { value: 'all', label: 'All' },
+                        { value: 'live', label: 'Live' },
+                        { value: 'draft', label: 'Draft' },
+                        { value: 'review', label: 'Review' },
+                    ]}
+                    status={toolbarStatus}
+                    onStatusChange={setToolbarStatus}
+                />
+            </Stack>
+
+            {/*
              * The read-only record panel behind a row's View action. The chip run stands in for
              * the allergens an ingredient resolves from the database and cannot override here.
              */}
@@ -1554,10 +1593,10 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     Data list
                 </Text>
                 {/*
-                  * Captioned for the same reason as the search ladder: `DataList`'s `label` is the
-                  * list's accessible name, not a caption, so three densities over identical rows
-                  * render as the same table three times to anyone looking rather than measuring.
-                  */}
+                 * Captioned for the same reason as the search ladder: `DataList`'s `label` is the
+                 * list's accessible name, not a caption, so three densities over identical rows
+                 * render as the same table three times to anyone looking rather than measuring.
+                 */}
                 {ROW_DENSITIES.map((density) => (
                     <Stack key={density} space="xs">
                         <Text variant="caption" tone="secondary">
@@ -2046,10 +2085,7 @@ export function ShowcaseScreen() {
                     </DensityProvider>
                 </Section>
 
-                <Section
-                    id="catalogue-comfortable"
-                    title="Catalogue components — comfortable"
-                >
+                <Section id="catalogue-comfortable" title="Catalogue components — comfortable">
                     {/*
                      * The same stories twice. This copy takes the default density, which is what
                      * the customer surfaces render: the 44px floor still applies, and the ramp's

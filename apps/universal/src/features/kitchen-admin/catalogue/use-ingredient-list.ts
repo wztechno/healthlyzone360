@@ -1,10 +1,16 @@
+import type { AllergenCode } from '@healthy360/domain-types';
+
 import type {
+    AllergenClass,
     ApiFailure,
     IngredientAdmin,
     IngredientCategoryAdmin,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
-import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
+import {
+    PACKAGING_CATEGORY_CODE,
+    PRODUCT_FAMILY_CATEGORY_CODES,
+} from '@healthy360/api-client/contracts';
 import type { IngredientReferenceSeries } from '@healthy360/api-client/contracts';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -14,6 +20,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     pagesInResult,
     topLevelCategories,
+    useAllergenClassesQuery,
     useArchiveIngredientMutation,
     useIngredientCategoriesQuery,
     useIngredientPageQuery,
@@ -64,13 +71,7 @@ import { useListPage } from '../use-list-page.ts';
  * reasons no reader can see. Its header still filters through the toolbar's search.
  */
 export type IngredientSortKey =
-    | 'reference'
-    | 'name'
-    | 'category'
-    | 'unit'
-    | 'unitPrice'
-    | 'status'
-    | 'updatedAt';
+    'reference' | 'name' | 'category' | 'unit' | 'unitPrice' | 'status' | 'updatedAt';
 export type IngredientSortDirection = 'asc' | 'desc';
 
 /**
@@ -98,6 +99,18 @@ export interface IngredientListState {
     readonly setStatuses: (statuses: readonly PublishableStatus[]) => void;
     readonly category: string | null;
     readonly setCategory: (category: string | null) => void;
+    /**
+     * The allergen class the list is narrowed to, or `null`.
+     *
+     * One class, not a set. The column asks "show me the rows declaring this", and the endpoint
+     * answers exactly that — a union of classes would have to be filtered on the loaded page, which
+     * on a list seventeen pages deep narrows the page while the count goes on describing the whole
+     * collection. Both containments match, because the column prints both.
+     */
+    readonly allergen: AllergenCode | null;
+    readonly setAllergen: (allergen: AllergenCode | null) => void;
+    /** Every class the platform declares — the column filter's value list. */
+    readonly allergenClasses: readonly AllergenClass[];
     /** True when no filter of any kind is in force — the empty state branches on it. */
     readonly isUnfiltered: boolean;
     readonly clearFilters: () => void;
@@ -111,6 +124,11 @@ export interface IngredientListState {
      * food share the table — but offering it here would offer a choice that returns nothing, since
      * the list excludes that branch unconditionally. A filter option that can only ever produce an
      * empty page is worse than no option.
+     *
+     * `PRODUCT_FAMILY_CATEGORY_CODES` goes for the same reason and by a different route: Sauce,
+     * Dressings, Beverage and Bread hold only the `SAC-`/`DRS-`/`PRD-`/`RSL-` rows the v6 import
+     * writes beside its sellable lines, and this list keeps the `ING-` series alone. Same empty
+     * page, same conclusion.
      */
     readonly categories: readonly IngredientCategoryAdmin[];
     /**
@@ -163,7 +181,11 @@ export function useIngredientList(): IngredientListState {
     const [query, setQuery] = useState('');
     const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
     const [category, setCategory] = useState<string | null>(null);
-    const [sortKey, setSortKey] = useState<IngredientSortKey>('name');
+    const [allergen, setAllergen] = useState<AllergenCode | null>(null);
+    // Reference ascending, which is the order the codes were issued in and so the order a
+    // kitchen already knows the library by. Sorting by name instead put the list in an order
+    // that changes with the language.
+    const [sortKey, setSortKey] = useState<IngredientSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<IngredientSortDirection>('asc');
     const [archiving, setArchiving] = useState<IngredientAdmin | null>(null);
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
@@ -204,13 +226,15 @@ export function useIngredientList(): IngredientListState {
             ...(trimmed === '' ? {} : { query: trimmed }),
             ...(statuses.length === 0 ? {} : { statuses }),
             ...(category === null ? {} : { categoryCode: category }),
+            ...(allergen === null ? {} : { allergenCodes: [allergen] }),
         }),
-        [trimmed, statuses, category],
+        [trimmed, statuses, category, allergen],
     );
 
     const [page, setPage] = useListPage(filter);
     const ingredients = useIngredientPageQuery(filter, page);
     const categories = useIngredientCategoriesQuery();
+    const allergenClasses = useAllergenClassesQuery();
     const archive = useArchiveIngredientMutation();
 
     // Left possibly-undefined rather than defaulted to `[]` here: `?? []` is a fresh array on
@@ -227,8 +251,10 @@ export function useIngredientList(): IngredientListState {
                 // clustering under the empty string, which would put every unreferenced row above
                 // "A-001" ascending and hide them at the bottom descending. `missingLast` below
                 // is the same rule, generalised — the price column needs it too.
-                return missingLast(left.reference, right.reference, (a, b) =>
-                    factor * a.localeCompare(b),
+                return missingLast(
+                    left.reference,
+                    right.reference,
+                    (a, b) => factor * a.localeCompare(b),
                 );
             }
             if (sortKey === 'category') {
@@ -240,8 +266,10 @@ export function useIngredientList(): IngredientListState {
             if (sortKey === 'unitPrice') {
                 // Numeric, not lexical — the design's `sortType: 'number'`. Lexically, 11.00 sorts
                 // between 1.90 and 2.00, which is exactly the bug a price column cannot afford.
-                return missingLast(left.unitPrice, right.unitPrice, (a, b) =>
-                    factor * (a.amount - b.amount),
+                return missingLast(
+                    left.unitPrice,
+                    right.unitPrice,
+                    (a, b) => factor * (a.amount - b.amount),
                 );
             }
             if (sortKey === 'status')
@@ -281,14 +309,21 @@ export function useIngredientList(): IngredientListState {
         setStatuses,
         category,
         setCategory,
-        isUnfiltered: trimmed === '' && statuses.length === 0 && category === null,
+        allergen,
+        setAllergen,
+        allergenClasses: allergenClasses.data ?? [],
+        isUnfiltered:
+            trimmed === '' && statuses.length === 0 && category === null && allergen === null,
         clearFilters: () => {
             setQuery('');
             setStatuses([]);
             setCategory(null);
+            setAllergen(null);
         },
         categories: topLevelCategories(categories.data).filter(
-            (entry) => entry.code !== PACKAGING_CATEGORY_CODE,
+            (entry) =>
+                entry.code !== PACKAGING_CATEGORY_CODE &&
+                !PRODUCT_FAMILY_CATEGORY_CODES.includes(entry.code),
         ),
         categoryTree: categories.data ?? [],
 
@@ -355,11 +390,7 @@ export function useIngredientList(): IngredientListState {
  * the set the Uncosted card is separately pointing at. Sinking them in both directions keeps the
  * top of the list answering the question that was asked.
  */
-function missingLast<T>(
-    left: T | null,
-    right: T | null,
-    compare: (a: T, b: T) => number,
-): number {
+function missingLast<T>(left: T | null, right: T | null, compare: (a: T, b: T) => number): number {
     if (left === null || right === null) {
         if (left === right) return 0;
         return left === null ? 1 : -1;

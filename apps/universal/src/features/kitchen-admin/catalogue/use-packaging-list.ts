@@ -56,12 +56,19 @@ export type PackagingSortDirection = 'asc' | 'desc';
  *
  * The ingredient vocabulary, because these *are* ingredients: `PackagingStatus` was active /
  * inactive / archived and turned out to be the same three states the ingredient table already
- * stored under different names. `review_required` is left out — it is the allergen quarantine, and
- * a box declares no allergens, so no packaging row can ever be in it.
+ * stored under different names.
+ *
+ * `review_required` used to be left out, on the argument that the state is the allergen quarantine
+ * and a box declares no allergens. That is true of how a row *enters* review and not of what the
+ * column is for: the status is a field on the same ingredient table, an import or a hand edit can
+ * set it, and a filter that cannot name a state the data can hold is a filter that silently hides
+ * rows. Offered by request, and it costs nothing when no row is in it — the value simply matches
+ * none.
  */
 export const PACKAGING_STATUS_FILTERS: readonly PublishableStatus[] = [
     'published',
     'draft',
+    'review_required',
     'retired',
 ];
 
@@ -142,7 +149,10 @@ export function usePackagingList(): PackagingListState {
     const [query, setQuery] = useState('');
     const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
     const [category, setCategory] = useState<string | null>(null);
-    const [sortKey, setSortKey] = useState<PackagingSortKey>('name');
+    // Reference ascending, which is the order the codes were issued in and so the order a
+    // kitchen already knows the library by. Sorting by name instead put the list in an order
+    // that changes with the language.
+    const [sortKey, setSortKey] = useState<PackagingSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<PackagingSortDirection>('asc');
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
     const [archiving, setArchiving] = useState<IngredientAdmin | null>(null);
@@ -248,10 +258,17 @@ export function usePackagingList(): PackagingListState {
         inactiveCount: sorted.filter((row) => row.meta.status === 'draft').length,
         missingArabicCount: sorted.filter((row) => displayName(row.name, locale).isFallback).length,
 
-        // The ingredient editor, which can edit these rows because they *are* ingredients. This
-        // used to point at `/kitchen/packaging/{item}`, a route that has never existed.
+        /*
+         * `/kitchen/packaging/{item}`, which now exists.
+         *
+         * It used to point at the ingredient editor directly, because that route was the only one
+         * that could edit these rows — they *are* ingredients, and there was no packaging editor to
+         * send them to. There is one now: the same form, handed the packaging series, the packaging
+         * category and this list to return to. `new` is a value of the same parameter, so the
+         * create button and a row's Edit go to one place.
+         */
         openEditor: (itemId) => {
-            router.push(`/kitchen/ingredients/${itemId}` as never);
+            router.push(`/kitchen/packaging/${itemId}` as never);
         },
         viewing,
         openView: setViewing,

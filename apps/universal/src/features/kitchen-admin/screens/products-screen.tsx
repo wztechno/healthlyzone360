@@ -7,7 +7,6 @@ import {
     ErrorState,
     Icon,
     Inline,
-    Menu,
     Skeleton,
     Stack,
     Text,
@@ -24,17 +23,22 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { CatalogueColumnHeader } from '../catalogue/catalogue-column-header.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
 import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { productColumns } from '../catalogue/product-columns.tsx';
-import type { ProductItemType, ProductListState, ProductSortKey } from '../catalogue/use-product-list.ts';
+import type {
+    ProductItemType,
+    ProductListState,
+    ProductSortKey,
+} from '../catalogue/use-product-list.ts';
 import { useProductList } from '../catalogue/use-product-list.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
@@ -240,20 +244,6 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
              * 16px it read as two empty bands stacked above the first thing worth looking at.
              */}
             <Stack space="xs">
-                <CataloguePageHeader
-                    testID="kitchen-products-header"
-                    primaryAction={
-                        canManage ? (
-                            <Button
-                                testID="kitchen-products-toolbar-create"
-                                label={t(family.create)}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={list.createNew}
-                            />
-                        ) : undefined
-                    }
-                />
-
                 {list.isPending ? null : (
                     <CatalogueStatCards
                         testID="kitchen-products-stats"
@@ -275,7 +265,19 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                 onStatusChange={(status) => {
                     list.setStatuses(status === 'all' ? [] : [status]);
                 }}
-            />
+            >
+                {canManage ? (
+                    <Inline space="xs" align="center">
+                        <CatalogueTransferActions testID="kitchen-products-toolbar" />
+                        <Button
+                            testID="kitchen-products-toolbar-create"
+                            label={t(family.create)}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={list.createNew}
+                        />
+                    </Inline>
+                ) : undefined}
+            </CatalogueToolbar>
 
             {list.isPending ? (
                 <Stack space="xs" testID="kitchen-products-loading">
@@ -679,58 +681,48 @@ function headerMenu(
     if (sortKey === null && filter.length === 0) return undefined;
 
     const active = sortKey !== null && list.sortKey === sortKey;
-    const mark = !active ? '' : list.sortDirection === 'asc' ? ' ↑' : ' ↓';
+    // Any value in this column's own list that is currently applied. Derived from the items
+    // rather than restated per entity: the screens already mark the applied value `selected`
+    // so the menu can tick it, and "the menu has a tick" is exactly "the column is filtered".
+    const filtered = filter.some((item) => item.selected === true);
 
-    const sortItems: readonly MenuItem[] =
-        sortKey === null
-            ? []
-            : [
-                  {
-                      key: 'asc',
-                      label: t('kitchen:catalogue.sortAscending'),
-                      selected: active && list.sortDirection === 'asc',
-                      testID: `kitchen-products-column-${column.key}-asc`,
-                      onSelect: () => {
-                          list.setSort(sortKey, 'asc');
-                      },
-                  },
-                  {
-                      key: 'desc',
-                      label: t('kitchen:catalogue.sortDescending'),
-                      selected: active && list.sortDirection === 'desc',
-                      testID: `kitchen-products-column-${column.key}-desc`,
-                      onSelect: () => {
-                          list.setSort(sortKey, 'desc');
-                      },
-                  },
-              ];
+    /*
+     * A column with nothing to filter by sorts on the press itself - see `onToggleSort`. The cycle
+     * is the one a reader expects from a table: first press sorts ascending, pressing the column
+     * already sorted flips it.
+     */
+    const toggleSort =
+        sortKey === null || filter.length > 0
+            ? undefined
+            : () => {
+                  list.setSort(sortKey, active && list.sortDirection === 'asc' ? 'desc' : 'asc');
+              };
 
     return () => (
-        <Menu
-            label={t('kitchen:catalogue.columnMenu', { column: column.label })}
-            align="start"
-            // The header cell is inside the list's own stacking context and the rows paint after
-            // it, so a panel hanging from the header lands *under* the first rows without this.
-            className="z-sticky"
-            sections={[
-                ...(sortItems.length === 0 ? [] : [{ items: sortItems }]),
-                ...(filter.length === 0
-                    ? []
-                    : [{ label: t('kitchen:catalogue.filter'), items: filter }]),
-            ]}
-            trigger={({ triggerProps, toggle }) => (
-                <Text
-                    {...triggerProps}
-                    variant="micro"
-                    tone={active ? 'primary' : 'secondary'}
-                    align={column.align === 'center' ? 'center' : undefined}
-                    role="button"
-                    onPress={toggle}
-                    testID={`kitchen-products-column-${column.key}-trigger`}
-                >
-                    {`${column.label}${mark}`}
-                </Text>
-            )}
+        <CatalogueColumnHeader
+            label={column.label}
+            align={column.align}
+            {...(toggleSort === undefined ? {} : { onToggleSort: toggleSort })}
+            /*
+             * Values only. The sort pair used to lead this list, which meant a column that could
+             * only sort still opened a panel to ask "ascending or descending" - a second press for
+             * something the first press already meant. Sorting is the press itself now, so a column
+             * with no values to choose from has no menu at all, and `sections` being empty is
+             * exactly what tells the header that.
+             */
+            sections={
+                filter.length === 0 ? [] : [{ label: t('kitchen:catalogue.filter'), items: filter }]
+            }
+            // Three states, not two: `undefined` where the column cannot sort at all, so the
+            // header knows to draw no arrow rather than a grey one pointing at nothing.
+            sortDirection={
+                sortKey === null || filter.length > 0
+                    ? undefined
+                    : active
+                      ? list.sortDirection
+                      : null
+            }
+            filtered={filtered}
             testID={`kitchen-products-column-${column.key}`}
         />
     );
@@ -760,11 +752,7 @@ function sortKeyFor(key: string): SortKey | null {
  * Status offers all four, including Archived, which is what makes it fine for the toolbar's
  * segments to name only three.
  */
-function filterItemsFor(
-    key: string,
-    list: ProductListState,
-    t: TFunction,
-): readonly MenuItem[] {
+function filterItemsFor(key: string, list: ProductListState, t: TFunction): readonly MenuItem[] {
     if (key === 'status') {
         return [
             ...PRODUCT_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -788,15 +776,22 @@ function filterItemsFor(
 
     if (key === 'category') {
         return [
-            ...list.categories.map((entry) => ({
-                key: entry.code,
-                label: humaniseCode(entry.code),
-                selected: list.category === entry.code,
-                testID: `kitchen-products-column-category-${entry.code}`,
-                onSelect: () => {
-                    list.setCategory(list.category === entry.code ? null : entry.code);
-                },
-            })),
+            /*
+             * A value with no id is not offered: the endpoint narrows by id, so a code the read
+             * could not pair with one would send no constraint and answer with the whole list
+             * while the header claimed a filter was on.
+             */
+            ...list.categories
+                .filter((entry) => entry.id !== null)
+                .map((entry) => ({
+                    key: entry.code,
+                    label: humaniseCode(entry.code),
+                    selected: list.category === entry.code,
+                    testID: `kitchen-products-column-category-${entry.code}`,
+                    onSelect: () => {
+                        list.setCategory(list.category === entry.code ? null : entry.code);
+                    },
+                })),
             ...(list.category === null
                 ? []
                 : [
