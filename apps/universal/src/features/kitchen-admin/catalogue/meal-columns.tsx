@@ -77,10 +77,7 @@ export interface MealColumnDeps {
     readonly formatter: Formatter;
 }
 
-export function mealColumns({
-    t,
-    locale,
-}: MealColumnDeps): readonly CatalogueColumn<MealAdmin>[] {
+export function mealColumns({ t, locale }: MealColumnDeps): readonly CatalogueColumn<MealAdmin>[] {
     const channelLabel = (row: MealAdmin): string => {
         const channels = availableChannels(row.channelAvailability);
         return channels.length === 0

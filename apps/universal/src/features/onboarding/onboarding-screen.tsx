@@ -270,7 +270,10 @@ export function OnboardingScreen({ slug }: OnboardingScreenProps) {
                                         className="h-5 w-5 rounded-full border-2 border-brand-500 bg-surface-raised"
                                     />
                                 ) : (
-                                    <View aria-hidden className="mx-1.5 h-2 w-2 rounded-full bg-stroke-subtle" />
+                                    <View
+                                        aria-hidden
+                                        className="mx-1.5 h-2 w-2 rounded-full bg-stroke-subtle"
+                                    />
                                 )}
                                 <Text
                                     variant="caption"

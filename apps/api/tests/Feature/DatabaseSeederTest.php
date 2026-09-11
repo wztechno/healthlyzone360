@@ -164,13 +164,18 @@ it('seeds the twelve diet classifications the frontend union declares', function
         ->and($classifications->filter(fn (DietClassification $row): bool => $row->name_ar === $row->name_en)->count())->toBe(0);
 });
 
-it('seeds the ten platform product categories as a flat library', function (): void {
+it('seeds the thirteen platform product categories as a flat library', function (): void {
     $categories = ProductCategory::withoutTenancy()->whereNull('organisation_id')->orderBy('display_order')->get();
 
-    expect($categories)->toHaveCount(10)
+    // Ten, then the three the v6 workbook publishes under names the original
+    // ten did not cover — its meal sheet, its beverages and its dressings.
+    // "Sauce & Marinade" reuses `sauce`, which is why there are three and not
+    // four. Both halves are one list in `ProductCategorySeeder`.
+    expect($categories)->toHaveCount(13)
         ->and($categories->pluck('code')->all())->toBe([
             'poultry', 'meat', 'frozen', 'sauce', 'toppings',
             'oil', 'condiment', 'bread', 'dairy', 'vegetables',
+            'meal', 'beverage', 'dressing',
         ])
         ->and($categories->where('is_active', false)->count())->toBe(0)
         ->and($categories->where('name_ar', '')->count())->toBe(0);

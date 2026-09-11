@@ -241,9 +241,9 @@ final readonly class RecipeCostingService
                 currencyCode: null,
                 totalPackagingCostAmount: '0.000000',
                 lineCosts: [],
-                uncostedLineNumbers: $packaging->map(
+                uncostedLineNumbers: array_values($packaging->map(
                     static fn (RecipeVersionPackaging $row): int => $row->line_number,
-                )->sort()->values()->all(),
+                )->sort()->all()),
                 costPerYieldUnitAmount: null,
                 yieldUnitId: null,
                 wastePercent: $this->numeric((string) $version->packaging_waste_percent),

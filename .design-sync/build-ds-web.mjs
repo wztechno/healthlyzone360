@@ -55,10 +55,13 @@ const stubNativeOnly = {
     name: 'stub-native-only',
     setup(b) {
         for (const [id, contents] of Object.entries(NATIVE_ONLY)) {
-            b.onResolve({ filter: new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }, () => ({
-                path: id,
-                namespace: 'native-stub',
-            }));
+            b.onResolve(
+                { filter: new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) },
+                () => ({
+                    path: id,
+                    namespace: 'native-stub',
+                }),
+            );
         }
         b.onLoad({ filter: /.*/, namespace: 'native-stub' }, (args) => ({
             contents: NATIVE_ONLY[args.path],
@@ -91,7 +94,17 @@ await build({
     // react-native/Libraries/Utilities/codegenNativeComponent, a native codegen path with no
     // react-native-web equivalent. Preferring `.web.js` is exactly what Metro does — and it is
     // also how the repo's own grid/date-field/slider-field platform splits resolve.
-    resolveExtensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'],
+    resolveExtensions: [
+        '.web.tsx',
+        '.web.ts',
+        '.web.jsx',
+        '.web.js',
+        '.tsx',
+        '.ts',
+        '.jsx',
+        '.js',
+        '.json',
+    ],
     mainFields: ['browser', 'module', 'main'],
     conditions: ['browser', 'import', 'require'],
     // The converter's reactShim rebinds these to window.React / window.ReactDOM. Leaving them
@@ -128,11 +141,22 @@ console.error(`  entry: ${(statSync(outfile).size / 1024).toFixed(0)} KB  ${outf
 // -- CSS. The app's Tailwind config already globs ../../packages/*/src, and global.css @imports
 // packages/design-tokens/generated/tokens.css first, so the :root and .dark blocks ride along.
 const cssOut = join(OUT_DIR, 'ds.css');
-const tailwindBin = join(ROOT, 'node_modules/.bin/tailwindcss' + (process.platform === 'win32' ? '.CMD' : ''));
+const tailwindBin = join(
+    ROOT,
+    'node_modules/.bin/tailwindcss' + (process.platform === 'win32' ? '.CMD' : ''),
+);
 const app = join(ROOT, 'apps/universal');
 const css = spawnSync(
     tailwindBin,
-    ['-c', join(app, 'tailwind.config.js'), '-i', join(app, 'global.css'), '-o', cssOut, '--minify'],
+    [
+        '-c',
+        join(app, 'tailwind.config.js'),
+        '-i',
+        join(app, 'global.css'),
+        '-o',
+        cssOut,
+        '--minify',
+    ],
     { cwd: app, stdio: 'inherit', shell: process.platform === 'win32' },
 );
 if (css.status !== 0) {

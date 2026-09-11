@@ -173,7 +173,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         aliases: [],
         organisationId: TEST_ORGANISATION_ID,
         forkedFromId: null,
-    isEditable: true,
+        isEditable: true,
         notes: null,
         ...overrides,
     };
@@ -632,7 +632,9 @@ describe('the ingredient list', () => {
         // opened first. The id it carries is unchanged: what moved is the control, not the target.
         await act(async () => {
             fireEvent.press(
-                screen.getByTestId(`kitchen-ingredients-table-row-${String(target.id)}-actions-trigger`),
+                screen.getByTestId(
+                    `kitchen-ingredients-table-row-${String(target.id)}-actions-trigger`,
+                ),
             );
         });
 
@@ -949,7 +951,10 @@ describe('the ingredient editor', () => {
         expect(screen.queryByTestId('kitchen-ingredient-alias-input-input')).toBeNull();
 
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-ar-input'), 'اسم جديد');
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-name-ar-input'),
+                'اسم جديد',
+            );
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));

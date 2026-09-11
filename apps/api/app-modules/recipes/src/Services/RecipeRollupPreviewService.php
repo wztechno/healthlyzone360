@@ -45,7 +45,7 @@ final class RecipeRollupPreviewService
      *     yield_unit_id?: string|null,
      *     yield_piece_count?: int|null,
      *     packaging_waste_percent?: string|null,
-     *     packaging?: list<array{packaging_item_id: string, basis: string, quantity?: float|string|null}>
+     *     packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>
      * }  $draft
      * @return array{
      *     per_recipe: null,
@@ -139,7 +139,7 @@ final class RecipeRollupPreviewService
      * the older roll-up carries a summed line total in `estimated_cost` and
      * nothing else, and it stays exactly as it was.
      *
-     * @param  array{lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>, waste_percent: float|string|null, yield_quantity?: string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: string|null, packaging?: list<array{packaging_item_id: string, basis: string, quantity?: float|string|null}>}  $draft
+     * @param  array{lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>, waste_percent: float|string|null, yield_quantity?: string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: string|null, packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>}  $draft
      * @return array<string, mixed>|null
      */
     private function computedCost(array $draft): ?array

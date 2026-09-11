@@ -64,23 +64,26 @@ describe('compact density', () => {
         },
     );
 
-    it.each(['sm', 'md', 'lg'] as const)('sizes a %s icon button square on the ladder', async (size) => {
-        await renderCompact(
-            <IconButton
-                testID="more"
-                label="More"
-                size={size}
-                icon={<Icon name="more" size="sm" />}
-                onPress={jest.fn()}
-            />,
-        );
-        const classes: string = screen.getByTestId('more').props.className;
+    it.each(['sm', 'md', 'lg'] as const)(
+        'sizes a %s icon button square on the ladder',
+        async (size) => {
+            await renderCompact(
+                <IconButton
+                    testID="more"
+                    label="More"
+                    size={size}
+                    icon={<Icon name="more" size="sm" />}
+                    onPress={jest.fn()}
+                />,
+            );
+            const classes: string = screen.getByTestId('more').props.className;
 
-        // Square from the aspect ratio, not from a width — see the note in `icon-button.tsx`.
-        expect(classes).toContain(`h-control-${size}`);
-        expect(classes).toContain('aspect-square');
-        expect(classes).not.toMatch(/\bw-\d/);
-    });
+            // Square from the aspect ratio, not from a width — see the note in `icon-button.tsx`.
+            expect(classes).toContain(`h-control-${size}`);
+            expect(classes).toContain('aspect-square');
+            expect(classes).not.toMatch(/\bw-\d/);
+        },
+    );
 
     it('sizes the input frame from the ladder', async () => {
         await renderCompact(<TextInputField testID="ref" label="Reference" size="sm" />);
@@ -141,27 +144,38 @@ describe('compact density', () => {
 
     it('drops the touch floor from the checkbox row', async () => {
         await renderCompact(
-            <Checkbox testID="restricted" checked={false} onChange={jest.fn()} label="Restricted" />,
+            <Checkbox
+                testID="restricted"
+                checked={false}
+                onChange={jest.fn()}
+                label="Restricted"
+            />,
         );
         expect(screen.getByTestId('restricted-control').props.className).not.toContain(
             'min-h-touch',
         );
     });
 
-    it.each(['micro', 'caption', 'body', 'label', 'strong', 'section', 'title', 'display'] as const)(
-        'renders %s on the role ramp in the admin face',
-        async (variant) => {
-            await renderCompact(
-                <Text testID="copy" variant={variant}>
-                    Zaatar
-                </Text>,
-            );
-            const classes: string = screen.getByTestId('copy').props.className;
+    it.each([
+        'micro',
+        'caption',
+        'body',
+        'label',
+        'strong',
+        'section',
+        'title',
+        'display',
+    ] as const)('renders %s on the role ramp in the admin face', async (variant) => {
+        await renderCompact(
+            <Text testID="copy" variant={variant}>
+                Zaatar
+            </Text>,
+        );
+        const classes: string = screen.getByTestId('copy').props.className;
 
-            expect(classes).toContain(`text-role-${variant.toLowerCase()}`);
-            expect(classes).toContain('font-admin');
-        },
-    );
+        expect(classes).toContain(`text-role-${variant.toLowerCase()}`);
+        expect(classes).toContain('font-admin');
+    });
 
     it('leaves the mono role to IBM Plex Mono rather than stacking two families', async () => {
         await renderCompact(

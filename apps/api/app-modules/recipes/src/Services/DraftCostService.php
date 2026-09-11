@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Recipes\Services;
 
+use Healthy360\Recipes\Enums\PackagingBasis;
 use Healthy360\Recipes\Exceptions\MixedCostCurrency;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
@@ -62,7 +63,7 @@ final readonly class DraftCostService
      * showing the totals under headings that promise per-kilo figures is not.
      *
      * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>  $lines
-     * @param  list<array{packaging_item_id: string, basis: string, quantity?: float|string|null}>  $packaging
+     * @param  list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>  $packaging
      * @return array{production: CostComputation, packaging: PackagingCostComputation, total: numeric-string|null}|null
      *
      * @throws ApiException
@@ -124,6 +125,8 @@ final readonly class DraftCostService
      * Only the fields costing reads are set. Deliberately not `->save()`d and
      * deliberately not given a key: an id would make it addressable, and a row
      * nobody created must not be.
+     *
+     * @param  numeric-string  $yieldQuantity
      */
     private function draftVersion(
         string $yieldQuantity,
@@ -169,7 +172,7 @@ final readonly class DraftCostService
     }
 
     /**
-     * @param  list<array{line_number: int, packaging_item_id: string, basis: mixed, quantity: numeric-string, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, comment: string|null}>  $prepared
+     * @param  list<array{line_number: int, ingredient_id: string, basis: PackagingBasis, quantity: numeric-string, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, comment: string|null}>  $prepared
      * @return Collection<int, RecipeVersionPackaging>
      */
     private function packagingRows(array $prepared): Collection
@@ -180,7 +183,7 @@ final readonly class DraftCostService
         foreach ($prepared as $attributes) {
             $row = new RecipeVersionPackaging;
             $row->line_number = $attributes['line_number'];
-            $row->packaging_item_id = $attributes['packaging_item_id'];
+            $row->ingredient_id = $attributes['ingredient_id'];
             $row->basis = $attributes['basis'];
             $row->quantity = (string) $attributes['quantity'];
             $row->unit_id = $attributes['unit_id'];

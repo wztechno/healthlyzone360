@@ -649,6 +649,48 @@ export const zRecipeLine = z.object({
 });
 
 /**
+ * How a packaging quantity is arrived at.
+ *
+ * * `fills_yield` — the container the yield goes into. The server divides
+ * the yield by the item's recorded capacity and rounds up, so the
+ * quantity is a container count nobody types.
+ * * `per_container` — one per container filled, multiplied by the count
+ * `fills_yield` produced. A cap goes on every bottle.
+ * * `per_batch` — a flat quantity per batch, independent of the yield.
+ * The only basis that accepts `quantity`.
+ *
+ */
+export const zPackagingBasis = z.enum([
+    'fills_yield',
+    'per_container',
+    'per_batch'
+]);
+
+/**
+ * One packaging line, as stored.
+ *
+ * **No cost fields**, for `RecipeLine`'s reason and one of its own: the
+ * unit cost of a box is read from the catalogue row rather than carried
+ * here, so the costed view is the technical sheet and this projection has
+ * nothing to withhold.
+ *
+ * `basis` travels beside `quantity` and always. Without it the quantity
+ * is unreadable — `6` means "the yield fills six of these" on one basis
+ * and "somebody typed six" on another, and only the first is still right
+ * after the yield changes.
+ *
+ */
+export const zRecipePackagingLine = z.object({
+    id: zUuid,
+    line_number: z.int().gte(1),
+    ingredient_id: zUuid,
+    basis: zPackagingBasis,
+    quantity: z.string(),
+    unit_id: zUuid.nullish(),
+    comment: z.string().max(255).nullish()
+});
+
+/**
  * What a version produces. An ingredient with a row here is what the
  * design used to call an "intermediate"; there is no kind column
  * anywhere, because being an intermediate is a fact about some version's
@@ -798,6 +840,15 @@ export const zReplaceRecipeLinesRequest = z.object({
         source_designation: z.string().max(160).nullish(),
         comment: z.string().max(255).nullish()
     })).max(200)
+});
+
+export const zReplaceRecipePackagingRequest = z.object({
+    packaging: z.array(z.object({
+        ingredient_id: zUuid,
+        basis: zPackagingBasis,
+        quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+        comment: z.string().max(255).nullish()
+    })).max(50)
 });
 
 /**
@@ -9159,7 +9210,8 @@ export const zListIngredientsQuery = z.object({
     query: z.string().max(160).optional(),
     status: zIngredientStatus.optional(),
     category: zUuid.optional(),
-    exclude_category: zUuid.optional()
+    exclude_category: zUuid.optional(),
+    reference_series: z.enum(['ING-', 'PKG-']).optional()
 });
 
 /**
@@ -9603,6 +9655,33 @@ export const zReplaceRecipeLinesResponse = z.object({
     meta: zMeta
 });
 
+export const zReplaceRecipePackagingBody = zReplaceRecipePackagingRequest;
+
+export const zReplaceRecipePackagingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceRecipePackagingPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The version and its new packaging, as stored.
+ */
+export const zReplaceRecipePackagingResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        packaging: z.array(zRecipePackagingLine)
+    }),
+    meta: zMeta
+});
+
 export const zReplaceRecipeOutputsBody = zReplaceRecipeOutputsRequest;
 
 export const zReplaceRecipeOutputsHeaders = z.object({
@@ -9940,6 +10019,29 @@ export const zUpdateSalesChannelPath = z.object({
  * The updated channel.
  */
 export const zUpdateSalesChannelResponse = zSalesChannelEnvelope;
+
+export const zNextCatalogueReferenceHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zNextCatalogueReferenceQuery = z.object({
+    prefix: z.enum([
+        'ING-',
+        'RC-',
+        'SAC-',
+        'DRS-'
+    ])
+});
+
+/**
+ * The next handle in that series.
+ */
+export const zNextCatalogueReferenceResponse = z.object({
+    data: z.object({
+        reference: z.string().max(40)
+    })
+});
 
 export const zListCatalogueItemsHeaders = z.object({
     'X-Organisation-Id': zUuid,

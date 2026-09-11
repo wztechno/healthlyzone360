@@ -51,16 +51,16 @@ export function Separator({
             : 'self-stretch border-e border-stroke-subtle';
 
     const semantics = semantic
-        ? ({
+        ? {
               role: 'separator' as const,
               accessibilityRole: 'none' as const,
               'aria-orientation': orientation,
-          })
-        : ({
+          }
+        : {
               'aria-hidden': true,
               accessibilityElementsHidden: true,
               importantForAccessibility: 'no-hide-descendants' as const,
-          });
+          };
 
     return <View testID={testID} {...semantics} className={cx(geometry, className)} />;
 }

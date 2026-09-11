@@ -988,9 +988,7 @@ function RecipeEditor({
                             ? {}
                             : {
                                   recipeCategory:
-                                      details.recipeCategory === ''
-                                          ? null
-                                          : details.recipeCategory,
+                                      details.recipeCategory === '' ? null : details.recipeCategory,
                               }),
                     },
                 });
@@ -1362,7 +1360,9 @@ function RecipeEditor({
                                     disabled={!editable}
                                     options={classification.options}
                                     value={
-                                        details.recipeCategory === '' ? null : details.recipeCategory
+                                        details.recipeCategory === ''
+                                            ? null
+                                            : details.recipeCategory
                                     }
                                     onChange={(next) => {
                                         setDetails({ ...details, recipeCategory: next });
@@ -1370,7 +1370,6 @@ function RecipeEditor({
                                     }}
                                 />
                             )}
-
                         </FormGrid>
                     </FormSection>
 

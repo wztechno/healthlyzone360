@@ -48,32 +48,32 @@ preset. Reach for a token before a literal, every time.
 Each screen is a self-contained `<sc-if>` branch keyed by an id. Naming the id is the
 unambiguous way to point at one.
 
-| id | Design screen | Implement in |
-| --- | --- | --- |
-| `home` | Customer landing | `marketplace/screens/consumer-home-screen.tsx` |
-| `catalog` | Menu / browse grid | `catalogue/screens/meals-screen.tsx` |
-| `meal` | Meal detail | `catalogue/screens/meal-detail-screen.tsx` |
-| `cart` | Basket | `commerce/screens/cart-screen.tsx` |
-| `checkout` | Checkout | `commerce/screens/checkout-screen.tsx` |
-| `track` | Order tracking | `guest/screens/guest-order-screen.tsx` — confirm target |
-| `account` | Account | `account/screens/account-screen.tsx` |
-| `mobile` | Narrow-viewport customer | responsive pass, not a separate file |
-| `discover` | Discover | `marketplace/screens/discover-screen.tsx` |
-| `storefront` | Kitchen storefront | `marketplace/screens/kitchen-profile-screen.tsx`, `kitchen-menu-screen.tsx` |
-| `plans` | Weekly plans | `catalogue/screens/plans-screen.tsx` |
-| `guest` | Guest checkout | `guest/screens/guest-checkout-screen.tsx` |
-| `dash` | Operations today | `kitchen-admin/screens/kitchen-home-screen.tsx` |
-| `orders` | Orders | `kitchen-admin/screens/orders-screen.tsx` |
-| `kitchen` | Kitchen board | `kitchen-admin/screens/production-screen.tsx` |
-| `kds` | Kitchen display | `kds/kds-tickets-screen.tsx` |
-| `desk` | Order desk | `kitchen-admin/screens/order-desk-screen.tsx` (+ `-sale`, `-cash-report`, `-calendar`) |
-| `catmgr` | Catalogue manager | `kitchen-admin/screens/meals-screen.tsx`, `products-screen.tsx`, `plans-screen.tsx` |
-| `inventory` | Inventory & stock | `kitchen-admin/screens/stock-screen.tsx`, `ingredients-screen.tsx` |
-| `adminmeals` | Meals & recipes | `kitchen-admin/screens/meals-screen.tsx`, `recipes-screen.tsx` |
-| `production` | Production plan | `kitchen-admin/screens/production-screen.tsx` |
-| `quotes` | Quotations | `kitchen-admin/screens/quotations-screen.tsx`, `business/screens/quotations-screen.tsx` |
-| `corp` | Corporate programmes | `business/screens/corporate-dashboard-screen.tsx`, `corporate-catalogue-screen.tsx` |
-| `costs` | Cost report | `kitchen-admin/screens/cost-report-screen.tsx` |
+| id           | Design screen            | Implement in                                                                            |
+| ------------ | ------------------------ | --------------------------------------------------------------------------------------- |
+| `home`       | Customer landing         | `marketplace/screens/consumer-home-screen.tsx`                                          |
+| `catalog`    | Menu / browse grid       | `catalogue/screens/meals-screen.tsx`                                                    |
+| `meal`       | Meal detail              | `catalogue/screens/meal-detail-screen.tsx`                                              |
+| `cart`       | Basket                   | `commerce/screens/cart-screen.tsx`                                                      |
+| `checkout`   | Checkout                 | `commerce/screens/checkout-screen.tsx`                                                  |
+| `track`      | Order tracking           | `guest/screens/guest-order-screen.tsx` — confirm target                                 |
+| `account`    | Account                  | `account/screens/account-screen.tsx`                                                    |
+| `mobile`     | Narrow-viewport customer | responsive pass, not a separate file                                                    |
+| `discover`   | Discover                 | `marketplace/screens/discover-screen.tsx`                                               |
+| `storefront` | Kitchen storefront       | `marketplace/screens/kitchen-profile-screen.tsx`, `kitchen-menu-screen.tsx`             |
+| `plans`      | Weekly plans             | `catalogue/screens/plans-screen.tsx`                                                    |
+| `guest`      | Guest checkout           | `guest/screens/guest-checkout-screen.tsx`                                               |
+| `dash`       | Operations today         | `kitchen-admin/screens/kitchen-home-screen.tsx`                                         |
+| `orders`     | Orders                   | `kitchen-admin/screens/orders-screen.tsx`                                               |
+| `kitchen`    | Kitchen board            | `kitchen-admin/screens/production-screen.tsx`                                           |
+| `kds`        | Kitchen display          | `kds/kds-tickets-screen.tsx`                                                            |
+| `desk`       | Order desk               | `kitchen-admin/screens/order-desk-screen.tsx` (+ `-sale`, `-cash-report`, `-calendar`)  |
+| `catmgr`     | Catalogue manager        | `kitchen-admin/screens/meals-screen.tsx`, `products-screen.tsx`, `plans-screen.tsx`     |
+| `inventory`  | Inventory & stock        | `kitchen-admin/screens/stock-screen.tsx`, `ingredients-screen.tsx`                      |
+| `adminmeals` | Meals & recipes          | `kitchen-admin/screens/meals-screen.tsx`, `recipes-screen.tsx`                          |
+| `production` | Production plan          | `kitchen-admin/screens/production-screen.tsx`                                           |
+| `quotes`     | Quotations               | `kitchen-admin/screens/quotations-screen.tsx`, `business/screens/quotations-screen.tsx` |
+| `corp`       | Corporate programmes     | `business/screens/corporate-dashboard-screen.tsx`, `corporate-catalogue-screen.tsx`     |
+| `costs`      | Cost report              | `kitchen-admin/screens/cost-report-screen.tsx`                                          |
 
 The design also titles `recipes`, `qc`, `suppliers`, `procure`, `stock`, `pricelists`, `zones`
 and `branch` but renders them through a generic fallback rather than drawing them. Their real
@@ -82,11 +82,11 @@ design.
 
 ## Naming the chrome
 
-| Say | Means | Implement in |
-| --- | --- | --- |
-| customer header / navbar | Logo, Menu/Kitchens/Weekly plans/Offers, search, account, cart pill | `shell/marketplace-shell.tsx`, `consumer-shell.tsx` |
-| admin sidebar | 224px `#17231A` rail, grouped nav with counts, service-status footer | `shell/area-shell.tsx`, `kitchen-admin/kitchen-ops-shell.tsx` |
-| admin topbar | Page title + timestamp, search, Export, user block | same shells |
+| Say                      | Means                                                                | Implement in                                                  |
+| ------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------- |
+| customer header / navbar | Logo, Menu/Kitchens/Weekly plans/Offers, search, account, cart pill  | `shell/marketplace-shell.tsx`, `consumer-shell.tsx`           |
+| admin sidebar            | 224px `#17231A` rail, grouped nav with counts, service-status footer | `shell/area-shell.tsx`, `kitchen-admin/kitchen-ops-shell.tsx` |
+| admin topbar             | Page title + timestamp, search, Export, user block                   | same shells                                                   |
 
 > **Trap — the black bar at the top of the design is not product chrome.** The
 > `HEALTHZONE / PROTOTYPE` rail with the customer/admin screen buttons is the canvas's own screen
@@ -99,7 +99,7 @@ design.
 ## Retheme mapping
 
 HealthZone is warm off-white and lime, not mint and emerald. Type is **Schibsted Grotesk**
-throughout — body *and* display — with **IBM Plex Mono** for numerics, micro-labels and
+throughout — body _and_ display — with **IBM Plex Mono** for numerics, micro-labels and
 uppercase eyebrow text.
 
 Token architecture is unchanged: ramps and `ThemeColours` roles in
@@ -110,26 +110,26 @@ the gate on any value below.
 
 The design's CSS variables (`HealthZone.dc.html` lines 18–39) map onto the existing roles:
 
-| Role | Light | Dark | From |
-| --- | --- | --- | --- |
-| `surfaceBase` | `#f6f4ee` | `#14170f` | `--bg` |
-| `surfaceRaised` | `#ffffff` | `#1c201a` | `--card` |
-| `surfaceSunken` | `#f1f0ea` | `#171b14` | `--surface3` |
-| `textPrimary` | `#171a17` | `#f2f1ea` | `--ink` |
-| `textSecondary` | `#5c6159` | `#a9afa1` | `--muted` |
-| `textDisabled` | `#8a8f82` | `#8f9584` | `--muted2` |
-| `borderSubtle` | `#efede4` | `#242a1f` | `--line-soft` |
-| `borderDefault` | `#e3e0d6` | `#2a3024` | `--line` |
-| `borderStrong` | `#ddd9cd` | `#39402f` | `--line-strong` |
-| `focusRing` | `#171a17` | `#f2f1ea` | `--ink` |
-| `brandSurface` | `#cbeb6b` | `#cbeb6b` | lime CTA fill |
-| `brandSurfaceSubtle` | `#edf7cf` | `#21301a` | `--ok-bg` |
-| `onBrandSurfaceSubtle` | `#3f5c1e` | `#c9e894` | `--ok-fg` |
-| `accentSurface` | `#2f6b3a` | `#9bd75c` | `--accent-deep` |
-| `surfaceCanopy` | `#1e2a1c` | `#1e2a1c` | hero panel |
-| `surfaceCanopyDeep` | `#12140f` | `#12140f` | bar / footer |
-| `onCanopy` | `#fbfaf5` | `#fbfaf5` | `--surface2` |
-| `onCanopyMuted` | `#c3cbb8` | `#c3cbb8` | hero body copy |
+| Role                   | Light     | Dark      | From            |
+| ---------------------- | --------- | --------- | --------------- |
+| `surfaceBase`          | `#f6f4ee` | `#14170f` | `--bg`          |
+| `surfaceRaised`        | `#ffffff` | `#1c201a` | `--card`        |
+| `surfaceSunken`        | `#f1f0ea` | `#171b14` | `--surface3`    |
+| `textPrimary`          | `#171a17` | `#f2f1ea` | `--ink`         |
+| `textSecondary`        | `#5c6159` | `#a9afa1` | `--muted`       |
+| `textDisabled`         | `#8a8f82` | `#8f9584` | `--muted2`      |
+| `borderSubtle`         | `#efede4` | `#242a1f` | `--line-soft`   |
+| `borderDefault`        | `#e3e0d6` | `#2a3024` | `--line`        |
+| `borderStrong`         | `#ddd9cd` | `#39402f` | `--line-strong` |
+| `focusRing`            | `#171a17` | `#f2f1ea` | `--ink`         |
+| `brandSurface`         | `#cbeb6b` | `#cbeb6b` | lime CTA fill   |
+| `brandSurfaceSubtle`   | `#edf7cf` | `#21301a` | `--ok-bg`       |
+| `onBrandSurfaceSubtle` | `#3f5c1e` | `#c9e894` | `--ok-fg`       |
+| `accentSurface`        | `#2f6b3a` | `#9bd75c` | `--accent-deep` |
+| `surfaceCanopy`        | `#1e2a1c` | `#1e2a1c` | hero panel      |
+| `surfaceCanopyDeep`    | `#12140f` | `#12140f` | bar / footer    |
+| `onCanopy`             | `#fbfaf5` | `#fbfaf5` | `--surface2`    |
+| `onCanopyMuted`        | `#c3cbb8` | `#c3cbb8` | hero body copy  |
 
 Semantic roles come straight across: `success` ← `--ok-*`, `warning` ← `--warn-*`,
 `danger` ← `--bad-*`, `info` ← `--info-*`, each as bg / border / fg.
@@ -147,7 +147,7 @@ Resolve these deliberately — do not guess a value into the token file.
 3. **There is no violet.** HealthZone has no AI accent, so `accentSurface`, `accentSubtle` and
    wellness-green's "violet is AI" rule (its §4 Rule 5) have no successor. The virtual dietitian
    still needs to mark machine turns — decide what carries that before touching
-   `virtual-dietitian/`. Its origin labels differ on tone, glyph *and* wording and are asserted
+   `virtual-dietitian/`. Its origin labels differ on tone, glyph _and_ wording and are asserted
    by test; do not collapse them to colour.
 4. **A fourth surface.** The design uses `--surface2` `#fbfaf5`, a warm off-white between card and
    page, for the admin topbar and hero overlay cards. Either add a role or snap it to
@@ -190,7 +190,10 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
   `min-w-touch` utilities are still emitted — a generator test keeps them alive — and every phone
   surface still uses them. Do not apply them in `kitchen-admin/`, and do not delete them elsewhere
   without a sweep that reasons about the phone.
-- **RTL**: assert geometry, not classes. The existing Playwright RTL specs must still pass.
+- **RTL**: assert geometry, not classes. The Playwright suite that used to hold this line is
+  gone — it could only run against the demo world — so the rule now lives in the Jest tests and
+  in review. Logical utilities are still enforced by ESLint, which is the half a machine can
+  still check.
 - Documented behaviour survives the redesign: the meals filter panel opens closed **below `lg`**,
   where it is still a disclosure — above `lg` it is a rail beside the grid and there is nothing to
   disclose; `plan-card.tsx` is deliberately not one pressable target; the KDS board has no Cancel;
@@ -203,7 +206,7 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
   native. Do not add a gesture-driven rail to either.
 - **`web:` is how a web-only CSS behaviour is expressed** when there is no structural difference to
   branch on. NativeWind registers the variant on the web preset only, so the classes are never
-  generated for native. The sticky meals rail is the reference use. A *structural* difference still
+  generated for native. The sticky meals rail is the reference use. A _structural_ difference still
   branches in JavaScript on `useBreakpoint` or `Platform.OS`.
 - **The web scroll port is not the document.** `body` is `overflow: hidden`; the shell's
   `ScrollView` (`div[data-testid="…-shell-content"]`) is what scrolls. Sticky offsets resolve
@@ -215,7 +218,7 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
 **Current decision: build HealthZone's structure, defer its palette.** Layout, density, sizing,
 hierarchy and composition land now; the token retheme in the table above is a later pass.
 
-This works because screens refer to colour *semantically* (`surfaceCanopy`, `brandSurface`,
+This works because screens refer to colour _semantically_ (`surfaceCanopy`, `brandSurface`,
 `textSecondary`), never as hex. Build the admin rail with `surfaceCanopy` and it renders forest
 green today; when the palette lands it becomes HealthZone's olive-black with no screen edits.
 **So: never reach for a HealthZone hex during this pass.** A literal is what breaks the swap.
@@ -232,16 +235,16 @@ Consequences while this holds:
 
 The wellness-green handoff's component phase shipped. Use these rather than rebuilding:
 
-| Need | Use |
-| --- | --- |
-| Grid card with a baseline-pinned footer | `Card` `footer` / `interactive` — `design-system/src/content/card.tsx` |
-| 4:3 card media | `aspect="card"` — `content/avatar.tsx` |
-| Listing opening — trail, title, count, one trailing control | `apps/universal/src/ui/listing-header.tsx` |
-| Page opening with weight — the canopy band (`/kitchens`, `/dietitians`) | `apps/universal/src/ui/page-hero.tsx` |
-| Storefront opening — canopy panel beside a photo | `apps/universal/src/ui/storefront-hero.tsx` |
-| Account menu / any popover with a button trigger | `Popover` `triggerVariant="button"` `align="end"` |
-| One-row filter/sort/count bar | `marketplace/toolbar-row.tsx`, `kitchen-admin/list-toolbar.tsx` |
-| Machine-generated content band | `ui/ai-surface.tsx` |
+| Need                                                                    | Use                                                                    |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Grid card with a baseline-pinned footer                                 | `Card` `footer` / `interactive` — `design-system/src/content/card.tsx` |
+| 4:3 card media                                                          | `aspect="card"` — `content/avatar.tsx`                                 |
+| Listing opening — trail, title, count, one trailing control             | `apps/universal/src/ui/listing-header.tsx`                             |
+| Page opening with weight — the canopy band (`/kitchens`, `/dietitians`) | `apps/universal/src/ui/page-hero.tsx`                                  |
+| Storefront opening — canopy panel beside a photo                        | `apps/universal/src/ui/storefront-hero.tsx`                            |
+| Account menu / any popover with a button trigger                        | `Popover` `triggerVariant="button"` `align="end"`                      |
+| One-row filter/sort/count bar                                           | `marketplace/toolbar-row.tsx`, `kitchen-admin/list-toolbar.tsx`        |
+| Machine-generated content band                                          | `ui/ai-surface.tsx`                                                    |
 
 Then: shells → screens. Update `screens/showcase-screen.tsx` in the same commit as any component
 change — a component change that has not reached `/showcase` is not done.

@@ -65,10 +65,7 @@ export function spanWidth(span: number, trackWidth: number = fieldWidth): number
  * correct at every breakpoint — the field author states an intent ("this textarea is wide") and the
  * grid decides whether the viewport can honour it.
  */
-export function resolveSpan(
-    columns: number,
-    { span, fullWidth = false }: GridSpanProps,
-): number {
+export function resolveSpan(columns: number, { span, fullWidth = false }: GridSpanProps): number {
     if (fullWidth) return columns;
     if (span === undefined) return 1;
     return Math.min(Math.max(1, Math.trunc(span)), columns);

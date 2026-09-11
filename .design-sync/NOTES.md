@@ -65,14 +65,14 @@ Dark mode is `darkMode: 'class'`, paired with the `.dark` block. The probe harne
 
 Bundle + CSS in Chromium via Playwright, mounting `Button` (primary `md`, quiet `sm`) and `Card`:
 
-| Measured | Expected token |
-| --- | --- |
-| `rgb(21, 112, 67)` | `brandSurface` `#157043` |
-| radius `12px` | `rounded-lg` |
-| `md` padding `10px 16px` | `px-4 py-2.5` |
-| `sm` padding `8px 14px` | `px-3.5 py-2` |
-| min-height `44px` | `min-touch` |
-| Card `16px` / `p-4` | `rounded-xl`, `elevation-card` |
+| Measured                 | Expected token                 |
+| ------------------------ | ------------------------------ |
+| `rgb(21, 112, 67)`       | `brandSurface` `#157043`       |
+| radius `12px`            | `rounded-lg`                   |
+| `md` padding `10px 16px` | `px-4 py-2.5`                  |
+| `sm` padding `8px 14px`  | `px-3.5 py-2`                  |
+| min-height `44px`        | `min-touch`                    |
+| Card `16px` / `p-4`      | `rounded-xl`, `elevation-card` |
 
 No page errors.
 

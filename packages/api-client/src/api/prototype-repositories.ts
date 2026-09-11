@@ -787,7 +787,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _versionId: RecipeVersionId,
         _request: SetRecipePackagingRequest,
     ): Promise<RecipeAdmin> {
-        return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/packaging`);
+        return notImplemented(
+            `PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/packaging`,
+        );
     },
     setRecipeOutputs(_recipeId: RecipeId, _request: SetRecipeOutputsRequest): Promise<RecipeAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/recipes/{recipe}/versions/{version}/outputs`);

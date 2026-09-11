@@ -84,7 +84,7 @@ final class IngredientPresenter
      */
     public function ingredient(Ingredient $ingredient, ?iterable $allergens = null): array
     {
-        return [
+        $presented = [
             'id' => (string) $ingredient->getKey(),
             'organisation_id' => $ingredient->organisation_id,
             'is_platform' => $ingredient->isPlatformRow(),
@@ -134,13 +134,18 @@ final class IngredientPresenter
             'lock_version' => $ingredient->lock_version,
             'created_at' => $ingredient->created_at?->toIso8601String(),
             'updated_at' => $ingredient->updated_at?->toIso8601String(),
-            ...($allergens === null ? [] : [
-                'allergens' => array_values(array_map(
-                    fn (IngredientAllergen $mapping): array => $this->mapping($mapping),
-                    is_array($allergens) ? $allergens : iterator_to_array($allergens),
-                )),
-            ]),
         ];
+
+        // Added rather than spread in: a conditional spread leaves the shape of what comes back
+        // unknowable, and this array is the documented one every catalogue response is built on.
+        if ($allergens !== null) {
+            $presented['allergens'] = array_values(array_map(
+                fn (IngredientAllergen $mapping): array => $this->mapping($mapping),
+                is_array($allergens) ? $allergens : iterator_to_array($allergens),
+            ));
+        }
+
+        return $presented;
     }
 
     /**

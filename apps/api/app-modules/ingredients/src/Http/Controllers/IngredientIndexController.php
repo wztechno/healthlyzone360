@@ -98,17 +98,16 @@ final class IngredientIndexController
     private function present(Collection $rows): array
     {
         $mappings = $this->mappings->mappingsForMany(
-            $rows->map(fn (Ingredient $ingredient): string => (string) $ingredient->getKey())->values()->all(),
+            array_values($rows->map(fn (Ingredient $ingredient): string => (string) $ingredient->getKey())->all()),
             $this->mappings->callerLayer(),
         );
 
-        return $rows
+        return array_values($rows
             ->map(fn (Ingredient $ingredient): array => $this->presenter->ingredient(
                 $ingredient,
                 $mappings[(string) $ingredient->getKey()] ?? [],
             ))
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**

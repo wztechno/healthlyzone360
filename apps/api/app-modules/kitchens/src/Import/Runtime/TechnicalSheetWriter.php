@@ -133,8 +133,11 @@ final readonly class TechnicalSheetWriter
         $version->version_number = $this->nextVersionNumber($recipe);
         $version->status = RecipeVersionStatus::Draft;
         $version->completeness = $lines === [] ? RecipeCompleteness::Indicative : RecipeCompleteness::Costed;
-        $version->yield_quantity = $yield['quantity'];
-        $version->yield_unit_id = $yield['quantity'] === null ? null : UnitMap::idForCode($yield['unit'] ?? 'kg');
+        // A yield the workbook stated as something other than a number is no yield at all: the
+        // column is decimal, and a word written to it fails at the database rather than here.
+        $yieldQuantity = is_numeric($yield['quantity']) ? (string) $yield['quantity'] : null;
+        $version->yield_quantity = $yieldQuantity;
+        $version->yield_unit_id = $yieldQuantity === null ? null : UnitMap::idForCode($yield['unit'] ?? 'kg');
         $version->yield_piece_count = $yield['piece_count'];
         $version->input_quantity_total = $totals['input_quantity'];
         $version->waste_coefficient_percent = $this->wastePercent($sheet);
@@ -187,7 +190,7 @@ final readonly class TechnicalSheetWriter
         $yield = $version->yield_quantity;
         $input = $version->input_quantity_total;
 
-        if ($yield === null || $input === null || ! is_numeric($yield) || ! is_numeric($input)) {
+        if ($yield === null || $input === null || ! is_numeric($input)) {
             return;
         }
 

@@ -17,19 +17,19 @@
  *
  * ## Where the numbers come from
  *
- * Re-measured from the `all-dev` **api** export on 2026-08-13, after the mock implementation was
- * deleted (ADR-0013) and `dist-api` became the only artefact. Against the last mock-era baseline
- * (16 623 352 B / 3 348 102 B on 2026-07-31) the total grew ~2.5 MiB and the entry chunk ~440 KiB:
- * the fixture world left the bundle, but the generated wire client, its mappers and the api
- * transport — which the mock build kept behind a dynamic import it never loaded — now ship in
- * every chunk graph. The ~7.5 MiB of licensed WebP photography (D-035) is unchanged. Given 15 %
- * headroom, which is the room a wave of new screens needs without a budget rise becoming a weekly
- * ritual:
+ * Re-measured from the `all-dev` **api** export on 2026-09-10, after the admin Catalogue landed:
+ * its control ladder, layout and overlay components, the column spec every Catalogue list is drawn
+ * from, and the record editors for ingredients, packaging and pricing behind them. Against the
+ * 2026-08-13 baseline (19 128 695 B / 3 789 839 B, the first `dist-api`-only measurement after the
+ * mock implementation was deleted under ADR-0013) the total grew ~2.8 MiB and the entry chunk
+ * ~490 KiB, which is that surface arriving rather than accumulation — the ~7.5 MiB of licensed
+ * WebP photography (D-035) is unchanged across both. The 15 % headroom is unchanged too: it is the
+ * room a wave of new screens needs without a budget rise becoming a weekly ritual.
  *
  * | measure                | actual        | ×1.15 → budget |
  * | ---------------------- | ------------- | -------------- |
- * | total `dist-api` bytes | 19 128 695    | 21 997 999     |
- * | largest JS chunk       |  3 789 839    |  4 358 315     |
+ * | total `dist-api` bytes | 22 114 458    | 25 431 626     |
+ * | largest JS chunk       |  4 290 814    |  4 934 436     |
  *
  * The `all-dev` export is deliberately the subject: it carries every area of the application at
  * once, so it is the largest thing the repository produces and a bound on it bounds every narrower
@@ -44,16 +44,16 @@ import { readdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 
 /** Total bytes of the exported directory. */
-export const TOTAL_BUDGET_BYTES = 21_997_999;
+export const TOTAL_BUDGET_BYTES = 25_431_626;
 
 /** Bytes of the single largest `.js` file. */
-export const LARGEST_CHUNK_BUDGET_BYTES = 4_358_315;
+export const LARGEST_CHUNK_BUDGET_BYTES = 4_934_436;
 
 /** The measurement the budgets were derived from, kept so a report can show the drift. */
 export const BASELINE = {
-    totalBytes: 19_128_695,
-    largestChunkBytes: 3_789_839,
-    measuredOn: '2026-08-13',
+    totalBytes: 22_114_458,
+    largestChunkBytes: 4_290_814,
+    measuredOn: '2026-09-10',
     export: 'APP_MODE=all-dev EXPO_PUBLIC_API_URL=http://localhost:8080 expo export -p web --output-dir dist-api',
 };
 

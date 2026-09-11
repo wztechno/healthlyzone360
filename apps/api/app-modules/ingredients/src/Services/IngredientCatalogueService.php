@@ -106,16 +106,16 @@ final readonly class IngredientCatalogueService
         $ingredient->default_unit_id = $attributes['default_unit_id'];
         $ingredient->purchase_unit_id = $attributes['purchase_unit_id'] ?? null;
         $ingredient->composition = $this->trimmedOrNull($attributes['composition'] ?? null);
-        $ingredient->items_per_unit = isset($attributes['items_per_unit']) ? (string) $attributes['items_per_unit'] : null;
+        $ingredient->items_per_unit = $this->decimalOrNull($attributes['items_per_unit'] ?? null);
         $ingredient->nutrition_per_100g = $attributes['nutrition_per_100g'] ?? null;
-        $ingredient->b2b_price_amount = isset($attributes['b2b_price_amount']) ? (string) $attributes['b2b_price_amount'] : null;
-        $ingredient->b2c_price_amount = isset($attributes['b2c_price_amount']) ? (string) $attributes['b2c_price_amount'] : null;
-        $ingredient->unit_price_amount = isset($attributes['unit_price_amount']) ? (string) $attributes['unit_price_amount'] : null;
+        $ingredient->b2b_price_amount = $this->decimalOrNull($attributes['b2b_price_amount'] ?? null);
+        $ingredient->b2c_price_amount = $this->decimalOrNull($attributes['b2c_price_amount'] ?? null);
+        $ingredient->unit_price_amount = $this->decimalOrNull($attributes['unit_price_amount'] ?? null);
         $ingredient->price_currency_code = $this->trimmedOrNull($attributes['price_currency_code'] ?? null);
         // The column defaults to false, so an omitted flag creates a raw
         // material rather than something already on sale.
         $ingredient->is_sellable = (bool) ($attributes['is_sellable'] ?? false);
-        $ingredient->yield_factor = (string) ($attributes['yield_factor'] ?? 1);
+        $ingredient->yield_factor = $this->decimalOrNull($attributes['yield_factor'] ?? null) ?? '1';
         $ingredient->availability_tier = AvailabilityTier::tryFrom((string) ($attributes['availability_tier'] ?? ''));
 
         // Written rather than left to the column defaults: a new row is usable
@@ -772,6 +772,28 @@ final readonly class IngredientCatalogueService
         }
 
         return $slug;
+    }
+
+    /**
+     * A validated `numeric` field as the decimal string its column stores.
+     *
+     * The `(string)` cast alone is not enough for the decimal columns: they are
+     * declared `numeric-string`, and validation — not this method — is what
+     * guarantees the value is numeric. The check restates that guarantee where
+     * the write happens, so a rule someone loosens later fails here rather than
+     * reaching bcmath as a string it cannot divide.
+     *
+     * @return numeric-string|null
+     */
+    private function decimalOrNull(float|int|string|null $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $string = (string) $value;
+
+        return is_numeric($string) ? $string : null;
     }
 
     private function trimmedOrNull(?string $value): ?string

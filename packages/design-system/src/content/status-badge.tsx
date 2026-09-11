@@ -24,13 +24,7 @@ import type { BadgeTone } from './badge.tsx';
  * difference between an archived ingredient and a live one is not a thing to signal in hue only.
  */
 
-export const RECORD_STATUSES = [
-    'draft',
-    'review',
-    'live',
-    'archived',
-    'restricted',
-] as const;
+export const RECORD_STATUSES = ['draft', 'review', 'live', 'archived', 'restricted'] as const;
 export type RecordStatus = (typeof RECORD_STATUSES)[number];
 
 /**

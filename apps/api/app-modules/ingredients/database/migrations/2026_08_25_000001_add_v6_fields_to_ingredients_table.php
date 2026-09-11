@@ -31,8 +31,8 @@ return new class extends Migration
             $table->text('composition')->nullable()
                 ->comment('Composition (Made From) — free transcription from the source workbook, kitchen-facing');
             $table->foreignUuid('purchase_unit_id')->nullable()
-                ->constrained('measurement_units')->restrictOnDelete()
-                ->comment('The pack this is bought in (workbook Type); default_unit_id stays the usage unit');
+                ->comment('The pack this is bought in (workbook Type); default_unit_id stays the usage unit')
+                ->constrained('measurement_units')->restrictOnDelete();
             $table->decimal('items_per_unit', 10, 2)->nullable()
                 ->comment('Pieces per purchase pack; mostly unknown in the source');
             $table->jsonb('nutrition_per_100g')->nullable()

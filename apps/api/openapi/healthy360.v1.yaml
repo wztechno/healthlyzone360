@@ -2939,6 +2939,92 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/recipes/{recipe}/versions/{version}/packaging:
+    put:
+      operationId: replaceRecipePackaging
+      tags: [Recipes]
+      summary: Replace the packaging of a version
+      description: |
+        The formulation's other half, and a PUT for the same reason `lines` is
+        one: the body is the complete list, so "I removed the sleeve" and "I
+        forgot to send the sleeve" stay different requests. An empty
+        `packaging` array is a legitimate statement.
+
+        `line_number` is not a field — the array order is the sequence.
+
+        **The numbers that come back are not the numbers that went in**, and a
+        client has to render the response rather than its own request. Two of
+        the three bases compute their own quantity from the version's yield:
+        `fills_yield` works out how many containers the yield fills, and
+        `per_container` multiplies by that count. Only `per_batch` keeps the
+        quantity as sent, and it is the only basis where `quantity` is
+        required — on the other two it is refused, because a figure the server
+        derives is one a client can disagree with.
+
+        `If-Match` carries the **version's** `lock_version`, not a line's: the
+        set is the unit of change.
+
+        No cost fields, in either direction. The costed view of packaging is
+        the technical sheet, behind `recipe.view_costs_organisation`; the unit
+        cost is read from the catalogue row rather than quoted by the client,
+        so the two can never disagree.
+
+        Requires `recipe.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceRecipePackagingRequest'
+      responses:
+        '200':
+          description: The version and its new packaging, as stored.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [version, packaging]
+                    properties:
+                      version:
+                        $ref: '#/components/schemas/AdminRecipeVersion'
+                      packaging:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecipePackagingLine'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/VersionImmutableOrConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/recipes/{recipe}/versions/{version}/outputs:
     put:
       operationId: replaceRecipeOutputs
@@ -22197,6 +22283,60 @@ components:
           maxLength: 255
       additionalProperties: false
 
+    PackagingBasis:
+      type: string
+      enum: [fills_yield, per_container, per_batch]
+      description: |
+        How a packaging quantity is arrived at.
+
+        * `fills_yield` — the container the yield goes into. The server divides
+          the yield by the item's recorded capacity and rounds up, so the
+          quantity is a container count nobody types.
+        * `per_container` — one per container filled, multiplied by the count
+          `fills_yield` produced. A cap goes on every bottle.
+        * `per_batch` — a flat quantity per batch, independent of the yield.
+          The only basis that accepts `quantity`.
+
+    RecipePackagingLine:
+      type: object
+      required: [id, line_number, ingredient_id, basis, quantity]
+      description: |
+        One packaging line, as stored.
+
+        **No cost fields**, for `RecipeLine`'s reason and one of its own: the
+        unit cost of a box is read from the catalogue row rather than carried
+        here, so the costed view is the technical sheet and this projection has
+        nothing to withhold.
+
+        `basis` travels beside `quantity` and always. Without it the quantity
+        is unreadable — `6` means "the yield fills six of these" on one basis
+        and "somebody typed six" on another, and only the first is still right
+        after the yield changes.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        line_number:
+          type: integer
+          minimum: 1
+          description: Server-authored from the submitted order.
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        basis:
+          $ref: '#/components/schemas/PackagingBasis'
+        quantity:
+          type: string
+          description: |
+            Decimal with four places, as a string. Derived on `fills_yield` and
+            `per_container`; as submitted on `per_batch`.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        comment:
+          type: ['string', 'null']
+          maxLength: 255
+      additionalProperties: false
+
     RecipeOutput:
       type: object
       required: [id, ingredient_id, output_quantity, unit_id, is_primary]
@@ -22672,6 +22812,39 @@ components:
               source_designation:
                 type: ['string', 'null']
                 maxLength: 160
+              comment:
+                type: ['string', 'null']
+                maxLength: 255
+            additionalProperties: false
+      additionalProperties: false
+
+    ReplaceRecipePackagingRequest:
+      type: object
+      required: [packaging]
+      properties:
+        packaging:
+          type: array
+          maxItems: 50
+          description: |
+            The complete packaging set. An empty array is a legitimate
+            statement ("this version packs into nothing yet"), not a missing
+            field. The array order is the line sequence.
+          items:
+            type: object
+            required: [ingredient_id, basis]
+            properties:
+              ingredient_id:
+                $ref: '#/components/schemas/Uuid'
+              basis:
+                $ref: '#/components/schemas/PackagingBasis'
+              quantity:
+                type: ['number', 'null']
+                exclusiveMinimum: 0
+                maximum: 99999999.9999
+                description: |
+                  Required on `per_batch` and refused on the other two bases,
+                  which derive their own. The server answers with what it
+                  stored, which on those two is not what was sent.
               comment:
                 type: ['string', 'null']
                 maxLength: 255

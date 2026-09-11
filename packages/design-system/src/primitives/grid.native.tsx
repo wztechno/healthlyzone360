@@ -4,13 +4,7 @@ import { View } from 'react-native';
 
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { cx } from '../internal/class-names.ts';
-import {
-    GRID_GAP,
-    RESPONSIVE_COLUMNS,
-    fieldWidth,
-    resolveSpan,
-    spanWidth,
-} from './grid-shared.ts';
+import { GRID_GAP, RESPONSIVE_COLUMNS, fieldWidth, resolveSpan, spanWidth } from './grid-shared.ts';
 import type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts';
 
 export type { GridColumnCount, GridProps, GridSpanProps } from './grid-shared.ts';
@@ -73,4 +67,3 @@ function GridBase({
 export function FormGrid(props: GridProps) {
     return <GridBase {...props} trackWidth={fieldWidth} />;
 }
-

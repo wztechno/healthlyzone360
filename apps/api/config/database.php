@@ -30,6 +30,19 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Seed the demo world
+    |--------------------------------------------------------------------------
+    |
+    | `DatabaseSeeder` builds the demo tenant only for the test suite, which
+    | asserts against it. A developer who wants it on a local database opts in
+    | here rather than editing the seeder.
+    |
+    */
+
+    'seed_demo_world' => env('SEED_DEMO_WORLD', false),
+
     'connections' => [
 
         'sqlite' => [

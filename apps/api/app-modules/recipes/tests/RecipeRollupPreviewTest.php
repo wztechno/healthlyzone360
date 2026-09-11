@@ -193,8 +193,8 @@ it('reproduces the workbook cost block for a recipe that does not exist yet', fu
             'cost_currency_code' => 'USD',
         ]],
         'packaging' => [
-            ['packaging_item_id' => (string) $bottle->getKey(), 'basis' => 'fills_yield'],
-            ['packaging_item_id' => (string) $cap->getKey(), 'basis' => 'per_container'],
+            ['ingredient_id' => (string) $bottle->getKey(), 'basis' => 'fills_yield'],
+            ['ingredient_id' => (string) $cap->getKey(), 'basis' => 'per_container'],
         ],
     ], $this->headers)->assertOk();
 
@@ -244,7 +244,7 @@ it('withholds the total while a packaging item carries no price', function (): v
             'cost_currency_code' => 'USD',
         ]],
         'packaging' => [
-            ['packaging_item_id' => (string) $unpriced->getKey(), 'basis' => 'fills_yield'],
+            ['ingredient_id' => (string) $unpriced->getKey(), 'basis' => 'fills_yield'],
         ],
     ], $this->headers)->assertOk()->json('data.computed_cost');
 

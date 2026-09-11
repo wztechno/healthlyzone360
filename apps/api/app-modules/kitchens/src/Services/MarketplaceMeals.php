@@ -126,6 +126,10 @@ final readonly class MarketplaceMeals
             ->where('product_categories.is_active', true));
     }
 
+    /**
+     * @param  Builder<CatalogueItem>  $query
+     * @param  list<string>  $types
+     */
     public function whereItemTypes(Builder $query, array $types): void
     {
         $allowed = array_values(array_intersect(array_unique($types), self::LISTING_ITEM_TYPES));

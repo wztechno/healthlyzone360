@@ -218,9 +218,7 @@ export function Tabs<T extends string = string>({
                             numberOfLines={1}
                             className={cx(
                                 'text-center',
-                                density === 'compact'
-                                    ? 'text-role-label font-admin'
-                                    : 'text-sm',
+                                density === 'compact' ? 'text-role-label font-admin' : 'text-sm',
                                 selected
                                     ? variant === 'segmented'
                                         ? 'font-semibold text-content-on-brand-subtle'

@@ -351,9 +351,13 @@ describe('the packaging list', () => {
         // The list opens sorted by reference, so that column carries the black arrow and every
         // other sortable column carries the grey one. A column with no menu carries neither, which
         // is what makes the mark worth anything.
-        expect(screen.getByTestId('kitchen-packaging-column-reference-sorted', hidden)).toBeTruthy();
+        expect(
+            screen.getByTestId('kitchen-packaging-column-reference-sorted', hidden),
+        ).toBeTruthy();
         expect(screen.getByTestId('kitchen-packaging-column-name-affordance', hidden)).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-packaging-column-capacity-trigger', hidden)).toBeNull();
+        expect(
+            screen.queryByTestId('kitchen-packaging-column-capacity-trigger', hidden),
+        ).toBeNull();
         expect(
             screen.queryByTestId('kitchen-packaging-column-capacity-affordance', hidden),
         ).toBeNull();
@@ -442,9 +446,7 @@ describe('the packaging list', () => {
         await untilVisible('kitchen-packaging-table');
 
         await act(async () => {
-            fireEvent.press(
-                screen.getByTestId(`kitchen-packaging-row-${String(row.id)}-archive`),
-            );
+            fireEvent.press(screen.getByTestId(`kitchen-packaging-row-${String(row.id)}-archive`));
         });
 
         await untilVisible('kitchen-packaging-archive-dialog');
