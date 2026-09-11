@@ -38,12 +38,15 @@ export const INPUT_SIZES = ['xs', 'sm', 'md', 'lg'] as const;
 export type InputSize = (typeof INPUT_SIZES)[number];
 
 export interface TextInputFieldProps
-    extends Omit<
+    extends
+        Omit<
             RNTextInputProps,
             'className' | 'style' | 'editable' | 'accessibilityLabel' | 'nativeID' | 'onChange'
         >,
         GridSpanProps {
     readonly label: string;
+    /** See `FormField`'s `labelHidden` — for a control named by a column header. */
+    readonly labelHidden?: boolean | undefined;
     readonly hint?: string | undefined;
     readonly error?: string | undefined;
     readonly required?: boolean | undefined;
@@ -75,6 +78,34 @@ const FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>>
     compact: COMPACT_FRAME_SIZE,
 };
 
+/**
+ * The same frames, with the height released.
+ *
+ * A `multiline` field is a `<textarea>` on the web and a growing box on native, and the compact
+ * ladder's `h-control-*` is a *fixed* height — so a three-row paragraph rendered into it overflowed
+ * its own frame in both directions, which is how a description ended up drawn on top of its label.
+ * `min-h-*` keeps the empty field the same size as its single-line neighbours and lets the filled
+ * one grow; the vertical padding replaces the centring that `items-center` was doing.
+ */
+const COMFORTABLE_MULTILINE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
+    xs: 'min-h-touch gap-2 rounded-lg px-3 py-2',
+    sm: 'min-h-touch gap-2 rounded-lg px-3 py-2',
+    md: 'min-h-touch gap-2 rounded-lg px-3 py-2',
+    lg: 'min-h-touch gap-2 rounded-lg px-3 py-2',
+};
+
+const COMPACT_MULTILINE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
+    xs: 'min-h-control-xs gap-control-xs rounded-sm px-control-xs py-2',
+    sm: 'min-h-control-sm gap-control-sm rounded-sm px-control-sm py-2',
+    md: 'min-h-control-md gap-control-md rounded-sm px-control-md py-2',
+    lg: 'min-h-control-lg gap-control-lg rounded-sm px-control-lg py-2',
+};
+
+const MULTILINE_FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>> = {
+    comfortable: COMFORTABLE_MULTILINE_FRAME_SIZE,
+    compact: COMPACT_MULTILINE_FRAME_SIZE,
+};
+
 export function inputFrameClassName(options: {
     readonly invalid: boolean;
     readonly focused: boolean;
@@ -85,9 +116,12 @@ export function inputFrameClassName(options: {
      */
     readonly density?: Density | undefined;
     readonly size?: InputSize | undefined;
+    /** Releases the fixed height so a paragraph field grows instead of overflowing its frame. */
+    readonly multiline?: boolean | undefined;
 }): string {
     const density = options.density ?? 'comfortable';
     const size = options.size ?? 'md';
+    const multiline = options.multiline ?? false;
 
     return cx(
         // `surfaceRaised`, not `surfaceBase`. The handoff's own role mapping puts *cards and
@@ -95,8 +129,11 @@ export function inputFrameClassName(options: {
         // colour as the paper behind it is a field whose edges are doing all the work — on a
         // Catalogue form of twelve of them the eye has nothing to land on. The sunken fill for a
         // disabled or derived value is set below and still wins, because it is stated after.
-        'flex-row items-center border bg-surface-raised',
-        FRAME_SIZE[density][size],
+        // `items-stretch` for a paragraph field: `items-center` is what pushed an over-tall
+        // textarea equally above and below the frame instead of letting the frame follow it.
+        'flex-row border bg-surface-raised',
+        multiline ? 'items-stretch' : 'items-center',
+        (multiline ? MULTILINE_FRAME_SIZE : FRAME_SIZE)[density][size],
         options.invalid ? 'border-danger-border' : 'border-stroke',
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
         // default to fall back on, so it is drawn explicitly.
@@ -138,6 +175,7 @@ export function inputControlClass(density: Density): string {
 
 export function TextInputField({
     label,
+    labelHidden = false,
     hint,
     error,
     required = false,
@@ -162,6 +200,7 @@ export function TextInputField({
     return (
         <FormField
             label={label}
+            labelHidden={labelHidden}
             hint={hint}
             error={error}
             required={required}
@@ -178,6 +217,8 @@ export function TextInputField({
                         disabled,
                         density,
                         size,
+                        // Read rather than destructured: the control needs it too.
+                        multiline: rest.multiline ?? false,
                     })}
                 >
                     <RNTextInput
@@ -189,7 +230,14 @@ export function TextInputField({
                         // neutral.600: placeholder text is still text to WCAG - neutral.500 sits
                         // just below the 4.5:1 AA threshold on the base surface (axe caught it).
                         placeholderTextColor={neutral[600]}
-                        style={{ textAlign: 'auto' }}
+                        // `textAlignVertical` only matters once the box is taller than one line,
+                        // and without it Android centres a paragraph inside its own frame.
+                        style={{
+                            textAlign: 'auto',
+                            ...(rest.multiline === true
+                                ? { textAlignVertical: 'top' as const }
+                                : {}),
+                        }}
                         onFocus={(event) => {
                             setFocused(true);
                             onFocus?.(event);

@@ -1,10 +1,4 @@
-import {
-    DataList,
-    Icon,
-    IconButton,
-    fitColumns,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { DataList, Icon, IconButton, fitColumns, useBreakpoint } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode } from 'react';
@@ -32,11 +26,12 @@ import { useCataloguePort } from './catalogue-nav.tsx';
  *
  * ## Why the fitting happens here and not in `DataList`
  *
- * `DataList` measures its own box with `onLayout` and fits against it, which is right for a list
- * standing on its own. It is not sufficient here, because §4.2's warning is precisely that the
- * measurement which matters — the port after the nav's width transition — is the one an automatic
- * observer misses. So the port is measured by `useCataloguePort` (commit, settled, resize) and the
- * columns are fitted against *that* before they reach `DataList`.
+ * `DataList` measures its own box and fits against it, which is right for a list standing on its
+ * own. It is not sufficient here, because §4.2's warning is precisely that the measurement which
+ * matters — the port after the nav's width transition — is the one an automatic observer misses,
+ * and `DataList` reads its node after every commit while the transition is still running. So the
+ * port is measured by `useCataloguePort` (commit, *settled*, resize) and the columns are fitted
+ * against that before they reach `DataList`.
  *
  * The double fit is deliberate and idempotent: `fitColumns` over an already-fitting set returns it
  * unchanged, so `DataList`'s own pass is a no-op on the same width and a correct fallback on a
@@ -275,6 +270,11 @@ function actionColumn<Row>(
         min: track,
         priority: CATALOGUE_PRIORITY.actions,
         align: 'end',
+        // The one column whose width is its content. `DataList` shares the port's leftover width
+        // out over the other tracks so the row fills the page; giving this one a share of it would
+        // only push the buttons off the edge they are anchored to and spend on padding the width
+        // the designation column needs to finish its words.
+        grow: false,
         role: 'actions',
         render: (row) => (
             <View
@@ -302,8 +302,7 @@ function actionColumn<Row>(
                         // The item's own id where it has one, so a spec that used to click the
                         // menu entry clicks the button instead and nothing else has to change.
                         testID={
-                            action.testID ??
-                            `${testID}-row-${rowKey(row)}-action-${action.key}`
+                            action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`
                         }
                     />
                 ))}

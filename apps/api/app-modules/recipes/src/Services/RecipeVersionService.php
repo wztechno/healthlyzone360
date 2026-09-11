@@ -583,7 +583,7 @@ final readonly class RecipeVersionService
         foreach ($prepared as $index => $attributes) {
             $prepared[$index]['line_cost_amount'] = $attributes['unit_cost_amount'] === null
                 ? null
-                : $this->costing->lineCost((string) $prepared[$index]['quantity'], $attributes['unit_cost_amount']);
+                : $this->costing->lineCost($prepared[$index]['quantity'], $attributes['unit_cost_amount']);
         }
 
         if (count($currencies) > 1) {
@@ -1187,6 +1187,7 @@ final readonly class RecipeVersionService
      * ingredient can round to zero at that scale, and that is the honest floor of what these
      * columns can hold rather than something to work around here.
      *
+     * @param  numeric-string  $price
      * @return numeric-string|null
      */
     private function pricePerUnit(string $price, string $fromUnitId, string $toUnitId): ?string
@@ -1207,7 +1208,7 @@ final readonly class RecipeVersionService
         $fromRatio = (string) $from->base_ratio;
         $toRatio = (string) $to->base_ratio;
 
-        if (! is_numeric($fromRatio) || ! is_numeric($toRatio) || bccomp($fromRatio, '0', 9) !== 1) {
+        if (bccomp($fromRatio, '0', 9) !== 1) {
             return null;
         }
 

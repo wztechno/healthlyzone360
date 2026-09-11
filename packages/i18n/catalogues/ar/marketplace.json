@@ -482,7 +482,8 @@
         "oil": "زيوت",
         "condiment": "توابل ومقبلات",
         "dairy": "ألبان",
-        "vegetables": "خضار" },
+        "vegetables": "خضار"
+    },
     "storefront": {
         "openToday": "اليوم {{opensAt}} – {{closesAt}}",
         "closedToday": "مغلق اليوم",

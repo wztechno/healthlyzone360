@@ -35,14 +35,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $version_number
  * @property RecipeVersionStatus $status
  * @property RecipeCompleteness $completeness
- * @property string|null $yield_quantity
+ * @property numeric-string|null $yield_quantity
  * @property string|null $yield_unit_id
  * @property int|null $yield_piece_count
  * @property string|null $input_quantity_total
  * @property string $waste_coefficient_percent
  * @property string $packaging_waste_percent
- * @property string|null $b2b_price_amount
- * @property string|null $b2c_price_amount
+ * @property numeric-string|null $b2b_price_amount
+ * @property numeric-string|null $b2c_price_amount
  * @property string|null $price_currency_code
  * @property DerivationState $derivation_state
  * @property CarbonImmutable|null $derived_at

@@ -1,8 +1,4 @@
-import type {
-    CostAmount,
-    IngredientAdmin,
-    LocalisedText,
-} from '@healthy360/api-client/contracts';
+import type { CostAmount, IngredientAdmin, LocalisedText } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import {
     Icon,
@@ -743,10 +739,10 @@ function cellControlClass(
             ? `${width} border-0 bg-transparent font-mono text-role-body text-content-primary outline-none`
             : `${inputControlClass('compact')} ${width}`;
     /*
-             * `text-end`, not `text-right`: the logical utility follows the writing direction, so an
-             * Arabic reader gets the figure against the same edge of the box a Latin reader does.
-             * The physical pair is banned by the root ESLint config for exactly this.
-             */
+     * `text-end`, not `text-right`: the logical utility follows the writing direction, so an
+     * Arabic reader gets the figure against the same edge of the box a Latin reader does.
+     * The physical pair is banned by the root ESLint config for exactly this.
+     */
     if (align === 'start') return `${base} text-start`;
     if (align === 'end') return `${base} text-end`;
     return align === 'center' ? `${base} text-center` : base;
@@ -824,10 +820,7 @@ function Picker({
     const keyProps =
         Platform.OS === 'web'
             ? {
-                  onKeyDown: (event: {
-                      key: string;
-                      preventDefault: () => void;
-                  }) => {
+                  onKeyDown: (event: { key: string; preventDefault: () => void }) => {
                       if (event.key === 'ArrowDown') {
                           event.preventDefault();
                           onHighlight(Math.min(highlighted + 1, Math.max(results.length - 1, 0)));
@@ -857,10 +850,7 @@ function Picker({
      * later section ever put near it, for no reason the rest of the time.
      */
     return (
-        <View
-            style={{ width: PICKER_WIDTH }}
-            className={open ? 'relative z-sticky' : 'relative'}
-        >
+        <View style={{ width: PICKER_WIDTH }} className={open ? 'relative z-sticky' : 'relative'}>
             <View
                 className={inputFrameClassName({
                     invalid: false,
@@ -952,12 +942,12 @@ function Picker({
                                         {displayName(entry.name, locale).value}
                                     </Text>
                                     {/*
-                                      * `Condiments · kg`, as the design draws it: what kind of
-                                      * thing this is and what a quantity of it will be counted in.
-                                      * Two facts rather than one, because "Mayonnaise" appears
-                                      * twice in a library of three hundred and the unit is what
-                                      * decides whether `1` means a kilo or a bottle.
-                                      */}
+                                     * `Condiments · kg`, as the design draws it: what kind of
+                                     * thing this is and what a quantity of it will be counted in.
+                                     * Two facts rather than one, because "Mayonnaise" appears
+                                     * twice in a library of three hundred and the unit is what
+                                     * decides whether `1` means a kilo or a bottle.
+                                     */}
                                     <Text variant="micro" tone="secondary" numberOfLines={1}>
                                         {entry.meta}
                                     </Text>
@@ -975,4 +965,3 @@ function Picker({
         </View>
     );
 }
-

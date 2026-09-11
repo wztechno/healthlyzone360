@@ -176,19 +176,17 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                     group: t(section.labelKey),
                 })),
             ),
-            ...permittedNavigation(state).map(
-                (item): NavigationItem => ({
-                    key: item.key,
-                    label: t(item.labelKey),
-                    icon: item.icon,
-                    group: t('kitchen:nav.groups.workspace'),
-                    active: pathname === item.href,
-                    testID: `nav-${item.key}`,
-                    onPress: () => {
-                        router.push(item.href as never);
-                    },
-                }),
-            ),
+            ...permittedNavigation(state).map((item): NavigationItem => ({
+                key: item.key,
+                label: t(item.labelKey),
+                icon: item.icon,
+                group: t('kitchen:nav.groups.workspace'),
+                active: pathname === item.href,
+                testID: `nav-${item.key}`,
+                onPress: () => {
+                    router.push(item.href as never);
+                },
+            })),
         ];
     }, [sections, state, pathname, reviewTotal, exceptionTotal, router, t]);
 }

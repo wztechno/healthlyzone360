@@ -36,11 +36,7 @@ export function ThemeToggle() {
             variant="ghost"
             className="rounded-full border-stroke"
             icon={
-                <Icon
-                    name={isDark ? 'sun' : 'moon'}
-                    size="lg"
-                    className="text-content-primary"
-                />
+                <Icon name={isDark ? 'sun' : 'moon'} size="lg" className="text-content-primary" />
             }
             label={isDark ? t('common:theme.switchToLight') : t('common:theme.switchToDark')}
             onPress={toggleTheme}

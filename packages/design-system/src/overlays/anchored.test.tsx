@@ -158,7 +158,11 @@ describe('Menu', () => {
                 testID="filter"
                 label="Category"
                 trigger={(state) => (
-                    <Pressable testID="filter-trigger" {...state.triggerProps} onPress={state.toggle}>
+                    <Pressable
+                        testID="filter-trigger"
+                        {...state.triggerProps}
+                        onPress={state.toggle}
+                    >
                         <RNText>Category</RNText>
                     </Pressable>
                 )}
@@ -188,14 +192,23 @@ describe('Menu', () => {
                 testID="filter"
                 label="Category"
                 trigger={(state) => (
-                    <Pressable testID="filter-trigger" {...state.triggerProps} onPress={state.toggle}>
+                    <Pressable
+                        testID="filter-trigger"
+                        {...state.triggerProps}
+                        onPress={state.toggle}
+                    >
                         <RNText>Category</RNText>
                     </Pressable>
                 )}
                 sections={[
                     {
                         items: [
-                            { key: 'grain', label: 'Grain', selected: true, onSelect: () => undefined },
+                            {
+                                key: 'grain',
+                                label: 'Grain',
+                                selected: true,
+                                onSelect: () => undefined,
+                            },
                             { key: 'clear', label: 'Clear', onSelect: () => undefined },
                         ],
                     },
@@ -225,7 +238,9 @@ describe('Menu', () => {
                         <RNText>⋯</RNText>
                     </Pressable>
                 )}
-                sections={[{ items: [{ key: 'archive', label: 'Archive', disabled: true, onSelect }] }]}
+                sections={[
+                    { items: [{ key: 'archive', label: 'Archive', disabled: true, onSelect }] },
+                ]}
             />,
         );
 

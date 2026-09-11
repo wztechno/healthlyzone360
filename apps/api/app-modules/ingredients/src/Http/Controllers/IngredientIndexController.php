@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * GET /api/v1/catalogue/ingredients — the kitchen's catalogue and the
@@ -52,6 +53,7 @@ final class IngredientIndexController
         $this->applyCategory($request, $query);
         $this->applyExcludedCategory($request, $query);
         $this->applyReferenceSeries($request, $query);
+        $this->applyAllergen($request, $query);
         $this->applySearch($request, $query);
         $this->hideForkedPlatformRows($query);
 
@@ -96,17 +98,16 @@ final class IngredientIndexController
     private function present(Collection $rows): array
     {
         $mappings = $this->mappings->mappingsForMany(
-            $rows->map(fn (Ingredient $ingredient): string => (string) $ingredient->getKey())->values()->all(),
+            array_values($rows->map(fn (Ingredient $ingredient): string => (string) $ingredient->getKey())->all()),
             $this->mappings->callerLayer(),
         );
 
-        return $rows
+        return array_values($rows
             ->map(fn (Ingredient $ingredient): array => $this->presenter->ingredient(
                 $ingredient,
                 $mappings[(string) $ingredient->getKey()] ?? [],
             ))
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -191,6 +192,42 @@ final class IngredientIndexController
         $query->where(function (Builder $scoped) use ($category): void {
             $scoped->where('ingredient_category_id', $category)
                 ->orWhere('ingredient_subcategory_id', $category);
+        });
+    }
+
+    /**
+     * Narrows to the rows declaring one allergen class.
+     *
+     * **Both containments match, and that is the whole design of it.** A mapping is `contains` or
+     * `may_contain`, and the list's Allergens column prints every code either way — so a row
+     * reading `gluten` that a `gluten` filter did not return would be the list disagreeing with
+     * itself on screen. It is also the safe direction: somebody narrowing a catalogue by an
+     * allergen is looking for everything that could carry it, and a filter that quietly dropped
+     * the `may_contain` rows would answer a food-safety question by under-reporting.
+     *
+     * Filtering here rather than in the client, unlike the status fallback: this list is paged
+     * seventeen deep, and a filter applied to the loaded page narrows that page while every count
+     * and every page after it goes on describing the unfiltered set. `IngredientAdminFilter`
+     * carries `allergenCodes` for the picker, which loads one page and means it.
+     *
+     * `whereExists` rather than a join, because a row declaring an allergen twice — the platform
+     * baseline and a kitchen's own determination — would otherwise arrive twice.
+     *
+     * @param  Builder<Ingredient>  $query
+     */
+    private function applyAllergen(Request $request, Builder $query): void
+    {
+        $allergen = $request->query('allergen');
+
+        if (! is_string($allergen) || $allergen === '') {
+            return;
+        }
+
+        $query->whereExists(function ($scoped) use ($allergen): void {
+            $scoped->select(DB::raw(1))
+                ->from('ingredient_allergens')
+                ->whereColumn('ingredient_allergens.ingredient_id', 'ingredients.id')
+                ->where('ingredient_allergens.allergen_code', $allergen);
         });
     }
 

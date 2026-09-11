@@ -31,7 +31,7 @@ export type {
     CatalogueStatTone,
 } from './catalogue-stat-cards.tsx';
 
-export { CATALOGUE_SEARCH_WIDTH, CatalogueToolbar } from './catalogue-toolbar.tsx';
+export { CatalogueToolbar } from './catalogue-toolbar.tsx';
 export type { CatalogueStatusSegment, CatalogueToolbarProps } from './catalogue-toolbar.tsx';
 
 export { CatalogueList } from './catalogue-list.tsx';
@@ -44,10 +44,7 @@ export { DerivedPanel } from './derived-panel.tsx';
 export type { DerivedFigure, DerivedPanelProps } from './derived-panel.tsx';
 
 export { CatalogueViewDrawer } from './catalogue-view-drawer.tsx';
-export type {
-    CatalogueViewDrawerProps,
-    CatalogueViewField,
-} from './catalogue-view-drawer.tsx';
+export type { CatalogueViewDrawerProps, CatalogueViewField } from './catalogue-view-drawer.tsx';
 
 export { CataloguePager } from './catalogue-pager.tsx';
 export type { CataloguePagerProps } from './catalogue-pager.tsx';
@@ -110,11 +107,7 @@ export type {
 } from './use-ingredient-list.ts';
 
 export { useRecipeList } from './use-recipe-list.ts';
-export type {
-    RecipeListState,
-    RecipeSortDirection,
-    RecipeSortKey,
-} from './use-recipe-list.ts';
+export type { RecipeListState, RecipeSortDirection, RecipeSortKey } from './use-recipe-list.ts';
 
 export { useProductList } from './use-product-list.ts';
 export type {

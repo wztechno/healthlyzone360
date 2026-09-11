@@ -73,7 +73,10 @@ export function KpiTile({
                 <View className="mt-2 flex-row items-center">{trend}</View>
             )}
             {hint === undefined ? null : (
-                <RNText testID={`${testID}-hint`} className="mt-1.5 text-xs font-bold text-brand-600">
+                <RNText
+                    testID={`${testID}-hint`}
+                    className="mt-1.5 text-xs font-bold text-brand-600"
+                >
                     {hint}
                 </RNText>
             )}

@@ -144,7 +144,10 @@ export function useRecipeList(): RecipeListState {
     const [query, setQuery] = useState('');
     const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
     const [kitchen, setKitchen] = useState<string | null>(null);
-    const [sortKey, setSortKey] = useState<RecipeSortKey>('name');
+    // Reference ascending, which is the order the codes were issued in and so the order a
+    // kitchen already knows the library by. Sorting by name instead put the list in an order
+    // that changes with the language.
+    const [sortKey, setSortKey] = useState<RecipeSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<RecipeSortDirection>('asc');
     const [archiving, setArchiving] = useState<RecipeAdminSummary | null>(null);
     const [viewing, setViewing] = useState<RecipeAdminSummary | null>(null);

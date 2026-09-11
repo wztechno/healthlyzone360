@@ -3,11 +3,23 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 /**
- * The Catalogue's toolbar: **one** 28px row, and two controls on it.
+ * The Catalogue's toolbar: **one** 28px row, and two controls on it, centred.
  *
  * ```
- * [ ⌕ Search 240px ]  [ All | Live | Draft | Review ]
+ *              [ ⌕ Search 240px ]  [ All | Live | Draft | Review ]
  * ```
+ *
+ * ## Centred, because it follows a centred row of cards
+ *
+ * The two controls come to roughly 450px on a page whose content area is nearer 1230, so pinned to
+ * the leading edge they read as the start of a third column that never arrives — with the stat
+ * cards centred directly above them, the page had a centred band and then a left-hung one under it.
+ * The pair is a single group and is treated as one: search and its status set stay adjacent, and
+ * the remainder is spent on both margins.
+ *
+ * A row that fills its `children` slot opts out. The spacer below absorbs every spare pixel to push
+ * that slot to the inline end, which leaves `justify-center` nothing to distribute — the group sits
+ * at the start again, which is the right answer once there is something anchored opposite it.
  *
  * The predecessor (`list-toolbar.tsx`) stacked search, a Filters disclosure, a chip run and a count
  * across as many as four rows. Everything that used to live in the disclosure now lives on a column
@@ -43,7 +55,6 @@ import { View } from 'react-native';
  */
 
 /** The search field's width. Stated as a style, not a class: there is no 240px width token. */
-export const CATALOGUE_SEARCH_WIDTH = 240;
 
 export interface CatalogueStatusSegment<T extends string = string> {
     readonly value: T;
@@ -89,9 +100,28 @@ export function CatalogueToolbar<Status extends string = string>({
         status !== undefined &&
         onStatusChange !== undefined;
 
+    /*
+     * `min-h-`, not `h-`. The row was a fixed 28px because it held nothing but `sm` controls; the
+     * page's one primary is the `md` (32px) exception the handoff names, and now that it sits on
+     * this line a fixed 28px row would clip it. The floor keeps the row's height where it was on a
+     * page that has no primary.
+     */
     return (
-        <View testID={testID} className="h-control-sm flex-row items-center gap-tight">
-            <View style={{ width: CATALOGUE_SEARCH_WIDTH }}>
+        <View
+            testID={testID}
+            className="min-h-control-sm flex-row items-center justify-center gap-tight"
+        >
+            {/*
+             * The search is what absorbs the row.
+             *
+             * It was 240px, which is the width the handoff draws it at on a page whose actions sat
+             * up in the header. With Import, Export and the primary moved down onto this line there
+             * is a variable amount of space between the field and them, and a fixed field left a
+             * third of the row empty in the middle. `flex-1` here is the exemption STRETCH_MESSAGE
+             * names: this container *is* the row, not a control taking its width from one.
+             */}
+            {/* eslint-disable-next-line no-restricted-syntax -- the row's own filler; the exempt case. */}
+            <View className="flex-1">
                 <SearchInput
                     value={search}
                     onChangeText={onSearchChange}
@@ -122,18 +152,11 @@ export function CatalogueToolbar<Status extends string = string>({
                 />
             ) : null}
 
-            {children === undefined ? null : (
-                <>
-                    {/*
-                     * The spacer *is* the row — it holds no control and exists only to push the
-                     * trailing slot to the inline end — which is the exemption STRETCH_MESSAGE
-                     * names by example.
-                     */}
-                    {/* eslint-disable-next-line no-restricted-syntax -- toolbar spacer; the exempt case. */}
-                    <View className="flex-1" />
-                    {children}
-                </>
-            )}
+            {/*
+             * No spacer any more: the search above absorbs the slack, so the status set and
+             * whatever the entity puts here already sit at the inline end.
+             */}
+            {children}
         </View>
     );
 }

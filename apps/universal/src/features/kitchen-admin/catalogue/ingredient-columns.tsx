@@ -105,7 +105,7 @@ export function ingredientColumns({
         {
             key: 'reference',
             label: t('kitchen:list.columnReference'),
-            width: 112,
+            width: 96,
             min: 84,
             priority: CATALOGUE_PRIORITY.reference,
             role: 'meta',
@@ -118,16 +118,26 @@ export function ingredientColumns({
                     testID={`${ingredientRowTestId(row.id)}-reference`}
                     variant="mono"
                     tone={row.reference === null ? 'secondary' : 'primary'}
-                    numberOfLines={1}
                 >
                     {row.reference ?? t('kitchen:list.noValue')}
                 </Text>
             ),
         },
         {
+            // 200, not the 260 every Catalogue spec used to declare.
+            //
+            // `width` is a claim on the row, and this one was making a claim its content never
+            // cashed: the longest designation in the seeded library, `Flour, all-purpose (wheat)`,
+            // sets at 142px, so a 260px track left roughly 110px of nothing between a name and the
+            // category beside it on every row of the page. 200 holds the same value with room to
+            // spare and hands the rest back to the columns that were short of it. A designation
+            // longer than the track still wraps rather than clipping — `DataList` floors the row
+            // height instead of fixing it.
             key: 'name',
-            label: t('kitchen:list.columnName'),
-            width: 260,
+            // Its own key, not the shared `list.columnName`: that one still reads "Designation" and
+            // still names the packaging list's title column and the recipe line table's.
+            label: t('kitchen:list.columnItem'),
+            width: 200,
             min: 150,
             priority: CATALOGUE_PRIORITY.designation,
             role: 'title',
@@ -138,11 +148,7 @@ export function ingredientColumns({
                 const name = displayName(row.name, locale);
                 return (
                     <Inline space="xs" align="center">
-                        <Text
-                            variant="label"
-                            numberOfLines={1}
-                            testID={`${ingredientRowTestId(row.id)}-name`}
-                        >
+                        <Text variant="label" testID={`${ingredientRowTestId(row.id)}-name`}>
                             {name.value}
                         </Text>
                         {name.isFallback ? (
@@ -158,9 +164,14 @@ export function ingredientColumns({
             },
         },
         {
+            // 160, measured rather than guessed: `Condiment & Sweetener` is the longest name in the
+            // category tree and sets at 136px, which with the cell's 8px insets needs 152. The
+            // track was 140, so the value wrapped to two lines on every condiment row while
+            // Designation next door sat half empty. Packaging's `Packaging & disposables` (138px)
+            // lands within a couple of pixels of the same figure, so both specs declare 160.
             key: 'category',
             label: t('kitchen:list.columnCategory'),
-            width: 140,
+            width: 160,
             min: 120,
             priority: CATALOGUE_PRIORITY.category,
             role: 'meta',
@@ -171,11 +182,7 @@ export function ingredientColumns({
                     ? t('kitchen:list.noCategory')
                     : categoryName(row.categoryCode),
             render: (row) => (
-                <Text
-                    testID={`${ingredientRowTestId(row.id)}-category`}
-                    tone="secondary"
-                    numberOfLines={1}
-                >
+                <Text testID={`${ingredientRowTestId(row.id)}-category`} tone="secondary">
                     {row.categoryCode === ''
                         ? t('kitchen:list.noCategory')
                         : categoryName(row.categoryCode)}
@@ -188,17 +195,14 @@ export function ingredientColumns({
             width: 72,
             min: 56,
             priority: CATALOGUE_PRIORITY.unit,
+            align: 'center',
             role: 'meta',
             sortable: true,
             sortType: 'text',
             // The abbreviation, not the picker's "Kilograms (kg)" — see `unitShortKey`.
             value: (row) => t(unitShortKey(row.measurementUnit)),
             render: (row) => (
-                <Text
-                    testID={`${ingredientRowTestId(row.id)}-unit`}
-                    tone="secondary"
-                    numberOfLines={1}
-                >
+                <Text testID={`${ingredientRowTestId(row.id)}-unit`} tone="secondary">
                     {t(unitShortKey(row.measurementUnit))}
                 </Text>
             ),
@@ -209,10 +213,10 @@ export function ingredientColumns({
             width: 104,
             min: 84,
             priority: CATALOGUE_PRIORITY.unitPrice,
+            align: 'center',
             // The ingredient list's headline number: no cost per kg and no yield on this entity, so
             // the price a kitchen buys at is what a row is scanned for after its name.
             role: 'metric',
-            align: 'center',
             mono: true,
             sortable: true,
             sortType: 'number',
@@ -222,7 +226,6 @@ export function ingredientColumns({
                     testID={`${ingredientRowTestId(row.id)}-unit-price`}
                     variant="mono"
                     tone={row.unitPrice === null ? 'secondary' : 'primary'}
-                    numberOfLines={1}
                 >
                     {unitPriceLabel(row)}
                 </Text>
@@ -257,7 +260,6 @@ export function ingredientColumns({
                                 : `${testID}-allergens`
                         }
                         tone="secondary"
-                        numberOfLines={1}
                     >
                         {allergenLabel(row)}
                     </Text>
@@ -283,32 +285,13 @@ export function ingredientColumns({
                 <Badge
                     testID={`${ingredientRowTestId(row.id)}-status`}
                     tone={statusTone(row.meta.status)}
+                    // No mark on Published. The tone's default `✓` is `Badge`'s way of keeping
+                    // meaning off colour alone, and "Published" is a word that needs no help —
+                    // §prop docs allow `null` for exactly that case. Draft and Review keep theirs,
+                    // because those two are the states a reader is scanning *for*.
+                    icon={row.meta.status === 'published' ? null : undefined}
                     label={t(statusShortKey(row.meta.status))}
                 />
-            ),
-        },
-        {
-            key: 'updatedAt',
-            label: t('kitchen:catalogue.columnUpdated'),
-            width: 96,
-            min: 72,
-            priority: CATALOGUE_PRIORITY.updated,
-            align: 'center',
-            sortable: true,
-            sortType: 'text',
-            // One line, relative — "2 d". The author's name went with the second line: it is a
-            // fact about a record, not about a list, and a 72px floor cannot hold "by Farah
-            // Haddad" without either truncating a person's name or doubling the row's height.
-            // The editor and the View drawer both still show it.
-            value: (row) => formatter.formatRelativeTime(row.meta.updatedAt),
-            render: (row) => (
-                <Text
-                    testID={`${ingredientRowTestId(row.id)}-updated`}
-                    tone="secondary"
-                    numberOfLines={1}
-                >
-                    {formatter.formatRelativeTime(row.meta.updatedAt)}
-                </Text>
             ),
         },
     ];

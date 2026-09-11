@@ -84,10 +84,7 @@ export function ListItem({
               'text-role-strong font-admin text-start',
               disabled ? 'text-content-disabled' : 'text-content-primary',
           )
-        : cx(
-              'text-base text-start',
-              disabled ? 'text-content-disabled' : 'text-content-primary',
-          );
+        : cx('text-base text-start', disabled ? 'text-content-disabled' : 'text-content-primary');
 
     const descriptionClass = compact
         ? 'text-role-caption font-admin text-content-secondary text-start'

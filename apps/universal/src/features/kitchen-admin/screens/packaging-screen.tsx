@@ -5,8 +5,8 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    Icon,
     Inline,
-    Menu,
     Skeleton,
     Stack,
     Text,
@@ -24,11 +24,12 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { CatalogueColumnHeader } from '../catalogue/catalogue-column-header.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
 import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
@@ -50,8 +51,8 @@ import { displayName, humaniseCode, unitShortKey } from '../format.ts';
  * ```
  * Kitchen workspace › Packaging                   <- drawn by the shell, not here
  * ┌ SHOWN ┐ ┌ UNPRICED ┐ ┌ INACTIVE ┐ ┌ MISSING ARABIC ┐
- * [ ⌕ 240px ]  [ All | Live | Draft ]
- * REF.  NAME  CATEGORY  PACK  PER PACK  PACK PRICE  HOLDS  WASTE  STATUS  ⋯
+ *         [ ⌕ 240px ]  [ All | Published | Draft | Review ]
+ * ID  ITEM  CATEGORY  PACK  PER PACK  PACK PRICE  HOLDS  WASTE  STATUS  ⋯
  * Showing 1–25 of 33                                            [ ‹ 1 2 › ]
  * ```
  *
@@ -88,17 +89,20 @@ import { displayName, humaniseCode, unitShortKey } from '../format.ts';
  * happen. So the enum went and these rows read the words the rest of the catalogue uses: Live,
  * Draft, Archived.
  *
- * What is still absent is `review_required`. That state is the *allergen quarantine* — a record
- * whose determination contradicts a published recipe — and a box declares no allergens, so nothing
- * can put one there. The toolbar segments are All · Live · Draft; Archived is on the Status
- * column's own filter, and no control here offers a transition the server cannot make.
+ * `review_required` is offered too, by request. It was left out on the argument that the state is
+ * the *allergen quarantine* — a record whose determination contradicts a published recipe — and a
+ * box declares no allergens, so nothing could put one there. That describes how a row *enters* the
+ * state, not whether the field can hold it: it is a column on the same ingredient table, and an
+ * import or a hand edit can set it. The segments are All · Published · Draft · Review; Archived is
+ * on the Status column's own filter.
  *
  * ## The row controls are View, Edit and Archive
  *
- * All three are the ingredient ones, because these are ingredients. Edit does not need a route
- * behind `/kitchen/packaging/{item}` — the rows carry ingredient ids, so
- * {@link PackagingListState.openEditor} sends a reader to `/kitchen/ingredients/{item}`, which
- * edits exactly this record. Archive is offered only where the server would accept it: the
+ * All three are the ingredient ones, because these are ingredients. Edit goes to
+ * `/kitchen/packaging/{item}`, which is the ingredient form wearing this family's series (`PKG-`),
+ * its category and its back-link — see `packaging-edit-screen.tsx` for why that is a wrapper rather
+ * than a second form. `new` is a value of the same parameter, so the header's New packaging and a
+ * row's Edit land in one place. Archive is offered only where the server would accept it: the
  * permission, the row's own `isEditable`, and a row that is not already archived.
  */
 export function PackagingScreen() {
@@ -116,11 +120,12 @@ export function PackagingScreen() {
 /**
  * All · Active · Inactive.
  *
- * Three, not four. Archived is reachable from the Status column's own filter, which is the call the
- * ingredient list makes about `retired`: a fourth segment would spend a quarter of a primary
- * control on the one state a catalogue is almost never browsed in.
+ * Archived stays out, which is the call the ingredient list makes about `retired`: a segment for
+ * the one state a catalogue is almost never browsed in would spend a share of a primary control on
+ * nothing. Review is in, by request — it is a state these rows can hold, and the segments are where
+ * a reader looks for the list's states before they think to open a column.
  */
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft'];
+const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
 
 type StatusSegmentValue = PublishableStatus | 'all';
 
@@ -172,8 +177,6 @@ function PackagingList() {
     return (
         <Stack space="md" testID="kitchen-packaging-screen">
             <Stack space="xs">
-                <CataloguePageHeader testID="kitchen-packaging-header" />
-
                 {list.isPending ? null : (
                     <CatalogueStatCards
                         testID="kitchen-packaging-stats"
@@ -194,7 +197,28 @@ function PackagingList() {
                 onStatusChange={(status) => {
                     list.setStatuses(status === 'all' ? [] : [status]);
                 }}
-            />
+            >
+                {canManage ? (
+                    <Inline space="xs" align="center">
+                        <CatalogueTransferActions testID="kitchen-packaging-toolbar" />
+                        {/*
+                         * `/kitchen/packaging/new` — the same form a row's Edit opens,
+                         * handed the packaging series and the packaging category. A new
+                         * record therefore arrives already filed where this list looks,
+                         * which is what stops a successful save from producing a row the
+                         * page that created it cannot show.
+                         */}
+                        <Button
+                            testID="kitchen-packaging-toolbar-create"
+                            label={t('kitchen:packaging.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                list.openEditor('new');
+                            }}
+                        />
+                    </Inline>
+                ) : undefined}
+            </CatalogueToolbar>
 
             {list.isPending ? (
                 <Stack space="xs" testID="kitchen-packaging-loading">
@@ -268,9 +292,9 @@ function PackagingList() {
                                     list.openView(row);
                                 },
                             },
-                            // Edit is the *ingredient* editor, which can edit these rows because
-                            // they are ingredients. There is still no `/kitchen/packaging/{item}`
-                            // route, and there does not need to be one.
+                            // Edit opens `/kitchen/packaging/{item}` — the ingredient form, which
+                            // can edit these rows because they are ingredients, wearing this
+                            // family's series, category and back-link.
                             {
                                 key: 'edit',
                                 label: t('kitchen:list.open'),
@@ -482,58 +506,48 @@ function headerMenu(
     if (sortKey === null && filter.length === 0) return undefined;
 
     const active = sortKey !== null && list.sortKey === sortKey;
-    const mark = !active ? '' : list.sortDirection === 'asc' ? ' ↑' : ' ↓';
+    // Any value in this column's own list that is currently applied. Derived from the items
+    // rather than restated per entity: the screens already mark the applied value `selected`
+    // so the menu can tick it, and "the menu has a tick" is exactly "the column is filtered".
+    const filtered = filter.some((item) => item.selected === true);
 
-    const sortItems: readonly MenuItem[] =
-        sortKey === null
-            ? []
-            : [
-                  {
-                      key: 'asc',
-                      label: t('kitchen:catalogue.sortAscending'),
-                      selected: active && list.sortDirection === 'asc',
-                      testID: `kitchen-packaging-column-${column.key}-asc`,
-                      onSelect: () => {
-                          list.setSort(sortKey, 'asc');
-                      },
-                  },
-                  {
-                      key: 'desc',
-                      label: t('kitchen:catalogue.sortDescending'),
-                      selected: active && list.sortDirection === 'desc',
-                      testID: `kitchen-packaging-column-${column.key}-desc`,
-                      onSelect: () => {
-                          list.setSort(sortKey, 'desc');
-                      },
-                  },
-              ];
+    /*
+     * A column with nothing to filter by sorts on the press itself - see `onToggleSort`. The cycle
+     * is the one a reader expects from a table: first press sorts ascending, pressing the column
+     * already sorted flips it.
+     */
+    const toggleSort =
+        sortKey === null || filter.length > 0
+            ? undefined
+            : () => {
+                  list.setSort(sortKey, active && list.sortDirection === 'asc' ? 'desc' : 'asc');
+              };
 
     return () => (
-        <Menu
-            label={t('kitchen:catalogue.columnMenu', { column: column.label })}
-            align="start"
-            // The header sits inside the list's own stacking context and the rows paint after it,
-            // so a panel hanging from the header lands under the first rows without this.
-            className="z-sticky"
-            sections={[
-                ...(sortItems.length === 0 ? [] : [{ items: sortItems }]),
-                ...(filter.length === 0
-                    ? []
-                    : [{ label: t('kitchen:catalogue.filter'), items: filter }]),
-            ]}
-            trigger={({ triggerProps, toggle }) => (
-                <Text
-                    {...triggerProps}
-                    variant="micro"
-                    tone={active ? 'primary' : 'secondary'}
-                    align={column.align === 'center' ? 'center' : undefined}
-                    role="button"
-                    onPress={toggle}
-                    testID={`kitchen-packaging-column-${column.key}-trigger`}
-                >
-                    {`${column.label}${mark}`}
-                </Text>
-            )}
+        <CatalogueColumnHeader
+            label={column.label}
+            align={column.align}
+            {...(toggleSort === undefined ? {} : { onToggleSort: toggleSort })}
+            /*
+             * Values only. The sort pair used to lead this list, which meant a column that could
+             * only sort still opened a panel to ask "ascending or descending" - a second press for
+             * something the first press already meant. Sorting is the press itself now, so a column
+             * with no values to choose from has no menu at all, and `sections` being empty is
+             * exactly what tells the header that.
+             */
+            sections={
+                filter.length === 0 ? [] : [{ label: t('kitchen:catalogue.filter'), items: filter }]
+            }
+            // Three states, not two: `undefined` where the column cannot sort at all, so the
+            // header knows to draw no arrow rather than a grey one pointing at nothing.
+            sortDirection={
+                sortKey === null || filter.length > 0
+                    ? undefined
+                    : active
+                      ? list.sortDirection
+                      : null
+            }
+            filtered={filtered}
             testID={`kitchen-packaging-column-${column.key}`}
         />
     );

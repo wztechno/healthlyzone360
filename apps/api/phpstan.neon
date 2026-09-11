@@ -15,3 +15,9 @@ parameters:
         - app-modules/*/tests/*
 
     level: 7
+
+    # Laravel annotates `Seeder::$command` as a non-nullable Command, and it is null until
+    # `setCommand()` runs. Trusting that annotation over the real type turns the nullsafe
+    # guards that exist because of it into reported dead code. Native types still decide;
+    # only a PHPDoc that disagrees with reality loses its certainty.
+    treatPhpDocTypesAsCertain: false

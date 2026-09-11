@@ -349,7 +349,10 @@ export function PlannerWeekScreen({ week }: PlannerWeekScreenProps) {
 
             {/* One row, one baseline (§2.5): week navigation leads, the week's actions trail,
                 and the gap between them does the separating. */}
-            <View className="flex-row flex-wrap items-center gap-2" testID="planner-week-navigation">
+            <View
+                className="flex-row flex-wrap items-center gap-2"
+                testID="planner-week-navigation"
+            >
                 <Button
                     testID="planner-week-previous"
                     variant="secondary"

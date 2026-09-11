@@ -2,8 +2,6 @@ node_modules/
 vendor/
 dist/
 dist-api/
-playwright-report/
-test-results/
 build/
 coverage/
 .turbo/
@@ -27,6 +25,11 @@ packages/api-client/src/generated/
 apps/universal/expo-env.d.ts
 apps/universal/src/media/image-manifest.generated.ts
 design_handoff_wellness_green/
+desing_handoff_admin_components/
+# Claude Design canvas exports and the runtime they need beside them — vendored, not authored.
+/*.dc.html
+/support.js
+/image-slot.js
 # Local / untracked config — not part of the shared source tree.
 .claude/settings.local.json
 /tsconfig.json

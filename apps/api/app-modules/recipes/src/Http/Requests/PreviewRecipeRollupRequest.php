@@ -60,7 +60,7 @@ class PreviewRecipeRollupRequest extends FormRequest
             'yield_piece_count' => ['nullable', 'integer', 'gt:0', 'max:100000'],
             'packaging_waste_percent' => ['nullable', 'numeric', 'gte:0', 'max:100'],
             'packaging' => ['sometimes', 'array', 'max:50'],
-            'packaging.*.packaging_item_id' => ['required', 'uuid'],
+            'packaging.*.ingredient_id' => ['required', 'uuid'],
             'packaging.*.basis' => ['required', Rule::enum(PackagingBasis::class)],
             'packaging.*.quantity' => ['nullable', 'numeric', 'gt:0', 'max:99999999.9999'],
         ];
@@ -76,12 +76,12 @@ class PreviewRecipeRollupRequest extends FormRequest
      *     yield_unit_id: string|null,
      *     yield_piece_count: int|null,
      *     packaging_waste_percent: string|null,
-     *     packaging: list<array{packaging_item_id: string, basis: string, quantity?: float|string|null}>
+     *     packaging: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>
      * }
      */
     public function draft(): array
     {
-        /** @var array{recipe_id?: string|null, servings: float|string, waste_percent?: float|string|null, lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>, yield_quantity?: float|string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: float|string|null, packaging?: list<array{packaging_item_id: string, basis: string, quantity?: float|string|null}>} $validated */
+        /** @var array{recipe_id?: string|null, servings: float|string, waste_percent?: float|string|null, lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>, yield_quantity?: float|string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: float|string|null, packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>} $validated */
         $validated = $this->validated();
 
         return [

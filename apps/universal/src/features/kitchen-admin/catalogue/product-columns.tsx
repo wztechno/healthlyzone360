@@ -121,7 +121,7 @@ export function productColumns({
              */
             key: 'reference',
             label: t('kitchen:list.columnReference'),
-            width: 112,
+            width: 96,
             min: 84,
             priority: CATALOGUE_PRIORITY.reference,
             role: 'meta',
@@ -134,7 +134,6 @@ export function productColumns({
                     testID={`${productRowTestId(String(row.id))}-reference`}
                     variant="mono"
                     tone={row.reference === null ? 'secondary' : 'primary'}
-                    numberOfLines={1}
                 >
                     {row.reference ?? dash}
                 </Text>
@@ -143,7 +142,7 @@ export function productColumns({
         {
             key: 'name',
             label: t('kitchen:products.columnName'),
-            width: 260,
+            width: 200,
             min: 150,
             priority: CATALOGUE_PRIORITY.designation,
             role: 'title',
@@ -154,11 +153,7 @@ export function productColumns({
                 const name = displayName(row.name, locale);
                 return (
                     <Inline space="xs" align="center">
-                        <Text
-                            variant="label"
-                            numberOfLines={1}
-                            testID={`${productRowTestId(String(row.id))}-name`}
-                        >
+                        <Text variant="label" testID={`${productRowTestId(String(row.id))}-name`}>
                             {name.value}
                         </Text>
                         {/*
@@ -182,7 +177,7 @@ export function productColumns({
         {
             key: 'category',
             label: t('kitchen:products.columnCategory'),
-            width: 140,
+            width: 160,
             min: 112,
             priority: CATALOGUE_PRIORITY.category,
             role: 'meta',
@@ -193,11 +188,7 @@ export function productColumns({
                     ? t('kitchen:list.noCategory')
                     : categoryName(row.categoryCode),
             render: (row) => (
-                <Text
-                    testID={`${productRowTestId(String(row.id))}-category`}
-                    tone="secondary"
-                    numberOfLines={1}
-                >
+                <Text testID={`${productRowTestId(String(row.id))}-category`} tone="secondary">
                     {row.categoryCode.trim() === ''
                         ? t('kitchen:list.noCategory')
                         : categoryName(row.categoryCode)}
@@ -218,7 +209,7 @@ export function productColumns({
 
                 if (lead === null) {
                     return (
-                        <Text testID={`${testID}-packs-none`} tone="secondary" numberOfLines={1}>
+                        <Text testID={`${testID}-packs-none`} tone="secondary">
                             {t('kitchen:products.noPacks')}
                         </Text>
                     );
@@ -226,9 +217,7 @@ export function productColumns({
 
                 return (
                     <Inline space="xs" align="center" testID={`${testID}-packs`}>
-                        <Text variant="mono" numberOfLines={1}>
-                            {packLabel(row)}
-                        </Text>
+                        <Text variant="mono">{packLabel(row)}</Text>
                         {/*
                          * The count is its own element rather than part of the sentence above: it
                          * is the half a reader is counting down the column, and it is what a price
@@ -236,7 +225,11 @@ export function productColumns({
                          * because "1 pack in all" beside the pack itself says nothing.
                          */}
                         {row.packVariants.length > 1 ? (
-                            <Text variant="caption" tone="secondary" testID={`${testID}-packs-count`}>
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID={`${testID}-packs-count`}
+                            >
                                 {t('kitchen:products.packCount', {
                                     count: row.packVariants.length,
                                 })}
@@ -259,11 +252,11 @@ export function productColumns({
                 const channels = availableChannels(row.channelAvailability);
 
                 return channels.length === 0 ? (
-                    <Text testID={`${testID}-channels-none`} tone="secondary" numberOfLines={1}>
+                    <Text testID={`${testID}-channels-none`} tone="secondary">
                         {t('kitchen:products.noChannels')}
                     </Text>
                 ) : (
-                    <Text testID={`${testID}-channels`} tone="secondary" numberOfLines={1}>
+                    <Text testID={`${testID}-channels`} tone="secondary">
                         {channelLabel(row)}
                     </Text>
                 );
@@ -295,11 +288,7 @@ export function productColumns({
                     !row.isMarketPriced && !row.isAssorted && row.dataQualityFlags.length === 0;
 
                 if (empty) {
-                    return (
-                        <Text tone="secondary" numberOfLines={1}>
-                            {dash}
-                        </Text>
-                    );
+                    return <Text tone="secondary">{dash}</Text>;
                 }
 
                 return (
@@ -345,30 +334,13 @@ export function productColumns({
                 <Badge
                     testID={`${productRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
+                    // No mark on Published. The tone's default `✓` is `Badge`'s way of keeping
+                    // meaning off colour alone, and "Published" is a word that needs no help —
+                    // §prop docs allow `null` for exactly that case. Draft and Review keep theirs,
+                    // because those two are the states a reader is scanning *for*.
+                    icon={row.meta.status === 'published' ? null : undefined}
                     label={t(statusShortKey(row.meta.status))}
                 />
-            ),
-        },
-        {
-            key: 'updatedAt',
-            label: t('kitchen:catalogue.columnUpdated'),
-            width: 96,
-            min: 72,
-            priority: CATALOGUE_PRIORITY.updated,
-            align: 'center',
-            sortable: true,
-            sortType: 'text',
-            value: (row) => formatter.formatRelativeTime(row.meta.updatedAt),
-            render: (row) => (
-                <Text
-                    testID={`${productRowTestId(String(row.id))}-updated`}
-                    variant="caption"
-                    tone="secondary"
-                    align="center"
-                    numberOfLines={1}
-                >
-                    {formatter.formatRelativeTime(row.meta.updatedAt)}
-                </Text>
             ),
         },
     ];

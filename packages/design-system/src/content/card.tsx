@@ -166,9 +166,7 @@ export function Card({
                         <RNText
                             className={cx(
                                 'text-content-secondary text-start',
-                                density === 'compact'
-                                    ? 'text-role-caption font-admin'
-                                    : 'text-sm',
+                                density === 'compact' ? 'text-role-caption font-admin' : 'text-sm',
                             )}
                         >
                             {subtitle}

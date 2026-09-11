@@ -116,16 +116,35 @@ export interface CatalogueStatCardsProps {
 
 export function CatalogueStatCards({ cards, testID }: CatalogueStatCardsProps) {
     return (
-        <View testID={testID} className="flex-row flex-wrap gap-tight">
+        /*
+         * The cards fill the row, with a gap between them.
+         *
+         * This has now been three shapes. Fixed 200px cards packed at the leading edge left ~380px
+         * of nothing after the fourth; centring moved that to the two outer margins; `between` put
+         * it in the gaps, which fills the row but leaves the four cards floating a long way apart
+         * with no relationship to each other. What the row actually wants is for the cards to be
+         * *bigger*: the space belongs inside them, where the figure and its caption are, rather
+         * than around them.
+         *
+         * So each card takes an equal share of the row — `flex-1` on its cell, floored at
+         * `cardWidth.min` so a narrow port wraps instead of crushing four cards into 90px each —
+         * and `gap-snug` (12px) keeps them apart. That is the "little space" and no more: the cards
+         * are one row of related figures, and a gap wide enough to read as a separator would say
+         * they are four unrelated panels.
+         */
+        <View testID={testID} className="flex-row flex-wrap items-stretch gap-snug">
             {cards.map((card) => (
                 /*
-                 * A wrapping row of fixed cards, not `CardGrid`.
+                 * A wrapping row of equal shares, not `CardGrid`.
                  *
-                 * `CardGrid`'s track is `minmax(200px, 260px)` and, with room, it resolves to the
-                 * *max* — four of them plus gaps is 1088px, where the design's stat row is roughly
-                 * 800. Pinning each card at `cardWidth.min` puts the row at 848 and reads as the
-                 * design draws it, and wrapping is a better narrow-port answer than a fixed
-                 * four-column grid: three cards and one below beats four squeezed.
+                 * `CardGrid`'s track is `minmax(200px, 260px)` and caps at the max, so on a 1230px
+                 * row it would draw four 260px cards and leave the remainder over — the problem
+                 * this row is trying to stop having. `flex-1` has no cap: the cards take whatever
+                 * the row is, which is the point.
+                 *
+                 * `minWidth` rather than a fixed `width` is what keeps the wrap honest. A flex
+                 * child will shrink below its content without one, so four cards on a phone would
+                 * become four unreadable slivers instead of wrapping to two lines of two.
                  *
                  * The `View` around each card is also load-bearing. A `Card` with `onPress`
                  * renders a real `<button>`, whose `width: auto` is shrink-to-fit rather than
@@ -137,8 +156,20 @@ export function CatalogueStatCards({ cards, testID }: CatalogueStatCardsProps) {
                  * pressable cards never showed this. Fixed here rather than in `Card`: a blanket
                  * `w-full` on the pressable branch would also stretch every card sitting in a flex
                  * row, which is a different layout with a different right answer.
+                 *
+                 * `flex-1` trips the no-stretch fence, and this is the exemption that fence
+                 * names by example: the `View` is not a control taking its width from a
+                 * container, it *is* one of the row's four columns — the same case as the
+                 * toolbar's spacer and a list row's title column. The card inside it is still
+                 * sized by the token, and `minWidth` is what makes a narrow port wrap rather
+                 * than shrink four cards into slivers.
                  */
-                <View key={card.key} className="flex-col" style={{ width: cardWidth.min }}>
+                <View
+                    key={card.key}
+                    // eslint-disable-next-line no-restricted-syntax -- the cell *is* the row's column; see above.
+                    className="flex-1 flex-col"
+                    style={{ minWidth: cardWidth.min }}
+                >
                     <StatCard card={card} testID={`${testID}-${card.key}`} />
                 </View>
             ))}
@@ -172,11 +203,11 @@ function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly
 
                 <View className="flex-row items-baseline gap-hair">
                     {/*
-                      * `display` (20/26, 700), not the `mono` role. The design sets these figures
-                      * in IBM Plex Mono, and CLAUDE.md's sequencing decision defers that family
-                      * to the palette pass — "carry numerics with weight and alignment for now" —
-                      * so the figure takes the ramp's one large step and nothing else.
-                      */}
+                     * `display` (20/26, 700), not the `mono` role. The design sets these figures
+                     * in IBM Plex Mono, and CLAUDE.md's sequencing decision defers that family
+                     * to the palette pass — "carry numerics with weight and alignment for now" —
+                     * so the figure takes the ramp's one large step and nothing else.
+                     */}
                     <Text variant="display" tone={VALUE_TONE[tone]} testID={`${testID}-value`}>
                         {card.value}
                     </Text>

@@ -97,10 +97,7 @@ const REFERENCE_SERIES = {
  * import already writes for every SC- row. Dressings have no list of their own: the sheets file all
  * fourteen alike, so the route states the category and asks nothing further.
  */
-function subcategoryOptions(
-    itemType: 'sauce' | 'dressing',
-    t: TFunction,
-): readonly SelectOption[] {
+function subcategoryOptions(itemType: 'sauce' | 'dressing', t: TFunction): readonly SelectOption[] {
     if (itemType === 'dressing') return [];
 
     return [

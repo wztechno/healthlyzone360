@@ -890,6 +890,52 @@ export type RecipeLine = {
 };
 
 /**
+ * How a packaging quantity is arrived at.
+ *
+ * * `fills_yield` — the container the yield goes into. The server divides
+ * the yield by the item's recorded capacity and rounds up, so the
+ * quantity is a container count nobody types.
+ * * `per_container` — one per container filled, multiplied by the count
+ * `fills_yield` produced. A cap goes on every bottle.
+ * * `per_batch` — a flat quantity per batch, independent of the yield.
+ * The only basis that accepts `quantity`.
+ *
+ */
+export type PackagingBasis = 'fills_yield' | 'per_container' | 'per_batch';
+
+/**
+ * One packaging line, as stored.
+ *
+ * **No cost fields**, for `RecipeLine`'s reason and one of its own: the
+ * unit cost of a box is read from the catalogue row rather than carried
+ * here, so the costed view is the technical sheet and this projection has
+ * nothing to withhold.
+ *
+ * `basis` travels beside `quantity` and always. Without it the quantity
+ * is unreadable — `6` means "the yield fills six of these" on one basis
+ * and "somebody typed six" on another, and only the first is still right
+ * after the yield changes.
+ *
+ */
+export type RecipePackagingLine = {
+    id: Uuid;
+    /**
+     * Server-authored from the submitted order.
+     */
+    line_number: number;
+    ingredient_id: Uuid;
+    basis: PackagingBasis;
+    /**
+     * Decimal with four places, as a string. Derived on `fills_yield` and
+     * `per_container`; as submitted on `per_batch`.
+     *
+     */
+    quantity: string;
+    unit_id?: Uuid | null;
+    comment?: string | null;
+};
+
+/**
  * What a version produces. An ingredient with a row here is what the
  * design used to call an "intermediate"; there is no kind column
  * anywhere, because being an intermediate is a fact about some version's
@@ -1221,6 +1267,27 @@ export type ReplaceRecipeLinesRequest = {
          */
         cost_currency_code?: string | null;
         source_designation?: string | null;
+        comment?: string | null;
+    }>;
+};
+
+export type ReplaceRecipePackagingRequest = {
+    /**
+     * The complete packaging set. An empty array is a legitimate
+     * statement ("this version packs into nothing yet"), not a missing
+     * field. The array order is the line sequence.
+     *
+     */
+    packaging: Array<{
+        ingredient_id: Uuid;
+        basis: PackagingBasis;
+        /**
+         * Required on `per_batch` and refused on the other two bases,
+         * which derive their own. The server answers with what it
+         * stored, which on those two is not what was sent.
+         *
+         */
+        quantity?: number | null;
         comment?: string | null;
     }>;
 };
@@ -13190,6 +13257,36 @@ export type ListIngredientsData = {
          *
          */
         exclude_category?: Uuid;
+        /**
+         * Keep only the rows numbered in one series. The ingredient list asks
+         * for `ING-`.
+         *
+         * A whitelist, because everything else in this table earned its place
+         * another way. The v6 import writes an ingredient beside every
+         * sellable row it brings in — 43 `SAC-` sauces, 19 `DRS-` dressings,
+         * 69 `PRD-`/`RSL-` product and resale lines — because a sauce is both
+         * sold and consumed and a formulation has to be able to name it.
+         * Packaging carries `PKG-`. None of them are raw materials.
+         *
+         * Exclusions were tried and kept losing: filing cannot separate them,
+         * since the resale twins sit under `meat-egg`, `bread` and `dairy`
+         * alongside real food, and clearing the rows cannot either, because
+         * the import recreates whatever is missing. A series a row either
+         * carries or does not is the one property that survives both.
+         *
+         * Matched anchored and digits-only, so `ING-` admits `ING-307` and not
+         * a source path that happens to start the same way.
+         *
+         * A parameter and not a rule, for the same reason as
+         * `exclude_category`: this endpoint serves the browse list *and* the
+         * recipe line picker, and a cook writing a burger has every reason to
+         * add a sauce as a line. The list passes it; the picker does not.
+         *
+         * Applied before the count, so a filtered list reports the number of
+         * rows it is actually showing.
+         *
+         */
+        reference_series?: 'ING-' | 'PKG-';
     };
     url: '/catalogue/ingredients';
 };
@@ -15062,6 +15159,118 @@ export type ReplaceRecipeLinesResponses = {
 
 export type ReplaceRecipeLinesResponse = ReplaceRecipeLinesResponses[keyof ReplaceRecipeLinesResponses];
 
+export type ReplaceRecipePackagingData = {
+    body: ReplaceRecipePackagingRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/packaging';
+};
+
+export type ReplaceRecipePackagingErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the version is frozen (`catalogue.version_immutable` — it is
+     * published or retired, and no amount of reloading will make it writable;
+     * the answer is a new draft version) or the write lost a race
+     * (`resource.conflict`, carrying `details.current_lock_version`). Two
+     * codes, because the remedies are different.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceRecipePackagingError = ReplaceRecipePackagingErrors[keyof ReplaceRecipePackagingErrors];
+
+export type ReplaceRecipePackagingResponses = {
+    /**
+     * The version and its new packaging, as stored.
+     */
+    200: {
+        data: {
+            version: AdminRecipeVersion;
+            packaging: Array<RecipePackagingLine>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceRecipePackagingResponse = ReplaceRecipePackagingResponses[keyof ReplaceRecipePackagingResponses];
+
 export type ReplaceRecipeOutputsData = {
     body: ReplaceRecipeOutputsRequest;
     headers: {
@@ -16427,6 +16636,76 @@ export type UpdateSalesChannelResponses = {
 };
 
 export type UpdateSalesChannelResponse = UpdateSalesChannelResponses[keyof UpdateSalesChannelResponses];
+
+export type NextCatalogueReferenceData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * Which series to read, and each is counted in the table its existing
+         * handles are in: `ING-` among the ingredients, `RC-` among the
+         * recipes, and `SAC-` and `DRS-` among the catalogue items — where the
+         * import wrote forty-three sauces and nineteen dressings.
+         *
+         */
+        prefix: 'ING-' | 'RC-' | 'SAC-' | 'DRS-';
+    };
+    url: '/catalogue/references/next';
+};
+
+export type NextCatalogueReferenceErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type NextCatalogueReferenceError = NextCatalogueReferenceErrors[keyof NextCatalogueReferenceErrors];
+
+export type NextCatalogueReferenceResponses = {
+    /**
+     * The next handle in that series.
+     */
+    200: {
+        data: {
+            reference: string;
+        };
+    };
+};
+
+export type NextCatalogueReferenceResponse = NextCatalogueReferenceResponses[keyof NextCatalogueReferenceResponses];
 
 export type ListCatalogueItemsData = {
     body?: never;

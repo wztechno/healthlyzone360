@@ -69,14 +69,15 @@ export interface MealColumnDeps {
     readonly t: TFunction;
     /** The resolved locale, as `useLocale()` reports it. */
     readonly locale: string;
+    /**
+     * Still on the deps, unread since Updated left the row: the caller has it to hand and the
+     * next figure this list draws will want it. Not destructured, because an unread binding is
+     * a lint error and a silent one is worse than a stated one.
+     */
     readonly formatter: Formatter;
 }
 
-export function mealColumns({
-    t,
-    locale,
-    formatter,
-}: MealColumnDeps): readonly CatalogueColumn<MealAdmin>[] {
+export function mealColumns({ t, locale }: MealColumnDeps): readonly CatalogueColumn<MealAdmin>[] {
     const channelLabel = (row: MealAdmin): string => {
         const channels = availableChannels(row.channelAvailability);
         return channels.length === 0
@@ -100,7 +101,7 @@ export function mealColumns({
         {
             key: 'name',
             label: t('kitchen:meals.columnName'),
-            width: 260,
+            width: 200,
             min: 150,
             priority: CATALOGUE_PRIORITY.designation,
             role: 'title',
@@ -122,7 +123,7 @@ export function mealColumns({
                                 decorative
                             />
                         </View>
-                        <Text variant="label" numberOfLines={1} testID={`${testID}-name`}>
+                        <Text variant="label" testID={`${testID}-name`}>
                             {name.value}
                         </Text>
                         {name.isFallback ? (
@@ -150,11 +151,11 @@ export function mealColumns({
                 const channels = availableChannels(row.channelAvailability);
 
                 return channels.length === 0 ? (
-                    <Text testID={`${testID}-channels-none`} tone="secondary" numberOfLines={1}>
+                    <Text testID={`${testID}-channels-none`} tone="secondary">
                         {t('kitchen:meals.noChannels')}
                     </Text>
                 ) : (
-                    <Text testID={`${testID}-channels`} tone="secondary" numberOfLines={1}>
+                    <Text testID={`${testID}-channels`} tone="secondary">
                         {channelLabel(row)}
                     </Text>
                 );
@@ -172,11 +173,7 @@ export function mealColumns({
                     ? t('kitchen:list.noValue')
                     : row.mealTypes.map((type) => t(mealTypeKey(type))).join(', '),
             render: (row) => (
-                <Text
-                    testID={`${mealRowTestId(String(row.id))}-meal-types`}
-                    tone="secondary"
-                    numberOfLines={1}
-                >
+                <Text testID={`${mealRowTestId(String(row.id))}-meal-types`} tone="secondary">
                     {row.mealTypes.length === 0
                         ? t('kitchen:list.noValue')
                         : row.mealTypes.map((type) => t(mealTypeKey(type))).join(', ')}
@@ -186,7 +183,7 @@ export function mealColumns({
         {
             key: 'category',
             label: t('kitchen:list.columnCategory'),
-            width: 140,
+            width: 160,
             min: 112,
             priority: CATALOGUE_PRIORITY.category,
             role: 'meta',
@@ -198,7 +195,6 @@ export function mealColumns({
                     <Text
                         testID={`${mealRowTestId(String(row.id))}-kitchen-category-none`}
                         tone="secondary"
-                        numberOfLines={1}
                     >
                         {t('kitchen:list.noCategory')}
                     </Text>
@@ -206,7 +202,6 @@ export function mealColumns({
                     <Text
                         testID={`${mealRowTestId(String(row.id))}-kitchen-category`}
                         tone="secondary"
-                        numberOfLines={1}
                     >
                         {categoryLabel(row)}
                     </Text>
@@ -222,11 +217,11 @@ export function mealColumns({
             render: (row) => {
                 const testID = mealRowTestId(String(row.id));
                 return row.allergens.length === 0 ? (
-                    <Text testID={`${testID}-allergens-none`} tone="secondary" numberOfLines={1}>
+                    <Text testID={`${testID}-allergens-none`} tone="secondary">
                         {t('kitchen:list.noAllergens')}
                     </Text>
                 ) : (
-                    <Text testID={`${testID}-allergens`} tone="secondary" numberOfLines={1}>
+                    <Text testID={`${testID}-allergens`} tone="secondary">
                         {allergenLabel(row)}
                     </Text>
                 );
@@ -247,30 +242,13 @@ export function mealColumns({
                 <Badge
                     testID={`${mealRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
+                    // No mark on Published. The tone's default `✓` is `Badge`'s way of keeping
+                    // meaning off colour alone, and "Published" is a word that needs no help —
+                    // §prop docs allow `null` for exactly that case. Draft and Review keep theirs,
+                    // because those two are the states a reader is scanning *for*.
+                    icon={row.meta.status === 'published' ? null : undefined}
                     label={t(statusShortKey(row.meta.status))}
                 />
-            ),
-        },
-        {
-            key: 'updatedAt',
-            label: t('kitchen:catalogue.columnUpdated'),
-            width: 96,
-            min: 72,
-            priority: CATALOGUE_PRIORITY.updated,
-            align: 'center',
-            sortable: true,
-            sortType: 'text',
-            value: (row) => formatter.formatRelativeTime(row.meta.updatedAt),
-            render: (row) => (
-                <Text
-                    testID={`${mealRowTestId(String(row.id))}-updated`}
-                    variant="caption"
-                    tone="secondary"
-                    align="center"
-                    numberOfLines={1}
-                >
-                    {formatter.formatRelativeTime(row.meta.updatedAt)}
-                </Text>
             ),
         },
     ];

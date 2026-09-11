@@ -6,7 +6,12 @@ import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { ADMIN_FONT_CLASS } from '../primitives/text.tsx';
 import { cx } from '../internal/class-names.ts';
-import { BUTTON_SIZES, BUTTON_VARIANTS, CONTAINER_VARIANT, LABEL_VARIANT } from './button-shared.ts';
+import {
+    BUTTON_SIZES,
+    BUTTON_VARIANTS,
+    CONTAINER_VARIANT,
+    LABEL_VARIANT,
+} from './button-shared.ts';
 import type { ButtonSize, ButtonVariant } from './button-shared.ts';
 
 /**

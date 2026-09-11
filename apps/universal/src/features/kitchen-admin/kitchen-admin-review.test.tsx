@@ -158,7 +158,7 @@ function ingredient(overrides: Partial<IngredientAdmin> = {}): IngredientAdmin {
         // A platform row the caller may write: this suite is about the quarantine banner, not about
         // who owns the library, and a read-only fixture would disable the form it asserts on.
         forkedFromId: null,
-    isEditable: true,
+        isEditable: true,
         notes: null,
         ...overrides,
     };
@@ -303,6 +303,7 @@ describe('the review model', () => {
             meta: meta({ status: 'draft' }),
             name: { en: 'Mixed mezze tray', ar: 'صينية مزّة' },
             description: { en: 'Assorted', ar: 'متنوّعة' },
+            categoryId: null,
             categoryCode: 'prepared-food',
             itemType: 'product',
             reference: null,

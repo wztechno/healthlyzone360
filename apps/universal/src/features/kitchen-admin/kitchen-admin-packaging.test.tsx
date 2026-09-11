@@ -280,7 +280,7 @@ describe('the packaging list', () => {
         // "Live", not "Active": packaging is an ingredient and reads the ingredient vocabulary.
         // `PackagingStatus` turned out to be the same three states under different names, so the
         // enum went and these rows joined the one the rest of the catalogue already used.
-        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Live/);
+        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Published/);
     });
 
     it('opens with the figures a kitchen has to clear, and Inactive narrows the list', async () => {
@@ -320,7 +320,85 @@ describe('the packaging list', () => {
         });
     });
 
-    it('offers no Review segment, because a box cannot be quarantined', async () => {
+    it('draws a sort arrow on every column that sorts, and a filter mark once one is applied', async () => {
+        await renderStubScreen(<PackagingScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: packagingListing(() => [
+                        item({ ordinal: 1, name: 'Kraft lunch box' }),
+                        item({
+                            ordinal: 2,
+                            name: 'Paper straw',
+                            overrides: { meta: meta({ status: 'draft' }) },
+                        }),
+                    ]),
+                    listIngredientCategories: async () => CATEGORIES,
+                },
+            },
+        });
+        await untilVisible('kitchen-packaging-table');
+
+        /*
+         * `includeHiddenElements`, because every arrow is *supposed* to be hidden. None of them
+         * repeats anything — the label says which column it is and the menu names both directions
+         * in words — so they stay decorative and the accessibility tree drops them, which is also
+         * why the default query does.
+         */
+        const hidden = { includeHiddenElements: true } as const;
+        const glyph = (testID: string) => screen.getByTestId(testID, hidden).props.children;
+
+        // The list opens sorted by reference, so that column carries the black arrow and every
+        // other sortable column carries the grey one. A column with no menu carries neither, which
+        // is what makes the mark worth anything.
+        expect(
+            screen.getByTestId('kitchen-packaging-column-reference-sorted', hidden),
+        ).toBeTruthy();
+        expect(screen.getByTestId('kitchen-packaging-column-name-affordance', hidden)).toBeTruthy();
+        expect(
+            screen.queryByTestId('kitchen-packaging-column-capacity-trigger', hidden),
+        ).toBeNull();
+        expect(
+            screen.queryByTestId('kitchen-packaging-column-capacity-affordance', hidden),
+        ).toBeNull();
+
+        // Status filters but does not sort on this list, so its arrow is never the black one a
+        // sorted column earns — and, until something is applied, it points up like every other
+        // untouched head.
+        expect(screen.queryByTestId('kitchen-packaging-column-status-sorted', hidden)).toBeNull();
+        expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↑');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-packaging-column-status-trigger'));
+        });
+        await untilVisible('kitchen-packaging-column-status-draft');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-packaging-column-status-draft'));
+        });
+
+        // The arrow turns over, which is what the list had no way of saying before. A shape, not a
+        // shade — a filtered column a reader cannot see is a filter they cannot clear.
+        await waitFor(() => {
+            expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↓');
+        });
+
+        // And the way out is inside the menu the mark points at, rather than somewhere the reader
+        // has to remember: Clear appears only while there is something to clear, and takes the mark
+        // with it.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-packaging-column-status-trigger'));
+        });
+        await untilVisible('kitchen-packaging-column-status-clear');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-packaging-column-status-clear'));
+        });
+
+        await waitFor(() => {
+            expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↑');
+        });
+    });
+
+    it('offers every status a packaging row can hold, Archived aside', async () => {
         await renderStubScreen(<PackagingScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -333,18 +411,22 @@ describe('the packaging list', () => {
         await untilVisible('kitchen-packaging-table');
 
         /*
-         * Packaging shares the ingredient status vocabulary, and three of its four states are
-         * reachable: Live, Draft, and Archived from the column's own filter.
+         * Packaging shares the ingredient status vocabulary, and the segments now name three of its
+         * four states; Archived stays out and is reachable from the Status column's own filter,
+         * which is the call the ingredient list makes about `retired` too.
          *
-         * `review_required` is the one that is not, and its absence is the real claim here. That
-         * state is the *allergen quarantine* — a record whose determination contradicts a published
-         * recipe. A box declares no allergens, so nothing can ever put one in it, and a segment for
-         * it would be a control for a state the server cannot produce.
+         * Review used to be out as well, on the argument that the state is the *allergen
+         * quarantine* — a record whose determination contradicts a published recipe — and a box
+         * declares no allergens, so nothing could put one there. That reasoning was about how a row
+         * *enters* the state, not about whether the field can hold it: it is a column on the same
+         * ingredient table, and an import or a hand edit can set it. Offered by request. It costs
+         * nothing when no row is in it, because the value simply matches none.
          */
         const segments = screen.getByTestId('kitchen-packaging-toolbar-status-segments');
-        expect(segments).toHaveTextContent(/Live/);
+        expect(segments).toHaveTextContent(/Published/);
         expect(segments).toHaveTextContent(/Draft/);
-        expect(segments).not.toHaveTextContent(/Review/);
+        expect(segments).toHaveTextContent(/Review/);
+        expect(segments).not.toHaveTextContent(/Archived/);
     });
 
     it('archives a row at the version the list was showing, and says so', async () => {
@@ -364,9 +446,7 @@ describe('the packaging list', () => {
         await untilVisible('kitchen-packaging-table');
 
         await act(async () => {
-            fireEvent.press(
-                screen.getByTestId(`kitchen-packaging-row-${String(row.id)}-archive`),
-            );
+            fireEvent.press(screen.getByTestId(`kitchen-packaging-row-${String(row.id)}-archive`));
         });
 
         await untilVisible('kitchen-packaging-archive-dialog');
@@ -434,16 +514,16 @@ describe('the packaging list', () => {
         expect(screen.getByTestId('kitchen-packaging-view-field-composition')).toHaveTextContent(
             /Kraft paper/,
         );
-        // Edit routes to the *ingredient* editor: there is no `/kitchen/packaging/{item}` route,
-        // and there does not need to be one — a packaging row is an ingredient row.
+        // Edit routes to `/kitchen/packaging/{item}`, which exists now: the ingredient form
+        // wearing this family's `PKG-` series, its category and its back-link.
         expect(routerMock.__push).not.toHaveBeenCalled();
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-packaging-view-edit'));
         });
-        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/ingredients/${String(row.id)}`);
+        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/packaging/${String(row.id)}`);
     });
 
-    it('opens the ingredient editor from the row', async () => {
+    it('opens the packaging editor from the row', async () => {
         const row = item({ ordinal: 1, name: 'Kraft lunch box' });
 
         await renderStubScreen(<PackagingScreen />, {
@@ -461,7 +541,7 @@ describe('the packaging list', () => {
             fireEvent.press(screen.getByTestId(`kitchen-packaging-row-${String(row.id)}-open`));
         });
 
-        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/ingredients/${String(row.id)}`);
+        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/packaging/${String(row.id)}`);
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {

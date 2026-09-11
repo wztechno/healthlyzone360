@@ -17,7 +17,8 @@ import type { GridSpanProps } from '../primitives/grid-shared.ts';
  */
 export interface FieldControlProps {
     readonly nativeID: string;
-    readonly 'aria-labelledby': string;
+    /** Absent when the label is hidden — `accessibilityLabel` is then the accessible name. */
+    readonly 'aria-labelledby'?: string | undefined;
     readonly accessibilityLabel: string;
     readonly 'aria-describedby'?: string | undefined;
     readonly accessibilityHint?: string | undefined;
@@ -39,6 +40,19 @@ export interface FieldControlProps {
  */
 export interface FormFieldProps extends GridSpanProps {
     readonly label: string;
+    /**
+     * Drops the visible label, keeping it as the control's accessible name.
+     *
+     * For a control whose label is drawn once as a **column header** above a stack of rows — the
+     * meal editor's service days are the reference use. Repeating "Date" beside twenty date inputs
+     * is what makes a compact table impossible; dropping the name altogether is what makes it
+     * unusable with a screen reader. So the element goes and the name stays, moving from
+     * `aria-labelledby` (which would point at nothing) to `aria-label`, via `accessibilityLabel`.
+     *
+     * Never reach for it to tighten a normal form. A field whose only label is elsewhere on the
+     * page is a field a sighted reader has to hold in their head too.
+     */
+    readonly labelHidden?: boolean | undefined;
     /** Supporting copy shown under the label and referenced by `aria-describedby`. */
     readonly hint?: string | undefined;
     /** Validation message. Its presence is what marks the control invalid. */
@@ -57,6 +71,7 @@ export const REQUIRED_MARK = '*';
 
 export function FormField({
     label,
+    labelHidden = false,
     hint,
     error,
     required = false,
@@ -77,7 +92,7 @@ export function FormField({
 
     const control: FieldControlProps = {
         nativeID: base,
-        'aria-labelledby': labelId,
+        ...(labelHidden ? {} : { 'aria-labelledby': labelId }),
         accessibilityLabel: required ? `${label} ${REQUIRED_MARK}` : label,
         ...(described.length > 0 ? { 'aria-describedby': described.join(' ') } : {}),
         ...((error ?? hint) ? { accessibilityHint: error ?? hint } : {}),
@@ -89,8 +104,7 @@ export function FormField({
     // Helper and error copy drop to the `caption` step in the admin — 11px against the label's 12
     // — so the supporting line reads as support rather than as a second label. The 4px gap is the
     // same on both ladders: §4.4's "labels above 28px controls at 4px gap" is already `gap-hair`.
-    const supportClass =
-        density === 'compact' ? 'text-role-caption font-admin' : 'text-xs';
+    const supportClass = density === 'compact' ? 'text-role-caption font-admin' : 'text-xs';
 
     return (
         /*
@@ -110,14 +124,16 @@ export function FormField({
              * moment the label scrolls out of view, which is how a correctly labelled field ends up
              * reported as `label-title-only`.
              */}
-            <FieldLabel
-                id={labelId}
-                htmlFor={base}
-                text={label}
-                disabled={disabled}
-                {...(required ? { requiredMark: REQUIRED_MARK } : {})}
-                {...(testID === undefined ? {} : { testID: `${testID}-label` })}
-            />
+            {labelHidden ? null : (
+                <FieldLabel
+                    id={labelId}
+                    htmlFor={base}
+                    text={label}
+                    disabled={disabled}
+                    {...(required ? { requiredMark: REQUIRED_MARK } : {})}
+                    {...(testID === undefined ? {} : { testID: `${testID}-label` })}
+                />
+            )}
 
             {hint === undefined ? null : (
                 <RNText

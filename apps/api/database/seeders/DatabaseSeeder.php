@@ -66,7 +66,7 @@ class DatabaseSeeder extends Seeder
      */
     private function demoWorld(): array
     {
-        if (! app()->runningUnitTests() && ! filter_var(env('SEED_DEMO_WORLD', false), FILTER_VALIDATE_BOOL)) {
+        if (! app()->runningUnitTests() && ! filter_var(config('database.seed_demo_world'), FILTER_VALIDATE_BOOL)) {
             return [];
         }
 

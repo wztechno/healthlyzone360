@@ -15,7 +15,13 @@ import { AuthAside } from '../../src/ui/auth-aside.tsx';
  */
 export default function AuthLayout() {
     return (
-        <AreaShell area="auth" variant="auth" unguarded testID="auth-shell" authAside={<AuthAside />}>
+        <AreaShell
+            area="auth"
+            variant="auth"
+            unguarded
+            testID="auth-shell"
+            authAside={<AuthAside />}
+        >
             <Slot />
         </AreaShell>
     );

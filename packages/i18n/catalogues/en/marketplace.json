@@ -470,7 +470,8 @@
         "oil": "Oils",
         "condiment": "Condiments",
         "dairy": "Dairy",
-        "vegetables": "Vegetables"},
+        "vegetables": "Vegetables"
+    },
     "storefront": {
         "openToday": "Today {{opensAt}} – {{closesAt}}",
         "closedToday": "Closed today",

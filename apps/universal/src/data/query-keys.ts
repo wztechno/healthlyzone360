@@ -318,7 +318,6 @@ export const queryKeys = {
          */
         nextReference: (prefix: string) => ['kitchenAdmin', 'next-reference', prefix] as const,
 
-
         ingredients: (filter?: QueryScope) =>
             ['kitchenAdmin', 'ingredients', scope(filter)] as const,
         /**

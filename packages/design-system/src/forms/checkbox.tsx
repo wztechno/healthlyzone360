@@ -73,9 +73,7 @@ export function Checkbox({
                 }}
                 className={cx(
                     'flex-row items-start',
-                    density === 'compact'
-                        ? 'gap-control-sm py-hair'
-                        : 'min-h-touch gap-3 py-1',
+                    density === 'compact' ? 'gap-control-sm py-hair' : 'min-h-touch gap-3 py-1',
                     disabled ? 'opacity-50' : null,
                 )}
             >

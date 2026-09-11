@@ -12,6 +12,9 @@ concurrency:
   group: security-${{ github.ref }}
   cancel-in-progress: true
 
+# Two jobs are deliberately absent: `dependency-review` and CodeQL both need GitHub Advanced
+# Security, which a private personal repository does not have, so neither could ever run here.
+# Add them back if the repository goes public or GHAS is bought.
 jobs:
   secret-scan:
     runs-on: ubuntu-latest
@@ -28,20 +31,6 @@ jobs:
       - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  dependency-review:
-    # The dependency-review API needs GitHub Advanced Security, which private personal repos do
-    # not have — the job can only fail there. It arms itself if the repository goes public (or
-    # remove the visibility clause after buying GHAS).
-    if: github.event_name == 'pull_request' && github.event.repository.private == false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/dependency-review-action@v5
-        with:
-          fail-on-severity: high
 
   prohibited-files:
     runs-on: ubuntu-latest
@@ -68,22 +57,3 @@ jobs:
             if [ "$size" -gt 5242880 ]; then echo "::error::File over 5 MB: $f ($size bytes)"; fail=1; fi
           done < <(git ls-files)
           exit $fail
-
-  codeql:
-    # The analysis itself runs anywhere, but uploading results to code scanning needs GitHub
-    # Advanced Security, which private personal repos do not have — the job can only fail there.
-    # Arms itself on pushes and PRs if the repository goes public; the `== false` comparison
-    # deliberately also skips scheduled runs, whose event payload carries no repository field.
-    if: github.event.repository.private == false
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript
-      - uses: github/codeql-action/analyze@v4

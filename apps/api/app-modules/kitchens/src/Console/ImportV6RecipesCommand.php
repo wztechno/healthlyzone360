@@ -300,7 +300,7 @@ final class ImportV6RecipesCommand extends Command
         }
 
         /** @var array{sheets: list<array<string, mixed>>, findings: list<array{code: string, detail: string}>} $decoded */
-        return ['sheets' => $decoded['sheets'], 'findings' => (array) ($decoded['findings'] ?? [])];
+        return ['sheets' => $decoded['sheets'], 'findings' => $decoded['findings']];
     }
 
     private function render(ImportReport $report, ImportOptions $options): void

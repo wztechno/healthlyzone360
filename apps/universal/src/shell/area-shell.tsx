@@ -1,4 +1,10 @@
-import { AppShell, Button, Inline, OfflineIndicator, useBreakpoint } from '@healthy360/design-system';
+import {
+    AppShell,
+    Button,
+    Inline,
+    OfflineIndicator,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type { AppShellVariant, NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { RouteArea } from '@healthy360/domain-types';

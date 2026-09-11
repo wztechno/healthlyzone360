@@ -11,7 +11,7 @@
             "name": "universal-static-api",
             "runtimeExecutable": "node",
             "runtimeArgs": [
-                "apps/universal/e2e/static-server.mjs",
+                "apps/universal/scripts/static-server.mjs",
                 "--root",
                 "apps/universal/dist-api",
                 "--port",

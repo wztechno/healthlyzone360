@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react-native';
 
-import { DataList, fitColumns } from './data-list.tsx';
+import { DataList, fitColumns, spreadColumns } from './data-list.tsx';
 import type { DataListColumn } from './data-list.tsx';
 import { StatusBadge } from './status-badge.tsx';
 import { DensityProvider } from '../hooks/use-density.tsx';
@@ -68,6 +68,61 @@ describe('fitColumns', () => {
     });
 });
 
+describe('spreadColumns', () => {
+    /** `COLUMNS` without the action track, which opts out of the share. */
+    const GROWING = COLUMNS.filter((column) => column.key !== 'actions');
+
+    it('leaves the declared widths alone when there is nothing spare', () => {
+        // 680 is exactly the sum, and 0 is the port before `onLayout` has reported one.
+        expect(spreadColumns(GROWING, 680)).toEqual([240, 100, 100, 120, 120]);
+        expect(spreadColumns(GROWING, 400)).toEqual([240, 100, 100, 120, 120]);
+        expect(spreadColumns(GROWING, 0)).toEqual([240, 100, 100, 120, 120]);
+    });
+
+    it('fills the port exactly, leaving no dead space after the last column', () => {
+        for (const port of [681, 900, 1213, 1440]) {
+            const sum = spreadColumns(GROWING, port).reduce((total, width) => total + width, 0);
+            expect(sum).toBe(port);
+        }
+    });
+
+    it('shares the slack equally rather than in proportion to the declared width', () => {
+        // 340 spare over five columns is 68 each. Proportional would have given Designation 120 of
+        // it — compounding the widest gap on the row, which is what it was drawing before.
+        expect(spreadColumns(GROWING, 1020)).toEqual([308, 168, 168, 188, 188]);
+    });
+
+    it('holds a column that opted out at its declared width', () => {
+        // The action track is sized to its buttons. Widening it only pushes them off the end.
+        const [name, actions] = spreadColumns(
+            [
+                { key: 'name', label: 'Designation', width: 240, priority: 100 },
+                { key: 'actions', label: '', width: 40, priority: 95, grow: false },
+            ],
+            1000,
+        );
+
+        expect(actions).toBe(40);
+        expect(name).toBe(960);
+    });
+
+    it('gives the division remainder to the widest growable column', () => {
+        // 1 spare over five tracks floors to nothing anywhere, so it lands on Designation rather
+        // than opening a seam between the header and its rows.
+        expect(spreadColumns(GROWING, 681)).toEqual([241, 100, 100, 120, 120]);
+    });
+
+    it('does not widen a narrow column past a wide one', () => {
+        // The reason the share is equal and not proportional: whatever the port, the order the spec
+        // declared is the order the tracks come out in. A `Cost` column can catch `Designation` up
+        // but never overtake it.
+        for (const port of [700, 1020, 1600, 2400]) {
+            const [name, cost] = spreadColumns(GROWING, port);
+            expect(name).toBeGreaterThan(cost ?? 0);
+        }
+    });
+});
+
 describe('DataList', () => {
     it('draws one hairline per row and no card, outline or zebra', async () => {
         await renderWithI18n(
@@ -129,6 +184,28 @@ describe('DataList', () => {
         // §4.3: emitting the same `role="button" tabindex="0"` wrapper for a column with no sort
         // and no filter leaves a keyboard-focusable target that does nothing.
         expect(screen.queryByRole('button')).toBeNull();
+    });
+
+    it('never clamps a cell to one line, and floors the row rather than fixing it', async () => {
+        await renderWithI18n(
+            compact(
+                <DataList
+                    testID="list"
+                    label="Ingredients"
+                    rows={[{ id: 'a', name: 'Condiments and sweeteners' }]}
+                    rowKey={(row) => row.id}
+                    columns={[COLUMNS[0]!]}
+                    density="sm"
+                />,
+            ),
+        );
+
+        // The clamp is what turned `Condiments and sweeteners` into `Condiments and sweet…`, and a
+        // fixed `h-row-sm` is what would have hidden the second line it wraps onto instead. The
+        // density ladder still sets where a row starts — that is asserted in `control-height`.
+        const value = screen.getByText('Condiments and sweeteners');
+        expect(value.props.numberOfLines).toBeUndefined();
+        expect(screen.getByTestId('list-row-a').props.className).toContain('min-h-row-sm');
     });
 });
 

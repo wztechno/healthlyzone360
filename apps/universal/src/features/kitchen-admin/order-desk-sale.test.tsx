@@ -101,6 +101,7 @@ function adminProduct(): ProductAdmin {
         },
         name: { en: 'Cold brew', ar: 'قهوة باردة' },
         description: { en: 'A bottle of it.', ar: 'زجاجة منه.' },
+        categoryId: null,
         categoryCode: 'drinks',
         itemType: 'product',
         reference: null,

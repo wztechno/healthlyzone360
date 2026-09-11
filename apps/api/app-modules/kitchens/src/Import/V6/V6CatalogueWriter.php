@@ -231,7 +231,7 @@ final readonly class V6CatalogueWriter
         string $organisationId,
         array $ingredientCategoryIds,
         ImportReport $report,
-    ): ?string {
+    ): string {
         $sourceRef = (string) $item['source_ref'];
 
         $existing = Ingredient::withoutTenancy()
@@ -316,7 +316,7 @@ final readonly class V6CatalogueWriter
         string $usageUnitId,
         ImportReport $report,
     ): array {
-        /** @var array<string, array{weight_kg: float|int|null, price_minor: int, currency: string}> $prices */
+        /** @var array<string, mixed> $prices */
         $prices = (array) ($item['prices'] ?? []);
 
         $definitions = [];
@@ -429,7 +429,7 @@ final readonly class V6CatalogueWriter
         string $sourceRef,
         ImportReport $report,
     ): void {
-        /** @var array<string, array{weight_kg: float|int|null, price_minor: int, currency: string}> $prices */
+        /** @var array<string, mixed> $prices */
         $prices = (array) ($item['prices'] ?? []);
 
         foreach ($prices as $channel => $price) {
@@ -484,7 +484,7 @@ final readonly class V6CatalogueWriter
         string $organisationId,
         ImportReport $report,
     ): void {
-        /** @var array<string, array{weight_kg: float|int|null, price_minor: int, currency: string}> $prices */
+        /** @var array<string, mixed> $prices */
         $prices = (array) ($item['prices'] ?? []);
 
         foreach ($prices as $channel => $price) {

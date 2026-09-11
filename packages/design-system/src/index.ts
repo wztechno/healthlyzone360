@@ -167,11 +167,7 @@ export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
-export {
-    DataList,
-    UNDROPPABLE_PRIORITY,
-    fitColumns,
-} from './content/data-list.tsx';
+export { DataList, UNDROPPABLE_PRIORITY, fitColumns, spreadColumns } from './content/data-list.tsx';
 export type { DataListColumn, DataListProps } from './content/data-list.tsx';
 export { RECORD_STATUSES, STATUS_TONE, StatusBadge } from './content/status-badge.tsx';
 export type { RecordStatus, StatusBadgeProps } from './content/status-badge.tsx';

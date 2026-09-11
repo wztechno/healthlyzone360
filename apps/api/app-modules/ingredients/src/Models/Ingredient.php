@@ -40,14 +40,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $default_unit_id
  * @property string|null $purchase_unit_id
  * @property string|null $composition
- * @property string|null $items_per_unit
+ * @property numeric-string|null $items_per_unit
  * @property array<string, mixed>|null $nutrition_per_100g
- * @property string|null $b2b_price_amount
- * @property string|null $b2c_price_amount
- * @property string|null $unit_price_amount
+ * @property numeric-string|null $b2b_price_amount
+ * @property numeric-string|null $b2c_price_amount
+ * @property numeric-string|null $unit_price_amount
  * @property string|null $price_currency_code
  * @property bool $is_sellable
- * @property string $yield_factor
+ * @property numeric-string|null $purchase_price_amount per purchase pack, major units
+ * @property string|null $purchase_price_currency
+ * @property numeric-string|null $waste_percent null = unmeasured, 0 = measured and none
+ * @property numeric-string|null $capacity_quantity
+ * @property string|null $capacity_unit_id
+ * @property numeric-string $yield_factor
  * @property string|null $forked_from_ingredient_id
  * @property AvailabilityTier|null $availability_tier
  * @property IngredientStatus $status
@@ -92,6 +97,7 @@ class Ingredient extends BaseModel implements OrganisationScoped
             'b2b_price_amount' => 'decimal:6',
             'b2c_price_amount' => 'decimal:6',
             'unit_price_amount' => 'decimal:6',
+            'purchase_price_amount' => 'decimal:6',
             'is_sellable' => 'boolean',
             // Packaging's two figures. Null on food, and null is a real answer on packaging
             // too — "nobody has measured this", as against a `0` that says there is none.

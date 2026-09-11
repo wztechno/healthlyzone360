@@ -117,7 +117,12 @@ export function Dropdown({
     }, [open, onOpenChange]);
 
     useDismiss({ open, onClose: close, containerRef });
-    const resolvedAlign = useAnchorFlip({ open, anchorRef: containerRef, panelRef, preferred: align });
+    const resolvedAlign = useAnchorFlip({
+        open,
+        anchorRef: containerRef,
+        panelRef,
+        preferred: align,
+    });
     const swallow = usePointerSwallow();
 
     const state: DropdownRenderState = {

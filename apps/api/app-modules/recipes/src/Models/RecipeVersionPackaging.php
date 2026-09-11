@@ -40,10 +40,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $line_number
  * @property string $ingredient_id
  * @property PackagingBasis $basis
- * @property string $quantity
+ * @property numeric-string $quantity
  * @property string|null $unit_id
- * @property string|null $unit_cost_amount
- * @property string|null $line_cost_amount
+ * @property numeric-string|null $unit_cost_amount
+ * @property numeric-string|null $line_cost_amount
  * @property string|null $cost_currency_code
  * @property string|null $comment
  * @property string|null $created_by

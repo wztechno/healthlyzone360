@@ -1185,6 +1185,15 @@ export function useProductQuery(productId: ProductId | null): UseQueryResult<Pro
 /** One product category the kitchen actually uses, with how many rows carry it. */
 export interface ProductCategory {
     readonly code: string;
+    /**
+     * The id `/catalogue/items` filters by, paired with the code the reader sees.
+     *
+     * Read from the same rows the code is: a value this picker offers is a value at least one row
+     * carried, so its id came with it. `null` only where a row somehow carries a code and no id,
+     * and a value with no id is not offered as a filter - it would send nothing and silently
+     * return the unfiltered list.
+     */
+    readonly id: string | null;
     readonly count: number;
 }
 
@@ -1193,8 +1202,12 @@ export interface ProductCategory {
  *
  * Same gap and the same honest limitation as {@link useIngredientCategoriesQuery}: no category
  * resource on the contract, one unfiltered page rather than every page, and a code nobody has
- * assigned yet is invisible. `ProductAdminFilter.categoryCode` is a real filter parameter, so
- * narrowing by the value it produces is a server concern already.
+ * assigned yet is invisible.
+ *
+ * What the derivation now also carries is each code's **id**, because that is what the endpoint
+ * filters by. Until it did, `ProductAdminFilter.categoryCode` went nowhere near a request: the list
+ * narrowed the page it had while its count went on describing the whole collection. The values and
+ * their ids come from one read, so a value on offer is always one the server can be asked for.
  *
  * `itemType` is part of the derivation, not decoration on it. Sauces and dressings are their own
  * pages over their own rows, and a vocabulary derived from the *product* page offered the sauces
@@ -1213,12 +1226,18 @@ export function useProductCategoriesQuery(
         queryFn: async (): Promise<readonly ProductCategory[]> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const page = await repositories.kitchenAdmin.listProducts({ itemType, limit: 100 });
-            const counts = new Map<string, number>();
+            const seen = new Map<string, { id: string | null; count: number }>();
             for (const row of page.items) {
-                counts.set(row.categoryCode, (counts.get(row.categoryCode) ?? 0) + 1);
+                const held = seen.get(row.categoryCode);
+                seen.set(row.categoryCode, {
+                    // First non-null wins: every row under a code carries the same id, and a row
+                    // missing one must not erase the id its siblings supplied.
+                    id: held?.id ?? row.categoryId,
+                    count: (held?.count ?? 0) + 1,
+                });
             }
-            return [...counts.entries()]
-                .map(([code, count]) => ({ code, count }))
+            return [...seen.entries()]
+                .map(([code, { id, count }]) => ({ code, id, count }))
                 .sort((left, right) => left.code.localeCompare(right.code));
         },
     });

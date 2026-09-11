@@ -124,25 +124,41 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
     const [query, setQuery] = useState('');
     const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
     const [category, setCategory] = useState<string | null>(null);
-    const [sortKey, setSortKey] = useState<ProductSortKey>('name');
+    // Reference ascending, which is the order the codes were issued in and so the order a
+    // kitchen already knows the library by. Sorting by name instead put the list in an order
+    // that changes with the language.
+    const [sortKey, setSortKey] = useState<ProductSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<ProductSortDirection>('asc');
     const [viewing, setViewing] = useState<ProductAdmin | null>(null);
     const [archiving, setArchiving] = useState<ProductAdmin | null>(null);
 
     const trimmed = query.trim();
+
+    /*
+     * The vocabulary is read before the filter is built, because the filter needs its ids.
+     *
+     * `/catalogue/items` narrows by `product_category_id`, and the picker's value is a code - so
+     * the two have to meet somewhere, and it is here rather than in the request builder so a code
+     * with no id resolves to no constraint instead of to a silently unfiltered list.
+     */
+    const categories = useProductCategoriesQuery(itemType);
+    const categoryId = useMemo(
+        () => (categories.data ?? []).find((entry) => entry.code === category)?.id ?? null,
+        [categories.data, category],
+    );
+
     const filter = useMemo(
         () => ({
             itemType,
             ...(trimmed === '' ? {} : { query: trimmed }),
             ...(statuses.length === 0 ? {} : { statuses }),
-            ...(category === null ? {} : { categoryCode: category }),
+            ...(categoryId === null ? {} : { categoryId }),
         }),
-        [itemType, trimmed, statuses, category],
+        [itemType, trimmed, statuses, categoryId],
     );
 
     const [page, setPage] = useListPage(filter);
     const products = useProductPageQuery(filter, page);
-    const categories = useProductCategoriesQuery(itemType);
     const archive = useArchiveProductMutation();
 
     // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on every

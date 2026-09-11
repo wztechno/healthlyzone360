@@ -568,17 +568,16 @@ describe('the recipe list', () => {
         const base = `kitchen-recipe-${String(published.id)}`;
 
         // Below `md` the Catalogue draws a record two-line rather than as tracks (§4.1), and this
-        // renderer's window is 750px — so what is asserted here is the narrow shape: the title, the
-        // meta run and the headline metric. Version state and Updated are wide-row tracks with no
-        // narrow role, and the Playwright specs, which drive a real desk-width port, cover those.
+        // renderer's window is 750px — so what is asserted here is the narrow shape: the title and
+        // the meta run.
         expect(screen.getByTestId(`${row}-title`)).toHaveTextContent('Tabbouleh');
-        expect(screen.getByTestId(`${base}-slug`)).toBeTruthy();
+        // `-reference`, not `-slug`: the identifier cell carries the record's `RC-` handle now.
+        expect(screen.getByTestId(`${base}-reference`)).toBeTruthy();
         expect(screen.getByTestId(`${base}-kitchen`)).toBeTruthy();
-        // The metric is the version pair — which one is current, out of how many. Both are on the
-        // summary, so the cell never waits.
-        expect(screen.getByTestId(`${base}-version`)).toHaveTextContent(
-            new RegExp(String(published.currentVersionNumber)),
-        );
+        // The version pair used to be the row's headline metric — which version is current, out of
+        // how many. Both tracks were dropped by request; the version panel and the editor answer it
+        // now, and the list has no metric column at all.
+        expect(screen.queryByTestId(`${base}-version`)).toBeNull();
 
         // The derived label is *not* on the summary: it is read per row and rendered when it
         // arrives rather than guessed. While it is in flight the cell holds a skeleton, never the
@@ -694,24 +693,27 @@ describe('the recipe list at desk width', () => {
         await untilVisible('kitchen-recipes-table');
         const base = `kitchen-recipe-${String(published.id)}`;
 
-        // The record's own status is one track and the *version's* is another, because they answer
-        // different questions: whether the recipe is on the menu, and whether the thing a kitchen
-        // would cook from it is frozen or still being written.
-        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Live/);
-        await waitFor(() => {
-            expect(screen.getByTestId(`${base}-version-status`)).toHaveTextContent(/Live/);
-        });
-        expect(screen.getByTestId(`${base}-updated`)).toBeTruthy();
+        // The record's own status. The *version's* was a second track beside it, on the argument
+        // that the two answer different questions — whether the recipe is on the menu, and whether
+        // the thing a kitchen would cook from it is frozen. Both version tracks were dropped by
+        // request; the version panel and the editor still answer the second question.
+        expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Published/);
+
+        // The identifier column carries the record's `RC-` handle, not its slug: a slug follows the
+        // name, so it moves when the name is edited and sorts alphabetically rather than by age.
+        expect(screen.getByTestId(`${base}-reference`)).toBeTruthy();
 
         // Sorting and filtering live on the column headers (§4.3), so every track that can do
         // either draws a trigger rather than a plain label.
         expect(screen.getByTestId('kitchen-recipes-column-name-trigger')).toBeTruthy();
         expect(screen.getByTestId('kitchen-recipes-column-kitchen-trigger')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-recipes-column-version-trigger')).toBeTruthy();
-        // Derived per row and out of order, so neither sorts and neither has a filter parameter:
-        // a header with nothing to do is a plain label, not a target a keyboard can land on.
-        expect(screen.queryByTestId('kitchen-recipes-column-versionState-trigger')).toBeNull();
+        // Derived per row and out of order, so it neither sorts nor filters: a header with nothing
+        // to do is a plain label, not a target a keyboard can land on.
         expect(screen.queryByTestId('kitchen-recipes-column-allergens-trigger')).toBeNull();
+        // Gone from the row entirely, along with Updated.
+        expect(screen.queryByTestId('kitchen-recipes-column-version-trigger')).toBeNull();
+        expect(screen.queryByTestId(`${base}-version-status`)).toBeNull();
+        expect(screen.queryByTestId(`${base}-updated`)).toBeNull();
     });
 
     it('offers New draft only against a version that cannot be edited in place', async () => {
@@ -1462,10 +1464,10 @@ describe('publishing', () => {
         // control left is the successor draft.
         await untilVisible('kitchen-recipe-immutable');
         await waitFor(() => {
-            // "Live", not "Published": the editor's header badge takes the Catalogue's short status
-            // vocabulary, the same one its lists use.
+            // The editor's header badge takes the Catalogue's short status vocabulary, the same
+            // one its lists use — which now reads "Published" on both.
             expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
-                /Live/,
+                /Published/,
             );
         });
     });

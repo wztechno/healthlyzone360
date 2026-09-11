@@ -51,6 +51,14 @@ export interface SwitchProps {
     readonly onChange: (checked: boolean) => void;
     readonly label: string;
     /**
+     * Drops the visible label, keeping it as the switch's accessible name.
+     *
+     * Same contract and same reason as `FormField`'s `labelHidden`: for a switch in a table column
+     * whose header already names it. `stateLabel` is then the only text drawn, which is what a
+     * one-line row has room for.
+     */
+    readonly labelHidden?: boolean | undefined;
+    /**
      * Names the state the switch is in — "On — pricing required". Sits beside the label.
      *
      * Not a description of the setting: that is what the label is for. A switch whose supporting
@@ -69,6 +77,7 @@ export function Switch({
     checked,
     onChange,
     label,
+    labelHidden = false,
     stateLabel,
     error,
     disabled = false,
@@ -101,9 +110,7 @@ export function Switch({
                 }}
                 className={cx(
                     'flex-row items-center self-start',
-                    density === 'compact'
-                        ? 'h-control-md gap-control-sm'
-                        : 'min-h-touch gap-3',
+                    density === 'compact' ? 'h-control-md gap-control-sm' : 'min-h-touch gap-3',
                     disabled ? 'opacity-50' : null,
                 )}
             >
@@ -127,21 +134,23 @@ export function Switch({
                         testID={testID === undefined ? undefined : `${testID}-knob`}
                         className={cx(
                             'absolute top-0.5 size-3.5 rounded-full',
-                            checked
-                                ? 'start-4 bg-surface-raised'
-                                : 'start-0.5 bg-surface-raised',
+                            checked ? 'start-4 bg-surface-raised' : 'start-0.5 bg-surface-raised',
                         )}
                     />
                 </View>
 
-                <RNText
-                    className={cx(
-                        'text-content-primary text-start',
-                        density === 'compact' ? 'text-role-label font-admin' : 'text-sm font-medium',
-                    )}
-                >
-                    {label}
-                </RNText>
+                {labelHidden ? null : (
+                    <RNText
+                        className={cx(
+                            'text-content-primary text-start',
+                            density === 'compact'
+                                ? 'text-role-label font-admin'
+                                : 'text-sm font-medium',
+                        )}
+                    >
+                        {label}
+                    </RNText>
+                )}
 
                 {stateLabel === undefined ? null : (
                     <RNText
