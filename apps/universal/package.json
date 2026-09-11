@@ -16,8 +16,6 @@
         "lint": "eslint . --max-warnings=0",
         "typecheck": "tsc --noEmit",
         "test": "jest --ci --maxWorkers=2",
-        "e2e": "playwright test",
-        "e2e:write": "playwright test --project=web-write --workers=1",
         "budget:export": "node scripts/check-export-budget.mjs"
     },
     "dependencies": {
@@ -65,9 +63,7 @@
         "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@axe-core/playwright": "^4.13.0",
         "@healthy360/testing": "workspace:*",
-        "@playwright/test": "^1.62.1",
         "@testing-library/react-native": "^14.0.1",
         "@types/jest": "^29.5.14",
         "@types/react": "~19.2.18",

@@ -327,9 +327,10 @@ export default tseslint.config(
         },
     },
 
-    // The Playwright harness (static server, helpers) runs under Node, not the app runtime.
+    // The repository's own Node scripts (the static server, the manifest and budget builders) run
+    // under Node, not the app runtime.
     {
-        files: ['apps/universal/e2e/**/*.{ts,mjs}'],
+        files: ['apps/universal/scripts/**/*.mjs', 'scripts/**/*.mjs'],
         languageOptions: { globals: { ...globals.node } },
         rules: {
             'no-console': 'off',

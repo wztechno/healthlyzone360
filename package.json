@@ -26,8 +26,7 @@
         "gen:v6:check": "python scripts/convert-v6-workbook.py --self-test",
         "gen:pseudo-locale": "node packages/i18n/scripts/generate-pseudo-locale.mjs",
         "gen:i18n-keys": "node packages/i18n/scripts/generate-keys.mjs",
-        "i18n:check": "node packages/i18n/scripts/check-catalogues.mjs",
-        "e2e": "turbo run e2e"
+        "i18n:check": "node packages/i18n/scripts/check-catalogues.mjs"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
