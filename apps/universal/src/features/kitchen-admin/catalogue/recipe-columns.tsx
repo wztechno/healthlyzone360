@@ -82,6 +82,22 @@ export interface RecipeColumnDeps {
     readonly detailOf: (row: RecipeAdminSummary) => RecipeAdmin | undefined;
 }
 
+/**
+ * The part of an identifier after the last `#`: `v6-recipes.json#bbq-sauce-dip` → `bbq-sauce-dip`.
+ *
+ * Rows that predate the `RC-` series fall through to `source_ref`, which is an import locator —
+ * the file the sheet arrived in, then the sheet within it. Every row from one import carries the
+ * same file half, so the column reads as a run of identical prefixes and pushes the only half that
+ * tells two recipes apart out of an 84px track. The fragment is the identifier; the file half is
+ * provenance about one import run, which is not what a column of identifiers answers.
+ *
+ * A handle with no `#` in it — every `RC-0001` — comes back untouched.
+ */
+function identifierFragment(identifier: string): string {
+    const hash = identifier.lastIndexOf('#');
+    return hash === -1 ? identifier : identifier.slice(hash + 1);
+}
+
 export function recipeColumns({
     t,
     locale,
@@ -121,10 +137,10 @@ export function recipeColumns({
             //
             // `?? row.slug` because `reference` is null on rows that predate the series — a blank
             // identifier column is worse than the old handle for the rows that only have one.
-            value: (row) => row.reference ?? row.slug,
+            value: (row) => identifierFragment(row.reference ?? row.slug),
             render: (row) => (
                 <Text testID={`${recipeRowTestId(String(row.id))}-reference`} variant="mono">
-                    {row.reference ?? row.slug}
+                    {identifierFragment(row.reference ?? row.slug)}
                 </Text>
             ),
         },

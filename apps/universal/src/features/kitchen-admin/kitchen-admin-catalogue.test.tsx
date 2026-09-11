@@ -6,6 +6,7 @@ import {
 } from '@healthy360/api-client/contracts';
 import type {
     AdminEntityMeta,
+    AllergenClass,
     ChannelAvailability,
     CursorPage,
     MealAdmin,
@@ -252,16 +253,29 @@ function productListing(
     };
 }
 
+/**
+ * The listing, narrowed the way the server narrows it.
+ *
+ * `allergenCodes` is applied here rather than left to the screen because that is where it happens
+ * in production: `CatalogueItemIndexController` resolves the item's derived label — a published
+ * recipe version's frozen rows, else the item's own ingredients — and returns a page that is
+ * already filtered. A stub that ignored the parameter would let a page-local implementation pass,
+ * which is the outcome this filter exists to prevent.
+ */
 function mealListing(
     read: () => readonly MealAdmin[],
 ): (filter?: MealAdminFilter) => Promise<CursorPage<MealAdmin>> {
     return async (filter) => {
         const statuses = filter?.statuses;
         const needle = filter?.query?.trim().toLocaleLowerCase() ?? '';
+        const codes = filter?.allergenCodes;
         return page(
             read().filter(
                 (row) =>
                     (statuses === undefined || statuses.includes(row.meta.status)) &&
+                    (codes === undefined ||
+                        codes.length === 0 ||
+                        row.allergens.some((code) => codes.includes(code))) &&
                     (needle === '' ||
                         row.name.en.toLocaleLowerCase().includes(needle) ||
                         row.name.ar.includes(needle)),
@@ -269,6 +283,30 @@ function mealListing(
         );
     };
 }
+
+/** Two of the fourteen regulatory classes — enough to pick one and leave another unpicked. */
+const MEAL_ALLERGEN_CLASSES: readonly AllergenClass[] = [
+    {
+        code: AllergenCode.parse('gluten'),
+        name: { en: 'Gluten', ar: 'غلوتين' },
+        description: { en: 'The gluten class.', ar: 'فئة الغلوتين.' },
+        markets: ['EU', 'GCC'],
+        declarationThreshold: null,
+        regulatoryReference: 'EU 1169/2011 Annex II',
+        severeByDefault: false,
+        isActive: true,
+    },
+    {
+        code: AllergenCode.parse('sesame'),
+        name: { en: 'Sesame', ar: 'سمسم' },
+        description: { en: 'The sesame class.', ar: 'فئة السمسم.' },
+        markets: ['EU', 'GCC'],
+        declarationThreshold: null,
+        regulatoryReference: 'EU 1169/2011 Annex II',
+        severeByDefault: false,
+        isActive: true,
+    },
+];
 
 /** The recipe picker's vocabulary. Empty is legal — "bought in rather than cooked" is an answer. */
 const NO_RECIPES: readonly RecipeAdminSummary[] = [];
@@ -803,6 +841,63 @@ describe('the meal list', () => {
         });
 
         await untilVisible('kitchen-meals-error');
+    });
+
+    it('narrows the whole catalogue by an allergen class, through the request', async () => {
+        /*
+         * The assertion is the *request*, not the rows on screen.
+         *
+         * A meal's allergen label is derived at read time — from a published recipe version's
+         * frozen rows, or from the item's own ingredients — so there was never anything stored on
+         * the row for a client-side pass to match against, and narrowing the loaded page would
+         * have left the count and every page after it describing the unfiltered catalogue.
+         */
+        const sesame = meal({
+            ordinal: 1,
+            name: 'Tahini bowl',
+            overrides: { allergens: [AllergenCode.parse('sesame')] },
+        });
+        const gluten = meal({ ordinal: 2, name: 'Tabbouleh' });
+        const library = [sesame, gluten];
+
+        const filters: MealAdminFilter[] = [];
+        const listing = mealListing(() => library);
+
+        await renderStubScreen(<MealsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listMeals: async (filter?: MealAdminFilter) => {
+                        if (filter !== undefined) filters.push(filter);
+                        return listing(filter);
+                    },
+                    listAllergenClasses: async () => MEAL_ALLERGEN_CLASSES,
+                },
+            },
+        });
+
+        await untilVisible(`kitchen-meal-${String(gluten.id)}-name`);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-column-allergens-trigger'));
+        });
+        await untilVisible('kitchen-meals-column-allergens-sesame');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-column-allergens-sesame'));
+        });
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(`kitchen-meal-${String(gluten.id)}-name`)).toBeNull();
+        });
+        await untilVisible(`kitchen-meal-${String(sesame.id)}-name`);
+
+        // `some` rather than the last entry: the earlier, unfiltered query key is still live and
+        // the client may refetch it, so what matters is that a narrowed request was made at all.
+        expect(
+            filters.some((sent) =>
+                (sent.allergenCodes ?? []).includes(AllergenCode.parse('sesame')),
+            ),
+        ).toBe(true);
     });
 });
 

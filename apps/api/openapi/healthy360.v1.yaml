@@ -2314,6 +2314,30 @@ paths:
           schema:
             type: string
             maxLength: 40
+        - name: allergen
+          in: query
+          required: false
+          description: |
+            Keep only recipes whose **current version** declares this allergen
+            class. Current is the highest editable version — draft or
+            review-required — else the published one, else the highest number
+            there is, which is the version a client's own list column reads.
+
+            A recipe that carried the class at v1 and had it formulated out by
+            v4 does not match: matching any version would return rows whose own
+            allergen label disagreed.
+
+            Both containments match. The label prints `contains` and
+            `may_contain` alike, and somebody narrowing a catalogue by an
+            allergen is looking for everything that could carry it — a filter
+            that dropped the `may_contain` rows would answer a food-safety
+            question by under-reporting. `declared` rows match as well as
+            `derived` ones.
+
+            One class per request; there is no union.
+          schema:
+            type: string
+            maxLength: 20
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -4155,6 +4179,32 @@ paths:
           description: Exact match on the merchandising category.
           schema:
             $ref: '#/components/schemas/Uuid'
+        - name: allergen
+          in: query
+          required: false
+          description: |
+            Keep only items whose **derived allergen label** carries this class
+            — the same label `GET /catalogue/items/{item}/allergens` serves,
+            resolved in the same order of authority:
+
+            1. a linked recipe's published version's frozen label, which is the
+               whole answer whenever there is one;
+            2. failing that, a single linked ingredient;
+            3. failing that, the item's own listed ingredients.
+
+            Bases 2 and 3 are consulted only in the absence of base 1, so a
+            meal whose recipe was reformulated is judged by the frozen label
+            and not by a stale ingredient row.
+
+            An item with `basis = none` — one nobody has described — matches
+            nothing. Silence is not a statement of absence, so such an item is
+            neither "carries the class" nor "does not".
+
+            Both containments match, for the reason the recipe index states.
+            One class per request; there is no union.
+          schema:
+            type: string
+            maxLength: 20
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':

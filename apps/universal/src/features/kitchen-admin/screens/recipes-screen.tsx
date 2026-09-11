@@ -123,7 +123,7 @@ function RecipesList() {
 
     const withHeaders = columns.map((column) => ({
         ...column,
-        renderHeader: headerMenu(column, list, t),
+        renderHeader: headerMenu(column, list, t, locale),
     }));
 
     // A status the segments do not name — Archived, reached from the Status column's own filter —
@@ -580,9 +580,10 @@ function headerMenu(
     column: CatalogueColumn<RecipeAdminSummary>,
     list: RecipeListState,
     t: TFunction,
+    locale: string,
 ): (() => React.ReactNode) | undefined {
     const sortKey = sortKeyFor(column.key);
-    const filter = filterItemsFor(column.key, list, t);
+    const filter = filterItemsFor(column.key, list, t, locale);
     if (sortKey === null && filter.length === 0) return undefined;
 
     const active = sortKey !== null && list.sortKey === sortKey;
@@ -651,14 +652,53 @@ function sortKeyFor(key: string): RecipeSortKey | null {
 /**
  * The value list under a column's Filter heading.
  *
- * Only the two the request can carry. The version, the version state and the derived allergen label
- * have no parameter on `RecipeAdminFilter`, so their headers sort — or do nothing — and narrowing
- * one loaded page and calling it a filter would misreport every page after it.
+ * Only what the request can carry. The version and the version state still have no parameter on
+ * `RecipeAdminFilter`, so their headers sort — or do nothing — because narrowing one loaded page
+ * and calling it a filter would misreport every page after it.
+ *
+ * Allergens was in that group and is not any more. The label is still derived per row, but the
+ * *filter* is the server's: `RecipeIndexController` matches `recipe_version_allergens` against the
+ * same version `pickCurrentRecipeVersion` names, so the count, the pager and every page agree with
+ * the column. Deriving a label and narrowing a collection turned out to be separable questions.
  *
  * Status offers all four, including Archived, which is what makes it fine for the toolbar's
  * segments to name only three.
  */
-function filterItemsFor(key: string, list: RecipeListState, t: TFunction): readonly MenuItem[] {
+function filterItemsFor(
+    key: string,
+    list: RecipeListState,
+    t: TFunction,
+    locale: string,
+): readonly MenuItem[] {
+    if (key === 'allergens') {
+        /*
+         * Every class the platform declares, not only the ones on the loaded page.
+         *
+         * The page-derived alternative is the trap the ingredient list already documents: the rows
+         * in front of you carry four classes between them, so the menu offers four and the other
+         * ten look as though nothing declares them. The vocabulary is closed and on the contract,
+         * so it is read from there.
+         */
+        return [
+            ...list.allergenClasses.map((entry) => ({
+                key: entry.code,
+                label: displayName(entry.name, locale).value,
+                selected: list.allergen === entry.code,
+                testID: `kitchen-recipes-column-allergens-${entry.code}`,
+                onSelect: () => {
+                    list.setAllergen(list.allergen === entry.code ? null : entry.code);
+                },
+            })),
+            ...(list.allergen === null
+                ? []
+                : [
+                      clearItem('allergens', t, () => {
+                          list.setAllergen(null);
+                      }),
+                  ]),
+        ];
+    }
+
     if (key === 'status') {
         return [
             ...RECIPE_STATUS_FILTERS.map((status: PublishableStatus) => ({

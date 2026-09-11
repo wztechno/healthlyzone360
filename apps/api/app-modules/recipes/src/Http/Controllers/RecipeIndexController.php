@@ -41,6 +41,7 @@ final class RecipeIndexController
         $this->applyStatus($request, $query);
         $this->applyCategory($request, $query);
         $this->applySearch($request, $query);
+        $this->applyAllergen($request, $query);
         $this->applyStaleOnly($request, $query);
 
         $requestedPage = OffsetPage::page($request);
@@ -154,6 +155,77 @@ final class RecipeIndexController
             $scoped->whereRaw('lower(name_en) like ?', [$needle])
                 ->orWhereRaw('lower(name_ar) like ?', [$needle])
                 ->orWhereRaw('lower(slug) like ?', [$needle]);
+        });
+    }
+
+    /**
+     * Narrows to the recipes whose current version declares one allergen class.
+     *
+     * **Against the current version, not every version the recipe has ever had.** A recipe that
+     * carried sesame at v1 and had it formulated out by v4 is not a sesame recipe, and a filter
+     * matching any version would keep returning it — worse, it would return it while the row's own
+     * Allergens cell, which reads the current version, showed no sesame. The list would be
+     * disagreeing with itself on screen, which is the failure mode this filter exists to avoid.
+     *
+     * **Current is the client's rule, in SQL.** `pickCurrentRecipeVersion` prefers the highest
+     * editable version — draft or review-required — then the published one, then the highest
+     * number there is. That ordering is reproduced here rather than approximated, because the
+     * column and the filter have to be reading the same version or the disagreement above comes
+     * back through the other door. It differs from `applyStaleOnly`'s simpler "highest of the
+     * three": that one is answering a question about the review queue, where any open version
+     * carrying a stale derivation is worth surfacing, and the two are allowed to differ because
+     * they are not answering the same question.
+     *
+     * **Both containments match**, the same call the ingredient list makes and for the same
+     * reason: the Allergens column prints `contains` and `may_contain` alike, so a row reading
+     * `gluten` that a `gluten` filter did not return would be the list disagreeing with itself.
+     * It is also the safe direction — somebody narrowing by an allergen wants everything that
+     * could carry it, and dropping the `may_contain` rows would answer a food-safety question by
+     * under-reporting.
+     *
+     * **Declared rows match too.** A chef's `declared` row is the strongest claim on the label —
+     * a human who knows the fryer is shared — so a filter that only matched `derived` would hide
+     * exactly the warnings somebody has taken the trouble to write down.
+     *
+     * Filtered here rather than in the client because the recipe book is paged: a filter applied
+     * to the loaded page narrows that page while the count and every page after it go on
+     * describing the unfiltered set.
+     *
+     * @param  Builder<Recipe>  $query
+     */
+    private function applyAllergen(Request $request, Builder $query): void
+    {
+        $allergen = $request->query('allergen');
+
+        if (! is_string($allergen) || $allergen === '') {
+            return;
+        }
+
+        $query->whereExists(function ($sub) use ($allergen): void {
+            $sub->selectRaw('1')
+                ->from('recipe_version_allergens')
+                ->where('recipe_version_allergens.allergen_code', $allergen)
+                ->whereRaw(
+                    'recipe_version_allergens.recipe_version_id = (
+                        select rv.id
+                        from recipe_versions as rv
+                        where rv.recipe_id = recipes.id
+                        order by
+                            case rv.status
+                                when ? then 2
+                                when ? then 2
+                                when ? then 1
+                                else 0
+                            end desc,
+                            rv.version_number desc
+                        limit 1
+                    )',
+                    [
+                        RecipeVersionStatus::Draft->value,
+                        RecipeVersionStatus::ReviewRequired->value,
+                        RecipeVersionStatus::Published->value,
+                    ],
+                );
         });
     }
 

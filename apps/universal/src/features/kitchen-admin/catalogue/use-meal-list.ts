@@ -1,5 +1,10 @@
-import type { ApiFailure, MealAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import type { MealType } from '@healthy360/domain-types';
+import type {
+    AllergenClass,
+    ApiFailure,
+    MealAdmin,
+    PublishableStatus,
+} from '@healthy360/api-client/contracts';
+import type { AllergenCode, MealType } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -8,6 +13,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     pagesInResult,
     useAdminMealPageQuery,
+    useAllergenClassesQuery,
     useRetireMealMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
@@ -63,6 +69,18 @@ export interface MealListState {
     readonly setStatuses: (statuses: readonly PublishableStatus[]) => void;
     readonly mealType: MealType | null;
     readonly setMealType: (mealType: MealType | null) => void;
+    /**
+     * The allergen class the list is narrowed to, or `null`.
+     *
+     * Narrowed by the server, which resolves the same three bases `DerivedAllergenService` uses —
+     * a published recipe version's frozen label first, then the item's own ingredients. A meal's
+     * label is derived rather than stored, so there was nothing on the row to filter against
+     * client-side and no honest way to narrow a paged list from the page in hand.
+     */
+    readonly allergen: AllergenCode | null;
+    readonly setAllergen: (allergen: AllergenCode | null) => void;
+    /** Every class the platform declares — the column filter's value list. */
+    readonly allergenClasses: readonly AllergenClass[];
     readonly isUnfiltered: boolean;
     readonly clearFilters: () => void;
 
@@ -104,6 +122,7 @@ export function useMealList(): MealListState {
     const [query, setQuery] = useState('');
     const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
     const [mealType, setMealType] = useState<MealType | null>(null);
+    const [allergen, setAllergen] = useState<AllergenCode | null>(null);
     const [sortKey, setSortKey] = useState<MealSortKey>('name');
     const [sortDirection, setSortDirection] = useState<MealSortDirection>('asc');
     const [viewing, setViewing] = useState<MealAdmin | null>(null);
@@ -115,12 +134,14 @@ export function useMealList(): MealListState {
             ...(trimmed === '' ? {} : { query: trimmed }),
             ...(statuses.length === 0 ? {} : { statuses }),
             ...(mealType === null ? {} : { mealTypes: [mealType] }),
+            ...(allergen === null ? {} : { allergenCodes: [allergen] }),
         }),
-        [trimmed, statuses, mealType],
+        [trimmed, statuses, mealType, allergen],
     );
 
     const [page, setPage] = useListPage(filter);
     const meals = useAdminMealPageQuery(filter, page);
+    const allergenClasses = useAllergenClassesQuery();
     const retire = useRetireMealMutation();
 
     // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on every
@@ -167,11 +188,16 @@ export function useMealList(): MealListState {
         setStatuses,
         mealType,
         setMealType,
-        isUnfiltered: trimmed === '' && statuses.length === 0 && mealType === null,
+        allergen,
+        setAllergen,
+        allergenClasses: allergenClasses.data ?? [],
+        isUnfiltered:
+            trimmed === '' && statuses.length === 0 && mealType === null && allergen === null,
         clearFilters: () => {
             setQuery('');
             setStatuses([]);
             setMealType(null);
+            setAllergen(null);
         },
 
         sortKey,

@@ -1,10 +1,11 @@
 import type {
+    AllergenClass,
     ApiFailure,
     PublishableStatus,
     RecipeAdmin,
     RecipeAdminSummary,
 } from '@healthy360/api-client/contracts';
-import type { KitchenId, RecipeId } from '@healthy360/domain-types';
+import type { AllergenCode, KitchenId, RecipeId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -13,6 +14,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import type { RecipeKitchen } from '../../../data/kitchen-admin-hooks.ts';
 import {
     pagesInResult,
+    useAllergenClassesQuery,
     useOpenRecipeDraftMutation,
     useRecipeDetails,
     useRecipeKitchensQuery,
@@ -85,6 +87,19 @@ export interface RecipeListState {
     readonly setStatuses: (statuses: readonly PublishableStatus[]) => void;
     readonly kitchen: string | null;
     readonly setKitchen: (kitchen: string | null) => void;
+    /**
+     * The allergen class the list is narrowed to, or `null`.
+     *
+     * One class, not a set, and narrowed by the server — the same shape the ingredient list uses.
+     * The column's own label is derived per row from the current version, so a client-side pass
+     * could only have filtered the page in hand while the stat cards and every page after it went
+     * on describing the unfiltered book. `RecipeIndexController` matches against the same version
+     * `pickCurrentRecipeVersion` names, so the filter and the column cannot disagree.
+     */
+    readonly allergen: AllergenCode | null;
+    readonly setAllergen: (allergen: AllergenCode | null) => void;
+    /** Every class the platform declares — the column filter's value list. */
+    readonly allergenClasses: readonly AllergenClass[];
     /** True when no filter of any kind is in force — the empty state branches on it. */
     readonly isUnfiltered: boolean;
     readonly clearFilters: () => void;
@@ -144,6 +159,7 @@ export function useRecipeList(): RecipeListState {
     const [query, setQuery] = useState('');
     const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
     const [kitchen, setKitchen] = useState<string | null>(null);
+    const [allergen, setAllergen] = useState<AllergenCode | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
     // that changes with the language.
@@ -159,13 +175,15 @@ export function useRecipeList(): RecipeListState {
             ...(trimmed === '' ? {} : { query: trimmed }),
             ...(statuses.length === 0 ? {} : { statuses }),
             ...(kitchen === null ? {} : { kitchenId: kitchen as KitchenId }),
+            ...(allergen === null ? {} : { allergenCodes: [allergen] }),
         }),
-        [trimmed, statuses, kitchen],
+        [trimmed, statuses, kitchen, allergen],
     );
 
     const [page, setPage] = useListPage(filter);
     const recipes = useRecipePageQuery(filter, page);
     const kitchens = useRecipeKitchensQuery();
+    const allergenClasses = useAllergenClassesQuery();
     const retire = useRetireRecipeMutation();
     const openDraft = useOpenRecipeDraftMutation();
 
@@ -236,11 +254,16 @@ export function useRecipeList(): RecipeListState {
         setStatuses,
         kitchen,
         setKitchen,
-        isUnfiltered: trimmed === '' && statuses.length === 0 && kitchen === null,
+        allergen,
+        setAllergen,
+        allergenClasses: allergenClasses.data ?? [],
+        isUnfiltered:
+            trimmed === '' && statuses.length === 0 && kitchen === null && allergen === null,
         clearFilters: () => {
             setQuery('');
             setStatuses([]);
             setKitchen(null);
+            setAllergen(null);
         },
         kitchens: kitchens.data ?? [],
 
