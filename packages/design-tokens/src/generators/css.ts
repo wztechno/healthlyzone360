@@ -16,7 +16,6 @@ import {
     FONT_SIZE_NAMES,
     SCRIPTS,
     TEXT_ROLE_NAMES,
-    adminFamilies,
     displayLetterSpacing,
     fontFamilies,
     fontSizes,
@@ -74,7 +73,6 @@ export function renderTokensCss(): string {
     // two are opted into by the surfaces that want them — the admin family by the Catalogue, the
     // mono family by anything that has to line a column of numbers up. Binding either one globally
     // would reflow the customer app, which is not what a token file gets to decide.
-    staticTokens.push([`${CSS_VARIABLE_PREFIX}-font-family-admin`, adminFamilies.latin.stack]);
     staticTokens.push([`${CSS_VARIABLE_PREFIX}-font-family-mono`, monoFamilies.latin.stack]);
     staticTokens.push([`${CSS_VARIABLE_PREFIX}-tracking-display`, displayLetterSpacing]);
     // The Catalogue ramp. Emitted per script for the same reason the size scale is: a role's Latin

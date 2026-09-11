@@ -1,3 +1,4 @@
+import { useDensity } from '../hooks/use-density.tsx';
 import { fieldLabelClassName } from './field-label-shared.ts';
 import type { FieldLabelProps } from './field-label-shared.ts';
 
@@ -21,12 +22,14 @@ export function FieldLabel({
     disabled = false,
     testID,
 }: FieldLabelProps) {
+    const density = useDensity();
+
     return (
         <label
             id={id}
             htmlFor={htmlFor}
             data-testid={testID}
-            className={fieldLabelClassName(disabled)}
+            className={fieldLabelClassName(density, disabled)}
         >
             {text}
             {requiredMark === undefined ? null : (

@@ -602,11 +602,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Inline space="xs" align="center" wrap>
-                            <Text
-                                variant="label"
-                                tone="secondary"
-                                className="uppercase tracking-widest"
-                            >
+                            <Text variant="micro" tone="secondary">
                                 {t('kitchen:meals.allergensRailTitle')}
                             </Text>
                             <Badge
@@ -655,11 +651,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Inline space="xs" align="center" wrap>
-                            <Text
-                                variant="label"
-                                tone="secondary"
-                                className="uppercase tracking-widest"
-                            >
+                            <Text variant="micro" tone="secondary">
                                 {t('kitchen:meals.marginRailTitle')}
                             </Text>
                             <Badge
@@ -775,7 +767,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
              *
              * `EditorFrame` already draws the panel around these children, so every `Card` in here
              * was a second rectangle inside the first. `FormSection` is the treatment the handoff
-             * asks for and the one the Catalogue already standardised on: an uppercase title, a
+             * asks for and the one the Catalogue already standardised on: a title, a
              * hairline, and the fields. See `forms/form-section.tsx` for why that beats a panel.
              */}
             {/*

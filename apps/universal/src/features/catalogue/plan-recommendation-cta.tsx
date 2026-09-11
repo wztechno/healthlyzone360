@@ -36,7 +36,7 @@ export function PlanRecommendationCta({
                 <Heading level={2} tone="inverse">
                     {t('catalogue:plans.ctaTitle')}
                 </Heading>
-                <Text tone="inverse" className="max-w-[600px] opacity-95">
+                <Text tone="inverse" className="max-w-[600px]">
                     {t('catalogue:plans.ctaBody')}
                 </Text>
                 <Inline space="sm" wrap>

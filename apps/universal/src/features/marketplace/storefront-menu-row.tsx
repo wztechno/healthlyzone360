@@ -51,7 +51,7 @@ export function StorefrontMenuRow({ meal, onPress, onAdd, testID }: StorefrontMe
     const title = (
         <RNText
             numberOfLines={2}
-            className="font-display text-base leading-tight text-content-primary text-start"
+            className="text-base leading-tight text-content-primary text-start"
         >
             {meal.name}
         </RNText>

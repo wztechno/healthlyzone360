@@ -272,7 +272,7 @@ export function MealCard({ meal, onPress, onAdd, testID }: MealCardProps) {
                 <RNText
                     testID={`${resolvedTestID}-price`}
                     numberOfLines={1}
-                    className="shrink font-display text-xl leading-tight text-content-primary text-start"
+                    className="shrink text-xl leading-tight text-content-primary text-start"
                 >
                     {formatMoney(formatter, meal.price)}
                 </RNText>

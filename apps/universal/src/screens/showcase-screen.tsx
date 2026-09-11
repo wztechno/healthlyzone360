@@ -2060,7 +2060,33 @@ export function ShowcaseScreen() {
                                 value={densityTab}
                                 onChange={setDensityTab}
                             />
+                            {/*
+                             * `Table` on the admin, because its header is density-aware now and
+                             * nothing on this page showed that. It used to draw 12px bold Inter
+                             * capitals while `DataList` — three sections down, often on the same
+                             * Catalogue screen — drew the `micro` step in Schibsted. Compare this
+                             * header row with the §data table's: one shape, two densities.
+                             */}
+                            <Table
+                                testID="showcase-density-table"
+                                rowSize="sm"
+                                caption={t('designSystem:showcase.tableAdminCaption')}
+                                columns={columns}
+                                rows={NUTRIENT_ROWS}
+                                rowKey={(row) => row.key}
+                            />
                             <Card testID="showcase-density-card" tone="raised" padding="md">
+                                {/*
+                                 * One face for words, one for figures, and nothing in capitals.
+                                 *
+                                 * This trio is what the pass collapsed. The eyebrow used to be one
+                                 * of five shapes for the same job: `micro`; `label` or `caption`
+                                 * with open capitals; a hand-written bold-capitals class. And the
+                                 * field label under it was 14px Inter beside a 13px Schibsted
+                                 * section title. Read down the card: the eyebrow, the label and
+                                 * the checkbox are one family at three steps, and only the figure
+                                 * states another.
+                                 */}
                                 <Text variant="micro" tone="secondary">
                                     Unit price
                                 </Text>
@@ -2747,7 +2773,7 @@ export function ShowcaseScreen() {
                                     footer={
                                         <RNText
                                             testID={`showcase-card-baseline-${item.key}-price`}
-                                            className="font-display text-2xl text-surface-brand text-start"
+                                            className="text-2xl text-surface-brand text-start"
                                         >
                                             {item.price}
                                         </RNText>

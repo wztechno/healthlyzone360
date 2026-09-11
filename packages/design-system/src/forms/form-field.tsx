@@ -104,7 +104,7 @@ export function FormField({
     // Helper and error copy drop to the `caption` step in the admin — 11px against the label's 12
     // — so the supporting line reads as support rather than as a second label. The 4px gap is the
     // same on both ladders: §4.4's "labels above 28px controls at 4px gap" is already `gap-hair`.
-    const supportClass = density === 'compact' ? 'text-role-caption font-admin' : 'text-xs';
+    const supportClass = density === 'compact' ? 'text-role-caption' : 'text-xs';
 
     return (
         /*

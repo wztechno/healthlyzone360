@@ -144,7 +144,7 @@ export function Pagination({
     const boxClass = compact
         ? 'h-control-xs items-center justify-center rounded-sm border px-control-xs'
         : 'min-h-touch min-w-touch items-center justify-center rounded-md border px-3';
-    const digitClass = compact ? 'text-role-caption font-admin' : 'text-sm';
+    const digitClass = compact ? 'text-role-caption' : 'text-sm';
     /*
      * The square floor, as a style rather than a class.
      *
@@ -215,7 +215,7 @@ export function Pagination({
                         style={boxStyle}
                         className={cx(
                             'px-1 text-center text-content-disabled',
-                            compact ? 'text-role-caption font-admin' : 'min-w-touch text-sm',
+                            compact ? 'text-role-caption' : 'min-w-touch text-sm',
                         )}
                     >
                         {'…'}

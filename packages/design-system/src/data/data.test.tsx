@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 import { Text as RNText, useWindowDimensions } from 'react-native';
 
+import { DensityProvider } from '../hooks/use-density.tsx';
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { CalendarGrid } from './calendar-grid.tsx';
 import type { CalendarDay, CalendarSlot } from './calendar-grid.tsx';
@@ -109,7 +110,7 @@ describe('Table — wide', () => {
         );
     });
 
-    it('draws column headers as demoted, tracked capitals rather than body text', async () => {
+    it('draws column headers demoted and in sentence case rather than as tracked capitals', async () => {
         await renderWithI18n(
             <Table
                 testID="nutrients"
@@ -120,16 +121,52 @@ describe('Table — wide', () => {
             />,
         );
 
-        // A header labels its column; it must not compete with the figures beneath it. The role is
-        // `content-disabled` — one of the two greys §1.3 permits — not a grey invented here.
+        // A header labels its column; it must not compete with the figures beneath it. The ink is
+        // `content-secondary` — the same ink `DataList` gives the same label, so the two header
+        // ramps match in colour as well as in size. It was `content-disabled`, which reads as a
+        // control nobody can press; a column header is neither disabled nor inert.
         const header = screen.getByTestId('nutrients-columnheader-name').props.className;
-        expect(header).toContain('uppercase');
-        expect(header).toContain('tracking-widest');
-        expect(header).toContain('text-content-disabled');
-        expect(header).not.toContain('text-content-secondary');
+        expect(header).toContain('text-content-secondary');
+        expect(header).not.toContain('text-content-disabled');
+
+        // It was `uppercase tracking-widest`. Capitals were how a header used to distinguish
+        // itself from its column; colour and the ramp do that now, and a header that shouts is one
+        // of the five shapes this product used to draw the same demoted label in.
+        expect(header).not.toContain('uppercase');
+        expect(header).not.toContain('tracking-widest');
     });
 
-    it('sets the primary numeric column in the display face, and only that one', async () => {
+    it('puts the admin header on the same step and ink DataList draws', async () => {
+        await renderWithI18n(
+            <DensityProvider value="compact">
+                <Table
+                    testID="nutrients"
+                    caption="Nutrition per serving"
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(row) => row.key}
+                />
+            </DensityProvider>,
+        );
+
+        // The Catalogue drew two header ramps — `Table` at 12px bold Inter and `DataList` at the
+        // `micro` step in Schibsted — often on the same screen. They are one shape now, and this
+        // asserts the whole shape rather than one class of it.
+        //
+        // `label` (12px) rather than `micro` (10px): a header sits on the same step as the cells
+        // it names, which are `role-body` at 12px.
+        const header = screen.getByTestId('nutrients-columnheader-name').props.className;
+        expect(header).toContain('text-role-label');
+        expect(header).toContain('text-content-secondary');
+        expect(header).not.toContain('uppercase');
+        expect(header).not.toContain('tracking-widest');
+        // No family class survives anywhere: there is one, set on `html` per script.
+        for (const face of ['font-admin', 'font-display', 'font-mono']) {
+            expect(header).not.toContain(face);
+        }
+    });
+
+    it('emphasises the primary numeric column by size and weight, and only that one', async () => {
         const withPrimary = columns.map((column) =>
             column.key === 'amount' ? { ...column, primary: true } : column,
         );
@@ -144,12 +181,15 @@ describe('Table — wide', () => {
         );
 
         const key = rows[0]!.key;
-        expect(screen.getByTestId(`nutrients-cell-${key}-amount`).props.className).toContain(
-            'font-display',
-        );
+        const primary = screen.getByTestId(`nutrients-cell-${key}-amount`).props.className;
+        expect(primary).toContain('font-semibold');
+        // It was `font-display` — Space Grotesk — a fourth Latin face inside the table, one cell
+        // wide. A figure that matters is bigger and heavier, not a different typeface.
+        expect(primary).not.toContain('font-display');
+
         // Two "most important" numbers is none, so the treatment must not leak to its neighbours.
         expect(screen.getByTestId(`nutrients-cell-${key}-target`).props.className).not.toContain(
-            'font-display',
+            'font-semibold',
         );
     });
 

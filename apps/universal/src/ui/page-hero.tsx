@@ -117,7 +117,7 @@ export function PageHero({
                         // `text-5xl` with the display leading pulled in, and the one place
                         // `tracking-display` is for: at 48px, normal tracking reads loose and
                         // `tracking-tight` (−0.4px) is a tenth of what is needed.
-                        className="font-display text-5xl leading-[1.05] tracking-display text-content-on-canopy text-start"
+                        className="text-5xl leading-[1.05] tracking-display text-content-on-canopy text-start"
                     >
                         {title}
                     </RNText>
@@ -128,7 +128,7 @@ export function PageHero({
                             // A measure, not a width: past about 60 characters the eye loses the
                             // start of the next line. `ch` is not a unit React Native resolves, so
                             // this is the pixel equivalent at this size.
-                            className="max-w-[640px] text-base text-content-on-canopy-muted/85 text-start"
+                            className="max-w-[640px] text-base text-content-on-canopy-muted text-start"
                         >
                             {subtitle}
                         </RNText>

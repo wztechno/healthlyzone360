@@ -127,12 +127,7 @@ export function PackVariantEditor({ rows, onChange, errors, canManage, testID }:
     } as const;
 
     const header = (label: string, width: string, align?: string) => (
-        <Text
-            key={label}
-            variant="label"
-            tone="secondary"
-            className={cx(width, 'uppercase tracking-widest', align)}
-        >
+        <Text key={label} variant="micro" tone="secondary" className={cx(width, align)}>
             {label}
         </Text>
     );
@@ -576,12 +571,7 @@ export function MealAvailabilityEditor({
     } as const;
 
     const header = (label: string, width: string) => (
-        <Text
-            key={label}
-            variant="label"
-            tone="secondary"
-            className={cx(width, 'uppercase tracking-widest')}
-        >
+        <Text key={label} variant="micro" tone="secondary" className={width}>
             {label}
         </Text>
     );

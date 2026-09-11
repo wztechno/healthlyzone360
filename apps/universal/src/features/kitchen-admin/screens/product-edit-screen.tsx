@@ -586,11 +586,7 @@ function ProductEditor({
                         className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Inline space="xs" align="center" wrap>
-                            <Text
-                                variant="label"
-                                tone="secondary"
-                                className="uppercase tracking-widest"
-                            >
+                            <Text variant="micro" tone="secondary">
                                 {t('kitchen:products.dietsRailTitle')}
                             </Text>
                             <Badge

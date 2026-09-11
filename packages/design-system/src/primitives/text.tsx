@@ -61,30 +61,30 @@ export type TextAlignment = (typeof TEXT_ALIGNMENTS)[number];
  * customer app renders.
  */
 const COMFORTABLE_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
-    micro: 'text-role-micro uppercase',
+    micro: 'text-role-micro',
     caption: 'text-xs',
     body: 'text-base',
     bodyStrong: 'text-base font-semibold',
     label: 'text-sm font-medium',
     strong: 'text-role-strong',
-    section: 'text-role-section uppercase',
+    section: 'text-role-section',
     title: 'text-role-title',
     display: 'text-role-display',
-    mono: 'text-sm font-mono',
+    mono: 'text-sm tabular-nums',
 };
 
 /** The Catalogue ladder. Every size is a `role-*` token; none is written here. */
 const COMPACT_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
-    micro: 'text-role-micro uppercase',
+    micro: 'text-role-micro',
     caption: 'text-role-caption',
     body: 'text-role-body',
     bodyStrong: 'text-role-strong',
     label: 'text-role-label',
     strong: 'text-role-strong',
-    section: 'text-role-section uppercase',
+    section: 'text-role-section',
     title: 'text-role-title',
     display: 'text-role-display',
-    mono: 'text-role-body font-mono',
+    mono: 'text-role-body tabular-nums',
 };
 
 const VARIANT_CLASS: Readonly<Record<Density, Readonly<Record<TextVariant, string>>>> = {
@@ -93,13 +93,17 @@ const VARIANT_CLASS: Readonly<Record<Density, Readonly<Record<TextVariant, strin
 };
 
 /**
- * Schibsted Grotesk, on the admin only.
+ * Kept as an empty string, deliberately, for one release.
  *
- * `font-admin` is additive in the preset — it does not replace `latin`, so the customer app keeps
- * Inter and never asks the browser for a face it does not render. `mono` states its own family, so
- * it is excluded rather than being left to lose on source order.
+ * There is one Latin family now, set on `html` per script, so no component has to name a face —
+ * `font-admin` does not exist in the preset any more. This stays as a named constant rather than
+ * being deleted outright because it was exported from the package root and third-party call sites
+ * concatenate it; an empty class is inert wherever it lands, while a missing export is a build
+ * break. Delete it, and {@link densityFontClass}, on the next breaking change.
+ *
+ * @deprecated There is one family. Nothing needs to ask for it.
  */
-export const ADMIN_FONT_CLASS = 'font-admin';
+export const ADMIN_FONT_CLASS = '';
 
 const TONE_CLASS: Readonly<Record<TextTone, string>> = {
     primary: 'text-content-primary',
@@ -122,10 +126,19 @@ const ALIGN_CLASS: Readonly<Record<TextAlignment, string>> = {
     center: 'text-center',
 };
 
-/** The one place a component asks "which family does text take here?". */
-export function densityFontClass(density: Density, variant: TextVariant = 'body'): string | null {
-    if (density !== 'compact') return null;
-    return variant === 'mono' ? null : ADMIN_FONT_CLASS;
+/**
+ * The one place a component asked "which family does text take here?".
+ *
+ * Always `null`, and no longer called anywhere in this package: the answer is the same everywhere,
+ * so `Text`, `Heading`, `Button`, `Card` and `Select` state no family at all. It is kept, like
+ * {@link ADMIN_FONT_CLASS}, only because it was exported from the package root — a `null` return
+ * is inert in a `cx(…)` wherever a third party still calls it, while a missing export is a build
+ * break. Delete both on the next breaking change.
+ *
+ * @deprecated There is one family. Nothing needs to ask for it.
+ */
+export function densityFontClass(_density: Density, _variant: TextVariant = 'body'): string | null {
+    return null;
 }
 
 export interface TextProps extends Omit<RNTextProps, 'className' | 'style'> {
@@ -162,9 +175,10 @@ export function Text({
     return (
         <RNText
             {...rest}
+            // No family class: one Latin family, set on `html` per script. `mono` differs by
+            // asking for fixed-advance digits (`tabular-nums`), not by asking for another face.
             className={cx(
                 VARIANT_CLASS[density][variant],
-                densityFontClass(density, variant),
                 TONE_CLASS[tone],
                 ALIGN_CLASS[align],
                 className,
@@ -193,8 +207,8 @@ const COMFORTABLE_HEADING_CLASS: Readonly<Record<HeadingLevel, string>> = {
 const COMPACT_HEADING_CLASS: Readonly<Record<HeadingLevel, string>> = {
     1: 'text-role-title',
     2: 'text-role-title',
-    3: 'text-role-section uppercase',
-    4: 'text-role-section uppercase',
+    3: 'text-role-section',
+    4: 'text-role-section',
 };
 
 const HEADING_CLASS: Readonly<Record<Density, Readonly<Record<HeadingLevel, string>>>> = {
@@ -226,17 +240,14 @@ export function Heading({
             {...rest}
             accessibilityRole="header"
             aria-level={level}
-            // Headings carry the display face (Space Grotesk). It is a *static* class rather than one
-            // chosen by a runtime `useIsRtl()` hook on purpose: a hook-driven class differs between
-            // the static web export and client hydration and throws React #418, which strands the
-            // page un-hydrated. Arabic stays legible through the display stack's per-glyph fallback to
-            // IBM Plex Sans Arabic (see typography.ts).
-            //
-            // The admin has no display face: Schibsted Grotesk sets body and headings alike, so the
-            // compact branch takes `font-admin` in its place rather than stacking the two.
+            // No family class at all. A heading used to carry `font-display` (Space Grotesk) on the
+            // customer surfaces and `font-admin` (Schibsted Grotesk) on the admin — two faces, and
+            // a third on the page under them. There is one family now, set on `html` per script, so
+            // a heading is the ramp's size and weight and nothing else. That also retires the
+            // hydration hazard the old comment described: no family class means no class that could
+            // differ between the static export and the client.
             className={cx(
                 HEADING_CLASS[density][level],
-                density === 'compact' ? ADMIN_FONT_CLASS : 'font-display',
                 TONE_CLASS[tone],
                 ALIGN_CLASS[align],
                 className,

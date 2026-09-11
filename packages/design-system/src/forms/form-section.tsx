@@ -19,7 +19,7 @@ import { cx } from '../internal/class-names.ts';
  */
 
 export interface FormSectionProps {
-    /** Renders on the `section` step — 13px, 600, uppercase. */
+    /** Renders on the `section` step — 13px, 600, sentence case. */
     readonly title: string;
     /** One line under the title. Long enough to explain a rule, short enough not to be read twice. */
     readonly description?: string | undefined;
@@ -73,7 +73,7 @@ export function FormSection({
                             testID={testID === undefined ? undefined : `${testID}-title`}
                             accessibilityRole="header"
                             aria-level={3}
-                            className="text-role-section font-admin uppercase text-content-primary text-start"
+                            className="text-role-section text-content-primary text-start"
                         >
                             {title}
                         </RNText>
@@ -83,7 +83,7 @@ export function FormSection({
                 </View>
 
                 {description === undefined ? null : (
-                    <RNText className="text-role-caption font-admin text-content-secondary text-start">
+                    <RNText className="text-role-caption text-content-secondary text-start">
                         {description}
                     </RNText>
                 )}

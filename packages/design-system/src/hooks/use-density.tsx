@@ -14,8 +14,9 @@ import type { ReactNode } from 'react';
  * `comfortable` is the customer one and is the default, so every existing call site keeps the
  * geometry it shipped with and only the admin shell opts in.
  *
- * This is also what keeps Schibsted Grotesk and IBM Plex Mono admin-only: the `font-admin` class is
- * emitted on the compact branch alone, so the customer app never loads or renders them.
+ * It no longer decides the *typeface*. It used to: the compact branch emitted `font-admin`, which
+ * is what kept Schibsted Grotesk to the admin while the customer app stayed on Inter. There is one
+ * Latin family now, set on `html` per script, so density chooses sizes and geometry only.
  */
 
 export const DENSITIES = ['comfortable', 'compact'] as const;

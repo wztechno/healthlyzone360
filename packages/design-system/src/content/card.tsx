@@ -155,9 +155,7 @@ export function Card({
                         aria-level={3}
                         className={cx(
                             'text-content-primary text-start',
-                            density === 'compact'
-                                ? 'text-role-strong font-admin'
-                                : 'text-base font-semibold',
+                            density === 'compact' ? 'text-role-strong' : 'text-base font-semibold',
                         )}
                     >
                         {title}
@@ -166,7 +164,7 @@ export function Card({
                         <RNText
                             className={cx(
                                 'text-content-secondary text-start',
-                                density === 'compact' ? 'text-role-caption font-admin' : 'text-sm',
+                                density === 'compact' ? 'text-role-caption' : 'text-sm',
                             )}
                         >
                             {subtitle}

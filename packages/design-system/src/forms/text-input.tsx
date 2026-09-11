@@ -170,7 +170,7 @@ export const inputControlClassName =
  */
 export function inputControlClass(density: Density): string {
     if (density !== 'compact') return inputControlClassName;
-    return 'flex-1 border-0 bg-transparent text-role-body font-admin text-content-primary outline-none';
+    return 'flex-1 border-0 bg-transparent text-role-body text-content-primary outline-none';
 }
 
 export function TextInputField({

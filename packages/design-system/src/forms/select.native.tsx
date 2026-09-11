@@ -98,9 +98,7 @@ export function Select<T extends string = string>({
                     nativeID={labelId}
                     className={cx(
                         'text-start',
-                        density === 'compact'
-                            ? 'text-role-label font-admin'
-                            : 'text-sm font-medium',
+                        density === 'compact' ? 'text-role-label' : 'text-sm font-medium',
                         disabled ? 'text-content-disabled' : 'text-content-primary',
                     )}
                 >
@@ -114,7 +112,7 @@ export function Select<T extends string = string>({
                     nativeID={hintId}
                     className={cx(
                         'text-content-secondary text-start',
-                        density === 'compact' ? 'text-role-caption font-admin' : 'text-xs',
+                        density === 'compact' ? 'text-role-caption' : 'text-xs',
                     )}
                 >
                     {hint}
@@ -158,7 +156,7 @@ export function Select<T extends string = string>({
                     testID={testID === undefined ? undefined : `${testID}-value`}
                     className={cx(
                         'flex-1 text-start',
-                        density === 'compact' ? 'text-role-body font-admin' : 'text-base',
+                        density === 'compact' ? 'text-role-body' : 'text-base',
                         selected === null ? 'text-content-secondary' : 'text-content-primary',
                     )}
                     numberOfLines={1}

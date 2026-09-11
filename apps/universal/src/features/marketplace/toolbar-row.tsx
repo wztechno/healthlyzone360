@@ -216,7 +216,7 @@ export function ToolbarRow({
                     // The display face, per §2.5. The figure inside is deliberately *not* coloured
                     // separately: doing that means splitting a translated sentence around its
                     // number, and Arabic does not put the number where English does.
-                    className="font-display text-sm text-content-primary"
+                    className="text-sm text-content-primary"
                 >
                     {resultSummary}
                 </RNText>

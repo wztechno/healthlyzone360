@@ -75,7 +75,7 @@ export function ListingHeader({
                          * makes a display face read as one word at this size; normal tracking is
                          * visibly loose above about 30px.
                          */
-                        className="font-display text-4xl leading-[1.05] tracking-display text-content-primary text-start"
+                        className="text-4xl leading-[1.05] tracking-display text-content-primary text-start"
                     >
                         {title}
                     </RNText>

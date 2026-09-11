@@ -20,7 +20,6 @@ import { durations, easings, reducedDurations } from '../motion.ts';
 import {
     SCRIPTS,
     TEXT_ROLE_NAMES,
-    adminFamilies,
     displayLetterSpacing,
     fontFamilies,
     fontSizes,
@@ -76,7 +75,6 @@ export function renderTokensNative(): string {
         typography: {
             fontFamilies,
             monoFamilies,
-            adminFamilies,
             fontSizes,
             fontWeights,
             letterSpacing,

@@ -172,19 +172,24 @@ describe('renderTailwindPreset', () => {
     it('prefixes the Catalogue ramp so it cannot shadow the numeric scale', () => {
         expect(preset.theme.extend.fontSize['role-micro']).toEqual([
             '10px',
-            { lineHeight: '14px', letterSpacing: '0.6px', fontWeight: '600' },
+            { lineHeight: '14px', letterSpacing: '0px', fontWeight: '600' },
         ]);
         expect(preset.theme.extend.fontSize.xs).toEqual(['12px', '18px']);
     });
 
     /**
-     * Additive families, not a swap. `font-admin` and `font-mono` are opt-in; `latin` is what the
-     * app actually renders in, and this asserts the Catalogue's fonts did not reach it.
+     * One Latin family across every key, and no `admin` key at all.
+     *
+     * `display` and `mono` stay as *roles* so a caller can still say "this is display type" or
+     * "this is a figure", but both resolve to the body stack. `admin` is gone: it existed only to
+     * scope Schibsted Grotesk to the Catalogue while the customer surfaces were still on Inter.
      */
-    it('adds the admin and mono families without touching the default one', () => {
-        expect(preset.theme.extend.fontFamily.admin?.[0]).toContain('SchibstedGrotesk');
-        expect(preset.theme.extend.fontFamily.mono?.[0]).toContain('IBMPlexMono');
-        expect(preset.theme.extend.fontFamily.latin?.[0]).toContain('Inter');
+    it('resolves every Latin family key to the one face', () => {
+        for (const key of ['latin', 'display', 'mono'] as const) {
+            expect(preset.theme.extend.fontFamily[key]?.[0]).toContain('SchibstedGrotesk');
+        }
+        expect(preset.theme.extend.fontFamily.arabic?.[0]).toContain('IBMPlexSansArabic');
+        expect(preset.theme.extend.fontFamily.admin).toBeUndefined();
     });
 
     it('exposes the six ramp elevations plus the two named ones as box shadows', () => {
@@ -273,10 +278,18 @@ describe('renderTokensCss', () => {
      * applies `--h360-font-family-latin` to `html`, so a surface opts into Schibsted Grotesk and
      * the customer app keeps the face it has.
      */
-    it('declares the admin and mono families without binding either', () => {
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-admin`);
+    /**
+     * Two families, one per script, and no `admin` variable at all — it existed only to scope
+     * Schibsted Grotesk to the Catalogue while the customer surfaces were still on Inter. `mono` is
+     * still declared because it is a role a caller can name; it is never *bound* to an element,
+     * because a figure takes `tabular-nums` inside the one family rather than a mono face.
+     */
+    it('declares the mono role without binding it, and no admin family', () => {
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-latin`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-arabic`);
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-font-family-mono`);
-        expect(output).not.toMatch(/font-family:\s*var\(--h360-font-family-(admin|mono)\)/);
+        expect(output).not.toContain(`${CSS_VARIABLE_PREFIX}-font-family-admin`);
+        expect(output).not.toMatch(/font-family:\s*var\(--h360-font-family-mono\)/);
     });
 });
 

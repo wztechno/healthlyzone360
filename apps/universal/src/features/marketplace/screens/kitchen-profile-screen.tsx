@@ -170,7 +170,7 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
             <RNText className="text-xs font-semibold uppercase tracking-widest text-content-secondary text-start">
                 {label}
             </RNText>
-            <RNText className="mt-1 font-display text-lg leading-tight text-content-primary text-start">
+            <RNText className="mt-1 text-lg leading-tight text-content-primary text-start">
                 {value}
             </RNText>
         </View>
@@ -301,7 +301,7 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
                             accessibilityRole="header"
                             aria-level={1}
                             testID="kitchen-name"
-                            className="font-display text-3xl leading-tight tracking-display text-content-primary text-start"
+                            className="text-3xl leading-tight tracking-display text-content-primary text-start"
                         >
                             {kitchen.name}
                         </RNText>

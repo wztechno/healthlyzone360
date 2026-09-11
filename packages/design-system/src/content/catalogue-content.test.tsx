@@ -302,7 +302,7 @@ describe('QuantityInput', () => {
         );
 
         const className = screen.getByTestId('qty-input').props.className as string;
-        expect(className).toContain('font-mono');
+        expect(className).toContain('tabular-nums');
         // Logical, so the column mirrors as a whole under RTL rather than pinning to a physical
         // side. `text-right` here would be the bug.
         expect(className).toContain('text-end');

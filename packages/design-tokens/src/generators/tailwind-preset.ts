@@ -15,7 +15,6 @@ import {
     FONT_SIZE_NAMES,
     displayFamilies,
     displayLetterSpacing,
-    adminFamilies,
     fontFamilies,
     fontSizes,
     fontWeights,
@@ -169,11 +168,11 @@ export function renderTailwindPreset(): string {
                 fontFamily: {
                     latin: [fontFamilies.latin.regular, ...fontFamilies.latin.stack.split(', ')],
                     arabic: [fontFamilies.arabic.regular, ...fontFamilies.arabic.stack.split(', ')],
+                    // `display` and `mono` are roles, not families: both resolve to the Latin
+                    // stack above. They stay as keys so a caller that means "display type" or "a
+                    // figure" keeps saying so — see `displayFamilies` / `monoFamilies`.
                     display: [displayFamilies.latin.bold, ...displayFamilies.latin.stack.split(', ')],
-                    // New numeric role — see `monoFamilies`. Nothing rendered before this existed.
                     mono: [monoFamilies.latin.regular, ...monoFamilies.latin.stack.split(', ')],
-                    // Transitional, Catalogue-scoped. Folds into `latin` when the product follows.
-                    admin: [adminFamilies.latin.regular, ...adminFamilies.latin.stack.split(', ')],
                 },
                 fontSize: {
                     ...fontSizeScale(),

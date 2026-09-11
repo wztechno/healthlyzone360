@@ -90,7 +90,7 @@ function Kpi({
 }) {
     return (
         <View testID={testID} className="flex-col gap-hair">
-            <Text variant="label" tone="secondary" className="uppercase tracking-widest">
+            <Text variant="micro" tone="secondary">
                 {label}
             </Text>
             <View className="flex-row items-baseline gap-1">

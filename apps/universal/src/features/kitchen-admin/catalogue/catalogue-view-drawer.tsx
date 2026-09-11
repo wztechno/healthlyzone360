@@ -54,7 +54,7 @@ export interface CatalogueViewField {
 export interface CatalogueViewDrawerProps {
     readonly open: boolean;
     readonly onClose: () => void;
-    /** Translated. The uppercase eyebrow above the title — "Ingredient". */
+    /** Translated. The eyebrow above the title — "Ingredient". */
     readonly kindLabel: string;
     /** The record's own reference, mono, beside the title. Omit where there is none. */
     readonly reference?: string | undefined;

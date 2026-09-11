@@ -55,13 +55,13 @@ export function Breadcrumbs({
     const onCanopy = tone === 'canopy';
     // 75 and 90 rather than the §1.3 floor of 62: a trail is small text and the current crumb is
     // the one word in it that says where you are.
-    const mutedClass = onCanopy ? 'text-content-on-canopy-muted/75' : 'text-content-secondary';
+    const mutedClass = onCanopy ? 'text-content-on-canopy-muted' : 'text-content-secondary';
     const currentClass = onCanopy
-        ? 'font-semibold text-content-on-canopy-muted/90'
+        ? 'font-semibold text-content-on-canopy-muted'
         : 'font-semibold text-content-primary';
-    // 11px on the admin — the handoff's breadcrumb line. `caption` rather than `micro`: a trail is
-    // sentence case and reads as prose, and `micro` is uppercase by definition.
-    const sizeClass = density === 'compact' ? 'text-role-caption font-admin' : 'text-sm';
+    // 11px on the admin — the handoff's breadcrumb line. `caption` rather than `micro`: a trail
+    // reads as prose, and `micro` is the column-label step, one weight heavier and two sizes down.
+    const sizeClass = density === 'compact' ? 'text-role-caption' : 'text-sm';
 
     return (
         <View

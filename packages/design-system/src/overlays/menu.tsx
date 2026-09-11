@@ -56,7 +56,7 @@ export interface MenuItem {
 }
 
 export interface MenuSection {
-    /** Optional heading. Renders on the `micro` step, which is the uppercase column-label ramp. */
+    /** Optional heading. Renders on the `micro` step — the column-label ramp. */
     readonly label?: string | undefined;
     readonly items: readonly MenuItem[];
 }
@@ -154,7 +154,7 @@ function MenuRow({
 
             <RNText
                 className={cx(
-                    'flex-1 text-role-body font-admin text-start',
+                    'flex-1 text-role-body text-start',
                     disabled ? 'text-content-disabled' : ITEM_TONE_CLASS[item.tone ?? 'default'],
                 )}
             >
@@ -240,7 +240,7 @@ export function Menu({
                                 <View className="my-1 border-b border-stroke-subtle" />
                             ) : null}
                             {section.label === undefined ? null : (
-                                <RNText className="px-control-sm py-1 text-role-micro font-admin uppercase text-content-secondary text-start">
+                                <RNText className="px-control-sm py-1 text-role-micro text-content-secondary text-start">
                                     {section.label}
                                 </RNText>
                             )}

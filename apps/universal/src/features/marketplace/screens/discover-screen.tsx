@@ -218,7 +218,7 @@ export function DiscoverScreen() {
                         <RNText
                             accessibilityRole="header"
                             aria-level={2}
-                            className="max-w-[420px] font-display text-3xl leading-tight tracking-display text-content-on-brand-subtle text-start"
+                            className="max-w-[420px] text-3xl leading-tight tracking-display text-content-on-brand-subtle text-start"
                         >
                             {t('marketplace:discover.offerTitle')}
                         </RNText>
@@ -287,7 +287,7 @@ export function DiscoverScreen() {
                                             })}
                                         </RNText>
                                     </View>
-                                    <RNText className="font-display text-base text-content-primary text-end">
+                                    <RNText className="text-base text-content-primary text-end">
                                         {formatMoney(formatter, meal.price)}
                                     </RNText>
                                 </Pressable>

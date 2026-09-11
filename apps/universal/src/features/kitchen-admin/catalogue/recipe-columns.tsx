@@ -187,7 +187,7 @@ export function recipeColumns({
             // what makes this header's Filter honest across every page rather than only this one.
             value: (row) => String(row.kitchenId),
             render: (row) => (
-                <Text testID={`${recipeRowTestId(String(row.id))}-kitchen`} tone="secondary">
+                <Text testID={`${recipeRowTestId(String(row.id))}-kitchen`}>
                     {String(row.kitchenId)}
                 </Text>
             ),
@@ -223,7 +223,7 @@ export function recipeColumns({
                                 ? `${testID}-allergens-none`
                                 : `${testID}-allergens`
                         }
-                        tone="secondary"
+                        tone={derived.length === 0 ? 'secondary' : 'primary'}
                     >
                         {label}
                     </Text>

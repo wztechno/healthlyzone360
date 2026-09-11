@@ -71,7 +71,7 @@ export function BrowsePanel({
                  * the design balances this headline over two lines, and past about 20 characters a
                  * line the claim stops reading as one sentence.
                  */
-                className="max-w-[620px] font-display text-4xl leading-[1.05] tracking-display text-content-primary text-start md:text-5xl"
+                className="max-w-[620px] text-4xl leading-[1.05] tracking-display text-content-primary text-start md:text-5xl"
             >
                 {title}
             </RNText>

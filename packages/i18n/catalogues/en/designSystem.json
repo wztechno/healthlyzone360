@@ -193,7 +193,8 @@
         "motionSlideStart": "Slid in from the leading edge",
         "motionSlideBottom": "Slid in from below",
         "motionNumber": "Animated figure",
-        "tableCompactCaption": "Table (compact rows)"
+        "tableCompactCaption": "Table (compact rows)",
+        "tableAdminCaption": "Table on the admin — headers on the cells' own step"
     },
     "tag": {
         "join": ", ",

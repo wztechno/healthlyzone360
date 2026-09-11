@@ -81,13 +81,13 @@ export function ListItem({
 
     const titleClass = compact
         ? cx(
-              'text-role-strong font-admin text-start',
+              'text-role-strong text-start',
               disabled ? 'text-content-disabled' : 'text-content-primary',
           )
         : cx('text-base text-start', disabled ? 'text-content-disabled' : 'text-content-primary');
 
     const descriptionClass = compact
-        ? 'text-role-caption font-admin text-content-secondary text-start'
+        ? 'text-role-caption text-content-secondary text-start'
         : 'text-sm text-content-secondary text-start';
 
     const content = (

@@ -45,7 +45,7 @@ import { View } from 'react-native';
 
 export interface CatalogueStatCard {
     readonly key: string;
-    /** Translated. Rendered on the `micro` step — 10px, uppercase. */
+    /** Translated. Rendered on the `micro` step — 10px. */
     readonly label: string;
     /** The figure. Already formatted, because the caller owns the numbering system. */
     readonly value: string;

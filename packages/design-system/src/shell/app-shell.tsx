@@ -337,7 +337,7 @@ export function AppShell({
                                     ? 'text-content-on-brand'
                                     : 'text-content-on-brand-subtle'
                                 : onCanopy
-                                  ? 'text-content-on-canopy-muted/80'
+                                  ? 'text-content-on-canopy-muted'
                                   : 'text-content-secondary'
                         }
                     />
@@ -352,7 +352,7 @@ export function AppShell({
                                     ? 'text-content-on-brand font-bold'
                                     : 'text-content-on-brand-subtle font-medium'
                                 : onCanopy
-                                  ? 'text-content-on-canopy-muted/80'
+                                  ? 'text-content-on-canopy-muted'
                                   : 'text-content-primary',
                         )}
                     >
@@ -395,9 +395,14 @@ export function AppShell({
                                   accessibilityRole="header"
                                   aria-level={2}
                                   className={cx(
-                                      'px-3 pb-1 pt-3 text-xs font-bold uppercase tracking-widest text-start',
+                                      // Sentence case, at the weight that separates a heading from
+                                      // the items under it. It was `uppercase tracking-widest`,
+                                      // which is one of the five shapes this product used to draw
+                                      // the same demoted label in; the ramp carries the distinction
+                                      // now, so the casing does not have to.
+                                      'px-3 pb-1 pt-3 text-xs font-semibold text-start',
                                       onCanopy
-                                          ? 'text-content-on-canopy-muted/65'
+                                          ? 'text-content-on-canopy-muted'
                                           : 'text-content-secondary',
                                   )}
                               >

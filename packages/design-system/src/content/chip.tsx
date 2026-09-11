@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { useIsCoarsePointer } from '../hooks/use-pointer.ts';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
@@ -224,6 +225,7 @@ export function FilterChip({
     testID,
 }: FilterChipProps) {
     const coarse = useIsCoarsePointer();
+    const density = useDensity();
 
     return (
         <Pressable
@@ -253,7 +255,14 @@ export function FilterChip({
             <RNText
                 numberOfLines={1}
                 className={cx(
-                    size === 'sm' ? 'text-xs font-medium' : 'text-sm font-medium',
+                    // The admin reads on the `label` step in its own face. Without this the chip
+                    // was one of the components that never asked which surface it was on, so a
+                    // filter row in the Catalogue came out in Inter beside a toolbar in Schibsted.
+                    density === 'compact'
+                        ? 'text-role-label'
+                        : size === 'sm'
+                          ? 'text-xs font-medium'
+                          : 'text-sm font-medium',
                     selected ? 'text-content-inverse' : 'text-content-primary',
                 )}
             >
@@ -263,7 +272,7 @@ export function FilterChip({
                 <RNText
                     testID={testID === undefined ? undefined : `${testID}-count`}
                     className={cx(
-                        'text-xs',
+                        density === 'compact' ? 'text-role-caption tabular-nums' : 'text-xs',
                         selected ? 'text-content-inverse' : 'text-content-secondary',
                     )}
                 >

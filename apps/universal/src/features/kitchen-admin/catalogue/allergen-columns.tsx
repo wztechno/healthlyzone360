@@ -136,10 +136,7 @@ export function allergenColumns({
             sortType: 'text',
             value: (entry) => entry.regulatoryReference,
             render: (entry) => (
-                <Text
-                    testID={`${allergenRowTestId(String(entry.code))}-reference`}
-                    tone="secondary"
-                >
+                <Text testID={`${allergenRowTestId(String(entry.code))}-reference`}>
                     {entry.regulatoryReference}
                 </Text>
             ),

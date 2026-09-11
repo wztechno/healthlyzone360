@@ -272,6 +272,34 @@ describe('the packaging list', () => {
         await untilVisible('kitchen-packaging-table');
 
         const base = `kitchen-packaging-row-${String(row.id)}`;
+
+        /*
+         * The column that names the row, on the `label` step — what the other five Catalogue lists
+         * give it.
+         *
+         * This column had no `render` at all, so `DataList` fell back to its default cell class and
+         * the item set at `role-body`'s 400 while the ingredient list next door set the same column
+         * at 500. Nothing caught it because nothing asserted it: the cell had no test id either, so
+         * there was no row content here to be wrong.
+         *
+         * The class assertion is the exception this file makes to leaving type treatment to the
+         * design system's own suite. The id alone proves a `render` exists; it cannot tell one
+         * rendered at the wrong step from one rendered at the right one, which is the half that
+         * actually drifted.
+         *
+         * **These classes are the comfortable ladder, not the admin's.** The screen is mounted
+         * here on its own, so `KitchenOpsShell` — and the `DensityProvider value="compact"` it
+         * carries — is not in the tree. `variant="label"` therefore resolves to `text-sm
+         * font-medium` rather than to `text-role-label`; in the running app it is the latter, 12px
+         * at 500 against the cells' 400. Both are the same variant, which is the thing being
+         * asserted. `text-role-body` is the tell either way: that is `DataList`'s fallback cell
+         * class, which is density-agnostic, and its absence is what proves a `render` exists.
+         */
+        const name = screen.getByTestId(`${base}-name`);
+        expect(name).toHaveTextContent('Kraft lunch box');
+        expect(name.props.className).toContain('font-medium');
+        expect(name.props.className).not.toContain('text-role-body');
+
         expect(screen.getByTestId(`${base}-reference`)).toHaveTextContent('PKG-001');
         // The branch, not the leaf: this track carries the parent category. The sub-category is
         // still on the record and still filters — it is read in the View panel.

@@ -95,7 +95,7 @@ export function Checkbox({
                         <RNText
                             className={cx(
                                 'text-content-primary text-start',
-                                density === 'compact' ? 'text-role-body font-admin' : 'text-sm',
+                                density === 'compact' ? 'text-role-body' : 'text-sm',
                             )}
                         >
                             {label}
@@ -109,7 +109,7 @@ export function Checkbox({
                             nativeID={descriptionId}
                             className={cx(
                                 'text-content-secondary text-start',
-                                density === 'compact' ? 'text-role-caption font-admin' : 'text-xs',
+                                density === 'compact' ? 'text-role-caption' : 'text-xs',
                             )}
                         >
                             {description}
@@ -128,7 +128,7 @@ export function Checkbox({
                         accessibilityRole="alert"
                         className={cx(
                             'flex-1 text-danger-strong text-start',
-                            density === 'compact' ? 'text-role-caption font-admin' : 'text-xs',
+                            density === 'compact' ? 'text-role-caption' : 'text-xs',
                         )}
                     >
                         {error}

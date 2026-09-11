@@ -52,7 +52,7 @@ export const UNDROPPABLE_PRIORITY = 95;
 
 export interface DataListColumn<Row> {
     readonly key: string;
-    /** Column label, translated. Rendered on the `micro` step — 10px, uppercase. */
+    /** Column label, translated. Rendered on the `label` step — 12px, sentence case. */
     readonly label: string;
     /**
      * The track's floor in dp — what {@link fitColumns} charges against the port, and what the
@@ -239,8 +239,8 @@ const JUSTIFY_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
 
 function cellClass(column: DataListColumn<unknown>): string {
     return cx(
-        'text-role-body font-admin text-content-primary',
-        column.mono === true ? 'font-mono' : null,
+        'text-role-body text-content-primary',
+        column.mono === true ? 'tabular-nums' : null,
         TEXT_ALIGN_CLASS[column.align ?? 'start'],
     );
 }
@@ -385,7 +385,11 @@ export function DataList<Row>({
                                  */
                                 <RNText
                                     className={cx(
-                                        'text-role-micro font-admin uppercase text-content-secondary',
+                                        // `label`, not `micro`: the same 12px the cells under it
+                                        // take, one weight heavier. A header two steps smaller
+                                        // than its own column reads as a footnote to the data
+                                        // rather than as its name.
+                                        'text-role-label text-content-secondary',
                                         TEXT_ALIGN_CLASS[column.align ?? 'start'],
                                     )}
                                 >

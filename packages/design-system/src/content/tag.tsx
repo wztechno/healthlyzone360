@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
@@ -62,6 +63,8 @@ export interface TagProps {
 }
 
 export function Tag({ label, tone = 'neutral', icon, className, testID }: TagProps) {
+    const density = useDensity();
+
     return (
         <View
             testID={testID}
@@ -81,7 +84,16 @@ export function Tag({ label, tone = 'neutral', icon, className, testID }: TagPro
                     testID={testID === undefined ? undefined : `${testID}-icon`}
                 />
             )}
-            <RNText numberOfLines={1} className={cx('text-xs font-medium', TONE_TEXT_CLASS[tone])}>
+            <RNText
+                numberOfLines={1}
+                className={cx(
+                    // Density-aware for the reason `Chip` is: a tag sits in a Catalogue row beside
+                    // text on the Catalogue's own ramp, and a tag that does not ask which surface it is
+                    // on renders the one word in the row that is still Inter.
+                    density === 'compact' ? 'text-role-label' : 'text-xs font-medium',
+                    TONE_TEXT_CLASS[tone],
+                )}
+            >
                 {label}
             </RNText>
         </View>
@@ -122,6 +134,7 @@ export interface TagRowProps {
  */
 export function TagRow({ items, max, className, testID }: TagRowProps) {
     const { t } = useTranslation();
+    const density = useDensity();
 
     const shown = max === undefined ? items : items.slice(0, max);
     const hidden = items.slice(shown.length);
@@ -150,7 +163,12 @@ export function TagRow({ items, max, className, testID }: TagRowProps) {
                     })}
                     className="flex-row items-center self-start rounded-full bg-surface-sunken px-2.5 py-1"
                 >
-                    <RNText className="text-xs font-medium text-content-secondary">
+                    <RNText
+                        className={cx(
+                            density === 'compact' ? 'text-role-label' : 'text-xs font-medium',
+                            'text-content-secondary',
+                        )}
+                    >
                         {t('designSystem:tag.overflow', { count: hidden.length })}
                     </RNText>
                 </View>

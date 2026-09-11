@@ -17,7 +17,7 @@ import { Pressable } from 'react-native';
  * ## One arrow, always drawn, ascending until told otherwise
  *
  * Every one of these headers already opened a menu; none of them said so. A reader met a row of
- * plain uppercase labels, identical to the ones that genuinely do nothing (`Allergens`, the action
+ * plain labels, identical to the ones that genuinely do nothing (`Allergens`, the action
  * column), and the only way to learn which were live was to click each in turn.
  *
  * The mark that says so is the **sort arrow itself**, drawn on every column that can sort rather
@@ -125,7 +125,7 @@ export function CatalogueColumnHeader({
      */
     const arrow = (
         <Text
-            variant="micro"
+            variant="label"
             tone={marked ? 'primary' : 'disabled'}
             aria-hidden
             accessibilityElementsHidden
@@ -137,7 +137,7 @@ export function CatalogueColumnHeader({
     );
 
     const labelText = (
-        <Text variant="micro" tone={marked ? 'primary' : 'secondary'}>
+        <Text variant="label" tone={marked ? 'primary' : 'secondary'}>
             {label}
         </Text>
     );

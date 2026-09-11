@@ -47,7 +47,7 @@ import { Text as RNText, View } from 'react-native';
  *
  * That combination cannot come from `Text`: its variant classes are emitted ahead of a caller's
  * `className` and which of two same-specificity utilities wins is decided by stylesheet order, so
- * `<Text variant="display" className="font-mono">` is a coin toss. `Text`'s own docblock names this
+ * `<Text variant="display" className="tabular-nums">` is a coin toss. `Text`'s own docblock names this
  * exact case — "a display-face price" — and points at React Native's `Text` with the classes stated
  * where nothing competes with them. `CatalogueStatCards` reaches for `display` on the same shape of
  * thing for the same reason; this is that decision with the mono family the tokens now carry.
@@ -66,7 +66,7 @@ import { Text as RNText, View } from 'react-native';
 
 export interface DerivedFigure {
     readonly key: string;
-    /** Rendered on the `micro` step — 10px, uppercase. Already translated. */
+    /** Rendered on the `micro` step — 10px. Already translated. */
     readonly label: string;
     /**
      * Already formatted to the nutrient's own precision, or `null` when the record has no figure.
@@ -134,16 +134,15 @@ export function DerivedPanel({
                                 </Text>
                                 <RNText
                                     testID={`${testID}-figure-${figure.key}-value`}
-                                    className="text-role-display font-mono text-content-secondary text-start"
+                                    className="text-role-display tabular-nums text-content-secondary text-start"
                                 >
                                     {figure.value ?? emptyValue}
                                 </RNText>
                                 {/*
-                                 * `caption`, not `micro`. The design sets this line at 10px, which
-                                 * is `micro`'s size — but `micro` is uppercase by definition (it is
-                                 * the column-label step) and `kcal / 100 g` is a unit, not an
-                                 * eyebrow. Snapping up one step to 11px keeps the case the unit
-                                 * actually has; snapping down would render `KCAL / 100 G`.
+                                 * `caption`, not `micro`. The design sets this line at 10px,
+                                 * which is `micro`'s size — but `micro` is the column-label step,
+                                 * 600 weight, and `kcal / 100 g` is a unit rather than a label for
+                                 * the figure above it. 11px at regular weight is what a unit is.
                                  */}
                                 <Text variant="caption" tone="secondary">
                                     {figure.unit}

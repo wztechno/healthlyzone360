@@ -155,9 +155,7 @@ export function mealColumns({ t, locale }: MealColumnDeps): readonly CatalogueCo
                         {t('kitchen:meals.noChannels')}
                     </Text>
                 ) : (
-                    <Text testID={`${testID}-channels`} tone="secondary">
-                        {channelLabel(row)}
-                    </Text>
+                    <Text testID={`${testID}-channels`}>{channelLabel(row)}</Text>
                 );
             },
         },
@@ -173,7 +171,10 @@ export function mealColumns({ t, locale }: MealColumnDeps): readonly CatalogueCo
                     ? t('kitchen:list.noValue')
                     : row.mealTypes.map((type) => t(mealTypeKey(type))).join(', '),
             render: (row) => (
-                <Text testID={`${mealRowTestId(String(row.id))}-meal-types`} tone="secondary">
+                <Text
+                    testID={`${mealRowTestId(String(row.id))}-meal-types`}
+                    tone={row.mealTypes.length === 0 ? 'secondary' : 'primary'}
+                >
                     {row.mealTypes.length === 0
                         ? t('kitchen:list.noValue')
                         : row.mealTypes.map((type) => t(mealTypeKey(type))).join(', ')}
@@ -199,10 +200,7 @@ export function mealColumns({ t, locale }: MealColumnDeps): readonly CatalogueCo
                         {t('kitchen:list.noCategory')}
                     </Text>
                 ) : (
-                    <Text
-                        testID={`${mealRowTestId(String(row.id))}-kitchen-category`}
-                        tone="secondary"
-                    >
+                    <Text testID={`${mealRowTestId(String(row.id))}-kitchen-category`}>
                         {categoryLabel(row)}
                     </Text>
                 ),
@@ -221,9 +219,7 @@ export function mealColumns({ t, locale }: MealColumnDeps): readonly CatalogueCo
                         {t('kitchen:list.noAllergens')}
                     </Text>
                 ) : (
-                    <Text testID={`${testID}-allergens`} tone="secondary">
-                        {allergenLabel(row)}
-                    </Text>
+                    <Text testID={`${testID}-allergens`}>{allergenLabel(row)}</Text>
                 );
             },
         },

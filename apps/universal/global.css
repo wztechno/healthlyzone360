@@ -41,7 +41,10 @@
     }
 
     /* Per-script typography. `lang` is set before hydration by app/+html.tsx, so the correct family
-     and line height apply on first paint rather than after a flash of Latin metrics. */
+     and line height apply on first paint rather than after a flash of Latin metrics.
+
+     This sets the *document* family. It does not reach react-native-web's text elements on its own
+     — see the unlayered block below, which is what actually wins. */
     html:lang(en),
     html:lang(en-XA) {
         font-family: var(--h360-font-family-latin);
@@ -50,6 +53,38 @@
     html:lang(ar) {
         font-family: var(--h360-font-family-arabic);
     }
+}
+
+/* ================================================================================================
+   The per-script family, applied where it actually wins.
+
+   Deliberately **outside `@layer base`**, and deliberately a descendant selector.
+
+   React Native Web gives every `Text` its own class carrying the React Native default stack
+   (`-apple-system, BlinkMacSystemFont, "Segoe UI", …`), injected at runtime as an unlayered
+   stylesheet. Two things follow, and both matter:
+
+     1. Inheritance always loses to a matching rule, so the `html:lang(…)` declarations above never
+        reached a single `Text`. Only elements carrying an explicit `font-*` utility rendered the
+        family the design intended; everything else rendered the system face. That is most of what
+        "the fonts do not match" meant — three faces on screen, and the body face not among them.
+     2. Unlayered rules beat layered ones whatever the specificity, so moving this into
+        `@layer base` would silently undo it. It has to sit here.
+
+   `html:lang(en) *` is (0,1,1) against react-native-web's (0,1,0), which is the smallest margin
+   that holds. The universal selector is safe *because* there is now exactly one family per script:
+   there is no second face for it to stamp on. Reintroduce a family role and this rule has to learn
+   about it — which is the point, and is asserted in packages/design-tokens/src/scales.test.ts.
+
+   Figures line up on `tabular-nums`, which this does not touch.
+   ================================================================================================ */
+html:lang(en) *,
+html:lang(en-XA) * {
+    font-family: var(--h360-font-family-latin);
+}
+
+html:lang(ar) * {
+    font-family: var(--h360-font-family-arabic);
 }
 
 /* ================================================================================================

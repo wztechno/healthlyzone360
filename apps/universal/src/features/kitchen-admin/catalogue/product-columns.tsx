@@ -188,7 +188,10 @@ export function productColumns({
                     ? t('kitchen:list.noCategory')
                     : categoryName(row.categoryCode),
             render: (row) => (
-                <Text testID={`${productRowTestId(String(row.id))}-category`} tone="secondary">
+                <Text
+                    testID={`${productRowTestId(String(row.id))}-category`}
+                    tone={row.categoryCode.trim() === '' ? 'secondary' : 'primary'}
+                >
                     {row.categoryCode.trim() === ''
                         ? t('kitchen:list.noCategory')
                         : categoryName(row.categoryCode)}
@@ -225,11 +228,7 @@ export function productColumns({
                          * because "1 pack in all" beside the pack itself says nothing.
                          */}
                         {row.packVariants.length > 1 ? (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID={`${testID}-packs-count`}
-                            >
+                            <Text variant="caption" testID={`${testID}-packs-count`}>
                                 {t('kitchen:products.packCount', {
                                     count: row.packVariants.length,
                                 })}
@@ -256,9 +255,7 @@ export function productColumns({
                         {t('kitchen:products.noChannels')}
                     </Text>
                 ) : (
-                    <Text testID={`${testID}-channels`} tone="secondary">
-                        {channelLabel(row)}
-                    </Text>
+                    <Text testID={`${testID}-channels`}>{channelLabel(row)}</Text>
                 );
             },
         },

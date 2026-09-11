@@ -60,18 +60,21 @@ export function KitchenBrandBlock() {
                 style={{ width: 32, height: 32, borderRadius: 8 }}
             >
                 <View className="h-full w-full items-center justify-center">
-                    <RNText className="font-display text-base text-content-on-canopy">
+                    <RNText className="text-base font-bold text-content-on-canopy">
                         {t('marketplace:brand.name').slice(0, 1)}
                     </RNText>
                 </View>
             </LinearGradient>
             <View className="min-w-0 flex-1">
-                <RNText numberOfLines={1} className="font-display text-base text-content-on-canopy">
+                <RNText
+                    numberOfLines={1}
+                    className="text-base font-bold text-content-on-canopy text-start"
+                >
                     {t('marketplace:brand.name')}
                 </RNText>
                 <RNText
                     numberOfLines={1}
-                    className="text-xs text-content-on-canopy-muted/80 text-start"
+                    className="text-xs text-content-on-canopy-muted text-start"
                 >
                     {t('kitchen:nav.railTitle')}
                 </RNText>
