@@ -9,15 +9,13 @@
 # invalidating sessions, tokens or anything encrypted with the old key.
 #
 # Environment knobs:
-# The database policy: a deploy applies pending schema migrations and does
-# nothing else to the data. Seeding and password writes happen only when named
-# on that run's command line, and are never remembered as defaults.
+# The database policy: a deploy applies pending schema migrations and touches
+# no data at all. It cannot seed — there is no flag for it, because there is
+# nothing a deploy should ever invent. Building a database from nothing is
+# `healthzone-rebuild.sh`, which migrates fresh, seeds the reference layer and
+# imports the v6 kitchen; that is a deliberate, named operation and not
+# something a push can trigger.
 #
-#   SEED=1               run the seeders (reference layer + operator login).
-#   SEED_DEMO_WORLD=true with SEED=1, also add the demo tenants — Verdant, the
-#                        preview kitchens, the clinic, the corporate buyer.
-#                        Off unless asked: the stacks run the one-kitchen
-#                        HealthZone world (see healthzone-rebuild.sh).
 #   DEMO_PASSWORD=...    set the shared tester password on the known logins,
 #                        this run only. The value is remembered in .env for
 #                        healthzone-rebuild.sh, but a deploy never re-applies it.
@@ -35,7 +33,6 @@ cd "$(dirname "$0")"
 # two stacks share one script. COMPOSE_FILE is exported so every unqualified
 # `docker compose` call picks the right file without being told.
 STACK="${STACK:-prod}"
-DB_CREATED=0
 case "$STACK" in
     prod)
         export COMPOSE_FILE=compose.yaml
@@ -236,7 +233,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE healthy360_migrator IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE healthy360_migrator IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO healthy360_app;
 SQL
-        DB_CREATED=1
     fi
 else
     echo "==> starting postgres and redis"
@@ -252,21 +248,11 @@ fi
 echo "==> migrating"
 docker compose run --rm --no-deps api php artisan migrate --database=pgsql_migrations --force
 
-# Seeding is opt-in. The one exception is a database this run just created:
-# an empty schema with no operator login is a system nobody can open, so it
-# receives the reference layer — still without the demo world unless asked.
-if [ "$DB_CREATED" = 1 ] || [ "${SEED:-0}" = "1" ]; then
-    # APP_ENV=local for this container only. Every demo seeder refuses to run
-    # outside local/testing, and that guard is worth keeping: it is the reason
-    # a real deployment of this code cannot invent tenants. The instance itself
-    # keeps APP_ENV=production, so nothing else inherits local behaviour.
-    # SEED_DEMO_WORLD: since the kitchen redesign, DatabaseSeeder adds the demo
-    # tenants only when told to. Without it a fresh database has exactly one
-    # login (the platform operator) and an empty marketplace.
-    echo "==> seeding demo data"
-    docker compose run --rm --no-deps -e APP_ENV=local -e SEED_DEMO_WORLD="${SEED_DEMO_WORLD:-false}" api \
-        php artisan db:seed --database=pgsql_migrations --force
-fi
+# No seeding. A deploy ships code and applies migrations; the data is the
+# instance's own, and the people using it are the only ones who should be
+# adding to or removing from it. A database this run created is left empty on
+# purpose — `healthzone-rebuild.sh` is how one is filled, and it says so out
+# loud before it destroys anything.
 
 # Only when this run was given a password. The remembered one stays in .env for
 # healthzone-rebuild.sh; a plain deploy leaves every users row untouched.
@@ -276,10 +262,7 @@ if [ -n "$DEMO_PASSWORD_ARG" ]; then
         php artisan tinker --execute='
             $count = App\Models\User::on("pgsql_migrations")
                 ->whereIn("email", [
-                    "ops@healthy360.test", "owner@cedar.test", "dietitian@cedar.test",
-                    "two-factor@cedar.test", "owner@verdant.test", "chef@verdant.test",
-                    "patient@healthy360.test", "nour@healthy360.test",
-                    "buyer@acme-wellness.test",
+                    "ops@healthy360.test",
                     "owner@healthzone360.test", "staff@healthzone360.test",
                     "customer@healthzone360.test",
                 ])

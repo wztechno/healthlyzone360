@@ -31,12 +31,15 @@ else changes.
 ## Database policy
 
 **A deploy applies pending schema migrations and does nothing else to the
-database.** No seeding, no password writes, no imports — those happen only when
-a person names them on the command line for that one run (`SEED=1`,
-`DEMO_PASSWORD=…`), and nothing remembers them as defaults. Both stacks run the
-one-kitchen HealthZone360 world built by `healthzone-rebuild.sh`; the demo
-tenants are gone and `SEED_DEMO_WORLD` stays off unless asked. A rebuild is its
-own deliberate command, never a side effect of shipping code.
+database.** It cannot seed: there is no flag for it, because there is nothing a
+deploy should ever invent. The only data a deploy writes is the tester password,
+and only when `DEMO_PASSWORD=…` is named on that run's command line.
+
+**`healthzone-rebuild.sh` is the bootstrap.** A database built from nothing —
+the reference layer, the operator login and the v6 HealthZone360 kitchen — comes
+from that script, which migrates fresh, seeds and imports in one deliberate,
+destructive, clearly-announced operation. Both stacks run that world. A deploy
+never builds it and never touches it.
 
 ---
 
@@ -63,10 +66,9 @@ Three details worth understanding rather than copying:
 
 - **`rm -rf api web` matters.** `tar -xzf` merges into what is already there, so
   without it a file deleted in the new commit lives on in the container.
-- **`SKIP_SEED=1` is the right default for a code change.** The seeders are
-  idempotent and converge rather than duplicate, so re-seeding is safe — it is
-  just slow, and it resets demo records testers may have edited. Drop the flag
-  when the change *is* a seeder or a migration that needs data behind it.
+- **A deploy never touches the data.** There is no seed flag to remember or
+  forget: shipping code and changing what testers are looking at are separate
+  operations, and only `healthzone-rebuild.sh` does the second.
 - **Secrets survive.** `deploy.sh` generates `APP_KEY`, the database passwords
   and the Postgres superuser password on first run and reuses them forever
   after, so shipping code never invalidates sessions, tokens or encrypted
@@ -99,7 +101,7 @@ ssh root@<new-ip> 'bash -s' < infrastructure/deploy/bootstrap-droplet.sh
 
 Installs Docker from the official repository, adds swap (`SWAP_SIZE=8G` to
 override), and closes the firewall to SSH/80/443. Idempotent. Then run the
-three commands above, without `SKIP_SEED`.
+three commands above, then `healthzone-rebuild.sh` to build the world.
 
 ---
 
@@ -169,9 +171,7 @@ volume. Add it back the moment anything needs pre-signed URLs.
 5. **Migrate** as `healthy360_migrator` over the `pgsql_migrations` connection.
    The runtime role owns nothing and holds no DDL rights, which is what keeps
    row-level security meaningful (ADR-0007).
-6. **Seed** — unless `SKIP_SEED=1`. See §5.
-7. **Tester password** — only when `DEMO_PASSWORD` is set to something other
-   than `password`.
+6. **Tester password** — only when `DEMO_PASSWORD` is named on this run.
 8. **`docker compose up -d`**, restart `queue`/`scheduler` so Horizon picks up
    the new image, then smoke-check `/up`, `/`, and a seeded API read.
 
@@ -179,8 +179,7 @@ volume. Add it back the moment anything needs pre-signed URLs.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `SEED` | unset | `1` runs the seeders — never automatic |
-| `DEMO_PASSWORD` | `password` | Sets one shared password on all nine personas |
+| `DEMO_PASSWORD` | `password` | Sets one shared password on the four known logins, this run only |
 | `API_RATE_LIMIT` | 600 here, 60 shipped | Requests/minute — see §7 |
 | `SWAP_SIZE` | `5G` | `bootstrap-droplet.sh` only |
 
@@ -188,29 +187,24 @@ volume. Add it back the moment anything needs pre-signed URLs.
 
 ## 5. Data
 
-Seeding runs in a **one-off container with `APP_ENV=local`**, because every demo
-seeder refuses to run outside `local`/`testing`. That guard is worth keeping —
-it is what stops a real deployment of this code from inventing tenants — so the
-deployment works around it for one command rather than weakening it. The
-instance itself runs `APP_ENV=production`, `APP_DEBUG=false`.
+**A deploy writes no data.** Building a world is `healthzone-rebuild.sh`, run by
+hand on the droplet: it backs the database up, migrates fresh, seeds the
+reference layer and the operator login, imports the v6 HealthZone360 catalogue
+and recipes, publishes what passes its gates, and creates the three kitchen
+logins. It is destructive and announces itself before starting.
 
-The seed run also sets `SEED_DEMO_WORLD=true`. Since the kitchen redesign,
-`DatabaseSeeder` builds only the reference layer and the operator login unless
-told to add the demo tenants — a fresh database seeded without it has exactly
-one account (`ops@healthy360.test`) and an empty marketplace. That is how the
-dev stack first came up; the flag is now part of the shared seed command.
+Seeding runs in a **one-off container with `APP_ENV=local`**, because the
+seeders refuse to run outside `local`/`testing`. That guard is worth keeping —
+it is what stops a real deployment of this code from inventing tenants — so the
+rebuild works around it for one command rather than weakening it. The instance
+itself runs `APP_ENV=production`, `APP_DEBUG=false`.
 
 ```bash
-# Re-seed (idempotent — converges, does not duplicate)
-docker compose run --rm --no-deps -e APP_ENV=local api \
-    php artisan db:seed --database=pgsql_migrations --force
+# Build (or rebuild) the world. Destructive; keeps a backup.
+./healthzone-rebuild.sh
 
-# Wipe and rebuild the database from scratch
-docker compose run --rm --no-deps -e APP_ENV=local api \
-    php artisan migrate:fresh --database=pgsql_migrations --seed --force
-
-# Destroy everything including volumes, then redeploy from clean
-docker compose down -v && ./deploy.sh 157-230-121-66.nip.io
+# Destroy everything including volumes, then redeploy from clean and rebuild
+docker compose down -v && ./deploy.sh 157-230-121-66.nip.io && ./healthzone-rebuild.sh
 ```
 
 Rotating the shared tester password:
@@ -414,9 +408,9 @@ scp -i ~/.ssh/healthy360_do build/healthy360-deploy.tar.gz root@157.230.121.66:/
 ssh -i ~/.ssh/healthy360_do root@157.230.121.66 'cd /opt/healthy360-dev && rm -rf api web && tar -xzf healthy360-deploy.tar.gz && STACK=dev ./deploy.sh dev.157-230-121-66.nip.io'
 ```
 
-The first run creates and seeds `healthy360_dev` and adopts prod's database
-credentials and tester password from `/opt/healthy360/.env`. Every later run
-migrates and keeps the data; pass `SKIP_SEED=0` to reseed.
+The first run creates `healthy360_dev` and adopts prod's database credentials
+and tester password from `/opt/healthy360/.env`; the database comes up empty and
+`healthzone-rebuild.sh` fills it. Every later run migrates and keeps the data.
 
 The branch must contain `215be25` (the deployment stack) — anything older lacks
 `trustProxies` and `config/api.php` and misbehaves behind Caddy. Check with
@@ -459,12 +453,12 @@ ten minutes — most of it the Expo export); when it is right, open a PR from
 `dev` to `main` and merge, and the prod URL testers use updates the same way.
 Nothing is deployed from any other branch.
 
-Every deploy migrates but **never seeds** (`SKIP_SEED=1`): prod holds what
-testers have been doing and dev keeps its state between pushes. When a branch
-changes a seeder, reseed that stack by hand from the droplet:
+Every deploy migrates and **never seeds**: prod holds what testers have been
+doing and dev keeps its state between pushes. When a branch changes a seeder,
+rebuild that stack by hand from the droplet:
 
 ```bash
-cd /opt/healthy360-dev && SEED=1 STACK=dev ./deploy.sh dev.157-230-121-66.nip.io
+cd /opt/healthy360-dev && STACK=dev ./healthzone-rebuild.sh
 ```
 
 One deploy per branch runs at a time; a second push while one is in flight
