@@ -281,7 +281,8 @@
       "lastPurchasePrice": "[[{{amount}} {{currency}} þéŕ {{unit}} āēīōūāēīōūāēīōū]]",
       "lastPurchaseFrom": "[[{{supplier}} · {{date}} āēīōūāēīōū]]",
       "noPurchaseSupplier": "[[Šúþþłíéŕ ñóţ ŕéçóŕðéð āēīōūāēīō]]",
-      "history": "[[Ĥíšţóŕý āēī]]"
+      "history": "[[Ĥíšţóŕý āēī]]",
+      "pageSize": "[[Ŕóŵš þéŕ þáĝé āēīōūā]]"
     },
     "supplyOrders": {
       "title": "[[Šúþþłý óŕðéŕš āēīōūā]]",

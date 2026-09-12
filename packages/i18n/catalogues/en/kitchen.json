@@ -281,7 +281,8 @@
             "lastPurchasePrice": "{{amount}} {{currency}} per {{unit}}",
             "lastPurchaseFrom": "{{supplier}} · {{date}}",
             "noPurchaseSupplier": "Supplier not recorded",
-            "history": "History"
+            "history": "History",
+            "pageSize": "Rows per page"
         },
         "supplyOrders": {
             "title": "Supply orders",

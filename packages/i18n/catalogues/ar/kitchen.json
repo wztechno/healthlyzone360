@@ -305,7 +305,8 @@
             "lastPurchasePrice": "{{amount}} {{currency}} لكل {{unit}}",
             "lastPurchaseFrom": "{{supplier}}، {{date}}",
             "noPurchaseSupplier": "المورّد غير مسجّل",
-            "history": "السجل"
+            "history": "السجل",
+            "pageSize": "عدد الصفوف في الصفحة"
         },
         "supplyOrders": {
             "title": "طلبات التوريد",
