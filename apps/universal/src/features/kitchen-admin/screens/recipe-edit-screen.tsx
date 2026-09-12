@@ -1,4 +1,4 @@
-import { isValidationFailure } from '@healthy360/api-client/contracts';
+import { PACKAGING_CATEGORY_CODE, isValidationFailure } from '@healthy360/api-client/contracts';
 import type {
     CostAmount,
     IngredientAdmin,
@@ -20,6 +20,7 @@ import {
     ErrorState,
     FormGrid,
     FormSection,
+    Icon,
     Inline,
     QuantityInput,
     Select,
@@ -31,7 +32,7 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption, TagTone } from '@healthy360/design-system';
+import type { CardTone, SelectOption, TagTone } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { IngredientId } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
@@ -52,7 +53,6 @@ import {
     ingredientsFromPages,
     useCreateRecipeMutation,
     useIngredientsByIds,
-    usePackagingPageQuery,
     useIngredientsQuery,
     useNextReferenceQuery,
     useOpenRecipeDraftMutation,
@@ -72,9 +72,12 @@ import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     amountToInput,
+    costPerPackage,
+    currencySymbol,
     displayName,
-    humaniseCode,
+    formatMoney,
     isTranslationIncomplete,
+    lineCost,
     marginPercent,
     parseAmount,
     parseQuantity,
@@ -84,7 +87,7 @@ import {
     unitShortKey,
 } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { RecipeLineTable } from '../recipe-line-table.tsx';
+import { RecipeLineTable, ingredientEntry, packagingEntry } from '../recipe-line-table.tsx';
 import type { PickerEntry } from '../recipe-line-table.tsx';
 import type { LineDraft } from '../recipe-line-table.tsx';
 import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
@@ -300,6 +303,23 @@ function lineInputsFrom(rows: readonly LineDraft[]): readonly RecipeLineInput[] 
             },
         ];
     });
+}
+
+/**
+ * The distinct catalogue rows a draft names, in the branded shape `useIngredientsByIds` takes.
+ *
+ * One definition for both tables. Food and packaging are one `ingredients` table again, so the two
+ * sets resolve through the same endpoint and differ only in which draft they are read from.
+ */
+function uniqueIngredientIds(rows: readonly LineDraft[]): readonly IngredientId[] {
+    const seen = new Set<string>();
+    const found: IngredientId[] = [];
+    for (const row of rows) {
+        if (row.ingredientId === null || seen.has(String(row.ingredientId))) continue;
+        seen.add(String(row.ingredientId));
+        found.push(IngredientId.unsafe(row.ingredientId));
+    }
+    return found;
 }
 
 /** Long enough that typing "1250" is one request, short enough to feel like a consequence. */
@@ -637,23 +657,17 @@ function RecipeEditor({
      * onto page two had no designation and no unit price to render — the other half of "not all
      * ingredients are showing". The picker solves its own half by searching the server; a drawn row
      * cannot search, it knows an id, so the ids are resolved directly.
+     *
+     * Packaging is resolved the same way below. The show endpoint has no packaging exclusion — the
+     * two families are one table again — so a packaging id resolves through it exactly as a food id
+     * does, and the note that used to stand here saying otherwise was describing a table that no
+     * longer exists.
      */
-    const lineIngredientIds = useMemo(() => {
-        const ids = new Set<string>();
-        const found: IngredientId[] = [];
-        // Lines only. Packaging rows name `packaging_items`, and resolving one of those against
-        // the ingredient endpoint asks for a row that is not there.
-        for (const row of lines) {
-            if (row.ingredientId === null || ids.has(String(row.ingredientId))) continue;
-            ids.add(String(row.ingredientId));
-            found.push(IngredientId.unsafe(row.ingredientId));
-        }
-        return found;
-        // `lines` only. The body reads no packaging row — see the note above it — so listing
-        // `packaging` here only recomputed the set every time a packaging line was edited.
-    }, [lines]);
+    const lineIngredientIds = useMemo(() => uniqueIngredientIds(lines), [lines]);
+    const packagingIngredientIds = useMemo(() => uniqueIngredientIds(packaging), [packaging]);
 
     const lineIngredients = useIngredientsByIds(lineIngredientIds);
+    const packagingIngredients = useIngredientsByIds(packagingIngredientIds);
 
     /*
      * One pool, for drawing rows and for costing them: the first page plus every ingredient the
@@ -673,40 +687,31 @@ function RecipeEditor({
 
     /** The same pool, in the shape the line table draws rows from. */
     const libraryEntries = useMemo(
-        (): readonly PickerEntry[] =>
-            library.map((entry) => ({
-                id: String(entry.id),
-                name: entry.name,
-                unit: entry.measurementUnit,
-                unitPrice: entry.unitPrice,
-                meta: entry.categoryCode === '' ? '' : humaniseCode(entry.categoryCode),
-                reference: entry.reference,
-            })),
+        (): readonly PickerEntry[] => library.map(ingredientEntry),
         [library],
     );
 
     /*
-     * The packaging pool the packaging rows resolve against.
+     * The packaging pool the packaging rows resolve against — same two sources as the food one.
      *
-     * One page of the packaging catalogue is the whole catalogue — there are thirty-one rows — so
-     * unlike the ingredient side this needs no second request for the specific items the lines
-     * name. The price carried here is the *pack* price against the *purchase* unit, which is the
-     * pair the row's arithmetic needs; quoting one against the other is the single error a
-     * packaging line can make.
+     * It used to be a single *numbered page* of eighteen, on the argument that one page is the whole
+     * catalogue. There are thirty-one packaging rows, so rows nineteen onward resolved to nothing: a
+     * saved line naming one drew "Unnamed line" with no price, and its cost silently left the
+     * cascade. A hundred-row read plus a by-id resolution of whatever the lines name closes both
+     * halves, exactly as it does above.
      */
-    const packagingCatalogue = usePackagingPageQuery({}, 1);
-    const packagingLibrary = useMemo(
-        (): readonly PickerEntry[] =>
-            (packagingCatalogue.data?.items ?? []).map((entry) => ({
-                id: String(entry.id),
-                name: entry.name,
-                unit: entry.purchaseUnit ?? entry.measurementUnit,
-                unitPrice: entry.purchasePrice,
-                meta: humaniseCode(entry.subcategoryCode ?? entry.categoryCode),
-                reference: entry.reference,
-            })),
-        [packagingCatalogue.data?.items],
-    );
+    const packagingCatalogue = useIngredientsQuery({
+        limit: 100,
+        categoryCode: PACKAGING_CATEGORY_CODE,
+    });
+    const packagingLibrary = useMemo((): readonly PickerEntry[] => {
+        const byId = new Map<string, IngredientAdmin>();
+        for (const entry of ingredientsFromPages(packagingCatalogue.data?.pages)) {
+            byId.set(String(entry.id), entry);
+        }
+        for (const [id, entry] of Object.entries(packagingIngredients)) byId.set(id, entry);
+        return [...byId.values()].map(packagingEntry);
+    }, [packagingCatalogue.data?.pages, packagingIngredients]);
 
     /* ── the cost cascade, as the design computes it ─────────────────────────────────────────── */
 
@@ -731,6 +736,31 @@ function RecipeEditor({
             packagingWaste,
         ],
     );
+
+    /*
+     * The uncosted lines by name, across both pools.
+     *
+     * Both, because a row is uncosted for the same two reasons on either tab — no recorded price, or
+     * a unit that will not convert — and the reader wants the designation either way. Empty when
+     * everything the cascade touched could be costed.
+     */
+    const uncostedNames = costs.uncostedIds
+        .map((id) => [...libraryEntries, ...packagingLibrary].find((entry) => entry.id === id))
+        .filter((entry): entry is PickerEntry => entry !== undefined)
+        .map((entry) => displayName(entry.name, locale).value)
+        .join(', ');
+
+    /*
+     * Whether a missing currency is "the rows disagree" rather than "nothing is priced yet".
+     *
+     * `displayCurrency` is null in both cases and only one of them is worth saying out loud. Read off
+     * the *rows*, not the pools: a fully priced library under a recipe with no lines is not a
+     * currency conflict.
+     */
+    const anyRowPriced = (rows: readonly LineDraft[], pool: readonly PickerEntry[]): boolean =>
+        rows.some((row) => pool.find((entry) => entry.id === row.ingredientId)?.unitPrice != null);
+    const anythingPriced =
+        anyRowPriced(lines, libraryEntries) || anyRowPriced(packaging, packagingLibrary);
 
     // Derived rather than read off the record, so the Technical sheet tab answers from the draft.
     const allergenSources = rollup.data?.allergenSources ?? [];
@@ -1099,7 +1129,7 @@ function RecipeEditor({
         }),
         t('kitchen:recipes.summaryLines', { count: lines.length }),
         t('kitchen:recipes.summaryPerUnit', {
-            cost: formatter.formatNumber(costs.total, COST_DIGITS),
+            cost: formatMoney(formatter, costs.total, costs.displayCurrency, COST_DIGITS),
             unit: t(unitShortKey(details.yieldUnit)),
         }),
     ]
@@ -1139,6 +1169,16 @@ function RecipeEditor({
             testID: 'kitchen-recipe-tab-sheet',
         },
     ];
+
+    /*
+     * The tab row, as an order to walk.
+     *
+     * Read off `tabItems` rather than written out, so the sauce routes — which drop Packaging — step
+     * over four rather than falling into a gap. `-1` is unreachable in practice and still guarded:
+     * `indexOf` answering it would disable both controls rather than stepping off the end.
+     */
+    const order = tabItems.map((item) => item.value);
+    const at = order.indexOf(tab);
 
     return (
         <Stack space="md" testID="kitchen-recipe-editor-screen">
@@ -1728,18 +1768,78 @@ function RecipeEditor({
                             />
                         }
                     >
-                        <CostCascade
-                            testID="kitchen-recipe-cost-cards"
-                            costs={costs}
-                            yieldQuantity={details.yieldQuantity}
-                            yieldUnit={t(unitShortKey(details.yieldUnit))}
-                            productionWaste={details.wastePercent}
-                            packagingWaste={packagingWaste}
-                            withoutPackaging={withoutPackaging}
-                            t={t}
-                            formatter={formatter}
-                        />
+                        <Stack space="sm">
+                            <CostCascade
+                                testID="kitchen-recipe-cost-cards"
+                                costs={costs}
+                                currency={costs.displayCurrency}
+                                yieldQuantity={details.yieldQuantity}
+                                yieldUnit={t(unitShortKey(details.yieldUnit))}
+                                productionWaste={details.wastePercent}
+                                packagingWaste={packagingWaste}
+                                withoutPackaging={withoutPackaging}
+                                t={t}
+                                formatter={formatter}
+                            />
+
+                            {/*
+                             * The two things that make the figures above less than the whole story,
+                             * said under them rather than left for somebody to notice.
+                             *
+                             * A line with no price is *excluded* from the sums (see `costCascade`),
+                             * so without this the cascade reads as the cost of a formulation it has
+                             * only partly costed — and names the lines, because "some lines" is not
+                             * something a person can act on.
+                             */}
+                            {uncostedNames === '' ? null : (
+                                <Text
+                                    testID="kitchen-recipe-uncosted"
+                                    variant="caption"
+                                    tone="warning"
+                                >
+                                    {t('kitchen:recipes.uncostedLines', { names: uncostedNames })}
+                                </Text>
+                            )}
+
+                            {costs.displayCurrency === null && anythingPriced ? (
+                                <Text
+                                    testID="kitchen-recipe-currency-mixed"
+                                    variant="caption"
+                                    tone="warning"
+                                >
+                                    {t('kitchen:recipes.currencyMixed')}
+                                </Text>
+                            ) : null}
+                        </Stack>
                     </FormSection>
+
+                    {/*
+                     * Between the cascade and the prices, because that is the order the question is
+                     * asked in: what does a kilogram cost, what does one of the things we actually
+                     * sell cost, what do we charge for it. Dropped entirely on the sauce routes,
+                     * which have no packaging lines to cost.
+                     */}
+                    {withoutPackaging ? null : (
+                        <FormSection
+                            testID="kitchen-recipe-package-costs"
+                            title={t('kitchen:recipes.sectionPackageCosts')}
+                            description={t('kitchen:recipes.packageCostsHint')}
+                        >
+                            <PackageCosts
+                                testID="kitchen-recipe-package-costs"
+                                rows={packaging}
+                                packagingItems={packagingLibrary}
+                                productionPerYieldUnit={costs.productionWithWaste}
+                                yieldUnit={details.yieldUnit}
+                                packagingWastePercent={parseQuantity(packagingWaste) ?? 0}
+                                yieldInvalid={yieldInvalid}
+                                currency={costs.displayCurrency}
+                                locale={locale}
+                                t={t}
+                                formatter={formatter}
+                            />
+                        </FormSection>
+                    )}
 
                     {/*
                      * Two list prices and the margin between the trade one and the cascade above,
@@ -1778,7 +1878,17 @@ function RecipeEditor({
                                     hint={t('kitchen:recipes.b2bPriceHint')}
                                     value={details.b2bPrice}
                                     disabled={!canManage}
-                                    {...(currency === null ? {} : { unit: currency })}
+                                    {...(currency === null
+                                        ? {}
+                                        : {
+                                              // The mark, not the code: `$` is what a price field
+                                              // wears, and `Intl` is what knows which mark this
+                                              // locale writes for this code.
+                                              unit: currencySymbol(
+                                                  formatter.resolvedLocale,
+                                                  currency,
+                                              ),
+                                          })}
                                     {...(b2bPriceValue === undefined
                                         ? { error: t('kitchen:sale.priceInvalid') }
                                         : {})}
@@ -1798,7 +1908,14 @@ function RecipeEditor({
                                     hint={t('kitchen:recipes.b2cPriceHint')}
                                     value={details.b2cPrice}
                                     disabled={!canManage}
-                                    {...(currency === null ? {} : { unit: currency })}
+                                    {...(currency === null
+                                        ? {}
+                                        : {
+                                              unit: currencySymbol(
+                                                  formatter.resolvedLocale,
+                                                  currency,
+                                              ),
+                                          })}
                                     {...(b2cPriceValue === undefined
                                         ? { error: t('kitchen:sale.priceInvalid') }
                                         : {})}
@@ -1836,10 +1953,12 @@ function RecipeEditor({
                                         margin === null
                                             ? t('kitchen:recipes.marginNoBasis')
                                             : t('kitchen:recipes.marginHint', {
-                                                  cost: formatter.formatNumber(costs.total, {
-                                                      minimumFractionDigits: 2,
-                                                      maximumFractionDigits: 2,
-                                                  }),
+                                                  cost: formatMoney(
+                                                      formatter,
+                                                      costs.total,
+                                                      costs.displayCurrency,
+                                                      COST_DIGITS,
+                                                  ),
                                               })
                                     }
                                     onChangeText={() => undefined}
@@ -1965,6 +2084,43 @@ function RecipeEditor({
                     </FormSection>
                 </>
             )}
+
+            {/*
+             * Back and forward through the tabs, under whichever one is open.
+             *
+             * The tab row at the top is how a reader *jumps*; this is how they *work through* — five
+             * tabs is a sequence with an order that means something (identity, then formulation, then
+             * what it is packed in, then what it costs), and the design's own sale flow uses the same
+             * pair for the same reason.
+             *
+             * Secondary rather than primary: Publish is the page's one primary action and a green
+             * Next beside it would compete with it. Both stay drawn at the ends of the sequence and
+             * go disabled instead, so the row does not change width as it is walked.
+             */}
+            <Inline space="sm" wrap testID="kitchen-recipe-tab-steps">
+                <Button
+                    testID="kitchen-recipe-tab-previous"
+                    variant="quiet"
+                    iconStart={<Icon name="chevronStart" size="sm" />}
+                    label={t('kitchen:recipes.tabPrevious')}
+                    disabled={at <= 0}
+                    onPress={() => {
+                        const previous = order[at - 1];
+                        if (previous !== undefined) setTab(previous);
+                    }}
+                />
+                <Button
+                    testID="kitchen-recipe-tab-next"
+                    variant="secondary"
+                    iconEnd={<Icon name="chevronEnd" size="sm" />}
+                    label={t('kitchen:recipes.tabNext')}
+                    disabled={at < 0 || at === order.length - 1}
+                    onPress={() => {
+                        const next = order[at + 1];
+                        if (next !== undefined) setTab(next);
+                    }}
+                />
+            </Inline>
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
@@ -2304,6 +2460,21 @@ interface Cascade {
     readonly packagingPerUnit: number;
     readonly packagingWithWaste: number;
     readonly total: number;
+    /**
+     * Rows left out of the sums — no recorded price, or a unit that will not convert to the one the
+     * price is quoted against. Named on the Costing tab, because a figure computed from eight of
+     * nine lines is not the cost of the recipe and nothing on screen would otherwise say so.
+     *
+     * A row with nothing picked yet is not here: it is unfinished, and the save already blocks on it.
+     */
+    readonly uncostedIds: readonly string[];
+    /**
+     * The one currency every priced row is in, or `null` when they disagree or nothing is priced.
+     *
+     * `null` renders every cascade figure as a bare number. A sum of two currencies is in neither of
+     * them, and stamping one of the two onto the total would make a wrong figure look checked.
+     */
+    readonly displayCurrency: CurrencyCode | null;
 }
 
 /**
@@ -2320,10 +2491,24 @@ interface Cascade {
  * mistake the sheet's two separate waste rows exist to prevent: a bottle does not shrink on the
  * stove and a sauce does not get dropped on the floor at the same rate.
  *
- * The line cost comes from the ingredient's recorded `unitPrice`, so a library with no prices makes
- * every figure zero rather than wrong. `RecipeVersionAdmin.estimatedCost` is the server's own
- * answer to the same question and is what the technical sheet prints; this is the live one, and it
- * moves while a quantity is being typed.
+ * ## Where the money comes from, and where the server's comes from
+ *
+ * The client costs a line from `IngredientAdmin.unitPrice` — the **list price per
+ * `measurementUnit`** — because it is the only per-ingredient cost the client is given:
+ * `RecipeVersionPresenter` withholds `unit_cost_amount` and `line_cost_amount` until the
+ * `recipe.view_costs_organisation` split exists, so `RecipeLine.lineCost` is `null` on the wire and
+ * `costPer100g` is not on the listing shape this pool is built from.
+ *
+ * The server's technical sheet prices from the **purchase price** instead
+ * (`RecipeVersionService::costOf`), so the two can legitimately differ on a row where a kitchen's
+ * list price and its last receipt disagree. Wiring the roll-up preview's `computed_cost` through to
+ * this panel is the follow-up that would reconcile them; until then this figure is the live one that
+ * moves while a quantity is being typed, and the technical sheet is the audited one.
+ *
+ * The quantity is converted into the unit the price is quoted against before it is multiplied — see
+ * {@link lineCost}. A line the arithmetic cannot state is reported as **uncosted** and left out of
+ * the sums, rather than added as a zero: a zero is a measurement, and a costing panel full of them
+ * reads as "these things are free".
  */
 function costCascade({
     lines,
@@ -2351,19 +2536,26 @@ function costCascade({
     readonly productionWaste: number;
     readonly packagingWaste: number;
 }): Cascade {
-    const priceIn =
-        (pool: readonly PickerEntry[]) =>
-        (id: LineDraft['ingredientId']): number => {
-            if (id === null) return 0;
-            return pool.find((candidate) => candidate.id === id)?.unitPrice?.amount ?? 0;
-        };
+    const uncosted = new Set<string>();
+    const currencies = new Set<CurrencyCode>();
 
     const sum = (rows: readonly LineDraft[], pool: readonly PickerEntry[]): number => {
-        const priceOf = priceIn(pool);
-        return rows.reduce(
-            (total, row) => total + (parseQuantity(row.quantity) ?? 0) * priceOf(row.ingredientId),
-            0,
-        );
+        let total = 0;
+        for (const row of rows) {
+            const quantity = parseQuantity(row.quantity);
+            const entry =
+                row.ingredientId === null
+                    ? undefined
+                    : pool.find((candidate) => candidate.id === row.ingredientId);
+            // Nothing picked, or a half-typed quantity: an unfinished row, not an uncosted one.
+            if (entry === undefined || quantity === null) continue;
+
+            if (entry.unitPrice !== null) currencies.add(entry.unitPrice.currency);
+            const cost = lineCost(quantity, row.unit, entry.unitPrice, entry.unit);
+            if (cost === null) uncosted.add(entry.id);
+            else total += cost;
+        }
+        return total;
     };
 
     // A yield of nothing is not a large cost per unit, it is an unanswerable question — so the
@@ -2385,6 +2577,8 @@ function costCascade({
         packagingPerUnit,
         packagingWithWaste,
         total: productionWithWaste + packagingWithWaste,
+        uncostedIds: [...uncosted],
+        displayCurrency: currencies.size === 1 ? ([...currencies][0] ?? null) : null,
     };
 }
 
@@ -2400,6 +2594,7 @@ function costCascade({
  */
 function CostCascade({
     costs,
+    currency,
     yieldQuantity,
     yieldUnit,
     productionWaste,
@@ -2410,6 +2605,8 @@ function CostCascade({
     testID,
 }: {
     readonly costs: Cascade;
+    /** The currency every figure here is stated in, or `null` for bare numbers. */
+    readonly currency: CurrencyCode | null;
     readonly yieldQuantity: string;
     readonly yieldUnit: string;
     readonly productionWaste: string;
@@ -2427,6 +2624,9 @@ function CostCascade({
     readonly formatter: Formatter;
     readonly testID: string;
 }) {
+    const money = (value: number, digits: Intl.NumberFormatOptions): string =>
+        formatMoney(formatter, value, currency, digits);
+
     const cards = [
         {
             key: 'production',
@@ -2435,7 +2635,7 @@ function CostCascade({
             rows: [
                 {
                     label: t('kitchen:recipes.costTotal'),
-                    value: formatter.formatNumber(costs.productionCost, CASCADE_DIGITS),
+                    value: money(costs.productionCost, CASCADE_DIGITS),
                     lead: false,
                 },
                 {
@@ -2443,12 +2643,12 @@ function CostCascade({
                         quantity: yieldQuantity,
                         unit: yieldUnit,
                     }),
-                    value: formatter.formatNumber(costs.productionPerUnit, PER_UNIT_DIGITS),
+                    value: money(costs.productionPerUnit, PER_UNIT_DIGITS),
                     lead: false,
                 },
                 {
                     label: t('kitchen:recipes.costWithWaste', { percent: productionWaste }),
-                    value: formatter.formatNumber(costs.productionWithWaste, PER_UNIT_DIGITS),
+                    value: money(costs.productionWithWaste, PER_UNIT_DIGITS),
                     lead: true,
                 },
             ],
@@ -2464,17 +2664,17 @@ function CostCascade({
             rows: [
                 {
                     label: t('kitchen:recipes.costTotal'),
-                    value: formatter.formatNumber(costs.packagingCost, CASCADE_DIGITS),
+                    value: money(costs.packagingCost, CASCADE_DIGITS),
                     lead: false,
                 },
                 {
                     label: t('kitchen:recipes.costPerUnit', { unit: yieldUnit }),
-                    value: formatter.formatNumber(costs.packagingPerUnit, PER_UNIT_DIGITS),
+                    value: money(costs.packagingPerUnit, PER_UNIT_DIGITS),
                     lead: false,
                 },
                 {
                     label: t('kitchen:recipes.costWithWaste', { percent: packagingWaste }),
-                    value: formatter.formatNumber(costs.packagingWithWaste, PER_UNIT_DIGITS),
+                    value: money(costs.packagingWithWaste, PER_UNIT_DIGITS),
                     lead: true,
                 },
             ],
@@ -2486,17 +2686,17 @@ function CostCascade({
             rows: [
                 {
                     label: t('kitchen:recipes.costProduction'),
-                    value: formatter.formatNumber(costs.productionWithWaste, PER_UNIT_DIGITS),
+                    value: money(costs.productionWithWaste, PER_UNIT_DIGITS),
                     lead: false,
                 },
                 {
                     label: t('kitchen:recipes.costPackaging'),
-                    value: formatter.formatNumber(costs.packagingWithWaste, PER_UNIT_DIGITS),
+                    value: money(costs.packagingWithWaste, PER_UNIT_DIGITS),
                     lead: false,
                 },
                 {
                     label: t('kitchen:recipes.costPerUnit', { unit: yieldUnit }),
-                    value: formatter.formatNumber(costs.total, PER_UNIT_DIGITS),
+                    value: money(costs.total, PER_UNIT_DIGITS),
                     lead: true,
                 },
             ],
@@ -2508,30 +2708,182 @@ function CostCascade({
     return (
         <FormGrid testID={testID}>
             {drawn.map((card) => (
-                <Card key={card.key} testID={`${testID}-${card.key}`} padding="sm" tone={card.tone}>
-                    <View className="flex-col gap-hair">
-                        <Text variant="micro" tone="secondary" numberOfLines={1}>
-                            {card.title}
+                <CostCard
+                    key={card.key}
+                    testID={`${testID}-${card.key}`}
+                    title={card.title}
+                    tone={card.tone}
+                    rows={card.rows}
+                />
+            ))}
+        </FormGrid>
+    );
+}
+
+/** One row of a {@link CostCard} — a label, the figure it names, and whether it is the conclusion. */
+interface CostCardRow {
+    readonly label: string;
+    /** Empty where the label is the whole statement, as the package cards' two context rows are. */
+    readonly value: string;
+    readonly lead: boolean;
+}
+
+/**
+ * One tile on the field grid: a `micro` title over a short ledger.
+ *
+ * Extracted from {@link CostCascade}'s own map so the per-package tiles below are the same object
+ * rather than a second drawing of it — two copies of a card is two chances for one of them to keep
+ * the old row rhythm after the other is adjusted.
+ */
+function CostCard({
+    title,
+    tone,
+    rows,
+    testID,
+}: {
+    readonly title: string;
+    readonly tone: CardTone;
+    readonly rows: readonly CostCardRow[];
+    readonly testID: string;
+}) {
+    return (
+        <Card testID={testID} padding="sm" tone={tone}>
+            <View className="flex-col gap-hair">
+                <Text variant="micro" tone="secondary" numberOfLines={1}>
+                    {title}
+                </Text>
+                {rows.map((row) => (
+                    <View
+                        key={row.label}
+                        className="flex-row items-baseline justify-between gap-tight"
+                    >
+                        <Text variant="caption" tone="secondary" numberOfLines={1}>
+                            {row.label}
                         </Text>
-                        {card.rows.map((row) => (
-                            <View
-                                key={row.label}
-                                className="flex-row items-baseline justify-between gap-tight"
-                            >
-                                <Text variant="caption" tone="secondary" numberOfLines={1}>
-                                    {row.label}
-                                </Text>
-                                {/*
-                                 * The last row of each card is the one the card is for, so it takes
-                                 * the strong step; the two above it are the working.
-                                 */}
-                                <Text variant={row.lead ? 'bodyStrong' : 'mono'} numberOfLines={1}>
-                                    {row.value}
-                                </Text>
-                            </View>
-                        ))}
+                        {/*
+                         * The last row of each card is the one the card is for, so it takes the
+                         * strong step; the ones above it are the working.
+                         */}
+                        <Text variant={row.lead ? 'bodyStrong' : 'mono'} numberOfLines={1}>
+                            {row.value}
+                        </Text>
                     </View>
-                </Card>
+                ))}
+            </View>
+        </Card>
+    );
+}
+
+/**
+ * What one filled package costs, one tile per packaging line that records a capacity.
+ *
+ * The cascade above states a cost per *yield unit*, which is the figure a formulation is priced on
+ * and not the one anybody quotes: a kitchen sells a 300 cc bottle, not a kilogram. This is that
+ * conversion, drawn per line — the product the container holds at the production cost above, plus the
+ * container at its own waste rate. {@link costPerPackage} is the arithmetic.
+ *
+ * A line is skipped rather than shown at zero when its capacity will not convert to the yield unit
+ * (a `piece` capacity against a kilogram yield answers nothing), and the whole section says so in one
+ * sentence when no line records a capacity at all — a grid of dashes would not.
+ */
+function PackageCosts({
+    rows,
+    packagingItems,
+    productionPerYieldUnit,
+    yieldUnit,
+    packagingWastePercent,
+    yieldInvalid,
+    currency,
+    locale,
+    t,
+    formatter,
+    testID,
+}: {
+    readonly rows: readonly LineDraft[];
+    readonly packagingItems: readonly PickerEntry[];
+    /** `costs.productionWithWaste` — the cost of one yield unit of product, waste included. */
+    readonly productionPerYieldUnit: number;
+    readonly yieldUnit: MeasureUnit;
+    readonly packagingWastePercent: number;
+    /** No usable yield means no cost per yield unit, so there is nothing to multiply a capacity by. */
+    readonly yieldInvalid: boolean;
+    readonly currency: CurrencyCode | null;
+    readonly locale: string;
+    readonly t: TFunction;
+    readonly formatter: Formatter;
+    readonly testID: string;
+}) {
+    if (yieldInvalid) {
+        return (
+            <Text testID={`${testID}-no-yield`} variant="caption" tone="secondary">
+                {t('kitchen:recipes.packageCostsNoYield')}
+            </Text>
+        );
+    }
+
+    const cards = rows.flatMap((row) => {
+        const entry =
+            row.ingredientId === null
+                ? undefined
+                : packagingItems.find((candidate) => candidate.id === row.ingredientId);
+        const capacity = entry?.capacity ?? null;
+        if (entry === undefined || capacity === null) return [];
+
+        const cost = costPerPackage({
+            productionPerYieldUnit,
+            capacity,
+            yieldUnit,
+            containerPrice: entry.unitPrice?.amount ?? null,
+            packagingWastePercent,
+        });
+        if (cost === null) return [];
+
+        return [
+            {
+                key: row.key,
+                title: displayName(entry.name, locale).value,
+                rows: [
+                    {
+                        label: t('kitchen:recipes.packageInBatch', { quantity: row.quantity }),
+                        value: '',
+                        lead: false,
+                    },
+                    {
+                        label: t('kitchen:recipes.packageHolds', {
+                            quantity: formatter.formatNumber(capacity.quantity, YIELD_DIGITS),
+                            unit: t(unitShortKey(capacity.unit)),
+                        }),
+                        value: '',
+                        lead: false,
+                    },
+                    {
+                        label: t('kitchen:recipes.packageCostLabel'),
+                        value: formatMoney(formatter, cost, currency, COST_DIGITS),
+                        lead: true,
+                    },
+                ],
+            },
+        ];
+    });
+
+    if (cards.length === 0) {
+        return (
+            <Text testID={`${testID}-none`} variant="caption" tone="secondary">
+                {t('kitchen:recipes.packageCostsNone')}
+            </Text>
+        );
+    }
+
+    return (
+        <FormGrid testID={`${testID}-grid`}>
+            {cards.map((card) => (
+                <CostCard
+                    key={card.key}
+                    testID={`kitchen-recipe-package-cost-${card.key}`}
+                    title={card.title}
+                    tone="raised"
+                    rows={card.rows}
+                />
             ))}
         </FormGrid>
     );

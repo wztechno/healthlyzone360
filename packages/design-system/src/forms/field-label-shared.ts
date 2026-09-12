@@ -31,10 +31,17 @@ export interface FieldLabelProps {
  * **Density-aware, and it was not.** Every field label in the kitchen admin used to render 14px
  * Inter, because this function never asked which surface it was on — while the `FormSection` title
  * directly above it rendered 13px Schibsted Grotesk. Two faces and two ramps, a few pixels apart,
- * on every row of every edit form. `label` is the role the Catalogue names for exactly this job.
+ * on every row of every edit form.
+ *
+ * On a desk surface the label now sits **two steps under** the 13px section title rather than one:
+ * `caption` at 11px, weighted up to 500 so it still reads as a name for a control rather than as a
+ * hint. A label the same size as the heading above it makes a form of twelve fields read as twelve
+ * headings. The weight is appended rather than folded into the role — `font-medium` wins over the
+ * `caption` tuple's 400 by specificity, which is the same mechanism the selected tab label uses in
+ * `navigation/tabs.tsx`.
  */
 export function fieldLabelClassName(density: Density, disabled: boolean): string {
-    const base = density === 'compact' ? 'text-role-label' : 'text-sm font-medium';
+    const base = density === 'compact' ? 'text-role-caption font-medium' : 'text-sm font-medium';
 
     return `${base} text-start ${disabled ? 'text-content-disabled' : 'text-content-primary'}`;
 }

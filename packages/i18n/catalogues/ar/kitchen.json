@@ -1172,6 +1172,44 @@
             "a11y": {
                 "unnamedAgent": "هذا العضو ليس له اسم في ملفه الشخصي."
             }
+        },
+        "batch": {
+            "title": "مخطّط الدُفعة",
+            "subtitle": "اختر وصفة، وحدّد الكمية المطلوبة، واقرأ ما يجب وزنه وما يُعبّأ به. لا يُطلب شيء هنا ولا يُحجز.",
+            "recipeLabel": "الوصفة",
+            "recipePlaceholder": "ابحث في دفتر الوصفات",
+            "modeLabel": "التخطيط حسب",
+            "modeYield": "حسب {{unit}}",
+            "modePieces": "حسب القطع",
+            "noPiecesHint": "لا تُحسب هذه الوصفة بالقطع.",
+            "targetLabel": "الكمية المطلوبة",
+            "piecesUnit": "قطع",
+            "metrics": {
+                "batches": "الدُفعات",
+                "quantity": "الكمية الناتجة",
+                "pieces": "القطع الناتجة",
+                "waste": "هدر الإنتاج"
+            },
+            "ingredientsHeading": "المكوّنات",
+            "packagingHeading": "التغليف",
+            "columnItem": "الصنف",
+            "columnQuantity": "الكمية",
+            "columnUnit": "الوحدة",
+            "columnNote": "كما هو مكتوب",
+            "columnBasis": "الأساس",
+            "optionalBadge": "اختياري",
+            "basis": {
+                "fills_yield": "يملأ الناتج",
+                "per_container": "لكل عبوة",
+                "per_batch": "لكل دُفعة"
+            },
+            "pickRecipeTitle": "اختر وصفة",
+            "pickRecipeBody": "كل رقم في هذه الصفحة يأتي من إصدار وصفة واحد. اختر واحدة للبدء.",
+            "targetNeededTitle": "حدّد الكمية المطلوبة",
+            "targetNeededBody": "كمية أكبر من صفر. لا يُوسَّع شيء قبل ذلك.",
+            "noPackaging": "لا تسجّل هذه الوصفة أي تغليف.",
+            "loadErrorTitle": "تعذّرت قراءة هذه الوصفة",
+            "recipesErrorTitle": "تعذّرت قراءة دفتر الوصفات"
         }
     },
     "kds": {
@@ -1638,6 +1676,10 @@
         "packaging": {
             "name": "التغليف",
             "description": "الأكياس والعلب والأغطية وأدوات الطعام والملصقات وتكلفة كل منها — الجزء الذي يُشحن فيه الطبق لا الجزء الذي يتكوّن منه."
+        },
+        "batch": {
+            "name": "مخطّط الدُفعة",
+            "description": "وسّع الوصفة إلى كمية أو عدد قطع، واقرأ المكوّنات والتغليف اللازمة."
         }
     },
     "analytics": {
@@ -2397,7 +2439,18 @@
         "sectionYieldWaste": "الإنتاجية والهدر",
         "sectionPackagingWaste": "هدر التغليف",
         "packagingWasteHint": "نسبة التغليف المهدور في كل دفعة. تعتمد عليها تبويبة التكلفة في الحساب.",
-        "pickerSearching": "جارٍ البحث…"
+        "pickerSearching": "جارٍ البحث…",
+        "tabPrevious": "السابق",
+        "tabNext": "التالي",
+        "sectionPackageCosts": "تكلفة العبوة",
+        "packageCostsHint": "تكلفة عبوة واحدة ممتلئة: المنتج الذي تحويه وفق تكلفة الإنتاج أعلاه، مضافًا إليه العبوة نفسها.",
+        "packageInBatch": "في هذه الدُفعة: {{quantity}}",
+        "packageHolds": "تسع {{quantity}} {{unit}}",
+        "packageCostLabel": "لكل عبوة",
+        "packageCostsNone": "لا يسجّل أي سطر تغليف سعة العنصر، لذا لا يمكن بيان تكلفة العبوة.",
+        "packageCostsNoYield": "حدّد ناتج الدُفعة في تبويب الإنتاج قبل احتساب تكلفة العبوة.",
+        "uncostedLines": "غير محتسبة: {{names}}",
+        "currencyMixed": "الأسطر مسعّرة بأكثر من عملة، لذا تُعرض المجاميع بلا عملة."
     },
     "publish": {
         "action": "نشر",

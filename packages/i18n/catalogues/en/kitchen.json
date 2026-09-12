@@ -1012,6 +1012,44 @@
             "a11y": {
                 "unnamedAgent": "This member has no name on their profile."
             }
+        },
+        "batch": {
+            "title": "Batch planner",
+            "subtitle": "Pick a recipe, say how much to make, and read off what to weigh out and what to pack it in. Nothing here is ordered or booked.",
+            "recipeLabel": "Recipe",
+            "recipePlaceholder": "Search the recipe book",
+            "modeLabel": "Plan by",
+            "modeYield": "By {{unit}}",
+            "modePieces": "By pieces",
+            "noPiecesHint": "This recipe does not count in pieces.",
+            "targetLabel": "Make",
+            "piecesUnit": "pieces",
+            "metrics": {
+                "batches": "Batches",
+                "quantity": "Resulting quantity",
+                "pieces": "Resulting pieces",
+                "waste": "Production waste"
+            },
+            "ingredientsHeading": "Ingredients",
+            "packagingHeading": "Packaging",
+            "columnItem": "Item",
+            "columnQuantity": "Quantity",
+            "columnUnit": "Unit",
+            "columnNote": "As written",
+            "columnBasis": "Basis",
+            "optionalBadge": "Optional",
+            "basis": {
+                "fills_yield": "Fills the yield",
+                "per_container": "Per container",
+                "per_batch": "Per batch"
+            },
+            "pickRecipeTitle": "Choose a recipe",
+            "pickRecipeBody": "Every figure on this page comes from one recipe version. Pick one to start.",
+            "targetNeededTitle": "Say how much to make",
+            "targetNeededBody": "A quantity greater than zero. Nothing is scaled until there is one.",
+            "noPackaging": "This recipe records no packaging.",
+            "loadErrorTitle": "This recipe could not be read",
+            "recipesErrorTitle": "The recipe book could not be read"
         }
     },
     "kds": {
@@ -1474,6 +1512,10 @@
         "packaging": {
             "name": "Packaging",
             "description": "Bags, boxes, lids, cutlery and labels, with what each costs — the half of the catalogue a dish ships in rather than the half it is made of."
+        },
+        "batch": {
+            "name": "Batch planner",
+            "description": "Scale a recipe to a quantity or a number of pieces, and read off the ingredients and packaging it needs."
         }
     },
     "analytics": {
@@ -2153,7 +2195,18 @@
         "sectionYieldWaste": "Yield and waste",
         "sectionPackagingWaste": "Packaging waste",
         "packagingWasteHint": "The proportion of packaging discarded per batch. The costing tab divides by it.",
-        "pickerSearching": "Searching…"
+        "pickerSearching": "Searching…",
+        "tabPrevious": "Previous",
+        "tabNext": "Next",
+        "sectionPackageCosts": "Cost per package",
+        "packageCostsHint": "What one filled package costs: the product it holds at the production cost above, plus the package itself.",
+        "packageInBatch": "In this batch: {{quantity}}",
+        "packageHolds": "Holds {{quantity}} {{unit}}",
+        "packageCostLabel": "Per package",
+        "packageCostsNone": "No packaging line records what one item holds, so a package cost cannot be stated.",
+        "packageCostsNoYield": "State the batch yield on the Production tab before a package can be costed.",
+        "uncostedLines": "Not costed: {{names}}",
+        "currencyMixed": "Lines are priced in more than one currency, so totals are shown without one."
     },
     "publish": {
         "action": "Publish",
