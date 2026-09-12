@@ -5,12 +5,15 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Recipes\Enums\AllergenDerivation;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
@@ -369,6 +372,126 @@ it('filters the recipe index to rows whose current version derivation is stale',
 
     expect($ids)->toContain((string) $staleRecipe->getKey())
         ->and($ids)->not->toContain((string) $freshRecipe->getKey());
+});
+
+it('filters the recipe index to rows whose current version declares an allergen class', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $organisationId = $this->a->organisation->getKey();
+    $peanut = RecipeWorld::allergen('peanut')->code;
+
+    $declaring = Recipe::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Satay Marinade',
+    ]);
+    $declaringVersion = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $declaring->getKey(),
+        'organisation_id' => $organisationId,
+    ]);
+    RecipeVersionAllergen::withoutTenancy()->create([
+        'recipe_version_id' => $declaringVersion->getKey(),
+        'organisation_id' => $organisationId,
+        'allergen_code' => $peanut,
+        'containment' => AllergenContainment::Contains,
+        'derivation' => AllergenDerivation::Derived,
+    ]);
+
+    $silent = Recipe::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Lemon Dressing',
+    ]);
+    RecipeVersion::factory()->published()->create([
+        'recipe_id' => $silent->getKey(),
+        'organisation_id' => $organisationId,
+    ]);
+
+    $ids = collect(
+        $this->getJson('/api/v1/catalogue/recipes?allergen='.$peanut.'&limit=100', $headers)
+            ->assertOk()
+            ->json('data'),
+    )->pluck('id')->all();
+
+    expect($ids)->toContain((string) $declaring->getKey())
+        ->and($ids)->not->toContain((string) $silent->getKey());
+});
+
+it('matches a may-contain declaration, because the column prints one', function (): void {
+    // The safe direction, and the one that keeps the filter agreeing with the row beside it: the
+    // Allergens cell prints `contains` and `may_contain` alike, so a row reading `peanut` that a
+    // `peanut` filter did not return would be the list contradicting itself on screen.
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $organisationId = $this->a->organisation->getKey();
+    $peanut = RecipeWorld::allergen('peanut')->code;
+
+    $recipe = Recipe::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Shared Fryer Fritters',
+    ]);
+    $version = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisationId,
+    ]);
+    RecipeVersionAllergen::withoutTenancy()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $organisationId,
+        'allergen_code' => $peanut,
+        'containment' => AllergenContainment::MayContain,
+        'derivation' => AllergenDerivation::Declared,
+        'source_note' => 'Shared fryer.',
+    ]);
+
+    expect(collect(
+        $this->getJson('/api/v1/catalogue/recipes?allergen='.$peanut.'&limit=100', $headers)
+            ->assertOk()
+            ->json('data'),
+    )->pluck('id')->all())->toContain((string) $recipe->getKey());
+});
+
+it('reads the current version only, so a class formulated out stops matching', function (): void {
+    /*
+     * The whole point of filtering against one version rather than any.
+     *
+     * A recipe that carried peanut at v1 and had it formulated out by v2 is not a peanut recipe,
+     * and the row's own Allergens cell — which reads the current version — says so. A filter
+     * matching any version would keep returning it, and the list would be disagreeing with itself.
+     */
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $organisationId = $this->a->organisation->getKey();
+    $peanut = RecipeWorld::allergen('peanut')->code;
+
+    $recipe = Recipe::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Reformulated Satay',
+    ]);
+
+    $retired = RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisationId,
+        'version_number' => 1,
+        'status' => 'retired',
+    ]);
+    RecipeVersionAllergen::withoutTenancy()->create([
+        'recipe_version_id' => $retired->getKey(),
+        'organisation_id' => $organisationId,
+        'allergen_code' => $peanut,
+        'containment' => AllergenContainment::Contains,
+        'derivation' => AllergenDerivation::Derived,
+    ]);
+
+    // The current one declares nothing.
+    RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisationId,
+        'version_number' => 2,
+    ]);
+
+    expect(collect(
+        $this->getJson('/api/v1/catalogue/recipes?allergen='.$peanut.'&limit=100', $headers)
+            ->assertOk()
+            ->json('data'),
+    )->pluck('id')->all())->not->toContain((string) $recipe->getKey());
 });
 
 it('serves the recipe book as numbered pages', function (): void {

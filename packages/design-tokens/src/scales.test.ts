@@ -29,6 +29,7 @@ import {
     DISPLAY_SIZE_THRESHOLD,
     FONT_SIZE_NAMES,
     displayFamilies,
+    monoFamilies,
     displayLineHeightMultipliers,
     fontFamilies,
     fontSizes,
@@ -145,13 +146,29 @@ describe('typography', () => {
             expect(family.stack).toContain('sans-serif');
         }
         expect(fontFamilies.arabic.stack).toContain('IBM Plex Sans Arabic');
-        expect(fontFamilies.latin.stack).toContain('Inter');
+        expect(fontFamilies.latin.stack).toContain('Schibsted Grotesk');
 
-        // Display family: Space Grotesk for Latin, with an Arabic-capable face next in the stack so
-        // per-glyph fallback keeps mixed headings legible; Arabic display stays on Plex.
-        expect(displayFamilies.latin.stack).toContain('Space Grotesk');
+        // Display is a *role*, not a second typeface: it resolves to the body family's own stack,
+        // with an Arabic-capable face next so per-glyph fallback keeps mixed headings legible.
+        expect(displayFamilies.latin.stack).toBe(fontFamilies.latin.stack);
         expect(displayFamilies.latin.stack).toContain('IBM Plex Sans Arabic');
         expect(displayFamilies.arabic.stack).toContain('IBM Plex Sans Arabic');
+    });
+
+    /**
+     * One Latin family, and the retired three stay retired.
+     *
+     * The product shipped Inter, Space Grotesk, Schibsted Grotesk and IBM Plex Mono at once while
+     * the Catalogue was mid-migration. Four faces is what a reader sees as "the fonts do not
+     * match", so this is the guard that no role quietly reintroduces one.
+     */
+    it('resolves every Latin role to the one family', () => {
+        for (const role of [fontFamilies, displayFamilies, monoFamilies]) {
+            expect(role.latin.stack).toContain('Schibsted Grotesk');
+            for (const face of ['Inter', 'Space Grotesk', 'IBM Plex Mono']) {
+                expect(role.latin.stack).not.toContain(face);
+            }
+        }
     });
 });
 

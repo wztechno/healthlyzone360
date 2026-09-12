@@ -165,7 +165,7 @@ describe('compact density', () => {
         'section',
         'title',
         'display',
-    ] as const)('renders %s on the role ramp in the admin face', async (variant) => {
+    ] as const)('renders %s on the role ramp, naming no family', async (variant) => {
         await renderCompact(
             <Text testID="copy" variant={variant}>
                 Zaatar
@@ -174,10 +174,14 @@ describe('compact density', () => {
         const classes: string = screen.getByTestId('copy').props.className;
 
         expect(classes).toContain(`text-role-${variant.toLowerCase()}`);
-        expect(classes).toContain('font-admin');
+        // The ramp is the whole treatment. It used to be the ramp *plus* `font-admin`; asserting
+        // the absence is what keeps a second family from creeping back in under a role name.
+        for (const face of ['font-admin', 'font-display', 'font-mono']) {
+            expect(classes).not.toContain(face);
+        }
     });
 
-    it('leaves the mono role to IBM Plex Mono rather than stacking two families', async () => {
+    it('gives the mono role tabular digits rather than a second family', async () => {
         await renderCompact(
             <Text testID="price" variant="mono">
                 12.500
@@ -185,8 +189,10 @@ describe('compact density', () => {
         );
         const classes: string = screen.getByTestId('price').props.className;
 
-        expect(classes).toContain('font-mono');
-        expect(classes).not.toContain('font-admin');
+        expect(classes).toContain('tabular-nums');
+        // The role used to state IBM Plex Mono, which put a second Latin family in a Catalogue row
+        // beside the label naming the figure. Fixed-advance digits were always the actual need.
+        expect(classes).not.toContain('font-mono');
     });
 
     it('keeps a badge a pill — the one exception the radius rule grants', async () => {
@@ -211,9 +217,10 @@ describe('comfortable density', () => {
         expect(screen.getByTestId('order').props.className).toContain('min-h-touch');
     });
 
-    it('never asks the customer app for the admin faces', async () => {
-        // Schibsted Grotesk is admin-only: the customer app must not load a face it does not
-        // render, and `font-admin` in customer output is how that regression would arrive.
+    it('names no font family, on either surface', async () => {
+        // Density chooses sizes and geometry, never a typeface. It used to emit `font-admin` on the
+        // compact branch, which is what kept Schibsted Grotesk off the customer app while that app
+        // was still on Inter; one family later, any family class at all is the regression.
         await renderWithI18n(
             <>
                 <Text testID="copy">Body</Text>
@@ -223,7 +230,10 @@ describe('comfortable density', () => {
         );
 
         for (const id of ['copy', 'order', 'crumb-root']) {
-            expect(screen.getByTestId(id).props.className).not.toContain('font-admin');
+            const classes: string = screen.getByTestId(id).props.className;
+            for (const face of ['font-admin', 'font-display', 'font-mono']) {
+                expect(classes).not.toContain(face);
+            }
         }
     });
 

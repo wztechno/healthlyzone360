@@ -120,7 +120,7 @@ export interface GoodsFamily {
     readonly resultCount: string;
     readonly emptyTitle: string;
     readonly emptyBody: string;
-    /** The uppercase eyebrow over the View drawer — "Product", "Sauce", "Dressing". */
+    /** The eyebrow over the View drawer — "Product", "Sauce", "Dressing". */
     readonly viewKind: string;
     readonly searchPlaceholder: string;
 }

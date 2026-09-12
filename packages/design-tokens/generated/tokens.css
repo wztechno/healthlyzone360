@@ -130,15 +130,14 @@
   --h360-font-size-5xl: 48px;
   --h360-line-height-latin-5xl: 58px;
   --h360-line-height-arabic-5xl: 67px;
-  --h360-font-family-latin: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --h360-font-family-latin: 'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --h360-font-family-arabic: 'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
-  --h360-font-family-admin: 'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --h360-font-family-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --h360-font-family-mono: 'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --h360-tracking-display: -0.02em;
   --h360-text-micro-size: 10px;
   --h360-text-micro-weight: 600;
   --h360-text-micro-line-height-latin: 14px;
-  --h360-text-micro-tracking-latin: 0.6px;
+  --h360-text-micro-tracking-latin: 0px;
   --h360-text-micro-line-height-arabic: 18px;
   --h360-text-micro-tracking-arabic: 0px;
   --h360-text-caption-size: 11px;
@@ -168,7 +167,7 @@
   --h360-text-section-size: 13px;
   --h360-text-section-weight: 600;
   --h360-text-section-line-height-latin: 18px;
-  --h360-text-section-tracking-latin: 0.26px;
+  --h360-text-section-tracking-latin: 0px;
   --h360-text-section-line-height-arabic: 23px;
   --h360-text-section-tracking-arabic: 0px;
   --h360-text-title-size: 16px;

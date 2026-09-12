@@ -258,7 +258,7 @@ export function KitchensScreen() {
                                 accessibilityLabel={t(`marketplace:diets.${goal}`)}
                             >
                                 <View className="flex-col gap-1.5">
-                                    <RNText className="font-display text-lg leading-tight text-content-primary text-start">
+                                    <RNText className="text-lg leading-tight text-content-primary text-start">
                                         {t(`marketplace:diets.${goal}`)}
                                     </RNText>
                                     <Text tone="secondary" variant="caption">

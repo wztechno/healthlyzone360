@@ -218,7 +218,7 @@ export function Tabs<T extends string = string>({
                             numberOfLines={1}
                             className={cx(
                                 'text-center',
-                                density === 'compact' ? 'text-role-label font-admin' : 'text-sm',
+                                density === 'compact' ? 'text-role-label' : 'text-sm',
                                 selected
                                     ? variant === 'segmented'
                                         ? 'font-semibold text-content-on-brand-subtle'
@@ -234,7 +234,7 @@ export function Tabs<T extends string = string>({
                                 testID={
                                     item.testID === undefined ? undefined : `${item.testID}-count`
                                 }
-                                className="font-mono text-role-micro text-content-secondary"
+                                className="tabular-nums text-role-micro text-content-secondary"
                             >
                                 {String(item.count)}
                             </RNText>

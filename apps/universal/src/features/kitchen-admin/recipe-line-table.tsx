@@ -708,7 +708,7 @@ function CellInput({
 /**
  * The classes for the control inside a cell's frame, stated once rather than layered.
  *
- * `inputControlClass('compact')` already carries `font-admin`, and appending `font-mono` to it
+ * `inputControlClass('compact')` used to carry `font-admin`, and appending a second family class to it
  * leaves two competing font utilities to be resolved by stylesheet order rather than by attribute
  * order — the hazard that function's own docblock names, and the reason it takes a density instead
  * of being `cx`-ed over. So the mono variant is written out in full instead of patched on top.
@@ -736,7 +736,7 @@ function cellControlClass(
     const width = 'w-full min-w-0';
     const base =
         mono === true
-            ? `${width} border-0 bg-transparent font-mono text-role-body text-content-primary outline-none`
+            ? `${width} border-0 bg-transparent tabular-nums text-role-body text-content-primary outline-none`
             : `${inputControlClass('compact')} ${width}`;
     /*
      * `text-end`, not `text-right`: the logical utility follows the writing direction, so an

@@ -181,9 +181,7 @@ export function Select<T extends string = string>({
                                             : { testID: `${testID}-value` })}
                                         className={cx(
                                             'flex-1 text-start',
-                                            density === 'compact'
-                                                ? 'text-role-body font-admin'
-                                                : 'text-base',
+                                            density === 'compact' ? 'text-role-body' : 'text-base',
                                             selected === null
                                                 ? 'text-content-secondary'
                                                 : 'text-content-primary',
@@ -290,9 +288,7 @@ export function Select<T extends string = string>({
                                         : { testID: `${testID}-no-results` })}
                                     className={cx(
                                         'px-control-md py-tight text-content-secondary text-start',
-                                        density === 'compact'
-                                            ? 'text-role-body font-admin'
-                                            : 'text-sm',
+                                        density === 'compact' ? 'text-role-body' : 'text-sm',
                                     )}
                                 >
                                     {t('designSystem:select.noResults')}
@@ -353,7 +349,7 @@ export function Select<T extends string = string>({
                                                 className={cx(
                                                     'text-content-primary text-start',
                                                     density === 'compact'
-                                                        ? 'text-role-body font-admin'
+                                                        ? 'text-role-body'
                                                         : 'text-base',
                                                 )}
                                                 numberOfLines={1}
@@ -365,7 +361,7 @@ export function Select<T extends string = string>({
                                                     className={cx(
                                                         'text-content-secondary text-start',
                                                         density === 'compact'
-                                                            ? 'text-role-caption font-admin'
+                                                            ? 'text-role-caption'
                                                             : 'text-xs',
                                                     )}
                                                     numberOfLines={1}

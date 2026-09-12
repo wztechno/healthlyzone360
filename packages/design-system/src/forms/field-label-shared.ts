@@ -1,3 +1,5 @@
+import type { Density } from '../hooks/use-density.tsx';
+
 /**
  * The props both halves of {@link FieldLabel} take.
  *
@@ -23,9 +25,16 @@ export interface FieldLabelProps {
     readonly testID?: string | undefined;
 }
 
-/** The utilities both halves render with, so the two cannot drift apart visually. */
-export function fieldLabelClassName(disabled: boolean): string {
-    return `text-sm font-medium text-start ${
-        disabled ? 'text-content-disabled' : 'text-content-primary'
-    }`;
+/**
+ * The utilities both halves render with, so the two cannot drift apart visually.
+ *
+ * **Density-aware, and it was not.** Every field label in the kitchen admin used to render 14px
+ * Inter, because this function never asked which surface it was on — while the `FormSection` title
+ * directly above it rendered 13px Schibsted Grotesk. Two faces and two ramps, a few pixels apart,
+ * on every row of every edit form. `label` is the role the Catalogue names for exactly this job.
+ */
+export function fieldLabelClassName(density: Density, disabled: boolean): string {
+    const base = density === 'compact' ? 'text-role-label' : 'text-sm font-medium';
+
+    return `${base} text-start ${disabled ? 'text-content-disabled' : 'text-content-primary'}`;
 }

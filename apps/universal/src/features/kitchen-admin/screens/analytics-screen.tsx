@@ -162,7 +162,7 @@ function AnalyticsDashboard() {
                 numeric: true,
                 sortable: true,
                 flex: 0.7,
-                render: (row) => <Text className="font-display font-bold">{row.volume}</Text>,
+                render: (row) => <Text variant="mono">{row.volume}</Text>,
             },
             {
                 key: 'completionPercent',

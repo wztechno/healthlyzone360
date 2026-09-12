@@ -128,7 +128,7 @@ export function QuantityInput({
                         // it would win over the class besides. The logical utility is the one route
                         // to "the trailing edge, whichever side that is today".
                         className={cx(
-                            'flex-1 border-0 bg-transparent font-mono text-end outline-none',
+                            'flex-1 border-0 bg-transparent tabular-nums text-end outline-none',
                             density === 'compact' ? 'text-role-body' : 'text-base',
                             inert ? 'text-content-secondary' : 'text-content-primary',
                         )}
@@ -150,7 +150,7 @@ export function QuantityInput({
                             aria-hidden
                             accessibilityElementsHidden
                             className={cx(
-                                'font-mono text-content-secondary',
+                                'tabular-nums text-content-secondary',
                                 density === 'compact' ? 'text-role-caption' : 'text-sm',
                             )}
                         >

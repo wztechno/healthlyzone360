@@ -35,17 +35,17 @@ export function AuthAside() {
                         style={{ width: 32, height: 32, borderRadius: 8 }}
                     >
                         <View className="h-full w-full items-center justify-center">
-                            <RNText className="font-display text-base text-content-on-canopy">
+                            <RNText className="text-base text-content-on-canopy">
                                 {t('marketplace:brand.name').slice(0, 1)}
                             </RNText>
                         </View>
                     </LinearGradient>
-                    <RNText className="font-display text-lg text-content-on-canopy">
+                    <RNText className="text-lg text-content-on-canopy">
                         {t('marketplace:brand.name')}
                     </RNText>
                 </View>
 
-                <RNText className="font-display text-3xl leading-tight text-content-on-canopy text-start">
+                <RNText className="text-3xl leading-tight text-content-on-canopy text-start">
                     {t('auth:aside.headline')}
                 </RNText>
 
@@ -53,7 +53,7 @@ export function AuthAside() {
                     {points.map((key) => (
                         <View key={key} className="flex-row items-start gap-2">
                             <Icon name="check" size="sm" className="text-content-on-canopy" />
-                            <RNText className="flex-1 text-sm leading-6 text-content-on-canopy-muted/85 text-start">
+                            <RNText className="flex-1 text-sm leading-6 text-content-on-canopy-muted text-start">
                                 {t(`auth:aside.points.${key}`)}
                             </RNText>
                         </View>

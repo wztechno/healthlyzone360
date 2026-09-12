@@ -1,5 +1,6 @@
 import { screen } from '@testing-library/react-native';
 
+import { DensityProvider } from '../hooks/use-density.tsx';
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { Inline, Stack } from './stack.tsx';
 import { Heading, Text } from './text.tsx';
@@ -57,6 +58,62 @@ describe('Text', () => {
         const node = screen.getByTestId('arabic');
         expect(node).toHaveTextContent('التغذية والعيادات والمطابخ');
         assertSubtreeIsLogical(node);
+    });
+
+    /*
+     * The regression this whole pass guards.
+     *
+     * The product used to draw one demoted label in five shapes: `micro`; `label` with
+     * `uppercase tracking-widest`; `caption` with the same; a hand-written
+     * `text-xs font-bold uppercase tracking-widest`; and the `section` step — across four Latin
+     * faces. `micro` is the one step for the job, and nothing on it shouts.
+     */
+    it.each(['micro', 'section'] as const)(
+        'sets the %s step in sentence case, in both densities',
+        async (variant) => {
+            await renderWithI18n(
+                <DensityProvider value="compact">
+                    <Text testID="compact" variant={variant}>
+                        Production item
+                    </Text>
+                </DensityProvider>,
+            );
+            expect(screen.getByTestId('compact').props.className).not.toContain('uppercase');
+
+            await renderWithI18n(
+                <Text testID="comfortable" variant={variant}>
+                    Production item
+                </Text>,
+            );
+            expect(screen.getByTestId('comfortable').props.className).not.toContain('uppercase');
+        },
+    );
+
+    it('names no family on any variant, and asks only the figure for tabular digits', async () => {
+        await renderWithI18n(
+            <DensityProvider value="compact">
+                <Text testID="eyebrow" variant="micro">
+                    Allergens
+                </Text>
+                <Text testID="label" variant="label">
+                    Name
+                </Text>
+                <Text testID="figure" variant="mono">
+                    12.40
+                </Text>
+            </DensityProvider>,
+        );
+
+        // No variant names a family — there is one, set on `html` per script. The figure differs
+        // by asking for fixed-advance digits, not by asking for a different typeface.
+        for (const id of ['eyebrow', 'label', 'figure']) {
+            const classes: string = screen.getByTestId(id).props.className;
+            for (const face of ['font-admin', 'font-display', 'font-mono']) {
+                expect(classes).not.toContain(face);
+            }
+        }
+        expect(screen.getByTestId('figure').props.className).toContain('tabular-nums');
+        expect(screen.getByTestId('eyebrow').props.className).not.toContain('tabular-nums');
     });
 });
 

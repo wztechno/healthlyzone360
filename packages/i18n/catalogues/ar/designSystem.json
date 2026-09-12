@@ -201,7 +201,8 @@
         "motionSlideStart": "انزلق من الحافة الأمامية",
         "motionSlideBottom": "انزلق من الأسفل",
         "motionNumber": "رقم متحرّك",
-        "tableCompactCaption": "جدول (صفوف مضغوطة)"
+        "tableCompactCaption": "جدول (صفوف مضغوطة)",
+        "tableAdminCaption": "جدول في لوحة الإدارة — العناوين بنفس درجة الخلايا"
     },
     "tag": {
         "join": "، ",

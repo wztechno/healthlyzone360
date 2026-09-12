@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6614 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6615 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1876,6 +1876,7 @@ export interface NamespaceKeys {
     | 'showcase.tabOverview'
     | 'showcase.tableActionHeader'
     | 'showcase.tableActionLabel'
+    | 'showcase.tableAdminCaption'
     | 'showcase.tableCaption'
     | 'showcase.tableColumnAmount'
     | 'showcase.tableColumnName'
@@ -8512,6 +8513,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:showcase.tabOverview',
   'designSystem:showcase.tableActionHeader',
   'designSystem:showcase.tableActionLabel',
+  'designSystem:showcase.tableAdminCaption',
   'designSystem:showcase.tableCaption',
   'designSystem:showcase.tableColumnAmount',
   'designSystem:showcase.tableColumnName',

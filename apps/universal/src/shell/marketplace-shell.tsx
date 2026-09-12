@@ -196,7 +196,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
              * gradient also hands violet back to its one job, marking machine-generated content.
              */}
             <View className="h-7 w-7 rounded rounded-es-xs border-[1.5px] border-content-primary bg-surface-brand" />
-            <RNText className="font-display text-xl tracking-display text-content-primary">
+            <RNText className="text-xl tracking-display text-content-primary">
                 {t('marketplace:brand.name')}
             </RNText>
         </Pressable>
@@ -425,10 +425,10 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
             testID="marketplace-footer"
             className="bg-surface-canopy p-8 md:px-10 lg:px-11"
         >
-            <RNText className="font-display text-base text-content-on-canopy">
+            <RNText className="text-base text-content-on-canopy">
                 {t('marketplace:brand.name')}
             </RNText>
-            <RNText className="text-sm text-content-on-canopy-muted/75">
+            <RNText className="text-sm text-content-on-canopy-muted">
                 {t('marketplace:footer.about')}
             </RNText>
             <Inline space="sm" wrap>
@@ -456,7 +456,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
              * dead control in the one place a person is most entitled to expect a real document.
              * Saying so is the honest substitute.
              */}
-            <RNText testID="footer-legal" className="text-xs text-content-on-canopy-muted/65">
+            <RNText testID="footer-legal" className="text-xs text-content-on-canopy-muted">
                 {t('marketplace:footer.legalPrototype')}
             </RNText>
         </Stack>

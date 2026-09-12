@@ -49,7 +49,7 @@ export function PlanPrice({ plan, testID }: PlanPriceProps) {
                  */}
                 <RNText
                     testID={testID === undefined ? undefined : `${testID}-amount`}
-                    className="font-display text-2xl leading-tight text-surface-brand text-start"
+                    className="text-2xl leading-tight text-surface-brand text-start"
                 >
                     {formatMoney(formatter, cheapest.pricePerWeek)}
                 </RNText>

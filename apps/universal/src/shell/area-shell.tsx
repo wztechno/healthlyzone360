@@ -201,7 +201,7 @@ function GuardedAreaShell({
                 onPress={signOut}
                 className="min-h-touch items-center justify-center rounded-lg border border-content-on-canopy-muted/30"
             >
-                <RNText className="text-sm font-semibold text-content-on-canopy-muted/80">
+                <RNText className="text-sm font-semibold text-content-on-canopy-muted">
                     {t('common:action.signOut')}
                 </RNText>
             </Pressable>

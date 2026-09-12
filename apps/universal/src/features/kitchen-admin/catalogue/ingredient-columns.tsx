@@ -182,7 +182,10 @@ export function ingredientColumns({
                     ? t('kitchen:list.noCategory')
                     : categoryName(row.categoryCode),
             render: (row) => (
-                <Text testID={`${ingredientRowTestId(row.id)}-category`} tone="secondary">
+                <Text
+                    testID={`${ingredientRowTestId(row.id)}-category`}
+                    tone={row.categoryCode === '' ? 'secondary' : 'primary'}
+                >
                     {row.categoryCode === ''
                         ? t('kitchen:list.noCategory')
                         : categoryName(row.categoryCode)}
@@ -202,7 +205,7 @@ export function ingredientColumns({
             // The abbreviation, not the picker's "Kilograms (kg)" — see `unitShortKey`.
             value: (row) => t(unitShortKey(row.measurementUnit)),
             render: (row) => (
-                <Text testID={`${ingredientRowTestId(row.id)}-unit`} tone="secondary">
+                <Text testID={`${ingredientRowTestId(row.id)}-unit`}>
                     {t(unitShortKey(row.measurementUnit))}
                 </Text>
             ),
@@ -259,7 +262,7 @@ export function ingredientColumns({
                                 ? `${testID}-allergens-none`
                                 : `${testID}-allergens`
                         }
-                        tone="secondary"
+                        tone={row.allergens.length === 0 ? 'secondary' : 'primary'}
                     >
                         {allergenLabel(row)}
                     </Text>

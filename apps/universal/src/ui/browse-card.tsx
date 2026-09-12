@@ -4,8 +4,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 /** Shared by both title branches, so the link and the plain title are the same thing to read. */
-const TITLE_CLASS =
-    'min-w-0 flex-1 font-display text-lg leading-tight text-content-primary text-start';
+const TITLE_CLASS = 'min-w-0 flex-1 text-lg leading-tight text-content-primary text-start';
 
 /**
  * The card a browse grid is made of.

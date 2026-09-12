@@ -315,11 +315,11 @@ export const nativeTokens = {
   "typography": {
     "fontFamilies": {
       "latin": {
-        "regular": "Inter_400Regular",
-        "medium": "Inter_500Medium",
-        "semibold": "Inter_600SemiBold",
-        "bold": "Inter_700Bold",
-        "stack": "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        "regular": "SchibstedGrotesk_400Regular",
+        "medium": "SchibstedGrotesk_500Medium",
+        "semibold": "SchibstedGrotesk_600SemiBold",
+        "bold": "SchibstedGrotesk_700Bold",
+        "stack": "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
       },
       "arabic": {
         "regular": "IBMPlexSansArabic_400Regular",
@@ -330,22 +330,6 @@ export const nativeTokens = {
       }
     },
     "monoFamilies": {
-      "latin": {
-        "regular": "IBMPlexMono_400Regular",
-        "medium": "IBMPlexMono_500Medium",
-        "semibold": "IBMPlexMono_600SemiBold",
-        "bold": "IBMPlexMono_700Bold",
-        "stack": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-      },
-      "arabic": {
-        "regular": "IBMPlexSansArabic_400Regular",
-        "medium": "IBMPlexSansArabic_500Medium",
-        "semibold": "IBMPlexSansArabic_600SemiBold",
-        "bold": "IBMPlexSansArabic_700Bold",
-        "stack": "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif"
-      }
-    },
-    "adminFamilies": {
       "latin": {
         "regular": "SchibstedGrotesk_400Regular",
         "medium": "SchibstedGrotesk_500Medium",
@@ -413,8 +397,8 @@ export const nativeTokens = {
         "size": 10,
         "lineHeight": 14,
         "weight": "600",
-        "letterSpacing": 0.6,
-        "uppercase": true
+        "letterSpacing": 0,
+        "uppercase": false
       },
       "caption": {
         "size": 11,
@@ -448,8 +432,8 @@ export const nativeTokens = {
         "size": 13,
         "lineHeight": 18,
         "weight": "600",
-        "letterSpacing": 0.26,
-        "uppercase": true
+        "letterSpacing": 0,
+        "uppercase": false
       },
       "title": {
         "size": 16,
@@ -471,7 +455,7 @@ export const nativeTokens = {
         "micro": {
           "fontSize": 10,
           "lineHeight": 14,
-          "letterSpacing": 0.6,
+          "letterSpacing": 0,
           "fontWeight": "600"
         },
         "caption": {
@@ -501,7 +485,7 @@ export const nativeTokens = {
         "section": {
           "fontSize": 13,
           "lineHeight": 18,
-          "letterSpacing": 0.26,
+          "letterSpacing": 0,
           "fontWeight": "600"
         },
         "title": {

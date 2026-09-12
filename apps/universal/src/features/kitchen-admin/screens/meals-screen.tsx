@@ -130,7 +130,7 @@ function MealsList() {
 
     const withHeaders = columns.map((column) => ({
         ...column,
-        renderHeader: headerMenu(column, list, t),
+        renderHeader: headerMenu(column, list, t, locale),
     }));
 
     const active = list.statuses[0];
@@ -566,9 +566,10 @@ function headerMenu(
     column: CatalogueColumn<MealAdmin>,
     list: MealListState,
     t: TFunction,
+    locale: string,
 ): (() => ReactNode) | undefined {
     const sortKey = sortKeyFor(column.key);
-    const filter = filterItemsFor(column.key, list, t);
+    const filter = filterItemsFor(column.key, list, t, locale);
     if (sortKey === null && filter.length === 0) return undefined;
 
     const active = sortKey !== null && list.sortKey === sortKey;
@@ -630,12 +631,52 @@ function sortKeyFor(key: string): MealSortKey | null {
 /**
  * The value list under a column's Filter heading.
  *
- * Only the two the request can carry: `MealAdminFilter` publishes `statuses` and `mealTypes` and
- * nothing else. Channels, allergens and the kitchen's own filing pair have no parameter, so their
+ * Only what the request can carry: `MealAdminFilter` publishes `statuses`, `mealTypes` and now
+ * `allergenCodes`. Channels and the kitchen's own filing pair still have no parameter, so their
  * headers do not offer to narrow by them — filtering one loaded page would misreport every page
  * after it.
+ *
+ * The allergen filter is the server's, and it has to be: a meal's label is derived at read time
+ * from a published recipe version or from the item's own ingredients, so there is nothing stored
+ * on the row for a client-side pass to match against. `CatalogueItemIndexController` resolves the
+ * same bases in the same order of authority, which is what keeps the filter and the column
+ * answering the same question.
  */
-function filterItemsFor(key: string, list: MealListState, t: TFunction): readonly MenuItem[] {
+function filterItemsFor(
+    key: string,
+    list: MealListState,
+    t: TFunction,
+    locale: string,
+): readonly MenuItem[] {
+    if (key === 'allergens') {
+        /*
+         * Every class the platform declares, not only the ones on the loaded page.
+         *
+         * The page-derived alternative is the trap the ingredient list already documents: the rows
+         * in front of you carry four classes between them, so the menu offers four and the other
+         * ten look as though nothing declares them. The vocabulary is closed and on the contract,
+         * so it is read from there.
+         */
+        return [
+            ...list.allergenClasses.map((entry) => ({
+                key: entry.code,
+                label: displayName(entry.name, locale).value,
+                selected: list.allergen === entry.code,
+                testID: `kitchen-meals-column-allergens-${entry.code}`,
+                onSelect: () => {
+                    list.setAllergen(list.allergen === entry.code ? null : entry.code);
+                },
+            })),
+            ...(list.allergen === null
+                ? []
+                : [
+                      clearItem('allergens', t, () => {
+                          list.setAllergen(null);
+                      }),
+                  ]),
+        ];
+    }
+
     if (key === 'status') {
         return [
             ...MEAL_STATUS_FILTERS.map((status: PublishableStatus) => ({

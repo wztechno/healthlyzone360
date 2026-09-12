@@ -103,6 +103,20 @@ export function packagingColumns({
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
+            /*
+             * The `label` step, which is what the other five Catalogue lists give the column that
+             * names the row — ingredients, products, recipes, meals and allergen classes all draw
+             * it this way.
+             *
+             * This column had no `render` at all, so `DataList` fell back to its default cell
+             * class and the item set at `role-body`'s 400 while every neighbouring list set its
+             * own at 500. Same size, one weight lighter, on the one column a reader scans down.
+             */
+            render: (row) => (
+                <Text variant="label" testID={`${packagingRowTestId(row.id)}-name`}>
+                    {displayName(row.name, locale).value}
+                </Text>
+            ),
         },
         {
             // The branch, not the leaf. This track used to carry the sub-category — bags, lids,

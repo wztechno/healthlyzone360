@@ -1,4 +1,5 @@
 import type {
+    AllergenCode,
     IngredientId,
     KitchenBranchId,
     DeliveryZoneId,
@@ -242,6 +243,25 @@ function cursorQuery(
     return rendered === '' ? '' : `?${rendered}`;
 }
 
+/**
+ * The one allergen class an endpoint can take, out of a filter that is typed to carry several.
+ *
+ * `/catalogue/recipes` and `/catalogue/items` both accept a single `allergen`, because a single
+ * class is the question a list column asks — its menu is single-select and clearing is how you
+ * ask a different one. The plural field on the filter is there because the ingredient twin
+ * genuinely takes a union, and one shape across the three filters is worth more than a field
+ * that changes arity per entity.
+ *
+ * A caller passing several gets the first rather than a page-local pass over the union. The
+ * ingredient repository does keep that pass, and can: it is answering a picker that loads one page
+ * and means it. These two answer paged browse lists, where narrowing the loaded page leaves the
+ * count and every page after it describing the unfiltered set — the failure this whole filter was
+ * added to avoid, so it is not one to reintroduce as a fallback.
+ */
+function soleAllergen(codes?: readonly AllergenCode[] | undefined): string | undefined {
+    return codes === undefined || codes.length === 0 ? undefined : codes[0];
+}
+
 export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdminReads {
     let unitCodeLookup: ReadonlyMap<string, string> | null = null;
 
@@ -317,6 +337,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         filter?: CursorQueryFilter,
         status?: string | undefined,
         categoryId?: string | undefined,
+        allergen?: string | undefined,
     ): Promise<CursorPage<AdminCatalogueItem>> {
         const envelope = await transport.requestEnvelope<AdminCatalogueItem[]>({
             method: 'GET',
@@ -329,6 +350,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 item_type: itemType,
                 status,
                 product_category_id: categoryId,
+                allergen,
             })}`,
         });
 
@@ -545,6 +567,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/recipes${cursorQuery(pickCursorFilter(filter), {
                     status: status === 'active' ? undefined : status,
                     stale_only: filter?.staleOnly === true ? '1' : undefined,
+                    allergen: soleAllergen(filter?.allergenCodes),
                 })}`,
             });
 
@@ -676,6 +699,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 pickCursorFilter(filter),
                 status,
                 filter?.categoryId,
+                soleAllergen(filter?.allergenCodes),
             );
             return {
                 ...page,

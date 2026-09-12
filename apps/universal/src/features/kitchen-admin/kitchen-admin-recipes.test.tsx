@@ -7,6 +7,7 @@ import type {
     RecipeAdmin,
     RecipeAdminFilter,
     RecipeAdminSummary,
+    AllergenClass,
     RecipeAllergenDeclaration,
     RecipeLine,
     RecipeRollupDraft,
@@ -348,7 +349,7 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
         meta: record.meta,
         name: record.name,
         slug: record.slug,
-        reference: null,
+        reference: record.reference,
         kitchenId: record.kitchenId,
         sourceKind: record.sourceKind,
         recipeCategory: record.recipeCategory,
@@ -365,18 +366,33 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
  * vocabulary from one unfiltered page. Reading a getter rather than a captured array is what lets a
  * test move the world on mid-flight and assert the refetch.
  */
+/**
+ * The listing, narrowed the way the server narrows it.
+ *
+ * `allergenCodes` is applied here against the record's current version rather than left to the
+ * screen, because that is where it happens in production: `RecipeIndexController` matches
+ * `recipe_version_allergens` and returns a page that is already filtered. A stub that ignored the
+ * parameter would let a page-local implementation pass the suite, which is the one outcome these
+ * tests exist to prevent.
+ */
 function recipeListing(
     read: () => readonly RecipeAdmin[],
 ): (filter?: RecipeAdminFilter) => Promise<CursorPage<RecipeAdminSummary>> {
     return async (filter) => {
         const statuses = filter?.statuses;
         const needle = filter?.query?.trim().toLocaleLowerCase() ?? '';
+        const codes = filter?.allergenCodes;
 
         return page(
             read()
                 .filter(
                     (row) =>
                         (statuses === undefined || statuses.includes(row.meta.status)) &&
+                        (codes === undefined ||
+                            codes.length === 0 ||
+                            row.currentVersion.allergens.some((declaration) =>
+                                codes.includes(declaration.allergenCode),
+                            )) &&
                         (needle === '' ||
                             row.name.en.toLocaleLowerCase().includes(needle) ||
                             row.name.ar.includes(needle) ||
@@ -386,6 +402,30 @@ function recipeListing(
         );
     };
 }
+
+/** Two of the fourteen regulatory classes — enough to pick one and leave another unpicked. */
+const RECIPE_ALLERGEN_CLASSES: readonly AllergenClass[] = [
+    {
+        code: AllergenCode.unsafe('sesame'),
+        name: { en: 'Sesame', ar: 'سمسم' },
+        description: { en: 'The sesame class.', ar: 'فئة السمسم.' },
+        markets: ['EU', 'GCC'],
+        declarationThreshold: null,
+        regulatoryReference: 'EU 1169/2011 Annex II',
+        severeByDefault: false,
+        isActive: true,
+    },
+    {
+        code: AllergenCode.unsafe('gluten'),
+        name: { en: 'Gluten', ar: 'غلوتين' },
+        description: { en: 'The gluten class.', ar: 'فئة الغلوتين.' },
+        markets: ['EU', 'GCC'],
+        declarationThreshold: null,
+        regulatoryReference: 'EU 1169/2011 Annex II',
+        severeByDefault: false,
+        isActive: true,
+    },
+];
 
 function ingredientListing(
     read: () => readonly IngredientAdmin[],
@@ -686,6 +726,7 @@ describe('the recipe list at desk width', () => {
                 kitchenAdmin: {
                     listRecipes: recipeListing(() => [published]),
                     getRecipe: async () => published,
+                    listAllergenClasses: async () => RECIPE_ALLERGEN_CLASSES,
                 },
             },
         });
@@ -707,13 +748,192 @@ describe('the recipe list at desk width', () => {
         // either draws a trigger rather than a plain label.
         expect(screen.getByTestId('kitchen-recipes-column-name-trigger')).toBeTruthy();
         expect(screen.getByTestId('kitchen-recipes-column-kitchen-trigger')).toBeTruthy();
-        // Derived per row and out of order, so it neither sorts nor filters: a header with nothing
-        // to do is a plain label, not a target a keyboard can land on.
-        expect(screen.queryByTestId('kitchen-recipes-column-allergens-trigger')).toBeNull();
+        // Allergens does not sort — the label is derived per row and out of order — but it does
+        // filter, against the server. A column that filters is a trigger; see the tests below for
+        // what the trigger does.
+        expect(screen.getByTestId('kitchen-recipes-column-allergens-trigger')).toBeTruthy();
         // Gone from the row entirely, along with Updated.
         expect(screen.queryByTestId('kitchen-recipes-column-version-trigger')).toBeNull();
         expect(screen.queryByTestId(`${base}-version-status`)).toBeNull();
         expect(screen.queryByTestId(`${base}-updated`)).toBeNull();
+    });
+
+    it('narrows the whole book by an allergen class, through the request', async () => {
+        /*
+         * The point of the test is the *request*, not the rows.
+         *
+         * A page-local implementation would show the same two rows on screen and be wrong about
+         * every page after this one, so what is asserted is that the screen asked the server to
+         * narrow — `allergenCodes` on the filter — rather than that it managed to hide a row it
+         * had already been given.
+         */
+        const sesame = recipe({
+            ordinal: 1,
+            name: 'Tahini dressing',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 1,
+                overrides: {
+                    allergens: [
+                        {
+                            allergenCode: AllergenCode.parse('sesame'),
+                            containment: 'contains',
+                            origin: 'derived',
+                            sourceIngredientIds: [MAPPED_INGREDIENT.id],
+                        },
+                    ],
+                },
+            }),
+        });
+        const gluten = recipe({ ordinal: 2, name: 'Tabbouleh' });
+        const library = [sesame, gluten];
+
+        const filters: RecipeAdminFilter[] = [];
+        const listing = recipeListing(() => library);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: async (filter?: RecipeAdminFilter) => {
+                        if (filter !== undefined) filters.push(filter);
+                        return listing(filter);
+                    },
+                    getRecipe: async (recipeId) => {
+                        const found = library.find((row) => row.id === recipeId);
+                        if (found === undefined) throw new Error('No such recipe.');
+                        return found;
+                    },
+                    listAllergenClasses: async () => RECIPE_ALLERGEN_CLASSES,
+                },
+            },
+        });
+
+        await untilVisible(`kitchen-recipe-${String(gluten.id)}-name`);
+
+        await untilVisible('kitchen-recipes-column-allergens-trigger');
+        fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-trigger'));
+        await untilVisible('kitchen-recipes-column-allergens-sesame');
+        fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-sesame'));
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(`kitchen-recipe-${String(gluten.id)}-name`)).toBeNull();
+        });
+        await untilVisible(`kitchen-recipe-${String(sesame.id)}-name`);
+
+        // The request carried it, which is what makes the count and the pager honest. `some`
+        // rather than the last entry: the previous, unfiltered query key is still live and the
+        // client is free to refetch it, so what matters is that a narrowed request was made at
+        // all — not that it happened to be the most recent one.
+        expect(
+            filters.some((sent) =>
+                (sent.allergenCodes ?? []).includes(AllergenCode.parse('sesame')),
+            ),
+        ).toBe(true);
+    });
+
+    it('turns the column\u2019s arrow over while a class is applied, and clears from the menu', async () => {
+        const library = [recipe({ ordinal: 1, name: 'Tabbouleh' })];
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => library),
+                    getRecipe: async () => library[0] as RecipeAdmin,
+                    listAllergenClasses: async () => RECIPE_ALLERGEN_CLASSES,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-column-allergens-trigger');
+
+        // The arrow is `aria-hidden` — the mark is for readers, and the menu's own tick is what a
+        // screen reader is given instead — so it is reached with `includeHiddenElements`, the same
+        // way the packaging suite reaches its own.
+        const hidden = { includeHiddenElements: true } as const;
+        const glyph = (testID: string) => screen.getByTestId(testID, hidden).props.children;
+
+        // Allergens filters but does not sort, so its arrow is never the black one a sorted column
+        // earns: `-affordance`, never `-sorted`, and pointing up until something is applied.
+        expect(screen.queryByTestId('kitchen-recipes-column-allergens-sorted', hidden)).toBeNull();
+        expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2191');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-trigger'));
+        });
+        await untilVisible('kitchen-recipes-column-allergens-gluten');
+        // A Clear on an unfiltered column is an item that does nothing, so it is not offered yet.
+        expect(screen.queryByTestId('kitchen-recipes-column-allergens-clear')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-gluten'));
+        });
+
+        // The arrow turns over. A shape, not a shade — a filtered column a reader cannot see is a
+        // filter they cannot clear.
+        await waitFor(() => {
+            expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2193');
+        });
+
+        // And the way out is inside the menu the mark points at.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-trigger'));
+        });
+        await untilVisible('kitchen-recipes-column-allergens-clear');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-clear'));
+        });
+
+        await waitFor(() => {
+            expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2191');
+        });
+    });
+
+    it('draws only the fragment of an imported row’s locator', async () => {
+        // Rows that predate the `RC-` series carry their import locator instead — the file the
+        // sheet arrived in, then the sheet within it. Every row from one run shares the file half,
+        // so drawn whole the column is a stack of identical prefixes with the half that tells two
+        // recipes apart pushed off the end of an 84px track.
+        const imported = recipe({
+            ordinal: 1,
+            name: 'BBQ sauce dip',
+            overrides: { reference: 'v6-recipes.json#bbq-sauce-dip' },
+        });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [imported]),
+                    getRecipe: async () => imported,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        const cell = screen.getByTestId(`kitchen-recipe-${String(imported.id)}-reference`);
+
+        expect(cell).toHaveTextContent('bbq-sauce-dip');
+        expect(cell).not.toHaveTextContent('v6-recipes.json');
+    });
+
+    it('leaves a handle with no fragment alone', async () => {
+        const numbered = recipe({ ordinal: 2, overrides: { reference: 'RC-0007' } });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [numbered]),
+                    getRecipe: async () => numbered,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        expect(
+            screen.getByTestId(`kitchen-recipe-${String(numbered.id)}-reference`),
+        ).toHaveTextContent('RC-0007');
     });
 
     it('offers New draft only against a version that cannot be edited in place', async () => {

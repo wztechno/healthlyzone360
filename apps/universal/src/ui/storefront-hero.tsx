@@ -120,7 +120,7 @@ export function StorefrontHero({
                             testID={`${testID}-title`}
                             accessibilityRole="header"
                             aria-level={1}
-                            className="font-display text-5xl leading-[1.05] tracking-display text-content-on-canopy text-start"
+                            className="text-5xl leading-[1.05] tracking-display text-content-on-canopy text-start"
                         >
                             {title}
                         </RNText>
@@ -179,7 +179,7 @@ export function StorefrontHero({
                         <RNText className="text-xs font-semibold uppercase tracking-widest text-content-secondary text-start">
                             {overlay.label}
                         </RNText>
-                        <RNText className="mt-1 font-display text-xl tracking-display text-content-primary text-start">
+                        <RNText className="mt-1 text-xl tracking-display text-content-primary text-start">
                             {overlay.value}
                         </RNText>
                     </View>

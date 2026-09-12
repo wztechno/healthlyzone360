@@ -148,9 +148,10 @@ describe('the Catalogue type ramp', () => {
     });
 
     /**
-     * Arabic is cursive: positive tracking separates letters that are joined in the script. The
-     * two roles that carry it — `micro` column labels and `section` form headings — are both
-     * translated, so this is enforced rather than remembered.
+     * Arabic is cursive: positive tracking separates letters that are joined in the script. No role
+     * carries positive tracking today — `micro` and `section` were the two, and lost it when they
+     * stopped being set in capitals — so this currently proves the ramp rather than the guard. It
+     * stays because it is the rule the *next* open eyebrow has to pass.
      */
     it('never gives Arabic positive tracking', () => {
         for (const role of TEXT_ROLE_NAMES) {
@@ -158,11 +159,18 @@ describe('the Catalogue type ramp', () => {
         }
     });
 
-    it('keeps Latin tracking as authored, in both directions', () => {
-        expect(textRoleLetterSpacing('micro', 'latin')).toBeGreaterThan(0);
+    it('opens no role, so nothing on the ramp is set for capitals', () => {
+        for (const role of TEXT_ROLE_NAMES) {
+            expect(textRoles[role].letterSpacing).toBeLessThanOrEqual(0);
+            expect(textRoles[role].uppercase).toBe(false);
+        }
+    });
+
+    it('keeps Latin tracking as authored, and passes tightening into Arabic', () => {
         expect(textRoleLetterSpacing('title', 'latin')).toBeLessThan(0);
         // Tightening does not break a cursive join, so it survives into Arabic.
         expect(textRoleLetterSpacing('title', 'arabic')).toBe(textRoles.title.letterSpacing);
+        expect(textRoleLetterSpacing('body', 'latin')).toBe(0);
     });
 
     it('resolves a tracking value for every role in every script', () => {

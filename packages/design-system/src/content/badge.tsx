@@ -73,8 +73,7 @@ export function Badge({ label, tone = 'neutral', nutrition, icon, className, tes
     // A badge stays a pill — it is the one exception §1.3 grants — but in the admin it sets its
     // label on the ramp's smallest step, so a status chip sits inside a 32px row without setting
     // the row's height. The mark keeps its size — it is the part that survives greyscale.
-    const labelClass =
-        density === 'compact' ? 'text-role-caption font-admin' : 'text-xs font-medium';
+    const labelClass = density === 'compact' ? 'text-role-caption' : 'text-xs font-medium';
     const insetClass = density === 'compact' ? 'gap-control-xs px-control-xs' : 'gap-1 px-2 py-0.5';
 
     if (nutrition !== undefined) {

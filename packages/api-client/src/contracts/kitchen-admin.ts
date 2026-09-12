@@ -737,6 +737,16 @@ export interface RecipeAdminFilter extends CursorPageRequest, OffsetPageRequest 
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly kitchenId?: KitchenId | undefined;
+    /**
+     * Narrows to the rows whose allergen label carries one of these classes.
+     *
+     * The endpoint takes a single class, because that is the question a list column asks — its
+     * menu is single-select. A caller passing several is asking for a union no endpoint here
+     * expresses, and gets the first one rather than a silently page-local pass: a filter that
+     * narrowed the loaded page would leave the count and every page after it describing the
+     * unfiltered set.
+     */
+    readonly allergenCodes?: readonly AllergenCode[] | undefined;
     /** Only recipes whose current version needs re-derivation. */
     readonly staleOnly?: boolean | undefined;
 }
@@ -1138,6 +1148,16 @@ export interface MealAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly kitchenId?: KitchenId | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
+    /**
+     * Narrows to the rows whose allergen label carries one of these classes.
+     *
+     * The endpoint takes a single class, because that is the question a list column asks — its
+     * menu is single-select. A caller passing several is asking for a union no endpoint here
+     * expresses, and gets the first one rather than a silently page-local pass: a filter that
+     * narrowed the loaded page would leave the count and every page after it describing the
+     * unfiltered set.
+     */
+    readonly allergenCodes?: readonly AllergenCode[] | undefined;
     /** See `ProductAdminFilter.categoryId` — meals are catalogue items and take the same param. */
     readonly categoryId?: string | undefined;
 }

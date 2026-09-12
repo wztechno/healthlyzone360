@@ -19,11 +19,8 @@
         "budget:export": "node scripts/check-export-budget.mjs"
     },
     "dependencies": {
-        "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
         "@expo-google-fonts/ibm-plex-sans-arabic": "^0.4.2",
-        "@expo-google-fonts/inter": "^0.4.2",
         "@expo-google-fonts/schibsted-grotesk": "^0.4.2",
-        "@expo-google-fonts/space-grotesk": "^0.4.1",
         "@healthy360/analytics": "workspace:*",
         "@healthy360/api-client": "workspace:*",
         "@healthy360/design-system": "workspace:*",

@@ -1,12 +1,35 @@
 /**
  * Typography tokens.
  *
- * Two families, one per script: Inter for Latin, IBM Plex Sans Arabic for Arabic. Arabic script
- * needs materially more vertical room than Latin at the same optical size — ascenders, descenders
- * and diacritics collide at Latin line heights — so the line-height multiplier is per script
- * (1.5 Latin, 1.75 Arabic) rather than a single global value. Components read the multiplier for
- * the *active locale's script*, never a hard-coded number.
+ * **One family per script, and that is the whole list.** Schibsted Grotesk for Latin, IBM Plex Sans
+ * Arabic for Arabic. Nothing picks a second face for emphasis: a heading, a price, a column label
+ * and a paragraph are the same typeface at different sizes and weights.
+ *
+ * This is the end of the staging `CLAUDE.md` describes. The product briefly shipped four Latin
+ * faces at once — Inter for body, Space Grotesk for headings, Schibsted Grotesk on the admin, IBM
+ * Plex Mono for figures — because the Catalogue adopted the new family before the customer surfaces
+ * did. Four faces is what a reader sees as "the fonts do not match", and it cost four webfont
+ * payloads to say nothing. `displayFamilies` and `monoFamilies` survive as *roles* so callers keep
+ * their meaning, but both now resolve to the same stack; `adminFamilies` is gone entirely.
+ *
+ * Figures that have to line up in a column get {@link TABULAR_NUMERIC_CLASS}, not a mono typeface.
+ *
+ * Arabic script needs materially more vertical room than Latin at the same optical size —
+ * ascenders, descenders and diacritics collide at Latin line heights — so the line-height
+ * multiplier is per script (1.5 Latin, 1.75 Arabic) rather than a single global value. Components
+ * read the multiplier for the *active locale's script*, never a hard-coded number.
  */
+
+/**
+ * How a column of figures lines up on its digits now that there is no mono face.
+ *
+ * Proportional digits are why a total never appears to sit under its addends. A monospaced
+ * *typeface* fixes that and costs a second family on every screen carrying a price; `tabular-nums`
+ * fixes it inside the family already loaded, by asking for the fixed-advance figures Schibsted
+ * Grotesk ships. Web-only in effect — React Native maps it where it can and ignores it otherwise,
+ * which degrades to proportional figures rather than to a wrong font.
+ */
+export const TABULAR_NUMERIC_CLASS = 'tabular-nums';
 
 export const SCRIPTS = ['latin', 'arabic'] as const;
 export type Script = (typeof SCRIPTS)[number];
@@ -23,11 +46,11 @@ export interface FontFamilyTokens {
 
 export const fontFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
     latin: {
-        regular: 'Inter_400Regular',
-        medium: 'Inter_500Medium',
-        semibold: 'Inter_600SemiBold',
-        bold: 'Inter_700Bold',
-        stack: "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+        regular: 'SchibstedGrotesk_400Regular',
+        medium: 'SchibstedGrotesk_500Medium',
+        semibold: 'SchibstedGrotesk_600SemiBold',
+        bold: 'SchibstedGrotesk_700Bold',
+        stack: "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
     },
     arabic: {
         regular: 'IBMPlexSansArabic_400Regular',
@@ -39,22 +62,24 @@ export const fontFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
 };
 
 /**
- * Display family — Space Grotesk (mood board Option 02) for headings, KPIs and numeric emphasis.
+ * Display role — the same family, at its bold cuts.
  *
- * Only its 500 and 700 cuts are shipped, so `regular`/`medium` both resolve to 500 and
- * `semibold`/`bold` to 700. Space Grotesk carries no Arabic glyphs, so the web stack lists
- * `IBM Plex Sans Arabic` next: font fallback is per-glyph on the web, so a mixed heading renders its
- * Latin in Grotesk and its Arabic in Plex without a second class. On native (one family, no per-glyph
- * fallback) the {@link Heading} applies the display face only in Latin locales, so Arabic headings
- * keep Plex there too.
+ * It was Space Grotesk, a second typeface reserved for headings, KPIs and numeric emphasis. A
+ * heading does not need a different *typeface* to read as a heading; it needs size, weight and
+ * space, all of which the ramp already gives it. Keeping the role while collapsing the family is
+ * deliberate: call sites that mean "this is display type" keep saying so, and there is exactly one
+ * place to change if that ever stops being true.
+ *
+ * Arabic keeps IBM Plex Sans Arabic. Schibsted Grotesk carries no Arabic glyphs, and the Latin
+ * stack lists Plex next so the web's per-glyph fallback renders a mixed heading correctly.
  */
 export const displayFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
     latin: {
-        regular: 'SpaceGrotesk_500Medium',
-        medium: 'SpaceGrotesk_500Medium',
-        semibold: 'SpaceGrotesk_700Bold',
-        bold: 'SpaceGrotesk_700Bold',
-        stack: "'Space Grotesk', 'IBM Plex Sans Arabic', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+        regular: 'SchibstedGrotesk_600SemiBold',
+        medium: 'SchibstedGrotesk_600SemiBold',
+        semibold: 'SchibstedGrotesk_700Bold',
+        bold: 'SchibstedGrotesk_700Bold',
+        stack: "'Schibsted Grotesk', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
     },
     arabic: {
         regular: 'IBMPlexSansArabic_600SemiBold',
@@ -66,51 +91,17 @@ export const displayFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
 };
 
 /**
- * The numeric family — IBM Plex Mono.
+ * Numeric role — the same family, with {@link TABULAR_NUMERIC_CLASS} doing the alignment.
  *
- * A **new role**, not a replacement: there was no mono token in this project before, so adding one
- * cannot change how any existing screen renders. It carries what has to line up in a column —
- * prices, quantities, costs, counts, references, version numbers — and the uppercase micro labels
- * whose tracking only reads correctly on a fixed advance. Proportional digits in a right-aligned
- * cost column are the reason a total never appears to sit under its addends.
+ * It was IBM Plex Mono. The job was never "look like code"; it was that a right-aligned cost column
+ * must line up on its digits, which proportional figures break. `tabular-nums` buys exactly that
+ * from the family already loaded, so a price sits under a price without a fourth webfont and
+ * without a price looking like it came from a different product than the label beside it.
  *
- * Latin only by construction: Arabic locales render numerals in the Arabic family, and a mono
- * Latin face has no Arabic glyphs to fall back on, so the stack lists Plex Sans Arabic next for the
- * mixed case the web resolves per glyph.
+ * The role stays so callers keep saying "this is a figure" — `Text variant="mono"` still means
+ * something, and it is still the one variant that opts out of nothing.
  */
 export const monoFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
-    latin: {
-        regular: 'IBMPlexMono_400Regular',
-        medium: 'IBMPlexMono_500Medium',
-        semibold: 'IBMPlexMono_600SemiBold',
-        bold: 'IBMPlexMono_700Bold',
-        stack: "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    },
-    arabic: {
-        regular: 'IBMPlexSansArabic_400Regular',
-        medium: 'IBMPlexSansArabic_500Medium',
-        semibold: 'IBMPlexSansArabic_600SemiBold',
-        bold: 'IBMPlexSansArabic_700Bold',
-        stack: "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif",
-    },
-};
-
-/**
- * Schibsted Grotesk — the Catalogue's family, scoped to the admin surfaces for now.
- *
- * `CLAUDE.md` states the whole product moves to Schibsted Grotesk, and this is that family. It is
- * a *separate role* rather than a change to {@link fontFamilies} because the move is staged: the
- * Catalogue adopts it first, the customer surfaces follow, and only then does this merge into
- * `fontFamilies.latin` and disappear. Until that day two Latin families ship, which is the price
- * of not reflowing every customer screen in the same commit as an admin redesign.
- *
- * **Transitional. When the rest of the product follows, fold this into {@link fontFamilies} and
- * delete it** — do not let a second permanent family role grow out of a staging step.
- *
- * Arabic is unchanged: Schibsted Grotesk carries no Arabic glyphs, and the per-script line-height
- * multiplier keeps its own leading either way.
- */
-export const adminFamilies: Readonly<Record<Script, FontFamilyTokens>> = {
     latin: {
         regular: 'SchibstedGrotesk_400Regular',
         medium: 'SchibstedGrotesk_500Medium',
@@ -214,8 +205,9 @@ export const displayLetterSpacing = '-0.02em';
  * **Tracking is resolved to absolute pixels, not `em`.** {@link displayLetterSpacing} has to be
  * `em` because one value serves four display sizes; a role has exactly one size, so its `em` can be
  * multiplied out here — and React Native takes points and cannot read `em` at all, so this is the
- * only form that means the same thing on both platforms. The source values are 0.06em on `micro`,
- * 0.02em on `section`, −0.01em on `title` and −0.015em on `display`.
+ * only form that means the same thing on both platforms. The source values are −0.01em on `title`
+ * and −0.015em on `display`; `micro` and `section` were 0.06em and 0.02em while they were set in
+ * capitals, and went to zero with the capitals.
  */
 export const TEXT_ROLE_NAMES = [
     'micro',
@@ -241,8 +233,15 @@ export interface TextRole {
 }
 
 export const textRoles: Readonly<Record<TextRoleName, TextRole>> = {
-    /** Column labels and eyebrows. Uppercase, and the only role that is tracked open. */
-    micro: { size: 10, lineHeight: 14, weight: '600', letterSpacing: 0.6, uppercase: true },
+    /**
+     * Column labels and eyebrows.
+     *
+     * Sentence case, and tracked at zero. Both were once the opposite — 0.06em of open tracking on
+     * capitals — and the pair went together: tracking is what makes a run of capitals legible, and
+     * on sentence case the same value only pulls words apart. Dropping the capitals without
+     * dropping the tracking is the half-change that reads as a bug.
+     */
+    micro: { size: 10, lineHeight: 14, weight: '600', letterSpacing: 0, uppercase: false },
     /** Helper text, meta, the list summary line. */
     caption: { size: 11, lineHeight: 16, weight: '400', letterSpacing: 0, uppercase: false },
     /** Body copy, table cells, input values. */
@@ -251,8 +250,8 @@ export const textRoles: Readonly<Record<TextRoleName, TextRole>> = {
     label: { size: 12, lineHeight: 16, weight: '500', letterSpacing: 0, uppercase: false },
     /** A list item's or card's title. */
     strong: { size: 13, lineHeight: 18, weight: '600', letterSpacing: 0, uppercase: false },
-    /** Section headings inside a form. */
-    section: { size: 13, lineHeight: 18, weight: '600', letterSpacing: 0.26, uppercase: true },
+    /** Section headings inside a form. Sentence case, for the reason `micro` states. */
+    section: { size: 13, lineHeight: 18, weight: '600', letterSpacing: 0, uppercase: false },
     /** The page title — 16, where the current admin uses 30. */
     title: { size: 16, lineHeight: 22, weight: '600', letterSpacing: -0.16, uppercase: false },
     /** One number, rarely. */
@@ -279,9 +278,12 @@ export function textRoleLineHeight(role: TextRoleName, script: Script): number {
  *
  * Latin letters sit apart already, so opening them further is a stylistic choice. Arabic is
  * cursive: letters in a word are joined, and positive tracking pulls those joins apart into
- * something that is not merely loose but genuinely harder to read. `micro` and `section` are the
- * two roles this applies to — column labels and form section headings, both of which are
- * translated — so the rule is a function rather than a note somebody has to remember.
+ * something that is not merely loose but genuinely harder to read.
+ *
+ * No role carries positive tracking today — `micro` and `section` were the two, and lost it when
+ * they stopped being set in capitals — so this currently changes nothing. It stays because it is a
+ * *rule* about the ramp rather than a fix for two entries in it: the next role that wants an open
+ * eyebrow gets caught here instead of shipping broken Arabic.
  *
  * Negative tracking is passed through: tightening does not break a join.
  */

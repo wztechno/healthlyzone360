@@ -143,9 +143,7 @@ export function Switch({
                     <RNText
                         className={cx(
                             'text-content-primary text-start',
-                            density === 'compact'
-                                ? 'text-role-label font-admin'
-                                : 'text-sm font-medium',
+                            density === 'compact' ? 'text-role-label' : 'text-sm font-medium',
                         )}
                     >
                         {label}
@@ -158,7 +156,7 @@ export function Switch({
                         testID={testID === undefined ? undefined : `${testID}-state`}
                         className={cx(
                             'text-content-secondary text-start',
-                            density === 'compact' ? 'text-role-caption font-admin' : 'text-xs',
+                            density === 'compact' ? 'text-role-caption' : 'text-xs',
                         )}
                     >
                         {stateLabel}
@@ -174,7 +172,7 @@ export function Switch({
                     accessibilityRole="alert"
                     className={cx(
                         'text-danger-strong text-start',
-                        density === 'compact' ? 'text-role-caption font-admin' : 'text-xs',
+                        density === 'compact' ? 'text-role-caption' : 'text-xs',
                     )}
                 >
                     {error}

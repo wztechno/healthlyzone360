@@ -185,8 +185,9 @@ module.exports = {
       },
       "fontFamily": {
         "latin": [
-          "Inter_400Regular",
-          "'Inter'",
+          "SchibstedGrotesk_400Regular",
+          "'Schibsted Grotesk'",
+          "'IBM Plex Sans Arabic'",
           "system-ui",
           "-apple-system",
           "'Segoe UI'",
@@ -202,10 +203,9 @@ module.exports = {
           "sans-serif"
         ],
         "display": [
-          "SpaceGrotesk_700Bold",
-          "'Space Grotesk'",
+          "SchibstedGrotesk_700Bold",
+          "'Schibsted Grotesk'",
           "'IBM Plex Sans Arabic'",
-          "'Inter'",
           "system-ui",
           "-apple-system",
           "'Segoe UI'",
@@ -213,15 +213,6 @@ module.exports = {
           "sans-serif"
         ],
         "mono": [
-          "IBMPlexMono_400Regular",
-          "'IBM Plex Mono'",
-          "ui-monospace",
-          "SFMono-Regular",
-          "Menlo",
-          "Consolas",
-          "monospace"
-        ],
-        "admin": [
           "SchibstedGrotesk_400Regular",
           "'Schibsted Grotesk'",
           "'IBM Plex Sans Arabic'",
@@ -273,7 +264,7 @@ module.exports = {
           "10px",
           {
             "lineHeight": "14px",
-            "letterSpacing": "0.6px",
+            "letterSpacing": "0px",
             "fontWeight": "600"
           }
         ],
@@ -313,7 +304,7 @@ module.exports = {
           "13px",
           {
             "lineHeight": "18px",
-            "letterSpacing": "0.26px",
+            "letterSpacing": "0px",
             "fontWeight": "600"
           }
         ],

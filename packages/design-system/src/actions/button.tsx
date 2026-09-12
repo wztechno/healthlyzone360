@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
-import { ADMIN_FONT_CLASS } from '../primitives/text.tsx';
 import { cx } from '../internal/class-names.ts';
 import {
     BUTTON_SIZES,
@@ -180,12 +179,10 @@ export function Button({
                 iconStart
             )}
             <RNText
-                className={cx(
-                    LABEL_VARIANT[variant],
-                    LABEL_SIZE[density][size],
-                    density === 'compact' ? ADMIN_FONT_CLASS : null,
-                    'text-center',
-                )}
+                // No family class: there is one Latin family, set on `html` per script. This used
+                // to add `ADMIN_FONT_CLASS` on the compact branch, which is now an empty string —
+                // a concatenation that costs a branch and says nothing.
+                className={cx(LABEL_VARIANT[variant], LABEL_SIZE[density][size], 'text-center')}
                 numberOfLines={1}
             >
                 {label}
