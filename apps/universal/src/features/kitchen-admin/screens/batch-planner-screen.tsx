@@ -179,9 +179,16 @@ function BatchPlanner() {
                 }
             />
 
+            {/*
+             * Raised, because the recipe select opens *downward* out of this panel and over the
+             * tiles and tables drawn after it. react-native-web gives every View
+             * `position: relative; z-index: 0`, so a panel paints as one layer in source order
+             * among its siblings whatever the select sets on its own listbox; without the raise the
+             * list slid under the metrics the moment it grew past the panel's edge.
+             */}
             <View
                 testID="kitchen-batch-controls"
-                className="gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                className="relative z-raised gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
             >
                 <Inline space="sm" align="end" wrap>
                     <Select
