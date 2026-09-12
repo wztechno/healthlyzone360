@@ -22,16 +22,19 @@ WORKDIR /var/www/html
 
 COPY api/ /var/www/html/
 
-# Development dependencies are installed on purpose, and only because this
-# instance seeds demo data: the demo seeders drive model factories, factories
-# call fake(), and fakerphp/faker is a require-dev package — `--no-dev` gets as
-# far as B2bProgrammesDemoSeeder and dies on an undefined function.
+# `--no-dev`, restored now that nothing here seeds a demonstration world.
 #
-# What makes that acceptable rather than sloppy is nginx.conf: exactly three
-# path prefixes reach PHP (/api, /up, /sanctum). A route belonging to any dev
-# tool in this tree is served the web bundle instead of being routed to Laravel,
-# so nothing here widens what is reachable over HTTP. A deployment that does not
-# seed demo data should add --no-dev back.
+# It was off for one reason: the demo seeders drove model factories, factories
+# call fake(), and fakerphp/faker is a require-dev package — so `--no-dev` got
+# as far as B2bProgrammesDemoSeeder and died on an undefined function. A deploy
+# no longer seeds at all, and the seeders `healthzone-rebuild.sh` does run
+# reach no factory: the reference layer, the platform operator, the v6
+# importers and HealthZoneKitchenSeeder contain no fake(), no Faker and no
+# ::factory() between them.
+#
+# If a seeder ever needs a factory again this line has to come back out, and
+# the honest fix is to give that seeder real data rather than to reship the dev
+# dependencies.
 #
 # --no-scripts: post-autoload-dump runs `artisan package:discover`, which boots
 # the framework — at build time there is no .env, no database and no Redis to
@@ -42,7 +45,7 @@ COPY api/ /var/www/html/
 # The app-modules are Composer *path* repositories with symlink:true, so vendor
 # and app-modules must stay in one filesystem layer — hence a single stage
 # rather than a separate vendor stage whose symlinks would dangle.
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts \
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts --no-dev \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
 

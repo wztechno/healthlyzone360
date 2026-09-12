@@ -28,8 +28,9 @@ infrastructure/deploy/DEPLOYMENT.md sections 2 and 10 before doing anything.
 - In /opt/healthy360-dev always pass `-f compose.dev.yaml` to docker compose (a compose.yaml
   also exists there and would read the wrong .env).
 - Never print the contents of .env or .env.deploy on the droplet.
-- The database policy: a deploy migrates and touches nothing else. Never pass SEED=1 or
-  DEMO_PASSWORD unless I explicitly ask; never run an import or a rebuild unless I ask.
+- The database policy: a deploy migrates and touches nothing else. There is no seed flag
+  any more; never pass DEMO_PASSWORD unless I explicitly ask, and never run an import or a
+  rebuild unless I ask.
 - If a step fails, stop and report exactly what failed. Do not improvise fixes on the server.
 
 ## Step 1 — pre-flight (all must pass before building)
