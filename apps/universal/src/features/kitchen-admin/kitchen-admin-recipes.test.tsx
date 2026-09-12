@@ -729,6 +729,35 @@ describe('recipe display helpers', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the recipe list', () => {
+    it('names the kitchen a recipe belongs to, off the session, instead of printing its id', async () => {
+        // `kitchenId` is the owning organisation's id, and the signed-in person is a member of it —
+        // so the column reads the membership's name. A kitchen outside the memberships keeps the id.
+        const own = recipe({
+            ordinal: 1,
+            name: 'Tabbouleh',
+            overrides: { kitchenId: KitchenId.unsafe(TEST_ORGANISATION_ID) },
+        });
+        const foreign = recipe({ ordinal: 2, name: 'Fattoush' });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [own, foreign]),
+                    getRecipe: async (id) => (id === own.id ? own : foreign),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.getByTestId(`kitchen-recipe-${String(own.id)}-kitchen`)).toHaveTextContent(
+            'Test Kitchen',
+        );
+        expect(
+            screen.getByTestId(`kitchen-recipe-${String(foreign.id)}-kitchen`),
+        ).toHaveTextContent(String(TEST_KITCHEN_ID));
+    });
+
     it('renders skeletons, then the authored rows with their version and derived label', async () => {
         const published = recipe({
             ordinal: 1,
@@ -1721,6 +1750,50 @@ describe('the packaging tab', () => {
             expect(screen.getByTestId(`${row}-name`)).toHaveTextContent('Sleeve 1000');
         });
         expect(screen.getByTestId(`${row}-unit-price`)).toHaveTextContent('$0.25');
+
+        // The same by-id read is what the Costing tab's per-package card hangs from: a saved line
+        // resolves to its record's capacity exactly as a freshly picked one does.
+        await openTab('costing');
+        await waitFor(() => {
+            expect(screen.getAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(1);
+        });
+    });
+
+    it('names a packaging line whose record does not say what one item holds', async () => {
+        const lid = packagingItem(5, { name: { en: 'Lid 750', ar: 'غطاء' }, capacity: null });
+        const stored = packagedRecipe(6, {
+            packaging: [
+                {
+                    ingredientId: lid.id,
+                    basis: 'per_batch',
+                    quantity: 2,
+                    unit: 'piece',
+                    comment: null,
+                },
+            ],
+        });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListingByCategory(LIBRARY, [lid]),
+                    getIngredient: ingredientShow([...LIBRARY, lid]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('costing');
+
+        // A lid holds nothing, so there is no filled-package figure for it — and the caption names
+        // the record to open rather than announcing that no line qualifies.
+        await untilVisible('kitchen-recipe-package-costs-none');
+        expect(screen.getByTestId('kitchen-recipe-package-costs-none')).toHaveTextContent(
+            /Lid 750/,
+        );
+        expect(screen.queryAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(0);
     });
 });
 

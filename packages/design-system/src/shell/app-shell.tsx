@@ -431,8 +431,12 @@ export function AppShell({
             )}
             {sidebarStart}
             {/* The list scrolls; the brand block above and the control below stay put. A
-                workspace rail of thirty destinations is taller than most viewports. */}
-            <ScrollView className="flex-1">
+                workspace rail of thirty destinations is taller than most viewports. The id is
+                what global.css keys the rail's own scrollbar on — see there for why. */}
+            <ScrollView
+                testID={testID === undefined ? undefined : `${testID}-sidebar-scroll`}
+                className="flex-1"
+            >
                 {navigationList(variant === 'rail', 'canopy')}
             </ScrollView>
             {sidebarEnd}

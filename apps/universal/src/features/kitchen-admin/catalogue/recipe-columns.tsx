@@ -1,5 +1,6 @@
 import type { RecipeAdmin, RecipeAdminSummary } from '@healthy360/api-client/contracts';
 import { Badge, Inline, Skeleton, Text } from '@healthy360/design-system';
+import type { KitchenId } from '@healthy360/domain-types';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 
@@ -80,6 +81,12 @@ export interface RecipeColumnDeps {
      * which owns the batched read — see `useRecipeDetails`.
      */
     readonly detailOf: (row: RecipeAdminSummary) => RecipeAdmin | undefined;
+    /**
+     * The kitchen's name for a `KitchenId`, which is that organisation's id. The screen resolves it
+     * off the session's memberships; a kitchen the reader is not a member of falls back to the id,
+     * which is still a filter value even if nobody would read it aloud.
+     */
+    readonly kitchenName: (kitchenId: KitchenId) => string;
 }
 
 /**
@@ -102,6 +109,7 @@ export function recipeColumns({
     t,
     locale,
     detailOf,
+    kitchenName,
 }: RecipeColumnDeps): readonly CatalogueColumn<RecipeAdminSummary>[] {
     const allergenLabel = (row: RecipeAdminSummary): string | undefined => {
         const detail = detailOf(row);
@@ -185,10 +193,10 @@ export function recipeColumns({
             // A recipe has no category on this contract, so the kitchen is the second axis — and
             // unlike the ingredient categories it is a real `RecipeAdminFilter` parameter, which is
             // what makes this header's Filter honest across every page rather than only this one.
-            value: (row) => String(row.kitchenId),
+            value: (row) => kitchenName(row.kitchenId),
             render: (row) => (
                 <Text testID={`${recipeRowTestId(String(row.id))}-kitchen`}>
-                    {String(row.kitchenId)}
+                    {kitchenName(row.kitchenId)}
                 </Text>
             ),
         },
