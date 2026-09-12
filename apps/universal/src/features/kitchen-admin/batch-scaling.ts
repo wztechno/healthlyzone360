@@ -1,7 +1,7 @@
 import type { RecipeVersionAdmin } from '@healthy360/api-client/contracts';
 import type { MeasureUnit } from '@healthy360/nutrition';
 
-import { unitDimension } from './format.ts';
+import { normaliseQuantity, unitDimension } from './format.ts';
 
 /**
  * Scaling a recipe version to a batch — the whole arithmetic of the batch planner, as pure
@@ -14,10 +14,11 @@ import { unitDimension } from './format.ts';
  * a recipe with no piece count, a box that cannot be bought in fifths — be asserted without
  * rendering anything.
  *
- * **No unit conversion happens anywhere in this module.** A line written in grams scales in grams;
- * the planner never turns 2500 g into 2.5 kg. Conversion within a dimension is a catalogue concern
- * (`format.ts`, `unitsInDimension`) and inventing it here would put a second, unreviewed conversion
- * table in the codebase.
+ * **The arithmetic never converts a unit.** A line written in grams scales in grams; the planner
+ * never turns 2500 g into 2.5 kg on the way to a figure. The one re-expression is on the way *out*:
+ * {@link displayQuantity} reads a fraction of a kilogram as grams (and of a litre as millilitres),
+ * because a cook weighs out 526 g and not 0.526 kg — and it borrows `format.ts`'s conversion table
+ * rather than keeping a second one here.
  */
 
 /** Which figure the cook is stating: a quantity in the yield unit, or a number of pieces. */
@@ -82,3 +83,24 @@ export function scalePackaging(quantity: number, factor: number, unit: MeasureUn
 
 /** Far below any count a kitchen states, far above the error a product of two decimals carries. */
 const WHOLE_NUMBER_TOLERANCE = 1e-9;
+
+/** The unit a fraction of the larger one is read in. Two pairs; the table in `format.ts` has no more. */
+const SMALLER_UNIT: Readonly<Partial<Record<MeasureUnit, MeasureUnit>>> = { kg: 'g', l: 'ml' };
+
+/**
+ * A scaled quantity, in the unit a cook would actually read it in.
+ *
+ * Under one kilogram reads as grams and under one litre as millilitres — `0.526 kg` is `526 g` on
+ * the scale, and a column of `0.012 Kg` is a column of numbers nobody weighs. The figure is not
+ * changed, only restated, so it stays exact; anything at or above one unit, in any other unit, or
+ * empty, comes back as it was.
+ */
+export function displayQuantity(
+    quantity: number,
+    unit: MeasureUnit,
+): { readonly quantity: number; readonly unit: MeasureUnit } {
+    const smaller = SMALLER_UNIT[unit];
+    if (smaller === undefined || quantity <= 0 || quantity >= 1) return { quantity, unit };
+    const restated = normaliseQuantity(quantity, unit, smaller);
+    return restated === null ? { quantity, unit } : { quantity: restated, unit: smaller };
+}

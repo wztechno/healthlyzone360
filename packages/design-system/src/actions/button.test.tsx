@@ -210,4 +210,35 @@ describe('IconButton', () => {
         await fireEvent.press(screen.getByTestId('off'));
         expect(onPress).not.toHaveBeenCalled();
     });
+
+    it('shows its label while the pointer rests on it, and not while disabled', async () => {
+        await renderWithI18n(
+            <>
+                <IconButton
+                    testID="archive"
+                    label="Archive"
+                    icon={<Icon name="archive" />}
+                    onPress={jest.fn()}
+                />
+                <IconButton
+                    testID="inert"
+                    label="Archive"
+                    disabled
+                    icon={<Icon name="archive" />}
+                    onPress={jest.fn()}
+                />
+            </>,
+        );
+
+        // A mouse has no aria-label to read; the glyph names itself on hover and lets go on leave.
+        expect(screen.queryByTestId('archive-hover-label')).toBeNull();
+        await fireEvent(screen.getByTestId('archive'), 'hoverIn');
+        expect(screen.getByTestId('archive-hover-label')).toHaveTextContent('Archive');
+        await fireEvent(screen.getByTestId('archive'), 'hoverOut');
+        expect(screen.queryByTestId('archive-hover-label')).toBeNull();
+
+        // A disabled control does not offer a name for something it will not do.
+        await fireEvent(screen.getByTestId('inert'), 'hoverIn');
+        expect(screen.queryByTestId('inert-hover-label')).toBeNull();
+    });
 });

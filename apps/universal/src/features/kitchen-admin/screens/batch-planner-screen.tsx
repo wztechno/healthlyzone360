@@ -34,7 +34,7 @@ import {
     useRecipeQuery,
     useRecipesQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { batchFactor, scaleLine, scalePackaging } from '../batch-scaling.ts';
+import { batchFactor, displayQuantity, scaleLine, scalePackaging } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
 import { CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, parseQuantity, statusKey, statusTone, unitShortKey } from '../format.ts';
@@ -55,9 +55,11 @@ import { KpiTile } from '../kpi-tile.tsx';
  * There is no scaling endpoint and this slice does not add one. The current version already states
  * what it makes, so the factor is a division and every row is a multiplication — see
  * `batch-scaling.ts`, where the interesting cases live as pure functions. The consequence worth
- * stating is what the page will *not* do: it never converts a unit. A line written in grams is
- * scaled in grams and reported in grams, because a second conversion table living in a planner is
- * how two parts of one product start disagreeing about what a kilogram is.
+ * stating is what the arithmetic will *not* do: it never converts a unit on the way to a figure. A
+ * line written in grams is scaled in grams. The one restatement is on the way out — a fraction of a
+ * kilogram is *read* as grams (`displayQuantity`), because a cook weighs 526 g, not 0.526 kg — and
+ * it borrows the catalogue's conversion table rather than keeping a second one, which is how two
+ * parts of one product would start disagreeing about what a kilogram is.
  *
  * ## Names come from the catalogue, never from the line
  *
@@ -179,9 +181,16 @@ function BatchPlanner() {
                 }
             />
 
+            {/*
+             * Raised, because the recipe select opens *downward* out of this panel and over the
+             * tiles and tables drawn after it. react-native-web gives every View
+             * `position: relative; z-index: 0`, so a panel paints as one layer in source order
+             * among its siblings whatever the select sets on its own listbox; without the raise the
+             * list slid under the metrics the moment it grew past the panel's edge.
+             */}
             <View
                 testID="kitchen-batch-controls"
-                className="gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                className="relative z-raised gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
             >
                 <Inline space="sm" align="end" wrap>
                     <Select
@@ -398,14 +407,24 @@ function ScaledOutput({ version, factor, ingredients }: ScaledOutputProps) {
             primary: true,
             render: (line) => (
                 <Text testID={`kitchen-batch-row-${String(line.ingredientId)}-quantity`}>
-                    {number(scaleLine(line.quantity, factor))}
+                    {number(displayQuantity(scaleLine(line.quantity, factor), line.unit).quantity)}
                 </Text>
             ),
         },
         {
             key: 'unit',
             header: t('kitchen:ops.batch.columnUnit'),
-            render: (line) => <Text tone="secondary">{t(unitShortKey(line.unit))}</Text>,
+            // The unit the figure beside it is read in — grams under a kilogram — so the two cells
+            // are one statement. See `displayQuantity`.
+            render: (line) => (
+                <Text tone="secondary">
+                    {t(
+                        unitShortKey(
+                            displayQuantity(scaleLine(line.quantity, factor), line.unit).unit,
+                        ),
+                    )}
+                </Text>
+            ),
         },
         {
             key: 'note',
@@ -440,14 +459,28 @@ function ScaledOutput({ version, factor, ingredients }: ScaledOutputProps) {
             primary: true,
             render: (row) => (
                 <Text testID={`kitchen-batch-row-${String(row.ingredientId)}-quantity`}>
-                    {number(scalePackaging(row.quantity, factor, row.unit))}
+                    {number(
+                        displayQuantity(scalePackaging(row.quantity, factor, row.unit), row.unit)
+                            .quantity,
+                    )}
                 </Text>
             ),
         },
         {
             key: 'unit',
             header: t('kitchen:ops.batch.columnUnit'),
-            render: (row) => <Text tone="secondary">{t(unitShortKey(row.unit))}</Text>,
+            render: (row) => (
+                <Text tone="secondary">
+                    {t(
+                        unitShortKey(
+                            displayQuantity(
+                                scalePackaging(row.quantity, factor, row.unit),
+                                row.unit,
+                            ).unit,
+                        ),
+                    )}
+                </Text>
+            ),
         },
         {
             key: 'basis',

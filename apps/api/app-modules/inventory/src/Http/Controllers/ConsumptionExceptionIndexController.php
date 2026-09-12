@@ -37,8 +37,14 @@ final class ConsumptionExceptionIndexController
      */
     public function __invoke(Request $request, TenantContext $context): JsonResponse
     {
+        /*
+        | `in:` rather than `boolean:` on the flag. Laravel's boolean rule
+        | compares strictly against true/false/0/1/'0'/'1', so the `true|false`
+        | this endpoint documents — and that a query string can only ever carry
+        | as a word — is rejected by it. filter_var below reads all four.
+        */
         $validated = $request->validate([
-            'resolved' => ['nullable', 'boolean'],
+            'resolved' => ['nullable', 'in:true,false,1,0'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
         ]);

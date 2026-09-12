@@ -1,5 +1,6 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 import type { PressableProps } from 'react-native';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useDensity } from '../hooks/use-density.tsx';
@@ -78,10 +79,24 @@ export function IconButton({
     disabled = false,
     className,
     onPress,
+    onHoverIn,
+    onHoverOut,
     testID,
     ...rest
 }: IconButtonProps) {
     const density = useDensity();
+
+    /*
+     * The label, drawn while the pointer rests on the glyph.
+     *
+     * An icon-only control's name is `aria-label` for a screen reader and nothing for a mouse: a
+     * row of four glyphs asks the reader to guess. Hover is the mouse's own way of asking, so the
+     * label sits above the glyph for as long as the pointer stays. Above rather than below, because
+     * react-native-web paints siblings in source order and a label hanging *under* a table row would
+     * be covered by the row after it. Native never fires hover, so nothing changes there.
+     */
+    const [hovered, setHovered] = useState(false);
+    const showLabel = hovered && !disabled;
 
     return (
         <Pressable
@@ -95,8 +110,16 @@ export function IconButton({
             aria-disabled={disabled}
             disabled={disabled}
             onPress={disabled ? undefined : onPress}
+            onHoverIn={(event) => {
+                setHovered(true);
+                onHoverIn?.(event);
+            }}
+            onHoverOut={(event) => {
+                setHovered(false);
+                onHoverOut?.(event);
+            }}
             className={cx(
-                'items-center justify-center',
+                'relative items-center justify-center',
                 CONTAINER_VARIANT[variant],
                 ICON_BUTTON_SIZE[density][size],
                 disabled ? 'opacity-50' : null,
@@ -104,6 +127,20 @@ export function IconButton({
             )}
         >
             <View className={cx(LABEL_VARIANT[variant], TONE_CLASS[tone])}>{icon}</View>
+            {showLabel ? (
+                <View
+                    testID={testID === undefined ? undefined : `${testID}-hover-label`}
+                    // Never a pointer target of its own: it would flicker the moment it was
+                    // reached, and it says nothing a screen reader has not already been told.
+                    style={{ pointerEvents: 'none' }}
+                    aria-hidden
+                    className="absolute bottom-full end-0 z-tooltip mb-1 rounded-sm bg-surface-canopy-deep px-2 py-1"
+                >
+                    <RNText numberOfLines={1} className="text-role-caption text-content-on-canopy">
+                        {label}
+                    </RNText>
+                </View>
+            ) : null}
         </Pressable>
     );
 }

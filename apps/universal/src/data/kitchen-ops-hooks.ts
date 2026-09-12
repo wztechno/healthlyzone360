@@ -403,8 +403,9 @@ export function useDeleteSupplierLinkMutation(): UseMutationResult<
  * last-price column.
  *
  * A Procurement read joined client-side to the Inventory list, because Inventory may not import
- * Procurement and the price therefore cannot ride on the stock rows themselves. One request for
- * the whole visible page, never one per row.
+ * Procurement and the price therefore cannot ride on the stock rows themselves. A batch read for
+ * the whole visible page, never one per row — the repository splits it into URL-sized requests and
+ * answers with one list.
  *
  * Items with no priced receipt are **absent** from the answer rather than present with nulls, so a
  * caller keys the result and treats a miss as *never bought* — which is a different cell from a

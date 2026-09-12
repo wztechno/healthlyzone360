@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Services\StockItemDerivationService;
@@ -13,6 +14,7 @@ use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Illuminate\Support\Str;
 
 beforeEach(function (): void {
     $this->seed([
@@ -195,3 +197,36 @@ it('gates the inventory write endpoint on the role resolved inventory.manage gra
     'kitchen manager runs the ops surface' => ['kitchen_manager', true],
     'kitchen staff count stock but never move it' => ['kitchen_staff', false],
 ]);
+
+/*
+| The review list reads its filter off the query string, where a boolean can
+| only arrive as a word. Laravel's `boolean` rule refuses `false` spelled out,
+| so the list 422'd on every load until the rule matched the wire — hence a test
+| that sends exactly what the client sends.
+*/
+it('filters the consumption exception list on a resolved flag spelled as a word', function (): void {
+    $open = OrderConsumptionException::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'order_id' => (string) Str::uuid(),
+        'reason_code' => 'no_recipe_version',
+    ]);
+    OrderConsumptionException::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'order_id' => (string) Str::uuid(),
+        'reason_code' => 'no_stock_item',
+        'resolved_at' => now(),
+    ]);
+
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=false', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data.exceptions')
+        ->assertJsonPath('data.exceptions.0.id', (string) $open->getKey());
+
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=true', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data.exceptions')
+        ->assertJsonPath('data.exceptions.0.resolved', true);
+
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=banana', $this->headers)
+        ->assertStatus(422);
+});

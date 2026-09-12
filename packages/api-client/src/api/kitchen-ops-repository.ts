@@ -777,6 +777,16 @@ function mapQualityCheck(wire: WireQualityCheck): QualityCheck {
     };
 }
 
+/**
+ * Ids per `item-purchases/latest` request.
+ *
+ * The endpoint takes 200 — but 200 uuids as `stock_item_ids[]` is an ~11.7 KB request line, and
+ * nginx refuses anything past 8 KB with a `414` before the application sees it. So the page's ids
+ * travel in URL-sized batches and the caller still gets one list. Raising a proxy buffer would fix
+ * one deployment; this fixes every one.
+ */
+const LATEST_PURCHASE_BATCH = 50;
+
 export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsRepository {
     return {
         async listStockItems(): Promise<readonly StockItem[]> {
@@ -970,20 +980,27 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
         async listItemLatestPurchases(
             stockItemIds: readonly StockItemId[],
         ): Promise<readonly ItemLatestPurchase[]> {
-            if (stockItemIds.length === 0) return [];
+            const batches: Promise<readonly ItemLatestPurchase[]>[] = [];
 
-            const params = new URLSearchParams();
-            for (const stockItemId of stockItemIds) {
-                params.append('stock_item_ids[]', String(stockItemId));
+            for (let from = 0; from < stockItemIds.length; from += LATEST_PURCHASE_BATCH) {
+                const params = new URLSearchParams();
+                for (const stockItemId of stockItemIds.slice(from, from + LATEST_PURCHASE_BATCH)) {
+                    params.append('stock_item_ids[]', String(stockItemId));
+                }
+
+                batches.push(
+                    transport
+                        .requestEnvelope<{
+                            readonly purchases: readonly WireItemLatestPurchase[];
+                        }>({
+                            method: 'GET',
+                            path: `/catalogue/procurement/item-purchases/latest?${params.toString()}`,
+                        })
+                        .then((envelope) => envelope.data.purchases.map(mapItemLatestPurchase)),
+                );
             }
 
-            const envelope = await transport.requestEnvelope<{
-                readonly purchases: readonly WireItemLatestPurchase[];
-            }>({
-                method: 'GET',
-                path: `/catalogue/procurement/item-purchases/latest?${params.toString()}`,
-            });
-            return envelope.data.purchases.map(mapItemLatestPurchase);
+            return (await Promise.all(batches)).flat();
         },
 
         async countSupplyNeeds(branchId: BranchId): Promise<SupplyNeedsCount> {

@@ -42,6 +42,16 @@ export function withNumberingSystem(locale: string, numberingSystem: NumberingSy
     return `${base}-u-nu-${numberingSystem}`;
 }
 
+/**
+ * The empty string is `UNKNOWN_ISO_DATE_TIME` — `@healthy360/api-client`'s sentinel for a timestamp
+ * the API does not expose, which any record with a null `updated_at` carries into a screen. It is
+ * answered with the empty string rather than formatted: a thrown `TypeError` here blanks the whole
+ * route over one missing date, and an invented date would read as a real one.
+ */
+function isUnknown(value: Date | string | number): boolean {
+    return value === '';
+}
+
 function toDate(value: Date | string | number): Date {
     if (value instanceof Date) return value;
     const date = new Date(value);
@@ -92,6 +102,8 @@ export function createFormatter(options: FormatterOptions): Formatter {
         },
 
         formatDate(value, dateOptions) {
+            if (isUnknown(value)) return '';
+
             return new Intl.DateTimeFormat(resolvedLocale, {
                 ...dateDefaults,
                 ...dateOptions,
@@ -99,6 +111,8 @@ export function createFormatter(options: FormatterOptions): Formatter {
         },
 
         formatRelativeTime(value, now) {
+            if (isUnknown(value)) return '';
+
             const target = toDate(value).getTime();
             const reference = now === undefined ? Date.now() : toDate(now).getTime();
             const deltaMs = target - reference;
