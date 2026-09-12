@@ -19,7 +19,7 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { batchFactor, scaleLine, scalePackaging } from './batch-scaling.ts';
+import { batchFactor, displayQuantity, scaleLine, scalePackaging } from './batch-scaling.ts';
 import { RECIPE_VIEW_PERMISSION } from './entity-registry.ts';
 import { BatchPlannerScreen } from './screens/batch-planner-screen.tsx';
 
@@ -82,6 +82,17 @@ describe('batch scaling', () => {
         expect(scalePackaging(1.7, 1.5, 'l')).toBe(2.55);
         // 3 × (2.1 ÷ 0.7) is 9.000000000000002 in floating point; that is nine boxes, not ten.
         expect(scalePackaging(3, 2.1 / 0.7, 'piece')).toBe(9);
+    });
+
+    it('reads a fraction of a kilogram in grams, and leaves everything else in its own unit', () => {
+        expect(displayQuantity(0.526, 'kg')).toEqual({ quantity: 526, unit: 'g' });
+        expect(displayQuantity(0.25, 'l')).toEqual({ quantity: 250, unit: 'ml' });
+        // At a kilogram and above the figure is already the one a scale shows.
+        expect(displayQuantity(3.505, 'kg')).toEqual({ quantity: 3.505, unit: 'kg' });
+        expect(displayQuantity(1, 'kg')).toEqual({ quantity: 1, unit: 'kg' });
+        // Counts and empty lines have nothing smaller to be read in.
+        expect(displayQuantity(0.5, 'piece')).toEqual({ quantity: 0.5, unit: 'piece' });
+        expect(displayQuantity(0, 'kg')).toEqual({ quantity: 0, unit: 'kg' });
     });
 });
 
@@ -293,9 +304,10 @@ describe('the batch planner', () => {
             },
             { timeout: 10_000 },
         );
+        // 0.2 kg × 2.5 is half a kilogram, which the sheet reads as 500 g.
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
-        ).toHaveTextContent('0.5');
+        ).toHaveTextContent('500');
 
         // 3 trays × 2.5 is 7.5, and half a tray is not a thing anybody can take off a shelf.
         expect(
