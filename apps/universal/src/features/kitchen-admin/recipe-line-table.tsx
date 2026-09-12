@@ -7,18 +7,22 @@ import {
     inputControlClass,
     inputFrameClassName,
 } from '@healthy360/design-system';
+import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 
+import { ingredientsFromPages, useIngredientsQuery } from '../../data/kitchen-admin-hooks.ts';
 import {
-    ingredientsFromPages,
-    useIngredientsQuery,
-    usePackagingPageQuery,
-} from '../../data/kitchen-admin-hooks.ts';
-import { displayName, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
+    displayName,
+    formatMoney,
+    humaniseCode,
+    lineCost,
+    parseQuantity,
+    unitShortKey,
+} from './format.ts';
 
 /**
  * One row of a recipe's line table, as typed.
@@ -32,23 +36,28 @@ import { displayName, humaniseCode, parseQuantity, unitShortKey } from './format
 /**
  * What the table needs from a catalogue row, and nothing more.
  *
- * The two tabs draw from two different tables — `ingredients` for the formulation, `packaging_items`
- * for the boxes — and the table itself does not care which. It needs an id, a name, the unit a
- * quantity is counted in, a price to multiply, and a grey run of context beside the name. Both
- * catalogues can supply those; neither can supply the other's shape.
+ * The two tabs draw from one table read two ways — `ingredients` excluding the packaging branch for
+ * the formulation, that branch alone for the boxes — and the table itself does not care which. It
+ * needs an id, a name, the unit a quantity is counted in, **a price quoted against that same unit**,
+ * and a grey run of context beside the name.
  *
- * This is why the packaging tab was broken before. It reused the ingredient picker and simply asked
- * it for `category=packaging-disposables`, which stopped resolving the moment packaging became its
- * own table — and the panel went empty with nothing to say why. A normalised option makes the wrong
- * table a compile error rather than an empty dropdown.
+ * The normalisation is where the two families are reconciled, and the unit/price pairing is the whole
+ * reason it exists: food records a list price per issued unit, packaging records a price per purchase
+ * pack. {@link packagingEntry} divides one into the other so both arms of this type mean the same
+ * thing, and a row's arithmetic never has to ask which family it came from.
  */
 export interface PickerEntry {
     readonly id: string;
     readonly name: LocalisedText;
-    /** The unit a new line starts in. */
+    /** The unit a new line starts in, and the one {@link unitPrice} is quoted against. */
     readonly unit: MeasureUnit;
-    /** What one unit costs, for the row's own arithmetic. `null` where nothing is recorded. */
+    /** What one {@link unit} costs, for the row's own arithmetic. `null` where nothing is recorded. */
     readonly unitPrice: CostAmount | null;
+    /**
+     * How much product one item holds, in the recipe's own unit. `null` on everything but packaging
+     * that holds something measurable — the Costing tab's per-package figure is built on it.
+     */
+    readonly capacity: { readonly quantity: number; readonly unit: MeasureUnit } | null;
     /** The grey run beside the name — `Condiments · kg`, `Bags · piece`. */
     readonly meta: string;
     /** The catalogue reference — `ING-002`, `PKG-014` — drawn beside the designation on a row. */
@@ -75,13 +84,16 @@ export interface LineDraft {
  * The recipe editor's line table — `Catalogue.dc.html`'s `tabLines`, both of its uses.
  *
  * ```
- * RAW MATERIALS  Type to add — the picker stays inline, no modal
+ * Raw materials  Type to add — the picker stays inline, no modal
  * [ Add an ingredient…            320px ]
- * DESIGNATION            UNIT  QTY   UNIT PRICE  TOTAL   COMMENTS          ⋯
+ * Designation            Unit  Qty   Unit price  Total   Comments          ⋯
  * Mayonnaise   IG-019    kg    [ 1 ] [ 3.50   ]  3.500   Fine dice         ✕
  * …
  * Total                        3.553             10.636
  * ```
+ *
+ * Sentence case throughout — the Catalogue's `micro` role dropped its uppercasing, so the header row
+ * reads as the words the catalogue itself uses rather than as a shout.
  *
  * One component for Production and Packaging, because the design draws one table twice and varies
  * only its title, its hint and its picker placeholder. Two copies would be two chances for the Qty
@@ -105,8 +117,8 @@ export interface LineDraft {
  * | Designation| the resolved ingredient                   | picker   |
  * | Unit       | `RecipeLine.unit`                         | no       |
  * | Qty        | `RecipeLine.quantity`                     | yes      |
- * | Unit price | the *ingredient's* `unitPrice`            | no       |
- * | Total      | qty × unit price                          | derived  |
+ * | Unit price | the *entry's* `unitPrice`, per its `unit`  | no       |
+ * | Total      | qty converted to that unit, × unit price   | derived  |
  * | Comments   | `RecipeLine.sourceDesignation`            | yes      |
  *
  * **Unit price is read, not typed**, and that is a contract fact rather than a design deviation.
@@ -141,12 +153,11 @@ export interface RecipeLineTableProps {
      */
     readonly ingredients: readonly PickerEntry[];
     /**
-     * Which catalogue the picker searches.
+     * Which half of the catalogue the picker searches.
      *
-     * `ingredients` reads the ingredient library; `packaging` reads `packaging_items`. They are
-     * different tables with different endpoints, which is the whole reason this is a source rather
-     * than a category filter — the version that filtered one table by category silently returned
-     * nothing once packaging moved out of it.
+     * One table, read from opposite ends: `ingredients` excludes the packaging branch, `packaging`
+     * asks for it. Still a named source rather than a raw category filter, because the two also
+     * differ in how a row is *priced* — see {@link ingredientEntry} and {@link packagingEntry}.
      */
     readonly source?: 'ingredients' | 'packaging' | undefined;
     readonly canManage: boolean;
@@ -157,9 +168,6 @@ export interface RecipeLineTableProps {
     readonly pickerPlaceholder: string;
     readonly testID: string;
 }
-
-/** How many matches the panel offers at once. The design's 226px panel holds eight 28px rows. */
-const MAX_RESULTS = 8;
 
 /** Long enough that typing "mayo" is one request, short enough to feel like typing. */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -187,33 +195,47 @@ function useDebounced<T>(value: T, delay: number): T {
  * counted in. Two facts rather than one, because "Mayonnaise" appears twice in a library of three
  * hundred and the unit is what decides whether `1` means a kilo or a bottle.
  */
-function ingredientEntry(entry: IngredientAdmin): PickerEntry {
+export function ingredientEntry(entry: IngredientAdmin): PickerEntry {
     return {
         id: String(entry.id),
         name: entry.name,
         unit: entry.measurementUnit,
         unitPrice: entry.unitPrice,
+        capacity: entry.capacity,
         meta: entry.categoryCode === '' ? '' : humaniseCode(entry.categoryCode),
         reference: entry.reference,
     };
 }
 
 /**
- * A packaging item as the picker sees it.
+ * A packaging item as the picker sees it — priced **per issued item**, not per pack.
  *
- * The price is the **pack** price, and the unit here is the purchase unit to match it — a sleeve at
- * $6.50, not a bag at $0.065. Quoting a per-piece price against a pack figure is the one arithmetic
- * error this row can make, so the two travel together or not at all.
+ * `purchasePrice` is what a *pack* costs (a sleeve at $6.50) and `itemsPerUnit` is how many items are
+ * in it, so one bag is the quotient. That is the side the server takes:
+ * `RecipeVersionService::packagingCostOf` prices a packaging line at pack price ÷ items per unit and
+ * stores the line in the item's **default** unit, which is `measurementUnit`. This used to carry the
+ * pack price against the purchase unit and argue for it in a docblock; against a line counted in
+ * pieces that overstates a packaging cost by `itemsPerUnit` — fifty-fold on a sleeve of fifty.
+ *
+ * `null` where no pack price is recorded, so the row reads as uncosted rather than free. The
+ * quotient stays in the pack's own currency.
  *
  * The grey run leads with the leaf — `Bags`, `Containers` — because on this tab every row shares
  * one top-level category and the leaf is the only thing that distinguishes them.
  */
-function packagingEntry(entry: IngredientAdmin): PickerEntry {
+export function packagingEntry(entry: IngredientAdmin): PickerEntry {
+    const perPack = entry.purchasePrice;
+    const perItem = entry.itemsPerUnit !== null && entry.itemsPerUnit > 0 ? entry.itemsPerUnit : 1;
+
     return {
         id: String(entry.id),
         name: entry.name,
-        unit: entry.purchaseUnit ?? entry.measurementUnit,
-        unitPrice: entry.purchasePrice,
+        unit: entry.measurementUnit,
+        unitPrice:
+            perPack === null
+                ? null
+                : { amount: perPack.amount / perItem, currency: perPack.currency },
+        capacity: entry.capacity,
         // The leaf's code, humanised. The packaging table used to denormalise a resolved name onto
         // every row; the ingredient wire carries codes, and this picker's grey run is one line of
         // context rather than a field anybody reads back.
@@ -271,51 +293,66 @@ export function RecipeLineTable({
     const wantsIngredients = source === 'ingredients';
 
     /*
-     * Both hooks are called every render and one of them is disabled, because hooks cannot be
-     * called conditionally. The disabled one costs a cache lookup and no request.
+     * One hook for both families, because they are one table again.
+     *
+     * Packaging used to be read through `usePackagingPageQuery`, which is a *numbered page* of
+     * eighteen — so a catalogue of thirty-one boxes offered nineteen of them and the rest could not
+     * be found by typing their names. The two sides differ by one filter now: food excludes the
+     * packaging branch, packaging asks for it. The repository *refuses* an exclusion it cannot
+     * resolve rather than dropping it, so neither list can widen by accident.
+     *
+     * No `.slice` either. The panel scrolls; truncating the server's answer to eight hid matches
+     * that were already in hand.
      */
-    const ingredientSearch = useIngredientsQuery(
-        {
-            limit: 100,
-            // Food only. The two families share a table, so the raw-material picker has to say so:
-            // without this it offers bin liners beside chickpeas, which is the complaint that got
-            // packaging moved out in the first place. The repository *refuses* an exclusion it
-            // cannot resolve rather than dropping it, so this cannot quietly stop working.
-            excludeCategoryCode: PACKAGING_CATEGORY_CODE,
-            ...(term === '' ? {} : { query: term }),
-        },
-        wantsIngredients,
-    );
-    const packagingSearch = usePackagingPageQuery(
-        term === '' ? {} : { query: term },
-        1,
-        !wantsIngredients,
+    const search = useIngredientsQuery({
+        limit: 100,
+        ...(wantsIngredients
+            ? { excludeCategoryCode: PACKAGING_CATEGORY_CODE }
+            : { categoryCode: PACKAGING_CATEGORY_CODE }),
+        ...(term === '' ? {} : { query: term }),
+    });
+
+    const results = useMemo(
+        (): readonly PickerEntry[] =>
+            ingredientsFromPages(search.data?.pages).map(
+                wantsIngredients ? ingredientEntry : packagingEntry,
+            ),
+        [wantsIngredients, search.data?.pages],
     );
 
-    const search = wantsIngredients ? ingredientSearch : packagingSearch;
-
-    const results = useMemo((): readonly PickerEntry[] => {
-        const entries = wantsIngredients
-            ? ingredientsFromPages(ingredientSearch.data?.pages).map(ingredientEntry)
-            : (packagingSearch.data?.items ?? []).map(packagingEntry);
-
-        return entries.slice(0, MAX_RESULTS);
-    }, [wantsIngredients, ingredientSearch.data?.pages, packagingSearch.data?.items]);
-
-    const unitPriceOf = (row: LineDraft): number | null => {
+    const unitPriceOf = (row: LineDraft): CostAmount | null => {
         if (row.ingredientId === null) return null;
-        return byId.get(String(row.ingredientId))?.unitPrice?.amount ?? null;
+        return byId.get(String(row.ingredientId))?.unitPrice ?? null;
     };
 
+    /*
+     * Quantity converted into the unit the price is quoted against, *then* multiplied — see
+     * {@link lineCost}. A 300 g line against a per-kilogram price used to read as three hundred
+     * kilograms. `null` is an uncosted line and draws the dash, never a zero.
+     */
     const lineTotal = (row: LineDraft): number | null => {
         const quantity = parseQuantity(row.quantity);
-        const price = unitPriceOf(row);
-        if (quantity === null || price === null) return null;
-        return quantity * price;
+        const entry = row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
+        if (quantity === null || entry === undefined) return null;
+        return lineCost(quantity, row.unit, entry.unitPrice, entry.unit);
     };
 
     const totalQuantity = rows.reduce((sum, row) => sum + (parseQuantity(row.quantity) ?? 0), 0);
     const totalCost = rows.reduce((sum, row) => sum + (lineTotal(row) ?? 0), 0);
+
+    /*
+     * The one currency every priced row is in, or `null`.
+     *
+     * A total only carries a currency mark when every figure under it is in that currency. Two rows
+     * priced in two currencies do not add up to either, so the sum renders as a bare number rather
+     * than claiming the currency of whichever row happened to be first.
+     */
+    const pricedCurrencies = new Set<CurrencyCode>();
+    for (const row of rows) {
+        const price = unitPriceOf(row);
+        if (price !== null) pricedCurrencies.add(price.currency);
+    }
+    const sharedCurrency = pricedCurrencies.size === 1 ? ([...pricedCurrencies][0] ?? null) : null;
 
     const add = (entry: PickerEntry) => {
         onChange([
@@ -442,7 +479,14 @@ export function RecipeLineTable({
                                 >
                                     {price === null
                                         ? t('kitchen:list.noValue')
-                                        : formatter.formatNumber(price, MONEY)}
+                                        : // Each row in its **own** currency: the pool can hold two,
+                                          // and a mark borrowed from a neighbour is worse than none.
+                                          formatMoney(
+                                              formatter,
+                                              price.amount,
+                                              price.currency,
+                                              MONEY,
+                                          )}
                                 </Text>
                             </View>
 
@@ -506,7 +550,7 @@ export function RecipeLineTable({
                         testID={`${testID}-totals`}
                         label={t('kitchen:recipes.sheetTotalRow')}
                         quantity={formatter.formatNumber(totalQuantity, LINE_TOTAL)}
-                        cost={formatter.formatNumber(totalCost, LINE_TOTAL)}
+                        cost={formatMoney(formatter, totalCost, sharedCurrency, LINE_TOTAL)}
                     />
                 )}
             </View>
@@ -635,7 +679,7 @@ function TotalsRow({
 
 interface CellInputProps {
     readonly value: string;
-    /** Accessible name. The column header is 10px caps and is not associated with the control. */
+    /** Accessible name. The column header is a 10px `micro` label, associated with no control. */
     readonly label: string;
     readonly onChangeText: (next: string) => void;
     readonly disabled: boolean;
@@ -772,6 +816,8 @@ interface PickerProps {
 const PICKER_WIDTH = 320;
 /** The panel is wider than its field, as drawn — a designation plus a price needs the room. */
 const PANEL_WIDTH = 360;
+/** One option row, `h-control-sm`. What the keyboard's scroll arithmetic counts in. */
+const PANEL_ROW_HEIGHT = 28;
 
 function Picker({
     placeholder,
@@ -791,11 +837,28 @@ function Picker({
     const { locale } = useLocale();
     const formatter = useFormatter();
     const [focused, setFocused] = useState(false);
+    const panel = useRef<ScrollView>(null);
 
     const commit = (index: number) => {
         const entry = results[index];
         if (entry !== undefined) onPick(entry);
     };
+
+    /*
+     * The panel scrolls, so the arrow keys have to carry it — a highlight the reader cannot see is a
+     * cursor that has gone missing. Three rows of lead-in keeps the highlighted row off the top edge
+     * while walking down, which is what makes the next few matches readable.
+     *
+     * ponytail: assumes uniform 28px rows (`h-control-sm`). Measure with `onLayout` per row if an
+     * option ever wraps to two lines.
+     */
+    useEffect(() => {
+        if (!open) return;
+        panel.current?.scrollTo({
+            y: Math.max(0, (highlighted - 3) * PANEL_ROW_HEIGHT),
+            animated: false,
+        });
+    }, [highlighted, open]);
 
     /*
      * On the web a press inside the panel blurs the input first, and the blur handler below closes
@@ -892,74 +955,90 @@ function Picker({
                     role="list"
                     // Above the rows beneath it: the table paints after this in source order, so
                     // without the raised layer the panel lands under the first line.
-                    className="absolute top-full z-sticky mt-hair max-h-64 overflow-hidden rounded-md border border-stroke bg-surface-raised p-hair shadow-elevation-3"
+                    className="absolute top-full z-sticky mt-hair max-h-80 overflow-hidden rounded-md border border-stroke bg-surface-raised p-hair shadow-elevation-3"
                     style={{ width: PANEL_WIDTH }}
                 >
-                    {loading ? (
-                        /*
-                         * "Searching…" rather than "no match", while a request is in flight.
-                         *
-                         * The panel used to draw the empty state during every fetch, so typing a
-                         * fourth letter flashed *No match for "mayo"* before the answer arrived —
-                         * which reads as a definitive "this ingredient does not exist" rather than
-                         * as a pause, and is why a search that worked looked like one that did not.
-                         */
-                        <View testID={`${testID}-loading`} className="px-tight py-snug">
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:recipes.pickerSearching')}
-                            </Text>
-                        </View>
-                    ) : results.length === 0 ? (
-                        <View testID={`${testID}-empty`} className="px-tight py-snug">
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:recipes.pickerNoMatch', { query })}
-                            </Text>
-                        </View>
-                    ) : (
-                        results.map((entry, index) => (
-                            <Pressable
-                                key={String(entry.id)}
-                                testID={`${testID}-option-${String(entry.id)}`}
-                                role="option"
-                                aria-selected={index === highlighted}
-                                accessibilityRole="menuitem"
-                                accessibilityLabel={displayName(entry.name, locale).value}
-                                onHoverIn={() => {
-                                    onHighlight(index);
-                                }}
-                                onPress={() => {
-                                    onPick(entry);
-                                }}
-                                className={[
-                                    'h-control-sm flex-row items-center justify-between gap-tight rounded-sm px-tight',
-                                    index === highlighted ? 'bg-surface-sunken' : null,
-                                ]
-                                    .filter((entryClass) => entryClass !== null)
-                                    .join(' ')}
-                            >
-                                <View className="min-w-0 flex-1 flex-row items-baseline gap-hair">
-                                    <Text variant="label" numberOfLines={1}>
-                                        {displayName(entry.name, locale).value}
-                                    </Text>
-                                    {/*
-                                     * `Condiments · kg`, as the design draws it: what kind of
-                                     * thing this is and what a quantity of it will be counted in.
-                                     * Two facts rather than one, because "Mayonnaise" appears
-                                     * twice in a library of three hundred and the unit is what
-                                     * decides whether `1` means a kilo or a bottle.
-                                     */}
-                                    <Text variant="micro" tone="secondary" numberOfLines={1}>
-                                        {entry.meta}
-                                    </Text>
-                                </View>
-                                <Text variant="mono" tone="secondary" numberOfLines={1}>
-                                    {entry.unitPrice === null
-                                        ? t('kitchen:list.noValue')
-                                        : formatter.formatNumber(entry.unitPrice.amount, MONEY)}
+                    {/*
+                     * The whole answer, scrolled — not the first eight of it.
+                     *
+                     * The panel used to be a fixed box over a `.slice(0, 8)`, so a search matching
+                     * nine rows silently dropped the ninth. `keyboardShouldPersistTaps="handled"` is
+                     * what keeps a tap on a row from being eaten by the keyboard dismissing first,
+                     * the same pairing `Select`'s own panel uses.
+                     */}
+                    <ScrollView ref={panel} keyboardShouldPersistTaps="handled">
+                        {loading ? (
+                            /*
+                             * "Searching…" rather than "no match", while a request is in flight.
+                             *
+                             * The panel used to draw the empty state during every fetch, so typing a
+                             * fourth letter flashed *No match for "mayo"* before the answer arrived —
+                             * which reads as a definitive "this ingredient does not exist" rather
+                             * than as a pause, and is why a search that worked looked like one that
+                             * did not.
+                             */
+                            <View testID={`${testID}-loading`} className="px-tight py-snug">
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:recipes.pickerSearching')}
                                 </Text>
-                            </Pressable>
-                        ))
-                    )}
+                            </View>
+                        ) : results.length === 0 ? (
+                            <View testID={`${testID}-empty`} className="px-tight py-snug">
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:recipes.pickerNoMatch', { query })}
+                                </Text>
+                            </View>
+                        ) : (
+                            results.map((entry, index) => (
+                                <Pressable
+                                    key={String(entry.id)}
+                                    testID={`${testID}-option-${String(entry.id)}`}
+                                    role="option"
+                                    aria-selected={index === highlighted}
+                                    accessibilityRole="menuitem"
+                                    accessibilityLabel={displayName(entry.name, locale).value}
+                                    onHoverIn={() => {
+                                        onHighlight(index);
+                                    }}
+                                    onPress={() => {
+                                        onPick(entry);
+                                    }}
+                                    className={[
+                                        'h-control-sm flex-row items-center justify-between gap-tight rounded-sm px-tight',
+                                        index === highlighted ? 'bg-surface-sunken' : null,
+                                    ]
+                                        .filter((entryClass) => entryClass !== null)
+                                        .join(' ')}
+                                >
+                                    <View className="min-w-0 flex-1 flex-row items-baseline gap-hair">
+                                        <Text variant="label" numberOfLines={1}>
+                                            {displayName(entry.name, locale).value}
+                                        </Text>
+                                        {/*
+                                         * `Condiments · kg`, as the design draws it: what kind of
+                                         * thing this is and what a quantity of it will be counted in.
+                                         * Two facts rather than one, because "Mayonnaise" appears
+                                         * twice in a library of three hundred and the unit is what
+                                         * decides whether `1` means a kilo or a bottle.
+                                         */}
+                                        <Text variant="micro" tone="secondary" numberOfLines={1}>
+                                            {entry.meta}
+                                        </Text>
+                                    </View>
+                                    <Text variant="mono" tone="secondary" numberOfLines={1}>
+                                        {entry.unitPrice === null
+                                            ? t('kitchen:list.noValue')
+                                            : formatMoney(
+                                                  formatter,
+                                                  entry.unitPrice.amount,
+                                                  entry.unitPrice.currency,
+                                                  MONEY,
+                                              )}
+                                    </Text>
+                                </Pressable>
+                            ))
+                        )}
+                    </ScrollView>
                 </View>
             )}
         </View>

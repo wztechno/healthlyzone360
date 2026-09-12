@@ -1,4 +1,9 @@
-import { apiFailure, conflictFailure, throwFailure } from '@healthy360/api-client/contracts';
+import {
+    PACKAGING_CATEGORY_CODE,
+    apiFailure,
+    conflictFailure,
+    throwFailure,
+} from '@healthy360/api-client/contracts';
 import type {
     AdminEntityMeta,
     CursorPage,
@@ -34,7 +39,16 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { costPerServing, moveInList, parseQuantity, unitsInDimension } from './format.ts';
+import {
+    costPerPackage,
+    costPerServing,
+    currencySymbol,
+    lineCost,
+    moveInList,
+    normaliseQuantity,
+    parseQuantity,
+    unitsInDimension,
+} from './format.ts';
 import { RecipeEditScreen } from './screens/recipe-edit-screen.tsx';
 import { RecipesScreen } from './screens/recipes-screen.tsx';
 
@@ -139,6 +153,24 @@ const LINE_PICKER_INPUT = `${LINE_PICKER}-input`;
 /** The row testIDs the line table draws, one per drawn line. */
 const LINE_ROWS = /^kitchen-recipe-lines-table-row-.+-name$/;
 
+/** The same control on the Packaging tab — one component, two tabs, two testID roots. */
+const PACKAGING_PICKER = 'kitchen-recipe-packaging-table-picker';
+const PACKAGING_PICKER_INPUT = `${PACKAGING_PICKER}-input`;
+
+/** Every option the panel is currently offering. The panel scrolls; it no longer truncates. */
+const LINE_PICKER_OPTIONS = /^kitchen-recipe-lines-table-picker-option-/;
+
+/** Opens a picker's panel on the catalogue's first page, then picks one row from it. */
+async function pickFrom(picker: string, ingredientId: string) {
+    await act(async () => {
+        fireEvent(screen.getByTestId(`${picker}-input`), 'focus');
+    });
+    await untilVisible(`${picker}-option-${ingredientId}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`${picker}-option-${ingredientId}`));
+    });
+}
+
 /**
  * Adds a raw-material line by picking from the inline field.
  *
@@ -149,13 +181,7 @@ const LINE_ROWS = /^kitchen-recipe-lines-table-row-.+-name$/;
  * The caller must already be on the Production tab.
  */
 async function addLine(ingredientId: string) {
-    await act(async () => {
-        fireEvent(screen.getByTestId(LINE_PICKER_INPUT), 'focus');
-    });
-    await untilVisible(`${LINE_PICKER}-option-${ingredientId}`);
-    await act(async () => {
-        fireEvent.press(screen.getByTestId(`${LINE_PICKER}-option-${ingredientId}`));
-    });
+    await pickFrom(LINE_PICKER, ingredientId);
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -433,6 +459,61 @@ function ingredientListing(
     return async () => page(read());
 }
 
+/**
+ * The listing, answering the one filter the recipe editor actually branches on.
+ *
+ * {@link ingredientListing} above ignores its filter, which is honest enough for the food side —
+ * every caller there wants the same two rows. The packaging side cannot share it. Packaging is the
+ * same `ingredients` table read from the other end (`categoryCode: PACKAGING_CATEGORY_CODE`), so a
+ * stub that ignored the parameter would put chickpeas in the packaging picker and let a screen that
+ * asked the wrong question pass.
+ */
+function ingredientListingByCategory(
+    food: readonly IngredientAdmin[],
+    packagingRows: readonly IngredientAdmin[],
+): (filter?: IngredientAdminFilter) => Promise<CursorPage<IngredientAdmin>> {
+    return async (filter) =>
+        page(filter?.categoryCode === PACKAGING_CATEGORY_CODE ? packagingRows : food);
+}
+
+/** Resolves one row by id, whichever family it is in — the editor's by-id reads go through here. */
+function ingredientShow(
+    rows: readonly IngredientAdmin[],
+): (ingredientId: IngredientId) => Promise<IngredientAdmin> {
+    return async (ingredientId) => {
+        const found = rows.find((row) => row.id === ingredientId);
+        if (found === undefined) throw new Error('No such ingredient.');
+        return found;
+    };
+}
+
+/**
+ * A priced box, filed under the packaging branch.
+ *
+ * Packaging is an `IngredientAdmin` — the two families share one table and one row shape, and what
+ * makes this row packaging is its category and nothing else. The three fields food leaves null are
+ * the three that matter here: `purchasePrice` is what a **pack** costs, `itemsPerUnit` is how many
+ * boxes are in it, and `capacity` is how much product one box holds. $12.50 a pack of fifty is
+ * $0.25 a box.
+ */
+function packagingItem(ordinal: number, overrides: Partial<IngredientAdmin> = {}): IngredientAdmin {
+    return ingredient(ordinal, {
+        reference: `PKG-00${String(ordinal)}`,
+        categoryCode: PACKAGING_CATEGORY_CODE,
+        subcategoryCode: 'packaging-boxes',
+        composition: 'Kraft paper',
+        measurementUnit: 'piece',
+        purchaseUnit: 'pack',
+        itemsPerUnit: 50,
+        wastePercent: 2,
+        purchasePrice: { amount: 12.5, currency: 'USD' },
+        capacity: { quantity: 0.75, unit: 'kg' },
+        // Food records its cost here; packaging records a purchase price instead.
+        costPer100g: null,
+        ...overrides,
+    });
+}
+
 function facts(): NutritionFacts {
     return {
         basis: 'per_serving',
@@ -555,6 +636,78 @@ describe('recipe display helpers', () => {
         });
         expect(costPerServing({ amount: 12, currency: 'USD' }, 0)).toBeNull();
         expect(costPerServing(null, 4)).toBeNull();
+    });
+
+    it('converts within a dimension and refuses across one', () => {
+        expect(normaliseQuantity(300, 'g', 'kg')).toBe(0.3);
+        expect(normaliseQuantity(1.5, 'kg', 'g')).toBe(1500);
+        // Identity first, so a unit with no factor still converts to itself.
+        expect(normaliseQuantity(5, 'piece', 'piece')).toBe(5);
+        // Not a fallback of any kind: a count is not a mass, and a number here would be a guess.
+        expect(normaliseQuantity(5, 'piece', 'kg')).toBeNull();
+        // In the volume dimension but outside the factor table — see the `ponytail:` note.
+        expect(normaliseQuantity(2, 'cup', 'ml')).toBeNull();
+    });
+
+    it('costs a line in the unit its price is quoted against', () => {
+        /*
+         * The regression this exists for: a 300 g line against a per-kilogram price. The raw
+         * multiplication reads it as three hundred kilograms and overstates the line a thousandfold,
+         * which is exactly the kind of wrong that looks plausible in a costing panel.
+         */
+        expect(lineCost(300, 'g', { amount: 20, currency: 'USD' }, 'kg')).toBe(6);
+        expect(lineCost(2, 'kg', { amount: 20, currency: 'USD' }, 'kg')).toBe(40);
+        // No price is an *uncosted* line and never a zero — a zero is a measurement.
+        expect(lineCost(300, 'g', null, 'kg')).toBeNull();
+        expect(lineCost(3, 'piece', { amount: 20, currency: 'USD' }, 'kg')).toBeNull();
+    });
+
+    it('costs one filled package: what it holds, plus the box at its own waste rate', () => {
+        const container = { productionPerYieldUnit: 20, yieldUnit: 'kg' as const };
+
+        // 0.3 kg of product at 20/kg, plus a 0.50 box at 5 % waste. The coefficient applies to the
+        // box alone: a carton is crushed in the stack, the sauce inside it is not.
+        expect(
+            costPerPackage({
+                ...container,
+                capacity: { quantity: 0.3, unit: 'kg' },
+                containerPrice: 0.5,
+                packagingWastePercent: 5,
+            }),
+        ).toBe(6.525);
+
+        // The same package, its capacity written in grams.
+        expect(
+            costPerPackage({
+                ...container,
+                capacity: { quantity: 300, unit: 'g' },
+                containerPrice: 0.5,
+                packagingWastePercent: 5,
+            }),
+        ).toBe(6.525);
+
+        // A count of somethings is not a quantity of sauce, and an item that holds nothing
+        // measurable has no package cost at all. Neither is a zero.
+        expect(
+            costPerPackage({
+                ...container,
+                capacity: { quantity: 1, unit: 'piece' },
+                containerPrice: 0.5,
+                packagingWastePercent: 5,
+            }),
+        ).toBeNull();
+        expect(
+            costPerPackage({
+                ...container,
+                capacity: null,
+                containerPrice: 0.5,
+                packagingWastePercent: 5,
+            }),
+        ).toBeNull();
+    });
+
+    it('reads a currency’s mark off Intl rather than a hand-kept table', () => {
+        expect(currencySymbol('en-US', 'USD')).toBe('$');
     });
 
     it('fingerprints a draft by its line order, so a reorder is acknowledged', () => {
@@ -1318,6 +1471,54 @@ describe('the line editor', () => {
         });
     });
 
+    it('offers every match the search returned, not the first eight of it', async () => {
+        /*
+         * The panel used to be a fixed 226px box over a `.slice(0, 8)`, so a search matching nine
+         * rows silently dropped the ninth — with nothing on screen to say a row had been withheld.
+         * It scrolls now, and the count is the server's answer rather than a constant.
+         */
+        const many: readonly IngredientAdmin[] = Array.from({ length: 12 }, (_, index) =>
+            ingredient(1, {
+                id: IngredientId.unsafe(
+                    `01935f6d-0000-7000-8000-0000000a0${String(index + 10).padStart(3, '0')}`,
+                ),
+                name: {
+                    en: `Library row ${String(index + 1)}`,
+                    ar: `صنف ${String(index + 1)}`,
+                },
+            }),
+        );
+        const stored = recipe({
+            ordinal: 4,
+            name: 'Empty sheet',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 4,
+                overrides: { lines: [], allergens: [] },
+            }),
+        });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListingByCategory(many, []),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+
+        await act(async () => {
+            fireEvent(screen.getByTestId(LINE_PICKER_INPUT), 'focus');
+        });
+        await untilVisible(`${LINE_PICKER}-option-${String(many[0]?.id)}`);
+
+        expect(screen.getAllByTestId(LINE_PICKER_OPTIONS)).toHaveLength(12);
+    });
+
     it('keeps two lines that name the same ingredient', async () => {
         const stored = recipe({
             ordinal: 6,
@@ -1369,6 +1570,219 @@ describe('the line editor', () => {
         expect(
             request.lines.filter((entry) => entry.ingredientId === MAPPED_INGREDIENT.id),
         ).toHaveLength(3);
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The tab row as a sequence
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('stepping through the tabs', () => {
+    it('walks forward and back, and stops at both ends', async () => {
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
+        });
+
+        await untilVisible('kitchen-recipe-tab-steps');
+
+        // Description opens the sequence, so there is nowhere before it. The control stays drawn
+        // rather than disappearing: a row that changed width as it was walked would be worse.
+        expect(
+            screen.getByTestId('kitchen-recipe-tab-previous').props.accessibilityState.disabled,
+        ).toBe(true);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-tab-next'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-tab-next'));
+        });
+        // Description → Production → Packaging, in the order the tab row draws.
+        await untilVisible('kitchen-recipe-packaging');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-tab-previous'));
+        });
+        await untilVisible('kitchen-recipe-lines-table');
+
+        await openTab('sheet');
+        expect(
+            screen.getByTestId('kitchen-recipe-tab-next').props.accessibilityState.disabled,
+        ).toBe(true);
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Packaging, and what it costs
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('the packaging tab', () => {
+    /** A yield in kilograms, so a capacity recorded in kilograms is convertible to it. */
+    function packagedRecipe(ordinal: number, overrides: Partial<RecipeVersionAdmin> = {}) {
+        return recipe({
+            ordinal,
+            name: 'Garlic mayo',
+            currentVersion: recipeVersion({
+                recipeOrdinal: ordinal,
+                overrides: { yieldUnit: 'kg', ...overrides },
+            }),
+        });
+    }
+
+    it('prices a packaging line per issued item, not per purchase pack', async () => {
+        const box = packagingItem(3, { name: { en: 'Kraft box 750', ar: 'علبة كرافت' } });
+        const stored = packagedRecipe(8);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListingByCategory(LIBRARY, [box]),
+                    getIngredient: ingredientShow([...LIBRARY, box]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('packaging');
+        await untilVisible(PACKAGING_PICKER_INPUT);
+        await pickFrom(PACKAGING_PICKER, String(box.id));
+
+        const row = 'kitchen-recipe-packaging-table-row-row-1';
+        await untilVisible(row);
+
+        /*
+         * $12.50 a pack of fifty is $0.25 a box.
+         *
+         * The row used to carry the *pack* price against the purchase unit, which overstated every
+         * packaging line by `itemsPerUnit` — fiftyfold here. The server has always priced it the
+         * other way (`RecipeVersionService::packagingCostOf`) and stores the line in the item's own
+         * default unit, so the unit cell reads the issued unit rather than `pack`.
+         */
+        expect(screen.getByTestId(`${row}-unit-price`)).toHaveTextContent('$0.25');
+        // `Pc`, the abbreviated label for `piece` — the issued unit, not `Pack`. A regex, because
+        // the matcher compares a *string* argument against the whole node.
+        expect(screen.getByTestId(row)).toHaveTextContent(/Pc/);
+        expect(screen.getByTestId(row)).not.toHaveTextContent(/Pack/);
+
+        // And the Costing tab converts it: what one filled box costs, per box that records a
+        // capacity.
+        await openTab('costing');
+        await waitFor(() => {
+            expect(screen.getAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(1);
+        });
+    });
+
+    it('names and prices a saved line whose item the catalogue page does not carry', async () => {
+        /*
+         * The other half of "not all packaging is showing".
+         *
+         * The pool used to be one numbered page of eighteen against a catalogue of thirty-one, so a
+         * saved line naming row nineteen drew "Unnamed line" with no price — and its cost silently
+         * left the cascade. The listing here returns *no* packaging at all, which is the same shape
+         * of miss taken to its limit; the by-id read is what has to close it.
+         */
+        const offPage = packagingItem(4, { name: { en: 'Sleeve 1000', ar: 'كيس' } });
+        const stored = packagedRecipe(9, {
+            packaging: [
+                {
+                    ingredientId: offPage.id,
+                    basis: 'per_batch',
+                    quantity: 2,
+                    unit: 'piece',
+                    comment: null,
+                },
+            ],
+        });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListingByCategory(LIBRARY, []),
+                    getIngredient: ingredientShow([...LIBRARY, offPage]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('packaging');
+
+        const row = 'kitchen-recipe-packaging-table-row-packaging-0';
+        await untilVisible(`${row}-name`);
+        await waitFor(() => {
+            expect(screen.getByTestId(`${row}-name`)).toHaveTextContent('Sleeve 1000');
+        });
+        expect(screen.getByTestId(`${row}-unit-price`)).toHaveTextContent('$0.25');
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Costing
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('costing', () => {
+    it('drops the currency mark when the rows disagree, and says why', async () => {
+        const dollars = ingredient(5, {
+            name: { en: 'Tahini', ar: 'طحينة' },
+            unitPrice: { amount: 4, currency: 'USD' },
+        });
+        const dirhams = ingredient(6, {
+            name: { en: 'Lemon juice', ar: 'عصير ليمون' },
+            unitPrice: { amount: 3, currency: 'AED' },
+        });
+        const stored = recipe({
+            ordinal: 2,
+            name: 'Tahini sauce',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 2,
+                overrides: {
+                    yieldUnit: 'kg',
+                    lines: [line(dollars), line(dirhams)],
+                    allergens: [],
+                },
+            }),
+        });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getRecipe: async () => stored,
+                    listIngredients: ingredientListingByCategory([dollars, dirhams], []),
+                    getIngredient: ingredientShow([dollars, dirhams]),
+                    previewRecipeRollup: async () => rollupPreview({ allergenSources: [] }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible('kitchen-recipe-lines-table-totals');
+
+        /*
+         * A sum of dollars and dirhams is in neither of them.
+         *
+         * Every *row* still wears its own mark — that is a fact about one ingredient — but the total
+         * under them does not, because stamping one of the two onto it would make a meaningless
+         * figure look checked.
+         */
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-recipe-lines-table-totals-cost'),
+            ).not.toHaveTextContent(/[$]|USD|AED/);
+        });
+
+        await openTab('costing');
+        await untilVisible('kitchen-recipe-currency-mixed');
+        expect(screen.getByTestId('kitchen-recipe-cost-cards-production')).not.toHaveTextContent(
+            /[$]|USD|AED/,
+        );
     });
 });
 
