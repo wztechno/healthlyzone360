@@ -25,6 +25,7 @@
 
 export { AllergenClassesScreen } from './allergen-classes-screen.tsx';
 export { AnalyticsScreen } from './analytics-screen.tsx';
+export { BatchPlannerScreen } from './batch-planner-screen.tsx';
 export { BranchOperatingScreen } from './branch-operating-screen.tsx';
 export { ConsumptionExceptionsScreen } from './consumption-exceptions-screen.tsx';
 export { CostReportScreen } from './cost-report-screen.tsx';
