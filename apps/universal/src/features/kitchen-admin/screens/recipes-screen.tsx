@@ -13,13 +13,15 @@ import {
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { PublishableStatus, RecipeAdminSummary } from '@healthy360/api-client/contracts';
+import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { useSession } from '../../../session/session-provider.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -107,6 +109,9 @@ const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'r
 
 type StatusSegmentValue = PublishableStatus | 'all';
 
+/** The kitchen a recipe belongs to, by name. See `RecipeColumnDeps.kitchenName`. */
+type KitchenName = (kitchenId: KitchenId) => string;
+
 function RecipesList() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -115,15 +120,30 @@ function RecipesList() {
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const list = useRecipeList();
 
+    /*
+     * A recipe's `kitchenId` is the id of the organisation that owns it, and the session already
+     * carries every organisation this person belongs to, with its name. So the Kitchen column, its
+     * filter and the drawer all read the name off the memberships rather than printing a UUID; a
+     * kitchen outside the reader's memberships keeps the id, which is at least still the filter value.
+     */
+    const memberships = useSession().me?.memberships;
+    const kitchenName = useCallback<KitchenName>(
+        (kitchenId) =>
+            memberships?.find(
+                (membership) => String(membership.organisation.id) === String(kitchenId),
+            )?.organisation.name ?? String(kitchenId),
+        [memberships],
+    );
+
     const { detailOf } = list;
     const columns = useMemo(
-        () => recipeColumns({ t, locale, formatter, detailOf }),
-        [t, locale, formatter, detailOf],
+        () => recipeColumns({ t, locale, formatter, detailOf, kitchenName }),
+        [t, locale, formatter, detailOf, kitchenName],
     );
 
     const withHeaders = columns.map((column) => ({
         ...column,
-        renderHeader: headerMenu(column, list, t, locale),
+        renderHeader: headerMenu(column, list, t, locale, kitchenName),
     }));
 
     // A status the segments do not name — Archived, reached from the Status column's own filter —
@@ -288,7 +308,7 @@ function RecipesList() {
                         />
                     )
                 }
-                fields={viewed === null ? [] : viewFields(viewed, list, t, formatter)}
+                fields={viewed === null ? [] : viewFields(viewed, list, t, formatter, kitchenName)}
                 {...(viewed === null || viewedAllergens.length === 0
                     ? {}
                     : {
@@ -519,6 +539,7 @@ function viewFields(
     list: RecipeListState,
     t: TFunction,
     formatter: Formatter,
+    kitchenName: KitchenName,
 ): readonly CatalogueViewField[] {
     const dash = t('kitchen:list.noValue');
     const versionStatus = list.detailOf(row)?.currentVersion.status;
@@ -533,7 +554,7 @@ function viewFields(
         {
             key: 'kitchen',
             label: t('kitchen:recipes.columnKitchen'),
-            value: String(row.kitchenId),
+            value: kitchenName(row.kitchenId),
         },
         {
             key: 'version',
@@ -581,9 +602,10 @@ function headerMenu(
     list: RecipeListState,
     t: TFunction,
     locale: string,
+    kitchenName: KitchenName,
 ): (() => React.ReactNode) | undefined {
     const sortKey = sortKeyFor(column.key);
-    const filter = filterItemsFor(column.key, list, t, locale);
+    const filter = filterItemsFor(column.key, list, t, locale, kitchenName);
     if (sortKey === null && filter.length === 0) return undefined;
 
     const active = sortKey !== null && list.sortKey === sortKey;
@@ -669,6 +691,7 @@ function filterItemsFor(
     list: RecipeListState,
     t: TFunction,
     locale: string,
+    kitchenName: KitchenName,
 ): readonly MenuItem[] {
     if (key === 'allergens') {
         /*
@@ -727,7 +750,7 @@ function filterItemsFor(
             // rather than the catalogue — a figure that looked authoritative and was not.
             ...list.kitchens.map((entry) => ({
                 key: String(entry.kitchenId),
-                label: String(entry.kitchenId),
+                label: kitchenName(entry.kitchenId),
                 selected: list.kitchen === String(entry.kitchenId),
                 testID: `kitchen-recipes-column-kitchen-${String(entry.kitchenId)}`,
                 onSelect: () => {

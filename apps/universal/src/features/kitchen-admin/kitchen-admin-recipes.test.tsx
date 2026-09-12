@@ -729,6 +729,35 @@ describe('recipe display helpers', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the recipe list', () => {
+    it('names the kitchen a recipe belongs to, off the session, instead of printing its id', async () => {
+        // `kitchenId` is the owning organisation's id, and the signed-in person is a member of it —
+        // so the column reads the membership's name. A kitchen outside the memberships keeps the id.
+        const own = recipe({
+            ordinal: 1,
+            name: 'Tabbouleh',
+            overrides: { kitchenId: KitchenId.unsafe(TEST_ORGANISATION_ID) },
+        });
+        const foreign = recipe({ ordinal: 2, name: 'Fattoush' });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [own, foreign]),
+                    getRecipe: async (id) => (id === own.id ? own : foreign),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        expect(screen.getByTestId(`kitchen-recipe-${String(own.id)}-kitchen`)).toHaveTextContent(
+            'Test Kitchen',
+        );
+        expect(
+            screen.getByTestId(`kitchen-recipe-${String(foreign.id)}-kitchen`),
+        ).toHaveTextContent(String(TEST_KITCHEN_ID));
+    });
+
     it('renders skeletons, then the authored rows with their version and derived label', async () => {
         const published = recipe({
             ordinal: 1,
