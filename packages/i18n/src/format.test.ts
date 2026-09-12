@@ -166,4 +166,11 @@ describe('formatRelativeTime', () => {
     it('defaults the reference point to the current instant', () => {
         expect(formatter.formatRelativeTime(new Date(Date.now() - 5000))).toContain('seconds ago');
     });
+
+    // `UNKNOWN_ISO_DATE_TIME`. Throwing here took out whole kitchen routes over one null timestamp.
+    it('answers the unknown-timestamp sentinel with nothing, and still refuses rubbish', () => {
+        expect(formatter.formatRelativeTime('')).toBe('');
+        expect(formatter.formatDate('')).toBe('');
+        expect(() => formatter.formatRelativeTime('not a date')).toThrow(TypeError);
+    });
 });
