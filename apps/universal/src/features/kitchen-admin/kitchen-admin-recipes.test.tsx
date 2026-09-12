@@ -1721,6 +1721,50 @@ describe('the packaging tab', () => {
             expect(screen.getByTestId(`${row}-name`)).toHaveTextContent('Sleeve 1000');
         });
         expect(screen.getByTestId(`${row}-unit-price`)).toHaveTextContent('$0.25');
+
+        // The same by-id read is what the Costing tab's per-package card hangs from: a saved line
+        // resolves to its record's capacity exactly as a freshly picked one does.
+        await openTab('costing');
+        await waitFor(() => {
+            expect(screen.getAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(1);
+        });
+    });
+
+    it('names a packaging line whose record does not say what one item holds', async () => {
+        const lid = packagingItem(5, { name: { en: 'Lid 750', ar: 'غطاء' }, capacity: null });
+        const stored = packagedRecipe(6, {
+            packaging: [
+                {
+                    ingredientId: lid.id,
+                    basis: 'per_batch',
+                    quantity: 2,
+                    unit: 'piece',
+                    comment: null,
+                },
+            ],
+        });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListingByCategory(LIBRARY, [lid]),
+                    getIngredient: ingredientShow([...LIBRARY, lid]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('costing');
+
+        // A lid holds nothing, so there is no filled-package figure for it — and the caption names
+        // the record to open rather than announcing that no line qualifies.
+        await untilVisible('kitchen-recipe-package-costs-none');
+        expect(screen.getByTestId('kitchen-recipe-package-costs-none')).toHaveTextContent(
+            /Lid 750/,
+        );
+        expect(screen.queryAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(0);
     });
 });
 

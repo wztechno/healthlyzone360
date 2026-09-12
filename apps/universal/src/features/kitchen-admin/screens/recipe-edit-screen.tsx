@@ -2835,22 +2835,38 @@ function PackageCosts({
         );
     }
 
+    /*
+     * A line the section cannot cost is named rather than dropped.
+     *
+     * Two reasons and one list: the packaging record states nothing about what one item holds
+     * (a lid, a label, a bag), or it states it in a unit the yield cannot be measured in. Either
+     * way the fix is on the packaging record, and a reader who sees the caption "none" under two
+     * lines of boxes cannot tell which record to open — so the names go on the caption.
+     */
+    const skipped: string[] = [];
+
     const cards = rows.flatMap((row) => {
         const entry =
             row.ingredientId === null
                 ? undefined
                 : packagingItems.find((candidate) => candidate.id === row.ingredientId);
-        const capacity = entry?.capacity ?? null;
-        if (entry === undefined || capacity === null) return [];
+        if (entry === undefined) return [];
 
-        const cost = costPerPackage({
-            productionPerYieldUnit,
-            capacity,
-            yieldUnit,
-            containerPrice: entry.unitPrice?.amount ?? null,
-            packagingWastePercent,
-        });
-        if (cost === null) return [];
+        const capacity = entry.capacity;
+        const cost =
+            capacity === null
+                ? null
+                : costPerPackage({
+                      productionPerYieldUnit,
+                      capacity,
+                      yieldUnit,
+                      containerPrice: entry.unitPrice?.amount ?? null,
+                      packagingWastePercent,
+                  });
+        if (capacity === null || cost === null) {
+            skipped.push(displayName(entry.name, locale).value);
+            return [];
+        }
 
         return [
             {
@@ -2880,26 +2896,41 @@ function PackageCosts({
         ];
     });
 
+    const names = skipped.join(', ');
+
     if (cards.length === 0) {
-        return (
+        // Nothing to name is "no packaging yet" (or rows still resolving); something to name is a
+        // list of records to open.
+        return skipped.length === 0 ? (
+            <Text testID={`${testID}-no-lines`} variant="caption" tone="secondary">
+                {t('kitchen:recipes.packageCostsNoLines')}
+            </Text>
+        ) : (
             <Text testID={`${testID}-none`} variant="caption" tone="secondary">
-                {t('kitchen:recipes.packageCostsNone')}
+                {t('kitchen:recipes.packageCostsNone', { names })}
             </Text>
         );
     }
 
     return (
-        <FormGrid testID={`${testID}-grid`}>
-            {cards.map((card) => (
-                <CostCard
-                    key={card.key}
-                    testID={`kitchen-recipe-package-cost-${card.key}`}
-                    title={card.title}
-                    tone="raised"
-                    rows={card.rows}
-                />
-            ))}
-        </FormGrid>
+        <Stack space="sm">
+            <FormGrid testID={`${testID}-grid`}>
+                {cards.map((card) => (
+                    <CostCard
+                        key={card.key}
+                        testID={`kitchen-recipe-package-cost-${card.key}`}
+                        title={card.title}
+                        tone="raised"
+                        rows={card.rows}
+                    />
+                ))}
+            </FormGrid>
+            {skipped.length === 0 ? null : (
+                <Text testID={`${testID}-skipped`} variant="caption" tone="secondary">
+                    {t('kitchen:recipes.packageCostsSkipped', { names })}
+                </Text>
+            )}
+        </Stack>
     );
 }
 

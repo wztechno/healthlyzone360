@@ -2203,7 +2203,9 @@
         "packageInBatch": "In this batch: {{quantity}}",
         "packageHolds": "Holds {{quantity}} {{unit}}",
         "packageCostLabel": "Per package",
-        "packageCostsNone": "No packaging line records what one item holds, so a package cost cannot be stated.",
+        "packageCostsNoLines": "Add packaging on the Packaging tab. Every line whose item records what one holds is costed here.",
+        "packageCostsNone": "None of these records what one item holds: {{names}}. Record it on the packaging item and the figure appears here.",
+        "packageCostsSkipped": "Not costed per package: {{names}}. The packaging item does not record what one holds, in a unit the yield is measured in.",
         "packageCostsNoYield": "State the batch yield on the Production tab before a package can be costed.",
         "uncostedLines": "Not costed: {{names}}",
         "currencyMixed": "Lines are priced in more than one currency, so totals are shown without one."
