@@ -158,7 +158,9 @@ function BatchPlanner() {
     const recipesFailure = toFailure(recipes.error);
     const recordFailure = toFailure(record.error);
 
-    const yieldUnitLabel = version === null ? '' : t(unitShortKey(version.yieldUnit));
+    // Kilograms until a recipe says otherwise: every formulation in this kitchen yields a mass, and
+    // "By " with nothing after it is a control that has lost its label.
+    const yieldUnitLabel = t(unitShortKey(version?.yieldUnit ?? 'kg'));
 
     return (
         <Stack space="lg" testID="kitchen-batch-planner-screen">

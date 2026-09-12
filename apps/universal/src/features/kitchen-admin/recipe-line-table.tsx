@@ -497,9 +497,10 @@ export function RecipeLineTable({
                                     numberOfLines={1}
                                     testID={`${rowTestId}-total`}
                                 >
-                                    {total === null
+                                    {total === null || price === null
                                         ? t('kitchen:list.noValue')
-                                        : formatter.formatNumber(total, LINE_TOTAL)}
+                                        : // In the row's own currency, like the unit price it multiplies.
+                                          formatMoney(formatter, total, price.currency, LINE_TOTAL)}
                                 </Text>
                             </View>
 

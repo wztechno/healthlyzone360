@@ -1664,6 +1664,8 @@ describe('the packaging tab', () => {
          * default unit, so the unit cell reads the issued unit rather than `pack`.
          */
         expect(screen.getByTestId(`${row}-unit-price`)).toHaveTextContent('$0.25');
+        // The line total wears the same currency as the unit price it multiplies.
+        expect(screen.getByTestId(`${row}-total`)).toHaveTextContent(/^\$0\.250/);
         // `Pc`, the abbreviated label for `piece` — the issued unit, not `Pack`. A regex, because
         // the matcher compares a *string* argument against the whole node.
         expect(screen.getByTestId(row)).toHaveTextContent(/Pc/);
