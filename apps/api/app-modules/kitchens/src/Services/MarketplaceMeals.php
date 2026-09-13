@@ -13,6 +13,7 @@ use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
+use Healthy360\Catalogues\Services\DerivedNutritionService;
 use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
 use Healthy360\ReferenceData\Models\DietClassification;
@@ -75,6 +76,7 @@ final readonly class MarketplaceMeals
     public function __construct(
         private PriceResolver $prices,
         private DerivedAllergenService $allergens,
+        private DerivedNutritionService $nutrition,
         private DatabaseTenantContext $tenantContext,
     ) {}
 
@@ -309,6 +311,29 @@ final readonly class MarketplaceMeals
         sort($unique);
 
         return $unique;
+    }
+
+    /**
+     * The meal's nutrition facts, as a customer's panel reads them.
+     *
+     * A thin pass-through to {@see DerivedNutritionService}, which holds the
+     * authority order — the kitchen's own recorded payload, else the published
+     * recipe version's snapshot divided down to one sold unit, else null.
+     *
+     * **One more `publishedVersion()` lookup per listed item**, on top of the
+     * one {@see allergenCodesOf()} already does. Accepted rather than memoised,
+     * for the reason that precedent gives: it is a primary-key-shaped read of
+     * one row, a page of items is at most a page of them, and a shared memo on
+     * the projector would be a cache with a lifetime to reason about in
+     * exchange for a query PostgreSQL answers out of the buffer pool. When a
+     * listing page's query count becomes the problem, both lookups move
+     * together into one eager load — not one of them into a special case.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function nutritionOf(CatalogueItem $meal): ?array
+    {
+        return $this->nutrition->forItem($meal);
     }
 
     /**

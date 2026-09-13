@@ -29,12 +29,21 @@ use Healthy360\Pricing\Services\ResolvedPrice;
  * question written for a kitchen, and a quarantined item cannot be published in
  * the first place.
  *
- * ## Nutrition: source-labelled when the kitchen has recorded it
+ * ## Nutrition: source-labelled, and never read off a column here
  *
- * A facts payload is emitted only when it is recorded on the catalogue item;
- * otherwise both fields stay null.  That payload includes its source and
- * calculation notes, which lets the client mark a demo estimate as such rather
- * than treating it as a laboratory result.
+ * The facts arrive as an argument. This class used to read
+ * `catalogue_items.nutrition_facts` itself, and that was one of the three
+ * answers rather than the question: `DerivedNutritionService` now decides, in
+ * order of authority — the kitchen's own recorded payload if there is one, else
+ * per-serving figures derived from the published recipe version's snapshot
+ * (one sold unit = one yield piece × the item's portion factor), else null.
+ * Both `serving` and `nutrition` come from that one decision, so they can never
+ * describe different portions.
+ *
+ * The payload carries its own source and calculation notes either way, which is
+ * what lets the client mark a demonstration estimate or an
+ * `ingredient_derived` calculation as such rather than treating either as a
+ * laboratory result.
  */
 final class MarketplaceMealPresenter
 {
@@ -42,6 +51,7 @@ final class MarketplaceMealPresenter
      * @param  list<string>  $mealTypes
      * @param  list<string>  $dietClassifications
      * @param  list<string>  $allergens
+     * @param  array<string, mixed>|null  $nutrition  the one nutrition decision, already made
      * @param  array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool}  $channels
      * @param  list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>  $availability
      * @return array<string, mixed>
@@ -52,13 +62,12 @@ final class MarketplaceMealPresenter
         string $locale,
         ResolvedPrice $price,
         array $allergens,
+        ?array $nutrition,
         array $dietClassifications,
         array $mealTypes,
         array $channels,
         array $availability,
     ): array {
-        $nutrition = $meal->nutrition_facts;
-
         return [
             'id' => (string) $meal->getKey(),
             'kitchen_id' => $meal->organisation_id,

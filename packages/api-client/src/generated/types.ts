@@ -3358,16 +3358,29 @@ export type MarketplaceMeal = {
      */
     allergens: Array<AllergenCode>;
     /**
-     * The serving declared alongside recorded nutrition, or null when the
-     * kitchen has not recorded any facts for this meal.
+     * The serving `nutrition` applies to — always the same object as
+     * `nutrition.serving`, never a second opinion about the portion. The
+     * one the kitchen declared alongside its own recorded facts; on a
+     * derived payload, one sold unit, whose `label` is empty because
+     * nobody wrote a phrase for it and whose `grams` is the finished mass
+     * of that unit. Null when `nutrition` is.
      *
      */
     serving: MarketplaceServing | null;
     /**
-     * Nutrition facts with their source and calculation notes, or null when
-     * no facts are recorded. A `synthetic_prototype` source is a visibly
-     * labelled demonstration estimate, not a kitchen declaration or a
-     * laboratory analysis.
+     * Nutrition facts with their source and calculation notes, from one
+     * decision taken in order of authority: the kitchen-recorded payload
+     * when the listing has one, otherwise per-serving facts derived from
+     * the published recipe version's ingredient snapshot
+     * (`source.kind = ingredient_derived`, `calculation.method =
+     * catalogue.nutrition.per_sold_unit`, where one sold unit is one yield
+     * piece times the item's portion factor and `serving.grams` comes from
+     * the finished-mass basis recorded in `calculation.notes`), otherwise
+     * null. Null covers every gap rather than a guess: no recorded facts,
+     * no published recipe version, no snapshot on it, or no stated yield
+     * piece count to divide by. A `synthetic_prototype` source is a
+     * visibly labelled demonstration estimate, not a kitchen declaration
+     * or a laboratory analysis.
      *
      */
     nutrition: MarketplaceNutritionFacts | null;
