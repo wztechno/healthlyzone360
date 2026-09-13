@@ -329,11 +329,24 @@ final readonly class MarketplaceMeals
      * listing page's query count becomes the problem, both lookups move
      * together into one eager load — not one of them into a special case.
      *
+     * **Inside the kitchen's tenant context, like the price.** The published
+     * item is readable by anyone — that is what "published" means to the
+     * row-level policy on `catalogue_items` — but the recipe version behind it
+     * is the kitchen's own row, and the policy on `recipe_versions` fails
+     * closed for a request with no organisation. An anonymous marketplace read
+     * would therefore find no version, derive nothing, and answer `null` for a
+     * dish whose snapshot is sitting right there; the test suite cannot see
+     * this because it runs as the schema owner, which the policies do not
+     * apply to. `priceOf()` restores the kitchen's context for the same reason
+     * (tariffs are tenant rows), and the projection borrows the same door.
+     *
      * @return array<string, mixed>|null
      */
     public function nutritionOf(CatalogueItem $meal): ?array
     {
-        return $this->nutrition->forItem($meal);
+        return $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal): ?array {
+            return $this->nutrition->forItem($meal);
+        });
     }
 
     /**
