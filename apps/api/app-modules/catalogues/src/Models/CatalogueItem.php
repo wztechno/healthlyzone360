@@ -52,6 +52,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $kitchen_subcategory
  * @property ProductionMode|null $production_mode
  * @property string|null $recipe_id
+ * @property numeric-string $portion_factor
  * @property string|null $ingredient_id
  * @property string|null $purchasing_unit_id
  * @property string|null $usage_unit_id
@@ -82,6 +83,28 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
     use HasFactory;
 
     /**
+     * The database's own default, said again where an in-memory model can hear
+     * it.
+     *
+     * `catalogue_items.portion_factor` is NOT NULL `DEFAULT 1`, so a row
+     * inserted without it sells one yield piece per portion — but the *model*
+     * that inserted it would not know that until it was reloaded, and a caller
+     * holding a just-created item (a factory, an importer, the create endpoint's
+     * own response) would read null. The inventory module's meal explosion
+     * multiplies by this on every deduction and refuses a non-numeric value
+     * loudly rather than deducting nothing, which is exactly how that gap
+     * surfaces. Same reasoning as `Order::$attributes`.
+     *
+     * Mass assignment is otherwise unrestricted — `BaseModel` guards nothing,
+     * because every write flows through a module service.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'portion_factor' => '1',
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -92,6 +115,7 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
             'status' => CatalogueItemStatus::class,
             'is_market_priced' => 'boolean',
             'is_assorted' => 'boolean',
+            'portion_factor' => 'decimal:3',
             'nutrition_facts' => 'array',
             'data_quality_flags' => 'array',
             'seeded_at' => 'immutable_datetime',

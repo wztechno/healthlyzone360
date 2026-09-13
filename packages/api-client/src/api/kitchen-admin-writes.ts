@@ -1136,6 +1136,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ...(request.recipeId === undefined
                             ? {}
                             : { recipe_id: String(request.recipeId) }),
+                        // Omitted rather than sent as 1: the column defaults to
+                        // one piece per sold unit, and an explicit null is a 422.
+                        ...(request.portionFactor === undefined
+                            ? {}
+                            : { portion_factor: request.portionFactor }),
                     },
                 },
             );
@@ -1166,6 +1171,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.recipeId !== undefined) {
                 body.recipe_id = request.recipeId === null ? null : String(request.recipeId);
             }
+            if (request.portionFactor !== undefined) body.portion_factor = request.portionFactor;
 
             if (Object.keys(body).length > 0) {
                 await patchCatalogueItem(id, request.lockVersion, body);

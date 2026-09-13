@@ -2470,6 +2470,7 @@ describe('reading a meal back after a write', () => {
             description_en: 'Smoked, with tahini.',
             description_ar: 'مدخّن، مع طحينة.',
             recipe_id: null,
+            portion_factor: '0.500',
             status: 'draft',
             data_quality_flags: [],
             lock_version: 0,
@@ -2544,6 +2545,7 @@ describe('reading a meal back after a write', () => {
             name_ar: 'وعاء الباذنجان المشوي',
             description_en: 'Smoked, with tahini.',
             description_ar: 'مدخّن، مع طحينة.',
+            portion_factor: 1,
         });
         // No diet classifications were asked for, so no second write is invented for them.
         expect(calls[3]?.url).toBe(
@@ -2553,6 +2555,9 @@ describe('reading a meal back after a write', () => {
 
         expect(String(created.id)).toBe(MEAL_ID);
         expect(created.meta.status).toBe('draft');
+        // The wire's three-place decimal string, not the 1 the request carried:
+        // the record the reads describe is the server's, portion factor included.
+        expect(created.portionFactor).toBe(0.5);
         expect(created.allergens.map(String)).toEqual(['sesame']);
         expect(created.dietClassifications).toEqual(['vegan']);
     });

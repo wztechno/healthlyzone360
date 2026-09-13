@@ -1692,6 +1692,19 @@ export type AdminCatalogueItem = {
      */
     recipe_id?: Uuid | null;
     /**
+     * The portion sold, as a multiple of one recipe yield piece, as a
+     * three-place decimal string. `1.000` — one piece is one sold unit —
+     * is the overwhelmingly common answer; `0.500` is the half portion of
+     * the same recipe sold as the small size.
+     *
+     * It scales **both** the customer's per-serving nutrition and the
+     * stock a sale consumes, from the one column, so a label claim and a
+     * stock count cannot disagree about how big a portion is. Never null
+     * and never zero: an unstated portion is one piece, not nothing.
+     *
+     */
+    portion_factor: string;
+    /**
      * The ingredient a resold raw good simply is.
      */
     ingredient_id?: Uuid | null;
@@ -1948,6 +1961,16 @@ export type CreateCatalogueItemRequest = {
     product_category_id?: Uuid | null;
     production_mode?: CatalogueProductionMode | null;
     recipe_id?: Uuid | null;
+    /**
+     * The portion sold, as a multiple of one recipe yield piece. Omit for
+     * `1` — one piece is one sold unit. Not nullable: the column is NOT
+     * NULL and an explicit null is refused rather than read as a reset.
+     * `minimum` is the column's own three-place precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     */
+    portion_factor?: number;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
@@ -1975,6 +1998,16 @@ export type UpdateCatalogueItemRequest = {
     product_category_id?: Uuid | null;
     production_mode?: CatalogueProductionMode | null;
     recipe_id?: Uuid | null;
+    /**
+     * The portion sold, as a multiple of one recipe yield piece. Omitting
+     * it keeps the stored factor; there is no way to clear one, because
+     * the column is NOT NULL and an explicit null is refused rather than
+     * read as a reset to `1`. `minimum` is the column's own three-place
+     * precision, so a value that would round to zero is refused here
+     * rather than by the database CHECK.
+     *
+     */
+    portion_factor?: number;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;

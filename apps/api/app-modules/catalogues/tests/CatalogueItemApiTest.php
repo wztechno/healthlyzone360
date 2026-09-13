@@ -73,6 +73,57 @@ it('records an untranslated Arabic name as empty rather than as the English one'
         ->assertJsonPath('data.item.name_ar', '');
 });
 
+it('sells one yield piece per portion unless the kitchen says otherwise', function (): void {
+    // The default is the arithmetic every reader had before the column existed:
+    // one piece is one sold unit. It is NOT NULL precisely so that no reader has
+    // to keep its own copy of that rule.
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Lasagne Tray Square',
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.item.portion_factor', '1.000');
+});
+
+it('records a half portion of the same recipe and refuses one that is not a portion at all', function (): void {
+    // One number scales both the diner's per-serving nutrition and the stock the
+    // sale consumes, so the half square is a factor rather than a second recipe.
+    $item = CatalogueWorld::publishableProduct($this->a);
+
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'];
+    $url = '/api/v1/catalogue/items/'.$item->getKey();
+
+    $this->patchJson($url, ['portion_factor' => 0.5], $headers)
+        ->assertOk()
+        ->assertJsonPath('data.item.portion_factor', '0.500');
+
+    $next = CatalogueWorld::headers($this->a) + ['If-Match' => '"1"'];
+
+    // Zero is a sale that eats nothing and feeds nobody, and a negative is not a
+    // portion. Refused by name here rather than by a 500 from the CHECK.
+    $this->patchJson($url, ['portion_factor' => 0], $next)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonPath('error.details.fields.portion_factor.0', fn (?string $message): bool => $message !== null);
+
+    // Below the column's own three places: 0.0004 would round to 0.000 and trip
+    // the CHECK as a 500, so the request rules stop it one layer earlier.
+    $this->patchJson($url, ['portion_factor' => 0.0004], $next)
+        ->assertStatus(422)
+        ->assertJsonPath('error.details.fields.portion_factor.0', fn (?string $message): bool => $message !== null);
+
+    // Not nullable, and not silently ignored either: a client that sent null
+    // believed it was writing something, and "unknown portion" is one piece.
+    $this->patchJson($url, ['portion_factor' => null], $next)
+        ->assertStatus(422)
+        ->assertJsonPath('error.details.fields.portion_factor.0', fn (?string $message): bool => $message !== null);
+
+    expect(CatalogueItem::withoutTenancy()->whereKey($item->getKey())->value('portion_factor'))->toBe('0.500');
+});
+
 it('creates a default catalogue on demand when the caller names none', function (): void {
     // A kitchen with one range should not have to know the concept exists to
     // add a product to it.

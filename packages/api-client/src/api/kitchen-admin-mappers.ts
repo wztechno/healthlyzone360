@@ -599,7 +599,11 @@ export function mapMealAdminFromItem(
         kitchenId: mapKitchenId(wire.organisation_id),
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         recipeVersionId: null,
-        portionFactor: 1,
+        // The `== null` fallback is for a payload predating the column, not for
+        // a server that omits it: the field is required on `AdminCatalogueItem`
+        // and NOT NULL in the database, and one piece per sold unit is exactly
+        // what a row without the column meant.
+        portionFactor: wire.portion_factor == null ? 1 : Number(wire.portion_factor),
         mealTypes: [],
         dietClassifications: options?.dietClassifications ?? [],
         allergens: options?.allergens ?? [],

@@ -526,7 +526,7 @@ function viewFields(
         },
         {
             // The portion sold, relative to one recipe serving — it rescales every nutrition figure
-            // a customer reads, and it is on no track.
+            // a customer reads *and* the stock each sale consumes, and it is on no track.
             key: 'portion',
             label: t('kitchen:meals.portionLabel'),
             value: formatter.formatNumber(row.portionFactor),
