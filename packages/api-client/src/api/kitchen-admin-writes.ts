@@ -69,6 +69,7 @@ import type {
     PlanMenuEntry as WirePlanMenuEntry,
     PlanVariantCell,
     ProcurementReference,
+    RecipeRollupPreview as RecipeRollupPreviewWire,
 } from '../generated/types.ts';
 import {
     buildCategoryLookup,
@@ -1738,33 +1739,30 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 }),
             );
 
-            const envelope = await transport.requestEnvelope<{
-                readonly per_recipe: null;
-                readonly per_serving: null;
-                readonly per_100g: null;
-                readonly allergen_sources: ReadonlyArray<{
-                    readonly allergen_code: string;
-                    readonly containment: string;
-                    readonly ingredient_ids: readonly string[];
-                }>;
-                readonly estimated_cost: {
-                    readonly amount: string;
-                    readonly currency: string;
-                } | null;
-                readonly warnings: ReadonlyArray<{
-                    readonly code: string;
-                    readonly message: string;
-                    readonly ingredient_ids?: readonly string[];
-                }>;
-            }>({
+            // Resolved the same way a line's unit is, and for the same reason: the contract
+            // speaks unit *codes* and the API takes ids, and `units.resolve` is the one cache
+            // that maps between them.
+            const yieldUnitId =
+                draft.yieldUnit === undefined ? null : await units.resolve(transport, draft.yieldUnit);
+
+            const envelope = await transport.requestEnvelope<RecipeRollupPreviewWire>({
                 method: 'POST',
                 path: '/catalogue/recipes/roll-up-preview',
                 body: {
                     recipe_id: draft.recipeId === null ? null : String(draft.recipeId),
+                    // Null travels: the server reads it as "nobody has said", and answers with a
+                    // null `per_serving` rather than a label computed over an invented count.
                     servings: draft.servings,
                     ...(draft.wastePercent === undefined
                         ? {}
                         : { waste_percent: draft.wastePercent }),
+                    ...(draft.yieldQuantity === undefined
+                        ? {}
+                        : { yield_quantity: draft.yieldQuantity }),
+                    ...(yieldUnitId === null ? {} : { yield_unit_id: yieldUnitId }),
+                    ...(draft.yieldPieceCount === undefined
+                        ? {}
+                        : { yield_piece_count: draft.yieldPieceCount }),
                     lines,
                 },
             });

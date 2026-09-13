@@ -47,6 +47,7 @@ import {
     moveInList,
     normaliseQuantity,
     parseQuantity,
+    rollupWarningKey,
     unitsInDimension,
 } from './format.ts';
 import { RecipeEditScreen } from './screens/recipe-edit-screen.tsx';
@@ -723,6 +724,37 @@ describe('recipe display helpers', () => {
         expect(recipeRollupHash(draft)).toBe(recipeRollupHash({ ...draft, lines: [...lines] }));
         expect(recipeRollupHash(draft)).not.toBe(recipeRollupHash(reordered));
         expect(recipeRollupHash(draft)).not.toBe(recipeRollupHash({ ...draft, servings: 3 }));
+
+        // The yield is an input to the figures rather than decoration: the piece count decides
+        // whether there is a per-serving figure at all, and the mass decides what per-100 g divides
+        // by. A hash that ignored either would leave the panel showing the previous batch's numbers.
+        expect(recipeRollupHash(draft)).not.toBe(
+            recipeRollupHash({ ...draft, yieldPieceCount: 4 }),
+        );
+        expect(recipeRollupHash({ ...draft, yieldPieceCount: 4 })).not.toBe(
+            recipeRollupHash({ ...draft, yieldPieceCount: 6 }),
+        );
+        expect(recipeRollupHash(draft)).not.toBe(
+            recipeRollupHash({ ...draft, yieldQuantity: 1.7, yieldUnit: 'kg' }),
+        );
+    });
+
+    it('translates the warning codes it has copy for and falls back on the ones it does not', () => {
+        // A code the interface knows is rendered in the reader's language; one it does not falls
+        // back to the sentence the server wrote. Neither is ever dropped — a roll-up that quietly
+        // omitted a line is the failure mode the whole warning shape exists to prevent.
+        expect(rollupWarningKey('rollup.unknown_ingredient')).toBe(
+            'kitchen:rollup.warningUnknownIngredient',
+        );
+        expect(rollupWarningKey('rollup.unconvertible_unit')).toBe(
+            'kitchen:rollup.warningUnconvertibleUnit',
+        );
+        expect(rollupWarningKey('rollup.missing_cost')).toBe('kitchen:rollup.warningMissingCost');
+        expect(rollupWarningKey('rollup.missing_facts')).toBe('kitchen:rollup.warningMissingFacts');
+        expect(rollupWarningKey('rollup.missing_nutrition')).toBe(
+            'kitchen:rollup.warningMissingNutrition',
+        );
+        expect(rollupWarningKey('rollup.something_new')).toBeNull();
     });
 });
 
@@ -2094,6 +2126,115 @@ describe('the roll-up preview', () => {
                 new RegExp(MAPPED_INGREDIENT.name.en),
             );
         });
+    });
+
+    it('names the ingredient behind a withheld figure, and flags its row', async () => {
+        /*
+         * The whole reason the server sends `ingredientIds` beside the code.
+         *
+         * A panel of dashes under "Nutrition" with "some ingredients carry no reference facts"
+         * beside it sends somebody down a list of nine rows. Naming the one at fault — and marking
+         * the row it sits on — makes the gap something a kitchen fixes this afternoon.
+         */
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    previewRecipeRollup: async () =>
+                        rollupPreview({
+                            perRecipe: null,
+                            perServing: null,
+                            per100g: null,
+                            warnings: [
+                                {
+                                    code: 'rollup.missing_nutrition',
+                                    message: 'Server sentence nobody should be reading here.',
+                                    ingredientIds: [UNMAPPED_INGREDIENT.id],
+                                },
+                            ],
+                        }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('sheet');
+        await untilVisible('kitchen-recipe-composition-warnings');
+
+        // Translated from the code, with the ingredient's own name interpolated — not the
+        // server's English fallback, which is only for a code this screen has no copy for.
+        const notice = screen.getByTestId(
+            'kitchen-recipe-composition-warnings-warning-rollup.missing_nutrition',
+        );
+        expect(notice).toHaveTextContent(new RegExp(UNMAPPED_INGREDIENT.name.en));
+        expect(notice).not.toHaveTextContent(/Server sentence/);
+
+        // And the row itself. The glyph is decorative — the sentence above is what a screen reader
+        // hears — so reaching it takes `includeHiddenElements`.
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+        expect(
+            screen.getByTestId('kitchen-recipe-lines-table-row-line-1-flag', {
+                includeHiddenElements: true,
+            }),
+        ).toBeTruthy();
+        expect(
+            screen.queryByTestId('kitchen-recipe-lines-table-row-line-0-flag', {
+                includeHiddenElements: true,
+            }),
+        ).toBeNull();
+    });
+
+    it('sends no yield at all once the yield field is cleared, and no servings without a piece count', async () => {
+        /*
+         * The editor's own `servings` variable defaults a blank yield to `1`, because six other
+         * figures on this screen divide by it. The roll-up cannot afford that default: a `1` sent
+         * as the yield mass makes per-100 g divide by one gram, and a `1` sent as the portion count
+         * labels a twelve-portion batch as a single serving. So a cleared field sends *absent*.
+         */
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                latencyMs: 1,
+                repositories: { kitchenAdmin: editorReads(() => stored) },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+
+        const preview = repositories.kitchenAdmin.previewRecipeRollup as jest.Mock;
+        await waitFor(() => {
+            expect(preview.mock.calls.length).toBeGreaterThan(0);
+        });
+
+        // The seeded version yields 4 and states no piece count, so even before the edit the
+        // portion count is `null` rather than a fabricated 1.
+        const seeded = preview.mock.calls.at(-1)?.[0] as RecipeRollupDraft;
+        expect(seeded.yieldQuantity).toBe(4);
+        expect(seeded.servings).toBeNull();
+
+        jest.useFakeTimers();
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-yield-quantity'), '');
+        });
+        await act(async () => {
+            jest.advanceTimersByTime(500);
+        });
+        jest.useRealTimers();
+
+        const cleared = preview.mock.calls.at(-1)?.[0] as RecipeRollupDraft;
+        expect('yieldQuantity' in cleared).toBe(false);
+        expect('yieldUnit' in cleared).toBe(false);
+        expect('yieldPieceCount' in cleared).toBe(false);
+        expect(cleared.servings).toBeNull();
     });
 });
 

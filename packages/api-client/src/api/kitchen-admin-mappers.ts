@@ -62,6 +62,7 @@ import type {
 } from '../contracts/kitchen-admin.ts';
 import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
+import { mapNutritionFacts } from './marketplace-mappers.ts';
 import type {
     AdminCatalogueItem,
     AdminCatalogueItemVariant,
@@ -91,6 +92,7 @@ import type {
     PriceListChannelAssignment,
     PriceListStatus,
     RecipeLine as WireRecipeLine,
+    RecipeRollupPreview as WireRecipeRollupPreview,
     RecipeOutput as WireRecipeOutput,
     RecipeStep as WireRecipeStep,
     RecipeVersionAllergen,
@@ -625,53 +627,15 @@ export function mapMealAvailabilityDays(
 }
 
 /**
- * Empty facts used when the server has not computed nutrition yet (N1). The
- * roll-up warning list carries the honest reason; inventing numbers would lie.
+ * The roll-up preview, as the editor's Technical sheet reads it.
+ *
+ * The three nutrition fields are `null` or they are facts, and the `null` is
+ * load-bearing: the server withholds all three the moment one line cannot be
+ * resolved, and `warnings` names the ingredients responsible. Nothing is
+ * substituted for them here — an empty envelope would render as a panel of
+ * zeroes, which is a claim about the dish rather than a gap in the data.
  */
-function unavailableNutritionFacts(
-    basis: NutritionFacts['basis'],
-    calculatedAt: string,
-): NutritionFacts {
-    return {
-        basis,
-        kind: 'planned',
-        serving: null,
-        totalGrams: null,
-        amounts: [],
-        source: {
-            kind: 'ingredient_derived',
-            label: 'Unavailable until N1 nutrition authority',
-            version: '0',
-            calculatedAt,
-        },
-        calculation: {
-            method: 'rollup.preview.unavailable',
-            basis,
-            calculatedAt,
-            prototype: false,
-            rounding: 'none',
-            notes: ['Nutrition figures are not computed on the server yet.'],
-        },
-    };
-}
-
-export function mapRecipeRollupPreview(wire: {
-    readonly per_recipe: unknown;
-    readonly per_serving: unknown;
-    readonly per_100g: unknown;
-    readonly allergen_sources: ReadonlyArray<{
-        readonly allergen_code: string;
-        readonly containment: string;
-        readonly ingredient_ids: readonly string[];
-    }>;
-    readonly estimated_cost: { readonly amount: string; readonly currency: string } | null;
-    readonly warnings: ReadonlyArray<{
-        readonly code: string;
-        readonly message: string;
-        readonly ingredient_ids?: readonly string[];
-    }>;
-}): RecipeRollupPreview {
-    const calculatedAt = UNKNOWN_ISO_DATE_TIME;
+export function mapRecipeRollupPreview(wire: WireRecipeRollupPreview): RecipeRollupPreview {
     const estimated =
         wire.estimated_cost !== null && isCurrencyCode(wire.estimated_cost.currency)
             ? {
@@ -687,10 +651,9 @@ export function mapRecipeRollupPreview(wire: {
     }));
 
     return {
-        perRecipe: unavailableNutritionFacts('per_recipe', calculatedAt),
-        perServing: unavailableNutritionFacts('per_serving', calculatedAt),
-        per100g:
-            wire.per_100g === null ? null : unavailableNutritionFacts('per_100g', calculatedAt),
+        perRecipe: wire.per_recipe === null ? null : mapNutritionFacts(wire.per_recipe),
+        perServing: wire.per_serving === null ? null : mapNutritionFacts(wire.per_serving),
+        per100g: wire.per_100g === null ? null : mapNutritionFacts(wire.per_100g),
         allergenSources: wire.allergen_sources.flatMap((source) => {
             if (!ALLERGEN_CONTAINMENTS.includes(source.containment as AllergenContainment)) {
                 return [];

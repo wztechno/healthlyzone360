@@ -6391,8 +6391,9 @@ export const zOrganisationInvitation = z.object({
 export const zRecipeRollupWarning = z.object({
     code: z.enum([
         'rollup.unknown_ingredient',
-        'nutrition_unavailable',
         'rollup.missing_facts',
+        'rollup.missing_nutrition',
+        'rollup.unconvertible_unit',
         'rollup.mixed_cost_currency',
         'rollup.missing_cost'
     ]),
@@ -6415,15 +6416,16 @@ export const zRecipeRollupAllergenSource = z.object({
  * What a draft formulation would declare, computed and thrown away.
  */
 export const zRecipeRollupPreview = z.object({
-    per_recipe: z.null(),
-    per_serving: z.null(),
-    per_100g: z.null(),
+    per_recipe: zMarketplaceNutritionFacts.nullable(),
+    per_serving: zMarketplaceNutritionFacts.nullable(),
+    per_100g: zMarketplaceNutritionFacts.nullable(),
     allergen_sources: z.array(zRecipeRollupAllergenSource),
     estimated_cost: z.object({
         amount: z.string(),
         currency: z.string().length(3)
     }).nullable(),
-    warnings: z.array(zRecipeRollupWarning).min(1)
+    computed_cost: z.record(z.string(), z.unknown()).nullable(),
+    warnings: z.array(zRecipeRollupWarning)
 });
 
 export const zPreviewRecipeRollupLine = z.object({
@@ -6434,11 +6436,22 @@ export const zPreviewRecipeRollupLine = z.object({
     cost_currency_code: z.string().length(3).nullish()
 });
 
+export const zPreviewRecipeRollupPackagingLine = z.object({
+    ingredient_id: zUuid,
+    basis: zPackagingBasis,
+    quantity: z.number().gt(0).lte(99999999.9999).nullish()
+});
+
 export const zPreviewRecipeRollupRequest = z.object({
     recipe_id: zUuid.nullish(),
-    servings: z.number().gt(0).lte(9999),
+    servings: z.number().gt(0).lte(9999).nullish(),
     waste_percent: z.number().gte(0).lte(100).nullish(),
-    lines: z.array(zPreviewRecipeRollupLine).max(200)
+    lines: z.array(zPreviewRecipeRollupLine).max(200),
+    yield_quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).lte(100000).nullish(),
+    packaging_waste_percent: z.number().gte(0).lte(100).nullish(),
+    packaging: z.array(zPreviewRecipeRollupPackagingLine).max(50).optional()
 });
 
 export const zCatalogueItemAvailabilityDay = z.object({

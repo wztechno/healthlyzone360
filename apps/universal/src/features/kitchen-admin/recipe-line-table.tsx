@@ -160,6 +160,12 @@ export interface RecipeLineTableProps {
      * differ in how a row is *priced* — see {@link ingredientEntry} and {@link packagingEntry}.
      */
     readonly source?: 'ingredients' | 'packaging' | undefined;
+    /**
+     * Ingredients the roll-up could not finish with — no reference facts, or nothing to weigh them
+     * by. The rows naming one get a mark, so the warning list above and the row at fault are the
+     * same piece of information rather than two lists a reader has to cross-reference.
+     */
+    readonly flaggedIngredientIds?: readonly string[] | undefined;
     readonly canManage: boolean;
     /** Mints a stable row key. The editor owns the counter so keys never collide across tables. */
     readonly nextKey: () => string;
@@ -248,6 +254,7 @@ export function RecipeLineTable({
     rows,
     ingredients,
     source = 'ingredients',
+    flaggedIngredientIds = [],
     canManage,
     nextKey,
     onChange,
@@ -442,6 +449,15 @@ export function RecipeLineTable({
                                         {entry.reference}
                                     </Text>
                                 )}
+                                {row.ingredientId !== null &&
+                                flaggedIngredientIds.includes(String(row.ingredientId)) ? (
+                                    <Icon
+                                        testID={`${rowTestId}-flag`}
+                                        name="warning"
+                                        size="sm"
+                                        className="text-warning-strong"
+                                    />
+                                ) : null}
                             </View>
 
                             <View style={{ width: TRACK.unit }}>

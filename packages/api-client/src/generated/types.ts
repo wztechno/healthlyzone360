@@ -8997,21 +8997,27 @@ export type OrganisationInvitation = {
  */
 export type RecipeRollupWarning = {
     /**
-     * The closed set the preview can emit.
-     * `nutrition_unavailable` is on **every** response while the
-     * roll-up is not computed server-side, which is why `warnings` is
-     * never empty.
+     * The closed set the preview can emit. `warnings` may be **empty** —
+     * a complete draft whose every line resolves warns about nothing.
+     *
+     * `rollup.missing_facts` is about *allergens* (an ingredient nobody
+     * has assessed) and does not withhold anything.
+     * `rollup.missing_nutrition`, `rollup.unconvertible_unit` and
+     * `rollup.unknown_ingredient` each withhold `per_recipe`,
+     * `per_serving` and `per_100g`. The last two are about money and
+     * withhold `estimated_cost` only.
      *
      */
-    code: 'rollup.unknown_ingredient' | 'nutrition_unavailable' | 'rollup.missing_facts' | 'rollup.mixed_cost_currency' | 'rollup.missing_cost';
+    code: 'rollup.unknown_ingredient' | 'rollup.missing_facts' | 'rollup.missing_nutrition' | 'rollup.unconvertible_unit' | 'rollup.mixed_cost_currency' | 'rollup.missing_cost';
     /**
      * A safe English summary. Clients translate from `code`, never from this.
      */
     message: string;
     /**
-     * Present on `rollup.unknown_ingredient` (exactly one) and
-     * `rollup.missing_facts` (however many). Absent on the rest —
-     * absent, not empty.
+     * Present on `rollup.unknown_ingredient` (exactly one),
+     * `rollup.missing_facts`, `rollup.missing_nutrition` and
+     * `rollup.unconvertible_unit` (however many, deduplicated, in line
+     * order). Absent on the rest — absent, not empty.
      *
      */
     ingredient_ids?: Array<Uuid>;
@@ -9036,21 +9042,35 @@ export type RecipeRollupAllergenSource = {
  */
 export type RecipeRollupPreview = {
     /**
-     * **Always `null`.** Nutrition roll-up is not computed on the server
-     * yet. The key exists because it is the shape the published version
-     * will carry, and a client that had to grow three fields later would
-     * have shipped a screen with nothing to put in them.
+     * The whole formulation's figures — every line weighed in grams and
+     * its per-100 g reference facts scaled by that weight, summed.
+     *
+     * `null` when anything was withheld: see `warnings` for which lines
+     * and why. Never a partial total.
      *
      */
-    per_recipe: null;
+    per_recipe: MarketplaceNutritionFacts | null;
     /**
-     * Always `null`. See `per_recipe`.
+     * `per_recipe` divided by `servings`.
+     *
+     * `null` when the figures were withheld (see `warnings`) **and** when
+     * the request did not send `servings` — nothing here invents a
+     * portion count, so an unstated one yields no per-serving label
+     * rather than one computed as if the batch were a single serving.
+     *
      */
-    per_serving: null;
+    per_serving: MarketplaceNutritionFacts | null;
     /**
-     * Always `null`. See `per_recipe`.
+     * The comparison basis, over the **finished** mass: the stated
+     * `yield_quantity` when it is a mass, otherwise the sum of the line
+     * weights. `calculation.notes` names which, as
+     * `mass_basis: yield` or `mass_basis: input`.
+     *
+     * `null` when the figures were withheld (see `warnings`), and when
+     * nothing could be weighed at all.
+     *
      */
-    per_100g: null;
+    per_100g: MarketplaceNutritionFacts | null;
     allergen_sources: Array<RecipeRollupAllergenSource>;
     /**
      * `null` when the caller does not hold
@@ -9070,6 +9090,21 @@ export type RecipeRollupPreview = {
         amount: string;
         currency: string;
     } | null;
+    /**
+     * The technical sheet's `computed` block over this draft — the same
+     * shape and the same arithmetic `GET /catalogue/recipes/{id}/
+     * technical-sheet` returns for a saved version, so one panel renders
+     * either. `null` when the draft states no yield (every figure in the
+     * block is something *over* the yield) and when the caller does not
+     * hold `recipe.view_costs_organisation`.
+     *
+     */
+    computed_cost: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * May be empty — a draft whose every line resolves warns about nothing.
+     */
     warnings: Array<RecipeRollupWarning>;
 };
 
@@ -9098,9 +9133,13 @@ export type PreviewRecipeRollupRequest = {
      */
     recipe_id?: Uuid | null;
     /**
-     * Required. Does not currently change the answer — the per-serving figures are `null`.
+     * Divides `per_serving`, and nothing else. **Omitted when the draft
+     * does not know** — the server never substitutes one, so an unstated
+     * count yields `per_serving: null` rather than a per-serving label
+     * computed as if the whole batch were one serving.
+     *
      */
-    servings: number;
+    servings?: number | null;
     /**
      * Applied to `estimated_cost.amount` only.
      */
@@ -9111,6 +9150,45 @@ export type PreviewRecipeRollupRequest = {
      *
      */
     lines: Array<PreviewRecipeRollupLine>;
+    /**
+     * What the batch makes. When `yield_unit_id` names a **mass** unit it
+     * becomes the basis `per_100g` divides by (`mass_basis: yield`);
+     * anything else falls back to the summed line weights, because four
+     * pieces is not a mass and nothing here guesses what they weigh.
+     *
+     * It is also what asks for `computed_cost`: every figure in that
+     * block is a total over this number.
+     *
+     */
+    yield_quantity?: number | null;
+    /**
+     * Required whenever `yield_quantity` is sent. A unit that does not exist is `422`.
+     */
+    yield_unit_id?: Uuid | null;
+    /**
+     * How many sold units the yield divides into. Read by `computed_cost` only.
+     */
+    yield_piece_count?: number | null;
+    /**
+     * Applied to the packaging half of `computed_cost`.
+     */
+    packaging_waste_percent?: number | null;
+    /**
+     * What the batch ships in. Costed into `computed_cost`; never part of the nutrition or allergen figures.
+     */
+    packaging?: Array<PreviewRecipeRollupPackagingLine>;
+};
+
+export type PreviewRecipeRollupPackagingLine = {
+    ingredient_id: Uuid;
+    basis: PackagingBasis;
+    /**
+     * Read on `per_batch` only. The other two bases compute their count
+     * from the yield and from the container lines, so a figure sent with
+     * one of them is ignored rather than honoured.
+     *
+     */
+    quantity?: number | null;
 };
 
 export type CatalogueItemAvailabilityDay = {

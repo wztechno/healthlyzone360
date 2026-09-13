@@ -914,10 +914,17 @@ export interface SetRecipeOutputsRequest extends LockedRequest {
  */
 export interface RecipeRollupDraft {
     readonly recipeId: RecipeId | null;
-    readonly servings: number;
+    /** How many sold units the batch makes. `null` when the draft has not said — never defaulted to 1. */
+    readonly servings: number | null;
     readonly serving?: Serving | undefined;
     readonly wastePercent?: number | undefined;
     readonly lines: readonly RecipeLineInput[];
+    /** What the batch makes. Becomes the `per100g` basis when `yieldUnit` is a mass. */
+    readonly yieldQuantity?: number | undefined;
+    /** The unit `yieldQuantity` is stated in. Sent only alongside it. */
+    readonly yieldUnit?: MeasureUnit | undefined;
+    /** How many pieces the yield divides into — the cost block's divisor. */
+    readonly yieldPieceCount?: number | undefined;
 }
 
 /** One allergen the draft would declare, and the lines that put it there. */
@@ -938,8 +945,13 @@ export interface RollupWarning {
 }
 
 export interface RecipeRollupPreview {
-    readonly perRecipe: NutritionFacts;
-    readonly perServing: NutritionFacts;
+    /**
+     * `null` when the server withheld the figures — one line it could not weigh, or one ingredient
+     * with no usable reference facts. `warnings` names them. Never a partial total.
+     */
+    readonly perRecipe: NutritionFacts | null;
+    /** `null` for `perRecipe`'s reasons, and when the draft never said how many servings it makes. */
+    readonly perServing: NutritionFacts | null;
     /** `null` when the total mass is unknown, so a per-100 g comparison would be a guess. */
     readonly per100g: NutritionFacts | null;
     readonly allergenSources: readonly AllergenSource[];

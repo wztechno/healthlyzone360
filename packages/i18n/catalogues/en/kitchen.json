@@ -2266,10 +2266,11 @@
         "warningsTitle": "What could not be counted",
         "warningsNone": "Every line was counted.",
         "warningLines": "Lines: {{names}}",
-        "warningUnknownIngredient": "A line points at an ingredient that is not in the library.",
-        "warningUnconvertibleUnit": "A line is measured in a unit that cannot be converted to a mass here, so it was left out of the figures.",
+        "warningUnknownIngredient": "The figures are withheld: there is no library entry for {{names}}.",
+        "warningUnconvertibleUnit": "The figures are withheld: {{names}} cannot be weighed in grams. Record a weight per unit on the ingredient.",
         "warningMissingCost": "At least one ingredient has no recorded cost, so no total is shown.",
-        "warningMissingFacts": "At least one ingredient carries no reference facts, so it was left out of the figures.",
+        "warningMissingFacts": "No allergen assessment yet for {{names}}, so the declaration may be incomplete.",
+        "warningMissingNutrition": "The figures are withheld: there are no reference nutrition facts for {{names}}.",
         "unsavedNotice": "This preview stores nothing. Save the draft to keep it."
     },
     "rows": {
