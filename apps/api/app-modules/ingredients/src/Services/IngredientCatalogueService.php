@@ -24,7 +24,7 @@ use Illuminate\Support\Str;
 /**
  * Every write to the ingredient catalogue goes through here.
  *
- * Three responsibilities the controllers deliberately do not carry:
+ * Four responsibilities the controllers deliberately do not carry:
  *
  * 1. **The platform/tenant boundary.** A tenant may read the platform library
  *    and may not write it. Enforced once, here, rather than remembered in six
@@ -37,6 +37,12 @@ use Illuminate\Support\Str;
  * 3. **The audit trail.** A catalogue mutation that is not audited did not
  *    happen as far as a food-safety review is concerned, so recording is part
  *    of the write, not an optional decoration on the call site.
+ * 4. **Reaching the labels derived from the row.** An ingredient's per-100 g
+ *    facts and its density are inputs to every recipe nutrition snapshot
+ *    computed from them, so an edit to either marks those snapshots stale and
+ *    queues their recompute — see {@see invalidateNutritionDerivations()}. A
+ *    controller cannot carry this, because whether it is needed depends on
+ *    which fields the write actually changed.
  */
 final readonly class IngredientCatalogueService
 {
@@ -56,6 +62,7 @@ final readonly class IngredientCatalogueService
         private AuditRecorder $audit,
         private IngredientUsageRegistry $usage,
         private PlatformLibraryAccess $platform,
+        private IngredientDerivationInvalidator $invalidator,
     ) {}
 
     /**
@@ -449,6 +456,8 @@ final readonly class IngredientCatalogueService
 
         $this->compareAndSwap($ingredient, $changes, $expectedLockVersion);
 
+        [$stale, $organisations] = $this->invalidateNutritionDerivations($ingredient, $changes);
+
         $this->audit->record(
             'catalogue.ingredient_updated',
             actorUserId: $this->context->userId(),
@@ -457,10 +466,69 @@ final readonly class IngredientCatalogueService
             metadata: [
                 'changed_fields' => array_values(array_diff(array_keys($changes), ['updated_by'])),
                 'lock_version' => $ingredient->lock_version,
+
+                // Counts, mirroring `AllergenMappingService`: how many labels
+                // this edit reached and how wide the blast radius was, never
+                // which versions or whose. A platform correction that reached
+                // eleven kitchens is a fact the operator must be able to see
+                // afterwards; *which* eleven is not theirs to read out of an
+                // audit row. Both are zero on the ordinary edit, which is the
+                // useful signal — this row changed nothing downstream.
+                'stale_recipe_versions' => count($stale),
+                'affected_organisations' => $organisations,
             ],
         );
 
         return $ingredient;
+    }
+
+    /**
+     * Mark every derived label downstream of a nutrition-bearing change stale.
+     *
+     * **Three fields, and only three.** A recipe's nutrition is derived from an
+     * ingredient's per-100 g facts and from the mass of one line of it, so the
+     * inputs are:
+     *
+     * - `nutrition_per_100g` — the facts themselves. Obvious.
+     * - `grams_per_unit` — what one default unit weighs. A line stated in
+     *   litres is weighed *through* this figure, so moving it moves every
+     *   derived amount by the same ratio, and clearing it withholds the label
+     *   entirely. Note this catches the clear the guard above performs as well
+     *   as one an operator sent, because the guard writes into `$changes`.
+     * - `default_unit_id` — the unit the density is measured *against*. On its
+     *   own it changes no number, but it changes what the number beside it
+     *   means, and the two cases it produces both matter: the guard cleared the
+     *   density (labels must be withheld) or the operator sent a replacement
+     *   (labels must be recomputed against it).
+     *
+     * Nothing else on the row reaches a label. A name, a category, a price, a
+     * yield factor, an availability tier — none of them is an input to the
+     * arithmetic, and invalidating on a rename would queue a recompute of every
+     * version using an ingredient every time somebody fixed its spelling. The
+     * allergen mappings are the other half of this and are not on this table:
+     * `AllergenMappingService` invalidates its own writes.
+     *
+     * The layer is the row's own owner rather than the caller's. A platform row
+     * has no organisation, and its facts changing reaches *every* tenant whose
+     * recipes cite it — which is why NULL is passed straight through to the
+     * fan-out. A tenant row is only ever in that tenant's recipes. This differs
+     * from `AllergenMappingService`, which passes `callerLayer()`, and the
+     * difference is real: an allergen write may be a tenant's own overlay on a
+     * platform row and reach only that tenant, whereas there is no overlay on a
+     * number — a platform ingredient's facts are one value that everyone reads.
+     *
+     * @param  array<string, mixed>  $changes
+     * @return array{0: list<string>, 1: int}
+     */
+    private function invalidateNutritionDerivations(Ingredient $ingredient, array $changes): array
+    {
+        $inputs = ['nutrition_per_100g', 'grams_per_unit', 'default_unit_id'];
+
+        if (array_intersect($inputs, array_keys($changes)) === []) {
+            return [[], 0];
+        }
+
+        return $this->invalidator->invalidate($ingredient, $ingredient->organisation_id);
     }
 
     /**

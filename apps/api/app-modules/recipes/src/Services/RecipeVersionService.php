@@ -68,6 +68,7 @@ final readonly class RecipeVersionService
         private RecipeUsageRegistry $usage,
         private RecipeVersionReadiness $readiness,
         private RecipeLabelWriter $labels,
+        private RecipeNutritionService $nutrition,
     ) {}
 
     /**
@@ -795,6 +796,15 @@ final readonly class RecipeVersionService
      * path therefore cannot throw — see
      * `RecipeCostingService::costingForPublication()`.
      *
+     * **Nutrition is not a gate either**, for the same reason and one more: a
+     * recipe whose third line points at an ingredient nobody has recorded facts
+     * for publishes normally, with `nutrition_facts` left NULL and the audit
+     * row saying so. Refusing publication over it would hold a correct allergen
+     * label hostage to a reference-data gap the kitchen may not own — most of
+     * these ingredients are platform rows — and the label is the food-safety
+     * artefact. What is *not* acceptable is publishing a partial total, and
+     * that is the withholding rule `RecipeNutritionService` already applies.
+     *
      * @throws ApiException
      */
     public function publish(RecipeVersion $version, int $expectedLockVersion): RecipeVersion
@@ -820,9 +830,16 @@ final readonly class RecipeVersionService
         $rolled = $this->rollup->rollUp($orderedIngredientIds, $effective);
         $hash = $this->labels->derivationHash($lines, $effective);
         $costing = $this->costing->costingForPublication($version, $lines);
+
+        // Outside the transaction, beside the costing call and for the same
+        // reason: this reads the line ingredients and their units, and a pair of
+        // SELECTs held inside the transaction that demotes the incumbent widens
+        // the window on the partial unique index for no benefit. Neither result
+        // can block publication, so neither needs to be inside it.
+        $nutrition = $this->nutrition->forVersion($version, $lines);
         $now = now();
 
-        $demoted = DB::transaction(function () use ($version, $expectedLockVersion, $rolled, $hash, $costing, $now): array {
+        $demoted = DB::transaction(function () use ($version, $expectedLockVersion, $rolled, $hash, $costing, $nutrition, $now): array {
             // The incumbent goes first: the partial unique index allows one
             // published version per recipe, so demoting before promoting keeps
             // the common path off the constraint entirely.
@@ -851,6 +868,16 @@ final readonly class RecipeVersionService
                 'derived_at' => $now,
                 'derived_input_hash' => $hash,
                 'review_reason' => null,
+
+                // A JSON **string**, not an array. `compareAndSwap()` is a
+                // query-builder UPDATE — it has to be, to get the conditional
+                // `WHERE lock_version = ?` — and the query builder bypasses the
+                // model's `array` cast, so an array would reach PDO unencoded
+                // and land as PostgreSQL's idea of a stringified PHP array.
+                // Unconditional, including the null: a version that has lost a
+                // resolvable line must not keep the figure it had when it had
+                // one.
+                'nutrition_facts' => $nutrition->snapshotJson(),
                 'updated_by' => $this->context->userId(),
             ] + ($costing === null ? [] : ['completeness' => RecipeCompleteness::Costed->value]), $expectedLockVersion);
 
@@ -890,6 +917,14 @@ final readonly class RecipeVersionService
                 // permission, so it must not carry amounts.
                 'completeness' => $version->completeness->value,
                 'cost_snapshot_written' => $costing !== null,
+
+                // Whether a nutrition label could be derived and how many lines
+                // stopped it — never the amounts, and never which ingredients.
+                // The amounts are a payload, not an event, and the identifiers
+                // belong in the editor's warnings where somebody can act on
+                // them; an audit row is read long after the fix.
+                'nutrition_derived' => $nutrition->isComplete(),
+                'unresolved_nutrition_line_count' => count($nutrition->unresolved),
                 'lock_version' => $version->lock_version,
             ],
         );

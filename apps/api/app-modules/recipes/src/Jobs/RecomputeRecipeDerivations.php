@@ -16,6 +16,7 @@ use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\Recipes\Services\AllergenRollupService;
 use Healthy360\Recipes\Services\RecipeCostingService;
 use Healthy360\Recipes\Services\RecipeLabelWriter;
+use Healthy360\Recipes\Services\RecipeNutritionService;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -26,8 +27,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Re-derive one recipe version's allergen label, its derivation fingerprint and
- * its cost — and quarantine it if the label a diner was promised has moved.
+ * Re-derive one recipe version's allergen label, its derivation fingerprint,
+ * its cost and its nutrition snapshot — and quarantine it if the label a diner
+ * was promised has moved.
  *
  * This closes the gap K1.2 and K1.4 both documented and deferred. Until now a
  * mapping change *marked* dependent labels stale and stopped there, which is
@@ -49,6 +51,19 @@ use Illuminate\Support\Facades\Log;
  * somebody's work in progress, a version already in review is already where the
  * quarantine would put it, and a retired one is history. Only a published label
  * is a promise to a diner, and only a promise can be broken.
+ *
+ * **What a recompute rewrites**, in order: the frozen allergen rows, the
+ * derivation state, timestamp and input fingerprint, the per-recipe nutrition
+ * snapshot, and — when every line is costed — one appended cost snapshot.
+ *
+ * **Nutrition is rewritten unconditionally and never quarantines.** The
+ * snapshot is written on every pass, *including* when it is null: an ingredient
+ * whose facts were corrected, or cleared, is exactly the case where a stale
+ * figure would go on looking current, and this is the only writer watching for
+ * it. It stays out of the quarantine decision because an allergen is a safety
+ * promise and a calorie is an accuracy one — pulling a dish off sale because
+ * its energy figure moved by two per cent would train a kitchen to ignore the
+ * review queue, which is where the real quarantines arrive.
  *
  * **Uniqueness and overlap.** `ShouldBeUnique` is keyed on the recipe version,
  * so ten mapping edits in a minute collapse into one pending recompute per
@@ -126,6 +141,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         AllergenRollupService $rollup,
         RecipeLabelWriter $labels,
         RecipeCostingService $costing,
+        RecipeNutritionService $nutrition,
         RecipeUsageRegistry $usage,
         AuditRecorder $audit,
     ): void {
@@ -137,12 +153,13 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
                 $rollup,
                 $labels,
                 $costing,
+                $nutrition,
                 $usage,
                 $audit,
             ): void {
                 $context->restore(['user_id' => null, 'organisation_id' => $this->organisationId, 'branch_id' => null]);
 
-                $this->recompute($rollup, $labels, $costing, $usage, $audit);
+                $this->recompute($rollup, $labels, $costing, $nutrition, $usage, $audit);
             });
         } finally {
             $context->restore($ambient);
@@ -156,6 +173,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         AllergenRollupService $rollup,
         RecipeLabelWriter $labels,
         RecipeCostingService $costing,
+        RecipeNutritionService $nutrition,
         RecipeUsageRegistry $usage,
         AuditRecorder $audit,
     ): void {
@@ -185,9 +203,10 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         $before = $labels->snapshot($version);
 
         $hash = $labels->derivationHash($lines, $effective);
+        $facts = $nutrition->forVersion($version, $lines);
         $now = now();
 
-        DB::transaction(function () use ($version, $labels, $rolled, $hash, $now): void {
+        DB::transaction(function () use ($version, $labels, $rolled, $hash, $facts, $now): void {
             $labels->freeze($version, $rolled, $now);
 
             // `lock_version` deliberately does not move. Every gate this
@@ -202,6 +221,15 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
                     'derivation_state' => DerivationState::Current->value,
                     'derived_at' => $now,
                     'derived_input_hash' => $hash,
+
+                    // Always written, null included. This job is the only thing
+                    // watching the reference facts a snapshot was computed
+                    // from, so an ingredient that has *lost* its facts — or
+                    // gained a unit nothing can weigh — has to leave an empty
+                    // column rather than yesterday's number wearing today's
+                    // `derived_at`. A JSON string because this is the query
+                    // builder, which bypasses the model's `array` cast.
+                    'nutrition_facts' => $facts->snapshotJson(),
                     'updated_at' => $now,
                 ]);
         });
