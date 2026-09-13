@@ -1147,7 +1147,25 @@
                 "no_stock_item": "المكوّن بلا رفّ",
                 "no_stock_unit": "الرفّ بلا وحدة",
                 "unit_conversion_unsupported": "الوحدتان لا تتحوّلان"
-            }
+            },
+            "summaryIngredients_zero": "لا مكونات مطلوبة",
+            "summaryIngredients_one": "مكوّن واحد مطلوب",
+            "summaryIngredients_two": "مكوّنان مطلوبان",
+            "summaryIngredients_few": "{{count}} مكونات مطلوبة",
+            "summaryIngredients_many": "{{count}} مكوّنًا مطلوبًا",
+            "summaryIngredients_other": "{{count}} مكوّن مطلوب",
+            "summaryShort_zero": "لا نقص",
+            "summaryShort_one": "مكوّن واحد ناقص",
+            "summaryShort_two": "مكوّنان ناقصان",
+            "summaryShort_few": "{{count}} مكونات ناقصة",
+            "summaryShort_many": "{{count}} مكوّنًا ناقصًا",
+            "summaryShort_other": "{{count}} مكوّن ناقص",
+            "summaryReadOnly": "للقراءة فقط",
+            "columnPosition": "الوضع",
+            "coveredBadge": "متوفر",
+            "windowLabel": "الفترة",
+            "windowTo": "إلى",
+            "footnote": "تأتي الكميات المطلوبة من الطلبات واختيارات الوجبات وأيام القوائم ضمن الفترة. الرف هو آخر جرد لهذا الفرع. لا يُشترى أو يُعدَّل شيء هنا."
         },
         "cashReport": {
             "title": "المبالغ المستلمة",
@@ -1171,7 +1189,20 @@
             "totalsNote": "إجمالي واحد لكل طريقة وصول وفي كل عملة. لا يوجد رقم إجمالي عام، لأن جمع عملتين معاً يعطي رقماً لا ينتمي إلى أيٍّ منهما.",
             "a11y": {
                 "unnamedAgent": "هذا العضو ليس له اسم في ملفه الشخصي."
-            }
+            },
+            "columnCurrency": "العملة",
+            "summaryRows_zero": "لا أسطر",
+            "summaryRows_one": "سطر واحد",
+            "summaryRows_two": "سطران",
+            "summaryRows_few": "{{count}} أسطر",
+            "summaryRows_many": "{{count}} سطرًا",
+            "summaryRows_other": "{{count}} سطر",
+            "summaryCurrencies_zero": "لا عملات",
+            "summaryCurrencies_one": "عملة واحدة",
+            "summaryCurrencies_two": "عملتان",
+            "summaryCurrencies_few": "{{count}} عملات",
+            "summaryCurrencies_many": "{{count}} عملة",
+            "summaryCurrencies_other": "{{count}} عملة"
         }
     },
     "kds": {
@@ -1468,7 +1499,30 @@
             "completedNumber": "الطلب {{number}}",
             "completedBody": "استُلم {{total}} وسُجّل. انتهى الطلب — لا شيء آخر مطلوب.",
             "completedStatusLabel": "حالة الطلب",
-            "newSale": "ابدأ بيعًا آخر"
+            "newSale": "ابدأ بيعًا آخر",
+            "leave": "مغادرة البيع",
+            "stepTab": "{{number}} {{label}}",
+            "typeDescription": "يحدد ما يطلبه باقي البيع.",
+            "addressDescription": "يُكتب كما يمليه الزبون، ولا يُختار من خريطة.",
+            "paymentDescription": "يُدفع بيع المنضدة هنا والآن.",
+            "reviewDescription": "اقرأه على الزبون، ثم ثبّت الطلب.",
+            "reviewItems": "الأصناف",
+            "reviewLine": "{{quantity}} × {{item}}",
+            "backToQueue": "العودة إلى قائمة الطلبات",
+            "pickerAdded_zero": "أُضيف · {{count}}",
+            "pickerAdded_one": "أُضيف · {{count}}",
+            "pickerAdded_two": "أُضيف · {{count}}",
+            "pickerAdded_few": "أُضيف · {{count}}",
+            "pickerAdded_many": "أُضيف · {{count}}",
+            "pickerAdded_other": "أُضيف · {{count}}",
+            "pickerAddItem": "إضافة {{item}} إلى السلة",
+            "itemCount_zero": "لا أصناف",
+            "itemCount_one": "صنف واحد",
+            "itemCount_two": "صنفان",
+            "itemCount_few": "{{count}} أصناف",
+            "itemCount_many": "{{count}} صنفًا",
+            "itemCount_other": "{{count}} صنف",
+            "quotedByKitchen": "سعّره المطبخ، ولم يُحسب هنا."
         },
         "refusal": {
             "customer_required": "هذا النوع من البيع يحتاج إلى عميل. ارجع واختر واحدًا أو أضفه.",
@@ -1488,7 +1542,67 @@
             "channel_unavailable": "ذلك الصنف غير معروض على الطاولة. انشره على قناة المكتب أولًا.",
             "channel_not_trading": "الطاولة لا تستقبل طلبات حاليًا.",
             "unpriced": "ذلك الصنف بلا سعر للطاولة. أضفه إلى قائمة أسعار يستخدمها المكتب."
-        }
+        },
+        "columnPhone": "الهاتف",
+        "columnAgeing": "التأخير",
+        "figures": {
+            "show": "إظهار الأرقام",
+            "hide": "إخفاء الأرقام",
+            "open": "مفتوحة الآن",
+            "openCaption": "ضمن هذه الفترة",
+            "late": "تجاوزت موعدها",
+            "lateCaption": "تجاوزت وقت استحقاقها",
+            "needsDriverCaption": "مؤكدة ولم يُكلَّف أحد",
+            "unsettledCaption": "مبالغ ما زالت مستحقة"
+        },
+        "summary": {
+            "open_zero": "لا طلبات مفتوحة",
+            "open_one": "طلب مفتوح واحد",
+            "open_two": "طلبان مفتوحان",
+            "open_few": "{{count}} طلبات مفتوحة",
+            "open_many": "{{count}} طلبًا مفتوحًا",
+            "open_other": "{{count}} طلب مفتوح",
+            "late_zero": "لا طلبات متأخرة",
+            "late_one": "طلب متأخر واحد",
+            "late_two": "طلبان متأخران",
+            "late_few": "{{count}} طلبات متأخرة",
+            "late_many": "{{count}} طلبًا متأخرًا",
+            "late_other": "{{count}} طلب متأخر",
+            "needsDriver_zero": "لا طلبات تحتاج سائقًا",
+            "needsDriver_one": "طلب واحد يحتاج سائقًا",
+            "needsDriver_two": "طلبان يحتاجان سائقًا",
+            "needsDriver_few": "{{count}} طلبات تحتاج سائقًا",
+            "needsDriver_many": "{{count}} طلبًا يحتاج سائقًا",
+            "needsDriver_other": "{{count}} طلب يحتاج سائقًا",
+            "unsettled_zero": "لا طلبات غير مسددة",
+            "unsettled_one": "طلب واحد غير مسدد",
+            "unsettled_two": "طلبان غير مسددين",
+            "unsettled_few": "{{count}} طلبات غير مسددة",
+            "unsettled_many": "{{count}} طلبًا غير مسدد",
+            "unsettled_other": "{{count}} طلب غير مسدد"
+        },
+        "densityLabel": "ارتفاع الصف",
+        "density": {
+            "sm": "ص",
+            "md": "م",
+            "lg": "ك"
+        },
+        "offlineTitle": "أنت غير متصل",
+        "offlineBody": "توقف تحديث قائمة الطلبات. ما تراه هو آخر نسخة وصلت، ولم يُفقد شيء. سيعود التحديث فور عودة الاتصال.",
+        "footnoteAll_zero": "لا طلبات مفتوحة",
+        "footnoteAll_one": "عرض الطلب المفتوح الوحيد",
+        "footnoteAll_two": "عرض الطلبين المفتوحين",
+        "footnoteAll_few": "عرض {{count}} طلبات مفتوحة",
+        "footnoteAll_many": "عرض {{count}} طلبًا مفتوحًا",
+        "footnoteAll_other": "عرض {{count}} طلب مفتوح",
+        "footnoteTruncated": "عرض أول {{limit}} فقط. تطابق المزيد، ولا توجد صفحة ثانية.",
+        "footnoteSort": "مرتبة حسب قرب موعد استحقاق كل طلب. هذا الترتيب ثابت، ولا يُرتَّب أي عمود هنا.",
+        "driverSays": "يقول السائق",
+        "drawerKind": "طلب {{type}}",
+        "dueAt": "مستحق {{time}}",
+        "drawerArea": "المنطقة",
+        "drawerAddress": "العنوان",
+        "lineQuantity": "×{{quantity}}"
     },
     "calendar": {
         "title": "تقويم الطلبات",
@@ -1520,7 +1634,10 @@
             "projected": "توقّع: {{count}}. محسوب من أنماط الاشتراكات، وليس حجزاً.",
             "unknown": "لم يُجَب عن هذا اليوم.",
             "nothing": "لا شيء في أي سجل."
-        }
+        },
+        "today": "اليوم",
+        "noteOrder": "يسمّي كل مربع دفاتره الثلاثة بجانب أرقامها، وبالترتيب نفسه دائمًا: الطلبات، المجدولة، المتوقعة. للفترة غير المحددة على الطلب صف خاص بها، ويظهر فقط في الأيام التي فيها طلبات كهذه.",
+        "noteZero": "0 صفر حقيقي — راجع الخادم تلك الفترة ولم يجد شيئًا. أما — فتعني أن اليوم لم تصل إجابته، وهذه حقيقة مختلفة لا تُعرض أبدًا على أنها صفر."
     },
     "families": {
         "ingredients": {

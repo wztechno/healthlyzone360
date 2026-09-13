@@ -19,29 +19,29 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
+    DataList,
     Dialog,
     Drawer,
     EmptyState,
     ErrorState,
     FilterChip,
-    Heading,
     Icon,
     Inline,
+    SearchInput,
     SegmentedControl,
     Select,
     Skeleton,
     Stack,
-    Table,
     Text,
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -59,8 +59,10 @@ import {
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
+import { CatalogueStatCards } from '../catalogue/index.ts';
+import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
+import type { CatalogueStatCard } from '../catalogue/index.ts';
 import { humaniseCode, minorAmountToInput, parseMinorAmount } from '../format.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import {
     canAssignDeliveryJob,
     canConfirmKitchenOrder,
@@ -74,10 +76,11 @@ import {
     kitchenOrderStatusTone,
     orderDeskDeliveryState,
     orderDeskDeliveryStateKey,
-    orderDeskDeliveryStateTone,
     orderDeskDueTone,
     orderDeskRowTestId,
 } from '../ops-format.ts';
+import { DeskAmount, DeskFact, DeskSectionHeading } from '../order-desk/desk-parts.tsx';
+import { DeliveryStateCell, DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
 
 /**
  * `/kitchen/order-desk` — the open order book in the order somebody at a desk has to work it.
@@ -221,6 +224,17 @@ const EM_DASH = '—';
  * what the server reads as "all three".
  */
 const ANY_FULFILMENT_TYPE = '__any__';
+
+/**
+ * The toolbar's fixed sizes — stated as styles because neither has a token. The search never
+ * narrows below an order number and a name, and takes whatever the row has left over; the kind
+ * picker is wide enough for its longest label.
+ */
+const SEARCH_MIN_WIDTH = 240;
+const KIND_WIDTH = 140;
+
+/** Rows per page. The queue arrives whole, so the pages are cut from the loaded rows. */
+const PAGE_SIZE = 18;
 
 /**
  * Choose whose evening this is.
@@ -419,49 +433,54 @@ function AssignDriverDialog({
                     )}
                 />
             ) : (
-                <Stack space="xs" testID="kitchen-order-desk-assign-list">
+                <View
+                    testID="kitchen-order-desk-assign-list"
+                    className="flex-col border-t border-stroke-subtle"
+                >
                     {filtered.map((driver) => (
-                        // The card is inert and the button is the control — a pressable card
+                        // The row is inert and the button is the control — a pressable row
                         // wrapping a button is nested-interactive, which axe reports as serious.
                         // The same shape the sale wizard's customer picker uses, for the same
                         // reason: choosing is not assigning. The confirmation is the footer
                         // button, because a list of a hundred one-tap assignments would be one
                         // mis-tap away from sending tonight's run to the wrong person.
-                        <Card
+                        <View
                             key={driver.userId}
-                            padding="sm"
                             testID={`kitchen-order-desk-assign-driver-${driver.userId}`}
+                            className={
+                                chosen === driver.userId
+                                    ? 'min-h-row-md flex-row items-center justify-between gap-tight border-b border-stroke-subtle bg-surface-brand-subtle px-control-sm'
+                                    : 'min-h-row-md flex-row items-center justify-between gap-tight border-b border-stroke-subtle px-control-sm'
+                            }
                         >
-                            <Inline space="sm" align="center" wrap justify="between">
-                                <Text
-                                    variant="bodyStrong"
-                                    // The dash is silent to a screen reader, so the row says in
-                                    // words what it has instead of a name.
-                                    {...(driver.displayName === null
-                                        ? { accessibilityLabel: t('kitchen:desk.assign.unnamed') }
-                                        : {})}
-                                >
-                                    {driver.displayName ?? EM_DASH}
-                                </Text>
-                                {chosen === driver.userId ? (
-                                    <Badge
-                                        testID={`kitchen-order-desk-assign-driver-${driver.userId}-chosen`}
-                                        tone="success"
-                                        label={t('kitchen:desk.assign.chosen')}
-                                    />
-                                ) : (
-                                    <Button
-                                        testID={`kitchen-order-desk-assign-driver-${driver.userId}-choose`}
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:desk.assign.choose')}
-                                        onPress={() => {
-                                            setChosen(driver.userId);
-                                        }}
-                                    />
-                                )}
-                            </Inline>
-                        </Card>
+                            <Text
+                                variant="label"
+                                // The dash is silent to a screen reader, so the row says in
+                                // words what it has instead of a name.
+                                {...(driver.displayName === null
+                                    ? { accessibilityLabel: t('kitchen:desk.assign.unnamed') }
+                                    : {})}
+                            >
+                                {driver.displayName ?? EM_DASH}
+                            </Text>
+                            {chosen === driver.userId ? (
+                                <Badge
+                                    testID={`kitchen-order-desk-assign-driver-${driver.userId}-chosen`}
+                                    tone="success"
+                                    label={t('kitchen:desk.assign.chosen')}
+                                />
+                            ) : (
+                                <Button
+                                    testID={`kitchen-order-desk-assign-driver-${driver.userId}-choose`}
+                                    size="sm"
+                                    variant="quiet"
+                                    label={t('kitchen:desk.assign.choose')}
+                                    onPress={() => {
+                                        setChosen(driver.userId);
+                                    }}
+                                />
+                            )}
+                        </View>
                     ))}
                     {rows.length >= (drivers.data?.limit ?? Number.POSITIVE_INFINITY) ? (
                         <Text
@@ -472,7 +491,7 @@ function AssignDriverDialog({
                             {t('kitchen:desk.assign.capped', { limit: drivers.data?.limit ?? 0 })}
                         </Text>
                     ) : null}
-                </Stack>
+                </View>
             )}
         </Dialog>
     );
@@ -741,26 +760,6 @@ function RecordPaymentDialog({
     );
 }
 
-/** One labelled fact in the drawer. Never a table: these are pairs, not a dataset. */
-function DetailRow({
-    testID,
-    label,
-    value,
-}: {
-    readonly testID: string;
-    readonly label: string;
-    readonly value: string;
-}) {
-    return (
-        <Inline space="sm" align="start" justify="between" wrap>
-            <Text tone="secondary" variant="caption">
-                {label}
-            </Text>
-            <Text testID={testID}>{value}</Text>
-        </Inline>
-    );
-}
-
 export function OrderDeskScreen() {
     return (
         <Gate
@@ -1009,310 +1008,276 @@ function OrderDeskQueueList() {
         else fulfilOrder.mutate(request, { onSuccess });
     }
 
-    const columns: readonly TableColumn<OrderDeskQueueRow>[] = [
+    /**
+     * The page, remembered against the filters it was chosen under — so narrowing the queue lands
+     * on page one without an effect, and a poll that shortens the queue clamps rather than empties.
+     */
+    const [paging, setPaging] = useState<{
+        readonly filters: OrderDeskQueueFilters;
+        readonly page: number;
+    }>({ filters, page: 1 });
+    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    const page = paging.filters === filters ? Math.min(paging.page, totalPages) : 1;
+    const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+    /*
+     * The four figures, counted over the rows on screen.
+     *
+     * Over the *loaded* queue deliberately — it is bounded, not paged, so the rows are the whole
+     * answer unless the truncation callout says otherwise, and a figure the list below could not
+     * account for would be a figure nobody can check. Overdue reads the due clock the badges read, so
+     * the count and the red badges can never disagree.
+     */
+    const overdueCount = rows.filter((row) => orderDeskDueTone(row.dueAt, now) === 'danger').length;
+    const lateCount = rows.filter((row) => Date.parse(row.dueAt) < now.getTime()).length;
+    const needsDriverCount = rows.filter(
+        (row) => orderDeskDeliveryState(row) === 'unassigned',
+    ).length;
+    const unsettledCount = rows.filter((row) => !row.payment.receipted).length;
+
+    const figures: readonly CatalogueStatCard[] = [
+        {
+            key: 'open',
+            label: t('kitchen:desk.figures.open'),
+            value: formatter.formatNumber(rows.length),
+            caption: t('kitchen:desk.figures.openCaption'),
+            mark: 'calendar',
+            tone: 'brand',
+        },
+        {
+            key: 'late',
+            label: t('kitchen:desk.figures.late'),
+            value: formatter.formatNumber(lateCount),
+            caption: t('kitchen:desk.figures.lateCaption'),
+            mark: 'warning',
+            tone: overdueCount > 0 ? 'danger' : 'default',
+        },
+        {
+            key: 'needsDriver',
+            label: t('kitchen:desk.delivery.unassigned'),
+            value: formatter.formatNumber(needsDriverCount),
+            caption: t('kitchen:desk.figures.needsDriverCaption'),
+            mark: 'user',
+            tone: needsDriverCount > 0 ? 'warning' : 'default',
+        },
+        {
+            key: 'unsettled',
+            label: t('kitchen:desk.payment.notReceipted'),
+            value: formatter.formatNumber(unsettledCount),
+            caption: t('kitchen:desk.figures.unsettledCaption'),
+            mark: 'basket',
+        },
+    ];
+
+    const columns: readonly DataListColumn<OrderDeskQueueRow>[] = [
         {
             key: 'number',
-            header: t('kitchen:desk.columnNumber'),
-            rowHeader: true,
-            flex: 2,
+            label: t('kitchen:desk.columnNumber'),
+            width: 120,
+            priority: 100,
+            mono: true,
             render: (row) => (
-                <Text variant="bodyStrong" testID={`${orderDeskRowTestId(String(row.id))}-number`}>
+                <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-number`}>
                     {row.orderNumber}
                 </Text>
             ),
         },
         {
             key: 'customer',
-            header: t('kitchen:desk.columnCustomer'),
-            flex: 2,
+            label: t('kitchen:desk.columnCustomer'),
+            width: 150,
+            priority: 90,
             render: (row) => {
                 // Absent block and null name are one cell here on purpose — see the file header.
                 const name = row.customer?.displayName ?? null;
-                const phone = row.customer?.phone ?? null;
                 return (
-                    <Stack space="none">
-                        <Text
-                            testID={`${orderDeskRowTestId(String(row.id))}-customer`}
-                            {...(name === null
-                                ? { accessibilityLabel: t('kitchen:desk.a11y.noCustomerName') }
-                                : {})}
-                        >
-                            {name ?? EM_DASH}
-                        </Text>
-                        {phone === null ? null : (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID={`${orderDeskRowTestId(String(row.id))}-customer-phone`}
-                            >
-                                {phone}
-                            </Text>
-                        )}
-                    </Stack>
+                    <Text
+                        variant="strong"
+                        tone={name === null ? 'secondary' : 'primary'}
+                        testID={`${orderDeskRowTestId(String(row.id))}-customer`}
+                        {...(name === null
+                            ? { accessibilityLabel: t('kitchen:desk.a11y.noCustomerName') }
+                            : {})}
+                    >
+                        {name ?? EM_DASH}
+                    </Text>
                 );
             },
         },
         {
-            key: 'due',
-            header: t('kitchen:desk.columnDue'),
-            flex: 2,
-            render: (row) => (
-                <Stack space="none">
-                    <Text testID={`${orderDeskRowTestId(String(row.id))}-due`}>
-                        {formatter.formatDate(row.dueAt, { timeStyle: 'short' })}
+            key: 'phone',
+            label: t('kitchen:desk.columnPhone'),
+            width: 120,
+            priority: 50,
+            render: (row) =>
+                row.customer?.phone == null ? (
+                    <Text tone="secondary">{EM_DASH}</Text>
+                ) : (
+                    <Text
+                        variant="mono"
+                        tone="secondary"
+                        testID={`${orderDeskRowTestId(String(row.id))}-customer-phone`}
+                    >
+                        {row.customer.phone}
                     </Text>
-                    <Badge
-                        testID={`${orderDeskRowTestId(String(row.id))}-due-age`}
-                        tone={orderDeskDueTone(row.dueAt, now)}
-                        label={formatter.formatRelativeTime(row.dueAt, now)}
-                    />
-                </Stack>
-            ),
+                ),
         },
         {
-            key: 'slot',
-            header: t('kitchen:desk.columnSlot'),
+            key: 'due',
+            label: t('kitchen:desk.columnDue'),
+            width: 64,
+            priority: 88,
             render: (row) => (
-                <Text tone="secondary" testID={`${orderDeskRowTestId(String(row.id))}-slot`}>
-                    {row.delivery.windowCode === null
-                        ? t('kitchen:desk.noSlot')
-                        : humaniseCode(row.delivery.windowCode)}
+                <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-due`}>
+                    {formatter.formatDate(row.dueAt, { timeStyle: 'short' })}
                 </Text>
             ),
         },
         {
-            key: 'status',
-            header: t('kitchen:desk.columnStatus'),
+            key: 'ageing',
+            label: t('kitchen:desk.columnAgeing'),
+            width: 110,
+            priority: 92,
+            render: (row) => <DueBadge row={row} now={now} />,
+        },
+        {
+            key: 'kind',
+            label: t('kitchen:desk.filterTypeLabel'),
+            width: 90,
+            priority: 60,
             render: (row) => (
-                <Badge
-                    testID={`${orderDeskRowTestId(String(row.id))}-status`}
-                    tone={kitchenOrderStatusTone(row.status)}
-                    label={t(kitchenOrderStatusKey(row.status))}
-                />
+                <Text tone="secondary" testID={`${orderDeskRowTestId(String(row.id))}-kind`}>
+                    {t(kitchenOrderFulfilmentTypeKey(row.fulfilmentType))}
+                </Text>
             ),
         },
         {
             key: 'delivery',
-            header: t('kitchen:desk.columnDelivery'),
-            flex: 2,
-            render: (row) => {
-                const state = orderDeskDeliveryState(row);
-                const testID = `${orderDeskRowTestId(String(row.id))}-delivery`;
-
-                // A pickup or a counter sale is never driven anywhere, so the cell has nothing to
-                // say — the same em dash every other "nothing here" cell in this workspace uses,
-                // rather than a badge announcing the absence of a thing that was never coming.
-                if (state === 'not_delivered') {
-                    return (
-                        <Text
-                            tone="secondary"
-                            testID={testID}
-                            accessibilityLabel={t(
-                                'kitchen:desk.a11y.noDeliveryRun',
-                                // The type is what makes the dash meaningful to somebody who cannot
-                                // see the column beside it.
-                                { type: t(kitchenOrderFulfilmentTypeKey(row.fulfilmentType)) },
-                            )}
-                        >
-                            {EM_DASH}
-                        </Text>
-                    );
-                }
-
-                return (
-                    <Stack space="none" testID={testID}>
-                        <Badge
-                            testID={`${testID}-state`}
-                            tone={orderDeskDeliveryStateTone(state)}
-                            label={t(orderDeskDeliveryStateKey(state))}
-                        />
-                        {/*
-                         * The tracking axis, and only when there is a run to have one. It is what
-                         * the *customer* has been told, which is a different fact from the dispatch
-                         * state above it and the one an agent quotes on the telephone.
-                         */}
-                        {row.deliveryJob === null ? null : (
-                            <Text variant="caption" tone="secondary" testID={`${testID}-tracking`}>
-                                {t(deliveryJobTrackingKey(row.deliveryJob.trackingStatus))}
-                            </Text>
-                        )}
-                    </Stack>
-                );
-            },
+            label: t('kitchen:desk.columnDelivery'),
+            width: 150,
+            priority: 80,
+            render: (row) => <DeliveryStateCell row={row} />,
         },
         {
             key: 'payment',
-            header: t('kitchen:desk.columnPayment'),
-            flex: 2,
-            render: (row) => {
-                const testID = `${orderDeskRowTestId(String(row.id))}-payment`;
-                return (
-                    <Stack space="none" testID={testID}>
-                        {/*
-                         * The order's *intended* method, which is what an agent asks the customer
-                         * for — read before any money arrives, so it is the leading line.
-                         */}
-                        <Text testID={`${testID}-method`}>
-                            {t(kitchenOrderPaymentMethodKey(row.payment.method))}
-                        </Text>
-                        {/*
-                         * "Receipted", never "paid". The platform holds no proof that money exists,
-                         * only that somebody wrote down that it arrived — and the outstanding case
-                         * shows the *shortfall* rather than a bare "no", because part-payments are
-                         * ordinary and the number is what the agent has to collect.
-                         */}
-                        {row.payment.receipted ? (
-                            <Badge
-                                testID={`${testID}-state`}
-                                tone="success"
-                                label={t('kitchen:desk.payment.receipted')}
-                            />
-                        ) : (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID={`${testID}-outstanding`}
-                            >
-                                {t('kitchen:desk.payment.outstanding', {
-                                    amount: formatMoney(formatter, {
-                                        amount: row.totalMinor - row.payment.receivedMinor,
-                                        currency: row.currencyCode,
-                                    }),
-                                })}
-                            </Text>
-                        )}
-                    </Stack>
-                );
-            },
+            label: t('kitchen:desk.columnPayment'),
+            width: 190,
+            priority: 75,
+            render: (row) => <PaymentCell row={row} />,
         },
         {
             key: 'total',
-            header: t('kitchen:desk.columnTotal'),
-            numeric: true,
+            label: t('kitchen:desk.columnTotal'),
+            width: 100,
+            priority: 85,
+            align: 'end',
+            mono: true,
             render: (row) => (
-                <Text variant="bodyStrong" testID={`${orderDeskRowTestId(String(row.id))}-total`}>
+                <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-total`}>
                     {formatMoney(formatter, { amount: row.totalMinor, currency: row.currencyCode })}
                 </Text>
             ),
         },
-    ];
-
-    const lineColumns: readonly TableColumn<KitchenOrderLine>[] = [
         {
-            key: 'name',
-            header: t('kitchen:ops.orders.linesHeading'),
-            rowHeader: true,
-            flex: 2,
-            render: (line) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong">{line.nameEn}</Text>
-                    {line.variantLabel === null ? null : (
-                        <Text variant="caption" tone="secondary">
-                            {line.variantLabel}
-                        </Text>
-                    )}
-                </Stack>
-            ),
-        },
-        {
-            key: 'quantity',
-            header: t('kitchen:ops.orders.lineQuantity'),
-            numeric: true,
-            render: (line) => <Text>{formatter.formatNumber(Number(line.quantity))}</Text>,
-        },
-        {
-            key: 'lineTotal',
-            header: t('kitchen:ops.orders.lineTotal'),
-            numeric: true,
-            render: (line) => (
-                <Text>
-                    {formatMoney(formatter, {
-                        amount: line.lineTotalMinor,
-                        currency: line.currencyCode,
-                    })}
-                </Text>
+            key: 'open',
+            label: '',
+            width: 72,
+            priority: 95,
+            align: 'end',
+            grow: false,
+            // The row itself opens the drawer; this is the same action as a named, focusable
+            // control, so a keyboard user has a target that says what pressing it does.
+            render: (row) => (
+                <Button
+                    testID={`${orderDeskRowTestId(String(row.id))}-open`}
+                    size="sm"
+                    variant="quiet"
+                    label={t('kitchen:desk.open')}
+                    onPress={() => {
+                        openDetail(row);
+                    }}
+                />
             ),
         },
     ];
 
     return (
-        <Stack space="lg" testID="kitchen-order-desk-screen">
-            <KitchenPageHeader
-                testID="kitchen-order-desk-header"
-                title={t('kitchen:desk.title')}
-                subtitle={t('kitchen:desk.subtitle')}
-                titleTestID="kitchen-order-desk-title"
-                subtitleTestID="kitchen-order-desk-subtitle"
-                meta={
-                    meta === null ? undefined : (
-                        // The day and the clock the server sorted against. Echoed by the endpoint
-                        // because the screen did not choose them and cannot derive them — and with
-                        // no branch named, the boundary is UTC rather than this kitchen's local
-                        // midnight.
-                        <Text
-                            variant="caption"
-                            tone="secondary"
-                            testID="kitchen-order-desk-measured-on"
-                        >
-                            {t('kitchen:desk.measuredOn', {
-                                date: formatter.formatDate(meta.today, { dateStyle: 'medium' }),
-                                timezone: meta.timezone,
-                            })}
-                        </Text>
-                    )
-                }
-            />
+        <Stack space="md" testID="kitchen-order-desk-screen">
+            {/*
+             * No title, no summary line: the shell's trail names the page, and the four cards are
+             * the figures — the ingredients screen's opening, for the same reasons.
+             */}
+            {queue.isPending ? null : (
+                <CatalogueStatCards testID="kitchen-order-desk-figures" cards={figures} />
+            )}
 
-            <Card tone="raised" padding="md" testID="kitchen-order-desk-toolbar">
-                <Stack space="sm">
-                    {/*
-                     * The queue's primary action, and its first: this screen had none, because
-                     * until the desk could sell there was nothing for one to do. It sits at the top
-                     * of the toolbar rather than beside the filters — starting a sale is not a way
-                     * of narrowing the queue, and a customer at the counter is not waiting for
-                     * somebody to scroll.
-                     *
-                     * A `Link`-wrapped `Button` is not the house pattern here; the router push is,
-                     * because the surrounding surfaces navigate that way and a nested anchor around
-                     * a button is the nested-interactive trap the basket is built to avoid.
-                     */}
-                    <Inline space="sm" wrap testID="kitchen-order-desk-actions">
-                        <Button
-                            testID="kitchen-order-desk-new-sale"
-                            label={t('kitchen:desk.newSale')}
-                            onPress={() => {
-                                router.push('/kitchen/order-desk/sale');
+            {/*
+             * One row of 28px controls. Two filters on it look alike and are not: the status chips
+             * are a *subset* filter — neither selected means both — while the kind of sale is a
+             * single choice because the endpoint takes exactly one value or none. See the file
+             * header.
+             *
+             * `z-tooltip` because React Native Web gives every view its own stacking context: the
+             * kind picker's panel would otherwise paint under the table that follows the row.
+             */}
+            <View
+                testID="kitchen-order-desk-toolbar"
+                className="z-tooltip min-h-control-sm flex-row flex-wrap items-center gap-tight"
+            >
+                {/* eslint-disable-next-line no-restricted-syntax -- the search takes the row's leftover width. */}
+                <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
+                    <SearchInput
+                        testID="kitchen-order-desk-search"
+                        label={t('kitchen:desk.searchLabel')}
+                        placeholder={t('kitchen:desk.searchPlaceholder')}
+                        value={query}
+                        onChangeText={setQuery}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                    />
+                </View>
+
+                <SegmentedControl<OrderDeskWindow>
+                    testID="kitchen-order-desk-window"
+                    label={t('kitchen:desk.windowLabel')}
+                    value={deskWindow}
+                    onChange={setDeskWindow}
+                    items={ORDER_DESK_WINDOWS.map((candidate) => ({
+                        value: candidate,
+                        label: t(WINDOW_LABEL_KEYS[candidate]),
+                        testID: `kitchen-order-desk-window-${candidate}`,
+                    }))}
+                />
+
+                <View
+                    testID="kitchen-order-desk-status"
+                    role="group"
+                    aria-label={t('kitchen:desk.statusLabel')}
+                    className="flex-row items-center gap-hair"
+                >
+                    <Text variant="micro" tone="secondary" testID="kitchen-order-desk-status-label">
+                        {t('kitchen:desk.statusLabel')}
+                    </Text>
+                    {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
+                        <FilterChip
+                            key={candidate}
+                            size="sm"
+                            testID={`kitchen-order-desk-status-${candidate}`}
+                            label={t(kitchenOrderStatusKey(candidate))}
+                            selected={statuses.includes(candidate)}
+                            onChange={(selected) => {
+                                toggleStatus(candidate, selected);
                             }}
                         />
-                    </Inline>
+                    ))}
+                </View>
 
-                    <SegmentedControl<OrderDeskWindow>
-                        testID="kitchen-order-desk-window"
-                        label={t('kitchen:desk.windowLabel')}
-                        block
-                        value={deskWindow}
-                        onChange={setDeskWindow}
-                        items={ORDER_DESK_WINDOWS.map((candidate) => ({
-                            value: candidate,
-                            label: t(WINDOW_LABEL_KEYS[candidate]),
-                            testID: `kitchen-order-desk-window-${candidate}`,
-                        }))}
-                    />
-
-                    {/*
-                     * One kind of sale, or all three — a single-choice control because the endpoint
-                     * takes a single value. The three types are three different jobs done by three
-                     * different people (a dispatch board wants deliveries, a collection counter
-                     * wants pickups), which is why this is not the chip row the statuses use: nobody
-                     * asks for "deliveries and counter sales but not pickups".
-                     *
-                     * The "all kinds" option is this screen's, not the wire's. Choosing it omits the
-                     * parameter, which is what the server reads as no narrowing at all.
-                     */}
+                <View className="z-tooltip" style={{ width: KIND_WIDTH }}>
                     <Select<OrderDeskFulfilmentType | typeof ANY_FULFILMENT_TYPE>
                         testID="kitchen-order-desk-type"
                         id="kitchen-order-desk-type"
                         label={t('kitchen:desk.filterTypeLabel')}
+                        labelHidden
                         value={fulfilmentType ?? ANY_FULFILMENT_TYPE}
                         onChange={(next) => {
                             setFulfilmentType(next === ANY_FULFILMENT_TYPE ? null : next);
@@ -1331,75 +1296,59 @@ function OrderDeskQueueList() {
                             })),
                         ]}
                     />
+                </View>
 
-                    <TextInputField
-                        testID="kitchen-order-desk-search"
-                        id="kitchen-order-desk-search"
-                        label={t('kitchen:desk.searchLabel')}
-                        placeholder={t('kitchen:desk.searchPlaceholder')}
-                        hint={t('kitchen:desk.searchHint')}
-                        value={query}
-                        onChangeText={setQuery}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        inputMode="search"
-                        returnKeyType="search"
-                        trailing={<Icon name="search" />}
+                {filtered ? (
+                    <Button
+                        testID="kitchen-order-desk-toolbar-clear"
+                        size="sm"
+                        variant="ghost"
+                        label={t('kitchen:desk.clearFilters')}
+                        onPress={clearFilters}
                     />
+                ) : null}
 
-                    <Stack space="xs">
-                        <Text variant="label" testID="kitchen-order-desk-status-label">
-                            {t('kitchen:desk.statusLabel')}
-                        </Text>
-                        {/*
-                         * Chips rather than a segmented control: the two open statuses are a
-                         * *subset* filter — a desk agent watching for unconfirmed work wants
-                         * `placed` alone, and neither selected means both, which a single-choice
-                         * control cannot say without inventing an "All" value the wire does not
-                         * have.
-                         */}
-                        <Inline space="xs" wrap testID="kitchen-order-desk-status">
-                            {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
-                                <FilterChip
-                                    key={candidate}
-                                    testID={`kitchen-order-desk-status-${candidate}`}
-                                    label={t(kitchenOrderStatusKey(candidate))}
-                                    selected={statuses.includes(candidate)}
-                                    onChange={(selected) => {
-                                        toggleStatus(candidate, selected);
-                                    }}
-                                />
-                            ))}
-                        </Inline>
-                    </Stack>
+                {/* The page's one primary, at the end of the row the queue is worked from. */}
+                <Button
+                    testID="kitchen-order-desk-new-sale"
+                    label={t('kitchen:desk.newSale')}
+                    iconStart={<Icon name="plus" size="sm" />}
+                    onPress={() => {
+                        router.push('/kitchen/order-desk/sale');
+                    }}
+                />
+            </View>
 
-                    {meta === null ? null : (
-                        <Text
-                            testID="kitchen-order-desk-result-summary"
-                            role="status"
-                            aria-live="polite"
-                            variant="label"
-                        >
-                            {t('kitchen:toolbar.resultCount', { count: meta.count })}
-                        </Text>
-                    )}
-                </Stack>
-            </Card>
+            {/*
+             * Offline, the poll stops (see the query options above) and the rows on screen are the
+             * last copy that arrived. Said once, at the top, so an agent does not quote a driver's
+             * position that stopped updating five minutes ago.
+             */}
+            {online ? null : (
+                <Callout
+                    testID="kitchen-order-desk-offline"
+                    tone="warning"
+                    role="status"
+                    icon="offline"
+                    title={t('kitchen:desk.offlineTitle')}
+                    body={t('kitchen:desk.offlineBody')}
+                />
+            )}
 
             {queue.isPending ? (
-                <Stack space="sm" testID="kitchen-order-desk-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Card key={index} padding="md">
-                            <Stack space="xs">
-                                <Skeleton
-                                    testID={`kitchen-order-desk-skeleton-${String(index + 1)}`}
-                                    heightClassName="h-5"
-                                />
-                                <Skeleton heightClassName="h-4" widthClassName="w-1/2" />
-                            </Stack>
-                        </Card>
+                <View testID="kitchen-order-desk-loading" className="flex-col">
+                    {Array.from({ length: 8 }, (_, index) => (
+                        <View
+                            key={index}
+                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
+                        >
+                            <Skeleton
+                                testID={`kitchen-order-desk-skeleton-${String(index + 1)}`}
+                                heightClassName="h-2"
+                            />
+                        </View>
                     ))}
-                </Stack>
+                </View>
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-order-desk-error"
@@ -1418,14 +1367,25 @@ function OrderDeskQueueList() {
                     )}
                     body={t(filtered ? 'kitchen:desk.filteredEmptyBody' : 'kitchen:desk.emptyBody')}
                     actions={
-                        filtered ? (
+                        <Inline space="xs" wrap>
+                            {filtered ? (
+                                <Button
+                                    testID="kitchen-order-desk-clear"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:desk.clearFilters')}
+                                    onPress={clearFilters}
+                                />
+                            ) : null}
                             <Button
-                                testID="kitchen-order-desk-clear"
-                                variant="secondary"
-                                label={t('kitchen:desk.clearFilters')}
-                                onPress={clearFilters}
+                                testID="kitchen-order-desk-empty-new-sale"
+                                size="sm"
+                                label={t('kitchen:desk.newSale')}
+                                onPress={() => {
+                                    router.push('/kitchen/order-desk/sale');
+                                }}
                             />
-                        ) : undefined
+                        </Inline>
                     }
                 />
             ) : (
@@ -1443,27 +1403,34 @@ function OrderDeskQueueList() {
                         />
                     ) : null}
 
-                    <Table<OrderDeskQueueRow>
+                    {/*
+                     * No column sorts, and no header is a control: the order is the server's
+                     * due-time sort, which no client can reproduce. The footnote says so in words,
+                     * because a list of plain headers otherwise looks like one somebody forgot to
+                     * make sortable.
+                     */}
+                    <DataList<OrderDeskQueueRow>
                         testID="kitchen-order-desk-table"
-                        caption={t('kitchen:desk.caption')}
-                        captionHidden
+                        label={t('kitchen:desk.caption')}
                         columns={columns}
-                        rows={rows}
+                        rows={pageRows}
                         rowKey={(row) => String(row.id)}
-                        rowAction={{
-                            header: t('kitchen:desk.columnActions'),
-                            render: (row) => (
-                                <Button
-                                    testID={`${orderDeskRowTestId(String(row.id))}-open`}
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:desk.open')}
-                                    onPress={() => {
-                                        openDetail(row);
-                                    }}
-                                />
-                            ),
+                        density="sm"
+                        onRowPress={openDetail}
+                    />
+
+                    <CataloguePager
+                        testID="kitchen-order-desk-pagination"
+                        range={t('kitchen:toolbar.showing', {
+                            shown: pageRows.length,
+                            total: rows.length,
+                        })}
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={(next) => {
+                            setPaging({ filters, page: next });
                         }}
+                        label={t('kitchen:catalogue.pagerLabel')}
                     />
                 </Stack>
             )}
@@ -1478,53 +1445,72 @@ function OrderDeskQueueList() {
                         ? t('kitchen:desk.title')
                         : t('kitchen:ops.orders.detailTitle', { number: selectedRow.orderNumber })
                 }
-                className="w-[520px]"
+                // eslint-disable-next-line no-restricted-syntax -- `Drawer` takes its width as a class and there is no drawer width token.
+                className="w-[372px]"
                 footer={
-                    order === null || !canManage ? undefined : (
-                        <Inline space="sm" wrap justify="end" align="center">
-                            {/*
-                             * The driver's own axis, beside the button that closes the order rather
-                             * than instead of it. The desk is not blocked on a delivery stamp — see
-                             * the file header — so this is what makes the close an informed one.
-                             */}
-                            {selectedRow?.deliveryJob == null ||
-                            !canFulfilKitchenOrder(order.status) ? null : (
-                                <Text
-                                    variant="caption"
-                                    tone="secondary"
-                                    testID="kitchen-order-desk-detail-fulfil-tracking"
-                                >
-                                    {t(
-                                        deliveryJobTrackingKey(
-                                            selectedRow.deliveryJob.trackingStatus,
-                                        ),
-                                    )}
-                                </Text>
-                            )}
-                            {canConfirmKitchenOrder(order.status) ? (
-                                <Button
-                                    testID="kitchen-order-desk-detail-confirm"
-                                    label={t('kitchen:ops.orders.confirm')}
-                                    loading={confirmOrder.isPending}
-                                    disabled={actionPending}
-                                    onPress={() => {
-                                        transition('confirm');
-                                    }}
-                                />
-                            ) : null}
-                            {canFulfilKitchenOrder(order.status) ? (
-                                <Button
-                                    testID="kitchen-order-desk-detail-fulfil"
-                                    label={t('kitchen:ops.orders.fulfil')}
-                                    loading={fulfilOrder.isPending}
-                                    disabled={actionPending}
-                                    onPress={() => {
-                                        transition('fulfil');
-                                    }}
-                                />
-                            ) : null}
-                        </Inline>
-                    )
+                    <View className="flex-row flex-wrap items-center justify-end gap-tight">
+                        {/*
+                         * The driver's own axis, beside the button that closes the order rather
+                         * than instead of it. The desk is not blocked on a delivery stamp — see
+                         * the file header — so this is what makes the close an informed one.
+                         */}
+                        {order === null ||
+                        !canManage ||
+                        selectedRow?.deliveryJob == null ||
+                        !canFulfilKitchenOrder(order.status) ? null : (
+                            // eslint-disable-next-line no-restricted-syntax -- the footer's leading note is the row's filler.
+                            <View className="min-w-0 flex-1">
+                                <View className="flex-row flex-wrap items-baseline gap-hair">
+                                    <Text variant="caption" tone="secondary">
+                                        {t('kitchen:desk.driverSays')}
+                                    </Text>
+                                    <Text
+                                        variant="caption"
+                                        tone="primary"
+                                        testID="kitchen-order-desk-detail-fulfil-tracking"
+                                    >
+                                        {t(
+                                            deliveryJobTrackingKey(
+                                                selectedRow.deliveryJob.trackingStatus,
+                                            ),
+                                        )}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                        <Button
+                            testID="kitchen-order-desk-detail-close"
+                            variant="secondary"
+                            size="md"
+                            label={t('kitchen:catalogue.close')}
+                            onPress={closeDetail}
+                        />
+                        {order === null || !canManage ? null : canConfirmKitchenOrder(
+                              order.status,
+                          ) ? (
+                            <Button
+                                testID="kitchen-order-desk-detail-confirm"
+                                size="md"
+                                label={t('kitchen:ops.orders.confirm')}
+                                loading={confirmOrder.isPending}
+                                disabled={actionPending}
+                                onPress={() => {
+                                    transition('confirm');
+                                }}
+                            />
+                        ) : canFulfilKitchenOrder(order.status) ? (
+                            <Button
+                                testID="kitchen-order-desk-detail-fulfil"
+                                size="md"
+                                label={t('kitchen:ops.orders.fulfil')}
+                                loading={fulfilOrder.isPending}
+                                disabled={actionPending}
+                                onPress={() => {
+                                    transition('fulfil');
+                                }}
+                            />
+                        ) : null}
+                    </View>
                 }
             >
                 {detail.isPending ? (
@@ -1540,20 +1526,50 @@ function OrderDeskQueueList() {
                         retrying={detail.isFetching}
                     />
                 ) : order === null ? null : (
-                    <Stack space="lg" testID="kitchen-order-desk-detail-body">
-                        <Inline space="sm" align="center" wrap>
-                            <Badge
-                                testID="kitchen-order-desk-detail-status"
-                                tone={kitchenOrderStatusTone(order.status)}
-                                label={t(kitchenOrderStatusKey(order.status))}
-                            />
-                            <Badge
-                                testID="kitchen-order-desk-detail-type"
-                                tone="neutral"
-                                icon={null}
-                                label={t(kitchenOrderFulfilmentTypeKey(order.fulfilmentType))}
-                            />
-                        </Inline>
+                    <View
+                        testID="kitchen-order-desk-detail-body"
+                        className="flex-col gap-loose p-tight"
+                    >
+                        <View className="flex-col gap-hair">
+                            <Text variant="micro" tone="secondary">
+                                {t('kitchen:desk.drawerKind', {
+                                    type: t(kitchenOrderFulfilmentTypeKey(order.fulfilmentType)),
+                                })}
+                            </Text>
+                            <View className="flex-row flex-wrap items-baseline gap-tight">
+                                <Text variant="mono" tone="secondary">
+                                    {order.orderNumber}
+                                </Text>
+                                <Text variant="title">
+                                    {selectedRow?.customer?.displayName ?? EM_DASH}
+                                </Text>
+                            </View>
+                            <View className="flex-row flex-wrap items-center gap-hair">
+                                <Badge
+                                    testID="kitchen-order-desk-detail-status"
+                                    tone={kitchenOrderStatusTone(order.status)}
+                                    label={t(kitchenOrderStatusKey(order.status))}
+                                />
+                                <Badge
+                                    testID="kitchen-order-desk-detail-type"
+                                    tone="neutral"
+                                    icon={null}
+                                    label={t(kitchenOrderFulfilmentTypeKey(order.fulfilmentType))}
+                                />
+                                {selectedRow === null ? null : (
+                                    <>
+                                        <DueBadge row={selectedRow} now={now} />
+                                        <Text variant="mono" tone="secondary">
+                                            {t('kitchen:desk.dueAt', {
+                                                time: formatter.formatDate(selectedRow.dueAt, {
+                                                    timeStyle: 'short',
+                                                }),
+                                            })}
+                                        </Text>
+                                    </>
+                                )}
+                            </View>
+                        </View>
 
                         {actionFailure === null ? null : isConflict ? (
                             // Somebody else moved this order. The remedy is to re-read and show
@@ -1586,42 +1602,123 @@ function OrderDeskQueueList() {
                             </Text>
                         )}
 
-                        <Stack space="xs" testID="kitchen-order-desk-detail-payment">
-                            <Heading level={3}>{t('kitchen:desk.paymentHeading')}</Heading>
-                            <DetailRow
-                                testID="kitchen-order-desk-detail-payment-method"
-                                label={t('kitchen:desk.paymentMethod')}
-                                value={t(
-                                    kitchenOrderPaymentMethodKey(
-                                        selectedRow?.payment.method ?? order.paymentMethod,
-                                    ),
-                                )}
+                        <View testID="kitchen-order-desk-detail-customer" className="flex-col">
+                            <DeskSectionHeading title={t('kitchen:desk.columnCustomer')} />
+                            <DeskFact
+                                label={t('kitchen:desk.columnPhone')}
+                                value={selectedRow?.customer?.phone ?? EM_DASH}
+                                mono
                             />
-                            {/*
-                             * The receipt figures come from the queue row, because the detail
-                             * endpoint does not serve them: an order read on its own says what was
-                             * *intended*, and what has actually arrived is the queue's own column.
-                             */}
-                            {selectedRow === null ? null : (
+                            {order.fulfilmentType === 'delivery' ? (
                                 <>
-                                    <DetailRow
-                                        testID="kitchen-order-desk-detail-payment-received"
-                                        label={t('kitchen:desk.paymentReceived')}
-                                        value={formatMoney(formatter, {
-                                            amount: selectedRow.payment.receivedMinor,
-                                            currency: selectedRow.currencyCode,
-                                        })}
+                                    <DeskFact
+                                        label={t('kitchen:desk.drawerArea')}
+                                        value={order.delivery.areaNameEn ?? EM_DASH}
                                     />
-                                    <DetailRow
-                                        testID="kitchen-order-desk-detail-payment-state"
-                                        label={t('kitchen:desk.paymentState')}
-                                        value={t(
-                                            selectedRow.payment.receipted
-                                                ? 'kitchen:desk.payment.receipted'
-                                                : 'kitchen:desk.payment.notReceipted',
-                                        )}
+                                    <DeskFact
+                                        label={t('kitchen:desk.drawerAddress')}
+                                        value={
+                                            [order.delivery.lineOne, order.delivery.lineTwo]
+                                                .filter((part): part is string => part !== null)
+                                                .join(', ') || EM_DASH
+                                        }
                                     />
-                                    {/*
+                                </>
+                            ) : null}
+                            <DeskFact
+                                label={t('kitchen:desk.columnSlot')}
+                                value={
+                                    order.delivery.windowCode === null
+                                        ? t('kitchen:desk.noSlot')
+                                        : humaniseCode(order.delivery.windowCode)
+                                }
+                            />
+                        </View>
+
+                        <View className="flex-col">
+                            {/*
+                             * No pressable rows: every control in this drawer is in a section
+                             * heading or the footer, so nothing here nests one interactive element
+                             * inside another.
+                             */}
+                            <DeskSectionHeading
+                                title={t('kitchen:ops.orders.linesHeading')}
+                                testID="kitchen-order-desk-detail-lines-heading"
+                            />
+                            <View testID="kitchen-order-desk-detail-lines" className="flex-col">
+                                {order.lines.map((line: KitchenOrderLine) => (
+                                    <View
+                                        key={line.id}
+                                        className="flex-row items-baseline gap-tight border-b border-stroke-subtle py-tight"
+                                    >
+                                        {/* eslint-disable-next-line no-restricted-syntax -- the line name is the row's filler. */}
+                                        <View className="min-w-0 flex-1">
+                                            <Text variant="label">{line.nameEn}</Text>
+                                            {line.variantLabel === null ? null : (
+                                                <Text variant="caption" tone="secondary">
+                                                    {line.variantLabel}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <Text variant="mono" tone="secondary">
+                                            {t('kitchen:desk.lineQuantity', {
+                                                quantity: formatter.formatNumber(
+                                                    Number(line.quantity),
+                                                ),
+                                            })}
+                                        </Text>
+                                        <Text variant="mono">
+                                            {formatMoney(formatter, {
+                                                amount: line.lineTotalMinor,
+                                                currency: line.currencyCode,
+                                            })}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                            <View
+                                testID="kitchen-order-desk-detail-totals"
+                                className="flex-col gap-hair pt-tight"
+                            >
+                                <DeskAmount
+                                    label={t('kitchen:ops.orders.subtotal')}
+                                    testID="kitchen-order-desk-detail-subtotal"
+                                    value={formatMoney(formatter, {
+                                        amount: order.subtotalMinor,
+                                        currency: order.currencyCode,
+                                    })}
+                                />
+                                <DeskAmount
+                                    label={t('kitchen:ops.orders.deliveryFee')}
+                                    testID="kitchen-order-desk-detail-delivery-fee"
+                                    // `null` is not zero: a free delivery and a collection that
+                                    // never had a fee are different facts.
+                                    value={
+                                        order.deliveryFeeMinor === null
+                                            ? t('kitchen:ops.orders.noDeliveryFee')
+                                            : formatMoney(formatter, {
+                                                  amount: order.deliveryFeeMinor,
+                                                  currency: order.currencyCode,
+                                              })
+                                    }
+                                />
+                                <DeskAmount
+                                    emphasis
+                                    label={t('kitchen:ops.orders.total')}
+                                    testID="kitchen-order-desk-detail-total"
+                                    value={formatMoney(formatter, {
+                                        amount: order.totalMinor,
+                                        currency: order.currencyCode,
+                                    })}
+                                />
+                            </View>
+                        </View>
+
+                        <View testID="kitchen-order-desk-detail-payment" className="flex-col">
+                            <DeskSectionHeading
+                                title={t('kitchen:desk.paymentHeading')}
+                                action={
+                                    /*
                                      * Offered while there is still something to collect, and not
                                      * otherwise. Three conditions, each ruling out a different
                                      * order:
@@ -1638,35 +1735,98 @@ function OrderDeskQueueList() {
                                      *
                                      * A counter sale never reaches this drawer: it arrives already
                                      * fulfilled and settled, so it is not in the open queue at all.
-                                     */}
-                                    {selectedRow.payment.receipted ||
+                                     */
+                                    selectedRow === null ||
+                                    selectedRow.payment.receipted ||
                                     order.status === 'cancelled' ||
-                                    !canManage ? null : (
-                                        <Inline space="sm" wrap>
-                                            <Button
-                                                testID="kitchen-order-desk-detail-record-payment"
-                                                size="sm"
-                                                variant="secondary"
-                                                label={t('kitchen:desk.recordPayment.open')}
-                                                onPress={() => {
-                                                    setRecordingPayment(true);
-                                                }}
-                                            />
-                                        </Inline>
-                                    )}
+                                    !canManage ? undefined : (
+                                        <Button
+                                            testID="kitchen-order-desk-detail-record-payment"
+                                            size="sm"
+                                            variant="ghost"
+                                            label={t('kitchen:desk.recordPayment.open')}
+                                            onPress={() => {
+                                                setRecordingPayment(true);
+                                            }}
+                                        />
+                                    )
+                                }
+                            />
+                            <DeskFact
+                                testID="kitchen-order-desk-detail-payment-method"
+                                label={t('kitchen:desk.paymentMethod')}
+                                value={t(
+                                    kitchenOrderPaymentMethodKey(
+                                        selectedRow?.payment.method ?? order.paymentMethod,
+                                    ),
+                                )}
+                            />
+                            {/*
+                             * The receipt figures come from the queue row, because the detail
+                             * endpoint does not serve them: an order read on its own says what was
+                             * *intended*, and what has actually arrived is the queue's own column.
+                             */}
+                            {selectedRow === null ? null : (
+                                <>
+                                    <DeskFact
+                                        testID="kitchen-order-desk-detail-payment-received"
+                                        label={t('kitchen:desk.paymentReceived')}
+                                        mono
+                                        value={formatMoney(formatter, {
+                                            amount: selectedRow.payment.receivedMinor,
+                                            currency: selectedRow.currencyCode,
+                                        })}
+                                    />
+                                    <DeskFact
+                                        testID="kitchen-order-desk-detail-payment-state"
+                                        label={t('kitchen:desk.paymentState')}
+                                        value={t(
+                                            selectedRow.payment.receipted
+                                                ? 'kitchen:desk.payment.receipted'
+                                                : 'kitchen:desk.payment.notReceipted',
+                                        )}
+                                    />
                                 </>
                             )}
-                        </Stack>
+                        </View>
 
                         {/*
                          * The run, and only for an order that has one to have. A pickup showing an
-                         * empty "Delivery" section would be a heading about nothing.
+                         * empty "The run" section would be a heading about nothing.
                          */}
                         {selectedRow === null ||
                         orderDeskDeliveryState(selectedRow) === 'not_delivered' ? null : (
-                            <Stack space="xs" testID="kitchen-order-desk-detail-delivery">
-                                <Heading level={3}>{t('kitchen:desk.deliveryHeading')}</Heading>
-                                <DetailRow
+                            <View testID="kitchen-order-desk-detail-delivery" className="flex-col">
+                                <DeskSectionHeading
+                                    title={t('kitchen:desk.deliveryHeading')}
+                                    action={
+                                        /*
+                                         * `canManage` gates it on the same code the lifecycle
+                                         * buttons take: choosing whose evening this is, is managing
+                                         * the order rather than reading it.
+                                         */
+                                        selectedRow.deliveryJob === null ||
+                                        !canManage ||
+                                        !canAssignDeliveryJob(
+                                            selectedRow.deliveryJob.status,
+                                        ) ? undefined : (
+                                            <Button
+                                                testID="kitchen-order-desk-detail-assign"
+                                                size="sm"
+                                                variant="ghost"
+                                                label={t(
+                                                    selectedRow.deliveryJob.driverUserId === null
+                                                        ? 'kitchen:desk.assign.open'
+                                                        : 'kitchen:desk.assign.reopen',
+                                                )}
+                                                onPress={() => {
+                                                    openAssign();
+                                                }}
+                                            />
+                                        )
+                                    }
+                                />
+                                <DeskFact
                                     testID="kitchen-order-desk-detail-delivery-state"
                                     label={t('kitchen:desk.deliveryState')}
                                     value={t(
@@ -1677,7 +1837,7 @@ function OrderDeskQueueList() {
                                 />
                                 {selectedRow.deliveryJob === null ? null : (
                                     <>
-                                        <DetailRow
+                                        <DeskFact
                                             testID="kitchen-order-desk-detail-delivery-status"
                                             label={t('kitchen:desk.deliveryStatus')}
                                             value={t(
@@ -1686,7 +1846,7 @@ function OrderDeskQueueList() {
                                                 ),
                                             )}
                                         />
-                                        <DetailRow
+                                        <DeskFact
                                             testID="kitchen-order-desk-detail-delivery-tracking"
                                             label={t('kitchen:desk.deliveryTracking')}
                                             value={t(
@@ -1695,7 +1855,7 @@ function OrderDeskQueueList() {
                                                 ),
                                             )}
                                         />
-                                        <DetailRow
+                                        <DeskFact
                                             testID="kitchen-order-desk-detail-delivery-assigned-at"
                                             label={t('kitchen:desk.deliveryAssignedAt')}
                                             // Null on a run nobody has taken — which the state row
@@ -1710,86 +1870,9 @@ function OrderDeskQueueList() {
                                         />
                                     </>
                                 )}
-                                {/*
-                                 * The control that spent a slice not existing. `canManage` gates
-                                 * it on the same code the lifecycle buttons take: choosing whose
-                                 * evening this is, is managing the order rather than reading it.
-                                 */}
-                                {selectedRow.deliveryJob === null ||
-                                !canManage ||
-                                !canAssignDeliveryJob(selectedRow.deliveryJob.status) ? null : (
-                                    <Inline space="sm" wrap>
-                                        <Button
-                                            testID="kitchen-order-desk-detail-assign"
-                                            size="sm"
-                                            variant="secondary"
-                                            label={t(
-                                                selectedRow.deliveryJob.driverUserId === null
-                                                    ? 'kitchen:desk.assign.open'
-                                                    : 'kitchen:desk.assign.reopen',
-                                            )}
-                                            onPress={() => {
-                                                openAssign();
-                                            }}
-                                        />
-                                    </Inline>
-                                )}
-                            </Stack>
+                            </View>
                         )}
-
-                        <Stack space="sm">
-                            <Heading level={3} testID="kitchen-order-desk-detail-lines-heading">
-                                {t('kitchen:ops.orders.linesHeading')}
-                            </Heading>
-                            {/*
-                             * No `rowAction` and no pressable rows: every control in this drawer is
-                             * in the footer, so nothing here can nest one interactive element
-                             * inside another.
-                             */}
-                            <Table<KitchenOrderLine>
-                                testID="kitchen-order-desk-detail-lines"
-                                caption={t('kitchen:ops.orders.linesHeading')}
-                                captionHidden
-                                columns={lineColumns}
-                                rows={order.lines}
-                                rowKey={(line) => line.id}
-                            />
-                        </Stack>
-
-                        <Stack space="xs" testID="kitchen-order-desk-detail-totals">
-                            <Heading level={3}>{t('kitchen:ops.orders.totalsHeading')}</Heading>
-                            <DetailRow
-                                testID="kitchen-order-desk-detail-subtotal"
-                                label={t('kitchen:ops.orders.subtotal')}
-                                value={formatMoney(formatter, {
-                                    amount: order.subtotalMinor,
-                                    currency: order.currencyCode,
-                                })}
-                            />
-                            <DetailRow
-                                testID="kitchen-order-desk-detail-delivery-fee"
-                                label={t('kitchen:ops.orders.deliveryFee')}
-                                // `null` is not zero: a free delivery and a collection that never
-                                // had a fee are different facts.
-                                value={
-                                    order.deliveryFeeMinor === null
-                                        ? t('kitchen:ops.orders.noDeliveryFee')
-                                        : formatMoney(formatter, {
-                                              amount: order.deliveryFeeMinor,
-                                              currency: order.currencyCode,
-                                          })
-                                }
-                            />
-                            <DetailRow
-                                testID="kitchen-order-desk-detail-total"
-                                label={t('kitchen:ops.orders.total')}
-                                value={formatMoney(formatter, {
-                                    amount: order.totalMinor,
-                                    currency: order.currencyCode,
-                                })}
-                            />
-                        </Stack>
-                    </Stack>
+                    </View>
                 )}
             </Drawer>
 

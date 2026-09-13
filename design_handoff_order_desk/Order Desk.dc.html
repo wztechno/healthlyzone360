@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #f7fcf9; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Schibsted Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  input, select, textarea, button { font-family: inherit; color: inherit; }
+  a { color: #157043; text-decoration: none; }
+  a:hover { color: #11532e; text-decoration: underline; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid #157043; outline-offset: 1px; }
+  ::placeholder { color: #94a3b8; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #cceeda; border-radius: 6px; }
+  @keyframes odshimmer { 0% { opacity: .5 } 50% { opacity: 1 } 100% { opacity: .5 } }
+  @keyframes odslide { from { transform: translateX(18px); opacity: 0 } to { transform: none; opacity: 1 } }
+  @keyframes odfade { from { opacity: 0 } to { opacity: 1 } }
+</style>
+</helmet>
+<div dir="{{ dir }}" style="display: flex; height: 100vh; min-height: 700px; background: #f7fcf9; color: #1f2937">
+
+  <nav style="width: {{ navWidth }}; flex: 0 0 {{ navWidth }}; overflow: hidden; background: #edf6f0; border-inline-end: 1px solid #cceeda; display: flex; flex-direction: column; padding: 12px 0; transition: width 160ms ease, flex-basis 160ms ease">
+    <div style="flex: 0 0 auto; display: flex; align-items: center; justify-content: {{ navJustify }}; gap: 8px; padding: 0 {{ navPad }} 12px">
+      <div style="flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; background: #157043; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 700">H</div>
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <span style="font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap">Kitchen ops</span>
+      </sc-if>
+    </div>
+
+    <div style="flex: 1 1 auto; min-height: 0; overflow: hidden auto; display: flex; flex-direction: column; gap: 2px; padding: 0 {{ navRailPad }}">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="5">
+        <div style="display: flex; flex-direction: column; gap: 1px; padding-top: 6px">
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="padding: 0 8px 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; white-space: nowrap">{{ group.label }}</div>
+          </sc-if>
+          <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+            <div role="button" tabindex="0" onClick="{{ expandNav }}" title="{{ group.label }}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 5px; cursor: pointer; background: {{ group.bg }}" style-hover="background: #dcfce7">
+              <span aria-hidden="true" style="font-size: 15px; line-height: 1; color: {{ group.iconFg }}">{{ group.glyph }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="4">
+              <div role="button" tabindex="0" onClick="{{ item.go }}" title="{{ item.label }}" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: {{ item.weight }}; color: {{ item.fg }}; background: {{ item.bg }}" style-hover="background: #dcfce7">
+                <span style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ item.label }}</span>
+                <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                  <span style="flex: 0 0 auto; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: {{ item.countFg }}">{{ item.count }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 0 0 auto; margin-top: 8px; padding: 10px {{ navPad }} 0; border-top: 1px solid #cceeda; font-size: 10px; line-height: 15px; color: #5b6673; text-align: {{ navFootAlign }}">
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="font-weight: 600; color: #1f2937; white-space: nowrap">Beirut Central</div>
+        <div style="white-space: nowrap">Order desk · UTC clock</div>
+      </sc-if>
+      <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+        <div title="Beirut Central · Order desk" style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #1f2937">BC</div>
+      </sc-if>
+    </div>
+  </nav>
+
+  <main style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+    <header style="flex: 0 0 auto; padding: 14px 20px 0">
+      <div style="display: flex; align-items: center; gap: 8px; height: 20px">
+        <span role="button" tabindex="0" onClick="{{ toggleNav }}" title="{{ navToggleTitle }}" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-inline-start: -4px; border-radius: 4px; font-size: 14px; color: #5b6673; cursor: pointer; flex: 0 0 auto" style-hover="background: #edf6f0; color: #1f2937">☰</span>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5b6673">
+          <span>Kitchen</span><span style="color: #aaddc0">/</span>
+          <span role="button" tabindex="0" onClick="{{ goQueue }}" style="cursor: pointer; color: #157043">Order desk</span>
+          <sc-if value="{{ showLeaf }}" hint-placeholder-val="{{ false }}">
+            <span style="color: #aaddc0">/</span><span style="color: #1f2937">{{ crumbLeaf }}</span>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-top: 4px">
+        <div style="min-width: 0">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em">{{ pageTitle }}</h1>
+            <sc-if value="{{ showPageChip }}" hint-placeholder-val="{{ true }}">
+              <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: {{ pageChipBg }}; color: {{ pageChipFg }}">{{ pageChip }}</span>
+            </sc-if>
+          </div>
+          <p style="margin: 2px 0 0; font-size: 11px; line-height: 16px; color: #5b6673">{{ pageSummary }}</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; padding-top: 2px">
+          <sc-if value="{{ isQueue }}" hint-placeholder-val="{{ true }}">
+            <button type="button" onClick="{{ toggleStatsView }}" style="{{ statsViewStyle }}" style-hover="background: #edf6f0">{{ statsViewLabel }}</button>
+            <button type="button" onClick="{{ startSale }}" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">
+              <span style="font-size: 13px; line-height: 1">+</span><span style="white-space: nowrap">New sale</span>
+            </button>
+          </sc-if>
+          <sc-if value="{{ isSale }}">
+            <button type="button" onClick="{{ goQueue }}" style="height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap" style-hover="background: #edf6f0">Leave the sale</button>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ showStatCards }}" hint-placeholder-val="{{ false }}">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; margin-top: 12px; max-width: 780px">
+          <sc-for list="{{ statCards }}" as="c" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border: 1px solid {{ c.border }}; border-radius: 8px; background: {{ c.bg }}">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+                <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ c.label }}</span>
+                <span aria-hidden="true" style="flex: 0 0 auto; font-size: 11px; line-height: 1; color: {{ c.markFg }}">{{ c.mark }}</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 5px">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; line-height: 26px; font-weight: 600; color: {{ c.valueFg }}">{{ c.value }}</span>
+                <span style="font-size: 11px; color: #5b6673">{{ c.unit }}</span>
+              </div>
+              <span style="font-size: 10px; line-height: 14px; color: #5b6673">{{ c.caption }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </header>
+
+    <!-- ───────────────────────── QUEUE ───────────────────────── -->
+    <sc-if value="{{ isQueue }}" hint-placeholder-val="{{ true }}">
+      <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-wrap: wrap">
+        <div style="position: relative; width: 240px; flex: 0 0 240px">
+          <span style="position: absolute; inset-inline-start: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #5b6673; pointer-events: none">⌕</span>
+          <input value="{{ q }}" onChange="{{ setQ }}" placeholder="Order, name or telephone" style="width: 100%; height: 28px; padding-inline: 22px 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+        </div>
+
+        <div style="display: inline-flex; height: 28px; padding: 2px; gap: 2px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff">
+          <sc-for list="{{ windows }}" as="w" hint-placeholder-count="3">
+            <button type="button" onClick="{{ w.go }}" style="{{ w.style }}">{{ w.label }}</button>
+          </sc-for>
+        </div>
+
+        <div style="display: inline-flex; align-items: center; gap: 6px">
+          <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Status</span>
+          <div style="display: inline-flex; height: 28px; padding: 2px; gap: 2px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff">
+            <sc-for list="{{ statusToggles }}" as="c" hint-placeholder-count="2">
+              <button type="button" onClick="{{ c.go }}" title="{{ c.title }}" style="{{ c.style }}">{{ c.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <select value="{{ kind }}" onChange="{{ setKind }}" style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer">
+          <option value="any">All kinds</option>
+          <option value="counter">Counter</option>
+          <option value="pickup">Collection</option>
+          <option value="delivery">Delivery</option>
+        </select>
+
+        <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+          <span role="button" tabindex="0" onClick="{{ clearFilters }}" style="font-size: 11px; font-weight: 500; color: #157043; cursor: pointer">Clear filters</span>
+        </sc-if>
+
+        <div style="flex: 1 1 auto"></div>
+
+        <div style="display: inline-flex; align-items: center; gap: 6px">
+          <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Density</span>
+          <div style="display: inline-flex; height: 28px; padding: 2px; gap: 2px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff">
+            <sc-for list="{{ densityTabs }}" as="d" hint-placeholder-count="3">
+              <button type="button" onClick="{{ d.go }}" style="{{ d.style }}">{{ d.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 20px 16px">
+
+        <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; margin-bottom: 10px; border: 1px solid #f0dca8; border-radius: 6px; background: #fdf2d6">
+            <span aria-hidden="true" style="font-size: 11px; line-height: 16px; color: #79480a">◌</span>
+            <div style="font-size: 11px; line-height: 16px; color: #79480a">
+              <span style="font-weight: 600">You are offline.</span> The queue stopped refreshing itself at 14:32 — what you see is the last copy that arrived. Nothing has been lost.
+              <span role="button" tabindex="0" onClick="{{ retry }}" style="margin-inline-start: 4px; font-weight: 600; color: #157043; cursor: pointer">Try again</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ truncatedOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; margin-bottom: 10px; border: 1px solid #cde3f2; border-radius: 6px; background: #e2f1fb">
+            <span aria-hidden="true" style="font-size: 11px; line-height: 16px; color: #0b4a6f">i</span>
+            <div style="font-size: 11px; line-height: 16px; color: #0b4a6f">
+              <span style="font-weight: 600">Showing the first 50 orders.</span> More matched than this view will ever show, and there is no second page — narrow the window, the status or the kind of sale to reach the rest.
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ queueLoading }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top: 1px solid #aaddc0">
+            <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="10">
+              <div style="display: grid; grid-template-columns: {{ queueGrid }}; align-items: center; column-gap: 14px; min-width: 1150px; height: {{ rowHeight }}; padding: 0 8px; border-bottom: 1px solid #cceeda">
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #eef6f1; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #eef6f1; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #eef6f1; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div></div>
+              </div>
+            </sc-for>
+            <div style="padding: 10px 8px 0; font-size: 11px; color: #5b6673">Reading the open book…</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ queueError }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #fde5e3; color: #8f1f1a">Not loaded</span>
+            <div style="font-size: 13px; font-weight: 600; margin-top: 2px">The queue could not be loaded</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 44ch; text-wrap: pretty">No order was changed by this, and nothing has been lost. The orders are still in the order book.</div>
+            <button type="button" onClick="{{ retry }}" style="margin-top: 4px; height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ queueEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <div style="font-size: 13px; font-weight: 600">{{ emptyTitle }}</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 46ch; text-wrap: pretty">{{ emptyBody }}</div>
+            <div style="display: flex; gap: 6px; margin-top: 4px">
+              <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ clearFilters }}" style="height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">Clear filters</button>
+              </sc-if>
+              <button type="button" onClick="{{ startSale }}" style="height: 28px; padding: 0 10px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">New sale</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ queueTable }}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x: auto; padding-bottom: 10px">
+            <div style="display: grid; grid-template-columns: {{ queueGrid }}; align-items: center; column-gap: 14px; min-width: 1150px; height: 24px; padding: 0 8px; border-bottom: 1px solid #aaddc0; position: sticky; top: 0; background: #f7fcf9; z-index: 2">
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Order</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Customer</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Telephone</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Due</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Ageing</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Kind</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Delivery</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Payment</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: end">Total</span>
+              <span></span>
+            </div>
+
+            <sc-for list="{{ rows }}" as="row" hint-placeholder-count="8">
+              <div role="button" tabindex="0" onClick="{{ row.open }}" onMouseEnter="{{ row.enter }}" onMouseLeave="{{ row.leave }}" style="{{ row.style }}" style-hover="background: #edf6f0">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: #1f2937">{{ row.number }}</span>
+                <span style="font-size: 13px; font-weight: 600; color: {{ row.nameFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ row.name }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ row.phone }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #1f2937">{{ row.due }}</span>
+                <span style="{{ row.ageStyle }}">{{ row.age }}</span>
+                <span style="font-size: 12px; color: #5b6673; white-space: nowrap">{{ row.kind }}</span>
+                <span style="{{ row.deliveryStyle }}">{{ row.delivery }}</span>
+                <span style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">
+                  <span style="font-size: 12px; color: #1f2937">{{ row.method }}</span>
+                  <span style="{{ row.payStyle }}">{{ row.payState }}</span>
+                </span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: #1f2937; text-align: end; white-space: nowrap">{{ row.total }}</span>
+                <span style="text-align: end; opacity: {{ row.openOpacity }}; transition: opacity 120ms ease">
+                  <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border: 1px solid #aaddc0; border-radius: 4px; background: #fff; font-size: 11px; font-weight: 500; color: #157043">Open</span>
+                </span>
+              </div>
+            </sc-for>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 1150px; padding: 10px 8px 0">
+              <span style="font-size: 11px; color: #5b6673">{{ footNote }}</span>
+              <span style="font-size: 11px; color: #5b6673">Sorted by how soon each order is due. This order is fixed — no column here sorts.</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ───────────────────────── NEW SALE ───────────────────────── -->
+    <sc-if value="{{ isSale }}">
+      <div style="flex: 0 0 auto; display: flex; align-items: flex-end; gap: 2px; padding: 10px 20px 0; border-bottom: 1px solid #aaddc0">
+        <sc-for list="{{ stepTabs }}" as="t" hint-placeholder-count="6">
+          <button type="button" onClick="{{ t.go }}" style="{{ t.style }}">
+            <span style="display: inline-flex; align-items: center; gap: 5px">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: {{ t.numFg }}">{{ t.num }}</span>
+              <span>{{ t.label }}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px 20px 20px; display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap">
+        <div style="flex: 1 1 420px; min-width: 320px; display: flex; flex-direction: column; gap: 18px">
+
+          <sc-if value="{{ stepType }}">
+            <section>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Kind of sale</h2>
+                <span style="font-size: 11px; color: #5b6673">It decides what the rest of the sale asks for</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 240px)); justify-content: start; gap: 10px">
+                <sc-for list="{{ saleTypes }}" as="ty" hint-placeholder-count="3">
+                  <div role="button" tabindex="0" onClick="{{ ty.go }}" style="{{ ty.style }}" style-hover="border-color: #157043">
+                    <span style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+                      <span style="font-size: 13px; font-weight: 600">{{ ty.label }}</span>
+                      <span aria-hidden="true" style="font-size: 11px; color: #157043">{{ ty.mark }}</span>
+                    </span>
+                    <span style="font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty">{{ ty.hint }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ stepCustomer }}">
+            <section>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Customer</h2>
+                <span style="font-size: 11px; color: #5b6673">Search by name or telephone, or write down a first-time caller</span>
+              </div>
+              <div style="position: relative; width: 280px; margin-bottom: 10px">
+                <span style="position: absolute; inset-inline-start: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #5b6673; pointer-events: none">⌕</span>
+                <input value="{{ custQuery }}" onChange="{{ setCustQuery }}" placeholder="A name, or a telephone number" style="width: 100%; height: 28px; padding-inline: 22px 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+              </div>
+              <div style="border-top: 1px solid #aaddc0">
+                <sc-for list="{{ customers }}" as="cu" hint-placeholder-count="3">
+                  <div role="button" tabindex="0" onClick="{{ cu.go }}" style="{{ cu.style }}" style-hover="background: #edf6f0">
+                    <span style="font-size: 13px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ cu.name }}</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673">{{ cu.phone }}</span>
+                    <sc-if value="{{ cu.regular }}" hint-placeholder-val="{{ false }}">
+                      <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #dcfce7; color: #14532d">Regular</span>
+                    </sc-if>
+                    <span style="{{ cu.markStyle }}">{{ cu.mark }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noCustomerMatch }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding: 22px 8px; text-align: center">
+                    <div style="font-size: 13px; font-weight: 600">Nobody matches that</div>
+                    <div style="font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty">Try part of the name, or the number with its country code. If this is a first-time caller, write them down below.</div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <sc-if value="{{ notCreatingCustomer }}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{ startCreating }}" style="margin-top: 10px; height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; color: #157043; cursor: pointer; white-space: nowrap" style-hover="background: #edf6f0">+ New customer</button>
+              </sc-if>
+              <sc-if value="{{ creatingCustomer }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #cceeda">
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; margin-bottom: 8px">New customer</div>
+                  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 240px)); justify-content: start; gap: 12px 16px">
+                    <label style="display: flex; flex-direction: column; gap: 4px">
+                      <span style="font-size: 12px; font-weight: 500">Name</span>
+                      <input placeholder="Whatever the caller gives you" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                    </label>
+                    <label style="display: flex; flex-direction: column; gap: 4px">
+                      <span style="font-size: 12px; font-weight: 500">Telephone</span>
+                      <input placeholder="+9613000111" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px">
+                    </label>
+                  </div>
+                  <div style="display: flex; gap: 6px; margin-top: 10px">
+                    <button type="button" onClick="{{ saveNewCustomer }}" style="height: 28px; padding: 0 10px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">Save customer</button>
+                    <button type="button" onClick="{{ stopCreating }}" style="height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">Not now</button>
+                  </div>
+                </div>
+              </sc-if>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ stepAddress }}">
+            <section>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Delivery address</h2>
+                <span style="font-size: 11px; color: #5b6673">Typed as they give it, never picked off a map</span>
+              </div>
+              <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; margin-bottom: 12px; border: 1px solid #f0dca8; border-radius: 6px; background: #fdf2d6">
+                <span aria-hidden="true" style="font-size: 11px; line-height: 16px; color: #79480a">!</span>
+                <div style="font-size: 11px; line-height: 16px; color: #79480a; text-wrap: pretty"><span style="font-weight: 600">Write the address down as they give it.</span> The desk can add an address but cannot read the ones a customer already has, so this is written fresh each time. Check it back to them before saving.</div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 240px)); justify-content: start; gap: 12px 16px">
+                <label style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 12px; font-weight: 500">Area</span>
+                  <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                    <option>Achrafieh</option><option>Hamra</option><option>Gemmayzeh</option><option>Badaro</option>
+                  </select>
+                  <span style="font-size: 11px; color: #5b6673">Chosen from the list — deliveries match a zone by area.</span>
+                </label>
+                <label style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 12px; font-weight: 500">Street</span>
+                  <input placeholder="Rue Sursock" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                </label>
+                <label style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 12px; font-weight: 500">Building and floor</span>
+                  <input placeholder="Building 12, 3rd floor" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                </label>
+                <label style="display: flex; flex-direction: column; gap: 4px; grid-column: span 2">
+                  <span style="font-size: 12px; font-weight: 500">Directions for the driver</span>
+                  <input placeholder="Green gate, park on the street" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                  <span style="font-size: 11px; color: #5b6673">Landmarks, the gate to use, where to park. Not part of the address.</span>
+                </label>
+              </div>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ stepBasket }}">
+            <section>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Basket</h2>
+                <span style="font-size: 11px; color: #5b6673">Nothing here is priced until it is in the basket — the kitchen quotes it</span>
+              </div>
+              <div style="position: relative; width: 280px; margin-bottom: 10px">
+                <span style="position: absolute; inset-inline-start: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #5b6673; pointer-events: none">⌕</span>
+                <input value="{{ menuQuery }}" onChange="{{ setMenuQuery }}" placeholder="Search the menu" style="width: 100%; height: 28px; padding-inline: 22px 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+              </div>
+              <div style="border-top: 1px solid #aaddc0">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 88px 96px 76px; align-items: center; column-gap: 12px; height: 24px; padding: 0 8px; border-bottom: 1px solid #aaddc0">
+                  <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Article</span>
+                  <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Kind</span>
+                  <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Availability</span>
+                  <span></span>
+                </div>
+                <sc-for list="{{ menu }}" as="m" hint-placeholder-count="9">
+                  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 88px 96px 76px; align-items: center; column-gap: 12px; min-height: 32px; padding: 0 8px; border-bottom: 1px solid #cceeda" style-hover="background: #edf6f0">
+                    <span style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ m.name }}</span>
+                    <span style="font-size: 11px; color: #5b6673">{{ m.kind }}</span>
+                    <span style="{{ m.availStyle }}">{{ m.avail }}</span>
+                    <span style="text-align: end">
+                      <button type="button" onClick="{{ m.add }}" style="{{ m.addStyle }}" style-hover="background: #edf6f0">{{ m.addLabel }}</button>
+                    </span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ menuEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding: 22px 8px; text-align: center">
+                    <div style="font-size: 13px; font-weight: 600">Nothing published matches</div>
+                    <div style="font-size: 11px; color: #5b6673">Only published meals and products can be sold at the desk.</div>
+                  </div>
+                </sc-if>
+              </div>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ stepPayment }}">
+            <section>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Payment</h2>
+                <span style="font-size: 11px; color: #5b6673">{{ methodCaption }}</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 240px)); justify-content: start; gap: 10px">
+                <sc-for list="{{ methods }}" as="me" hint-placeholder-count="2">
+                  <div role="button" tabindex="0" onClick="{{ me.go }}" style="{{ me.style }}" style-hover="border-color: #157043">
+                    <span style="{{ me.dotStyle }}"></span>
+                    <span style="font-size: 12px; font-weight: 500">{{ me.label }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ wishChosen }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top: 12px">
+                  <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid #f0dca8; border-radius: 6px; background: #fdf2d6">
+                    <span aria-hidden="true" style="font-size: 11px; line-height: 16px; color: #79480a">!</span>
+                    <div style="font-size: 11px; line-height: 16px; color: #79480a; text-wrap: pretty"><span style="font-weight: 600">You are confirming this yourself.</span> Nothing checks a WISH transfer for us. Only record it once you have seen the money arrive, and write down the transfer reference so it can be found again.</div>
+                  </div>
+                  <label style="display: flex; flex-direction: column; gap: 4px; width: 240px; margin-top: 12px">
+                    <span style="font-size: 12px; font-weight: 500">Transfer reference</span>
+                    <input placeholder="WSH-40912-8871" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px">
+                  </label>
+                </div>
+              </sc-if>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ stepReview }}">
+            <section>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 4px">
+                <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Review</h2>
+                <span style="font-size: 11px; color: #5b6673">Read it back to them, then place it</span>
+              </div>
+              <sc-for list="{{ reviewFacts }}" as="f" hint-placeholder-count="5">
+                <div style="display: grid; grid-template-columns: 140px minmax(0, 1fr); column-gap: 12px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #cceeda">
+                  <span style="font-size: 11px; color: #5b6673">{{ f.label }}</span>
+                  <span style="font-size: 12px; font-weight: 500; font-family: {{ f.family }}">{{ f.value }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ hasRefusal }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; margin-top: 12px; border: 1px solid #f3cfcb; border-radius: 6px; background: #fde5e3">
+                  <span aria-hidden="true" style="font-size: 11px; line-height: 16px; color: #8f1f1a">!</span>
+                  <div style="font-size: 11px; line-height: 16px; color: #8f1f1a; text-wrap: pretty"><span style="font-weight: 600">This order cannot be placed as it stands.</span> {{ refusalText }}</div>
+                </div>
+              </sc-if>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ salePlaced }}">
+            <section>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 44px 0; text-align: center">
+                <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #dcfce7; color: #14532d">Sold</span>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; line-height: 26px; font-weight: 600; color: #157043">{{ placedTotal }}</div>
+                <div style="font-size: 13px; font-weight: 600">Order 0162 placed and recorded</div>
+                <div style="font-size: 11px; color: #5b6673">Nothing else is needed for this sale.</div>
+                <div style="display: flex; gap: 6px; margin-top: 6px">
+                  <button type="button" onClick="{{ startSale }}" style="height: 28px; padding: 0 10px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">Start another sale</button>
+                  <button type="button" onClick="{{ goQueue }}" style="height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">Back to the queue</button>
+                </div>
+              </div>
+            </section>
+          </sc-if>
+        </div>
+
+        <aside style="width: 264px; flex: 0 0 264px; border: 1px solid #aaddc0; border-radius: 8px; background: #fff; display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 11px; border-bottom: 1px solid #cceeda">
+            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">The basket</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5b6673">{{ basketCount }}</span>
+          </div>
+          <div style="padding: 4px 11px 8px">
+            <sc-if value="{{ basketEmpty }}" hint-placeholder-val="{{ true }}">
+              <p style="margin: 8px 0; font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty">Nothing in the basket yet. Add something from the menu and the kitchen will price it.</p>
+            </sc-if>
+            <sc-for list="{{ basketLines }}" as="b" hint-placeholder-count="2">
+              <div style="padding: 8px 0; border-bottom: 1px solid #cceeda">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+                  <span style="font-size: 12px; min-width: 0">{{ b.name }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: {{ b.priceFg }}; flex: 0 0 auto">{{ b.price }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 5px">
+                  <div style="display: inline-flex; align-items: center; height: 24px; border: 1px solid #aaddc0; border-radius: 4px; background: #fff; overflow: hidden">
+                    <span role="button" tabindex="0" onClick="{{ b.dec }}" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; font-size: 12px; color: #157043; cursor: pointer" style-hover="background: #edf6f0">−</span>
+                    <span style="min-width: 24px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500">{{ b.qty }}</span>
+                    <span role="button" tabindex="0" onClick="{{ b.inc }}" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; font-size: 12px; color: #157043; cursor: pointer" style-hover="background: #edf6f0">+</span>
+                  </div>
+                  <span role="button" tabindex="0" onClick="{{ b.remove }}" style="font-size: 11px; color: #5b6673; cursor: pointer" style-hover="color: #8f1f1a">Remove</span>
+                </div>
+                <sc-if value="{{ b.blocked }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top: 6px; padding: 6px 8px; border-radius: 4px; background: #fdf2d6; font-size: 10px; line-height: 14px; color: #79480a; text-wrap: pretty">Not available at the desk. Remove it to place the order — the rest is still priced below.</div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <div style="padding-top: 8px; display: flex; flex-direction: column; gap: 5px">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 11px; color: #5b6673"><span>Subtotal</span><span style="font-family: 'IBM Plex Mono', monospace">{{ subtotal }}</span></div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 11px; color: #5b6673"><span>Delivery</span><span style="font-family: 'IBM Plex Mono', monospace">{{ deliveryFee }}</span></div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-top: 7px; border-top: 1px solid #cceeda">
+                <span style="font-size: 12px; font-weight: 600">Total</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; line-height: 26px; font-weight: 600; color: #157043">{{ total }}</span>
+              </div>
+              <span style="font-size: 10px; line-height: 14px; color: #5b6673">{{ quoteNote }}</span>
+            </div>
+          </div>
+          <sc-if value="{{ saleInProgress }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: center; gap: 6px; padding: 9px 11px; border-top: 1px solid #cceeda; background: #f7fcf9">
+              <button type="button" onClick="{{ stepBack }}" style="{{ backStyle }}">Back</button>
+              <div style="flex: 1 1 auto"></div>
+              <button type="button" onClick="{{ stepNext }}" style="{{ nextStyle }}">{{ nextLabel }}</button>
+            </div>
+          </sc-if>
+        </aside>
+      </div>
+    </sc-if>
+
+    <!-- ───────────────────────── CALENDAR ───────────────────────── -->
+    <sc-if value="{{ isCalendar }}">
+      <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-wrap: wrap">
+        <div style="display: inline-flex; height: 28px; gap: 2px; padding: 2px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff">
+          <button type="button" onClick="{{ prevWeek }}" style="height: 22px; padding: 0 8px; border: 0; border-radius: 3px; background: transparent; font-size: 11px; color: #5b6673; cursor: pointer" style-hover="background: #edf6f0">‹</button>
+          <button type="button" onClick="{{ thisWeek }}" style="height: 22px; padding: 0 9px; border: 0; border-radius: 3px; background: transparent; font-size: 11px; font-weight: 500; color: #157043; cursor: pointer; white-space: nowrap" style-hover="background: #edf6f0">This week</button>
+          <button type="button" onClick="{{ nextWeek }}" style="height: 22px; padding: 0 8px; border: 0; border-radius: 3px; background: transparent; font-size: 11px; color: #5b6673; cursor: pointer" style-hover="background: #edf6f0">›</button>
+        </div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #1f2937">{{ weekRange }}</span>
+      </div>
+
+      <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 20px 16px">
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; margin-bottom: 10px; border: 1px solid #cde3f2; border-radius: 6px; background: #e2f1fb">
+          <span aria-hidden="true" style="font-size: 11px; line-height: 16px; color: #0b4a6f">i</span>
+          <div style="font-size: 11px; line-height: 16px; color: #0b4a6f; text-wrap: pretty"><span style="font-weight: 600">Three numbers, never one.</span> Orders, scheduled deliveries and the forecast overlap: an expected day becomes a scheduled one, and a scheduled one becomes an order. Adding them counts the same meal twice, so they are shown side by side and never totalled.</div>
+        </div>
+
+        <sc-if value="{{ calLoading }}" hint-placeholder-val="{{ false }}">
+          <div style="border: 1px solid #aaddc0; border-radius: 8px; background: #fff; overflow: hidden; display: grid; grid-template-columns: repeat(7, minmax(126px, 1fr)); min-width: 980px">
+            <sc-for list="{{ skeletonDays }}" as="s" hint-placeholder-count="7">
+              <div style="border-inline-end: 1px solid #cceeda; padding: 10px; display: flex; flex-direction: column; gap: 14px">
+                <div style="height: 9px; width: 60%; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 22px; width: 44px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 22px; width: 44px; border-radius: 4px; background: #eef6f1; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 22px; width: 44px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ calError }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #fde5e3; color: #8f1f1a">Not loaded</span>
+            <div style="font-size: 13px; font-weight: 600; margin-top: 2px">The calendar could not be loaded</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 42ch; text-wrap: pretty">None of the three books answered. Nothing is wrong with the orders themselves.</div>
+            <button type="button" onClick="{{ retry }}" style="margin-top: 4px; height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ calEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <div style="font-size: 13px; font-weight: 600">Nothing this week</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 46ch; text-wrap: pretty">No orders, no claimed deliveries and nothing forecast between these dates. Look at another week, or take a sale at the desk.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ calNormal }}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x: auto; padding-bottom: 10px">
+            <div style="min-width: 1000px; display: flex; flex-direction: column; gap: 6px">
+
+              <div style="display: grid; grid-template-columns: {{ calGrid }}; column-gap: 8px">
+                <div style="display: flex; align-items: flex-end; padding: 0 2px 2px">
+                  <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Delivery slot</span>
+                </div>
+                <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+                  <div style="display: flex; align-items: baseline; gap: 6px; padding: 0 2px 2px; flex-wrap: wrap">
+                    <span style="font-size: 13px; font-weight: 600; color: {{ d.nameFg }}">{{ d.weekday }}</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: {{ d.dateFg }}">{{ d.date }}</span>
+                    <sc-if value="{{ d.isToday }}" hint-placeholder-val="{{ false }}">
+                      <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 5px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #dcfce7; color: #14532d">Today</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+
+              <sc-for list="{{ slotRows }}" as="row" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: {{ calGrid }}; column-gap: 8px">
+                  <div style="{{ row.labelStyle }}">
+                    <span style="{{ row.titleStyle }}">{{ row.label }}</span>
+                    <span style="{{ row.noteStyle }}">{{ row.note }}</span>
+                  </div>
+                  <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="7">
+                    <div style="{{ cell.style }}">
+                      <span></span>
+                      <sc-for list="{{ cell.figures }}" as="f" hint-placeholder-count="3">
+                        <span style="{{ f.style }}" title="{{ f.title }}">
+                          <span style="{{ f.labelStyle }}">{{ f.label }}</span>
+                          <span style="{{ f.valueStyle }}">{{ f.text }}</span>
+                        </span>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 12px; max-width: 104ch">
+            <span style="font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty">Every square names its own three books beside their figures, in the same order throughout — <span style="font-weight: 600">Orders · Scheduled · Forecast</span>. Slots run in the kitchen's published order. <span style="font-weight: 600">Slot not set</span> is where orders with no slot on them land, and shows only when a day has one.</span>
+            <span style="font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty"><span style="font-family: 'IBM Plex Mono', monospace">0</span> is a true zero — the server walked that slot and found nothing. <span style="font-family: 'IBM Plex Mono', monospace">—</span> means the day was never answered, which is not the same fact and is never shown as a zero. Nothing here is ever added across the three books.</span>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ───────────────────────── CASH REPORT ───────────────────────── -->
+    <sc-if value="{{ isCash }}">
+      <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-wrap: wrap">
+        <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Day</span>
+        <input type="date" value="{{ cashDate }}" onChange="{{ setCashDate }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px">
+        <span style="font-size: 11px; color: #5b6673">Cut on the UTC clock, not this kitchen's local midnight.</span>
+      </div>
+
+      <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 20px 16px">
+        <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; margin-bottom: 10px; border: 1px solid #cceeda; border-radius: 6px; background: #edf6f0">
+          <span aria-hidden="true" style="font-size: 11px; line-height: 16px; color: #5b6673">i</span>
+          <div style="font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty">This shows what was taken. It can't tell you if the cash box balances — nothing here is a count of the drawer.</div>
+        </div>
+
+        <sc-if value="{{ cashLoading }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top: 1px solid #aaddc0">
+            <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="6">
+              <div style="display: grid; grid-template-columns: {{ cashGrid }}; align-items: center; column-gap: 14px; min-width: 620px; height: 32px; padding: 0 8px; border-bottom: 1px solid #cceeda">
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #eef6f1; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ cashError }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #fde5e3; color: #8f1f1a">Not loaded</span>
+            <div style="font-size: 13px; font-weight: 600; margin-top: 2px">The day could not be read</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 42ch; text-wrap: pretty">The receipts are safe — this is only the reading of them that failed.</div>
+            <button type="button" onClick="{{ retry }}" style="margin-top: 4px; height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ cashEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <div style="font-size: 13px; font-weight: 600">Nothing was taken on this day</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 44ch; text-wrap: pretty">No receipt was written down between these two UTC midnights. Try another day.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ cashNormal }}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x: auto">
+            <div style="display: grid; grid-template-columns: {{ cashGrid }}; align-items: center; column-gap: 14px; min-width: 620px; height: 24px; padding: 0 8px; border-bottom: 1px solid #aaddc0; position: sticky; top: 0; background: #f7fcf9; z-index: 2">
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Agent</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">How it arrived</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Currency</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: end">Amount</span>
+            </div>
+            <sc-for list="{{ cashRows }}" as="cr" hint-placeholder-count="6">
+              <div style="display: grid; grid-template-columns: {{ cashGrid }}; align-items: center; column-gap: 14px; min-width: 620px; min-height: 32px; padding: 0 8px; border-bottom: 1px solid #cceeda" style-hover="background: #edf6f0">
+                <span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ cr.agent }}</span>
+                <span style="font-size: 12px; color: #5b6673; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ cr.method }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673">{{ cr.currency }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; text-align: end; white-space: nowrap">{{ cr.amount }}</span>
+              </div>
+            </sc-for>
+
+            <div style="min-width: 620px; margin-top: 12px; border: 1px solid #aaddc0; border-radius: 8px; background: #edf6f0; overflow: hidden">
+              <div style="padding: 8px 10px 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Taken, by currency</div>
+              <sc-for list="{{ cashTotals }}" as="ct" hint-placeholder-count="2">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 10px; border-top: 1px solid #cceeda">
+                  <span style="font-size: 12px; font-weight: 500">{{ ct.currency }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: #157043">{{ ct.amount }}</span>
+                </div>
+              </sc-for>
+              <div style="padding: 7px 10px 9px; border-top: 1px solid #cceeda; font-size: 10px; line-height: 14px; color: #5b6673; text-wrap: pretty">Each currency stands on its own. There is no figure across them — adding two currencies would invent an exchange rate nobody agreed.</div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ───────────────────────── REQUIREMENTS ───────────────────────── -->
+    <sc-if value="{{ isReq }}">
+      <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-wrap: wrap">
+        <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Branch</span>
+        <select value="{{ branch }}" onChange="{{ setBranch }}" style="height: 28px; padding: 0 6px; border: 1px solid {{ branchBorder }}; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer">
+          <option value="">Choose a branch</option>
+          <option value="beirut-central">Beirut Central</option>
+          <option value="jounieh">Jounieh</option>
+          <option value="saida">Saida</option>
+        </select>
+        <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; margin-inline-start: 6px">Window</span>
+        <input type="date" value="2026-09-12" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px">
+        <span style="font-size: 11px; color: #5b6673">to</span>
+        <input type="date" value="2026-09-18" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px">
+        <div style="flex: 1 1 auto"></div>
+        <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #e2f1fb; color: #0b4a6f">Read only</span>
+      </div>
+
+      <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 20px 16px">
+        <sc-if value="{{ reqNoBranch }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <div style="font-size: 13px; font-weight: 600">Choose a branch first</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 52ch; text-wrap: pretty">A buy list is a statement about one store cupboard: what these days need, against what is on that branch's shelves. With no branch named there is no shelf to compare against — pick one above and the list appears.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ reqLoading }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top: 1px solid #aaddc0">
+            <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="8">
+              <div style="display: grid; grid-template-columns: {{ reqGrid }}; align-items: center; column-gap: 14px; min-width: 720px; height: 32px; padding: 0 8px; border-bottom: 1px solid #cceeda">
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #eef6f1; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #eef6f1; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height: 9px; border-radius: 4px; background: #e4f0e9; animation: odshimmer 1.3s ease-in-out infinite"></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ reqError }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #fde5e3; color: #8f1f1a">Not loaded</span>
+            <div style="font-size: 13px; font-weight: 600; margin-top: 2px">The buy list could not be worked out</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 44ch; text-wrap: pretty">The shelf counts and the days ahead could not be read together. Nothing has changed in either.</div>
+            <button type="button" onClick="{{ retry }}" style="margin-top: 4px; height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ reqEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+            <div style="font-size: 13px; font-weight: 600">Nothing to buy for these days</div>
+            <div style="font-size: 11px; line-height: 16px; color: #5b6673; max-width: 46ch; text-wrap: pretty">Every ingredient these days need is already on the shelf at this branch.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ reqNormal }}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x: auto">
+            <div style="display: grid; grid-template-columns: {{ reqGrid }}; align-items: center; column-gap: 14px; min-width: 720px; height: 24px; padding: 0 8px; border-bottom: 1px solid #aaddc0; position: sticky; top: 0; background: #f7fcf9; z-index: 2">
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Ingredient</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: end">Needed</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: end">On the shelf</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: end">Short by</span>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: end">Position</span>
+            </div>
+            <sc-for list="{{ reqRows }}" as="r" hint-placeholder-count="8">
+              <div style="display: grid; grid-template-columns: {{ reqGrid }}; align-items: center; column-gap: 14px; min-width: 720px; min-height: 32px; padding: 0 8px; border-bottom: 1px solid #cceeda" style-hover="background: #edf6f0">
+                <span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.name }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; text-align: end">{{ r.needed }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5b6673; text-align: end">{{ r.shelf }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: {{ r.shortFg }}; text-align: end">{{ r.short }}</span>
+                <span style="text-align: end"><span style="{{ r.chipStyle }}">{{ r.position }}</span></span>
+              </div>
+            </sc-for>
+            <div style="min-width: 720px; padding: 10px 8px 0; font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty">Needed quantities come from confirmed orders and claimed subscription deliveries only — never from the forecast. Shelf figures are the last stock count at this branch. Nothing is bought or edited here.</div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ───────────────────────── DRAWER ───────────────────────── -->
+    <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; z-index: 40; display: flex; justify-content: flex-end">
+        <div role="button" tabindex="0" onClick="{{ closeDrawer }}" style="position: absolute; inset: 0; background: #14231ccc; animation: odfade 140ms ease"></div>
+        <aside style="position: relative; width: 372px; max-width: 100%; height: 100%; background: #fff; border-inline-start: 1px solid #aaddc0; box-shadow: -8px 0 24px -8px rgba(16, 42, 30, 0.22); display: flex; flex-direction: column; animation: odslide 160ms cubic-bezier(.2,0,0,1)">
+          <div style="flex: 0 0 auto; padding: 14px 16px 12px; border-bottom: 1px solid #cceeda">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ open.kind }} order</span>
+              <span role="button" tabindex="0" onClick="{{ closeDrawer }}" title="Close" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; font-size: 12px; color: #5b6673; cursor: pointer" style-hover="background: #edf6f0">✕</span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5b6673">{{ open.number }}</span>
+              <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em">{{ open.name }}</h2>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap">
+              <span style="{{ open.statusStyle }}">{{ open.status }}</span>
+              <span style="{{ open.ageStyle }}">{{ open.age }}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673">due {{ open.due }}</span>
+            </div>
+          </div>
+
+          <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 16px 16px">
+            <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; padding-bottom: 6px; border-bottom: 1px solid #cceeda">Customer</div>
+            <sc-for list="{{ open.customerFields }}" as="f" hint-placeholder-count="2">
+              <div style="display: grid; grid-template-columns: 118px minmax(0, 1fr); column-gap: 12px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #cceeda">
+                <span style="font-size: 11px; color: #5b6673">{{ f.label }}</span>
+                <span style="font-size: 12px; font-weight: 500; font-family: {{ f.family }}; text-wrap: pretty">{{ f.value }}</span>
+              </div>
+            </sc-for>
+
+            <div style="margin-top: 16px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; padding-bottom: 6px; border-bottom: 1px solid #cceeda">What they ordered</div>
+            <sc-for list="{{ open.lines }}" as="l" hint-placeholder-count="3">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 34px 74px; column-gap: 10px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #cceeda">
+                <span style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ l.name }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673; text-align: end">×{{ l.qty }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; text-align: end">{{ l.total }}</span>
+              </div>
+            </sc-for>
+            <div style="display: flex; flex-direction: column; gap: 5px; padding-top: 8px">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 11px; color: #5b6673"><span>Subtotal</span><span style="font-family: 'IBM Plex Mono', monospace">{{ open.subtotal }}</span></div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 11px; color: #5b6673"><span>Delivery</span><span style="font-family: 'IBM Plex Mono', monospace">{{ open.fee }}</span></div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-top: 7px; border-top: 1px solid #cceeda">
+                <span style="font-size: 12px; font-weight: 600">Total</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; line-height: 26px; font-weight: 600">{{ open.total }}</span>
+              </div>
+            </div>
+
+            <div style="margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda">
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Payment</span>
+              <sc-if value="{{ open.canRecord }}" hint-placeholder-val="{{ false }}">
+                <span role="button" tabindex="0" onClick="{{ openPayment }}" style="font-size: 11px; font-weight: 500; color: #157043; cursor: pointer">Record a payment</span>
+              </sc-if>
+            </div>
+            <sc-for list="{{ open.paymentFields }}" as="f" hint-placeholder-count="3">
+              <div style="display: grid; grid-template-columns: 118px minmax(0, 1fr); column-gap: 12px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #cceeda">
+                <span style="font-size: 11px; color: #5b6673">{{ f.label }}</span>
+                <span style="font-size: 12px; font-weight: 500; font-family: {{ f.family }}">{{ f.value }}</span>
+              </div>
+            </sc-for>
+
+            <sc-if value="{{ open.hasRun }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top: 16px">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda">
+                  <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">The run</span>
+                  <span role="button" tabindex="0" onClick="{{ openAssign }}" style="font-size: 11px; font-weight: 500; color: #157043; cursor: pointer">{{ open.assignLabel }}</span>
+                </div>
+                <sc-for list="{{ open.runFields }}" as="f" hint-placeholder-count="4">
+                  <div style="display: grid; grid-template-columns: 118px minmax(0, 1fr); column-gap: 12px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #cceeda">
+                    <span style="font-size: 11px; color: #5b6673">{{ f.label }}</span>
+                    <span style="font-size: 12px; font-weight: 500; font-family: {{ f.family }}">{{ f.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid #cceeda; background: #f7fcf9">
+            <sc-if value="{{ open.hasRun }}" hint-placeholder-val="{{ false }}">
+              <span style="flex: 1 1 auto; min-width: 0; font-size: 10px; line-height: 14px; color: #5b6673; text-wrap: pretty">Driver says: {{ open.tracking }}</span>
+            </sc-if>
+            <div style="flex: 1 1 auto"></div>
+            <button type="button" onClick="{{ closeDrawer }}" style="height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer; flex: 0 0 auto" style-hover="background: #edf6f0">Close</button>
+            <button type="button" onClick="{{ advanceOrder }}" style="height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer; flex: 0 0 auto" style-hover="background: #11532e">{{ open.primaryLabel }}</button>
+          </div>
+        </aside>
+      </div>
+    </sc-if>
+
+    <!-- ───────────────────────── ASSIGN DRIVER ───────────────────────── -->
+    <sc-if value="{{ assignOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 24px">
+        <div role="button" tabindex="0" onClick="{{ closeDialog }}" style="position: absolute; inset: 0; background: #14231ccc; animation: odfade 140ms ease"></div>
+        <div style="position: relative; width: 380px; max-width: 100%; background: #fff; border: 1px solid #aaddc0; border-radius: 8px; box-shadow: 0 12px 32px -8px rgba(16, 42, 30, 0.34); display: flex; flex-direction: column; animation: odfade 140ms ease">
+          <div style="padding: 14px 16px 10px; border-bottom: 1px solid #cceeda">
+            <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Who takes this run?</h2>
+            <p style="margin: 3px 0 0; font-size: 11px; line-height: 16px; color: #5b6673">Order {{ open.number }}. Only the person you choose is told about it.</p>
+          </div>
+          <div style="padding: 10px 16px 4px">
+            <input value="{{ driverQuery }}" onChange="{{ setDriverQuery }}" placeholder="Part of a name" style="width: 100%; height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+          </div>
+          <div style="max-height: 208px; overflow: auto; padding: 6px 16px 8px">
+            <div style="border-top: 1px solid #cceeda">
+              <sc-for list="{{ drivers }}" as="dr" hint-placeholder-count="5">
+                <div role="button" tabindex="0" onClick="{{ dr.go }}" style="{{ dr.style }}" style-hover="background: #edf6f0">
+                  <span style="font-size: 12px; font-weight: 500; color: {{ dr.nameFg }}; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ dr.name }}</span>
+                  <span style="{{ dr.markStyle }}">{{ dr.mark }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ driversEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding: 18px 8px; text-align: center">
+                  <div style="font-size: 12px; font-weight: 600">Nobody matches that</div>
+                  <div style="font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty">Clear the search to see everybody, including anyone who has not put a name on their profile yet.</div>
+                </div>
+              </sc-if>
+            </div>
+            <div style="padding-top: 8px; font-size: 10px; line-height: 14px; color: #5b6673">Everybody with an active membership here is listed.</div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 6px; padding: 10px 16px; border-top: 1px solid #cceeda; background: #f7fcf9">
+            <button type="button" onClick="{{ closeDialog }}" style="height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #edf6f0">Not now</button>
+            <button type="button" onClick="{{ confirmAssign }}" style="{{ assignBtnStyle }}">Give them the run</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ───────────────────────── RECORD PAYMENT ───────────────────────── -->
+    <sc-if value="{{ paymentOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 24px">
+        <div role="button" tabindex="0" onClick="{{ closeDialog }}" style="position: absolute; inset: 0; background: #14231ccc; animation: odfade 140ms ease"></div>
+        <div style="position: relative; width: 380px; max-width: 100%; background: #fff; border: 1px solid #aaddc0; border-radius: 8px; box-shadow: 0 12px 32px -8px rgba(16, 42, 30, 0.34); animation: odfade 140ms ease">
+          <div style="padding: 14px 16px 10px; border-bottom: 1px solid #cceeda">
+            <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Record a payment</h2>
+            <p style="margin: 3px 0 0; font-size: 11px; line-height: 16px; color: #5b6673">Order {{ open.number }}. Write down what actually arrived, however it arrived.</p>
+          </div>
+          <div style="padding: 12px 16px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+            <label style="display: flex; flex-direction: column; gap: 4px; grid-column: span 2">
+              <span style="font-size: 12px; font-weight: 500">How did the money arrive?</span>
+              <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                <option>Cash on delivery</option><option>Cash at the counter</option><option>WISH transfer</option>
+              </select>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 12px; font-weight: 500">Amount</span>
+              <input value="{{ open.outstandingInput }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 12px; font-weight: 500">Reference</span>
+              <input placeholder="Optional" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px">
+            </label>
+            <span style="grid-column: span 2; font-size: 11px; line-height: 16px; color: #5b6673; text-wrap: pretty">Prefilled with the {{ open.outstanding }} still owed. Part payments are fine, and so is more than the total — write down what actually arrived.</span>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 6px; padding: 10px 16px; border-top: 1px solid #cceeda; background: #f7fcf9">
+            <button type="button" onClick="{{ closeDialog }}" style="height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #edf6f0">Not now</button>
+            <button type="button" onClick="{{ recordPayment }}" style="height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">Record it</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset-inline: 0; bottom: 16px; z-index: 80; display: flex; justify-content: center; pointer-events: none">
+        <div style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid #aaddc0; border-radius: 6px; background: #fff; box-shadow: 0 6px 20px -4px rgba(16, 42, 30, 0.24); font-size: 12px; animation: odfade 140ms ease">
+          <span aria-hidden="true" style="color: #157043; font-size: 11px">✓</span><span>{{ toastText }}</span>
+        </div>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:820},&quot;dataState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;error&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;truncated&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ltr&quot;,&quot;rtl&quot;],&quot;default&quot;:&quot;ltr&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const NAV = [
+  { key: 'orderDesk', label: 'Order desk', glyph: '▤', items: [
+    { key: 'queue', label: 'Order desk', count: '8' },
+    { key: 'calendar', label: 'Order calendar' },
+    { key: 'requirements', label: 'Requirements', count: '4' },
+    { key: 'cash', label: 'Cash taken' },
+  ]},
+  { key: 'workbench', label: 'Workbench', glyph: '⌕', items: [
+    { key: 'review', label: 'Needs review', count: '6' },
+    { key: 'analytics', label: 'Analytics' },
+    { key: 'cost', label: 'Cost report' },
+    { key: 'exceptions', label: 'Consumption exceptions', count: '2' },
+  ]},
+  { key: 'catalogue', label: 'Catalogue', glyph: '◉', items: [
+    { key: 'ingredients', label: 'Ingredients' },
+    { key: 'packaging', label: 'Packaging' },
+    { key: 'recipes', label: 'Recipes' },
+    { key: 'products', label: 'Resale' },
+    { key: 'sauces', label: 'Sauces & marinations' },
+    { key: 'dressings', label: 'Dressings' },
+    { key: 'meals', label: 'Meals' },
+    { key: 'allergens', label: 'Allergen classes' },
+  ]},
+  { key: 'commercial', label: 'Commercial', glyph: '☰', items: [
+    { key: 'prices', label: 'Price lists' },
+    { key: 'quotations', label: 'Quotations' },
+    { key: 'plans', label: 'Plans' },
+    { key: 'zones', label: 'Delivery zones' },
+    { key: 'operating', label: 'Opening hours' },
+  ]},
+  { key: 'operations', label: 'Operations', glyph: '▣', items: [
+    { key: 'orders', label: 'Orders' },
+    { key: 'stock', label: 'Stock' },
+    { key: 'supply', label: 'Supply orders' },
+    { key: 'suppliers', label: 'Suppliers' },
+    { key: 'procurement', label: 'Procurement' },
+    { key: 'purchases', label: 'Purchases ledger' },
+    { key: 'production', label: 'Production' },
+    { key: 'qc', label: 'Quality control' },
+  ]},
+];
+
+const ORDERS = [
+  { id: 1, number: '0148', name: 'Nadia Haddad', phone: '+961 3 118 204', due: '14:02', mins: -30,
+    kind: 'Delivery', status: 'Placed', delivery: 'Needs a driver', deliveryTone: 'warn',
+    tracking: 'waiting for a driver', method: 'Cash on delivery', settled: false, cur: 'USD',
+    subtotal: 2150, fee: 300, total: 2450, received: 0, driver: null,
+    area: 'Achrafieh', address: 'Rue Sursock, Building 12, 3rd floor',
+    lines: [ { name: 'Grilled chicken quinoa bowl', qty: 2, total: 1700 }, { name: 'Green detox juice 330 ml', qty: 1, total: 450 } ] },
+  { id: 2, number: '0151', name: 'Rami Aoun', phone: '+961 71 340 992', due: '14:17', mins: -15,
+    kind: 'Delivery', status: 'Confirmed', delivery: 'With a driver', deliveryTone: 'ok',
+    tracking: 'on the way', method: 'WISH transfer', settled: true, cur: 'USD',
+    subtotal: 3900, fee: 300, total: 4200, received: 4200, driver: 'Sara Nassar',
+    area: 'Badaro', address: 'Rue 78, Building Karam',
+    lines: [ { name: 'Baked salmon & greens', qty: 2, total: 2400 }, { name: 'Lentil & spinach soup', qty: 2, total: 950 }, { name: 'Almond protein bar', qty: 2, total: 550 } ] },
+  { id: 3, number: '0153', name: 'Layla Mansour', phone: '+961 3 447 019', due: '14:45', mins: 13,
+    kind: 'Collection', status: 'Confirmed', delivery: null, deliveryTone: null,
+    tracking: '', method: 'Cash at the counter', settled: false, cur: 'USD',
+    subtotal: 1275, fee: null, total: 1275, received: 0, driver: null,
+    area: 'Beirut Central', address: 'Collecting at the counter',
+    lines: [ { name: 'Falafel power wrap', qty: 1, total: 725 }, { name: 'Cold brew coffee 250 ml', qty: 1, total: 350 }, { name: 'Sparkling water 500 ml', qty: 2, total: 200 } ] },
+  { id: 4, number: '0154', name: 'Georges Khoury', phone: '+961 76 220 118', due: '14:52', mins: 20,
+    kind: 'Delivery', status: 'Placed', delivery: 'On confirmation', deliveryTone: 'info',
+    tracking: 'nothing yet — confirm first', method: 'Cash on delivery', settled: false, cur: 'LBP',
+    subtotal: 120000000, fee: 7500000, total: 127500000, received: 0, driver: null,
+    area: 'Hamra', address: 'Rue Jeanne d\u2019Arc, Building Nasr',
+    lines: [ { name: 'Halloumi breakfast plate', qty: 3, total: 82500000 }, { name: 'Green detox juice 330 ml', qty: 5, total: 37500000 } ] },
+  { id: 5, number: '0155', name: '\u2014', phone: '\u2014', due: '15:10', mins: 38,
+    kind: 'Collection', status: 'Placed', delivery: null, deliveryTone: null,
+    tracking: '', method: 'Cash at the counter', settled: false, cur: 'USD',
+    subtotal: 825, fee: null, total: 825, received: 0, driver: null,
+    area: 'Beirut Central', address: 'Collecting at the counter',
+    lines: [ { name: 'Lentil & spinach soup', qty: 1, total: 475 }, { name: 'Almond protein bar', qty: 1, total: 275 }, { name: 'Sparkling water 500 ml', qty: 1, total: 100 } ] },
+  { id: 6, number: '0157', name: 'Hiba Saad', phone: '+961 3 902 441', due: '15:30', mins: 58,
+    kind: 'Delivery', status: 'Confirmed', delivery: 'With a driver', deliveryTone: 'ok',
+    tracking: 'collected', method: 'Cash on delivery', settled: false, cur: 'USD',
+    subtotal: 2900, fee: 300, total: 3200, received: 1000, driver: 'Omar Chehab',
+    area: 'Gemmayzeh', address: 'Rue Gouraud, Building Sfeir',
+    lines: [ { name: 'Grilled chicken quinoa bowl', qty: 2, total: 1700 }, { name: 'Falafel power wrap', qty: 1, total: 725 }, { name: 'Cold brew coffee 250 ml', qty: 1, total: 350 }, { name: 'Sparkling water 500 ml', qty: 1, total: 125 } ] },
+  { id: 7, number: '0159', name: 'Karim Bitar', phone: '+961 81 556 703', due: '16:00', mins: 88,
+    kind: 'Delivery', status: 'Confirmed', delivery: 'No run recorded', deliveryTone: 'warn',
+    tracking: 'nothing has been said yet', method: 'WISH transfer', settled: true, cur: 'USD',
+    subtotal: 6040, fee: 300, total: 6340, received: 6340, driver: null,
+    area: 'Achrafieh', address: 'Rue Huvelin, Building Zahar',
+    lines: [ { name: 'Baked salmon & greens', qty: 4, total: 4800 }, { name: 'Halloumi breakfast plate', qty: 1, total: 650 }, { name: 'Green detox juice 330 ml', qty: 1, total: 450 } ] },
+  { id: 8, number: '0161', name: 'Maya Fares', phone: '+961 3 771 285', due: '16:30', mins: 118,
+    kind: 'Collection', status: 'Placed', delivery: null, deliveryTone: null,
+    tracking: '', method: 'Cash at the counter', settled: false, cur: 'USD',
+    subtotal: 2100, fee: null, total: 2100, received: 0, driver: null,
+    area: 'Beirut Central', address: 'Collecting at the counter',
+    lines: [ { name: 'Grilled chicken quinoa bowl', qty: 1, total: 850 }, { name: 'Baked salmon & greens', qty: 1, total: 1200 }, { name: 'Sparkling water 500 ml', qty: 1, total: 50 } ] },
+];
+
+const CUSTOMERS = [
+  { id: 'c1', name: 'Layla Mansour', phone: '+961 3 447 019', regular: true },
+  { id: 'c2', name: 'Georges Khoury', phone: '+961 76 220 118', regular: true },
+  { id: 'c3', name: 'Name withheld', phone: '+961 3 990 112', regular: false },
+];
+
+const MENU = [
+  { id: 'm1', name: 'Grilled chicken quinoa bowl', kind: 'Meal', price: 850 },
+  { id: 'm2', name: 'Lentil & spinach soup', kind: 'Meal', price: 475 },
+  { id: 'm3', name: 'Falafel power wrap', kind: 'Meal', price: 725 },
+  { id: 'm4', name: 'Baked salmon & greens', kind: 'Meal', price: 1200 },
+  { id: 'm5', name: 'Halloumi breakfast plate', kind: 'Meal', price: 650 },
+  { id: 'p1', name: 'Green detox juice 330 ml', kind: 'Product', price: 450 },
+  { id: 'p2', name: 'Almond protein bar', kind: 'Product', price: 275 },
+  { id: 'p3', name: 'Sparkling water 500 ml', kind: 'Product', price: 125 },
+  { id: 'p4', name: 'Cold brew coffee 250 ml', kind: 'Product', price: 350, blocked: true },
+];
+
+const DRIVERS = [
+  { id: 'd1', name: 'Sara Nassar' },
+  { id: 'd2', name: 'Omar Chehab' },
+  { id: 'd3', name: 'Tarek El Amine' },
+  { id: 'd4', name: 'No name on this profile', unnamed: true },
+  { id: 'd5', name: 'Joe Haddad' },
+];
+
+// The three bases, verbatim from kitchen:calendar.basis.*. `projected` is the forecast basis.
+const BASES = [
+  { key: 'order', label: 'Orders', short: 'Ord', fg: '#1f2937' },
+  { key: 'scheduled', label: 'Scheduled', short: 'Sch', fg: '#157043' },
+  { key: 'projected', label: 'Forecast', short: 'Fct', fg: '#5b6673', forecast: true },
+];
+
+const BASIS_TITLE = {
+  order: 'Orders: what exists.',
+  scheduled: 'Scheduled: subscription deliveries already claimed.',
+  projected: 'Forecast: worked out from subscription patterns, not a booking.',
+};
+
+// Slot codes are the kitchen's own; labels follow commerce:slots.*. A null code is the unslotted
+// bucket. `windows` is an ARRAY because the wire sends one (OrderDeskCalendarDay.windows) and its
+// order is the kitchen's published slot order — the only chronology available here. Never sort it:
+// sorting the codes alphabetically puts evening before midday before morning, which reads a day
+// backwards in time.
+const SLOT_LABELS = { morning: 'Morning', midday: 'Midday', evening: 'Evening' };
+
+// One fixture day = { date, weekday, today?, answered: false → the whole day is unknown,
+// windows: [{ code, counts: [order, scheduled, projected] }] } — a slot absent from an answered day
+// is a true zero, exactly as the wire behaves.
+const W = (code, o, s, f) => ({ code, counts: [o, s, f] });
+const WEEKS = [
+  { range: '7 → 13 Sep 2026', days: [
+    { weekday: 'Mon', date: '7 Sep', windows: [W('morning', 6, 5, 1), W('midday', 8, 4, 2), W('evening', 4, 3, 1)] },
+    { weekday: 'Tue', date: '8 Sep', windows: [W('morning', 7, 6, 2), W('midday', 9, 5, 2), W('evening', 6, 3, 1)] },
+    { weekday: 'Wed', date: '9 Sep', windows: [W('morning', 5, 4, 2), W('midday', 8, 5, 3), W('evening', 6, 2, 1)] },
+    { weekday: 'Thu', date: '10 Sep', windows: [W('morning', 8, 6, 1), W('midday', 10, 6, 3), W('evening', 6, 3, 1)] },
+    { weekday: 'Fri', date: '11 Sep', windows: [W('morning', 9, 7, 2), W('midday', 13, 8, 3), W('evening', 9, 3, 2)] },
+    { weekday: 'Sat', date: '12 Sep', today: true, windows: [W('morning', 8, 6, 2), W('midday', 11, 7, 3), W('evening', 6, 3, 1), W(null, 2, 0, 0)] },
+    { weekday: 'Sun', date: '13 Sep', windows: [W('midday', 6, 3, 2), W('evening', 3, 2, 1)] },
+  ]},
+  { range: '14 → 20 Sep 2026', days: [
+    { weekday: 'Mon', date: '14 Sep', windows: [W('morning', 4, 5, 3), W('midday', 5, 5, 4), W('evening', 2, 3, 2)] },
+    { weekday: 'Tue', date: '15 Sep', windows: [W('morning', 3, 5, 4), W('midday', 4, 6, 4), W('evening', 1, 3, 3)] },
+    { weekday: 'Wed', date: '16 Sep', windows: [W('morning', 2, 4, 4), W('midday', 3, 5, 5), W('evening', 1, 3, 3)] },
+    { weekday: 'Thu', date: '17 Sep', windows: [W('morning', 1, 6, 5), W('midday', 2, 6, 5), W('evening', 1, 3, 4)] },
+    { weekday: 'Fri', date: '18 Sep', windows: [W('morning', 1, 7, 5), W('midday', 1, 7, 6), W('evening', 1, 3, 4)] },
+    { weekday: 'Sat', date: '19 Sep', answered: false },
+    { weekday: 'Sun', date: '20 Sep', answered: false },
+  ]},
+];
+
+const CASH = [
+  { agent: 'Sara Nassar', method: 'Cash at the counter', cur: 'USD', amount: 41250 },
+  { agent: 'Sara Nassar', method: 'WISH transfer', cur: 'USD', amount: 16800 },
+  { agent: 'Omar Chehab', method: 'Cash on delivery', cur: 'USD', amount: 9625 },
+  { agent: 'Omar Chehab', method: 'Cash on delivery', cur: 'LBP', amount: 345000000 },
+  { agent: 'Rania Sleiman', method: 'Cash at the counter', cur: 'LBP', amount: 182000000 },
+  { agent: 'Rania Sleiman', method: 'WISH transfer', cur: 'USD', amount: 5400 },
+];
+
+const REQS = [
+  { name: 'Chicken breast', needed: '48.0 kg', shelf: '31.5 kg', short: '16.5 kg' },
+  { name: 'Baby spinach', needed: '14.5 kg', shelf: '6.0 kg', short: '8.5 kg' },
+  { name: 'Tahini', needed: '9.0 L', shelf: '4.0 L', short: '5.0 L' },
+  { name: 'Lemons', needed: '320 pcs', shelf: '260 pcs', short: '60 pcs' },
+  { name: 'Quinoa', needed: '22.0 kg', shelf: '24.0 kg', short: null },
+  { name: 'Red lentils', needed: '18.0 kg', shelf: '18.0 kg', short: null },
+  { name: 'Halloumi', needed: '12.0 kg', shelf: '13.2 kg', short: null },
+  { name: 'Olive oil', needed: '26.0 L', shelf: '40.0 L', short: null },
+];
+
+const META = {
+  queue: { crumb: '', title: 'Order desk' },
+  sale: { crumb: 'New sale', title: 'New sale' },
+  calendar: { crumb: 'Order calendar', title: 'Order calendar' },
+  cash: { crumb: 'Cash taken', title: 'Cash taken' },
+  requirements: { crumb: 'Requirements', title: 'Requirements' },
+};
+
+const TONE = {
+  ok:   { bg: '#dcfce7', fg: '#14532d' },
+  warn: { bg: '#fdf2d6', fg: '#79480a' },
+  bad:  { bg: '#fde5e3', fg: '#8f1f1a' },
+  info: { bg: '#e2f1fb', fg: '#0b4a6f' },
+  flat: { bg: '#edf6f0', fg: '#5b6673' },
+};
+
+function badge(tone) {
+  const t = TONE[tone] || TONE.flat;
+  return 'display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; background: ' + t.bg + '; color: ' + t.fg;
+}
+
+function seg(active) {
+  return 'height: 22px; padding: 0 9px; border: 0; border-radius: 3px; cursor: pointer; font-size: 11px; white-space: nowrap; font-weight: ' + (active ? '600' : '400') + '; color: ' + (active ? '#fff' : '#5b6673') + '; background: ' + (active ? '#157043' : 'transparent');
+}
+
+const MONO = "'IBM Plex Mono', monospace";
+const SANS = 'inherit';
+
+class Component extends DCLogic {
+  state = {
+    screen: 'queue', navOpen: true, statsView: false,
+    win: 'today', statuses: [], kind: 'any', q: '', density: 'comfortable',
+    hover: null, openId: null, dialog: null, driverQuery: '', chosenDriver: null,
+    toast: null, week: 0, openDays: [5], cashDate: '2026-09-11', branch: 'beirut-central',
+    saleStep: 0, saleType: null, customer: null, creating: false, custQuery: '',
+    menuQuery: '', basket: [], method: null, placed: false, moved: {},
+  };
+
+  money(minor, cur) {
+    if (cur === 'LBP') return Math.round(minor / 100).toLocaleString('en-US') + ' LBP';
+    return '$' + (minor / 100).toFixed(2);
+  }
+
+  flash(text) {
+    this.setState({ toast: text });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  go(screen) { this.setState({ screen, openId: null, dialog: null }); }
+
+  ageOf(mins) {
+    if (mins < 0) { const l = -mins; return { text: l + ' min late', tone: l >= 30 ? 'bad' : 'warn' }; }
+    if (mins < 60) return { text: 'in ' + mins + ' min', tone: 'flat' };
+    const h = Math.round(mins / 60);
+    return { text: 'in ' + h + (h === 1 ? ' hr' : ' hrs'), tone: 'flat' };
+  }
+
+  visibleOrders() {
+    const s = this.state;
+    const q = s.q.trim().toLowerCase();
+    const kinds = { counter: 'Counter', pickup: 'Collection', delivery: 'Delivery' };
+    return ORDERS.filter((o) => {
+      const status = s.moved[o.id] || o.status;
+      if (status === 'Fulfilled') return false;
+      if (s.win === 'overdue' && o.mins >= 0) return false;
+      if (s.statuses.length > 0 && !s.statuses.includes(status.toLowerCase())) return false;
+      if (s.kind !== 'any' && o.kind !== kinds[s.kind]) return false;
+      if (q !== '') {
+        const hit = o.number.includes(q) || o.name.toLowerCase().includes(q)
+          || o.phone.replace(/\s/g, '').includes(q.replace(/[\s+]/g, ''));
+        if (!hit) return false;
+      }
+      return true;
+    });
+  }
+
+  saleSteps() {
+    const t = this.state.saleType;
+    if (t === 'Counter') return ['Kind', 'Basket', 'Payment', 'Review'];
+    if (t === 'Delivery') return ['Kind', 'Customer', 'Address', 'Basket', 'Payment', 'Review'];
+    return ['Kind', 'Customer', 'Basket', 'Payment', 'Review'];
+  }
+
+  basketMath() {
+    const lines = this.state.basket.map((b) => ({ item: MENU.find((m) => m.id === b.id), qty: b.qty }));
+    const subtotal = lines.reduce((n, l) => n + (l.item.blocked ? 0 : l.item.price * l.qty), 0);
+    const fee = this.state.saleType === 'Delivery' && subtotal > 0 ? 300 : 0;
+    return { lines, subtotal, fee, total: subtotal + fee, blocked: lines.some((l) => l.item.blocked) };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const dataState = this.props.dataState ?? 'normal';
+    const meta = META[s.screen] || META.queue;
+    const orders = this.visibleOrders();
+    const open = ORDERS.find((o) => o.id === s.openId) || null;
+    const late = orders.filter((o) => o.mins < 0).length;
+    const unassigned = orders.filter((o) => o.kind === 'Delivery' && o.delivery === 'Needs a driver').length;
+    const unsettled = orders.filter((o) => !o.settled).length;
+    const rowH = s.density === 'compact' ? '26px' : s.density === 'relaxed' ? '40px' : '32px';
+
+    const v = {
+      dir: (this.props.direction ?? 'ltr') === 'rtl' ? 'rtl' : 'ltr',
+      crumbLeaf: meta.crumb,
+      showLeaf: meta.crumb !== '',
+      pageTitle: meta.title,
+      isQueue: s.screen === 'queue',
+      isSale: s.screen === 'sale',
+      isCalendar: s.screen === 'calendar',
+      isCash: s.screen === 'cash',
+      isReq: s.screen === 'requirements',
+      isOffline: s.screen === 'queue' && dataState === 'offline',
+      rowHeight: rowH,
+      skeletonRows: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      skeletonDays: [1, 2, 3, 4, 5, 6, 7],
+      toastOn: s.toast !== null,
+      toastText: s.toast || '',
+      retry: () => this.flash('Asked again — the prototype answers the same rows.'),
+      goQueue: () => this.go('queue'),
+      startSale: () => this.setState({ screen: 'sale', saleStep: 0, saleType: null, customer: null, basket: [], method: null, placed: false, openId: null, dialog: null }),
+      navOpen: s.navOpen,
+      navClosed: !s.navOpen,
+      navWidth: s.navOpen ? '196px' : '52px',
+      navPad: s.navOpen ? '14px' : '10px',
+      navRailPad: s.navOpen ? '8px' : '10px',
+      navJustify: s.navOpen ? 'flex-start' : 'center',
+      navFootAlign: s.navOpen ? 'start' : 'center',
+      navToggleTitle: s.navOpen ? 'Collapse the rail' : 'Expand the rail',
+      toggleNav: () => this.setState({ navOpen: !s.navOpen }),
+      expandNav: () => this.setState({ navOpen: true }),
+      queueGrid: '62px minmax(0, 1.5fr) minmax(0, 1.1fr) 52px 96px 82px 132px minmax(0, 1.5fr) 96px 54px',
+      cashGrid: 'minmax(0, 1.4fr) minmax(0, 1.2fr) 70px 130px',
+      reqGrid: 'minmax(0, 1.6fr) 96px 104px 96px 84px',
+    };
+
+    const activeGroup = ['queue', 'sale', 'calendar', 'cash', 'requirements'].includes(s.screen) ? 'orderDesk' : null;
+    v.navGroups = NAV.map((g) => ({
+      label: g.label,
+      glyph: g.glyph,
+      bg: g.key === activeGroup ? '#dcfce7' : 'transparent',
+      iconFg: g.key === activeGroup ? '#157043' : '#5b6673',
+      items: g.items.map((it) => {
+        const active = it.key === s.screen || (it.key === 'queue' && s.screen === 'sale');
+        return {
+          label: it.label,
+          showCount: it.count !== undefined,
+          count: it.count || '',
+          countFg: active ? '#dcfce7' : '#5b6673',
+          weight: active ? '600' : '400',
+          fg: active ? '#fff' : '#1f2937',
+          bg: active ? '#157043' : 'transparent',
+          go: () => {
+            if (['queue', 'calendar', 'requirements', 'cash'].includes(it.key)) this.go(it.key);
+            else this.flash(it.label + ' sits outside this redesign.');
+          },
+        };
+      }),
+    }));
+
+    // ── header summary + stat cards ──
+    if (s.screen === 'queue') {
+      v.pageSummary = orders.length + ' open · ' + late + ' overdue · ' + unassigned + ' needs a driver · ' + unsettled + ' unsettled · refreshed 14:32 UTC';
+      v.showPageChip = late > 0;
+      v.pageChip = late + ' overdue';
+      v.pageChipBg = '#fde5e3';
+      v.pageChipFg = '#8f1f1a';
+      v.showStatCards = s.statsView;
+      v.statsViewLabel = s.statsView ? 'Hide figures' : 'Show figures';
+      v.statsViewStyle = 'height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; background: ' + (s.statsView ? '#edf6f0' : '#fff');
+      v.toggleStatsView = () => this.setState({ statsView: !s.statsView });
+      v.statCards = [
+        { label: 'Open now', value: String(orders.length), unit: 'orders', caption: 'in this window', border: '#cceeda', bg: '#fff', mark: '▤', markFg: '#5b6673', valueFg: '#1f2937' },
+        { label: 'Overdue', value: String(late), unit: 'orders', caption: 'past their due hour', border: '#f3cfcb', bg: '#fff', mark: '!', markFg: '#8f1f1a', valueFg: '#8f1f1a' },
+        { label: 'Needs a driver', value: String(unassigned), unit: 'runs', caption: 'confirmed, nobody assigned', border: '#f0dca8', bg: '#fff', mark: '◌', markFg: '#79480a', valueFg: '#79480a' },
+        { label: 'Unsettled', value: String(unsettled), unit: 'orders', caption: 'money still to collect', border: '#cceeda', bg: '#fff', mark: '$', markFg: '#5b6673', valueFg: '#1f2937' },
+      ];
+    } else {
+      v.showStatCards = false;
+      v.showPageChip = false;
+      v.pageChip = '';
+      v.pageChipBg = '#edf6f0';
+      v.pageChipFg = '#5b6673';
+      v.statsViewLabel = '';
+      v.statsViewStyle = 'display: none';
+      v.toggleStatsView = () => {};
+      v.statCards = [];
+      if (s.screen === 'sale') {
+        const steps = this.saleSteps();
+        v.pageSummary = 'Step ' + (s.saleStep + 1) + ' of ' + steps.length + ' · ' + (s.saleType || 'kind not chosen yet');
+      } else if (s.screen === 'calendar') {
+        v.pageSummary = 'The week ahead on three separate books: what exists, what has been claimed, and what is only expected.';
+      } else if (s.screen === 'cash') {
+        v.pageSummary = 'What each agent took on one day, and how it arrived. 6 receipts · 2 currencies.';
+      } else {
+        v.pageSummary = s.branch === '' ? 'Pick a branch to compare the days ahead against a shelf.' : '8 ingredients needed · 4 short · window 12 → 18 Sep · read only';
+      }
+    }
+
+    // ── queue toolbar ──
+    v.q = s.q;
+    v.setQ = (e) => this.setState({ q: e.target.value });
+    v.kind = s.kind;
+    v.setKind = (e) => this.setState({ kind: e.target.value });
+    v.anyFilter = s.q.trim() !== '' || s.statuses.length > 0 || s.kind !== 'any' || s.win !== 'today';
+    v.clearFilters = () => this.setState({ q: '', statuses: [], kind: 'any', win: 'today' });
+    v.windows = [
+      { key: 'today', label: 'Today' },
+      { key: 'overdue', label: 'Overdue' },
+      { key: 'next7', label: 'Next 7 days' },
+    ].map((w) => ({ label: w.label, go: () => this.setState({ win: w.key }), style: seg(s.win === w.key) }));
+    v.statusToggles = [
+      { key: 'placed', label: 'Placed' },
+      { key: 'confirmed', label: 'Confirmed' },
+    ].map((c) => {
+      const on = s.statuses.includes(c.key);
+      return {
+        label: c.label,
+        title: on ? 'Stop narrowing to ' + c.label.toLowerCase() : 'Narrow to ' + c.label.toLowerCase() + ' only',
+        go: () => this.setState({ statuses: on ? s.statuses.filter((x) => x !== c.key) : [...s.statuses, c.key] }),
+        style: seg(on),
+      };
+    });
+    v.densityTabs = [
+      { key: 'compact', label: 'S' },
+      { key: 'comfortable', label: 'M' },
+      { key: 'relaxed', label: 'L' },
+    ].map((d) => ({ label: d.label, go: () => this.setState({ density: d.key }), style: seg(s.density === d.key) }));
+
+    // ── queue body ──
+    const emptyQueue = dataState === 'empty' || orders.length === 0;
+    v.queueLoading = s.screen === 'queue' && dataState === 'loading';
+    v.queueError = s.screen === 'queue' && dataState === 'error';
+    v.queueEmpty = s.screen === 'queue' && dataState !== 'loading' && dataState !== 'error' && emptyQueue;
+    v.queueTable = s.screen === 'queue' && dataState !== 'loading' && dataState !== 'error' && !emptyQueue;
+    v.truncatedOn = s.screen === 'queue' && (this.props.truncated ?? false) === true && v.queueTable;
+    v.emptyTitle = v.anyFilter ? 'No orders match this view' : 'Nothing due right now';
+    v.emptyBody = v.anyFilter
+      ? 'Nothing in this window matches what you asked for. Widen the window, or clear the filters.'
+      : 'Orders land here as customers place them, soonest due at the top. Take a walk-in at the counter in the meantime.';
+    v.footNote = v.truncatedOn ? 'Showing the first 50 of more than 50' : 'Showing all ' + orders.length + ' open orders';
+
+    v.rows = orders.map((o) => {
+      const age = this.ageOf(o.mins);
+      const outstanding = o.total - o.received;
+      return {
+        number: o.number,
+        name: o.name,
+        nameFg: o.name === '\u2014' ? '#5b6673' : '#1f2937',
+        phone: o.phone,
+        due: o.due,
+        age: age.text,
+        ageStyle: badge(age.tone),
+        kind: o.kind,
+        delivery: o.delivery || '\u2014',
+        deliveryStyle: o.delivery ? badge(o.deliveryTone) : 'font-size: 12px; color: #5b6673',
+        method: o.method,
+        payState: o.settled ? ' · Settled' : ' · ' + this.money(outstanding, o.cur) + ' owed',
+        payStyle: 'font-size: 11px; color: ' + (o.settled ? '#157043' : '#79480a'),
+        total: this.money(o.total, o.cur),
+        openOpacity: s.hover === o.id ? '1' : '0',
+        style: 'display: grid; grid-template-columns: ' + v.queueGrid + '; align-items: center; column-gap: 14px; min-width: 1150px; height: ' + rowH + '; padding: 0 8px; border-bottom: 1px solid #cceeda; cursor: pointer; text-align: start; background: ' + (s.hover === o.id ? '#edf6f0' : 'transparent'),
+        enter: () => this.setState({ hover: o.id }),
+        leave: () => this.setState({ hover: null }),
+        open: () => this.setState({ openId: o.id, dialog: null, chosenDriver: null, driverQuery: '' }),
+      };
+    });
+
+    // ── drawer ──
+    v.drawerOpen = open !== null;
+    v.assignOpen = open !== null && s.dialog === 'assign';
+    v.paymentOpen = open !== null && s.dialog === 'payment';
+    v.closeDrawer = () => this.setState({ openId: null, dialog: null });
+    v.closeDialog = () => this.setState({ dialog: null });
+    v.openAssign = () => this.setState({ dialog: 'assign', chosenDriver: null, driverQuery: '' });
+    v.openPayment = () => this.setState({ dialog: 'payment' });
+
+    if (open) {
+      const status = s.moved[open.id] || open.status;
+      const age = this.ageOf(open.mins);
+      const outstanding = open.total - open.received;
+      const driver = s.chosenDriver || open.driver;
+      v.open = {
+        number: open.number,
+        name: open.name,
+        kind: open.kind,
+        status,
+        statusStyle: badge(status === 'Confirmed' ? 'ok' : 'info'),
+        age: age.text,
+        ageStyle: badge(age.tone),
+        due: open.due,
+        customerFields: [
+          { label: 'Telephone', value: open.phone, family: MONO },
+          { label: 'Area', value: open.area, family: SANS },
+          { label: 'Address', value: open.address, family: SANS },
+        ],
+        lines: open.lines.map((l) => ({ name: l.name, qty: l.qty, total: this.money(l.total, open.cur) })),
+        subtotal: this.money(open.subtotal, open.cur),
+        fee: open.fee === null ? 'none' : this.money(open.fee, open.cur),
+        total: this.money(open.total, open.cur),
+        paymentFields: [
+          { label: 'Paying by', value: open.method, family: SANS },
+          { label: 'Received so far', value: this.money(open.received, open.cur), family: MONO },
+          { label: 'Position', value: open.settled ? 'Settled' : this.money(outstanding, open.cur) + ' outstanding', family: SANS },
+        ],
+        canRecord: !open.settled,
+        outstanding: this.money(outstanding, open.cur),
+        outstandingInput: open.cur === 'LBP' ? String(Math.round(outstanding / 100)) : (outstanding / 100).toFixed(2),
+        hasRun: open.kind === 'Delivery',
+        runFields: [
+          { label: 'Where it stands', value: driver ? 'With a driver' : (open.delivery || '—'), family: SANS },
+          { label: 'Driver', value: driver || 'Nobody yet', family: SANS },
+          { label: 'Customer told', value: open.tracking, family: SANS },
+        ],
+        tracking: open.tracking,
+        assignLabel: driver ? 'Change driver' : 'Assign a driver',
+        primaryLabel: status === 'Placed' ? 'Confirm' : 'Fulfil',
+      };
+      v.advanceOrder = () => {
+        const next = status === 'Placed' ? 'Confirmed' : 'Fulfilled';
+        this.setState({ moved: { ...s.moved, [open.id]: next }, openId: next === 'Fulfilled' ? null : open.id });
+        this.flash(next === 'Confirmed' ? 'Order ' + open.number + ' confirmed.' : 'Order ' + open.number + ' fulfilled — it has left the queue.');
+      };
+      v.recordPayment = () => { this.setState({ dialog: null }); this.flash(this.money(outstanding, open.cur) + ' recorded against ' + open.number + '.'); };
+      v.confirmAssign = () => {
+        if (s.chosenDriver === null) return;
+        this.setState({ dialog: null });
+        this.flash('The run is with ' + s.chosenDriver + '.');
+      };
+      v.assignBtnStyle = 'height: 32px; padding: 0 12px; border-radius: 5px; font-size: 12px; font-weight: 500; ' + (s.chosenDriver === null
+        ? 'border: 1px solid #cceeda; background: #edf6f0; color: #5b6673; cursor: not-allowed'
+        : 'border: 1px solid #157043; background: #157043; color: #fff; cursor: pointer');
+    } else {
+      v.open = { number: '', name: '', kind: '', lines: [], customerFields: [], paymentFields: [], runFields: [], hasRun: false, canRecord: false, outstanding: '', outstandingInput: '' };
+      v.advanceOrder = () => {};
+      v.recordPayment = () => {};
+      v.confirmAssign = () => {};
+      v.assignBtnStyle = 'display: none';
+    }
+
+    v.driverQuery = s.driverQuery;
+    v.setDriverQuery = (e) => this.setState({ driverQuery: e.target.value });
+    const dq = s.driverQuery.trim().toLowerCase();
+    const dlist = DRIVERS.filter((d) => dq === '' || (!d.unnamed && d.name.toLowerCase().includes(dq)));
+    v.driversEmpty = dlist.length === 0;
+    v.drivers = dlist.map((d) => {
+      const on = s.chosenDriver === d.name;
+      return {
+        name: d.name,
+        nameFg: d.unnamed ? '#5b6673' : '#1f2937',
+        style: 'display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; padding: 0 8px; border-bottom: 1px solid #cceeda; cursor: pointer; text-align: start; background: ' + (on ? '#dcfce7' : 'transparent'),
+        mark: on ? 'Chosen' : 'Choose',
+        markStyle: on ? badge('ok') : 'font-size: 11px; font-weight: 500; color: #157043',
+        go: () => this.setState({ chosenDriver: d.name }),
+      };
+    });
+
+    // ── sale wizard ──
+    const steps = this.saleSteps();
+    const stepName = steps[s.saleStep] || steps[0];
+    const math = this.basketMath();
+    v.stepTabs = steps.map((label, i) => ({
+      label,
+      num: String(i + 1),
+      numFg: i === s.saleStep ? '#157043' : '#5b6673',
+      go: () => { if (i <= s.saleStep) this.setState({ saleStep: i, placed: false }); },
+      style: 'position: relative; height: 28px; padding: 0 10px; border: 0; background: transparent; cursor: pointer; font-size: 12px; white-space: nowrap; font-weight: ' + (i === s.saleStep ? '600' : '400') + '; color: ' + (i === s.saleStep ? '#157043' : '#5b6673') + '; box-shadow: ' + (i === s.saleStep ? 'inset 0 -2px 0 0 #157043' : 'none'),
+    }));
+    v.salePlaced = s.placed;
+    v.saleInProgress = !s.placed;
+    v.stepType = !s.placed && stepName === 'Kind';
+    v.stepCustomer = !s.placed && stepName === 'Customer';
+    v.stepAddress = !s.placed && stepName === 'Address';
+    v.stepBasket = !s.placed && stepName === 'Basket';
+    v.stepPayment = !s.placed && stepName === 'Payment';
+    v.stepReview = !s.placed && stepName === 'Review';
+
+    v.saleTypes = [
+      { key: 'Counter', label: 'Counter', hint: 'The customer is here and pays now. Nothing is delivered and no name is needed.' },
+      { key: 'Collection', label: 'Collection', hint: 'They collect later, so we need to know who they are. They pay on collection.' },
+      { key: 'Delivery', label: 'Delivery', hint: 'We take it to them. We need the customer and somewhere to send it. They pay at the door.' },
+    ].map((t) => {
+      const on = s.saleType === t.key;
+      return {
+        label: t.label,
+        hint: t.hint,
+        mark: on ? '✓' : '',
+        go: () => this.setState({ saleType: t.key, method: null }),
+        style: 'display: flex; flex-direction: column; gap: 4px; align-items: stretch; text-align: start; padding: 10px 11px; border-radius: 8px; cursor: pointer; min-height: 92px; border: 1px solid ' + (on ? '#157043' : '#cceeda') + '; background: ' + (on ? '#dcfce7' : '#fff'),
+      };
+    });
+
+    v.custQuery = s.custQuery;
+    v.setCustQuery = (e) => this.setState({ custQuery: e.target.value });
+    const cq = s.custQuery.trim().toLowerCase();
+    const clist = CUSTOMERS.filter((c) => cq === '' || c.name.toLowerCase().includes(cq) || c.phone.replace(/\s/g, '').includes(cq.replace(/[\s+]/g, '')));
+    v.noCustomerMatch = clist.length === 0;
+    v.customers = clist.map((c) => {
+      const on = s.customer === c.name;
+      return {
+        name: c.name,
+        phone: c.phone,
+        regular: c.regular,
+        mark: on ? 'Chosen' : 'Choose',
+        markStyle: on ? badge('ok') : 'font-size: 11px; font-weight: 500; color: #157043',
+        go: () => this.setState({ customer: c.name }),
+        style: 'display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; column-gap: 10px; min-height: 32px; padding: 0 8px; border-bottom: 1px solid #cceeda; cursor: pointer; text-align: start; background: ' + (on ? '#dcfce7' : 'transparent'),
+      };
+    });
+    v.creatingCustomer = s.creating;
+    v.notCreatingCustomer = !s.creating;
+    v.startCreating = () => this.setState({ creating: true });
+    v.stopCreating = () => this.setState({ creating: false });
+    v.saveNewCustomer = () => { this.setState({ creating: false, customer: 'New customer' }); this.flash('Customer saved.'); };
+
+    v.menuQuery = s.menuQuery;
+    v.setMenuQuery = (e) => this.setState({ menuQuery: e.target.value });
+    const mq = s.menuQuery.trim().toLowerCase();
+    const mlist = MENU.filter((m) => mq === '' || m.name.toLowerCase().includes(mq));
+    v.menuEmpty = mlist.length === 0;
+    v.menu = mlist.map((m) => {
+      const line = s.basket.find((b) => b.id === m.id);
+      return {
+        name: m.name,
+        kind: m.kind,
+        avail: m.blocked ? 'Not at desk' : 'Sellable',
+        availStyle: m.blocked ? badge('warn') : 'font-size: 11px; color: #5b6673',
+        addLabel: line ? 'Added · ' + line.qty : 'Add',
+        add: () => this.setState({ basket: line
+          ? s.basket.map((b) => (b.id === m.id ? { ...b, qty: b.qty + 1 } : b))
+          : [...s.basket, { id: m.id, qty: 1 }] }),
+        addStyle: 'height: 24px; padding: 0 8px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer; white-space: nowrap; border: 1px solid ' + (line ? '#157043' : '#aaddc0') + '; background: #fff; color: #157043',
+      };
+    });
+
+    v.basketEmpty = s.basket.length === 0;
+    v.basketCount = s.basket.reduce((n, b) => n + b.qty, 0) + ' items';
+    v.basketLines = math.lines.map((l) => ({
+      name: l.item.name,
+      qty: l.qty,
+      blocked: l.item.blocked === true,
+      price: l.item.blocked ? 'not priced' : this.money(l.item.price * l.qty, 'USD'),
+      priceFg: l.item.blocked ? '#79480a' : '#1f2937',
+      inc: () => this.setState({ basket: s.basket.map((b) => (b.id === l.item.id ? { ...b, qty: b.qty + 1 } : b)) }),
+      dec: () => this.setState({ basket: s.basket.flatMap((b) => (b.id === l.item.id ? (b.qty <= 1 ? [] : [{ ...b, qty: b.qty - 1 }]) : [b])) }),
+      remove: () => this.setState({ basket: s.basket.filter((b) => b.id !== l.item.id) }),
+    }));
+    v.subtotal = math.subtotal === 0 ? '—' : this.money(math.subtotal, 'USD');
+    v.deliveryFee = s.saleType === 'Delivery' ? (math.fee === 0 ? '—' : this.money(math.fee, 'USD')) : 'none';
+    v.total = math.total === 0 ? '—' : this.money(math.total, 'USD');
+    v.quoteNote = math.total === 0 ? 'Add something and the kitchen prices it.' : 'Quoted by the kitchen, not worked out here.';
+
+    v.methodCaption = s.saleType === 'Delivery' ? 'A delivery is paid at the door, or by transfer' : 'A counter sale and a collection are paid here';
+    v.methods = (s.saleType === 'Delivery'
+      ? [{ key: 'Cash on delivery', label: 'Cash on delivery' }, { key: 'WISH transfer', label: 'WISH transfer' }]
+      : [{ key: 'Cash at the counter', label: 'Cash at the counter' }, { key: 'WISH transfer', label: 'WISH transfer' }]
+    ).map((m) => {
+      const on = s.method === m.key;
+      return {
+        label: m.label,
+        go: () => this.setState({ method: m.key }),
+        style: 'display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 11px; border-radius: 8px; cursor: pointer; text-align: start; border: 1px solid ' + (on ? '#157043' : '#cceeda') + '; background: ' + (on ? '#dcfce7' : '#fff'),
+        dotStyle: 'width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto; border: 1.5px solid ' + (on ? '#157043' : '#aaddc0') + '; background: ' + (on ? '#157043' : '#fff') + '; box-shadow: ' + (on ? 'inset 0 0 0 2.5px #fff' : 'none'),
+      };
+    });
+    v.wishChosen = s.method === 'WISH transfer';
+
+    v.reviewFacts = [
+      { label: 'Kind of sale', value: s.saleType || 'Not chosen yet', family: SANS },
+      { label: 'Customer', value: s.saleType === 'Counter' ? 'Nobody — a counter sale needs no name' : (s.customer || 'Not chosen yet'), family: SANS },
+      { label: 'Items', value: String(s.basket.reduce((n, b) => n + b.qty, 0)), family: MONO },
+      { label: 'Paying by', value: s.method || 'Not chosen yet', family: SANS },
+      { label: 'Total', value: math.total === 0 ? '—' : this.money(math.total, 'USD'), family: MONO },
+    ];
+    v.hasRefusal = math.blocked;
+    v.refusalText = 'Cold brew coffee 250 ml is not offered at the counter. Remove it and the rest can be placed — or publish it to the desk channel first.';
+
+    const canNext = (() => {
+      if (stepName === 'Kind') return s.saleType !== null;
+      if (stepName === 'Customer') return s.customer !== null;
+      if (stepName === 'Basket') return s.basket.length > 0;
+      if (stepName === 'Payment') return s.method !== null;
+      if (stepName === 'Review') return !math.blocked && math.total > 0;
+      return true;
+    })();
+    v.nextLabel = stepName === 'Review' ? 'Place order' : 'Next';
+    v.nextStyle = 'height: 32px; padding: 0 12px; border-radius: 5px; font-size: 12px; font-weight: 500; ' + (canNext
+      ? 'border: 1px solid #157043; background: #157043; color: #fff; cursor: pointer'
+      : 'border: 1px solid #cceeda; background: #edf6f0; color: #5b6673; cursor: not-allowed');
+    v.backStyle = 'height: 32px; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 500; background: #fff; border: 1px solid #aaddc0; ' + (s.saleStep === 0
+      ? 'color: #aaddc0; cursor: not-allowed'
+      : 'color: #1f2937; cursor: pointer');
+    v.stepBack = () => { if (s.saleStep > 0) this.setState({ saleStep: s.saleStep - 1 }); };
+    v.stepNext = () => {
+      if (!canNext) return;
+      if (stepName === 'Review') { this.setState({ placed: true }); this.flash('Order 0162 placed.'); return; }
+      this.setState({ saleStep: s.saleStep + 1 });
+    };
+    v.placedTotal = math.total === 0 ? '—' : this.money(math.total, 'USD');
+
+    // ── calendar ──
+    const week = WEEKS[s.week] || WEEKS[0];
+    v.weekRange = week.range;
+    v.prevWeek = () => this.setState({ week: 0 });
+    v.nextWeek = () => this.setState({ week: 1 });
+    v.thisWeek = () => this.setState({ week: 0 });
+    v.calLoading = s.screen === 'calendar' && dataState === 'loading';
+    v.calError = s.screen === 'calendar' && dataState === 'error';
+    v.calEmpty = s.screen === 'calendar' && dataState === 'empty';
+    v.calNormal = s.screen === 'calendar' && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty';
+    // Rows are the union of every slot seen across the visible week, in the order the wire sent
+    // them (the kitchen's published slot order — the only chronology available), with the unslotted
+    // bucket last and only where some day has one.
+    const order = [];
+    let hasUnslotted = false;
+    week.days.forEach((d) => {
+      (d.windows || []).forEach((w) => {
+        if (w.code === null) hasUnslotted = true;
+        else if (!order.includes(w.code)) order.push(w.code);
+      });
+    });
+    const slotCodes = hasUnslotted ? [...order, null] : order;
+
+    // The label column and every square of a row share one grid geometry — a title track, then one
+    // fixed track per basis — so the names printed once at the start of the row land on exactly the
+    // baselines their figures use. Nothing here is nudged with a margin.
+    v.calGrid = '104px repeat(7, minmax(124px, 1fr))';
+    const TITLE_TRACK = 19;
+    const trackFor = (emphasis) => (emphasis ? 28 : 22);
+    const rowTracks = (emphasis) => TITLE_TRACK + 'px repeat(3, ' + trackFor(emphasis) + 'px)';
+    const boxGeometry = (emphasis) => 'display: grid; grid-template-rows: ' + rowTracks(emphasis) + '; padding: 9px 10px; ';
+
+    // Each basis is named beside its own figure, so a square reads without looking anywhere else.
+    const figure = (n, basis, emphasis) => {
+      const known = n !== null;
+      const fg = !known || n === 0 ? '#5b6673' : basis.fg;
+      const size = emphasis && basis.key === 'order' ? 22 : 15;
+      const line = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; ';
+      return {
+        label: basis.label,
+        text: known ? String(n) : '—',
+        title: BASIS_TITLE[basis.key],
+        labelStyle: 'font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0.04em; '
+          + 'text-transform: uppercase; white-space: nowrap; color: #5b6673',
+        valueStyle: 'font-family: ' + MONO + '; font-weight: 600; line-height: 1; font-size: ' + size + 'px; color: ' + fg,
+        style: basis.forecast
+          ? line + 'align-self: center; height: ' + (trackFor(emphasis) - 4) + 'px; padding: 0 5px; '
+            + 'margin-inline: -5px; border: 1px dashed #5f8f76; border-radius: 4px; '
+            + 'background: repeating-linear-gradient(135deg, rgba(95,143,118,.09) 0 5px, transparent 5px 10px)'
+          : line,
+      };
+    };
+
+    v.days = week.days.map((d) => ({
+      weekday: d.weekday,
+      date: d.date,
+      isToday: d.today === true,
+      nameFg: d.today ? '#14532d' : '#1f2937',
+      dateFg: d.today ? '#157043' : '#5b6673',
+    }));
+
+    const rowFor = (label, note, codeOrNull, emphasis) => ({
+      label,
+      note,
+      labelFg: note === 'no slot on the order' ? '#5b6673' : '#1f2937',
+      titleStyle: 'display: flex; align-items: center; font-size: 12px; font-weight: 600; line-height: 1; color: '
+        + (note === 'no slot on the order' ? '#5b6673' : '#1f2937'),
+      noteStyle: 'display: flex; align-items: flex-start; font-size: 10px; line-height: 13px; color: #5b6673; text-wrap: pretty',
+      labelStyle: 'display: grid; grid-template-rows: ' + TITLE_TRACK + 'px auto; padding: 9px 2px',
+      cells: week.days.map((d) => {
+        const answered = d.answered !== false;
+        let counts;
+        if (!answered) counts = [null, null, null];
+        else if (codeOrNull === 'ALL') {
+          counts = BASES.map((b, bi) => (d.windows || []).reduce((n, w) => n + w.counts[bi], 0));
+        } else {
+          const found = (d.windows || []).find((w) => w.code === codeOrNull);
+          counts = found ? found.counts : [0, 0, 0];
+        }
+        return {
+          style: boxGeometry(emphasis) + 'border-radius: 8px; background: '
+            + (d.today ? (emphasis ? '#dcfce7' : '#e9f5ee') : (emphasis ? '#edf6f0' : '#fff')),
+          figures: BASES.map((b, bi) => figure(counts[bi], b, emphasis)),
+        };
+      }),
+    });
+
+    v.slotRows = [
+      rowFor('Whole day', 'every slot together', 'ALL', true),
+      ...slotCodes.map((code) => (code === null
+        ? rowFor('Slot not set', 'no slot on the order', null, false)
+        : rowFor(SLOT_LABELS[code] || code, '', code, false))),
+    ];
+
+    // ── cash ──
+    v.cashDate = s.cashDate;
+    v.setCashDate = (e) => this.setState({ cashDate: e.target.value });
+    v.cashLoading = s.screen === 'cash' && dataState === 'loading';
+    v.cashError = s.screen === 'cash' && dataState === 'error';
+    v.cashEmpty = s.screen === 'cash' && dataState === 'empty';
+    v.cashNormal = s.screen === 'cash' && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty';
+    v.cashRows = CASH.map((c) => ({ agent: c.agent, method: c.method, currency: c.cur, amount: this.money(c.amount, c.cur) }));
+    v.cashTotals = ['USD', 'LBP'].map((cur) => ({
+      currency: cur,
+      amount: this.money(CASH.filter((c) => c.cur === cur).reduce((n, c) => n + c.amount, 0), cur),
+    }));
+
+    // ── requirements ──
+    v.branch = s.branch;
+    v.branchBorder = s.branch === '' ? '#79480a' : '#aaddc0';
+    v.setBranch = (e) => this.setState({ branch: e.target.value });
+    const noBranch = s.branch === '';
+    v.reqNoBranch = s.screen === 'requirements' && noBranch;
+    v.reqLoading = s.screen === 'requirements' && !noBranch && dataState === 'loading';
+    v.reqError = s.screen === 'requirements' && !noBranch && dataState === 'error';
+    v.reqEmpty = s.screen === 'requirements' && !noBranch && dataState === 'empty';
+    v.reqNormal = s.screen === 'requirements' && !noBranch && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty';
+    v.reqRows = REQS.map((r) => ({
+      name: r.name,
+      needed: r.needed,
+      shelf: r.shelf,
+      short: r.short || '—',
+      shortFg: r.short ? '#8f1f1a' : '#5b6673',
+      position: r.short ? 'Short' : 'Covered',
+      chipStyle: badge(r.short ? 'bad' : 'ok'),
+    }));
+
+    return v;
+  }
+}
+
+</script>
+</body>
+</html>

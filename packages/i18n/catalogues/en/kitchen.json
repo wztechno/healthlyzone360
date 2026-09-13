@@ -987,7 +987,17 @@
                 "no_stock_item": "Ingredient has no shelf",
                 "no_stock_unit": "Shelf has no unit",
                 "unit_conversion_unsupported": "Units will not convert"
-            }
+            },
+            "summaryIngredients_one": "{{count}} ingredient needed",
+            "summaryIngredients_other": "{{count}} ingredients needed",
+            "summaryShort_one": "{{count}} short",
+            "summaryShort_other": "{{count}} short",
+            "summaryReadOnly": "Read only",
+            "columnPosition": "Position",
+            "coveredBadge": "Covered",
+            "windowLabel": "Window",
+            "windowTo": "to",
+            "footnote": "Required quantities come from orders, meal choices and menu days in the window. The shelf is the last stock count at this branch. Nothing is bought or edited here."
         },
         "cashReport": {
             "title": "Cash taken",
@@ -1011,7 +1021,12 @@
             "totalsNote": "One total for each way money arrived, in each currency. There is no overall figure, because adding two currencies together would give a number in neither.",
             "a11y": {
                 "unnamedAgent": "This member has no name on their profile."
-            }
+            },
+            "columnCurrency": "Currency",
+            "summaryRows_one": "{{count}} line",
+            "summaryRows_other": "{{count}} lines",
+            "summaryCurrencies_one": "{{count}} currency",
+            "summaryCurrencies_other": "{{count}} currencies"
         }
     },
     "kds": {
@@ -1308,7 +1323,22 @@
             "completedNumber": "Order {{number}}",
             "completedBody": "{{total}} taken and recorded. The order is done — nothing else is needed.",
             "completedStatusLabel": "Order status",
-            "newSale": "Start another sale"
+            "newSale": "Start another sale",
+            "leave": "Leave the sale",
+            "stepTab": "{{number}} {{label}}",
+            "typeDescription": "It decides what the rest of the sale asks for.",
+            "addressDescription": "Typed as they give it, never picked off a map.",
+            "paymentDescription": "A counter sale is paid here, now.",
+            "reviewDescription": "Read it back to them, then place it.",
+            "reviewItems": "Items",
+            "reviewLine": "{{quantity}} × {{item}}",
+            "backToQueue": "Back to the queue",
+            "pickerAdded_one": "Added · {{count}}",
+            "pickerAdded_other": "Added · {{count}}",
+            "pickerAddItem": "Add {{item}} to the basket",
+            "itemCount_one": "{{count}} item",
+            "itemCount_other": "{{count}} items",
+            "quotedByKitchen": "Priced by the kitchen, not worked out here."
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",
@@ -1328,7 +1358,47 @@
             "channel_unavailable": "That article is not offered at the counter. Publish it to the desk channel first.",
             "channel_not_trading": "The counter is not taking orders at the moment.",
             "unpriced": "That article has no counter price. Add it to a price list the desk uses."
-        }
+        },
+        "columnPhone": "Telephone",
+        "columnAgeing": "Ageing",
+        "figures": {
+            "show": "Show figures",
+            "hide": "Hide figures",
+            "open": "Open now",
+            "openCaption": "In this window",
+            "late": "Past due",
+            "lateCaption": "Past their due time",
+            "needsDriverCaption": "Confirmed, nobody assigned",
+            "unsettledCaption": "Money still to collect"
+        },
+        "summary": {
+            "open_one": "{{count}} open",
+            "open_other": "{{count}} open",
+            "late_one": "{{count}} overdue",
+            "late_other": "{{count}} overdue",
+            "needsDriver_one": "{{count}} needs a driver",
+            "needsDriver_other": "{{count}} need a driver",
+            "unsettled_one": "{{count}} unsettled",
+            "unsettled_other": "{{count}} unsettled"
+        },
+        "densityLabel": "Row height",
+        "density": {
+            "sm": "S",
+            "md": "M",
+            "lg": "L"
+        },
+        "offlineTitle": "You are offline",
+        "offlineBody": "The queue stopped refreshing itself. What you see is the last copy that arrived, and nothing has been lost. It picks up again as soon as the connection is back.",
+        "footnoteAll_one": "Showing the {{count}} open order",
+        "footnoteAll_other": "Showing all {{count}} open orders",
+        "footnoteTruncated": "Showing the first {{limit}}. More matched, and there is no second page.",
+        "footnoteSort": "Sorted by how soon each order is due. The order is fixed — no column here sorts.",
+        "driverSays": "Driver says",
+        "drawerKind": "{{type}} order",
+        "dueAt": "due {{time}}",
+        "drawerArea": "Area",
+        "drawerAddress": "Address",
+        "lineQuantity": "×{{quantity}}"
     },
     "calendar": {
         "title": "Order calendar",
@@ -1356,7 +1426,10 @@
             "projected": "Forecast: {{count}}. Worked out from subscription patterns, not a booking.",
             "unknown": "This day was not answered.",
             "nothing": "Nothing on any book."
-        }
+        },
+        "today": "Today",
+        "noteOrder": "Every square names its three books beside their figures, always in the same order: Orders, Scheduled, Forecast. A slot not named on the order has its own row, and only on days that have one.",
+        "noteZero": "0 is a true zero — the server walked that slot and found nothing. — means the day was never answered, which is a different fact and is never shown as a zero."
     },
     "families": {
         "ingredients": {
