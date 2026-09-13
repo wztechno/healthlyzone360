@@ -237,8 +237,13 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                         {item.serving.grams === null ? null : (
                                             <Text tone="secondary" variant="caption">
                                                 {t('catalogue:meal.servingGrams', {
+                                                    // Whole grams: a derived serving arrives at
+                                                    // three places (299.353 g) and the copy says
+                                                    // "about" — the precision belongs to the
+                                                    // arithmetic, not to the sentence.
                                                     grams: formatter.formatNumber(
                                                         item.serving.grams,
+                                                        { maximumFractionDigits: 0 },
                                                     ),
                                                 })}
                                             </Text>
