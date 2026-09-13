@@ -29,6 +29,7 @@ use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Models\DeliveryZoneArea;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Features\Models\FeatureDefinition;
+use Healthy360\Ingredients\Database\Seeders\IngredientNutritionSeeder;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\AllergenMappingSource;
 use Healthy360\Ingredients\Enums\AllergenMarketScope;
@@ -56,6 +57,12 @@ use Healthy360\Procurement\Models\PurchaseOrder;
 use Healthy360\Procurement\Models\Supplier;
 use Healthy360\Procurement\Models\SupplierContact;
 use Healthy360\Procurement\Models\SupplierStockItem;
+use Healthy360\Recipes\Enums\DerivationState;
+use Healthy360\Recipes\Jobs\RecomputeRecipeDerivations;
+use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionLine;
+use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\CountrySeeder;
 use Healthy360\ReferenceData\Models\Country;
 use Healthy360\ReferenceData\Models\Currency;
@@ -65,6 +72,7 @@ use Healthy360\ReferenceData\Models\Language;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Queue;
 
 /*
 |--------------------------------------------------------------------------
@@ -299,6 +307,127 @@ it('falls back to the English name where the source has no Arabic', function ():
         ->count();
 
     expect($fallbacks)->toBe(337);
+});
+
+it('fills per-100 g nutrition for every platform food row and no packaging', function (): void {
+    $rows = Ingredient::withoutTenancy()->whereNull('organisation_id')->get();
+
+    $food = $rows->filter(fn (Ingredient $row): bool => str_starts_with((string) $row->source_ref, 'ING-'));
+    $packaging = $rows->filter(fn (Ingredient $row): bool => str_starts_with((string) $row->source_ref, 'PKG-'));
+
+    // The owner's table covers the 306 food rows and nothing else. A bin
+    // liner has no nutrition, and inventing a zero for it would make it
+    // countable in a roll-up.
+    expect($food->whereNotNull('nutrition_per_100g'))->toHaveCount(306)
+        ->and($packaging->whereNotNull('nutrition_per_100g'))->toHaveCount(0);
+
+    $baking = $food->firstWhere('source_ref', 'ING-001');
+    $amounts = collect($baking->nutrition_per_100g['amounts'])->keyBy('nutrient_id');
+
+    expect($amounts['energy']['value'])->toBe(53)
+        ->and($amounts['sodium']['value'])->toBe(10600)
+        ->and($amounts['carbohydrate']['value'])->toBe(28.1);
+});
+
+it('writes every nutrition envelope on the per-100 g basis with the seven canonical nutrients', function (): void {
+    // The completeness contract the recipe roll-up reads against: an
+    // ingredient missing one of these, or stating energy in kJ, is unusable
+    // rather than partially usable. Pinned here because the seeder is what
+    // puts 306 rows on the right side of it.
+    $canonical = [
+        ['nutrient_id' => 'energy', 'unit' => 'kcal'],
+        ['nutrient_id' => 'protein', 'unit' => 'g'],
+        ['nutrient_id' => 'carbohydrate', 'unit' => 'g'],
+        ['nutrient_id' => 'fat', 'unit' => 'g'],
+        ['nutrient_id' => 'fibre', 'unit' => 'g'],
+        ['nutrient_id' => 'sugars', 'unit' => 'g'],
+        ['nutrient_id' => 'sodium', 'unit' => 'mg'],
+    ];
+
+    $offenders = [];
+
+    foreach (Ingredient::withoutTenancy()->whereNull('organisation_id')->whereNotNull('nutrition_per_100g')->get() as $row) {
+        $envelope = $row->nutrition_per_100g;
+        $pairs = array_map(
+            static fn (array $amount): array => ['nutrient_id' => $amount['nutrient_id'], 'unit' => $amount['unit']],
+            $envelope['amounts'],
+        );
+
+        if (($envelope['basis'] ?? null) !== 'per_100g' || $pairs !== $canonical) {
+            $offenders[] = (string) $row->source_ref;
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
+
+it('seeds a density only for the nineteen ingredients stocked by volume', function (): void {
+    $withDensity = Ingredient::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->whereNotNull('grams_per_unit')
+        ->with('defaultUnit')
+        ->get();
+
+    expect($withDensity)->toHaveCount(19)
+        ->and($withDensity->pluck('defaultUnit.code')->unique()->all())->toBe(['l'])
+        ->and($withDensity->firstWhere('source_ref', 'ING-026')?->grams_per_unit)->toBe('1080.0000');
+
+    // A mass unit converts arithmetically, so a density on one would be a
+    // second, redundant and silently disagreeing source of truth. The 14
+    // piece rows are left for a kitchen to weigh.
+    $piece = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
+
+    expect($piece->grams_per_unit)->toBeNull();
+});
+
+it('keeps the nutrition document and the ingredient library in step', function (): void {
+    $document = json_decode(
+        (string) file_get_contents(
+            base_path('app-modules/ingredients/database/data/platform-ingredient-nutrition.json')
+        ),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    $rows = $document['ingredients'];
+    $library = Ingredient::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->where('source_ref', 'like', 'ING-%')
+        ->with('defaultUnit')
+        ->get()
+        ->keyBy('source_ref');
+
+    expect($document['basis'])->toBe('per_100g')
+        ->and($rows)->toHaveCount(306)
+        ->and(array_unique(array_column($rows, 'source_ref')))->toHaveCount(306)
+        ->and(array_diff(array_column($rows, 'source_ref'), $library->keys()->all()))->toBe([]);
+
+    $mismatches = [];
+
+    foreach ($rows as $row) {
+        $ingredient = $library[$row['source_ref']];
+
+        if ($ingredient->name_en !== $row['name_en']) {
+            $mismatches[] = $row['source_ref'].': name';
+        }
+
+        foreach (['energy_kcal', 'protein_g', 'carbohydrate_g', 'fat_g', 'fibre_g', 'sugars_g', 'sodium_mg'] as $key) {
+            if (! is_numeric($row[$key]) || $row[$key] < 0) {
+                $mismatches[] = $row['source_ref'].': '.$key;
+            }
+        }
+
+        // The density is stated against a named unit, and the seeder writes it
+        // only while the row still stocks in that unit. If the document and
+        // the library disagreed on all nineteen, the seeder would be a silent
+        // no-op rather than a failure.
+        if (isset($row['grams_per_unit_of']) && $ingredient->defaultUnit?->code !== $row['grams_per_unit_of']) {
+            $mismatches[] = $row['source_ref'].': unit';
+        }
+    }
+
+    expect($mismatches)->toBe([]);
 });
 
 it('seeds the twelve organisation types with both names', function (): void {
@@ -1253,6 +1382,11 @@ it('converges instead of duplicating when run a second time', function (): void 
         SupplierStockItem::withoutTenancy()->count(),
         StockItem::withoutTenancy()->count(),
         StockLevel::withoutTenancy()->count(),
+        // Nutrition and densities are filled rather than inserted, so a
+        // duplicate would show up as a *changed* count only if the fill-empty
+        // predicate stopped holding — which is the failure worth catching.
+        Ingredient::withoutTenancy()->whereNotNull('nutrition_per_100g')->count(),
+        Ingredient::withoutTenancy()->whereNotNull('grams_per_unit')->count(),
     ];
 
     $before = $counts();
@@ -1277,4 +1411,88 @@ it('leaves a curated platform ingredient alone on a re-run', function (): void {
 
     expect($reloaded->name_ar)->toBe('حمص')
         ->and($reloaded->notes)->toBe('Reviewed by the platform reference editor.');
+});
+
+it('leaves curated ingredient nutrition and densities alone on a re-run', function (): void {
+    // Fill-empty, per column, independently (risk R8). A kitchen that has
+    // replaced a generic figure with its supplier's label, or weighed one of
+    // the fourteen piece rows, must not lose it to the next deployment.
+    $curated = ['basis' => 'per_100g', 'amounts' => [['nutrient_id' => 'energy', 'unit' => 'kcal', 'value' => 1]]];
+
+    $baking = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-001')->sole();
+    $baking->nutrition_per_100g = $curated;
+    $baking->save();
+
+    $soySauce = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-026')->sole();
+    $soySauce->grams_per_unit = '999';
+    $soySauce->save();
+
+    // A piece row the document has no density for: the kitchen put it there.
+    $croutons = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
+    $croutons->grams_per_unit = '42';
+    $croutons->save();
+
+    $this->seed(IngredientNutritionSeeder::class);
+
+    $reload = static fn (string $ref): Ingredient => Ingredient::withoutTenancy()
+        ->whereNull('organisation_id')->where('source_ref', $ref)->sole();
+
+    // Compared by content rather than identity: jsonb hands back an object's
+    // keys in its own order, so a strict array comparison would be asserting
+    // PostgreSQL's storage layout. The seeder's envelope has seven amounts and
+    // an energy of 53 — one amount of 1 kcal is unmistakably the curated one.
+    expect($reload('ING-001')->nutrition_per_100g['amounts'])->toHaveCount(1)
+        ->and($reload('ING-001')->nutrition_per_100g['amounts'][0]['value'])->toBe(1)
+        ->and($reload('ING-026')->grams_per_unit)->toBe('999.0000')
+        ->and($reload('ING-007')->grams_per_unit)->toBe('42.0000');
+});
+
+it('does not restore a density after the default unit changed', function (): void {
+    // The figure is grams per one *default unit*. Re-stocking soya sauce by
+    // the millilitre makes 1080 wrong by a factor of a thousand, and a wrong
+    // density looks exactly like a right one. So the row is skipped, counted
+    // and reported — never relabelled.
+    $soySauce = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-026')->sole();
+    $soySauce->default_unit_id = MeasurementUnit::query()->where('code', 'ml')->value('id');
+    $soySauce->grams_per_unit = null;
+    $soySauce->save();
+
+    $this->artisan('db:seed', ['--class' => IngredientNutritionSeeder::class])
+        ->expectsOutputToContain('0 densities written, 1 skipped')
+        ->assertSuccessful();
+
+    expect(Ingredient::withoutTenancy()->whereKey($soySauce->getKey())->sole()->grams_per_unit)->toBeNull();
+});
+
+it('marks dependants stale when it fills facts used by a published version', function (): void {
+    // A published version's derived figures are only as good as the ingredient
+    // facts behind them, so filling a blank is a change that has to reach
+    // them. The ingredient is a platform row, so the marking crosses into the
+    // kitchen's own context rather than happening in the console's.
+    Queue::fake();
+
+    $soySauce = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-026')->sole();
+    $soySauce->nutrition_per_100g = null;
+    $soySauce->grams_per_unit = null;
+    $soySauce->save();
+
+    $organisation = RecipeWorld::organisation();
+    $recipe = Recipe::factory()->create(['organisation_id' => $organisation->getKey()]);
+    $version = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisation->getKey(),
+    ]);
+
+    RecipeVersionLine::factory()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'ingredient_id' => $soySauce->getKey(),
+    ]);
+
+    $this->seed(IngredientNutritionSeeder::class);
+
+    expect(RecipeVersion::withoutTenancy()->whereKey($version->getKey())->sole()->derivation_state)
+        ->toBe(DerivationState::Stale);
+
+    Queue::assertPushed(RecomputeRecipeDerivations::class, 1);
 });

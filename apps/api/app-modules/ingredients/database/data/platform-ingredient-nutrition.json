@@ -1,0 +1,5022 @@
+{
+  "source": "Ingredients_Sauces_Dressings_with_Nutrition.md",
+  "generated_by": "scripts/convert-nutrition-table.py",
+  "basis": "per_100g",
+  "notice": "Per 100 g of the ingredient as purchased. Generic ingredients carry representative food-composition values; rows whose note begins \"Estimated\" are recipe-, brand-, salt- or preparation-dependent and are flagged rather than sourced. For purchasing, labelling or medical dietetics, replace an estimated row with the supplier's own label. `grams_per_unit` is the mass of one of the row's own stock units and is supplied by this generator, not by the source table.",
+  "ingredients": [
+    {
+      "source_ref": "ING-001",
+      "name_en": "Baking powder",
+      "energy_kcal": 53,
+      "protein_g": 0,
+      "carbohydrate_g": 28.1,
+      "fat_g": 0,
+      "fibre_g": 0.2,
+      "sugars_g": 0,
+      "sodium_mg": 10600,
+      "note": "Generic baking powder; sodium varies by formulation",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-002",
+      "name_en": "Bicarbonate of soda",
+      "energy_kcal": 0,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 27360,
+      "note": "Sodium bicarbonate",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-003",
+      "name_en": "Citric acid",
+      "energy_kcal": 0,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Pure citric acid",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1000,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "Aqueous solution; water-like density assumed (estimate)."
+    },
+    {
+      "source_ref": "ING-004",
+      "name_en": "Cocoa powder",
+      "energy_kcal": 228,
+      "protein_g": 19.6,
+      "carbohydrate_g": 57.9,
+      "fat_g": 13.7,
+      "fibre_g": 37,
+      "sugars_g": 1.8,
+      "sodium_mg": 21,
+      "note": "Unsweetened cocoa powder",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-005",
+      "name_en": "Corn starch (cornflour)",
+      "energy_kcal": 381,
+      "protein_g": 0.3,
+      "carbohydrate_g": 91.3,
+      "fat_g": 0.1,
+      "fibre_g": 0.9,
+      "sugars_g": 0,
+      "sodium_mg": 9,
+      "note": "Cornstarch",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-006",
+      "name_en": "Tempura mix",
+      "energy_kcal": 350,
+      "protein_g": 8,
+      "carbohydrate_g": 74,
+      "fat_g": 2,
+      "fibre_g": 2,
+      "sugars_g": 2,
+      "sodium_mg": 800,
+      "note": "Estimated generic dry tempura batter mix",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-007",
+      "name_en": "Croutons",
+      "energy_kcal": 407,
+      "protein_g": 11.9,
+      "carbohydrate_g": 73.5,
+      "fat_g": 6.6,
+      "fibre_g": 5.1,
+      "sugars_g": 4.5,
+      "sodium_mg": 700,
+      "note": "Generic seasoned croutons",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-008",
+      "name_en": "Flour, all-purpose (wheat)",
+      "energy_kcal": 364,
+      "protein_g": 10.3,
+      "carbohydrate_g": 76.3,
+      "fat_g": 1,
+      "fibre_g": 2.7,
+      "sugars_g": 0.3,
+      "sodium_mg": 2,
+      "note": "Enriched/unenriched AP flour varies slightly",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-009",
+      "name_en": "Gluten",
+      "energy_kcal": 370,
+      "protein_g": 75,
+      "carbohydrate_g": 14,
+      "fat_g": 2,
+      "fibre_g": 0.6,
+      "sugars_g": 0,
+      "sodium_mg": 30,
+      "note": "Vital wheat gluten",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-010",
+      "name_en": "Rkakat dough",
+      "energy_kcal": 300,
+      "protein_g": 8,
+      "carbohydrate_g": 55,
+      "fat_g": 5,
+      "fibre_g": 2,
+      "sugars_g": 2,
+      "sodium_mg": 500,
+      "note": "Estimated thin wheat pastry dough; recipe-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-011",
+      "name_en": "Vermicelli (fine pasta)",
+      "energy_kcal": 371,
+      "protein_g": 13,
+      "carbohydrate_g": 75,
+      "fat_g": 1.5,
+      "fibre_g": 3.2,
+      "sugars_g": 2.7,
+      "sodium_mg": 6,
+      "note": "Dry wheat pasta",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-012",
+      "name_en": "Apple Cider Vinegar",
+      "energy_kcal": 21,
+      "protein_g": 0,
+      "carbohydrate_g": 0.9,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0.4,
+      "sodium_mg": 5,
+      "note": "Generic apple cider vinegar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA: 1 tbsp = 14.9 g."
+    },
+    {
+      "source_ref": "ING-013",
+      "name_en": "Balsamic Vinegar",
+      "energy_kcal": 88,
+      "protein_g": 0.5,
+      "carbohydrate_g": 17,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 15,
+      "sodium_mg": 23,
+      "note": "Generic balsamic vinegar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1080,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA: 1 tbsp = 16 g."
+    },
+    {
+      "source_ref": "ING-014",
+      "name_en": "Chilli paste",
+      "energy_kcal": 100,
+      "protein_g": 2,
+      "carbohydrate_g": 18,
+      "fat_g": 2,
+      "fibre_g": 3,
+      "sugars_g": 8,
+      "sodium_mg": 1500,
+      "note": "Estimated generic chili paste; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-015",
+      "name_en": "Hummus tahini",
+      "energy_kcal": 166,
+      "protein_g": 7.9,
+      "carbohydrate_g": 14.3,
+      "fat_g": 9.6,
+      "fibre_g": 6,
+      "sugars_g": 0.3,
+      "sodium_mg": 379,
+      "note": "Prepared hummus",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-016",
+      "name_en": "Ketchup",
+      "energy_kcal": 112,
+      "protein_g": 1.3,
+      "carbohydrate_g": 26,
+      "fat_g": 0.2,
+      "fibre_g": 0.3,
+      "sugars_g": 22.8,
+      "sodium_mg": 907,
+      "note": "Generic tomato ketchup",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1150,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA: 1 tbsp = 17 g."
+    },
+    {
+      "source_ref": "ING-017",
+      "name_en": "Mayonnaise",
+      "energy_kcal": 680,
+      "protein_g": 1,
+      "carbohydrate_g": 0.6,
+      "fat_g": 75,
+      "fibre_g": 0,
+      "sugars_g": 0.6,
+      "sodium_mg": 635,
+      "note": "Regular mayonnaise",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 930,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA: 1 tbsp = 13.8 g."
+    },
+    {
+      "source_ref": "ING-018",
+      "name_en": "Molasses",
+      "energy_kcal": 290,
+      "protein_g": 0,
+      "carbohydrate_g": 74.7,
+      "fat_g": 0.1,
+      "fibre_g": 0,
+      "sugars_g": 74.7,
+      "sodium_mg": 37,
+      "note": "Generic cane molasses",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-019",
+      "name_en": "Mustard",
+      "energy_kcal": 66,
+      "protein_g": 4.4,
+      "carbohydrate_g": 5.8,
+      "fat_g": 4,
+      "fibre_g": 3.3,
+      "sugars_g": 1.4,
+      "sodium_mg": 1135,
+      "note": "Prepared mustard",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."
+    },
+    {
+      "source_ref": "ING-020",
+      "name_en": "Mustard, Dijon",
+      "energy_kcal": 66,
+      "protein_g": 4.4,
+      "carbohydrate_g": 5.8,
+      "fat_g": 4,
+      "fibre_g": 3.3,
+      "sugars_g": 1.4,
+      "sodium_mg": 1135,
+      "note": "Generic Dijon-style mustard",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."
+    },
+    {
+      "source_ref": "ING-021",
+      "name_en": "Mustard, wholegrain (a l'ancienne)",
+      "energy_kcal": 120,
+      "protein_g": 6,
+      "carbohydrate_g": 8,
+      "fat_g": 8,
+      "fibre_g": 4,
+      "sugars_g": 3,
+      "sodium_mg": 1200,
+      "note": "Estimated wholegrain mustard; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."
+    },
+    {
+      "source_ref": "ING-022",
+      "name_en": "Mustard, yellow (American)",
+      "energy_kcal": 60,
+      "protein_g": 3.7,
+      "carbohydrate_g": 5.8,
+      "fat_g": 3.3,
+      "fibre_g": 4,
+      "sugars_g": 0.9,
+      "sodium_mg": 1100,
+      "note": "Prepared yellow mustard",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA prepared mustard: 1 tsp = 5 g; Dijon and wholegrain take the same family figure (estimate)."
+    },
+    {
+      "source_ref": "ING-023",
+      "name_en": "Orange blossom water",
+      "energy_kcal": 0,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Unsweetened culinary orange blossom water",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1000,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "Water."
+    },
+    {
+      "source_ref": "ING-024",
+      "name_en": "Pomegranate molasses",
+      "energy_kcal": 250,
+      "protein_g": 0.5,
+      "carbohydrate_g": 62,
+      "fat_g": 0.3,
+      "fibre_g": 1,
+      "sugars_g": 50,
+      "sodium_mg": 30,
+      "note": "Estimated concentrated pomegranate syrup; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-025",
+      "name_en": "Rose water",
+      "energy_kcal": 0,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Unsweetened culinary rose water",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1000,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "Water."
+    },
+    {
+      "source_ref": "ING-026",
+      "name_en": "Soya sauce",
+      "energy_kcal": 53,
+      "protein_g": 8.1,
+      "carbohydrate_g": 4.9,
+      "fat_g": 0.6,
+      "fibre_g": 0.8,
+      "sugars_g": 0.4,
+      "sodium_mg": 5493,
+      "note": "Soy sauce, generic",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1080,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA: 1 tbsp = 16 g."
+    },
+    {
+      "source_ref": "ING-027",
+      "name_en": "Tomato paste",
+      "energy_kcal": 82,
+      "protein_g": 4.3,
+      "carbohydrate_g": 18.9,
+      "fat_g": 0.5,
+      "fibre_g": 4.1,
+      "sugars_g": 12.3,
+      "sodium_mg": 59,
+      "note": "Canned tomato paste, no salt assumed",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-028",
+      "name_en": "Truffle paste",
+      "energy_kcal": 180,
+      "protein_g": 3,
+      "carbohydrate_g": 8,
+      "fat_g": 15,
+      "fibre_g": 2,
+      "sugars_g": 2,
+      "sodium_mg": 600,
+      "note": "Estimated; recipe/brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-029",
+      "name_en": "Vanilla",
+      "energy_kcal": 288,
+      "protein_g": 0.1,
+      "carbohydrate_g": 12.7,
+      "fat_g": 0.1,
+      "fibre_g": 0,
+      "sugars_g": 12.7,
+      "sodium_mg": 9,
+      "note": "Vanilla extract",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-030",
+      "name_en": "Vanilla syrup",
+      "energy_kcal": 300,
+      "protein_g": 0,
+      "carbohydrate_g": 75,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 75,
+      "sodium_mg": 20,
+      "note": "Estimated sweetened vanilla syrup",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ],
+      "grams_per_unit": 1320,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "Sugar syrup at roughly 65 Brix (estimate)."
+    },
+    {
+      "source_ref": "ING-031",
+      "name_en": "Vinegar",
+      "energy_kcal": 18,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 2,
+      "note": "Distilled vinegar reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA distilled vinegar: 1 tbsp = 14.9 g."
+    },
+    {
+      "source_ref": "ING-032",
+      "name_en": "Vinegar, red wine",
+      "energy_kcal": 19,
+      "protein_g": 0,
+      "carbohydrate_g": 0.3,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 8,
+      "note": "Red wine vinegar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA distilled vinegar: 1 tbsp = 14.9 g."
+    },
+    {
+      "source_ref": "ING-033",
+      "name_en": "Vinegar, rice",
+      "energy_kcal": 18,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 5,
+      "note": "Unseasoned rice vinegar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA distilled vinegar: 1 tbsp = 14.9 g."
+    },
+    {
+      "source_ref": "ING-034",
+      "name_en": "Vinegar, white",
+      "energy_kcal": 18,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 2,
+      "note": "Distilled white vinegar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1010,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA distilled vinegar: 1 tbsp = 14.9 g."
+    },
+    {
+      "source_ref": "ING-035",
+      "name_en": "Yeast",
+      "energy_kcal": 325,
+      "protein_g": 40.4,
+      "carbohydrate_g": 41.2,
+      "fat_g": 7.6,
+      "fibre_g": 26.9,
+      "sugars_g": 0,
+      "sodium_mg": 51,
+      "note": "Active dry yeast",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-036",
+      "name_en": "Chocolate",
+      "energy_kcal": 535,
+      "protein_g": 7.7,
+      "carbohydrate_g": 59.4,
+      "fat_g": 29.7,
+      "fibre_g": 3.4,
+      "sugars_g": 51.5,
+      "sodium_mg": 79,
+      "note": "Generic milk chocolate reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-037",
+      "name_en": "Chocolate chips",
+      "energy_kcal": 479,
+      "protein_g": 4.2,
+      "carbohydrate_g": 63.9,
+      "fat_g": 24,
+      "fibre_g": 5.9,
+      "sugars_g": 54,
+      "sodium_mg": 11,
+      "note": "Generic semisweet chocolate chips",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-038",
+      "name_en": "Chocolate hazelnut spread",
+      "energy_kcal": 539,
+      "protein_g": 6.3,
+      "carbohydrate_g": 57.5,
+      "fat_g": 30.9,
+      "fibre_g": 3.4,
+      "sugars_g": 56.3,
+      "sodium_mg": 41,
+      "note": "Generic chocolate-hazelnut spread",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-039",
+      "name_en": "Chocolate, dark",
+      "energy_kcal": 598,
+      "protein_g": 7.8,
+      "carbohydrate_g": 45.9,
+      "fat_g": 42.6,
+      "fibre_g": 10.9,
+      "sugars_g": 24,
+      "sodium_mg": 20,
+      "note": "Dark chocolate ~70–85%",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-040",
+      "name_en": "Coconut Sugar",
+      "energy_kcal": 375,
+      "protein_g": 0,
+      "carbohydrate_g": 100,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 100,
+      "sodium_mg": 0,
+      "note": "Estimated coconut sugar",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-041",
+      "name_en": "Honey",
+      "energy_kcal": 304,
+      "protein_g": 0.3,
+      "carbohydrate_g": 82.4,
+      "fat_g": 0,
+      "fibre_g": 0.2,
+      "sugars_g": 82.1,
+      "sodium_mg": 4,
+      "note": "Honey",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-042",
+      "name_en": "Jam",
+      "energy_kcal": 278,
+      "protein_g": 0.4,
+      "carbohydrate_g": 69,
+      "fat_g": 0.1,
+      "fibre_g": 1.1,
+      "sugars_g": 49,
+      "sodium_mg": 32,
+      "note": "Generic fruit jam/preserve",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-043",
+      "name_en": "Pineapple Jam",
+      "energy_kcal": 260,
+      "protein_g": 0.4,
+      "carbohydrate_g": 65,
+      "fat_g": 0.1,
+      "fibre_g": 1,
+      "sugars_g": 55,
+      "sodium_mg": 25,
+      "note": "Estimated pineapple jam",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-044",
+      "name_en": "Strawberry Jam",
+      "energy_kcal": 250,
+      "protein_g": 0.5,
+      "carbohydrate_g": 65,
+      "fat_g": 0.1,
+      "fibre_g": 1.2,
+      "sugars_g": 49,
+      "sodium_mg": 25,
+      "note": "Generic/estimated strawberry jam",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-045",
+      "name_en": "Sugar, brown",
+      "energy_kcal": 380,
+      "protein_g": 0.1,
+      "carbohydrate_g": 98.1,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 97,
+      "sodium_mg": 28,
+      "note": "Brown sugar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-046",
+      "name_en": "Sugar, powdered (icing)",
+      "energy_kcal": 389,
+      "protein_g": 0,
+      "carbohydrate_g": 100,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 100,
+      "sodium_mg": 2,
+      "note": "Powdered sugar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-047",
+      "name_en": "Sugar, white",
+      "energy_kcal": 387,
+      "protein_g": 0,
+      "carbohydrate_g": 100,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 100,
+      "sodium_mg": 1,
+      "note": "Granulated sugar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-048",
+      "name_en": "Akkawi cheese",
+      "energy_kcal": 280,
+      "protein_g": 20,
+      "carbohydrate_g": 2,
+      "fat_g": 22,
+      "fibre_g": 0,
+      "sugars_g": 1,
+      "sodium_mg": 900,
+      "note": "Estimated Akkawi; salt/fat vary by producer",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-049",
+      "name_en": "Cheddar cheese",
+      "energy_kcal": 403,
+      "protein_g": 24.9,
+      "carbohydrate_g": 1.3,
+      "fat_g": 33.1,
+      "fibre_g": 0,
+      "sugars_g": 0.5,
+      "sodium_mg": 621,
+      "note": "Cheddar",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-050",
+      "name_en": "Cheddar, melted (canned)",
+      "energy_kcal": 330,
+      "protein_g": 18,
+      "carbohydrate_g": 7,
+      "fat_g": 25,
+      "fibre_g": 0,
+      "sugars_g": 4,
+      "sodium_mg": 1400,
+      "note": "Estimated processed cheddar cheese",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-051",
+      "name_en": "Cream cheese",
+      "energy_kcal": 342,
+      "protein_g": 6.2,
+      "carbohydrate_g": 4.1,
+      "fat_g": 34.4,
+      "fibre_g": 0,
+      "sugars_g": 3.2,
+      "sodium_mg": 321,
+      "note": "Cream cheese",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-052",
+      "name_en": "Emmental cheese",
+      "energy_kcal": 380,
+      "protein_g": 28.4,
+      "carbohydrate_g": 0.5,
+      "fat_g": 29.7,
+      "fibre_g": 0,
+      "sugars_g": 0.4,
+      "sodium_mg": 277,
+      "note": "Emmental/Swiss-type",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-053",
+      "name_en": "Feta cheese",
+      "energy_kcal": 264,
+      "protein_g": 14.2,
+      "carbohydrate_g": 4.1,
+      "fat_g": 21.3,
+      "fibre_g": 0,
+      "sugars_g": 4.1,
+      "sodium_mg": 917,
+      "note": "Feta",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-054",
+      "name_en": "Gouda cheese",
+      "energy_kcal": 356,
+      "protein_g": 24.9,
+      "carbohydrate_g": 2.2,
+      "fat_g": 27.4,
+      "fibre_g": 0,
+      "sugars_g": 2.2,
+      "sodium_mg": 819,
+      "note": "Gouda",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-055",
+      "name_en": "Halloumi cheese",
+      "energy_kcal": 321,
+      "protein_g": 22,
+      "carbohydrate_g": 2.2,
+      "fat_g": 25,
+      "fibre_g": 0,
+      "sugars_g": 1,
+      "sodium_mg": 1200,
+      "note": "Representative halloumi; sodium varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-056",
+      "name_en": "Kashkaval cheese",
+      "energy_kcal": 370,
+      "protein_g": 25,
+      "carbohydrate_g": 2,
+      "fat_g": 29,
+      "fibre_g": 0,
+      "sugars_g": 1,
+      "sodium_mg": 800,
+      "note": "Estimated Kashkaval",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-057",
+      "name_en": "Mozzarella cheese",
+      "energy_kcal": 300,
+      "protein_g": 22.2,
+      "carbohydrate_g": 2.2,
+      "fat_g": 22.4,
+      "fibre_g": 0,
+      "sugars_g": 1,
+      "sodium_mg": 627,
+      "note": "Whole-milk mozzarella",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-058",
+      "name_en": "Parmesan cheese",
+      "energy_kcal": 431,
+      "protein_g": 38,
+      "carbohydrate_g": 4.1,
+      "fat_g": 29,
+      "fibre_g": 0,
+      "sugars_g": 0.9,
+      "sodium_mg": 1529,
+      "note": "Parmesan",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-059",
+      "name_en": "Shanklish",
+      "energy_kcal": 330,
+      "protein_g": 22,
+      "carbohydrate_g": 5,
+      "fat_g": 25,
+      "fibre_g": 0,
+      "sugars_g": 2,
+      "sodium_mg": 1200,
+      "note": "Estimated Shanklish; recipe-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-060",
+      "name_en": "Butter",
+      "energy_kcal": 717,
+      "protein_g": 0.9,
+      "carbohydrate_g": 0.1,
+      "fat_g": 81.1,
+      "fibre_g": 0,
+      "sugars_g": 0.1,
+      "sodium_mg": 11,
+      "note": "Unsalted butter",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-061",
+      "name_en": "Cream, fresh (animal)",
+      "energy_kcal": 340,
+      "protein_g": 2.1,
+      "carbohydrate_g": 2.8,
+      "fat_g": 36.1,
+      "fibre_g": 0,
+      "sugars_g": 2.9,
+      "sodium_mg": 27,
+      "note": "Heavy/fresh cream",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-062",
+      "name_en": "Condensed milk",
+      "energy_kcal": 321,
+      "protein_g": 7.9,
+      "carbohydrate_g": 54.4,
+      "fat_g": 8.7,
+      "fibre_g": 0,
+      "sugars_g": 54.4,
+      "sodium_mg": 127,
+      "note": "Sweetened condensed milk",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1280,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA: 1 cup = 306 g."
+    },
+    {
+      "source_ref": "ING-063",
+      "name_en": "Ice cream, vanilla",
+      "energy_kcal": 207,
+      "protein_g": 3.5,
+      "carbohydrate_g": 23.6,
+      "fat_g": 11,
+      "fibre_g": 0.7,
+      "sugars_g": 21.2,
+      "sodium_mg": 80,
+      "note": "Vanilla ice cream",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-064",
+      "name_en": "Keshek",
+      "energy_kcal": 360,
+      "protein_g": 20,
+      "carbohydrate_g": 55,
+      "fat_g": 7,
+      "fibre_g": 5,
+      "sugars_g": 5,
+      "sodium_mg": 1200,
+      "note": "Estimated dried kishk/keshek; recipe-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-065",
+      "name_en": "Labneh",
+      "energy_kcal": 150,
+      "protein_g": 8,
+      "carbohydrate_g": 6,
+      "fat_g": 11,
+      "fibre_g": 0,
+      "sugars_g": 4,
+      "sodium_mg": 500,
+      "note": "Estimated full-fat labneh; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-066",
+      "name_en": "Milk powder",
+      "energy_kcal": 496,
+      "protein_g": 26.3,
+      "carbohydrate_g": 38.4,
+      "fat_g": 26.7,
+      "fibre_g": 0,
+      "sugars_g": 38.4,
+      "sodium_mg": 371,
+      "note": "Whole milk powder",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-067",
+      "name_en": "Milk, liquid (full fat)",
+      "energy_kcal": 61,
+      "protein_g": 3.2,
+      "carbohydrate_g": 4.8,
+      "fat_g": 3.3,
+      "fibre_g": 0,
+      "sugars_g": 5.1,
+      "sodium_mg": 43,
+      "note": "Whole milk",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ],
+      "grams_per_unit": 1030,
+      "grams_per_unit_of": "l",
+      "grams_per_unit_note": "USDA: 1 cup = 244 g."
+    },
+    {
+      "source_ref": "ING-068",
+      "name_en": "Yogurt",
+      "energy_kcal": 61,
+      "protein_g": 3.5,
+      "carbohydrate_g": 4.7,
+      "fat_g": 3.3,
+      "fibre_g": 0,
+      "sugars_g": 4.7,
+      "sodium_mg": 46,
+      "note": "Plain whole-milk yogurt",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-069",
+      "name_en": "Rice keshek",
+      "energy_kcal": 330,
+      "protein_g": 14,
+      "carbohydrate_g": 62,
+      "fat_g": 4,
+      "fibre_g": 3,
+      "sugars_g": 5,
+      "sodium_mg": 900,
+      "note": "Estimated rice-based keshek; recipe-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-070",
+      "name_en": "Lady Finger Biscuits",
+      "energy_kcal": 365,
+      "protein_g": 10,
+      "carbohydrate_g": 70,
+      "fat_g": 5,
+      "fibre_g": 2,
+      "sugars_g": 25,
+      "sodium_mg": 150,
+      "note": "Estimated ladyfinger biscuits",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-071",
+      "name_en": "Fish",
+      "energy_kcal": 120,
+      "protein_g": 22,
+      "carbohydrate_g": 0,
+      "fat_g": 3,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 60,
+      "note": "Representative lean raw fish; species-dependent",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-072",
+      "name_en": "Fish Filet",
+      "energy_kcal": 120,
+      "protein_g": 22,
+      "carbohydrate_g": 0,
+      "fat_g": 3,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 60,
+      "note": "Representative lean fish fillet; species-dependent",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-073",
+      "name_en": "Salmon",
+      "energy_kcal": 208,
+      "protein_g": 20.4,
+      "carbohydrate_g": 0,
+      "fat_g": 13.4,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 59,
+      "note": "Atlantic salmon, raw reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-074",
+      "name_en": "Salmon, smoked",
+      "energy_kcal": 117,
+      "protein_g": 18.3,
+      "carbohydrate_g": 0,
+      "fat_g": 4.3,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 672,
+      "note": "Smoked salmon",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-075",
+      "name_en": "Topiko caviar, orange",
+      "energy_kcal": 264,
+      "protein_g": 25,
+      "carbohydrate_g": 4,
+      "fat_g": 18,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 1500,
+      "note": "Representative fish roe/caviar; product-dependent",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-076",
+      "name_en": "Tuna",
+      "energy_kcal": 144,
+      "protein_g": 23.3,
+      "carbohydrate_g": 0,
+      "fat_g": 4.9,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 39,
+      "note": "Tuna, raw reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-077",
+      "name_en": "Calamari",
+      "energy_kcal": 92,
+      "protein_g": 15.6,
+      "carbohydrate_g": 3.1,
+      "fat_g": 1.4,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 44,
+      "note": "Squid/calamari, raw",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-078",
+      "name_en": "Crab",
+      "energy_kcal": 87,
+      "protein_g": 18.1,
+      "carbohydrate_g": 0,
+      "fat_g": 1.1,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 293,
+      "note": "Crab meat reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-079",
+      "name_en": "Crab sticks (surimi)",
+      "energy_kcal": 95,
+      "protein_g": 7.6,
+      "carbohydrate_g": 15,
+      "fat_g": 0.5,
+      "fibre_g": 0.5,
+      "sugars_g": 6.3,
+      "sodium_mg": 529,
+      "note": "Surimi seafood",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-080",
+      "name_en": "Shrimps",
+      "energy_kcal": 85,
+      "protein_g": 20.1,
+      "carbohydrate_g": 0,
+      "fat_g": 0.5,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 119,
+      "note": "Shrimp, raw reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-081",
+      "name_en": "Berries",
+      "energy_kcal": 50,
+      "protein_g": 1,
+      "carbohydrate_g": 12,
+      "fat_g": 0.5,
+      "fibre_g": 5,
+      "sugars_g": 7,
+      "sodium_mg": 2,
+      "note": "Estimated mixed fresh berries",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-082",
+      "name_en": "Blackberry",
+      "energy_kcal": 43,
+      "protein_g": 1.4,
+      "carbohydrate_g": 9.6,
+      "fat_g": 0.5,
+      "fibre_g": 5.3,
+      "sugars_g": 4.9,
+      "sodium_mg": 1,
+      "note": "Raw blackberries",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-083",
+      "name_en": "Cherries",
+      "energy_kcal": 63,
+      "protein_g": 1.1,
+      "carbohydrate_g": 16,
+      "fat_g": 0.2,
+      "fibre_g": 2.1,
+      "sugars_g": 12.8,
+      "sodium_mg": 0,
+      "note": "Sweet cherries",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-084",
+      "name_en": "Cranberries",
+      "energy_kcal": 46,
+      "protein_g": 0.5,
+      "carbohydrate_g": 12.2,
+      "fat_g": 0.1,
+      "fibre_g": 4.6,
+      "sugars_g": 4,
+      "sodium_mg": 2,
+      "note": "Raw cranberries",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-085",
+      "name_en": "Gogi berries",
+      "energy_kcal": 349,
+      "protein_g": 14.3,
+      "carbohydrate_g": 77.1,
+      "fat_g": 0.4,
+      "fibre_g": 13,
+      "sugars_g": 45.6,
+      "sodium_mg": 298,
+      "note": "Dried goji berries reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-086",
+      "name_en": "Mixed berries",
+      "energy_kcal": 50,
+      "protein_g": 1,
+      "carbohydrate_g": 12,
+      "fat_g": 0.5,
+      "fibre_g": 5,
+      "sugars_g": 7,
+      "sodium_mg": 2,
+      "note": "Estimated mixed fresh berries",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-087",
+      "name_en": "Raspberry",
+      "energy_kcal": 52,
+      "protein_g": 1.2,
+      "carbohydrate_g": 11.9,
+      "fat_g": 0.7,
+      "fibre_g": 6.5,
+      "sugars_g": 4.4,
+      "sodium_mg": 1,
+      "note": "Raw raspberries",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-088",
+      "name_en": "Strawberry",
+      "energy_kcal": 32,
+      "protein_g": 0.7,
+      "carbohydrate_g": 7.7,
+      "fat_g": 0.3,
+      "fibre_g": 2,
+      "sugars_g": 4.9,
+      "sodium_mg": 1,
+      "note": "Raw strawberries",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-089",
+      "name_en": "Clementines",
+      "energy_kcal": 47,
+      "protein_g": 0.9,
+      "carbohydrate_g": 12,
+      "fat_g": 0.2,
+      "fibre_g": 1.7,
+      "sugars_g": 9.2,
+      "sodium_mg": 1,
+      "note": "Raw clementine",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-090",
+      "name_en": "Grapefruit",
+      "energy_kcal": 42,
+      "protein_g": 0.8,
+      "carbohydrate_g": 10.7,
+      "fat_g": 0.1,
+      "fibre_g": 1.6,
+      "sugars_g": 6.9,
+      "sodium_mg": 0,
+      "note": "Raw grapefruit",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-091",
+      "name_en": "Lemon",
+      "energy_kcal": 29,
+      "protein_g": 1.1,
+      "carbohydrate_g": 9.3,
+      "fat_g": 0.3,
+      "fibre_g": 2.8,
+      "sugars_g": 2.5,
+      "sodium_mg": 2,
+      "note": "Raw lemon",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-092",
+      "name_en": "Mandarine Orange",
+      "energy_kcal": 53,
+      "protein_g": 0.8,
+      "carbohydrate_g": 13.3,
+      "fat_g": 0.3,
+      "fibre_g": 1.8,
+      "sugars_g": 10.6,
+      "sodium_mg": 2,
+      "note": "Raw mandarin/tangerine",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-093",
+      "name_en": "Orange",
+      "energy_kcal": 47,
+      "protein_g": 0.9,
+      "carbohydrate_g": 11.8,
+      "fat_g": 0.1,
+      "fibre_g": 2.4,
+      "sugars_g": 9.4,
+      "sodium_mg": 0,
+      "note": "Raw orange",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-094",
+      "name_en": "Pomelo",
+      "energy_kcal": 38,
+      "protein_g": 0.8,
+      "carbohydrate_g": 9.6,
+      "fat_g": 0,
+      "fibre_g": 1,
+      "sugars_g": 7,
+      "sodium_mg": 1,
+      "note": "Raw pomelo",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-095",
+      "name_en": "Coconut powder (desiccated)",
+      "energy_kcal": 660,
+      "protein_g": 6.9,
+      "carbohydrate_g": 23.7,
+      "fat_g": 64.5,
+      "fibre_g": 16.3,
+      "sugars_g": 7.4,
+      "sodium_mg": 37,
+      "note": "Unsweetened desiccated coconut",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-096",
+      "name_en": "Dates",
+      "energy_kcal": 282,
+      "protein_g": 2.5,
+      "carbohydrate_g": 75,
+      "fat_g": 0.4,
+      "fibre_g": 8,
+      "sugars_g": 63,
+      "sodium_mg": 2,
+      "note": "Dried dates",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-097",
+      "name_en": "Dried fruits",
+      "energy_kcal": 300,
+      "protein_g": 3,
+      "carbohydrate_g": 75,
+      "fat_g": 0.8,
+      "fibre_g": 7,
+      "sugars_g": 60,
+      "sodium_mg": 20,
+      "note": "Estimated mixed dried fruit",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-098",
+      "name_en": "Fig, dried",
+      "energy_kcal": 249,
+      "protein_g": 3.3,
+      "carbohydrate_g": 63.9,
+      "fat_g": 0.9,
+      "fibre_g": 9.8,
+      "sugars_g": 47.9,
+      "sodium_mg": 10,
+      "note": "Dried figs",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-099",
+      "name_en": "Prune",
+      "energy_kcal": 240,
+      "protein_g": 2.2,
+      "carbohydrate_g": 63.9,
+      "fat_g": 0.4,
+      "fibre_g": 7.1,
+      "sugars_g": 38.1,
+      "sodium_mg": 2,
+      "note": "Dried prunes",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-100",
+      "name_en": "Raisins",
+      "energy_kcal": 299,
+      "protein_g": 3.1,
+      "carbohydrate_g": 79.2,
+      "fat_g": 0.5,
+      "fibre_g": 3.7,
+      "sugars_g": 59.2,
+      "sodium_mg": 11,
+      "note": "Raisins",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-101",
+      "name_en": "Melon",
+      "energy_kcal": 34,
+      "protein_g": 0.8,
+      "carbohydrate_g": 8.2,
+      "fat_g": 0.2,
+      "fibre_g": 0.9,
+      "sugars_g": 7.9,
+      "sodium_mg": 16,
+      "note": "Cantaloupe-type melon",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-102",
+      "name_en": "Watermelon",
+      "energy_kcal": 30,
+      "protein_g": 0.6,
+      "carbohydrate_g": 7.6,
+      "fat_g": 0.2,
+      "fibre_g": 0.4,
+      "sugars_g": 6.2,
+      "sodium_mg": 1,
+      "note": "Raw watermelon",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-103",
+      "name_en": "Apple Green",
+      "energy_kcal": 52,
+      "protein_g": 0.3,
+      "carbohydrate_g": 13.8,
+      "fat_g": 0.2,
+      "fibre_g": 2.4,
+      "sugars_g": 10.4,
+      "sodium_mg": 1,
+      "note": "Raw apple with skin",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-104",
+      "name_en": "Apple Red",
+      "energy_kcal": 52,
+      "protein_g": 0.3,
+      "carbohydrate_g": 13.8,
+      "fat_g": 0.2,
+      "fibre_g": 2.4,
+      "sugars_g": 10.4,
+      "sodium_mg": 1,
+      "note": "Raw apple with skin",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-105",
+      "name_en": "Loquat",
+      "energy_kcal": 47,
+      "protein_g": 0.4,
+      "carbohydrate_g": 12.1,
+      "fat_g": 0.2,
+      "fibre_g": 1.7,
+      "sugars_g": 7,
+      "sodium_mg": 1,
+      "note": "Raw loquat",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-106",
+      "name_en": "Pear",
+      "energy_kcal": 57,
+      "protein_g": 0.4,
+      "carbohydrate_g": 15.2,
+      "fat_g": 0.1,
+      "fibre_g": 3.1,
+      "sugars_g": 9.8,
+      "sodium_mg": 1,
+      "note": "Raw pear",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-107",
+      "name_en": "Apricot",
+      "energy_kcal": 48,
+      "protein_g": 1.4,
+      "carbohydrate_g": 11.1,
+      "fat_g": 0.4,
+      "fibre_g": 2,
+      "sugars_g": 9.2,
+      "sodium_mg": 1,
+      "note": "Raw apricot",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-108",
+      "name_en": "Green Plums",
+      "energy_kcal": 46,
+      "protein_g": 0.7,
+      "carbohydrate_g": 11.4,
+      "fat_g": 0.3,
+      "fibre_g": 1.4,
+      "sugars_g": 9.9,
+      "sodium_mg": 0,
+      "note": "Plum reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-109",
+      "name_en": "Peach",
+      "energy_kcal": 39,
+      "protein_g": 0.9,
+      "carbohydrate_g": 9.5,
+      "fat_g": 0.3,
+      "fibre_g": 1.5,
+      "sugars_g": 8.4,
+      "sodium_mg": 0,
+      "note": "Raw peach",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-110",
+      "name_en": "Plum",
+      "energy_kcal": 46,
+      "protein_g": 0.7,
+      "carbohydrate_g": 11.4,
+      "fat_g": 0.3,
+      "fibre_g": 1.4,
+      "sugars_g": 9.9,
+      "sodium_mg": 0,
+      "note": "Raw plum",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-111",
+      "name_en": "Avocado",
+      "energy_kcal": 160,
+      "protein_g": 2,
+      "carbohydrate_g": 8.5,
+      "fat_g": 14.7,
+      "fibre_g": 6.7,
+      "sugars_g": 0.7,
+      "sodium_mg": 7,
+      "note": "Raw avocado",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-112",
+      "name_en": "Bananas",
+      "energy_kcal": 89,
+      "protein_g": 1.1,
+      "carbohydrate_g": 22.8,
+      "fat_g": 0.3,
+      "fibre_g": 2.6,
+      "sugars_g": 12.2,
+      "sodium_mg": 1,
+      "note": "Raw banana",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-113",
+      "name_en": "Grapes",
+      "energy_kcal": 69,
+      "protein_g": 0.7,
+      "carbohydrate_g": 18.1,
+      "fat_g": 0.2,
+      "fibre_g": 0.9,
+      "sugars_g": 15.5,
+      "sodium_mg": 2,
+      "note": "Raw grapes",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-114",
+      "name_en": "Kiwi",
+      "energy_kcal": 61,
+      "protein_g": 1.1,
+      "carbohydrate_g": 14.7,
+      "fat_g": 0.5,
+      "fibre_g": 3,
+      "sugars_g": 9,
+      "sodium_mg": 3,
+      "note": "Raw kiwifruit",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-115",
+      "name_en": "Mango",
+      "energy_kcal": 60,
+      "protein_g": 0.8,
+      "carbohydrate_g": 15,
+      "fat_g": 0.4,
+      "fibre_g": 1.6,
+      "sugars_g": 13.7,
+      "sodium_mg": 1,
+      "note": "Raw mango",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-116",
+      "name_en": "Papaya",
+      "energy_kcal": 43,
+      "protein_g": 0.5,
+      "carbohydrate_g": 10.8,
+      "fat_g": 0.3,
+      "fibre_g": 1.7,
+      "sugars_g": 7.8,
+      "sodium_mg": 8,
+      "note": "Raw papaya",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-117",
+      "name_en": "Passion Fruit",
+      "energy_kcal": 97,
+      "protein_g": 2.2,
+      "carbohydrate_g": 23.4,
+      "fat_g": 0.7,
+      "fibre_g": 10.4,
+      "sugars_g": 11.2,
+      "sodium_mg": 28,
+      "note": "Raw passion fruit",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-118",
+      "name_en": "Persimmon",
+      "energy_kcal": 70,
+      "protein_g": 0.6,
+      "carbohydrate_g": 18.6,
+      "fat_g": 0.2,
+      "fibre_g": 3.6,
+      "sugars_g": 12.5,
+      "sodium_mg": 1,
+      "note": "Raw persimmon",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-119",
+      "name_en": "Pineapple",
+      "energy_kcal": 50,
+      "protein_g": 0.5,
+      "carbohydrate_g": 13.1,
+      "fat_g": 0.1,
+      "fibre_g": 1.4,
+      "sugars_g": 9.9,
+      "sodium_mg": 1,
+      "note": "Raw pineapple",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-120",
+      "name_en": "Pineapple, canned",
+      "energy_kcal": 60,
+      "protein_g": 0.4,
+      "carbohydrate_g": 15.6,
+      "fat_g": 0.1,
+      "fibre_g": 0.8,
+      "sugars_g": 14,
+      "sodium_mg": 1,
+      "note": "Canned pineapple, juice pack reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-121",
+      "name_en": "Pomegranate",
+      "energy_kcal": 83,
+      "protein_g": 1.7,
+      "carbohydrate_g": 18.7,
+      "fat_g": 1.2,
+      "fibre_g": 4,
+      "sugars_g": 13.7,
+      "sodium_mg": 3,
+      "note": "Raw pomegranate arils",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-122",
+      "name_en": "Granola",
+      "energy_kcal": 471,
+      "protein_g": 10,
+      "carbohydrate_g": 64,
+      "fat_g": 20,
+      "fibre_g": 8,
+      "sugars_g": 24,
+      "sodium_mg": 294,
+      "note": "Generic granola; recipe-dependent",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-123",
+      "name_en": "Nachos (corn chips)",
+      "energy_kcal": 497,
+      "protein_g": 6.2,
+      "carbohydrate_g": 58,
+      "fat_g": 25,
+      "fibre_g": 5.3,
+      "sugars_g": 1,
+      "sodium_mg": 650,
+      "note": "Generic tortilla/corn chips",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-124",
+      "name_en": "Quinoa",
+      "energy_kcal": 368,
+      "protein_g": 14.1,
+      "carbohydrate_g": 64.2,
+      "fat_g": 6.1,
+      "fibre_g": 7,
+      "sugars_g": 0,
+      "sodium_mg": 5,
+      "note": "Dry quinoa",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-125",
+      "name_en": "Rolled corn snack (Takis)",
+      "energy_kcal": 500,
+      "protein_g": 6,
+      "carbohydrate_g": 57,
+      "fat_g": 27,
+      "fibre_g": 4,
+      "sugars_g": 3,
+      "sodium_mg": 1000,
+      "note": "Estimated rolled spicy corn snack; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-126",
+      "name_en": "Rice",
+      "energy_kcal": 365,
+      "protein_g": 7.1,
+      "carbohydrate_g": 80,
+      "fat_g": 0.7,
+      "fibre_g": 1.3,
+      "sugars_g": 0.1,
+      "sodium_mg": 5,
+      "note": "Dry white rice",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-127",
+      "name_en": "Rice Cake",
+      "energy_kcal": 387,
+      "protein_g": 8,
+      "carbohydrate_g": 81,
+      "fat_g": 3,
+      "fibre_g": 4,
+      "sugars_g": 0.9,
+      "sodium_mg": 100,
+      "note": "Plain rice cakes; sodium varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-128",
+      "name_en": "Rice noodles",
+      "energy_kcal": 364,
+      "protein_g": 6,
+      "carbohydrate_g": 80,
+      "fat_g": 0.6,
+      "fibre_g": 1.6,
+      "sugars_g": 0,
+      "sodium_mg": 182,
+      "note": "Dry rice noodles",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-129",
+      "name_en": "Rice paper",
+      "energy_kcal": 340,
+      "protein_g": 6,
+      "carbohydrate_g": 78,
+      "fat_g": 0.5,
+      "fibre_g": 1,
+      "sugars_g": 0,
+      "sodium_mg": 500,
+      "note": "Estimated dry rice paper wrappers",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-130",
+      "name_en": "Rice Pasta",
+      "energy_kcal": 360,
+      "protein_g": 7,
+      "carbohydrate_g": 79,
+      "fat_g": 1,
+      "fibre_g": 2,
+      "sugars_g": 1,
+      "sodium_mg": 10,
+      "note": "Dry rice pasta",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-131",
+      "name_en": "Rice Powder",
+      "energy_kcal": 366,
+      "protein_g": 6,
+      "carbohydrate_g": 80,
+      "fat_g": 1.4,
+      "fibre_g": 2.4,
+      "sugars_g": 0.1,
+      "sodium_mg": 0,
+      "note": "Rice flour",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-132",
+      "name_en": "Burghul (Bulgur)",
+      "energy_kcal": 342,
+      "protein_g": 12.3,
+      "carbohydrate_g": 75.9,
+      "fat_g": 1.3,
+      "fibre_g": 18.3,
+      "sugars_g": 0.4,
+      "sodium_mg": 17,
+      "note": "Dry bulgur",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-133",
+      "name_en": "Couscous",
+      "energy_kcal": 376,
+      "protein_g": 12.8,
+      "carbohydrate_g": 77.4,
+      "fat_g": 0.6,
+      "fibre_g": 5,
+      "sugars_g": 0,
+      "sodium_mg": 10,
+      "note": "Dry couscous",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-134",
+      "name_en": "Crumb",
+      "energy_kcal": 395,
+      "protein_g": 13,
+      "carbohydrate_g": 72,
+      "fat_g": 5,
+      "fibre_g": 4.5,
+      "sugars_g": 6,
+      "sodium_mg": 700,
+      "note": "Estimated dry bread crumbs",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-135",
+      "name_en": "Freekeh",
+      "energy_kcal": 352,
+      "protein_g": 14,
+      "carbohydrate_g": 72,
+      "fat_g": 2.5,
+      "fibre_g": 12,
+      "sugars_g": 1,
+      "sodium_mg": 10,
+      "note": "Estimated dry freekeh",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-136",
+      "name_en": "Gluten free flour",
+      "energy_kcal": 360,
+      "protein_g": 4,
+      "carbohydrate_g": 80,
+      "fat_g": 2,
+      "fibre_g": 4,
+      "sugars_g": 1,
+      "sodium_mg": 20,
+      "note": "Estimated generic gluten-free flour blend",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-137",
+      "name_en": "Moughrabiyeh",
+      "energy_kcal": 370,
+      "protein_g": 12,
+      "carbohydrate_g": 75,
+      "fat_g": 2,
+      "fibre_g": 4,
+      "sugars_g": 2,
+      "sodium_mg": 10,
+      "note": "Estimated dry pearl couscous/moghrabieh",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-138",
+      "name_en": "Noodles",
+      "energy_kcal": 371,
+      "protein_g": 13,
+      "carbohydrate_g": 75,
+      "fat_g": 1.5,
+      "fibre_g": 3.2,
+      "sugars_g": 2.7,
+      "sodium_mg": 6,
+      "note": "Dry wheat noodles",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-139",
+      "name_en": "Oats",
+      "energy_kcal": 379,
+      "protein_g": 13.2,
+      "carbohydrate_g": 67.7,
+      "fat_g": 6.5,
+      "fibre_g": 10.1,
+      "sugars_g": 1,
+      "sodium_mg": 2,
+      "note": "Rolled oats",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-140",
+      "name_en": "Pasta",
+      "energy_kcal": 371,
+      "protein_g": 13,
+      "carbohydrate_g": 75,
+      "fat_g": 1.5,
+      "fibre_g": 3.2,
+      "sugars_g": 2.7,
+      "sodium_mg": 6,
+      "note": "Dry pasta",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-141",
+      "name_en": "Pita bread",
+      "energy_kcal": 275,
+      "protein_g": 9.1,
+      "carbohydrate_g": 55.7,
+      "fat_g": 1.2,
+      "fibre_g": 2.2,
+      "sugars_g": 1.3,
+      "sodium_mg": 536,
+      "note": "White pita bread",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-142",
+      "name_en": "Ravioli",
+      "energy_kcal": 220,
+      "protein_g": 9,
+      "carbohydrate_g": 32,
+      "fat_g": 6,
+      "fibre_g": 2,
+      "sugars_g": 2,
+      "sodium_mg": 400,
+      "note": "Estimated prepared ravioli; filling-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-143",
+      "name_en": "Roll",
+      "energy_kcal": 280,
+      "protein_g": 9,
+      "carbohydrate_g": 52,
+      "fat_g": 4,
+      "fibre_g": 2.5,
+      "sugars_g": 5,
+      "sodium_mg": 450,
+      "note": "Generic white bread roll",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-144",
+      "name_en": "Wheat",
+      "energy_kcal": 340,
+      "protein_g": 13.2,
+      "carbohydrate_g": 72,
+      "fat_g": 2.5,
+      "fibre_g": 10.7,
+      "sugars_g": 0.4,
+      "sodium_mg": 2,
+      "note": "Whole wheat grain",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-145",
+      "name_en": "Wrap",
+      "energy_kcal": 312,
+      "protein_g": 8.3,
+      "carbohydrate_g": 52,
+      "fat_g": 8.3,
+      "fibre_g": 3.1,
+      "sugars_g": 2.1,
+      "sodium_mg": 650,
+      "note": "Generic flour tortilla/wrap",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-146",
+      "name_en": "Anise",
+      "energy_kcal": 337,
+      "protein_g": 17.6,
+      "carbohydrate_g": 50,
+      "fat_g": 15.9,
+      "fibre_g": 14.6,
+      "sugars_g": 0,
+      "sodium_mg": 16,
+      "note": "Anise seed",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-147",
+      "name_en": "Basil",
+      "energy_kcal": 23,
+      "protein_g": 3.2,
+      "carbohydrate_g": 2.7,
+      "fat_g": 0.6,
+      "fibre_g": 1.6,
+      "sugars_g": 0.3,
+      "sodium_mg": 4,
+      "note": "Fresh basil",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-148",
+      "name_en": "Bay Leaves",
+      "energy_kcal": 313,
+      "protein_g": 7.6,
+      "carbohydrate_g": 75,
+      "fat_g": 8.4,
+      "fibre_g": 26.3,
+      "sugars_g": 0,
+      "sodium_mg": 23,
+      "note": "Dried bay leaf",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-149",
+      "name_en": "Cardamom",
+      "energy_kcal": 311,
+      "protein_g": 11,
+      "carbohydrate_g": 68,
+      "fat_g": 6.7,
+      "fibre_g": 28,
+      "sugars_g": 0,
+      "sodium_mg": 18,
+      "note": "Ground cardamom",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-150",
+      "name_en": "Chives",
+      "energy_kcal": 30,
+      "protein_g": 3.3,
+      "carbohydrate_g": 4.4,
+      "fat_g": 0.7,
+      "fibre_g": 2.5,
+      "sugars_g": 1.9,
+      "sodium_mg": 3,
+      "note": "Fresh chives",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-151",
+      "name_en": "Coriander",
+      "energy_kcal": 23,
+      "protein_g": 2.1,
+      "carbohydrate_g": 3.7,
+      "fat_g": 0.5,
+      "fibre_g": 2.8,
+      "sugars_g": 0.9,
+      "sodium_mg": 46,
+      "note": "Fresh cilantro/coriander leaves",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-152",
+      "name_en": "Dill",
+      "energy_kcal": 43,
+      "protein_g": 3.5,
+      "carbohydrate_g": 7,
+      "fat_g": 1.1,
+      "fibre_g": 2.1,
+      "sugars_g": 0,
+      "sodium_mg": 61,
+      "note": "Fresh dill",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-153",
+      "name_en": "Edible flowers (viola)",
+      "energy_kcal": 25,
+      "protein_g": 2,
+      "carbohydrate_g": 4,
+      "fat_g": 0.5,
+      "fibre_g": 2,
+      "sugars_g": 1,
+      "sodium_mg": 5,
+      "note": "Estimated edible flowers",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-154",
+      "name_en": "Herbes De Provence",
+      "energy_kcal": 270,
+      "protein_g": 10,
+      "carbohydrate_g": 50,
+      "fat_g": 7,
+      "fibre_g": 30,
+      "sugars_g": 3,
+      "sodium_mg": 80,
+      "note": "Estimated dried herb blend",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-155",
+      "name_en": "Mint",
+      "energy_kcal": 44,
+      "protein_g": 3.3,
+      "carbohydrate_g": 8.4,
+      "fat_g": 0.7,
+      "fibre_g": 6.8,
+      "sugars_g": 0,
+      "sodium_mg": 31,
+      "note": "Fresh mint",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-156",
+      "name_en": "Oregano",
+      "energy_kcal": 265,
+      "protein_g": 9,
+      "carbohydrate_g": 69,
+      "fat_g": 4.3,
+      "fibre_g": 42.5,
+      "sugars_g": 4.1,
+      "sodium_mg": 25,
+      "note": "Dried oregano",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-157",
+      "name_en": "Rosemary",
+      "energy_kcal": 131,
+      "protein_g": 3.3,
+      "carbohydrate_g": 20.7,
+      "fat_g": 5.9,
+      "fibre_g": 14.1,
+      "sugars_g": 0,
+      "sodium_mg": 26,
+      "note": "Fresh rosemary",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-158",
+      "name_en": "Saffron",
+      "energy_kcal": 310,
+      "protein_g": 11.4,
+      "carbohydrate_g": 65.4,
+      "fat_g": 5.9,
+      "fibre_g": 3.9,
+      "sugars_g": 0,
+      "sodium_mg": 148,
+      "note": "Saffron",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-159",
+      "name_en": "Zaatar",
+      "energy_kcal": 280,
+      "protein_g": 10,
+      "carbohydrate_g": 35,
+      "fat_g": 15,
+      "fibre_g": 20,
+      "sugars_g": 3,
+      "sodium_mg": 1500,
+      "note": "Estimated zaatar blend; sesame/salt ratio varies",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-160",
+      "name_en": "Allspices",
+      "energy_kcal": 263,
+      "protein_g": 6.1,
+      "carbohydrate_g": 72.1,
+      "fat_g": 8.7,
+      "fibre_g": 21.6,
+      "sugars_g": 0,
+      "sodium_mg": 77,
+      "note": "Ground allspice",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-161",
+      "name_en": "Black Pepper",
+      "energy_kcal": 251,
+      "protein_g": 10.4,
+      "carbohydrate_g": 64,
+      "fat_g": 3.3,
+      "fibre_g": 25.3,
+      "sugars_g": 0.6,
+      "sodium_mg": 20,
+      "note": "Black pepper",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-162",
+      "name_en": "Carroway",
+      "energy_kcal": 333,
+      "protein_g": 19.8,
+      "carbohydrate_g": 49.9,
+      "fat_g": 14.6,
+      "fibre_g": 38,
+      "sugars_g": 0.6,
+      "sodium_mg": 17,
+      "note": "Caraway seed",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-163",
+      "name_en": "Chilli flakes",
+      "energy_kcal": 318,
+      "protein_g": 12,
+      "carbohydrate_g": 56.6,
+      "fat_g": 17.3,
+      "fibre_g": 27.2,
+      "sugars_g": 10.3,
+      "sodium_mg": 30,
+      "note": "Dried red pepper flakes",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-164",
+      "name_en": "Chilli powder",
+      "energy_kcal": 282,
+      "protein_g": 13.5,
+      "carbohydrate_g": 49.7,
+      "fat_g": 14.3,
+      "fibre_g": 34.8,
+      "sugars_g": 7.2,
+      "sodium_mg": 2867,
+      "note": "Generic chili powder blend",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-165",
+      "name_en": "Cinnamon",
+      "energy_kcal": 247,
+      "protein_g": 4,
+      "carbohydrate_g": 80.6,
+      "fat_g": 1.2,
+      "fibre_g": 53.1,
+      "sugars_g": 2.2,
+      "sodium_mg": 10,
+      "note": "Ground cinnamon",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-166",
+      "name_en": "Clove",
+      "energy_kcal": 274,
+      "protein_g": 6,
+      "carbohydrate_g": 65.5,
+      "fat_g": 13,
+      "fibre_g": 33.9,
+      "sugars_g": 2.4,
+      "sodium_mg": 277,
+      "note": "Ground cloves",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-167",
+      "name_en": "Crispy coating spices",
+      "energy_kcal": 330,
+      "protein_g": 8,
+      "carbohydrate_g": 60,
+      "fat_g": 7,
+      "fibre_g": 5,
+      "sugars_g": 3,
+      "sodium_mg": 1800,
+      "note": "Estimated seasoned coating mix",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-168",
+      "name_en": "Cumin",
+      "energy_kcal": 375,
+      "protein_g": 17.8,
+      "carbohydrate_g": 44.2,
+      "fat_g": 22.3,
+      "fibre_g": 10.5,
+      "sugars_g": 2.3,
+      "sodium_mg": 168,
+      "note": "Cumin seed",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-169",
+      "name_en": "Curry",
+      "energy_kcal": 325,
+      "protein_g": 14.3,
+      "carbohydrate_g": 55.8,
+      "fat_g": 14,
+      "fibre_g": 53.2,
+      "sugars_g": 2.8,
+      "sodium_mg": 52,
+      "note": "Curry powder",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-170",
+      "name_en": "Escalope spices",
+      "energy_kcal": 250,
+      "protein_g": 8,
+      "carbohydrate_g": 45,
+      "fat_g": 5,
+      "fibre_g": 15,
+      "sugars_g": 4,
+      "sodium_mg": 1800,
+      "note": "Estimated seasoning blend",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-171",
+      "name_en": "Fries seasoning",
+      "energy_kcal": 220,
+      "protein_g": 6,
+      "carbohydrate_g": 40,
+      "fat_g": 4,
+      "fibre_g": 12,
+      "sugars_g": 4,
+      "sodium_mg": 5000,
+      "note": "Estimated salty seasoning blend",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-172",
+      "name_en": "Garam Masala",
+      "energy_kcal": 379,
+      "protein_g": 15,
+      "carbohydrate_g": 45,
+      "fat_g": 15,
+      "fibre_g": 20,
+      "sugars_g": 3,
+      "sodium_mg": 100,
+      "note": "Generic spice blend estimate",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-173",
+      "name_en": "Garlic powder",
+      "energy_kcal": 331,
+      "protein_g": 16.6,
+      "carbohydrate_g": 72.7,
+      "fat_g": 0.7,
+      "fibre_g": 9,
+      "sugars_g": 2.4,
+      "sodium_mg": 60,
+      "note": "Garlic powder",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-174",
+      "name_en": "Ginger",
+      "energy_kcal": 80,
+      "protein_g": 1.8,
+      "carbohydrate_g": 17.8,
+      "fat_g": 0.8,
+      "fibre_g": 2,
+      "sugars_g": 1.7,
+      "sodium_mg": 13,
+      "note": "Fresh ginger root",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-175",
+      "name_en": "Kebbe spices",
+      "energy_kcal": 300,
+      "protein_g": 10,
+      "carbohydrate_g": 55,
+      "fat_g": 8,
+      "fibre_g": 20,
+      "sugars_g": 4,
+      "sodium_mg": 500,
+      "note": "Estimated Lebanese spice blend",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-176",
+      "name_en": "Loomi (dried lime)",
+      "energy_kcal": 250,
+      "protein_g": 5,
+      "carbohydrate_g": 65,
+      "fat_g": 3,
+      "fibre_g": 30,
+      "sugars_g": 5,
+      "sodium_mg": 20,
+      "note": "Estimated dried lime",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-177",
+      "name_en": "Masala Spices",
+      "energy_kcal": 350,
+      "protein_g": 12,
+      "carbohydrate_g": 50,
+      "fat_g": 12,
+      "fibre_g": 20,
+      "sugars_g": 4,
+      "sodium_mg": 500,
+      "note": "Estimated masala spice blend",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-178",
+      "name_en": "Nutmeg",
+      "energy_kcal": 525,
+      "protein_g": 5.8,
+      "carbohydrate_g": 49,
+      "fat_g": 36.3,
+      "fibre_g": 20.8,
+      "sugars_g": 3,
+      "sodium_mg": 16,
+      "note": "Ground nutmeg",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-179",
+      "name_en": "Onion powder",
+      "energy_kcal": 341,
+      "protein_g": 10.4,
+      "carbohydrate_g": 79.1,
+      "fat_g": 1,
+      "fibre_g": 15.2,
+      "sugars_g": 6.6,
+      "sodium_mg": 73,
+      "note": "Onion powder",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-180",
+      "name_en": "Paprika",
+      "energy_kcal": 282,
+      "protein_g": 14.1,
+      "carbohydrate_g": 54,
+      "fat_g": 13,
+      "fibre_g": 34.9,
+      "sugars_g": 10.3,
+      "sodium_mg": 68,
+      "note": "Paprika",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-181",
+      "name_en": "Paprika, smoked",
+      "energy_kcal": 282,
+      "protein_g": 14.1,
+      "carbohydrate_g": 54,
+      "fat_g": 13,
+      "fibre_g": 34.9,
+      "sugars_g": 10.3,
+      "sodium_mg": 68,
+      "note": "Smoked paprika",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-182",
+      "name_en": "Pepper",
+      "energy_kcal": 251,
+      "protein_g": 10.4,
+      "carbohydrate_g": 64,
+      "fat_g": 3.3,
+      "fibre_g": 25.3,
+      "sugars_g": 0.6,
+      "sodium_mg": 20,
+      "note": "Black pepper reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-183",
+      "name_en": "Salt",
+      "energy_kcal": 0,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 0,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 38758,
+      "note": "Table salt",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-184",
+      "name_en": "Seven spices (sabaa baharat)",
+      "energy_kcal": 320,
+      "protein_g": 11,
+      "carbohydrate_g": 55,
+      "fat_g": 9,
+      "fibre_g": 20,
+      "sugars_g": 4,
+      "sodium_mg": 500,
+      "note": "Estimated Lebanese seven-spice blend",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-185",
+      "name_en": "Sumac",
+      "energy_kcal": 239,
+      "protein_g": 6,
+      "carbohydrate_g": 52,
+      "fat_g": 7,
+      "fibre_g": 35,
+      "sugars_g": 7,
+      "sodium_mg": 10,
+      "note": "Estimated ground sumac",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-186",
+      "name_en": "Truffle powder",
+      "energy_kcal": 300,
+      "protein_g": 15,
+      "carbohydrate_g": 50,
+      "fat_g": 5,
+      "fibre_g": 20,
+      "sugars_g": 5,
+      "sodium_mg": 100,
+      "note": "Estimated dried truffle/mushroom powder; product-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-187",
+      "name_en": "Turmeric",
+      "energy_kcal": 312,
+      "protein_g": 9.7,
+      "carbohydrate_g": 67.1,
+      "fat_g": 3.3,
+      "fibre_g": 22.7,
+      "sugars_g": 3.2,
+      "sodium_mg": 27,
+      "note": "Ground turmeric",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-188",
+      "name_en": "White pepper",
+      "energy_kcal": 296,
+      "protein_g": 10.4,
+      "carbohydrate_g": 68.6,
+      "fat_g": 2.1,
+      "fibre_g": 26.2,
+      "sugars_g": 0,
+      "sodium_mg": 5,
+      "note": "Ground white pepper",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-189",
+      "name_en": "Beans",
+      "energy_kcal": 333,
+      "protein_g": 23.6,
+      "carbohydrate_g": 60,
+      "fat_g": 0.8,
+      "fibre_g": 24.9,
+      "sugars_g": 2.2,
+      "sodium_mg": 24,
+      "note": "Dry common beans",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-190",
+      "name_en": "Boiled Chickpeas (Hommos)",
+      "energy_kcal": 164,
+      "protein_g": 8.9,
+      "carbohydrate_g": 27.4,
+      "fat_g": 2.6,
+      "fibre_g": 7.6,
+      "sugars_g": 4.8,
+      "sodium_mg": 7,
+      "note": "Cooked chickpeas",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-191",
+      "name_en": "Chickpeas",
+      "energy_kcal": 378,
+      "protein_g": 20.5,
+      "carbohydrate_g": 63,
+      "fat_g": 6,
+      "fibre_g": 12.2,
+      "sugars_g": 10.7,
+      "sodium_mg": 24,
+      "note": "Dry chickpeas",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-192",
+      "name_en": "Edamame",
+      "energy_kcal": 121,
+      "protein_g": 11.9,
+      "carbohydrate_g": 8.9,
+      "fat_g": 5.2,
+      "fibre_g": 5.2,
+      "sugars_g": 2.2,
+      "sodium_mg": 6,
+      "note": "Cooked edamame",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-193",
+      "name_en": "Fava Beans",
+      "energy_kcal": 341,
+      "protein_g": 26.1,
+      "carbohydrate_g": 58.3,
+      "fat_g": 1.5,
+      "fibre_g": 25,
+      "sugars_g": 5.7,
+      "sodium_mg": 13,
+      "note": "Dry fava beans",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-194",
+      "name_en": "Foul (canned fava beans)",
+      "energy_kcal": 95,
+      "protein_g": 7.6,
+      "carbohydrate_g": 17.6,
+      "fat_g": 0.4,
+      "fibre_g": 5.4,
+      "sugars_g": 1.8,
+      "sodium_mg": 300,
+      "note": "Estimated canned fava beans, drained",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-195",
+      "name_en": "Green beans",
+      "energy_kcal": 31,
+      "protein_g": 1.8,
+      "carbohydrate_g": 7,
+      "fat_g": 0.2,
+      "fibre_g": 2.7,
+      "sugars_g": 3.3,
+      "sodium_mg": 6,
+      "note": "Raw green beans",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-196",
+      "name_en": "Peas",
+      "energy_kcal": 81,
+      "protein_g": 5.4,
+      "carbohydrate_g": 14.5,
+      "fat_g": 0.4,
+      "fibre_g": 5.1,
+      "sugars_g": 5.7,
+      "sodium_mg": 5,
+      "note": "Raw green peas",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-197",
+      "name_en": "Lentil",
+      "energy_kcal": 352,
+      "protein_g": 24.6,
+      "carbohydrate_g": 63.4,
+      "fat_g": 1.1,
+      "fibre_g": 10.7,
+      "sugars_g": 2,
+      "sodium_mg": 6,
+      "note": "Dry lentils",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-198",
+      "name_en": "Lupin",
+      "energy_kcal": 371,
+      "protein_g": 36.2,
+      "carbohydrate_g": 40.4,
+      "fat_g": 9.7,
+      "fibre_g": 18.9,
+      "sugars_g": 0,
+      "sodium_mg": 15,
+      "note": "Dry lupin beans",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-199",
+      "name_en": "Beef brisket",
+      "energy_kcal": 251,
+      "protein_g": 18.4,
+      "carbohydrate_g": 0,
+      "fat_g": 20.8,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 79,
+      "note": "Representative raw beef brisket",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-200",
+      "name_en": "Beef chuck roll",
+      "energy_kcal": 230,
+      "protein_g": 20,
+      "carbohydrate_g": 0,
+      "fat_g": 17,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 65,
+      "note": "Representative raw beef chuck",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-201",
+      "name_en": "Beef fat",
+      "energy_kcal": 902,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 100,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Beef fat/tallow",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-202",
+      "name_en": "Beef faux-filet (sirloin)",
+      "energy_kcal": 206,
+      "protein_g": 22,
+      "carbohydrate_g": 0,
+      "fat_g": 13,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 55,
+      "note": "Representative raw sirloin",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-203",
+      "name_en": "Beef tenderloin chain",
+      "energy_kcal": 190,
+      "protein_g": 22,
+      "carbohydrate_g": 0,
+      "fat_g": 11,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 55,
+      "note": "Representative raw tenderloin trim",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-204",
+      "name_en": "Beef topside",
+      "energy_kcal": 170,
+      "protein_g": 23,
+      "carbohydrate_g": 0,
+      "fat_g": 8,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 55,
+      "note": "Representative lean topside/round",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-205",
+      "name_en": "Beef, local (assorted cuts)",
+      "energy_kcal": 220,
+      "protein_g": 21,
+      "carbohydrate_g": 0,
+      "fat_g": 15,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 60,
+      "note": "Estimated mixed beef cuts",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-206",
+      "name_en": "Beef, minced",
+      "energy_kcal": 250,
+      "protein_g": 26,
+      "carbohydrate_g": 0,
+      "fat_g": 17,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 72,
+      "note": "Representative ground beef; fat % varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-207",
+      "name_en": "Eggs",
+      "energy_kcal": 143,
+      "protein_g": 12.6,
+      "carbohydrate_g": 0.7,
+      "fat_g": 9.5,
+      "fibre_g": 0,
+      "sugars_g": 0.4,
+      "sodium_mg": 142,
+      "note": "Whole raw egg",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-208",
+      "name_en": "Quail Egg",
+      "energy_kcal": 158,
+      "protein_g": 13.1,
+      "carbohydrate_g": 0.4,
+      "fat_g": 11.1,
+      "fibre_g": 0,
+      "sugars_g": 0.4,
+      "sodium_mg": 141,
+      "note": "Whole quail egg",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-209",
+      "name_en": "Soya meat",
+      "energy_kcal": 330,
+      "protein_g": 50,
+      "carbohydrate_g": 33,
+      "fat_g": 1.2,
+      "fibre_g": 17,
+      "sugars_g": 7,
+      "sodium_mg": 20,
+      "note": "Textured vegetable/soy protein, dry estimate",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-210",
+      "name_en": "Chicken",
+      "energy_kcal": 120,
+      "protein_g": 22.5,
+      "carbohydrate_g": 0,
+      "fat_g": 2.6,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 45,
+      "note": "Skinless chicken breast, raw reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-211",
+      "name_en": "Chicken Liver",
+      "energy_kcal": 119,
+      "protein_g": 16.9,
+      "carbohydrate_g": 0.7,
+      "fat_g": 4.8,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 71,
+      "note": "Raw chicken liver",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-212",
+      "name_en": "Turkey",
+      "energy_kcal": 114,
+      "protein_g": 23.7,
+      "carbohydrate_g": 0,
+      "fat_g": 1.2,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 49,
+      "note": "Turkey breast, raw reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-213",
+      "name_en": "Turkey bacon",
+      "energy_kcal": 382,
+      "protein_g": 29,
+      "carbohydrate_g": 4,
+      "fat_g": 27,
+      "fibre_g": 0,
+      "sugars_g": 1,
+      "sodium_mg": 1700,
+      "note": "Estimated turkey bacon; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-214",
+      "name_en": "Peanut Butter",
+      "energy_kcal": 588,
+      "protein_g": 25,
+      "carbohydrate_g": 20,
+      "fat_g": 50,
+      "fibre_g": 6,
+      "sugars_g": 9,
+      "sodium_mg": 459,
+      "note": "Smooth peanut butter",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-215",
+      "name_en": "Peanuts",
+      "energy_kcal": 567,
+      "protein_g": 25.8,
+      "carbohydrate_g": 16.1,
+      "fat_g": 49.2,
+      "fibre_g": 8.5,
+      "sugars_g": 4.7,
+      "sodium_mg": 18,
+      "note": "Raw peanuts",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-216",
+      "name_en": "Chia Seeds",
+      "energy_kcal": 486,
+      "protein_g": 16.5,
+      "carbohydrate_g": 42.1,
+      "fat_g": 30.7,
+      "fibre_g": 34.4,
+      "sugars_g": 0,
+      "sodium_mg": 16,
+      "note": "Chia seeds",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-217",
+      "name_en": "Flaxseed",
+      "energy_kcal": 534,
+      "protein_g": 18.3,
+      "carbohydrate_g": 28.9,
+      "fat_g": 42.2,
+      "fibre_g": 27.3,
+      "sugars_g": 1.6,
+      "sodium_mg": 30,
+      "note": "Flaxseed",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-218",
+      "name_en": "Pumpkin seeds",
+      "energy_kcal": 559,
+      "protein_g": 30.2,
+      "carbohydrate_g": 10.7,
+      "fat_g": 49.1,
+      "fibre_g": 6,
+      "sugars_g": 1.4,
+      "sodium_mg": 7,
+      "note": "Pumpkin seed kernels",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-219",
+      "name_en": "Sesame",
+      "energy_kcal": 573,
+      "protein_g": 17.7,
+      "carbohydrate_g": 23.4,
+      "fat_g": 49.7,
+      "fibre_g": 11.8,
+      "sugars_g": 0.3,
+      "sodium_mg": 11,
+      "note": "Sesame seeds",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-220",
+      "name_en": "Sunflower seeds",
+      "energy_kcal": 584,
+      "protein_g": 20.8,
+      "carbohydrate_g": 20,
+      "fat_g": 51.5,
+      "fibre_g": 8.6,
+      "sugars_g": 2.6,
+      "sodium_mg": 9,
+      "note": "Sunflower seed kernels",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-221",
+      "name_en": "Tahini",
+      "energy_kcal": 595,
+      "protein_g": 17,
+      "carbohydrate_g": 21,
+      "fat_g": 53.8,
+      "fibre_g": 9.3,
+      "sugars_g": 0.5,
+      "sodium_mg": 115,
+      "note": "Sesame tahini",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-222",
+      "name_en": "Almonds",
+      "energy_kcal": 579,
+      "protein_g": 21.2,
+      "carbohydrate_g": 21.6,
+      "fat_g": 49.9,
+      "fibre_g": 12.5,
+      "sugars_g": 4.4,
+      "sodium_mg": 1,
+      "note": "Almonds",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-223",
+      "name_en": "Cashew",
+      "energy_kcal": 553,
+      "protein_g": 18.2,
+      "carbohydrate_g": 30.2,
+      "fat_g": 43.9,
+      "fibre_g": 3.3,
+      "sugars_g": 5.9,
+      "sodium_mg": 12,
+      "note": "Cashews",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-224",
+      "name_en": "Chestnuts",
+      "energy_kcal": 213,
+      "protein_g": 2.4,
+      "carbohydrate_g": 45.5,
+      "fat_g": 2.3,
+      "fibre_g": 8.1,
+      "sugars_g": 11,
+      "sodium_mg": 3,
+      "note": "European chestnuts, raw",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-225",
+      "name_en": "Coconuts",
+      "energy_kcal": 354,
+      "protein_g": 3.3,
+      "carbohydrate_g": 15.2,
+      "fat_g": 33.5,
+      "fibre_g": 9,
+      "sugars_g": 6.2,
+      "sodium_mg": 20,
+      "note": "Raw coconut meat",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-226",
+      "name_en": "Hazelnuts",
+      "energy_kcal": 628,
+      "protein_g": 15,
+      "carbohydrate_g": 16.7,
+      "fat_g": 60.8,
+      "fibre_g": 9.7,
+      "sugars_g": 4.3,
+      "sodium_mg": 0,
+      "note": "Hazelnuts",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-227",
+      "name_en": "Nuts",
+      "energy_kcal": 607,
+      "protein_g": 20,
+      "carbohydrate_g": 21,
+      "fat_g": 54,
+      "fibre_g": 8,
+      "sugars_g": 4,
+      "sodium_mg": 5,
+      "note": "Estimated mixed nuts",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-228",
+      "name_en": "Pine Nuts",
+      "energy_kcal": 673,
+      "protein_g": 13.7,
+      "carbohydrate_g": 13.1,
+      "fat_g": 68.4,
+      "fibre_g": 3.7,
+      "sugars_g": 3.6,
+      "sodium_mg": 2,
+      "note": "Pine nuts",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-229",
+      "name_en": "Pistachio",
+      "energy_kcal": 560,
+      "protein_g": 20.2,
+      "carbohydrate_g": 27.2,
+      "fat_g": 45.3,
+      "fibre_g": 10.6,
+      "sugars_g": 7.7,
+      "sodium_mg": 1,
+      "note": "Pistachios, raw",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-230",
+      "name_en": "Pistachio paste",
+      "energy_kcal": 600,
+      "protein_g": 20,
+      "carbohydrate_g": 25,
+      "fat_g": 50,
+      "fibre_g": 8,
+      "sugars_g": 10,
+      "sodium_mg": 20,
+      "note": "Estimated pure/sweetened pistachio paste; recipe-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-231",
+      "name_en": "Walnuts",
+      "energy_kcal": 654,
+      "protein_g": 15.2,
+      "carbohydrate_g": 13.7,
+      "fat_g": 65.2,
+      "fibre_g": 6.7,
+      "sugars_g": 2.6,
+      "sodium_mg": 2,
+      "note": "Walnuts",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-232",
+      "name_en": "Gelatine, food grade",
+      "energy_kcal": 335,
+      "protein_g": 85.6,
+      "carbohydrate_g": 0,
+      "fat_g": 0.1,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 196,
+      "note": "Dry gelatin",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-233",
+      "name_en": "Margarine",
+      "energy_kcal": 717,
+      "protein_g": 0.2,
+      "carbohydrate_g": 0.7,
+      "fat_g": 80.7,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 700,
+      "note": "Generic margarine; formulation-dependent",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-234",
+      "name_en": "Cream, vegetable (non-dairy)",
+      "energy_kcal": 300,
+      "protein_g": 2,
+      "carbohydrate_g": 15,
+      "fat_g": 26,
+      "fibre_g": 0,
+      "sugars_g": 10,
+      "sodium_mg": 100,
+      "note": "Estimated non-dairy cream; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-235",
+      "name_en": "Shortening (vegetable fat)",
+      "energy_kcal": 884,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 100,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Vegetable shortening",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-236",
+      "name_en": "Oil",
+      "energy_kcal": 884,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 100,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Generic edible oil",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-237",
+      "name_en": "Olive Oil",
+      "energy_kcal": 884,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 100,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Olive oil",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-238",
+      "name_en": "Sesame oil",
+      "energy_kcal": 884,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 100,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Sesame oil",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-239",
+      "name_en": "Sunflower oil",
+      "energy_kcal": 884,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 100,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Sunflower oil",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-240",
+      "name_en": "Truffle oil",
+      "energy_kcal": 884,
+      "protein_g": 0,
+      "carbohydrate_g": 0,
+      "fat_g": 100,
+      "fibre_g": 0,
+      "sugars_g": 0,
+      "sodium_mg": 0,
+      "note": "Oil infused/flavored with truffle",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-241",
+      "name_en": "Beef stock powder",
+      "energy_kcal": 220,
+      "protein_g": 10,
+      "carbohydrate_g": 35,
+      "fat_g": 5,
+      "fibre_g": 2,
+      "sugars_g": 5,
+      "sodium_mg": 12000,
+      "note": "Estimated stock powder; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-242",
+      "name_en": "Chicken stock powder",
+      "energy_kcal": 220,
+      "protein_g": 10,
+      "carbohydrate_g": 35,
+      "fat_g": 5,
+      "fibre_g": 2,
+      "sugars_g": 5,
+      "sodium_mg": 12000,
+      "note": "Estimated stock powder; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-243",
+      "name_en": "Demi-glace powder",
+      "energy_kcal": 300,
+      "protein_g": 12,
+      "carbohydrate_g": 55,
+      "fat_g": 5,
+      "fibre_g": 2,
+      "sugars_g": 10,
+      "sodium_mg": 5000,
+      "note": "Estimated demi-glace powder; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-244",
+      "name_en": "Fish stock powder",
+      "energy_kcal": 220,
+      "protein_g": 10,
+      "carbohydrate_g": 35,
+      "fat_g": 5,
+      "fibre_g": 2,
+      "sugars_g": 5,
+      "sodium_mg": 12000,
+      "note": "Estimated stock powder; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-245",
+      "name_en": "Vegetable stock powder",
+      "energy_kcal": 220,
+      "protein_g": 8,
+      "carbohydrate_g": 40,
+      "fat_g": 4,
+      "fibre_g": 5,
+      "sugars_g": 8,
+      "sodium_mg": 12000,
+      "note": "Estimated stock powder; brand-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-246",
+      "name_en": "Broccoli",
+      "energy_kcal": 34,
+      "protein_g": 2.8,
+      "carbohydrate_g": 6.6,
+      "fat_g": 0.4,
+      "fibre_g": 2.6,
+      "sugars_g": 1.7,
+      "sodium_mg": 33,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-247",
+      "name_en": "Cabbage",
+      "energy_kcal": 25,
+      "protein_g": 1.3,
+      "carbohydrate_g": 5.8,
+      "fat_g": 0.1,
+      "fibre_g": 2.5,
+      "sugars_g": 3.2,
+      "sodium_mg": 18,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-248",
+      "name_en": "Red cabbage",
+      "energy_kcal": 25,
+      "protein_g": 1.3,
+      "carbohydrate_g": 5.8,
+      "fat_g": 0.1,
+      "fibre_g": 2.5,
+      "sugars_g": 3.2,
+      "sodium_mg": 18,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-249",
+      "name_en": "Cucumber",
+      "energy_kcal": 15,
+      "protein_g": 0.7,
+      "carbohydrate_g": 3.6,
+      "fat_g": 0.1,
+      "fibre_g": 0.5,
+      "sugars_g": 1.7,
+      "sodium_mg": 2,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-250",
+      "name_en": "Eggplant",
+      "energy_kcal": 25,
+      "protein_g": 1,
+      "carbohydrate_g": 5.9,
+      "fat_g": 0.2,
+      "fibre_g": 3,
+      "sugars_g": 3.5,
+      "sodium_mg": 2,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-251",
+      "name_en": "Pumpkin",
+      "energy_kcal": 26,
+      "protein_g": 1,
+      "carbohydrate_g": 6.5,
+      "fat_g": 0.1,
+      "fibre_g": 0.5,
+      "sugars_g": 2.8,
+      "sodium_mg": 1,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-252",
+      "name_en": "Zucchini",
+      "energy_kcal": 17,
+      "protein_g": 1.2,
+      "carbohydrate_g": 3.1,
+      "fat_g": 0.3,
+      "fibre_g": 1,
+      "sugars_g": 2.5,
+      "sodium_mg": 8,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-253",
+      "name_en": "Chard",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-254",
+      "name_en": "Dandelion",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-255",
+      "name_en": "Endive",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-256",
+      "name_en": "Hendbeh",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-257",
+      "name_en": "Iceberg",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-258",
+      "name_en": "Kale",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-259",
+      "name_en": "Lettuce",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-260",
+      "name_en": "Lollo rosso",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-261",
+      "name_en": "Mesclun (mixed leaf salad)",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-262",
+      "name_en": "Mixed greens",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-263",
+      "name_en": "Mloukhiyeh",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-264",
+      "name_en": "Parsley",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-265",
+      "name_en": "Purslane",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-266",
+      "name_en": "Rocca",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-267",
+      "name_en": "Spinach",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-268",
+      "name_en": "Vine leaves",
+      "energy_kcal": 25,
+      "protein_g": 2.2,
+      "carbohydrate_g": 4.2,
+      "fat_g": 0.4,
+      "fibre_g": 2.5,
+      "sugars_g": 1.2,
+      "sodium_mg": 35,
+      "note": "Representative raw leafy green; exact variety varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-269",
+      "name_en": "Mushroom",
+      "energy_kcal": 22,
+      "protein_g": 3.1,
+      "carbohydrate_g": 3.3,
+      "fat_g": 0.3,
+      "fibre_g": 1,
+      "sugars_g": 2,
+      "sodium_mg": 5,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-270",
+      "name_en": "Mushroom, canned",
+      "energy_kcal": 25,
+      "protein_g": 2.9,
+      "carbohydrate_g": 5.3,
+      "fat_g": 0.3,
+      "fibre_g": 2.4,
+      "sugars_g": 2,
+      "sodium_mg": 425,
+      "note": "Canned mushrooms, drained",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-271",
+      "name_en": "Mushroom, cepe (dried)",
+      "energy_kcal": 296,
+      "protein_g": 20,
+      "carbohydrate_g": 50,
+      "fat_g": 3,
+      "fibre_g": 20,
+      "sugars_g": 5,
+      "sodium_mg": 50,
+      "note": "Estimated dried porcini/cepe",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-272",
+      "name_en": "Portobello Mushroom",
+      "energy_kcal": 22,
+      "protein_g": 2.1,
+      "carbohydrate_g": 3.9,
+      "fat_g": 0.4,
+      "fibre_g": 1.3,
+      "sugars_g": 2.5,
+      "sodium_mg": 9,
+      "note": "Raw portobello",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-273",
+      "name_en": "Olives",
+      "energy_kcal": 116,
+      "protein_g": 0.8,
+      "carbohydrate_g": 6,
+      "fat_g": 10.9,
+      "fibre_g": 1.6,
+      "sugars_g": 0,
+      "sodium_mg": 735,
+      "note": "Ripe olives reference; variety/brine varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-274",
+      "name_en": "Pickles",
+      "energy_kcal": 15,
+      "protein_g": 0.5,
+      "carbohydrate_g": 3,
+      "fat_g": 0.2,
+      "fibre_g": 1.2,
+      "sugars_g": 1.1,
+      "sodium_mg": 1200,
+      "note": "Estimated pickles; brine-dependent",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-275",
+      "name_en": "Pickles, dill",
+      "energy_kcal": 12,
+      "protein_g": 0.5,
+      "carbohydrate_g": 2.4,
+      "fat_g": 0.2,
+      "fibre_g": 1,
+      "sugars_g": 1.1,
+      "sodium_mg": 1208,
+      "note": "Dill cucumber pickles",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-276",
+      "name_en": "Pickles, jalapeno",
+      "energy_kcal": 27,
+      "protein_g": 0.9,
+      "carbohydrate_g": 5.5,
+      "fat_g": 0.9,
+      "fibre_g": 2.6,
+      "sugars_g": 2.8,
+      "sodium_mg": 1600,
+      "note": "Estimated pickled jalapeños",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-277",
+      "name_en": "Pickles, Lebanese (mixed)",
+      "energy_kcal": 20,
+      "protein_g": 0.7,
+      "carbohydrate_g": 4,
+      "fat_g": 0.3,
+      "fibre_g": 1.5,
+      "sugars_g": 2,
+      "sodium_mg": 1400,
+      "note": "Estimated mixed Lebanese pickles",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-278",
+      "name_en": "Caramelised Onions",
+      "energy_kcal": 120,
+      "protein_g": 1.2,
+      "carbohydrate_g": 22,
+      "fat_g": 3.5,
+      "fibre_g": 2,
+      "sugars_g": 12,
+      "sodium_mg": 150,
+      "note": "Estimated prepared caramelized onions",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-279",
+      "name_en": "Garlic",
+      "energy_kcal": 149,
+      "protein_g": 6.4,
+      "carbohydrate_g": 33.1,
+      "fat_g": 0.5,
+      "fibre_g": 2.1,
+      "sugars_g": 1,
+      "sodium_mg": 17,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-280",
+      "name_en": "Green onion (scallion)",
+      "energy_kcal": 32,
+      "protein_g": 1.8,
+      "carbohydrate_g": 7.3,
+      "fat_g": 0.2,
+      "fibre_g": 2.6,
+      "sugars_g": 2.3,
+      "sodium_mg": 16,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-281",
+      "name_en": "Onions",
+      "energy_kcal": 40,
+      "protein_g": 1.1,
+      "carbohydrate_g": 9.3,
+      "fat_g": 0.1,
+      "fibre_g": 1.7,
+      "sugars_g": 4.2,
+      "sodium_mg": 4,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-282",
+      "name_en": "Artichoke",
+      "energy_kcal": 47,
+      "protein_g": 3.3,
+      "carbohydrate_g": 10.5,
+      "fat_g": 0.2,
+      "fibre_g": 5.4,
+      "sugars_g": 1,
+      "sodium_mg": 94,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-283",
+      "name_en": "Asparagus",
+      "energy_kcal": 20,
+      "protein_g": 2.2,
+      "carbohydrate_g": 3.9,
+      "fat_g": 0.1,
+      "fibre_g": 2.1,
+      "sugars_g": 1.9,
+      "sodium_mg": 2,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-284",
+      "name_en": "Baby Okra",
+      "energy_kcal": 33,
+      "protein_g": 1.9,
+      "carbohydrate_g": 7.5,
+      "fat_g": 0.2,
+      "fibre_g": 3.2,
+      "sugars_g": 1.5,
+      "sodium_mg": 7,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-285",
+      "name_en": "Brussels sprouts",
+      "energy_kcal": 43,
+      "protein_g": 3.4,
+      "carbohydrate_g": 9,
+      "fat_g": 0.3,
+      "fibre_g": 3.8,
+      "sugars_g": 2.2,
+      "sodium_mg": 25,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-286",
+      "name_en": "Capers",
+      "energy_kcal": 23,
+      "protein_g": 2.4,
+      "carbohydrate_g": 4.9,
+      "fat_g": 0.9,
+      "fibre_g": 3.2,
+      "sugars_g": 0.4,
+      "sodium_mg": 2348,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-287",
+      "name_en": "Cauliflower",
+      "energy_kcal": 25,
+      "protein_g": 1.9,
+      "carbohydrate_g": 5,
+      "fat_g": 0.3,
+      "fibre_g": 2,
+      "sugars_g": 1.9,
+      "sodium_mg": 30,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-288",
+      "name_en": "Celery",
+      "energy_kcal": 14,
+      "protein_g": 0.7,
+      "carbohydrate_g": 3,
+      "fat_g": 0.2,
+      "fibre_g": 1.6,
+      "sugars_g": 1.3,
+      "sodium_mg": 80,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-289",
+      "name_en": "Palmito",
+      "energy_kcal": 28,
+      "protein_g": 2.5,
+      "carbohydrate_g": 4.6,
+      "fat_g": 0.6,
+      "fibre_g": 2.4,
+      "sugars_g": 0,
+      "sodium_mg": 426,
+      "note": "Hearts of palm, canned reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-290",
+      "name_en": "Sushi nori",
+      "energy_kcal": 306,
+      "protein_g": 41.4,
+      "carbohydrate_g": 44.3,
+      "fat_g": 3.7,
+      "fibre_g": 36,
+      "sugars_g": 0.5,
+      "sodium_mg": 530,
+      "note": "Dried nori seaweed",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-291",
+      "name_en": "Tofu",
+      "energy_kcal": 76,
+      "protein_g": 8.1,
+      "carbohydrate_g": 1.9,
+      "fat_g": 4.8,
+      "fibre_g": 0.3,
+      "sugars_g": 0.6,
+      "sodium_mg": 7,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-292",
+      "name_en": "Beetroot",
+      "energy_kcal": 43,
+      "protein_g": 1.6,
+      "carbohydrate_g": 9.6,
+      "fat_g": 0.2,
+      "fibre_g": 2.8,
+      "sugars_g": 6.8,
+      "sodium_mg": 78,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-293",
+      "name_en": "Carrot",
+      "energy_kcal": 41,
+      "protein_g": 0.9,
+      "carbohydrate_g": 9.6,
+      "fat_g": 0.2,
+      "fibre_g": 2.8,
+      "sugars_g": 4.7,
+      "sodium_mg": 69,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-294",
+      "name_en": "Potato",
+      "energy_kcal": 77,
+      "protein_g": 2,
+      "carbohydrate_g": 17.5,
+      "fat_g": 0.1,
+      "fibre_g": 2.2,
+      "sugars_g": 0.8,
+      "sodium_mg": 6,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-295",
+      "name_en": "Purple Potato",
+      "energy_kcal": 80,
+      "protein_g": 2,
+      "carbohydrate_g": 18,
+      "fat_g": 0.1,
+      "fibre_g": 2.2,
+      "sugars_g": 0.8,
+      "sodium_mg": 6,
+      "note": "Estimated raw purple potato",
+      "estimated": true,
+      "sources": [
+        "https://fdc.nal.usda.gov/",
+        "https://world.openfoodfacts.org/"
+      ]
+    },
+    {
+      "source_ref": "ING-296",
+      "name_en": "Radish",
+      "energy_kcal": 16,
+      "protein_g": 0.7,
+      "carbohydrate_g": 3.4,
+      "fat_g": 0.1,
+      "fibre_g": 1.6,
+      "sugars_g": 1.9,
+      "sodium_mg": 39,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-297",
+      "name_en": "Raw Garlic",
+      "energy_kcal": 149,
+      "protein_g": 6.4,
+      "carbohydrate_g": 33.1,
+      "fat_g": 0.5,
+      "fibre_g": 2.1,
+      "sugars_g": 1,
+      "sodium_mg": 17,
+      "note": "Raw garlic",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-298",
+      "name_en": "Sweet Potato",
+      "energy_kcal": 77,
+      "protein_g": 2,
+      "carbohydrate_g": 17.5,
+      "fat_g": 0.1,
+      "fibre_g": 2.2,
+      "sugars_g": 0.8,
+      "sodium_mg": 6,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-299",
+      "name_en": "Taro root",
+      "energy_kcal": 112,
+      "protein_g": 1.5,
+      "carbohydrate_g": 26.5,
+      "fat_g": 0.2,
+      "fibre_g": 4.1,
+      "sugars_g": 0.4,
+      "sodium_mg": 11,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-300",
+      "name_en": "Bell Pepper",
+      "energy_kcal": 31,
+      "protein_g": 1,
+      "carbohydrate_g": 6,
+      "fat_g": 0.3,
+      "fibre_g": 2.1,
+      "sugars_g": 4.2,
+      "sodium_mg": 4,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-301",
+      "name_en": "Cherry tomato",
+      "energy_kcal": 18,
+      "protein_g": 0.9,
+      "carbohydrate_g": 3.9,
+      "fat_g": 0.2,
+      "fibre_g": 1.2,
+      "sugars_g": 2.6,
+      "sodium_mg": 5,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-302",
+      "name_en": "Dried tomato",
+      "energy_kcal": 18,
+      "protein_g": 0.9,
+      "carbohydrate_g": 3.9,
+      "fat_g": 0.2,
+      "fibre_g": 1.2,
+      "sugars_g": 2.6,
+      "sodium_mg": 5,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-303",
+      "name_en": "Green hot pepper (chilli)",
+      "energy_kcal": 40,
+      "protein_g": 1.9,
+      "carbohydrate_g": 8.8,
+      "fat_g": 0.4,
+      "fibre_g": 1.5,
+      "sugars_g": 5.3,
+      "sodium_mg": 7,
+      "note": "Raw hot chili pepper",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-304",
+      "name_en": "Red Bell Pepper",
+      "energy_kcal": 31,
+      "protein_g": 1,
+      "carbohydrate_g": 6,
+      "fat_g": 0.3,
+      "fibre_g": 2.1,
+      "sugars_g": 4.2,
+      "sodium_mg": 4,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-305",
+      "name_en": "Tomato",
+      "energy_kcal": 18,
+      "protein_g": 0.9,
+      "carbohydrate_g": 3.9,
+      "fat_g": 0.2,
+      "fibre_g": 1.2,
+      "sugars_g": 2.6,
+      "sodium_mg": 5,
+      "note": "Generic raw food reference",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    },
+    {
+      "source_ref": "ING-306",
+      "name_en": "Tomato, peeled (canned)",
+      "energy_kcal": 32,
+      "protein_g": 1.6,
+      "carbohydrate_g": 7.3,
+      "fat_g": 0.3,
+      "fibre_g": 1.9,
+      "sugars_g": 4.4,
+      "sodium_mg": 150,
+      "note": "Canned peeled tomatoes; sodium varies",
+      "estimated": false,
+      "sources": [
+        "https://fdc.nal.usda.gov/"
+      ]
+    }
+  ]
+}

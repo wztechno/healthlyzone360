@@ -51,6 +51,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $purchase_price_currency
  * @property numeric-string|null $waste_percent null = unmeasured, 0 = measured and none
  * @property numeric-string|null $capacity_quantity
+ * @property numeric-string|null $grams_per_unit mass of one default_unit, in grams; null = unweighed
  * @property string|null $capacity_unit_id
  * @property numeric-string $yield_factor
  * @property string|null $forked_from_ingredient_id
@@ -103,6 +104,10 @@ class Ingredient extends BaseModel implements OrganisationScoped
             // too — "nobody has measured this", as against a `0` that says there is none.
             'waste_percent' => 'decimal:2',
             'capacity_quantity' => 'decimal:4',
+            // Grams in one `default_unit`. Null on anything stocked by mass —
+            // where the conversion is arithmetic — and on anything nobody has
+            // weighed yet; a roll-up withholds rather than reading it as zero.
+            'grams_per_unit' => 'decimal:4',
         ];
     }
 
