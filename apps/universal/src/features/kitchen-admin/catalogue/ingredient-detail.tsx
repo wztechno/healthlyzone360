@@ -16,7 +16,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { displayName, statusShortKey, statusTone, unitShortKey } from '../format.ts';
+import { displayName, statusShortKey, statusTone, unitDimension, unitShortKey } from '../format.ts';
 import { DerivedPanel } from './derived-panel.tsx';
 import type { DerivedFigure } from './derived-panel.tsx';
 
@@ -427,6 +427,24 @@ export function IngredientDetail({
                                         : formatter.formatNumber(ingredient.itemsPerUnit)
                                 }
                             />
+                            {/*
+                             * Drawn only where it can be true. A mass unit needs no density —
+                             * a kilogram weighs a kilogram — so a dash beside one would read as
+                             * a gap somebody ought to fill rather than a question nobody asked.
+                             */}
+                            {unitDimension(ingredient.measurementUnit) === 'mass' ? null : (
+                                <Row
+                                    testID={`${testID}-grams-per-unit-row`}
+                                    label={t('kitchen:ingredientDetail.fieldGramsPerUnit', {
+                                        unit: t(unitShortKey(ingredient.measurementUnit)),
+                                    })}
+                                    value={
+                                        ingredient.gramsPerUnit === null
+                                            ? dash
+                                            : formatter.formatNumber(ingredient.gramsPerUnit)
+                                    }
+                                />
+                            )}
                             <Row
                                 testID={`${testID}-pack-cost-row`}
                                 label={t('kitchen:ingredientDetail.fieldPackCost')}

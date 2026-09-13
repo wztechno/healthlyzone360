@@ -128,6 +128,7 @@ function ingredient(id: IngredientId, name: string): IngredientAdmin {
         purchaseUnit: null,
         composition: null,
         itemsPerUnit: null,
+        gramsPerUnit: null,
         purchasePrice: null,
         wastePercent: null,
         capacity: null,

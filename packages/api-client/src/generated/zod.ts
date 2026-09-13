@@ -419,6 +419,7 @@ export const zAdminIngredient = z.object({
     purchase_unit_code: z.string().nullish(),
     composition: z.string().nullish(),
     items_per_unit: z.string().nullish(),
+    grams_per_unit: z.string().nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
     b2b_price_amount: z.string().nullish(),
     b2c_price_amount: z.string().nullish(),
@@ -461,6 +462,7 @@ export const zCreateIngredientRequest = z.object({
     purchase_unit_id: zUuid.nullish(),
     composition: z.string().max(2000).nullish(),
     items_per_unit: z.number().gt(0).nullish(),
+    grams_per_unit: z.number().gte(0.0001).lte(99999999.9999).nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
     b2b_price_amount: z.number().gte(0).nullish(),
     b2c_price_amount: z.number().gte(0).nullish(),
@@ -487,6 +489,7 @@ export const zUpdateIngredientRequest = z.object({
     purchase_unit_id: zUuid.nullish(),
     composition: z.string().max(2000).nullish(),
     items_per_unit: z.number().gt(0).nullish(),
+    grams_per_unit: z.number().gte(0.0001).lte(99999999.9999).nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
     b2b_price_amount: z.number().gte(0).nullish(),
     b2c_price_amount: z.number().gte(0).nullish(),
@@ -9451,7 +9454,8 @@ export const zListRecipesQuery = z.object({
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zRecipeStatus.optional(),
-    category: z.string().max(40).optional()
+    category: z.string().max(40).optional(),
+    allergen: z.string().max(20).optional()
 });
 
 /**
@@ -10056,7 +10060,8 @@ export const zListCatalogueItemsQuery = z.object({
     query: z.string().max(160).optional(),
     status: zCatalogueItemStatus.optional(),
     item_type: zCatalogueItemType.optional(),
-    product_category_id: zUuid.optional()
+    product_category_id: zUuid.optional(),
+    allergen: z.string().max(20).optional()
 });
 
 /**

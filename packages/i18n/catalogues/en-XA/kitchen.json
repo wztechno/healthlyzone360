@@ -1843,11 +1843,14 @@
     "stockUnit": "[[Šţóçķ úñíţ āēīō]]",
     "stockUnitHint": "[[Ţĥé úñíţ ţĥíš íñĝŕéðíéñţ íš íššúéð áñð çóšţéð íñ. āēīōūāēīōūāēīōūāēīōū]]",
     "itemsPerPurchaseUnit": "[[Íţéɱš þéŕ þúŕçĥášé úñíţ āēīōūāēīōū]]",
+    "gramsPerUnit": "[[Ṁášš óƒ 1 {{unit}} āēīōūāēī]]",
+    "gramsPerUnitHint": "[[Íñ ĝŕáɱš. Ŵĥáţ łéţš á ŕéçíþé ŵéíĝĥ á łíñé ɱéášúŕéð ƀý ṽółúɱé óŕ ƀý þíéçé. āēīōūāēīōūāēīōūāēīōūāēīōūāēīōū]]",
     "designation": "[[Ðéšíĝñáţíóñ āēīōū]]",
     "referencePlaceholder": "[[Áššíĝñéð óñ šáṽé āēīōūāē]]",
     "unitPlaceholder": "[[Çĥóóšé á úñíţ āēīōūā]]",
     "unitPricePlaceholder": "[[0.00 āē]]",
-    "itemsPerUnitPlaceholder": "[[0 ā]]"
+    "itemsPerUnitPlaceholder": "[[0 ā]]",
+    "gramsPerUnitPlaceholder": "[[0 ā]]"
   },
   "units": {
     "dimensionMass": "[[Ṁášš āē]]",
@@ -3177,6 +3180,7 @@
     "whereUsedBody": "[[Ţĥé ŕéçíþéš áñð šáúçéš çóñšúɱíñĝ ţĥíš íñĝŕéðíéñţ, ŵíţĥ ţĥé ǫúáñţíţý éáçĥ ţáķéš þéŕ ƀáţçĥ. āēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīōūā]]",
     "sectionPackCost": "[[Þáçķ & çóšţ āēīōū]]",
     "fieldItemsPerUnit": "[[Íţéɱš þéŕ þúŕçĥášé úñíţ āēīōūāēīōū]]",
+    "fieldGramsPerUnit": "[[Ṁášš óƒ 1 {{unit}} āēīōūāēī]]",
     "fieldPackCost": "[[Þáçķ çóšţ āēīō]]",
     "packCostValue": "[[{{cost}} ƒóŕ {{items}} × {{quantity}} {{unit}} āēīōūāēīōūāēīōūāēīō]]",
     "sectionSuppliers": "[[Šúþþłíéŕš āēīō]]",

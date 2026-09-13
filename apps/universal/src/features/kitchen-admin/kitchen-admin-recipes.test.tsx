@@ -231,6 +231,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         purchaseUnit: null,
         composition: null,
         itemsPerUnit: null,
+        gramsPerUnit: null,
         // Packaging's three, null on food — which every fixture in this file is.
         purchasePrice: null,
         wastePercent: null,
@@ -505,6 +506,7 @@ function packagingItem(ordinal: number, overrides: Partial<IngredientAdmin> = {}
         measurementUnit: 'piece',
         purchaseUnit: 'pack',
         itemsPerUnit: 50,
+        gramsPerUnit: null,
         wastePercent: 2,
         purchasePrice: { amount: 12.5, currency: 'USD' },
         capacity: { quantity: 0.75, unit: 'kg' },

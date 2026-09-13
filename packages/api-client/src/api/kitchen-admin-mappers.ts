@@ -311,6 +311,7 @@ export function mapIngredientAdmin(
             wire.purchase_unit_code == null ? null : mapMeasureUnit(wire.purchase_unit_code),
         composition: wire.composition ?? null,
         itemsPerUnit: wire.items_per_unit == null ? null : parseDecimal(wire.items_per_unit),
+        gramsPerUnit: wire.grams_per_unit == null ? null : parseDecimal(wire.grams_per_unit),
         /*
          * Packaging's three figures, null on food.
          *

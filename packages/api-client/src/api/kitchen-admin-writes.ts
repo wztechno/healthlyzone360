@@ -547,6 +547,15 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ? {}
                         : { ingredient_subcategory_id: subcategoryId }),
                     ...(unitId === null ? {} : { default_unit_id: unitId }),
+                    // `items_per_unit` was on the contract and never sent — a gap, not a decision:
+                    // a create that stated the pack size silently dropped it and the first save
+                    // after had to state it again.
+                    ...(request.itemsPerUnit === undefined
+                        ? {}
+                        : { items_per_unit: request.itemsPerUnit }),
+                    ...(request.gramsPerUnit === undefined
+                        ? {}
+                        : { grams_per_unit: request.gramsPerUnit }),
                     ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
                     ...(request.isSellable === undefined
                         ? {}
@@ -611,6 +620,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
             if (request.composition !== undefined) body.composition = request.composition;
             if (request.itemsPerUnit !== undefined) body.items_per_unit = request.itemsPerUnit;
+            if (request.gramsPerUnit !== undefined) body.grams_per_unit = request.gramsPerUnit;
             Object.assign(body, priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice));
             if (request.isSellable !== undefined) body.is_sellable = request.isSellable;
             if (request.per100g !== undefined) {

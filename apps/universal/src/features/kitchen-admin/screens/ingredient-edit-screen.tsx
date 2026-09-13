@@ -71,6 +71,7 @@ import {
     unitDimension,
     unitDimensionKey,
     unitKey,
+    unitShortKey,
 } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
@@ -162,6 +163,11 @@ interface DetailsDraft {
     /** `''` means "no purchase pack recorded" — an honest absence, not a default. */
     readonly purchaseUnit: MeasureUnit | '';
     readonly itemsPerUnit: string;
+    /**
+     * What one stock unit weighs, in grams. Asked only of a non-mass unit, and `''` clears it —
+     * an unweighed litre is a real state the roll-up names rather than guesses at.
+     */
+    readonly gramsPerUnit: string;
     /** The three prices as typed. Parsed on save; `''` clears. */
     readonly unitPrice: string;
     readonly b2bPrice: string;
@@ -177,6 +183,7 @@ const EMPTY_DETAILS: DetailsDraft = {
     measurementUnit: 'g',
     purchaseUnit: '',
     itemsPerUnit: '',
+    gramsPerUnit: '',
     unitPrice: '',
     b2bPrice: '',
     b2cPrice: '',
@@ -192,6 +199,7 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
         measurementUnit: ingredient.measurementUnit,
         purchaseUnit: ingredient.purchaseUnit ?? '',
         itemsPerUnit: ingredient.itemsPerUnit === null ? '' : String(ingredient.itemsPerUnit),
+        gramsPerUnit: ingredient.gramsPerUnit === null ? '' : String(ingredient.gramsPerUnit),
         unitPrice: amountToInput(ingredient.unitPrice),
         b2bPrice: amountToInput(ingredient.b2bPrice),
         b2cPrice: amountToInput(ingredient.b2cPrice),
@@ -199,9 +207,15 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
     };
 }
 
-/** The draft's items-per-unit as a number, or null for blank/unparseable. */
-function itemsPerUnitOf(draft: DetailsDraft): number | null {
-    const trimmed = draft.itemsPerUnit.trim();
+/**
+ * A typed positive figure, or null for blank and for anything that is not one.
+ *
+ * Both of this form's bare numeric fields — items per pack, grams per unit — answer `null` to the
+ * same three cases (blank, unparseable, not positive), and both contracts read `null` as "clear
+ * it". One function rather than two identical ones.
+ */
+function positiveNumberOf(raw: string): number | null {
+    const trimmed = raw.trim();
     if (trimmed === '') return null;
     const parsed = Number(trimmed);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -693,9 +707,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         ? {}
                         : { subcategoryCode: details.subcategoryCode }),
                     ...(details.purchaseUnit === '' ? {} : { purchaseUnit: details.purchaseUnit }),
-                    ...(itemsPerUnitOf(details) === null
+                    ...(positiveNumberOf(details.itemsPerUnit) === null
                         ? {}
-                        : { itemsPerUnit: itemsPerUnitOf(details)! }),
+                        : { itemsPerUnit: positiveNumberOf(details.itemsPerUnit)! }),
+                    ...(positiveNumberOf(details.gramsPerUnit) === null
+                        ? {}
+                        : { gramsPerUnit: positiveNumberOf(details.gramsPerUnit)! }),
                     ...(costOf(unitPriceValue) === null
                         ? {}
                         : { unitPrice: costOf(unitPriceValue)! }),
@@ -737,7 +754,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         details.subcategoryCode === '' ? null : details.subcategoryCode,
                     measurementUnit: details.measurementUnit,
                     purchaseUnit: details.purchaseUnit === '' ? null : details.purchaseUnit,
-                    itemsPerUnit: itemsPerUnitOf(details),
+                    itemsPerUnit: positiveNumberOf(details.itemsPerUnit),
+                    gramsPerUnit: positiveNumberOf(details.gramsPerUnit),
                     unitPrice: costOf(unitPriceValue),
                     b2bPrice: costOf(b2bPriceValue),
                     b2cPrice: costOf(b2cPriceValue),
@@ -1178,7 +1196,21 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         options={unitOptions}
                         value={details.measurementUnit}
                         onChange={(next) => {
-                            setDetails({ ...details, measurementUnit: next as MeasureUnit });
+                            /*
+                             * The mass goes with the unit it was measured against.
+                             *
+                             * Load-bearing, not tidiness: this form always sends `gramsPerUnit` on
+                             * a save, so a kg→l switch that kept the old figure would write the
+                             * mass of a kilogram onto a litre — a plausible number nothing
+                             * downstream can tell is wrong. The server clears it too, for the
+                             * callers that are not this screen; here it also has to leave the
+                             * field looking like what will be saved.
+                             */
+                            setDetails({
+                                ...details,
+                                measurementUnit: next as MeasureUnit,
+                                gramsPerUnit: '',
+                            });
                             markDetailsDirty();
                         }}
                     />
@@ -1247,6 +1279,35 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             markDetailsDirty();
                         }}
                     />
+
+                    {/*
+                     * Asked only where the answer is not already known.
+                     *
+                     * A kilogram weighs a kilogram; drawing this field beside a mass unit would be
+                     * asking an operator to restate the unit table, and whatever they typed would
+                     * become a second source of truth for it. A litre and a piece are the units
+                     * that genuinely need weighing, and the roll-up cannot convert their lines
+                     * without this figure.
+                     */}
+                    {unitDimension(details.measurementUnit) === 'mass' ? null : (
+                        <QuantityInput
+                            testID="kitchen-ingredient-grams-per-unit"
+                            id="kitchen-ingredient-grams-per-unit"
+                            size="sm"
+                            label={t('kitchen:fields.gramsPerUnit', {
+                                unit: t(unitShortKey(details.measurementUnit)),
+                            })}
+                            hint={t('kitchen:fields.gramsPerUnitHint')}
+                            placeholder={t('kitchen:fields.gramsPerUnitPlaceholder')}
+                            unit={t(unitShortKey('g'))}
+                            value={details.gramsPerUnit}
+                            disabled={!editable}
+                            onChangeText={(next) => {
+                                setDetails({ ...details, gramsPerUnit: next });
+                                markDetailsDirty();
+                            }}
+                        />
+                    )}
                 </FormGrid>
             </FormSection>
 

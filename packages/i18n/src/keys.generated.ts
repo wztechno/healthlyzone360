@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6663 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6667 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2814,6 +2814,9 @@ export interface NamespaceKeys {
     | 'fields.composition'
     | 'fields.compositionHint'
     | 'fields.designation'
+    | 'fields.gramsPerUnit'
+    | 'fields.gramsPerUnitHint'
+    | 'fields.gramsPerUnitPlaceholder'
     | 'fields.itemsPerPurchaseUnit'
     | 'fields.itemsPerUnit'
     | 'fields.itemsPerUnitHint'
@@ -2867,6 +2870,7 @@ export interface NamespaceKeys {
     | 'ingredientDetail.backToList'
     | 'ingredientDetail.basisValue'
     | 'ingredientDetail.fieldBasis'
+    | 'ingredientDetail.fieldGramsPerUnit'
     | 'ingredientDetail.fieldItemsPerUnit'
     | 'ingredientDetail.fieldLastChange'
     | 'ingredientDetail.fieldPackCost'
@@ -9495,6 +9499,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.composition',
   'kitchen:fields.compositionHint',
   'kitchen:fields.designation',
+  'kitchen:fields.gramsPerUnit',
+  'kitchen:fields.gramsPerUnitHint',
+  'kitchen:fields.gramsPerUnitPlaceholder',
   'kitchen:fields.itemsPerPurchaseUnit',
   'kitchen:fields.itemsPerUnit',
   'kitchen:fields.itemsPerUnitHint',
@@ -9548,6 +9555,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientDetail.backToList',
   'kitchen:ingredientDetail.basisValue',
   'kitchen:ingredientDetail.fieldBasis',
+  'kitchen:ingredientDetail.fieldGramsPerUnit',
   'kitchen:ingredientDetail.fieldItemsPerUnit',
   'kitchen:ingredientDetail.fieldLastChange',
   'kitchen:ingredientDetail.fieldPackCost',

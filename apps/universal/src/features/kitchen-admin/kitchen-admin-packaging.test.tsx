@@ -134,6 +134,7 @@ function item({ ordinal, name, overrides = {} }: ItemSeed): IngredientAdmin {
         measurementUnit: 'piece',
         purchaseUnit: 'piece',
         itemsPerUnit: 50,
+        gramsPerUnit: null,
         wastePercent: 2,
         purchasePrice: { amount: 12.5, currency: 'AED' },
         capacity: { quantity: 0.75, unit: 'kg' },

@@ -340,7 +340,26 @@ export type IngredientVerificationStatus = 'verified' | 'unverified' | 'requires
 export type AvailabilityTier = 'core' | 'common' | 'specialty_imported' | null;
 
 export type IngredientNutrientAmount = {
+    /**
+     * Each id may appear at most once in an `amounts` list. A nutrient
+     * stated twice has no total, so the write is refused rather than one
+     * of the two silently winning.
+     *
+     */
     nutrient_id: 'energy' | 'protein' | 'carbohydrate' | 'fat' | 'fibre' | 'sugars' | 'saturated_fat' | 'sodium';
+    /**
+     * Paired with `nutrient_id`, and a write refuses any other pairing:
+     * `energy` is **kcal**, `sodium` is **mg**, and every other nutrient
+     * is **g**. The roll-up sums these across the ingredients of a
+     * recipe, and a sum is only a sum when every term is denominated the
+     * same way — so the denomination is fixed on the way in rather than
+     * converted on the way out by every reader.
+     *
+     * `kJ` remains in the enum because the envelope is shared with a
+     * catalogue item's `nutrition_facts`, where a kitchen-recorded label
+     * may legitimately quote it. Nothing on an ingredient does.
+     *
+     */
     unit: 'kcal' | 'kJ' | 'g' | 'mg';
     value: number;
 };
@@ -412,6 +431,21 @@ export type AdminIngredient = {
      * Pieces per purchase pack, as a two-place decimal string.
      */
     items_per_unit?: string | null;
+    /**
+     * What **one `default_unit`** weighs, in grams, as a four-place
+     * decimal string — 1080 for a litre of soya sauce. The density a
+     * recipe roll-up needs to turn a volume or a piece into a mass.
+     *
+     * Only ever recorded against a non-mass unit: a kilogram already
+     * weighs what it weighs, and the unit table does that arithmetic.
+     * Null is the common answer and an honest one — a line that cannot
+     * be weighed is named in a warning rather than guessed at. Cleared
+     * by the server when `default_unit_id` changes without a new figure
+     * beside it: a mass measured against a unit that no longer applies
+     * is a plausible wrong number.
+     *
+     */
+    grams_per_unit?: string | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
     /**
      * Trade list price in major currency units, as a six-place decimal
@@ -581,6 +615,14 @@ export type CreateIngredientRequest = {
     purchase_unit_id?: Uuid | null;
     composition?: string | null;
     items_per_unit?: number | null;
+    /**
+     * Mass of one `default_unit`, in grams. Only meaningful on a
+     * non-mass unit. `minimum` is the column's own precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     */
+    grams_per_unit?: number | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
     /**
      * Trade list price in major currency units. Requires `price_currency_code`.
@@ -622,6 +664,17 @@ export type UpdateIngredientRequest = {
     purchase_unit_id?: Uuid | null;
     composition?: string | null;
     items_per_unit?: number | null;
+    /**
+     * Mass of one `default_unit`, in grams. Only meaningful on a
+     * non-mass unit. `minimum` is the column's own precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     * Sent as `null` to clear. Cleared by the server when
+     * `default_unit_id` changes without a new figure beside it.
+     *
+     */
+    grams_per_unit?: number | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
     /**
      * Trade list price in major currency units. Requires `price_currency_code`.
@@ -14311,6 +14364,27 @@ export type ListRecipesData = {
          * Exact match on `recipe_category`.
          */
         category?: string;
+        /**
+         * Keep only recipes whose **current version** declares this allergen
+         * class. Current is the highest editable version — draft or
+         * review-required — else the published one, else the highest number
+         * there is, which is the version a client's own list column reads.
+         *
+         * A recipe that carried the class at v1 and had it formulated out by
+         * v4 does not match: matching any version would return rows whose own
+         * allergen label disagreed.
+         *
+         * Both containments match. The label prints `contains` and
+         * `may_contain` alike, and somebody narrowing a catalogue by an
+         * allergen is looking for everything that could carry it — a filter
+         * that dropped the `may_contain` rows would answer a food-safety
+         * question by under-reporting. `declared` rows match as well as
+         * `derived` ones.
+         *
+         * One class per request; there is no union.
+         *
+         */
+        allergen?: string;
     };
     url: '/catalogue/recipes';
 };
@@ -16772,6 +16846,29 @@ export type ListCatalogueItemsData = {
          * Exact match on the merchandising category.
          */
         product_category_id?: Uuid;
+        /**
+         * Keep only items whose **derived allergen label** carries this class
+         * — the same label `GET /catalogue/items/{item}/allergens` serves,
+         * resolved in the same order of authority:
+         *
+         * 1. a linked recipe's published version's frozen label, which is the
+         * whole answer whenever there is one;
+         * 2. failing that, a single linked ingredient;
+         * 3. failing that, the item's own listed ingredients.
+         *
+         * Bases 2 and 3 are consulted only in the absence of base 1, so a
+         * meal whose recipe was reformulated is judged by the frozen label
+         * and not by a stale ingredient row.
+         *
+         * An item with `basis = none` — one nobody has described — matches
+         * nothing. Silence is not a statement of absence, so such an item is
+         * neither "carries the class" nor "does not".
+         *
+         * Both containments match, for the reason the recipe index states.
+         * One class per request; there is no union.
+         *
+         */
+        allergen?: string;
     };
     url: '/catalogue/items';
 };

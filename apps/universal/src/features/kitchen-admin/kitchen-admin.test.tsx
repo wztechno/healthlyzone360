@@ -118,7 +118,10 @@ function untilVisible(testID: string) {
 
 /** UUIDv7-shaped, because `IngredientEditScreen` parses the route parameter with `IngredientId`. */
 function ingredientId(ordinal: number): IngredientId {
-    return IngredientId.unsafe(`01935f6d-0000-7000-8000-0000000a000${String(ordinal)}`);
+    // Padded, so the last group stays twelve hex digits. Interpolating the ordinal raw worked
+    // until it reached 10, and a thirteen-digit group is not a UUID — which the screen answers
+    // with its not-found state rather than with a parse error saying so.
+    return IngredientId.unsafe(`01935f6d-0000-7000-8000-00000000${String(ordinal).padStart(4, '0')}`);
 }
 
 function meta(overrides: Partial<AdminEntityMeta> = {}): AdminEntityMeta {
@@ -158,6 +161,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         purchaseUnit: null,
         composition: null,
         itemsPerUnit: null,
+        gramsPerUnit: null,
         // Packaging's three, null on food — which every fixture in this file is.
         purchasePrice: null,
         wastePercent: null,
@@ -972,6 +976,100 @@ describe('the ingredient editor', () => {
         expect(request).not.toHaveProperty('reference');
         expect(request).not.toHaveProperty('composition');
         expect(request).not.toHaveProperty('notes');
+    });
+
+    /*
+     * The mass of one stock unit, and the three things that are true about it.
+     *
+     * It is asked only where the answer is not already known — a kilogram weighs a kilogram, and a
+     * field beside one would invite an operator to restate the unit table. It prefills from the
+     * record like every other figure. And it does *not* survive a change of unit: this form sends
+     * `gramsPerUnit` on every save, so a litre's mass left sitting in the box after a switch to
+     * kilograms would be written onto the row as the mass of a kilogram — a number nothing
+     * downstream can tell is wrong.
+     */
+    it('asks what one unit weighs only where the unit is not already a mass', async () => {
+        const litres = ingredient(11, { measurementUnit: 'l', gramsPerUnit: 1080 });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(litres.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [litres]),
+                    getIngredient: async () => litres,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-grams-per-unit-input');
+        expect(screen.getByTestId('kitchen-ingredient-grams-per-unit-input').props.value).toBe(
+            '1080',
+        );
+    });
+
+    it('does not ask what a kilogram weighs', async () => {
+        const kilos = ingredient(12, { measurementUnit: 'kg' });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(kilos.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [kilos]),
+                    getIngredient: async () => kilos,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-items-per-unit-input');
+        expect(screen.queryByTestId('kitchen-ingredient-grams-per-unit')).toBeNull();
+    });
+
+    it('clears the mass when the stock unit moves, so a litre never weighs a kilogram', async () => {
+        const litres = ingredient(13, { measurementUnit: 'l', gramsPerUnit: 1080 });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(litres.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [litres]),
+                        getIngredient: async () => litres,
+                        updateIngredient: async (_id, request) => ({
+                            ...litres,
+                            meta: { ...litres.meta, lockVersion: request.lockVersion + 1 },
+                        }),
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-ingredient-grams-per-unit-input');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-unit-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-unit-option-kg');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-unit-option-kg'));
+        });
+
+        // The field goes with the figure: a mass unit is not asked what it weighs.
+        expect(screen.queryByTestId('kitchen-ingredient-grams-per-unit')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalled();
+        });
+
+        const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
+            .calls[0] as [IngredientId, Record<string, unknown>];
+        // `null`, not absent: the row has a mass today and the save has to take it away.
+        expect(request.gramsPerUnit).toBeNull();
+        expect(request.measurementUnit).toBe('kg');
     });
 });
 

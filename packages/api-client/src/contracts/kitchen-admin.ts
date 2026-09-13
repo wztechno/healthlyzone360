@@ -304,6 +304,20 @@ export interface IngredientAdmin {
     /** Pieces per purchase pack, when the source knows it. */
     readonly itemsPerUnit: number | null;
     /**
+     * What one {@link measurementUnit} weighs, in grams — 1080 for a litre of soya sauce. The
+     * density a recipe roll-up needs to turn a volume or a piece into a mass.
+     *
+     * Recorded only against a non-mass unit. A kilogram already weighs what it weighs, and storing
+     * 1000 beside it would be a second answer to a question the unit table settles.
+     *
+     * Same refusal as {@link capacity}: a missing figure is `null` rather than an assumed density,
+     * because a plausible wrong number is worse than a named gap. The roll-up withholds the whole
+     * envelope and says which line it could not weigh.
+     *
+     * Cleared by the server when {@link measurementUnit} changes without a new mass beside it.
+     */
+    readonly gramsPerUnit: number | null;
+    /**
      * CONFIDENTIAL — what the kitchen pays for one **purchase pack**, not one issued unit.
      *
      * Per {@link purchaseUnit}: a sleeve at $6.50, never a bag at $0.065. Deliberately a different
@@ -491,6 +505,8 @@ export interface CreateIngredientRequest {
     readonly purchaseUnit?: MeasureUnit | undefined;
     readonly composition?: string | undefined;
     readonly itemsPerUnit?: number | undefined;
+    /** Mass of one `measurementUnit` in grams; omit on a mass unit, which needs none. */
+    readonly gramsPerUnit?: number | undefined;
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
     readonly unitPrice?: CostAmount | undefined;
@@ -511,6 +527,11 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly purchaseUnit?: MeasureUnit | null | undefined;
     readonly composition?: string | null | undefined;
     readonly itemsPerUnit?: number | null | undefined;
+    /**
+     * `null` clears the mass. The server clears it anyway when `measurementUnit` moves and no new
+     * figure comes with it — a mass measured against a unit that no longer applies.
+     */
+    readonly gramsPerUnit?: number | null | undefined;
     /** `null` clears the price. Both prices share one currency. */
     readonly b2bPrice?: CostAmount | null | undefined;
     /** `null` clears the price. Both prices share one currency. */

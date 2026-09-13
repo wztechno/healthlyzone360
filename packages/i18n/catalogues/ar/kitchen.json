@@ -2043,11 +2043,14 @@
         "stockUnit": "وحدة المخزون",
         "stockUnitHint": "الوحدة التي يُصرف ويُسعّر بها هذا المكوّن.",
         "itemsPerPurchaseUnit": "القطع في وحدة الشراء",
+        "gramsPerUnit": "كتلة 1 {{unit}}",
+        "gramsPerUnitHint": "بالغرام. هي ما يتيح للوصفة وزن سطر مقاس بالحجم أو بالقطعة.",
         "designation": "التسمية",
         "referencePlaceholder": "يُسنَد عند الحفظ",
         "unitPlaceholder": "اختر وحدة",
         "unitPricePlaceholder": "0.00",
-        "itemsPerUnitPlaceholder": "0"
+        "itemsPerUnitPlaceholder": "0",
+        "gramsPerUnitPlaceholder": "0"
     },
     "units": {
         "dimensionMass": "كتلة",
@@ -3649,6 +3652,7 @@
         "whereUsedBody": "الوصفات والصلصات التي تستهلك هذا المكوّن، مع الكمية التي يأخذها كل منها لكل دفعة.",
         "sectionPackCost": "العبوة والتكلفة",
         "fieldItemsPerUnit": "عدد القطع في وحدة الشراء",
+        "fieldGramsPerUnit": "كتلة 1 {{unit}}",
         "fieldPackCost": "تكلفة العبوة",
         "packCostValue": "{{cost}} مقابل {{items}} × {{quantity}} {{unit}}",
         "sectionSuppliers": "الموردون",

@@ -73,6 +73,7 @@ final readonly class IngredientCatalogueService
      *     purchase_unit_id?: string|null,
      *     composition?: string|null,
      *     items_per_unit?: float|string|null,
+     *     grams_per_unit?: float|string|null,
      *     nutrition_per_100g?: array<string, mixed>|null,
      *     b2b_price_amount?: float|string|null,
      *     b2c_price_amount?: float|string|null,
@@ -107,6 +108,7 @@ final readonly class IngredientCatalogueService
         $ingredient->purchase_unit_id = $attributes['purchase_unit_id'] ?? null;
         $ingredient->composition = $this->trimmedOrNull($attributes['composition'] ?? null);
         $ingredient->items_per_unit = $this->decimalOrNull($attributes['items_per_unit'] ?? null);
+        $ingredient->grams_per_unit = $this->decimalOrNull($attributes['grams_per_unit'] ?? null);
         $ingredient->nutrition_per_100g = $attributes['nutrition_per_100g'] ?? null;
         $ingredient->b2b_price_amount = $this->decimalOrNull($attributes['b2b_price_amount'] ?? null);
         $ingredient->b2c_price_amount = $this->decimalOrNull($attributes['b2c_price_amount'] ?? null);
@@ -218,6 +220,9 @@ final readonly class IngredientCatalogueService
             $fork->purchase_unit_id = $source->purchase_unit_id;
             $fork->composition = $source->composition;
             $fork->items_per_unit = $source->items_per_unit;
+            // Carried with `default_unit_id` above, and only meaningful beside
+            // it: the mass is the mass of one of *that* unit.
+            $fork->grams_per_unit = $source->grams_per_unit;
             $fork->nutrition_per_100g = $source->nutrition_per_100g;
             $fork->b2b_price_amount = $source->b2b_price_amount;
             $fork->b2c_price_amount = $source->b2c_price_amount;
@@ -394,7 +399,7 @@ final readonly class IngredientCatalogueService
 
         $changes = [];
 
-        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'nutrition_per_100g', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
+        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'grams_per_unit', 'nutrition_per_100g', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
@@ -410,6 +415,30 @@ final readonly class IngredientCatalogueService
             }
 
             $changes[$field] = $value;
+        }
+
+        /*
+         * A stored mass belongs to the unit it was measured against.
+         *
+         * `grams_per_unit` says what *one default unit* weighs — 1080 g for a
+         * litre of soya sauce. Move the default unit to millilitres and that
+         * figure is off by a thousand, but it is still a plausible number, so
+         * nothing downstream can tell it has gone wrong: the roll-up would
+         * quietly multiply a recipe line by a mass that no longer applies.
+         *
+         * So a unit change with no mass beside it clears the mass. An absent
+         * density is a named warning the kitchen can act on; a wrong one is a
+         * nutrition panel nobody knows to doubt. A PATCH that sends both moves
+         * them together and is left alone — that is an operator who has already
+         * answered the question.
+         */
+        if (
+            array_key_exists('default_unit_id', $changes)
+            && $changes['default_unit_id'] !== $ingredient->default_unit_id
+            && ! array_key_exists('grams_per_unit', $changes)
+            && $ingredient->grams_per_unit !== null
+        ) {
+            $changes['grams_per_unit'] = null;
         }
 
         if ($changes === []) {

@@ -1843,11 +1843,14 @@
         "stockUnit": "Stock unit",
         "stockUnitHint": "The unit this ingredient is issued and costed in.",
         "itemsPerPurchaseUnit": "Items per purchase unit",
+        "gramsPerUnit": "Mass of 1 {{unit}}",
+        "gramsPerUnitHint": "In grams. What lets a recipe weigh a line measured by volume or by piece.",
         "designation": "Designation",
         "referencePlaceholder": "Assigned on save",
         "unitPlaceholder": "Choose a unit",
         "unitPricePlaceholder": "0.00",
-        "itemsPerUnitPlaceholder": "0"
+        "itemsPerUnitPlaceholder": "0",
+        "gramsPerUnitPlaceholder": "0"
     },
     "units": {
         "dimensionMass": "Mass",
@@ -3177,6 +3180,7 @@
         "whereUsedBody": "The recipes and sauces consuming this ingredient, with the quantity each takes per batch.",
         "sectionPackCost": "Pack & cost",
         "fieldItemsPerUnit": "Items per purchase unit",
+        "fieldGramsPerUnit": "Mass of 1 {{unit}}",
         "fieldPackCost": "Pack cost",
         "packCostValue": "{{cost}} for {{items}} × {{quantity}} {{unit}}",
         "sectionSuppliers": "Suppliers",

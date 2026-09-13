@@ -799,3 +799,256 @@ it('checks a partial sub-category move against the stored category', function ()
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed');
 });
+
+/*
+|--------------------------------------------------------------------------
+| `grams_per_unit` — the density a recipe roll-up weighs a line with
+|--------------------------------------------------------------------------
+|
+| Mass of ONE default unit. 1080 g to the litre of soya sauce, so a line
+| written in millilitres becomes a mass and the nutrition sum has a term for
+| it. Null is the ordinary answer — nobody has weighed a litre of most things
+| — and the roll-up names the line it could not convert rather than assuming a
+| density.
+|
+| The interesting behaviour is the clear. The figure belongs to the unit it
+| was measured against, so a default unit that moves and takes no new figure
+| with it leaves a mass that is off by a factor and still looks like a number.
+| These pin all three branches of that: moved alone, moved with a figure, and
+| a PATCH that never mentions the unit at all.
+|
+*/
+
+function litresId(): string
+{
+    return (string) MeasurementUnit::query()->where('code', 'l')->sole()->getKey();
+}
+
+it('round-trips the mass of one unit on create', function (): void {
+    $this->actingAs($this->a->user);
+
+    $response = $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Soya Sauce',
+        'default_unit_id' => litresId(),
+        'grams_per_unit' => 1080,
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        // Four places, because that is what the column holds: a client that
+        // parses a decimal string never has to guess how many it will get.
+        ->assertJsonPath('data.ingredient.grams_per_unit', '1080.0000');
+
+    expect(Ingredient::withoutTenancy()->whereKey($response->json('data.ingredient.id'))->value('grams_per_unit'))
+        ->toBe('1080.0000');
+});
+
+it('updates and clears the mass of one unit behind the lock', function (): void {
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Cider Vinegar',
+        'default_unit_id' => litresId(),
+        'grams_per_unit' => '1080.0000',
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    $this->patchJson($url, ['grams_per_unit' => 1010], $headers + ['If-Match' => (string) $etag])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.grams_per_unit', '1010.0000');
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    // An explicit null is a real instruction — "nobody has weighed this" — and
+    // has to survive the round trip as a null rather than as a zero.
+    $this->patchJson($url, ['grams_per_unit' => null], $headers + ['If-Match' => (string) $etag])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.grams_per_unit', null);
+
+    expect(Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->value('grams_per_unit'))
+        ->toBeNull();
+});
+
+it('clears the mass when the default unit moves without one, and says so in the audit', function (): void {
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Balsamic Vinegar',
+        'default_unit_id' => litresId(),
+        'grams_per_unit' => '1080.0000',
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    $this->patchJson($url, ['default_unit_id' => gramsId()], $headers + ['If-Match' => (string) $etag])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.grams_per_unit', null);
+
+    expect(Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->value('grams_per_unit'))
+        ->toBeNull();
+
+    // The clear is a change to the row, so the trail has to name it: a column
+    // that emptied itself with nothing in the audit to show for it is exactly
+    // the sort of thing a food-safety review cannot reconstruct.
+    $audit = AuditLog::query()->where('action', 'catalogue.ingredient_updated')->sole();
+
+    expect($audit->metadata['changed_fields'])->toContain('grams_per_unit')
+        ->and($audit->metadata['changed_fields'])->toContain('default_unit_id');
+});
+
+it('keeps a mass that moves together with the default unit', function (): void {
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'default_unit_id' => litresId(),
+        'grams_per_unit' => '1080.0000',
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    // The operator has already answered the question the clear exists to ask.
+    $this->patchJson($url, [
+        'default_unit_id' => gramsId(),
+        'grams_per_unit' => 1.5,
+    ], $headers + ['If-Match' => (string) $etag])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.grams_per_unit', '1.5000');
+});
+
+it('leaves the mass alone on a PATCH that never mentions the unit', function (): void {
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'default_unit_id' => litresId(),
+        'grams_per_unit' => '1080.0000',
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    $this->patchJson($url, ['name_en' => 'Renamed'], $headers + ['If-Match' => (string) $etag])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.grams_per_unit', '1080.0000');
+});
+
+it('refuses a mass the column cannot hold rather than letting the CHECK refuse it', function (): void {
+    $this->actingAs($this->a->user);
+
+    // Zero is a contradiction — something that weighs nothing has no density —
+    // and `0.00001` is worse: it rounds to `0.0000` on the way into a
+    // `decimal(12,4)` column under a `> 0` CHECK, which is a 500 dressed up as
+    // a plausible payload. `min` sits at the column's own precision so both
+    // come back as the 422 they are.
+    foreach ([0, 0.00001] as $refused) {
+        $response = $this->postJson('/api/v1/catalogue/ingredients', [
+            'name_en' => 'Weightless '.$refused,
+            'default_unit_id' => litresId(),
+            'grams_per_unit' => $refused,
+        ], catalogueHeaders($this->a))
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation.failed');
+
+        expect($response->json('error.details.fields'))->toHaveKey('grams_per_unit');
+    }
+});
+
+/*
+|--------------------------------------------------------------------------
+| Nutrition writes — the trust boundary for the roll-up's sum
+|--------------------------------------------------------------------------
+|
+| The roll-up adds per-100 g amounts across the ingredients of a recipe, and a
+| sum is only a sum when every term is denominated the same way and counted
+| once. Both of those are decided here, on the write, rather than by every
+| reader afterwards: one entry per nutrient, and one unit per nutrient.
+|
+| Partial sets stay legal on purpose. An ingredient nobody has measured fat on
+| is a real row; whether a set is complete enough to add up is the roll-up's
+| question, not the validator's.
+|
+*/
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function canonicalAmounts(): array
+{
+    return [
+        ['nutrient_id' => 'energy', 'unit' => 'kcal', 'value' => 53],
+        ['nutrient_id' => 'protein', 'unit' => 'g', 'value' => 1.2],
+        ['nutrient_id' => 'carbohydrate', 'unit' => 'g', 'value' => 9.4],
+        ['nutrient_id' => 'fat', 'unit' => 'g', 'value' => 0.9],
+        ['nutrient_id' => 'fibre', 'unit' => 'g', 'value' => 2.1],
+        ['nutrient_id' => 'sugars', 'unit' => 'g', 'value' => 3.3],
+        ['nutrient_id' => 'sodium', 'unit' => 'mg', 'value' => 10600],
+    ];
+}
+
+it('accepts the seven canonical amounts and reads them back', function (): void {
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Sumac',
+        'default_unit_id' => gramsId(),
+        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.ingredient.nutrition_per_100g.basis', 'per_100g')
+        ->assertJsonPath('data.ingredient.nutrition_per_100g.amounts.0.nutrient_id', 'energy')
+        ->assertJsonPath('data.ingredient.nutrition_per_100g.amounts.0.unit', 'kcal')
+        ->assertJsonPath('data.ingredient.nutrition_per_100g.amounts.6.nutrient_id', 'sodium')
+        ->assertJsonPath('data.ingredient.nutrition_per_100g.amounts.6.value', 10600);
+});
+
+it('refuses a nutrient stated twice', function (): void {
+    $this->actingAs($this->a->user);
+
+    // Which of the two is the protein? There is no answer, so there is no
+    // write — rather than one of them silently winning on read.
+    $response = $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Double Counted',
+        'default_unit_id' => gramsId(),
+        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => [
+            ['nutrient_id' => 'protein', 'unit' => 'g', 'value' => 1.2],
+            ['nutrient_id' => 'protein', 'unit' => 'g', 'value' => 4.8],
+        ]],
+    ], catalogueHeaders($this->a))
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    expect(array_keys($response->json('error.details.fields')))
+        ->toContain('nutrition_per_100g.amounts.0.nutrient_id');
+});
+
+it('refuses energy in kilojoules, and every other non-canonical pairing', function (): void {
+    $this->actingAs($this->a->user);
+
+    // Both units are in the schema enum, because the envelope is shared with a
+    // catalogue item's own label. Neither is what an *ingredient* stores, and
+    // a single kJ row among 306 kcal ones is a sum that is wrong by 4.184 with
+    // nothing on the row to say so.
+    $payloads = [
+        ['nutrient_id' => 'energy', 'unit' => 'kJ', 'value' => 222],
+        ['nutrient_id' => 'sodium', 'unit' => 'g', 'value' => 10.6],
+    ];
+
+    foreach ($payloads as $amount) {
+        $this->postJson('/api/v1/catalogue/ingredients', [
+            'name_en' => 'Mis-stated '.$amount['nutrient_id'],
+            'default_unit_id' => gramsId(),
+            'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => [$amount]],
+        ], catalogueHeaders($this->a))
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation.failed');
+    }
+});

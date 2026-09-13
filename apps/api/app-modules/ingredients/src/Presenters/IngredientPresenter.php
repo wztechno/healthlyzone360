@@ -57,6 +57,7 @@ final class IngredientPresenter
      *     purchase_unit_code: string|null,
      *     composition: string|null,
      *     items_per_unit: string|null,
+     *     grams_per_unit: string|null,
      *     purchase_price_amount: string|null,
      *     purchase_price_currency: string|null,
      *     waste_percent: string|null,
@@ -100,6 +101,15 @@ final class IngredientPresenter
             'purchase_unit_code' => $ingredient->relationLoaded('purchaseUnit') ? $ingredient->purchaseUnit?->code : null,
             'composition' => $ingredient->composition,
             'items_per_unit' => $ingredient->items_per_unit === null ? null : (string) $ingredient->items_per_unit,
+            /*
+             * What one default unit weighs, in grams — 1080 for a litre of soya sauce.
+             *
+             * Only ever asked of a non-mass unit: a kilogram already weighs what it weighs, and
+             * storing 1000 against it would be a second source of truth for arithmetic the unit
+             * table already does. Null is the common answer and an honest one — the roll-up names
+             * the line it could not weigh rather than guessing a density.
+             */
+            'grams_per_unit' => $ingredient->grams_per_unit === null ? null : (string) $ingredient->grams_per_unit,
             /*
              * The three figures packaging brought with it when it came back into this table.
              *
