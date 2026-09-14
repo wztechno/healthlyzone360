@@ -1462,6 +1462,9 @@
             "pickerErrorTitle": "تعذّر تحميل القائمة",
             "pickerEmptyTitle": "لا شيء منشور يطابق ذلك",
             "pickerEmptyBody": "لا تُباع إلا الوجبات والمنتجات المنشورة. جرّب بحثًا آخر، أو انشر الصنف أولًا.",
+            "pickerColumnItem": "الصنف",
+            "pickerColumnKind": "النوع",
+            "pickerColumnAllergens": "مسببات الحساسية",
             "itemKind": {
                 "meal": "وجبة",
                 "product": "منتج"

@@ -36,7 +36,6 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -61,6 +60,12 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CatalogueStatCards } from '../catalogue/index.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import type { CatalogueStatCard } from '../catalogue/index.ts';
 import { humaniseCode, minorAmountToInput, parseMinorAmount } from '../format.ts';
 import {
@@ -883,8 +888,6 @@ function OrderDeskQueueList() {
     const rows = useMemo<readonly OrderDeskQueueRow[]>(() => queue.data?.rows ?? [], [queue.data]);
     const meta = queue.data?.meta ?? null;
     const failure = toFailure(queue.error);
-    const filtered =
-        trimmed !== '' || statuses.length > 0 || fulfilmentType !== null || deskWindow !== 'today';
 
     /**
      * The open row as the queue currently has it, or the copy the drawer was opened with.
@@ -920,6 +923,7 @@ function OrderDeskQueueList() {
         setStatuses([]);
         setFulfilmentType(null);
         setQuery('');
+        controls.clearFilters();
     }
 
     function clearActionState() {
@@ -1008,18 +1012,6 @@ function OrderDeskQueueList() {
         else fulfilOrder.mutate(request, { onSuccess });
     }
 
-    /**
-     * The page, remembered against the filters it was chosen under — so narrowing the queue lands
-     * on page one without an effect, and a poll that shortens the queue clamps rather than empties.
-     */
-    const [paging, setPaging] = useState<{
-        readonly filters: OrderDeskQueueFilters;
-        readonly page: number;
-    }>({ filters, page: 1 });
-    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-    const page = paging.filters === filters ? Math.min(paging.page, totalPages) : 1;
-    const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
     /*
      * The four figures, counted over the rows on screen.
      *
@@ -1069,12 +1061,14 @@ function OrderDeskQueueList() {
         },
     ];
 
-    const columns: readonly DataListColumn<OrderDeskQueueRow>[] = [
+    const columns: readonly ControlledColumn<OrderDeskQueueRow>[] = [
         {
             key: 'number',
             label: t('kitchen:desk.columnNumber'),
             width: 120,
             priority: 100,
+            sort: (left, right, direction) =>
+                compareText(left.orderNumber, right.orderNumber, direction),
             mono: true,
             render: (row) => (
                 <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-number`}>
@@ -1087,6 +1081,8 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnCustomer'),
             width: 150,
             priority: 90,
+            sort: (left, right, direction) =>
+                compareText(left.customer?.displayName, right.customer?.displayName, direction),
             render: (row) => {
                 // Absent block and null name are one cell here on purpose — see the file header.
                 const name = row.customer?.displayName ?? null;
@@ -1109,6 +1105,8 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnPhone'),
             width: 120,
             priority: 50,
+            sort: (left, right, direction) =>
+                compareText(left.customer?.phone, right.customer?.phone, direction),
             render: (row) =>
                 row.customer?.phone == null ? (
                     <Text tone="secondary">{EM_DASH}</Text>
@@ -1127,6 +1125,8 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnDue'),
             width: 64,
             priority: 88,
+            sort: (left, right, direction) =>
+                compareNumber(Date.parse(left.dueAt), Date.parse(right.dueAt), direction),
             render: (row) => (
                 <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-due`}>
                     {formatter.formatDate(row.dueAt, { timeStyle: 'short' })}
@@ -1138,6 +1138,9 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnAgeing'),
             width: 110,
             priority: 92,
+            // How late an order is *is* its due time read against now, so it sorts the same way.
+            sort: (left, right, direction) =>
+                compareNumber(Date.parse(left.dueAt), Date.parse(right.dueAt), direction),
             render: (row) => <DueBadge row={row} now={now} />,
         },
         {
@@ -1145,6 +1148,20 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.filterTypeLabel'),
             width: 90,
             priority: 60,
+            // The same server-side filter as the toolbar's kind select, reached from the column.
+            filter: {
+                values: () =>
+                    ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
+                        key: candidate,
+                        label: t(kitchenOrderFulfilmentTypeKey(candidate)),
+                    })),
+                external: {
+                    value: fulfilmentType,
+                    onChange: (next) => {
+                        setFulfilmentType(next as OrderDeskFulfilmentType | null);
+                    },
+                },
+            },
             render: (row) => (
                 <Text tone="secondary" testID={`${orderDeskRowTestId(String(row.id))}-kind`}>
                     {t(kitchenOrderFulfilmentTypeKey(row.fulfilmentType))}
@@ -1156,6 +1173,15 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnDelivery'),
             width: 150,
             priority: 80,
+            filter: {
+                // Only states a loaded row is in: one nobody is in would always empty the list.
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => orderDeskDeliveryState(row)))].map((state) => ({
+                        key: state,
+                        label: t(orderDeskDeliveryStateKey(state)),
+                    })),
+                match: (row, value) => orderDeskDeliveryState(row) === value,
+            },
             render: (row) => <DeliveryStateCell row={row} />,
         },
         {
@@ -1163,6 +1189,13 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnPayment'),
             width: 190,
             priority: 75,
+            filter: {
+                values: () => [
+                    { key: 'receipted', label: t('kitchen:desk.payment.receipted') },
+                    { key: 'outstanding', label: t('kitchen:desk.payment.notReceipted') },
+                ],
+                match: (row, value) => (value === 'receipted') === row.payment.receipted,
+            },
             render: (row) => <PaymentCell row={row} />,
         },
         {
@@ -1170,6 +1203,8 @@ function OrderDeskQueueList() {
             label: t('kitchen:desk.columnTotal'),
             width: 100,
             priority: 85,
+            sort: (left, right, direction) =>
+                compareNumber(left.totalMinor, right.totalMinor, direction),
             align: 'end',
             mono: true,
             render: (row) => (
@@ -1200,6 +1235,35 @@ function OrderDeskQueueList() {
             ),
         },
     ];
+
+    /*
+     * Header sort and filter, through the shared hook. In memory, which is honest here in a way it
+     * is not on a paged catalogue: the queue is *bounded, not paged* — the rows are the whole answer,
+     * and when the server capped the read the truncation callout already says so. Kind is the
+     * exception: its header drives the same `fulfilmentType` the toolbar select sends to the server.
+     * With no header pressed the rows keep the server's due-time order.
+     */
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk');
+
+    const filtered =
+        trimmed !== '' ||
+        statuses.length > 0 ||
+        fulfilmentType !== null ||
+        deskWindow !== 'today' ||
+        controls.filtered;
+
+    /**
+     * The page, remembered against what it was chosen under — so narrowing the queue lands on page
+     * one without an effect, and a poll that shortens the queue clamps rather than empties.
+     */
+    const pagingKey = useMemo(() => ({ filters, controls: controls.key }), [filters, controls.key]);
+    const [paging, setPaging] = useState<{
+        readonly key: typeof pagingKey;
+        readonly page: number;
+    }>({ key: pagingKey, page: 1 });
+    const totalPages = Math.max(1, Math.ceil(controls.rows.length / PAGE_SIZE));
+    const page = paging.key === pagingKey ? Math.min(paging.page, totalPages) : 1;
+    const pageRows = controls.rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     return (
         <Stack space="md" testID="kitchen-order-desk-screen">
@@ -1404,15 +1468,13 @@ function OrderDeskQueueList() {
                     ) : null}
 
                     {/*
-                     * No column sorts, and no header is a control: the order is the server's
-                     * due-time sort, which no client can reproduce. The footnote says so in words,
-                     * because a list of plain headers otherwise looks like one somebody forgot to
-                     * make sortable.
+                     * Opens on the server's due-time order. Order, Customer, Telephone, Due and
+                     * Total sort on a press; Kind, Delivery and Payment filter from their menus.
                      */}
                     <DataList<OrderDeskQueueRow>
                         testID="kitchen-order-desk-table"
                         label={t('kitchen:desk.caption')}
-                        columns={columns}
+                        columns={controls.columns}
                         rows={pageRows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
@@ -1428,7 +1490,7 @@ function OrderDeskQueueList() {
                         page={page}
                         totalPages={totalPages}
                         onPageChange={(next) => {
-                            setPaging({ filters, page: next });
+                            setPaging({ key: pagingKey, page: next });
                         }}
                         label={t('kitchen:catalogue.pagerLabel')}
                     />

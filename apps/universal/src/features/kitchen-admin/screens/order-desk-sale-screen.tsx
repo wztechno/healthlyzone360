@@ -1,3 +1,4 @@
+import type { AllergenCode } from '@healthy360/domain-types';
 import type {
     KitchenOrder,
     KitchenOrderPaymentMethod,
@@ -38,6 +39,7 @@ import { Pressable, View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    useAllergenClassesQuery,
     useAdminMealPageQuery,
     useProductPageQuery,
     useServiceAreasQuery,
@@ -52,7 +54,12 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CataloguePageHeader } from '../catalogue/index.ts';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { CATALOGUE_PRIORITY } from '../catalogue/catalogue-column-spec.ts';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { ORDER_CREATE_ON_BEHALF_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import {
@@ -74,7 +81,6 @@ import {
     nextStep,
     paymentMethodsFor,
     previousStep,
-    stepProgress,
     withCustomer,
     withFulfilmentType,
 } from '../order-desk/steps.ts';
@@ -232,6 +238,10 @@ function SaleWizard() {
 
     const place = usePlaceOrderDeskSaleMutation();
 
+    // No title and no Leave button: the trail reads `Kitchen workspace › Order desk › New sale`,
+    // and naming a leaf is what makes "Order desk" a link back.
+    useKitchenTrailLeaf(t('kitchen:desk.sale.title'));
+
     /*
      * What the quote is asked. `null` while there is nothing to price — an empty basket has no
      * total, and asking for one would spend a request to be told so.
@@ -272,7 +282,6 @@ function SaleWizard() {
     const quoteStale = quotedRequest !== saleRequest || quote.isFetching;
 
     const steps = applicableSteps(state.fulfilmentType);
-    const progress = stepProgress(state, step);
     const back = previousStep(state, step);
     const forward = nextStep(state, step);
     const quotable = quoted?.quotable === true;
@@ -366,38 +375,6 @@ function SaleWizard() {
 
     return (
         <Stack space="md" testID="kitchen-order-desk-sale-screen">
-            <CataloguePageHeader
-                testID="kitchen-order-desk-sale-header"
-                title={t('kitchen:desk.sale.title')}
-                titleTestID="kitchen-order-desk-sale-title"
-                primaryAction={
-                    <Button
-                        testID="kitchen-order-desk-sale-leave"
-                        variant="secondary"
-                        size="md"
-                        label={t('kitchen:desk.sale.leave')}
-                        onPress={() => {
-                            router.push('/kitchen/order-desk');
-                        }}
-                    />
-                }
-            />
-
-            <View className="flex-row flex-wrap items-center gap-hair">
-                <Text variant="caption" tone="secondary" testID="kitchen-order-desk-sale-position">
-                    {t('kitchen:desk.sale.position', {
-                        current: formatter.formatNumber(progress.position),
-                        total: formatter.formatNumber(steps.length),
-                    })}
-                </Text>
-                <Text variant="caption" tone="disabled" aria-hidden>
-                    ·
-                </Text>
-                <Text variant="caption" tone="secondary" testID="kitchen-order-desk-sale-subtitle">
-                    {t(FULFILMENT_LABEL_KEYS[state.fulfilmentType])}
-                </Text>
-            </View>
-
             {/*
              * The steps as a strip of tabs — a progress indicator the agent can also walk *back*
              * along. Steps ahead of the current one are disabled rather than hidden: the strip says
@@ -530,6 +507,7 @@ function SaleWizard() {
                     quote={quoted}
                     quoteStale={quoteStale}
                     quoteFailed={toFailure(quote.error) !== null}
+                    quoteFailureMessage={toFailure(quote.error)?.message}
                     onLines={(lines) => {
                         update({ ...state, lines });
                     }}
@@ -538,7 +516,7 @@ function SaleWizard() {
                             <Button
                                 testID="kitchen-order-desk-sale-back"
                                 variant="secondary"
-                                size="md"
+                                size="sm"
                                 label={t('kitchen:desk.sale.back')}
                                 disabled={back === null || place.isPending}
                                 onPress={() => {
@@ -548,7 +526,7 @@ function SaleWizard() {
                             {step === 'review' ? (
                                 <Button
                                     testID="kitchen-order-desk-sale-submit"
-                                    size="md"
+                                    size="sm"
                                     label={t(
                                         state.fulfilmentType === 'counter'
                                             ? 'kitchen:desk.sale.complete'
@@ -561,7 +539,7 @@ function SaleWizard() {
                             ) : (
                                 <Button
                                     testID="kitchen-order-desk-sale-next"
-                                    size="md"
+                                    size="sm"
                                     label={t('kitchen:desk.sale.next')}
                                     disabled={forward === null || !mayLeave(step)}
                                     onPress={() => {
@@ -1189,6 +1167,11 @@ interface PickerRow {
     readonly id: string;
     readonly name: LocalisedText;
     readonly kind: 'meal' | 'product';
+    /**
+     * A meal's allergen codes, frozen at publication — an empty set is a real "none declared".
+     * `null` for a product, which carries no allergen field at all: unknown, never "none".
+     */
+    readonly allergens: readonly string[] | null;
 }
 
 /**
@@ -1222,42 +1205,190 @@ function BasketStep({
         [debounced],
     );
 
-    const meals = useAdminMealPageQuery(filter, 1);
-    const products = useProductPageQuery(filter, 1);
+    /*
+     * The column filters. Both are real narrowings rather than a pass over the loaded page:
+     *
+     * - **Kind** chooses which of the two reads is shown at all.
+     * - **Allergens** travels to the server as `allergenCodes` on the meal read. Products carry no
+     *   allergen field, so while it is set they are left out — listing a product under "contains
+     *   gluten" would be a claim nothing on the record supports.
+     */
+    const [kind, setKind] = useState<PickerRow['kind'] | null>(null);
+    const [allergen, setAllergen] = useState<AllergenCode | null>(null);
 
-    const pickerFailure = toFailure(meals.error) ?? toFailure(products.error);
-    const loading = meals.isPending || products.isPending;
+    const mealFilter = useMemo(
+        () => ({ ...filter, ...(allergen === null ? {} : { allergenCodes: [allergen] }) }),
+        [filter, allergen],
+    );
+
+    const showMeals = kind !== 'product';
+    const showProducts = kind !== 'meal' && allergen === null;
+
+    const meals = useAdminMealPageQuery(mealFilter, 1);
+    const products = useProductPageQuery(filter, 1);
+    const allergenClasses = useAllergenClassesQuery();
+
+    const pickerFailure =
+        (showMeals ? toFailure(meals.error) : null) ??
+        (showProducts ? toFailure(products.error) : null);
+    const loading = (showMeals && meals.isPending) || (showProducts && products.isPending);
 
     const rows = useMemo<readonly PickerRow[]>(
         () => [
-            ...(meals.data?.items ?? []).map((row) => ({
+            ...(showMeals ? (meals.data?.items ?? []) : []).map((row) => ({
                 id: String(row.id),
                 name: row.name,
                 kind: 'meal' as const,
+                allergens: row.allergens.map((code) => String(code)),
             })),
-            ...(products.data?.items ?? []).map((row) => ({
+            ...(showProducts ? (products.data?.items ?? []) : []).map((row) => ({
                 id: String(row.id),
                 name: row.name,
                 kind: 'product' as const,
+                allergens: null,
             })),
         ],
-        [meals.data, products.data],
+        [meals.data, products.data, showMeals, showProducts],
     );
 
-    /** How many of an article are already in the basket, so its button can say so. */
-    function quantityInBasket(id: string): number {
-        return state.lines
-            .filter((line) => line.catalogueItemId === id)
-            .reduce((sum, line) => sum + (quantityAsNumber(line.quantity) ?? 0), 0);
-    }
+    const columns = useMemo<
+        readonly ControlledColumn<PickerRow, CatalogueColumn<PickerRow>>[]
+    >(() => {
+        return [
+            {
+                key: 'name',
+                label: t('kitchen:desk.sale.pickerColumnItem'),
+                width: 240,
+                min: 160,
+                priority: CATALOGUE_PRIORITY.designation,
+                role: 'title',
+                value: (row) => displayName(row.name, locale).value,
+                render: (row) => (
+                    <Text testID={`kitchen-order-desk-sale-picker-${row.id}`}>
+                        {displayName(row.name, locale).value}
+                    </Text>
+                ),
+                // Ordering what is on screen, which is honest in a way filtering it would not be.
+                sort: (left, right, direction) =>
+                    compareText(
+                        displayName(left.name, locale).value,
+                        displayName(right.name, locale).value,
+                        direction,
+                    ),
+            },
+            {
+                key: 'kind',
+                label: t('kitchen:desk.sale.pickerColumnKind'),
+                width: 120,
+                min: 90,
+                priority: CATALOGUE_PRIORITY.category,
+                role: 'meta',
+                value: (row) => t(`kitchen:desk.sale.itemKind.${row.kind}`),
+                // Screen-owned: the kind decides which of the two reads is shown at all.
+                filter: {
+                    values: () =>
+                        (['meal', 'product'] as const).map((candidate) => ({
+                            key: candidate,
+                            label: t(`kitchen:desk.sale.itemKind.${candidate}`),
+                        })),
+                    external: {
+                        value: kind,
+                        onChange: (next) => {
+                            setKind(next as PickerRow['kind'] | null);
+                        },
+                    },
+                },
+            },
+            {
+                key: 'allergens',
+                label: t('kitchen:desk.sale.pickerColumnAllergens'),
+                width: 200,
+                min: 130,
+                priority: CATALOGUE_PRIORITY.allergens,
+                role: 'meta',
+                value: (row) =>
+                    row.allergens === null
+                        ? EM_DASH
+                        : row.allergens.length === 0
+                          ? t('kitchen:list.noAllergens')
+                          : row.allergens.join(', '),
+                render: (row) => (
+                    <Text
+                        tone={row.allergens === null ? 'disabled' : 'secondary'}
+                        numberOfLines={1}
+                        testID={`kitchen-order-desk-sale-picker-${row.id}-allergens`}
+                    >
+                        {row.allergens === null
+                            ? EM_DASH
+                            : row.allergens.length === 0
+                              ? t('kitchen:list.noAllergens')
+                              : row.allergens.join(', ')}
+                    </Text>
+                ),
+                // Screen-owned: the class travels to the server as `allergenCodes`.
+                filter: {
+                    values: () =>
+                        (allergenClasses.data ?? []).map((entry) => ({
+                            key: entry.code,
+                            label: displayName(entry.name, locale).value,
+                        })),
+                    external: {
+                        value: allergen,
+                        onChange: (next) => {
+                            setAllergen(
+                                (allergenClasses.data ?? []).find((entry) => entry.code === next)
+                                    ?.code ?? null,
+                            );
+                        },
+                    },
+                },
+            },
+            {
+                key: 'add',
+                label: '',
+                width: 96,
+                min: 80,
+                priority: CATALOGUE_PRIORITY.actions,
+                // `metric`, not `actions`: below `md` the list draws a two-line row that renders only
+                // title / status / metric / meta, and a picker whose Add vanished on a narrow window
+                // could not sell anything. `actions` there means the ⋯ menu from `rowActions`.
+                role: 'metric',
+                align: 'end',
+                value: () => '',
+                // The row takes no press and this is its only control, so it is not nested.
+                render: (row) => {
+                    const name = displayName(row.name, locale).value;
+                    return (
+                        <Button
+                            testID={`kitchen-order-desk-sale-picker-${row.id}-add`}
+                            size="sm"
+                            variant="quiet"
+                            label={t('kitchen:desk.sale.pickerAdd')}
+                            accessibilityLabel={t('kitchen:desk.sale.pickerAddItem', {
+                                item: name,
+                            })}
+                            onPress={() => {
+                                onLines(
+                                    addItem(state.lines, {
+                                        catalogueItemId: row.id,
+                                        catalogueItemVariantId: null,
+                                        name: row.name,
+                                        variantLabel: null,
+                                    }),
+                                );
+                            }}
+                        />
+                    );
+                },
+            },
+        ];
+    }, [t, locale, kind, allergen, allergenClasses.data, onLines, state.lines]);
+
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-sale-picker');
 
     return (
-        <FormSection
-            first
-            testID="kitchen-order-desk-sale-basket"
-            title={t('kitchen:desk.sale.pickerTitle')}
-            description={t('kitchen:desk.sale.pickerNote')}
-        >
+        // No heading: the step tab above already says "Basket", and the rail beside it is the basket.
+        <View testID="kitchen-order-desk-sale-basket">
             <View testID="kitchen-order-desk-sale-picker" className="flex-col gap-tight">
                 <View style={{ width: fieldWidth }}>
                     <SearchInput
@@ -1294,60 +1425,20 @@ function BasketStep({
                         body={t('kitchen:desk.sale.pickerEmptyBody')}
                     />
                 ) : (
-                    <View
-                        testID="kitchen-order-desk-sale-picker-rows"
-                        role="list"
-                        className="flex-col border-t border-stroke"
-                    >
-                        {rows.map((row) => {
-                            const inBasket = quantityInBasket(row.id);
-                            const name = displayName(row.name, locale).value;
-                            return (
-                                <View
-                                    key={`${row.kind}-${row.id}`}
-                                    role="listitem"
-                                    testID={`kitchen-order-desk-sale-picker-${row.id}`}
-                                    className="min-h-row-md flex-row items-center gap-tight border-b border-stroke-subtle px-control-sm hover:bg-surface-sunken"
-                                >
-                                    {/* eslint-disable-next-line no-restricted-syntax -- the name is the row's filler. */}
-                                    <View className="min-w-0 flex-1">
-                                        <Text>{name}</Text>
-                                    </View>
-                                    <Text variant="caption" tone="secondary">
-                                        {t(`kitchen:desk.sale.itemKind.${row.kind}`)}
-                                    </Text>
-                                    <Button
-                                        testID={`kitchen-order-desk-sale-picker-${row.id}-add`}
-                                        size="sm"
-                                        variant={inBasket > 0 ? 'secondary' : 'quiet'}
-                                        label={
-                                            inBasket > 0
-                                                ? t('kitchen:desk.sale.pickerAdded', {
-                                                      count: inBasket,
-                                                  })
-                                                : t('kitchen:desk.sale.pickerAdd')
-                                        }
-                                        accessibilityLabel={t('kitchen:desk.sale.pickerAddItem', {
-                                            item: name,
-                                        })}
-                                        onPress={() => {
-                                            onLines(
-                                                addItem(state.lines, {
-                                                    catalogueItemId: row.id,
-                                                    catalogueItemVariantId: null,
-                                                    name: row.name,
-                                                    variantLabel: null,
-                                                }),
-                                            );
-                                        }}
-                                    />
-                                </View>
-                            );
-                        })}
+                    <View testID="kitchen-order-desk-sale-picker-rows">
+                        <CatalogueList
+                            testID="kitchen-order-desk-sale-picker-table"
+                            label={t('kitchen:desk.sale.pickerSearchLabel')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => `${row.kind}-${row.id}`}
+                            density="sm"
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
                     </View>
                 )}
             </View>
-        </FormSection>
+        </View>
     );
 }
 

@@ -21,7 +21,6 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueColumnHeader } from '../catalogue/catalogue-column-header.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -33,6 +32,8 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ingredientColumns } from '../catalogue/ingredient-columns.tsx';
 import type { IngredientListState, IngredientSortKey } from '../catalogue/use-ingredient-list.ts';
 import { useIngredientList } from '../catalogue/use-ingredient-list.ts';
+import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
+import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import {
     INGREDIENT_STATUS_FILTERS,
     displayName,
@@ -139,10 +140,20 @@ function IngredientsList() {
         [t, locale, formatter, categoryName],
     );
 
-    const withHeaders = columns.map((column) => ({
-        ...column,
-        renderHeader: headerMenu(column, list, t, locale),
-    }));
+    const controls = useColumnControls<IngredientAdmin, CatalogueColumn<IngredientAdmin>>(
+        list.rows,
+        columns.map((column) => ({ ...column, ...columnControl(column.key, list, t, locale) })),
+        'kitchen-ingredients',
+        {
+            sort: {
+                key: list.sortKey,
+                direction: list.sortDirection,
+                onChange: (key, direction) => {
+                    if (isIngredientSortKey(key)) list.setSort(key, direction);
+                },
+            },
+        },
+    );
 
     // A status the segments do not name — Archived, reached from the Status column's own filter —
     // leaves the set on "all" rather than lighting a segment that is not on the row.
@@ -286,7 +297,7 @@ function IngredientsList() {
                     <CatalogueList
                         testID="kitchen-ingredients-table"
                         label={t('kitchen:list.caption')}
-                        columns={withHeaders}
+                        columns={controls.columns}
                         rows={list.rows}
                         rowKey={(row) => String(row.id)}
                         // Fixed, not switchable: the S/M/L control is gone.
@@ -480,72 +491,89 @@ function statCards(list: IngredientListState, t: TFunction): readonly CatalogueS
  */
 
 /**
- * The header control for one column — §4.3's sort-and-filter menu.
+ * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Returns `undefined` for a column that can neither sort nor filter, which is what tells `DataList`
- * to draw a plain label instead of a focusable trigger nobody can act on.
+ * Sorting and every filter stay on the list hook, and so on the request: `IngredientAdminFilter` is
+ * paged, and narrowing the loaded page by unit or price would misreport every page after it. That is
+ * why only Status, Category and Allergens filter, and why their state is `external`.
+ *
+ * Status offers all four, including Archived, which is what makes it fine for the toolbar's segments
+ * to name only three. Allergens offers every class the platform declares, not only the ones on the
+ * loaded page — the eighteen rows in front of you carry four classes between them, and a menu that
+ * offered four would make the other ten look as though nothing declares them.
  */
-function headerMenu(
-    column: CatalogueColumn<IngredientAdmin>,
+function columnControl(
+    key: string,
     list: IngredientListState,
     t: TFunction,
     locale: string,
-): (() => React.ReactNode) | undefined {
-    const sortKey = sortKeyFor(column.key);
-    const filter = filterItemsFor(column.key, list, t, locale);
-    if (sortKey === null && filter.length === 0) return undefined;
+): ColumnControl<IngredientAdmin> {
+    if (key === 'status') {
+        return {
+            filter: {
+                values: () =>
+                    INGREDIENT_STATUS_FILTERS.map((status: PublishableStatus) => ({
+                        key: status,
+                        label: t(statusShortKey(status)),
+                    })),
+                external: {
+                    value: list.statuses[0] ?? null,
+                    onChange: (next) => {
+                        list.setStatuses(next === null ? [] : [next as PublishableStatus]);
+                    },
+                },
+            },
+        };
+    }
 
-    const active = sortKey !== null && list.sortKey === sortKey;
-    // Any value in this column's own list that is currently applied. Derived from the items
-    // rather than restated per entity: the screens already mark the applied value `selected`
-    // so the menu can tick it, and "the menu has a tick" is exactly "the column is filtered".
-    const filtered = filter.some((item) => item.selected === true);
+    if (key === 'allergens') {
+        return {
+            filter: {
+                values: () =>
+                    list.allergenClasses.map((entry) => ({
+                        key: entry.code,
+                        label: displayName(entry.name, locale).value,
+                    })),
+                external: {
+                    value: list.allergen,
+                    onChange: (next) => {
+                        list.setAllergen(
+                            next === null
+                                ? null
+                                : (list.allergenClasses.find((entry) => entry.code === next)
+                                      ?.code ?? null),
+                        );
+                    },
+                },
+            },
+        };
+    }
 
-    /*
-     * A column with nothing to filter by sorts on the press itself - see `onToggleSort`. The cycle
-     * is the one a reader expects from a table: first press sorts ascending, pressing the column
-     * already sorted flips it.
-     */
-    const toggleSort =
-        sortKey === null || filter.length > 0
-            ? undefined
-            : () => {
-                  list.setSort(sortKey, active && list.sortDirection === 'asc' ? 'desc' : 'asc');
-              };
+    if (key === 'category') {
+        return {
+            filter: {
+                // The catalogue's own names now that the tree is on the contract — `humaniseCode`
+                // renders `baking-starch` as "Baking Starch" where the category is "Baking & Starch".
+                values: () =>
+                    list.categories.map((entry) => ({
+                        key: entry.code,
+                        label: displayName(entry.name, locale).value,
+                    })),
+                external: {
+                    value: list.category,
+                    onChange: (next) => {
+                        list.setCategory(next);
+                    },
+                },
+            },
+        };
+    }
 
-    return () => (
-        <CatalogueColumnHeader
-            label={column.label}
-            align={column.align}
-            {...(toggleSort === undefined ? {} : { onToggleSort: toggleSort })}
-            /*
-             * Values only. The sort pair used to lead this list, which meant a column that could
-             * only sort still opened a panel to ask "ascending or descending" - a second press for
-             * something the first press already meant. Sorting is the press itself now, so a column
-             * with no values to choose from has no menu at all, and `sections` being empty is
-             * exactly what tells the header that.
-             */
-            sections={
-                filter.length === 0 ? [] : [{ label: t('kitchen:catalogue.filter'), items: filter }]
-            }
-            // Three states, not two: `undefined` where the column cannot sort at all, so the
-            // header knows to draw no arrow rather than a grey one pointing at nothing.
-            sortDirection={
-                sortKey === null || filter.length > 0
-                    ? undefined
-                    : active
-                      ? list.sortDirection
-                      : null
-            }
-            filtered={filtered}
-            testID={`kitchen-ingredients-column-${column.key}`}
-        />
-    );
+    return isIngredientSortKey(key) ? { sort: 'external' } : {};
 }
 
-/** The sort the hook understands for a column, or `null` where there is none. */
-function sortKeyFor(key: string): IngredientSortKey | null {
-    if (
+function isIngredientSortKey(key: string): key is IngredientSortKey {
+    return (
         key === 'reference' ||
         key === 'name' ||
         key === 'category' ||
@@ -553,111 +581,5 @@ function sortKeyFor(key: string): IngredientSortKey | null {
         key === 'unitPrice' ||
         key === 'status' ||
         key === 'updatedAt'
-    ) {
-        return key;
-    }
-    return null;
-}
-
-/**
- * The value list under a column's Filter heading.
- *
- * Only the two the request can carry. Allergens, the unit, the price and the name have no filter
- * parameter on `IngredientAdminFilter`, so their headers sort and nothing else — narrowing one
- * loaded page and calling it a filter would misreport every page after it.
- *
- * Status offers all four, including Archived, which is what makes it fine for the toolbar's
- * segments to name only three.
- */
-function filterItemsFor(
-    key: string,
-    list: IngredientListState,
-    t: TFunction,
-    locale: string,
-): readonly MenuItem[] {
-    if (key === 'status') {
-        return [
-            ...INGREDIENT_STATUS_FILTERS.map((status: PublishableStatus) => ({
-                key: status,
-                label: t(statusShortKey(status)),
-                selected: list.statuses.includes(status),
-                testID: `kitchen-ingredients-column-status-${status}`,
-                onSelect: () => {
-                    list.setStatuses(list.statuses[0] === status ? [] : [status]);
-                },
-            })),
-            ...(list.statuses.length === 0
-                ? []
-                : [
-                      clearItem('status', t, () => {
-                          list.setStatuses([]);
-                      }),
-                  ]),
-        ];
-    }
-
-    if (key === 'allergens') {
-        /*
-         * Every class the platform declares, not only the ones on the loaded page.
-         *
-         * The page-derived alternative is the trap the sub-category picker already fell into: the
-         * eighteen rows in front of you carry four classes between them, so the menu offers four
-         * and the other ten look as though nothing declares them. The vocabulary is closed and on
-         * the contract, so it is read from there.
-         */
-        return [
-            ...list.allergenClasses.map((entry) => ({
-                key: entry.code,
-                label: displayName(entry.name, locale).value,
-                selected: list.allergen === entry.code,
-                testID: `kitchen-ingredients-column-allergens-${entry.code}`,
-                onSelect: () => {
-                    list.setAllergen(list.allergen === entry.code ? null : entry.code);
-                },
-            })),
-            ...(list.allergen === null
-                ? []
-                : [
-                      clearItem('allergens', t, () => {
-                          list.setAllergen(null);
-                      }),
-                  ]),
-        ];
-    }
-
-    if (key === 'category') {
-        return [
-            ...list.categories.map((entry) => ({
-                key: entry.code,
-                // The catalogue's own name now that the tree is on the contract. `humaniseCode`
-                // was standing in for it and could only ever approximate — it renders
-                // `baking-starch` as "Baking Starch", where the category is called "Baking &
-                // Starch".
-                label: displayName(entry.name, locale).value,
-                selected: list.category === entry.code,
-                testID: `kitchen-ingredients-column-category-${entry.code}`,
-                onSelect: () => {
-                    list.setCategory(list.category === entry.code ? null : entry.code);
-                },
-            })),
-            ...(list.category === null
-                ? []
-                : [
-                      clearItem('category', t, () => {
-                          list.setCategory(null);
-                      }),
-                  ]),
-        ];
-    }
-
-    return [];
-}
-
-function clearItem(column: string, t: TFunction, onSelect: () => void): MenuItem {
-    return {
-        key: 'clear',
-        label: t('kitchen:catalogue.clearFilter'),
-        testID: `kitchen-ingredients-column-${column}-clear`,
-        onSelect,
-    };
+    );
 }

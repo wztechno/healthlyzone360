@@ -3,7 +3,7 @@ import type {
     OrderDeskQuoteLine,
     OrderDeskRefusal,
 } from '@healthy360/api-client/contracts';
-import { Callout, Icon, IconButton, NumberStepper, Text } from '@healthy360/design-system';
+import { Callout, Icon, IconButton, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
@@ -59,6 +59,8 @@ export interface BasketRailProps {
     /** The basket has moved on from the quote on screen. */
     readonly quoteStale: boolean;
     readonly quoteFailed: boolean;
+    /** The server's own sentence for a failed quote — it usually says exactly what to fix. */
+    readonly quoteFailureMessage?: string | undefined;
     readonly onLines: (lines: readonly BasketLine[]) => void;
     /** Back and forward, drawn at the foot of the rail so the way on is beside the total. */
     readonly navigation: ReactNode;
@@ -70,6 +72,7 @@ export function BasketRail({
     quote,
     quoteStale,
     quoteFailed,
+    quoteFailureMessage,
     onLines,
     navigation,
     testID,
@@ -149,16 +152,13 @@ export function BasketRail({
                                         </Text>
                                     </View>
 
-                                    <View className="flex-row items-center gap-hair">
-                                        <NumberStepper
+                                    <View className="flex-row items-center justify-between gap-hair">
+                                        <CompactQuantity
                                             testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-quantity`}
                                             label={t('kitchen:desk.sale.quantityLabel', {
                                                 item: name,
                                             })}
-                                            value={quantityAsNumber(line.quantity)}
-                                            min={1}
-                                            max={MAX_LINE_QUANTITY}
-                                            step={1}
+                                            value={quantityAsNumber(line.quantity) ?? 1}
                                             onChange={(next) => {
                                                 onLines(
                                                     setQuantity(
@@ -207,17 +207,78 @@ export function BasketRail({
                     </View>
                 )}
 
-                <QuoteTotals
-                    quote={quote}
-                    stale={quoteStale}
-                    failed={quoteFailed}
-                    testID="kitchen-order-desk-sale-basket-totals"
-                />
+                {/* An empty basket has no total to state — the line above already says why. */}
+                {lines.length === 0 ? null : (
+                    <QuoteTotals
+                        quote={quote}
+                        stale={quoteStale}
+                        failed={quoteFailed}
+                        failureMessage={quoteFailureMessage}
+                        testID="kitchen-order-desk-sale-basket-totals"
+                    />
+                )}
             </View>
 
-            <View className="flex-row items-center justify-between gap-tight rounded-b border-t border-stroke-subtle bg-surface-base px-snug py-tight">
+            <View className="flex-row items-center justify-between gap-tight border-t border-stroke-subtle px-snug py-tight">
                 {navigation}
             </View>
+        </View>
+    );
+}
+
+/**
+ * A desk-sized quantity: − n +, one row, no label above it.
+ *
+ * The form-sized `NumberStepper` puts a labelled full-width input between two 44px buttons, which in
+ * a 264px rail is most of a line per article. The desk is driven with a mouse, so small buttons and
+ * the count between them are enough; the label stays as the buttons' and the group's accessible name.
+ */
+function CompactQuantity({
+    label,
+    value,
+    onChange,
+    testID,
+}: {
+    readonly label: string;
+    readonly value: number;
+    readonly onChange: (next: number) => void;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+
+    return (
+        <View
+            testID={testID}
+            role="group"
+            aria-label={label}
+            className="flex-row items-center gap-hair rounded-sm border border-stroke-subtle"
+        >
+            <IconButton
+                testID={`${testID}-decrement`}
+                icon={<Icon name="minus" size="sm" />}
+                variant="ghost"
+                size="sm"
+                label={t('designSystem:numberStepper.decrease', { label })}
+                disabled={value <= 1}
+                onPress={() => {
+                    onChange(value - 1);
+                }}
+            />
+            <Text variant="mono" testID={`${testID}-value`} aria-live="polite">
+                {formatter.formatNumber(value)}
+            </Text>
+            <IconButton
+                testID={`${testID}-increment`}
+                icon={<Icon name="plus" size="sm" />}
+                variant="ghost"
+                size="sm"
+                label={t('designSystem:numberStepper.increase', { label })}
+                disabled={value >= MAX_LINE_QUANTITY}
+                onPress={() => {
+                    onChange(value + 1);
+                }}
+            />
         </View>
     );
 }
@@ -233,11 +294,13 @@ function QuoteTotals({
     quote,
     stale,
     failed,
+    failureMessage,
     testID,
 }: {
     readonly quote: OrderDeskQuote | null;
     readonly stale: boolean;
     readonly failed: boolean;
+    readonly failureMessage?: string | undefined;
     readonly testID: string;
 }) {
     const { t } = useTranslation();
@@ -250,18 +313,15 @@ function QuoteTotals({
                 tone="danger"
                 role="alert"
                 title={t('kitchen:desk.sale.quoteErrorTitle')}
-                body={t('kitchen:desk.sale.quoteErrorBody')}
+                body={failureMessage ?? t('kitchen:desk.sale.quoteErrorBody')}
             />
         );
     }
 
     if (quote === null) {
         return (
-            <View className="flex-col gap-hair pt-tight">
+            <View className="flex-col gap-hair pt-tight" testID={`${testID}-none`}>
                 <DeskAmount emphasis label={t('kitchen:desk.sale.total')} value={EM_DASH} />
-                <Text variant="caption" tone="secondary" testID={`${testID}-none`}>
-                    {t('kitchen:desk.sale.noQuoteYet')}
-                </Text>
             </View>
         );
     }
@@ -290,9 +350,12 @@ function QuoteTotals({
                 testID={`${testID}-total`}
             />
 
-            <Text variant="caption" tone="secondary" role="status" testID={`${testID}-note`}>
-                {t(stale ? 'kitchen:desk.sale.quoteUpdating' : 'kitchen:desk.sale.quotedByKitchen')}
-            </Text>
+            {/* Only while it is changing: a steady "priced by the kitchen" line is furniture. */}
+            {stale ? (
+                <Text variant="caption" tone="secondary" role="status" testID={`${testID}-note`}>
+                    {t('kitchen:desk.sale.quoteUpdating')}
+                </Text>
+            ) : null}
 
             {quote.refusals.length === 0 ? null : (
                 <Callout

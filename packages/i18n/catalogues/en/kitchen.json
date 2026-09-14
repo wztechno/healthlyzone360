@@ -1286,6 +1286,9 @@
             "pickerErrorTitle": "The menu could not be loaded",
             "pickerEmptyTitle": "Nothing published matches",
             "pickerEmptyBody": "Only published meals and products can be sold. Try a different search, or publish the article first.",
+            "pickerColumnItem": "Item",
+            "pickerColumnKind": "Kind",
+            "pickerColumnAllergens": "Allergens",
             "itemKind": {
                 "meal": "Meal",
                 "product": "Product"
