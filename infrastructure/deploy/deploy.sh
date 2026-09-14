@@ -136,13 +136,17 @@ APP_KEY=""
 [ -f .env.deploy ] && APP_KEY="$(sed -n 's/^APP_KEY=//p' .env.deploy)"
 [ -n "$APP_KEY" ] || APP_KEY="base64:$(head -c 32 /dev/urandom | base64)"
 
-# The contact-hashing pepper is preserved exactly like the key: contact points
-# are stored as HMACs of the address under it, so a changed pepper would orphan
-# every verified email and phone. Without it, production refuses to hash at all
-# and no customer can verify a contact or activate an account.
+# The two hashing peppers are preserved exactly like the key: contact points
+# are stored as HMACs of the address under CONTACT_PEPPER, and passcodes under
+# OTP_PEPPER, so a changed pepper would orphan every verified email and phone
+# and every open challenge. Without them, production refuses to hash at all and
+# no customer can verify a contact or activate an account.
 CONTACT_PEPPER=""
 [ -f .env.deploy ] && CONTACT_PEPPER="$(sed -n 's/^CONTACT_PEPPER=//p' .env.deploy)"
 [ -n "$CONTACT_PEPPER" ] || CONTACT_PEPPER="$(head -c 32 /dev/urandom | base64)"
+OTP_PEPPER=""
+[ -f .env.deploy ] && OTP_PEPPER="$(sed -n 's/^OTP_PEPPER=//p' .env.deploy)"
+[ -n "$OTP_PEPPER" ] || OTP_PEPPER="$(head -c 32 /dev/urandom | base64)"
 
 umask 077
 cat > .env.deploy <<EOF
@@ -151,6 +155,7 @@ APP_NAME="$APP_NAME"
 APP_ENV=production
 APP_KEY=$APP_KEY
 CONTACT_PEPPER=$CONTACT_PEPPER
+OTP_PEPPER=$OTP_PEPPER
 APP_DEBUG=false
 APP_URL=https://$SITE_ADDRESS
 
