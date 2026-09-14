@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Database\Seeders\KitchenReferenceSeeder;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Kitchens\Import\Runtime\DesignationDictionary;
+use Healthy360\Kitchens\Import\Runtime\DesignationResolver;
 use Healthy360\Kitchens\Import\Runtime\ImportOptions;
 use Healthy360\Kitchens\Import\Runtime\ImportReport;
 use Healthy360\Kitchens\Import\Runtime\UnitMap;
@@ -27,17 +29,25 @@ use Healthy360\Tenancy\TenantContext;
 | Driven by the synthetic fixtures at `tests/Fixtures/v6/` — three invented
 | sheets (a kg sauce, a pieces-with-mass preparation consuming the sauce as
 | an intermediate, and a sheet with no yield) plus a fixture dictionary with
-| one minted raw material, one item link, one link the supplier-mode guard
-| must refuse, and one declined link.
+| three minted raw materials (one carrying a density, one carrying facts, one
+| named by the yield-less sheet), one item link, one link the supplier-mode
+| guard must refuse, and one declined link.
 |
 | The real formulations are confidential and never in this repository; the
 | fixture's job is to exercise every writer decision with invented numbers.
+| The committed dictionary itself is not confidential, and the curated links
+| in it are asserted directly against the platform library below.
 |
 */
 
 const V6_RECIPES_FIXTURE = __DIR__.'/Fixtures/v6/v6-recipes.json';
 const V6_RECIPES_DICTIONARY = __DIR__.'/Fixtures/v6/v6-recipe-designations.json';
 const V6_CATALOGUE_FIXTURE = __DIR__.'/Fixtures/v6/v6-catalogue.json';
+
+function committedDictionary(): DesignationDictionary
+{
+    return DesignationDictionary::load(base_path('app-modules/kitchens/database/data/v6-recipe-designations.json'));
+}
 
 beforeEach(function (): void {
     $this->seed([ReferenceDataSeeder::class, KitchenReferenceSeeder::class, OrganisationTypeSeeder::class]);
@@ -168,6 +178,88 @@ it('feeds the intermediate chain: the preparation consumes the sauce the other s
         ->sole();
 
     expect($intermediateLine->ingredient_id)->toBe($sauceItem->ingredient_id);
+});
+
+it('resolves the sheets\' duplicate wordings onto the platform library instead of minting them', function (): void {
+    // Six designations the sheets spell their own way. Each one names a row
+    // the 306-row library already carries, so the dictionary aliases it there
+    // rather than declaring a tenant copy: a second "Swiss Cheese" beside
+    // Emmental is a second allergen determination to keep in step, and the
+    // kitchen confirmed they are the same product.
+    $resolver = new DesignationResolver(committedDictionary(), null);
+    $resolver->refresh();
+
+    /** @var array<string, string> $library */
+    $library = Ingredient::withoutTenancy()->whereNull('organisation_id')->pluck('id', 'name_en')->all();
+
+    $curated = [
+        'Panko' => 'Crumb',
+        'Swiss Cheese' => 'Emmental cheese',
+        'Dill Pickles' => 'Pickles, dill',
+        'Jalapenos' => 'Pickles, jalapeno',
+        'Green Onions' => 'Green onion (scallion)',
+        'Pineapple Juice (maccaw)' => 'Pineapple, canned',
+    ];
+
+    foreach ($curated as $designation => $name) {
+        expect(array_key_exists($name, $library))->toBeTrue($name.' is a platform library row')
+            ->and($resolver->resolve($designation))->toBe($library[$name], $designation);
+    }
+
+    // And none of them is declared as a raw material any more, so no run can
+    // mint a duplicate of a row it has just been pointed at.
+    $declared = array_column(committedDictionary()->tenantIngredients(), 'name_en');
+
+    foreach (['Swiss Cheese', 'Dill Pickles', 'Jalapenos', 'Green Onions', 'Panko breadcrumbs'] as $name) {
+        expect($declared)->not->toContain($name);
+    }
+});
+
+it('mints a raw material with the facts the dictionary declares for it', function (): void {
+    runV6RecipesImport();
+
+    $water = Ingredient::withoutTenancy()->where('slug', 'water')->sole();
+    $amounts = $water->nutrition_per_100g['amounts'];
+
+    // Compared column by column rather than as one array: jsonb returns an
+    // object's keys in its own order, and the list order is the part that is
+    // the contract.
+    expect($water->nutrition_per_100g['basis'])->toBe('per_100g')
+        ->and(array_column($amounts, 'nutrient_id'))
+        ->toBe(['energy', 'protein', 'carbohydrate', 'fat', 'fibre', 'sugars', 'sodium'])
+        ->and(array_column($amounts, 'unit'))->toBe(['kcal', 'g', 'g', 'g', 'g', 'g', 'mg'])
+        ->and(array_column($amounts, 'value'))->toBe([0, 0, 0, 0, 0, 0, 0])
+        // Water has no density: it is stocked by mass, and a density on a mass
+        // unit is a second answer to a question arithmetic already answers.
+        ->and($water->grams_per_unit)->toBeNull()
+        // The other declared key, on the row that does state one.
+        ->and(Ingredient::withoutTenancy()->where('slug', 'fixture-hot-paste')->sole()->grams_per_unit)
+        ->toBe('1030.0000');
+
+    // The fixture copies the committed declaration; this is the committed one.
+    $declared = collect(committedDictionary()->tenantIngredients())->firstWhere('name_en', 'Water');
+
+    expect(array_column($declared['nutrition_per_100g']['amounts'], 'value'))->toBe([0, 0, 0, 0, 0, 0, 0]);
+});
+
+it('gives a sheet with no yield an output equal to the mass it consumed', function (): void {
+    test()->artisan('kitchen:import-v6-recipes', [
+        '--source' => V6_RECIPES_FIXTURE,
+        '--dictionary' => V6_RECIPES_DICTIONARY,
+        '--org' => 'test-v6-kitchen',
+    ])->expectsOutputToContain('intermediate_output_from_input_mass')->assertSuccessful();
+
+    $version = RecipeVersion::withoutTenancy()->where('source_ref', 'v6-recipes.json#Sheet3')->sole();
+    $output = RecipeVersionOutput::withoutTenancy()->where('recipe_version_id', $version->getKey())->sole();
+
+    // The sheet states no yield and 2 kg of inputs. A kitchen that records no
+    // loss claims none, so the output is the input mass — the alternative, no
+    // output row at all, leaves the version that consumes this preparation
+    // unreachable from the version that makes it.
+    expect($version->yield_quantity)->toBeNull()
+        ->and((string) $output->output_quantity)->toBe('2.0000')
+        ->and($output->unit_id)->toBe(UnitMap::idForCode('kg'))
+        ->and($output->is_primary)->toBeTrue();
 });
 
 it('changes nothing on a second run and writes nothing on a dry run', function (): void {

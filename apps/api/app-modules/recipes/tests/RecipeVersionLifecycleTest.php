@@ -88,6 +88,84 @@ it('publishes a ready draft, freezes the label with provenance and records the d
     expect(AuditLog::query()->where('action', 'catalogue.recipe_version_published')->count())->toBe(1);
 });
 
+it('snapshots the per-recipe nutrition on publication and audits that it was derived', function (): void {
+    [$recipeId, $ingredient] = publishableRecipe($this->kitchen, $this->headers, $this->grams);
+
+    // 250 g of a 595 kcal/100 g ingredient, which is the whole line. Values
+    // chosen so the arithmetic is exact: 2.5 × 595 is 1487.5 and nothing here
+    // depends on a rounding rule being applied the way it happens to be today.
+    RecipeWorld::nourish($ingredient, RecipeWorld::nutritionEnvelope([
+        'energy' => 595, 'protein' => 17, 'carbohydrate' => 21.2,
+        'fat' => 53.8, 'fibre' => 9.3, 'sugars' => 0.5, 'sodium' => 115,
+    ]));
+
+    $this->postJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1/publish", [],
+        $this->headers + ['If-Match' => '"1"'])->assertOk();
+
+    $facts = RecipeVersion::withoutTenancy()->where('recipe_id', $recipeId)->sole()->nutrition_facts;
+
+    expect($facts['basis'] ?? null)->toBe('per_recipe')
+        ->and($facts['source']['kind'] ?? null)->toBe('ingredient_derived')
+        // The version states no yield, so the basis is what went in. The
+        // envelope says which rather than leaving a reader to assume, because
+        // per-100 g and the customer's serving size are both divided by it.
+        ->and($facts['calculation']['notes'] ?? null)->toBe(['mass_basis: input'])
+        ->and($facts['total_grams'] ?? null)->toEqual(250);
+
+    $amounts = [];
+
+    foreach ($facts['amounts'] ?? [] as $amount) {
+        $amounts[$amount['nutrient_id']] = $amount['value'];
+    }
+
+    // `toEqual`, not `toBe`: the column round-trips through JSON, where a whole
+    // float may come back as an int, and the claim under test is the figure
+    // rather than its PHP type.
+    expect($amounts)->toEqual([
+        'energy' => 1487.5,
+        'protein' => 42.5,
+        'carbohydrate' => 53,
+        'fat' => 134.5,
+        'fibre' => 23.25,
+        'sugars' => 1.25,
+        'sodium' => 287.5,
+    ]);
+
+    $event = AuditLog::query()->where('action', 'catalogue.recipe_version_published')->sole();
+
+    expect($event->metadata['nutrition_derived'] ?? null)->toBeTrue()
+        ->and($event->metadata['unresolved_nutrition_line_count'] ?? null)->toBe(0);
+
+    // A count and a flag, never the figures: the audit trail is not behind the
+    // cost permission and has no business carrying a payload.
+    expect($event->metadata)->not->toHaveKey('nutrition_facts');
+});
+
+it('publishes a version whose ingredient has no facts, with the snapshot withheld', function (): void {
+    // Nutrition is not a gate. Most line ingredients are platform rows whose
+    // reference facts the kitchen does not own, and holding a correct allergen
+    // label hostage to somebody else's reference-data gap is how a kitchen
+    // learns to publish first and fix labels later.
+    [$recipeId] = publishableRecipe($this->kitchen, $this->headers, $this->grams, 'Unmeasured Sauce');
+
+    $this->postJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1/publish", [],
+        $this->headers + ['If-Match' => '"1"'])
+        ->assertOk()
+        ->assertJsonPath('data.version.status', 'published');
+
+    $version = RecipeVersion::withoutTenancy()->where('recipe_id', $recipeId)->sole();
+
+    // Withheld in full rather than a total short by exactly the line nobody
+    // could weigh, which reads identically to a correct one.
+    expect($version->status)->toBe(RecipeVersionStatus::Published)
+        ->and($version->nutrition_facts)->toBeNull();
+
+    $event = AuditLog::query()->where('action', 'catalogue.recipe_version_published')->sole();
+
+    expect($event->metadata['nutrition_derived'] ?? null)->toBeFalse()
+        ->and($event->metadata['unresolved_nutrition_line_count'] ?? null)->toBe(1);
+});
+
 it('blocks publication of a version whose lines carry no quantity, and names the lines', function (): void {
     $ingredient = RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Lemon Juice', 'sulphites');
 

@@ -19,6 +19,14 @@ import { orderedNutrientIds, per100gFacts } from './format.ts';
  * second basis is derived here rather than fetched, from the mass the facts already carry — and
  * when that mass is unknown the tab says so instead of inventing a density.
  *
+ * ## Unless the payload is already per 100 g
+ *
+ * A listing sold by weight — a bottled sauce, a dressing — arrives with `basis: 'per_100g'` and no
+ * serving at all, because the kitchen never stated one (`catalogue.nutrition.per_100g`). There is
+ * then no second view to offer: the tabs come off and the table is captioned for what it is. Leaving
+ * a "Per serving" tab in place would label a hundred grams of sauce as somebody's portion, which is
+ * the fabrication the server refused to make when it chose this basis.
+ *
  * ## Provenance is not decoration
  *
  * Doc 09, IMP-06 and IMP-11, and doc 17, NUT-04 and NUT-09, all land on the same requirement:
@@ -60,7 +68,10 @@ export function NutritionFactsPanel({
     const formatter = useFormatter();
     const [basis, setBasis] = useState<Basis>('per_serving');
 
-    const per100g = per100gFacts(facts);
+    // Already the comparison basis: one view, no re-basing (a hundred grams of a hundred grams),
+    // and `basis` below never leaves `per_serving` because the control that moves it is not rendered.
+    const fixedPer100g = facts.basis === 'per_100g';
+    const per100g = fixedPer100g ? null : per100gFacts(facts);
     const active = basis === 'per_100g' && per100g !== null ? per100g : facts;
 
     const rows: readonly NutrientRow[] = orderedNutrientIds(active).map((nutrientId) => {
@@ -98,7 +109,7 @@ export function NutritionFactsPanel({
     ];
 
     const basisLabel =
-        basis === 'per_100g' && per100g !== null
+        fixedPer100g || (basis === 'per_100g' && per100g !== null)
             ? t('catalogue:facts.per100g')
             : t('catalogue:facts.perServing');
 
@@ -107,27 +118,33 @@ export function NutritionFactsPanel({
             <Stack space="md">
                 <Text variant="label">{title ?? t('catalogue:facts.title')}</Text>
 
-                <Tabs
-                    testID={`${testID}-basis`}
-                    label={t('catalogue:facts.basisLabel')}
-                    variant="segmented"
-                    block
-                    value={basis}
-                    onChange={setBasis}
-                    items={[
-                        {
-                            value: 'per_serving',
-                            label: t('catalogue:facts.perServing'),
-                            testID: `${testID}-basis-per-serving`,
-                        },
-                        {
-                            value: 'per_100g',
-                            label: t('catalogue:facts.per100g'),
-                            disabled: per100g === null,
-                            testID: `${testID}-basis-per-100g`,
-                        },
-                    ]}
-                />
+                {fixedPer100g ? (
+                    <Text testID={`${testID}-sold-by-weight`} tone="secondary" variant="caption">
+                        {t('catalogue:facts.soldByWeight')}
+                    </Text>
+                ) : (
+                    <Tabs
+                        testID={`${testID}-basis`}
+                        label={t('catalogue:facts.basisLabel')}
+                        variant="segmented"
+                        block
+                        value={basis}
+                        onChange={setBasis}
+                        items={[
+                            {
+                                value: 'per_serving',
+                                label: t('catalogue:facts.perServing'),
+                                testID: `${testID}-basis-per-serving`,
+                            },
+                            {
+                                value: 'per_100g',
+                                label: t('catalogue:facts.per100g'),
+                                disabled: per100g === null,
+                                testID: `${testID}-basis-per-100g`,
+                            },
+                        ]}
+                    />
+                )}
 
                 {basis === 'per_100g' && per100g === null ? (
                     <Text testID={`${testID}-per-100g-unavailable`} tone="secondary">

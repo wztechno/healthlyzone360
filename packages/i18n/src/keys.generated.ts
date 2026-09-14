@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6722 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6750 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1010,6 +1010,7 @@ export interface NamespaceKeys {
     | 'facts.prototypeFlag'
     | 'facts.recipeVersion'
     | 'facts.rounding'
+    | 'facts.soldByWeight'
     | 'facts.source'
     | 'facts.sourceTitle'
     | 'facts.syntheticNote'
@@ -1048,6 +1049,7 @@ export interface NamespaceKeys {
     | 'macros.referenceTitle'
     | 'macros.ringLabel'
     | 'macros.ringValue'
+    | 'macros.ringValuePer100g'
     | 'macros.title'
     | 'meal.actionErrorBody'
     | 'meal.actionErrorTitle'
@@ -1086,6 +1088,7 @@ export interface NamespaceKeys {
     | 'meal.macroRingCaption'
     | 'meal.macroValue'
     | 'meal.macrosTitle'
+    | 'meal.macrosTitlePer100g'
     | 'meal.noPlanBody'
     | 'meal.noPlanBrowse'
     | 'meal.noPlanHome'
@@ -2445,6 +2448,7 @@ export interface NamespaceKeys {
     | 'common.saving'
     | 'common.undo'
     | 'common.yes'
+    | 'composition.allergensDescription'
     | 'composition.description'
     | 'composition.fromDatabase'
     | 'composition.per100g'
@@ -2862,6 +2866,9 @@ export interface NamespaceKeys {
     | 'fields.composition'
     | 'fields.compositionHint'
     | 'fields.designation'
+    | 'fields.gramsPerUnit'
+    | 'fields.gramsPerUnitHint'
+    | 'fields.gramsPerUnitPlaceholder'
     | 'fields.itemsPerPurchaseUnit'
     | 'fields.itemsPerUnit'
     | 'fields.itemsPerUnitHint'
@@ -2915,6 +2922,7 @@ export interface NamespaceKeys {
     | 'ingredientDetail.backToList'
     | 'ingredientDetail.basisValue'
     | 'ingredientDetail.fieldBasis'
+    | 'ingredientDetail.fieldGramsPerUnit'
     | 'ingredientDetail.fieldItemsPerUnit'
     | 'ingredientDetail.fieldLastChange'
     | 'ingredientDetail.fieldPackCost'
@@ -3139,6 +3147,22 @@ export interface NamespaceKeys {
     | 'nav.groups.workspace'
     | 'nav.overview'
     | 'nav.railTitle'
+    | 'nutritionFacts.derivedBadge'
+    | 'nutritionFacts.derivedDescription'
+    | 'nutritionFacts.estimateDescription'
+    | 'nutritionFacts.estimateLabel'
+    | 'nutritionFacts.estimatedBadge'
+    | 'nutritionFacts.hint'
+    | 'nutritionFacts.noteHint'
+    | 'nutritionFacts.noteLabel'
+    | 'nutritionFacts.notePlaceholder'
+    | 'nutritionFacts.partialError'
+    | 'nutritionFacts.partialHint'
+    | 'nutritionFacts.saturatedFatHint'
+    | 'nutritionFacts.title'
+    | 'nutritionFacts.unitGrams'
+    | 'nutritionFacts.unitKcal'
+    | 'nutritionFacts.unitMilligrams'
     | 'ops.batch.basis.fills_yield'
     | 'ops.batch.basis.per_batch'
     | 'ops.batch.basis.per_container'
@@ -4758,6 +4782,7 @@ export interface NamespaceKeys {
     | 'rollup.warningLines'
     | 'rollup.warningMissingCost'
     | 'rollup.warningMissingFacts'
+    | 'rollup.warningMissingNutrition'
     | 'rollup.warningUnconvertibleUnit'
     | 'rollup.warningUnknownIngredient'
     | 'rollup.warningsNone'
@@ -5434,6 +5459,9 @@ export interface NamespaceKeys {
     | 'nutrients.fat'
     | 'nutrients.fibre'
     | 'nutrients.protein'
+    | 'nutrients.saturatedFat'
+    | 'nutrients.sodium'
+    | 'nutrients.sugars'
     | 'override.absentBadge'
     | 'override.absentBody'
     | 'override.badge'
@@ -7757,6 +7785,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.prototypeFlag',
   'catalogue:facts.recipeVersion',
   'catalogue:facts.rounding',
+  'catalogue:facts.soldByWeight',
   'catalogue:facts.source',
   'catalogue:facts.sourceTitle',
   'catalogue:facts.syntheticNote',
@@ -7795,6 +7824,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:macros.referenceTitle',
   'catalogue:macros.ringLabel',
   'catalogue:macros.ringValue',
+  'catalogue:macros.ringValuePer100g',
   'catalogue:macros.title',
   'catalogue:meal.actionErrorBody',
   'catalogue:meal.actionErrorTitle',
@@ -7833,6 +7863,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.macroRingCaption',
   'catalogue:meal.macroValue',
   'catalogue:meal.macrosTitle',
+  'catalogue:meal.macrosTitlePer100g',
   'catalogue:meal.noPlanBody',
   'catalogue:meal.noPlanBrowse',
   'catalogue:meal.noPlanHome',
@@ -9185,6 +9216,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:common.saving',
   'kitchen:common.undo',
   'kitchen:common.yes',
+  'kitchen:composition.allergensDescription',
   'kitchen:composition.description',
   'kitchen:composition.fromDatabase',
   'kitchen:composition.per100g',
@@ -9602,6 +9634,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.composition',
   'kitchen:fields.compositionHint',
   'kitchen:fields.designation',
+  'kitchen:fields.gramsPerUnit',
+  'kitchen:fields.gramsPerUnitHint',
+  'kitchen:fields.gramsPerUnitPlaceholder',
   'kitchen:fields.itemsPerPurchaseUnit',
   'kitchen:fields.itemsPerUnit',
   'kitchen:fields.itemsPerUnitHint',
@@ -9655,6 +9690,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientDetail.backToList',
   'kitchen:ingredientDetail.basisValue',
   'kitchen:ingredientDetail.fieldBasis',
+  'kitchen:ingredientDetail.fieldGramsPerUnit',
   'kitchen:ingredientDetail.fieldItemsPerUnit',
   'kitchen:ingredientDetail.fieldLastChange',
   'kitchen:ingredientDetail.fieldPackCost',
@@ -9879,6 +9915,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.groups.workspace',
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
+  'kitchen:nutritionFacts.derivedBadge',
+  'kitchen:nutritionFacts.derivedDescription',
+  'kitchen:nutritionFacts.estimateDescription',
+  'kitchen:nutritionFacts.estimateLabel',
+  'kitchen:nutritionFacts.estimatedBadge',
+  'kitchen:nutritionFacts.hint',
+  'kitchen:nutritionFacts.noteHint',
+  'kitchen:nutritionFacts.noteLabel',
+  'kitchen:nutritionFacts.notePlaceholder',
+  'kitchen:nutritionFacts.partialError',
+  'kitchen:nutritionFacts.partialHint',
+  'kitchen:nutritionFacts.saturatedFatHint',
+  'kitchen:nutritionFacts.title',
+  'kitchen:nutritionFacts.unitGrams',
+  'kitchen:nutritionFacts.unitKcal',
+  'kitchen:nutritionFacts.unitMilligrams',
   'kitchen:ops.batch.basis.fills_yield',
   'kitchen:ops.batch.basis.per_batch',
   'kitchen:ops.batch.basis.per_container',
@@ -11498,6 +11550,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:rollup.warningLines',
   'kitchen:rollup.warningMissingCost',
   'kitchen:rollup.warningMissingFacts',
+  'kitchen:rollup.warningMissingNutrition',
   'kitchen:rollup.warningUnconvertibleUnit',
   'kitchen:rollup.warningUnknownIngredient',
   'kitchen:rollup.warningsNone',
@@ -12172,6 +12225,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'nutrition:nutrients.fat',
   'nutrition:nutrients.fibre',
   'nutrition:nutrients.protein',
+  'nutrition:nutrients.saturatedFat',
+  'nutrition:nutrients.sodium',
+  'nutrition:nutrients.sugars',
   'nutrition:override.absentBadge',
   'nutrition:override.absentBody',
   'nutrition:override.badge',

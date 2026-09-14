@@ -340,7 +340,26 @@ export type IngredientVerificationStatus = 'verified' | 'unverified' | 'requires
 export type AvailabilityTier = 'core' | 'common' | 'specialty_imported' | null;
 
 export type IngredientNutrientAmount = {
+    /**
+     * Each id may appear at most once in an `amounts` list. A nutrient
+     * stated twice has no total, so the write is refused rather than one
+     * of the two silently winning.
+     *
+     */
     nutrient_id: 'energy' | 'protein' | 'carbohydrate' | 'fat' | 'fibre' | 'sugars' | 'saturated_fat' | 'sodium';
+    /**
+     * Paired with `nutrient_id`, and a write refuses any other pairing:
+     * `energy` is **kcal**, `sodium` is **mg**, and every other nutrient
+     * is **g**. The roll-up sums these across the ingredients of a
+     * recipe, and a sum is only a sum when every term is denominated the
+     * same way — so the denomination is fixed on the way in rather than
+     * converted on the way out by every reader.
+     *
+     * `kJ` remains in the enum because the envelope is shared with a
+     * catalogue item's `nutrition_facts`, where a kitchen-recorded label
+     * may legitimately quote it. Nothing on an ingredient does.
+     *
+     */
     unit: 'kcal' | 'kJ' | 'g' | 'mg';
     value: number;
 };
@@ -412,7 +431,74 @@ export type AdminIngredient = {
      * Pieces per purchase pack, as a two-place decimal string.
      */
     items_per_unit?: string | null;
+    /**
+     * What **one `default_unit`** weighs, in grams, as a four-place
+     * decimal string — 1080 for a litre of soya sauce. The density a
+     * recipe roll-up needs to turn a volume or a piece into a mass.
+     *
+     * Only ever recorded against a non-mass unit: a kilogram already
+     * weighs what it weighs, and the unit table does that arithmetic.
+     * Null is the common answer and an honest one — a line that cannot
+     * be weighed is named in a warning rather than guessed at. Cleared
+     * by the server when `default_unit_id` changes without a new figure
+     * beside it: a mass measured against a unit that no longer applies
+     * is a plausible wrong number.
+     *
+     */
+    grams_per_unit?: string | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
+    /**
+     * The published recipe version `nutrition_per_100g` above was derived
+     * from, when it was derived rather than entered.
+     *
+     * Set on an ingredient some version *produces* — a sub-recipe's
+     * output, such as a pesto mix a pesto mayonnaise is built on. Nothing
+     * looks such a row's facts up in a reference table: they are whatever
+     * the formulation that makes it works out to, per 100 g of its
+     * finished mass, recomputed at every publication and whenever an
+     * ingredient underneath it changes.
+     *
+     * While this is set, `nutrition_per_100g` and `grams_per_unit` are
+     * **read-only**: a `PATCH` sending either is refused with
+     * `validation.failed`. A figure typed over a derivation survives only
+     * until the next recompute, and while it stands it disagrees with the
+     * recipe that defines the thing. Retiring the version clears both the
+     * facts and this link, and the row becomes editable again.
+     *
+     * Null is the ordinary answer: every platform-library row, and every
+     * ingredient a kitchen typed in itself.
+     *
+     */
+    nutrition_derived_from_version_id?: Uuid | null;
+    /**
+     * How good `nutrition_per_100g` is. Three states, and the null is a
+     * third answer rather than a missing `false`:
+     *
+     * - `true` — a representative or estimated figure. Recipe-, brand-,
+     * salt- or preparation-dependent; true of the *category* rather
+     * than measured of this ingredient. The reference document flags
+     * 56 of its 306 rows this way and says to replace them with a
+     * supplier's label before they reach a printed panel.
+     * - `false` — a declared figure. Somebody stated it about this
+     * ingredient: a supplier's label, or a kitchen typing in what the
+     * packet says.
+     * - `null` — nobody has said.
+     *
+     * A write that sends `nutrition_per_100g` without this field is
+     * recorded as `false`: a typed figure is a declaration unless the
+     * writer says otherwise. Clearing the facts clears this to `null`,
+     * because `false` claims a declared figure and there is none.
+     *
+     */
+    nutrition_estimated?: boolean | null;
+    /**
+     * What the source said about the figures — a basis, a caveat, a
+     * brand. Distinct from `notes`, which is the kitchen's free text
+     * about the *ingredient*: this one is about the *numbers*, so
+     * replacing them replaces it.
+     *
+     */
+    nutrition_note?: string | null;
     /**
      * Trade list price in major currency units, as a six-place decimal
      * string so no client rounds it. A list price on the article — not
@@ -581,7 +667,33 @@ export type CreateIngredientRequest = {
     purchase_unit_id?: Uuid | null;
     composition?: string | null;
     items_per_unit?: number | null;
+    /**
+     * Mass of one `default_unit`, in grams. Only meaningful on a
+     * non-mass unit. `minimum` is the column's own precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     */
+    grams_per_unit?: number | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
+    /**
+     * Whether `nutrition_per_100g` is a representative figure rather than
+     * a declared one. Omit it beside a set of facts and the server records
+     * `false` — a typed figure is a declaration unless the writer says
+     * otherwise. Send `true` for a figure that is true of the category
+     * rather than measured of this ingredient. `null` says nobody has
+     * said, and is what clearing the facts leaves behind.
+     *
+     */
+    nutrition_estimated?: boolean | null;
+    /**
+     * One sentence about the figures — their basis, a caveat, the brand
+     * they were read off. Cleared whenever `nutrition_per_100g` is sent
+     * without it: a note describes the numbers beside it, and a
+     * replacement leaves it describing nothing.
+     *
+     */
+    nutrition_note?: string | null;
     /**
      * Trade list price in major currency units. Requires `price_currency_code`.
      */
@@ -622,7 +734,36 @@ export type UpdateIngredientRequest = {
     purchase_unit_id?: Uuid | null;
     composition?: string | null;
     items_per_unit?: number | null;
+    /**
+     * Mass of one `default_unit`, in grams. Only meaningful on a
+     * non-mass unit. `minimum` is the column's own precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     * Sent as `null` to clear. Cleared by the server when
+     * `default_unit_id` changes without a new figure beside it.
+     *
+     */
+    grams_per_unit?: number | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
+    /**
+     * Whether `nutrition_per_100g` is a representative figure rather than
+     * a declared one. Omit it beside a set of facts and the server records
+     * `false` — a typed figure is a declaration unless the writer says
+     * otherwise. Send `true` for a figure that is true of the category
+     * rather than measured of this ingredient. `null` says nobody has
+     * said, and is what clearing the facts leaves behind.
+     *
+     */
+    nutrition_estimated?: boolean | null;
+    /**
+     * One sentence about the figures — their basis, a caveat, the brand
+     * they were read off. Cleared whenever `nutrition_per_100g` is sent
+     * without it: a note describes the numbers beside it, and a
+     * replacement leaves it describing nothing.
+     *
+     */
+    nutrition_note?: string | null;
     /**
      * Trade list price in major currency units. Requires `price_currency_code`.
      */
@@ -1639,6 +1780,19 @@ export type AdminCatalogueItem = {
      */
     recipe_id?: Uuid | null;
     /**
+     * The portion sold, as a multiple of one recipe yield piece, as a
+     * three-place decimal string. `1.000` — one piece is one sold unit —
+     * is the overwhelmingly common answer; `0.500` is the half portion of
+     * the same recipe sold as the small size.
+     *
+     * It scales **both** the customer's per-serving nutrition and the
+     * stock a sale consumes, from the one column, so a label claim and a
+     * stock count cannot disagree about how big a portion is. Never null
+     * and never zero: an unstated portion is one piece, not nothing.
+     *
+     */
+    portion_factor: string;
+    /**
      * The ingredient a resold raw good simply is.
      */
     ingredient_id?: Uuid | null;
@@ -1895,6 +2049,16 @@ export type CreateCatalogueItemRequest = {
     product_category_id?: Uuid | null;
     production_mode?: CatalogueProductionMode | null;
     recipe_id?: Uuid | null;
+    /**
+     * The portion sold, as a multiple of one recipe yield piece. Omit for
+     * `1` — one piece is one sold unit. Not nullable: the column is NOT
+     * NULL and an explicit null is refused rather than read as a reset.
+     * `minimum` is the column's own three-place precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     */
+    portion_factor?: number;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
@@ -1922,6 +2086,16 @@ export type UpdateCatalogueItemRequest = {
     product_category_id?: Uuid | null;
     production_mode?: CatalogueProductionMode | null;
     recipe_id?: Uuid | null;
+    /**
+     * The portion sold, as a multiple of one recipe yield piece. Omitting
+     * it keeps the stored factor; there is no way to clear one, because
+     * the column is NOT NULL and an explicit null is refused rather than
+     * read as a reset to `1`. `minimum` is the column's own three-place
+     * precision, so a value that would round to zero is refused here
+     * rather than by the database CHECK.
+     *
+     */
+    portion_factor?: number;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
@@ -3211,7 +3385,7 @@ export type MarketplaceNutritionCalculation = {
 };
 
 /**
- * Per-serving nutrition facts with their source and calculation method.
+ * Nutrition facts on the basis `basis` names, with their source and calculation method.
  */
 export type MarketplaceNutritionFacts = {
     basis: 'per_serving' | 'per_100g' | 'per_recipe' | 'per_meal' | 'per_day' | 'per_week';
@@ -3272,16 +3446,37 @@ export type MarketplaceMeal = {
      */
     allergens: Array<AllergenCode>;
     /**
-     * The serving declared alongside recorded nutrition, or null when the
-     * kitchen has not recorded any facts for this meal.
+     * The serving `nutrition` applies to — always the same object as
+     * `nutrition.serving`, never a second opinion about the portion. The
+     * one the kitchen declared alongside its own recorded facts; on a
+     * derived payload, one sold unit, whose `label` is empty because
+     * nobody wrote a phrase for it and whose `grams` is the finished mass
+     * of that unit. Null when `nutrition` is, and also null on a
+     * `per_100g` payload: a listing sold by weight has a mass but no
+     * portion, and an invented one would describe a serving nobody sells.
      *
      */
     serving: MarketplaceServing | null;
     /**
-     * Nutrition facts with their source and calculation notes, or null when
-     * no facts are recorded. A `synthetic_prototype` source is a visibly
-     * labelled demonstration estimate, not a kitchen declaration or a
-     * laboratory analysis.
+     * Nutrition facts with their source and calculation notes, from one
+     * decision taken in order of authority: the kitchen-recorded payload
+     * when the listing has one, otherwise per-serving facts derived from
+     * the published recipe version's ingredient snapshot
+     * (`source.kind = ingredient_derived`, `calculation.method =
+     * catalogue.nutrition.per_sold_unit`, where one sold unit is one yield
+     * piece times the item's portion factor and `serving.grams` comes from
+     * the finished-mass basis recorded in `calculation.notes`), otherwise
+     * the same snapshot re-expressed per 100 g when the version states a
+     * finished mass but no piece count (`basis = per_100g`,
+     * `calculation.method = catalogue.nutrition.per_100g`, `total_grams =
+     * 100`, `serving = null`) — a bottled sauce or a dressing is sold by
+     * weight and has no portion to divide into, and per 100 g is the basis
+     * a printed label uses. Otherwise null: no recorded facts, no
+     * published recipe version, no snapshot on it, or no finished mass on
+     * that snapshot to re-base onto. Null covers every gap rather than a
+     * guess. A `synthetic_prototype` source is a visibly labelled
+     * demonstration estimate, not a kitchen declaration or a laboratory
+     * analysis.
      *
      */
     nutrition: MarketplaceNutritionFacts | null;
@@ -8944,21 +9139,27 @@ export type OrganisationInvitation = {
  */
 export type RecipeRollupWarning = {
     /**
-     * The closed set the preview can emit.
-     * `nutrition_unavailable` is on **every** response while the
-     * roll-up is not computed server-side, which is why `warnings` is
-     * never empty.
+     * The closed set the preview can emit. `warnings` may be **empty** —
+     * a complete draft whose every line resolves warns about nothing.
+     *
+     * `rollup.missing_facts` is about *allergens* (an ingredient nobody
+     * has assessed) and does not withhold anything.
+     * `rollup.missing_nutrition`, `rollup.unconvertible_unit` and
+     * `rollup.unknown_ingredient` each withhold `per_recipe`,
+     * `per_serving` and `per_100g`. The last two are about money and
+     * withhold `estimated_cost` only.
      *
      */
-    code: 'rollup.unknown_ingredient' | 'nutrition_unavailable' | 'rollup.missing_facts' | 'rollup.mixed_cost_currency' | 'rollup.missing_cost';
+    code: 'rollup.unknown_ingredient' | 'rollup.missing_facts' | 'rollup.missing_nutrition' | 'rollup.unconvertible_unit' | 'rollup.mixed_cost_currency' | 'rollup.missing_cost';
     /**
      * A safe English summary. Clients translate from `code`, never from this.
      */
     message: string;
     /**
-     * Present on `rollup.unknown_ingredient` (exactly one) and
-     * `rollup.missing_facts` (however many). Absent on the rest —
-     * absent, not empty.
+     * Present on `rollup.unknown_ingredient` (exactly one),
+     * `rollup.missing_facts`, `rollup.missing_nutrition` and
+     * `rollup.unconvertible_unit` (however many, deduplicated, in line
+     * order). Absent on the rest — absent, not empty.
      *
      */
     ingredient_ids?: Array<Uuid>;
@@ -8983,21 +9184,35 @@ export type RecipeRollupAllergenSource = {
  */
 export type RecipeRollupPreview = {
     /**
-     * **Always `null`.** Nutrition roll-up is not computed on the server
-     * yet. The key exists because it is the shape the published version
-     * will carry, and a client that had to grow three fields later would
-     * have shipped a screen with nothing to put in them.
+     * The whole formulation's figures — every line weighed in grams and
+     * its per-100 g reference facts scaled by that weight, summed.
+     *
+     * `null` when anything was withheld: see `warnings` for which lines
+     * and why. Never a partial total.
      *
      */
-    per_recipe: null;
+    per_recipe: MarketplaceNutritionFacts | null;
     /**
-     * Always `null`. See `per_recipe`.
+     * `per_recipe` divided by `servings`.
+     *
+     * `null` when the figures were withheld (see `warnings`) **and** when
+     * the request did not send `servings` — nothing here invents a
+     * portion count, so an unstated one yields no per-serving label
+     * rather than one computed as if the batch were a single serving.
+     *
      */
-    per_serving: null;
+    per_serving: MarketplaceNutritionFacts | null;
     /**
-     * Always `null`. See `per_recipe`.
+     * The comparison basis, over the **finished** mass: the stated
+     * `yield_quantity` when it is a mass, otherwise the sum of the line
+     * weights. `calculation.notes` names which, as
+     * `mass_basis: yield` or `mass_basis: input`.
+     *
+     * `null` when the figures were withheld (see `warnings`), and when
+     * nothing could be weighed at all.
+     *
      */
-    per_100g: null;
+    per_100g: MarketplaceNutritionFacts | null;
     allergen_sources: Array<RecipeRollupAllergenSource>;
     /**
      * `null` when the caller does not hold
@@ -9017,6 +9232,21 @@ export type RecipeRollupPreview = {
         amount: string;
         currency: string;
     } | null;
+    /**
+     * The technical sheet's `computed` block over this draft — the same
+     * shape and the same arithmetic `GET /catalogue/recipes/{id}/
+     * technical-sheet` returns for a saved version, so one panel renders
+     * either. `null` when the draft states no yield (every figure in the
+     * block is something *over* the yield) and when the caller does not
+     * hold `recipe.view_costs_organisation`.
+     *
+     */
+    computed_cost: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * May be empty — a draft whose every line resolves warns about nothing.
+     */
     warnings: Array<RecipeRollupWarning>;
 };
 
@@ -9045,9 +9275,13 @@ export type PreviewRecipeRollupRequest = {
      */
     recipe_id?: Uuid | null;
     /**
-     * Required. Does not currently change the answer — the per-serving figures are `null`.
+     * Divides `per_serving`, and nothing else. **Omitted when the draft
+     * does not know** — the server never substitutes one, so an unstated
+     * count yields `per_serving: null` rather than a per-serving label
+     * computed as if the whole batch were one serving.
+     *
      */
-    servings: number;
+    servings?: number | null;
     /**
      * Applied to `estimated_cost.amount` only.
      */
@@ -9058,6 +9292,45 @@ export type PreviewRecipeRollupRequest = {
      *
      */
     lines: Array<PreviewRecipeRollupLine>;
+    /**
+     * What the batch makes. When `yield_unit_id` names a **mass** unit it
+     * becomes the basis `per_100g` divides by (`mass_basis: yield`);
+     * anything else falls back to the summed line weights, because four
+     * pieces is not a mass and nothing here guesses what they weigh.
+     *
+     * It is also what asks for `computed_cost`: every figure in that
+     * block is a total over this number.
+     *
+     */
+    yield_quantity?: number | null;
+    /**
+     * Required whenever `yield_quantity` is sent. A unit that does not exist is `422`.
+     */
+    yield_unit_id?: Uuid | null;
+    /**
+     * How many sold units the yield divides into. Read by `computed_cost` only.
+     */
+    yield_piece_count?: number | null;
+    /**
+     * Applied to the packaging half of `computed_cost`.
+     */
+    packaging_waste_percent?: number | null;
+    /**
+     * What the batch ships in. Costed into `computed_cost`; never part of the nutrition or allergen figures.
+     */
+    packaging?: Array<PreviewRecipeRollupPackagingLine>;
+};
+
+export type PreviewRecipeRollupPackagingLine = {
+    ingredient_id: Uuid;
+    basis: PackagingBasis;
+    /**
+     * Read on `per_batch` only. The other two bases compute their count
+     * from the yield and from the container lines, so a figure sent with
+     * one of them is ignored rather than honoured.
+     *
+     */
+    quantity?: number | null;
 };
 
 export type CatalogueItemAvailabilityDay = {

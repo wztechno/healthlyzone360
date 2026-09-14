@@ -7,7 +7,7 @@ import {
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
 import type { KitchenBranchId, PriceListId, RecipeVersionId } from '@healthy360/domain-types';
-import type { MeasureUnit } from '@healthy360/nutrition';
+import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 
 import type {
     BranchOperating,
@@ -69,6 +69,7 @@ import type {
     PlanMenuEntry as WirePlanMenuEntry,
     PlanVariantCell,
     ProcurementReference,
+    RecipeRollupPreview as RecipeRollupPreviewWire,
 } from '../generated/types.ts';
 import {
     buildCategoryLookup,
@@ -484,6 +485,49 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
     }
 
     /**
+     * The three nutrition fields of an ingredient body, from the three the
+     * contract carries.
+     *
+     * One helper for create and update, because the two have to agree about
+     * more than the shape. `nutrition_per_100g` is a **slim** envelope —
+     * `{basis, amounts}` and nothing else: the column stores what an operator
+     * asserted, and the source/calculation provenance the full `NutritionFacts`
+     * carries is the *reader's* (see `mapIngredientPer100g`), regenerated on
+     * every read from the row's own timestamp. Sending it back would be echoing
+     * a derivation at the server as if it were input.
+     *
+     * The two provenance fields are sent only when the caller stated them. The
+     * server's own rule fills the gap — facts with no flag beside them are
+     * recorded as declared, and facts being cleared clear both — so a caller
+     * that means "declared" may say so or say nothing, and gets the same row.
+     */
+    function nutritionFields(
+        per100g: NutritionFacts | null | undefined,
+        estimated: boolean | null | undefined,
+        note: string | null | undefined,
+    ): Record<string, unknown> {
+        return {
+            ...(per100g === undefined
+                ? {}
+                : {
+                      nutrition_per_100g:
+                          per100g === null
+                              ? null
+                              : {
+                                    basis: 'per_100g',
+                                    amounts: per100g.amounts.map((amount) => ({
+                                        nutrient_id: amount.nutrientId,
+                                        unit: amount.unit,
+                                        value: amount.value,
+                                    })),
+                                },
+                  }),
+            ...(estimated === undefined ? {} : { nutrition_estimated: estimated }),
+            ...(note === undefined ? {} : { nutrition_note: note }),
+        };
+    }
+
+    /**
      * The price fields of an ingredient body, and of a recipe version's.
      *
      * The two resources carry the same pair under the same names, so they share
@@ -547,6 +591,23 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ? {}
                         : { ingredient_subcategory_id: subcategoryId }),
                     ...(unitId === null ? {} : { default_unit_id: unitId }),
+                    // `items_per_unit` was on the contract and never sent — a gap, not a decision:
+                    // a create that stated the pack size silently dropped it and the first save
+                    // after had to state it again.
+                    ...(request.itemsPerUnit === undefined
+                        ? {}
+                        : { items_per_unit: request.itemsPerUnit }),
+                    ...(request.gramsPerUnit === undefined
+                        ? {}
+                        : { grams_per_unit: request.gramsPerUnit }),
+                    // Same three fields, same flattening, as the update below — a create that
+                    // dropped the facts made the form state them twice, which is how the first
+                    // save after a create used to be the one that stuck.
+                    ...nutritionFields(
+                        request.per100g,
+                        request.nutritionEstimated,
+                        request.nutritionNote,
+                    ),
                     ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
                     ...(request.isSellable === undefined
                         ? {}
@@ -611,21 +672,13 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
             if (request.composition !== undefined) body.composition = request.composition;
             if (request.itemsPerUnit !== undefined) body.items_per_unit = request.itemsPerUnit;
+            if (request.gramsPerUnit !== undefined) body.grams_per_unit = request.gramsPerUnit;
             Object.assign(body, priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice));
             if (request.isSellable !== undefined) body.is_sellable = request.isSellable;
-            if (request.per100g !== undefined) {
-                body.nutrition_per_100g =
-                    request.per100g === null
-                        ? null
-                        : {
-                              basis: 'per_100g',
-                              amounts: request.per100g.amounts.map((amount) => ({
-                                  nutrient_id: amount.nutrientId,
-                                  unit: amount.unit,
-                                  value: amount.value,
-                              })),
-                          };
-            }
+            Object.assign(
+                body,
+                nutritionFields(request.per100g, request.nutritionEstimated, request.nutritionNote),
+            );
             if (request.notes !== undefined) body.notes = request.notes;
 
             await transport.request({
@@ -1125,6 +1178,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ...(request.recipeId === undefined
                             ? {}
                             : { recipe_id: String(request.recipeId) }),
+                        // Omitted rather than sent as 1: the column defaults to
+                        // one piece per sold unit, and an explicit null is a 422.
+                        ...(request.portionFactor === undefined
+                            ? {}
+                            : { portion_factor: request.portionFactor }),
                     },
                 },
             );
@@ -1155,6 +1213,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.recipeId !== undefined) {
                 body.recipe_id = request.recipeId === null ? null : String(request.recipeId);
             }
+            if (request.portionFactor !== undefined) body.portion_factor = request.portionFactor;
 
             if (Object.keys(body).length > 0) {
                 await patchCatalogueItem(id, request.lockVersion, body);
@@ -1728,33 +1787,32 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 }),
             );
 
-            const envelope = await transport.requestEnvelope<{
-                readonly per_recipe: null;
-                readonly per_serving: null;
-                readonly per_100g: null;
-                readonly allergen_sources: ReadonlyArray<{
-                    readonly allergen_code: string;
-                    readonly containment: string;
-                    readonly ingredient_ids: readonly string[];
-                }>;
-                readonly estimated_cost: {
-                    readonly amount: string;
-                    readonly currency: string;
-                } | null;
-                readonly warnings: ReadonlyArray<{
-                    readonly code: string;
-                    readonly message: string;
-                    readonly ingredient_ids?: readonly string[];
-                }>;
-            }>({
+            // Resolved the same way a line's unit is, and for the same reason: the contract
+            // speaks unit *codes* and the API takes ids, and `units.resolve` is the one cache
+            // that maps between them.
+            const yieldUnitId =
+                draft.yieldUnit === undefined
+                    ? null
+                    : await units.resolve(transport, draft.yieldUnit);
+
+            const envelope = await transport.requestEnvelope<RecipeRollupPreviewWire>({
                 method: 'POST',
                 path: '/catalogue/recipes/roll-up-preview',
                 body: {
                     recipe_id: draft.recipeId === null ? null : String(draft.recipeId),
+                    // Null travels: the server reads it as "nobody has said", and answers with a
+                    // null `per_serving` rather than a label computed over an invented count.
                     servings: draft.servings,
                     ...(draft.wastePercent === undefined
                         ? {}
                         : { waste_percent: draft.wastePercent }),
+                    ...(draft.yieldQuantity === undefined
+                        ? {}
+                        : { yield_quantity: draft.yieldQuantity }),
+                    ...(yieldUnitId === null ? {} : { yield_unit_id: yieldUnitId }),
+                    ...(draft.yieldPieceCount === undefined
+                        ? {}
+                        : { yield_piece_count: draft.yieldPieceCount }),
                     lines,
                 },
             });

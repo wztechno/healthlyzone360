@@ -31,6 +31,7 @@ import type {
     MarketplaceKitchen as WireKitchen,
     MarketplaceListMeta as WireListMeta,
     MarketplaceMeal as WireMeal,
+    MarketplaceNutritionFacts as WireNutritionFacts,
     MarketplaceMoney as WireMoney,
     MarketplaceOpeningHours as WireOpeningHours,
     MarketplaceSalesChannels as WireChannels,
@@ -137,8 +138,13 @@ function mapServing(wire: NonNullable<WireMeal['serving']>): Serving {
  * The API's facts schema intentionally mirrors `@healthy360/nutrition`; this
  * function only converts transport casing and preserves source/prototype
  * metadata so the UI can distinguish an estimate from a verified analysis.
+ *
+ * Exported because the kitchen roll-up preview carries the identical envelope
+ * on three of its fields. One converter rather than two: the shapes are the
+ * same schema on the wire, and a second implementation is how a customer's
+ * meal page and the kitchen's own editor come to disagree about a key name.
  */
-function mapNutritionFacts(wire: NonNullable<WireMeal['nutrition']>): NutritionFacts {
+export function mapNutritionFacts(wire: WireNutritionFacts): NutritionFacts {
     return {
         basis: wire.basis,
         kind: wire.kind,

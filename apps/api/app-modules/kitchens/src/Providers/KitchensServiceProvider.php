@@ -11,6 +11,7 @@ use Healthy360\Kitchens\Console\ImportV6CatalogueCommand;
 use Healthy360\Kitchens\Console\ImportV6RecipesCommand;
 use Healthy360\Kitchens\Console\PriceRecipesFromCatalogueCommand;
 use Healthy360\Kitchens\Console\PublishReadyCatalogueCommand;
+use Healthy360\Kitchens\Console\RelinkRecipeLinesCommand;
 use Healthy360\Kitchens\Console\SeedApproximatePlanPricesCommand;
 use Illuminate\Support\ServiceProvider;
 
@@ -40,6 +41,7 @@ class KitchensServiceProvider extends ServiceProvider
                 ApplyAllergenDeterminationsCommand::class,
                 SeedApproximatePlanPricesCommand::class,
                 PublishReadyCatalogueCommand::class,
+                RelinkRecipeLinesCommand::class,
             ]);
         }
     }

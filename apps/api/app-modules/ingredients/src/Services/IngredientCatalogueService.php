@@ -24,7 +24,7 @@ use Illuminate\Support\Str;
 /**
  * Every write to the ingredient catalogue goes through here.
  *
- * Three responsibilities the controllers deliberately do not carry:
+ * Four responsibilities the controllers deliberately do not carry:
  *
  * 1. **The platform/tenant boundary.** A tenant may read the platform library
  *    and may not write it. Enforced once, here, rather than remembered in six
@@ -37,6 +37,12 @@ use Illuminate\Support\Str;
  * 3. **The audit trail.** A catalogue mutation that is not audited did not
  *    happen as far as a food-safety review is concerned, so recording is part
  *    of the write, not an optional decoration on the call site.
+ * 4. **Reaching the labels derived from the row.** An ingredient's per-100 g
+ *    facts and its density are inputs to every recipe nutrition snapshot
+ *    computed from them, so an edit to either marks those snapshots stale and
+ *    queues their recompute — see {@see invalidateNutritionDerivations()}. A
+ *    controller cannot carry this, because whether it is needed depends on
+ *    which fields the write actually changed.
  */
 final readonly class IngredientCatalogueService
 {
@@ -56,6 +62,7 @@ final readonly class IngredientCatalogueService
         private AuditRecorder $audit,
         private IngredientUsageRegistry $usage,
         private PlatformLibraryAccess $platform,
+        private IngredientDerivationInvalidator $invalidator,
     ) {}
 
     /**
@@ -73,7 +80,10 @@ final readonly class IngredientCatalogueService
      *     purchase_unit_id?: string|null,
      *     composition?: string|null,
      *     items_per_unit?: float|string|null,
+     *     grams_per_unit?: float|string|null,
      *     nutrition_per_100g?: array<string, mixed>|null,
+     *     nutrition_estimated?: bool|null,
+     *     nutrition_note?: string|null,
      *     b2b_price_amount?: float|string|null,
      *     b2c_price_amount?: float|string|null,
      *     unit_price_amount?: float|string|null,
@@ -107,7 +117,26 @@ final readonly class IngredientCatalogueService
         $ingredient->purchase_unit_id = $attributes['purchase_unit_id'] ?? null;
         $ingredient->composition = $this->trimmedOrNull($attributes['composition'] ?? null);
         $ingredient->items_per_unit = $this->decimalOrNull($attributes['items_per_unit'] ?? null);
+        $ingredient->grams_per_unit = $this->decimalOrNull($attributes['grams_per_unit'] ?? null);
         $ingredient->nutrition_per_100g = $attributes['nutrition_per_100g'] ?? null;
+        /*
+         * A typed figure is a declaration unless the writer says otherwise.
+         *
+         * Somebody entering a per-100 g set is stating what *this* ingredient
+         * is — off a packet, off a supplier's sheet, off a lab report. The
+         * estimate flag exists for the other case, where the number is true of
+         * the category rather than of the thing, and that is a claim the writer
+         * has to make: defaulting to `true` would mark every honest transcription
+         * as a guess, and every screen would badge it.
+         *
+         * Facts with no flag beside them are therefore `false`, and facts that
+         * are absent altogether leave both columns NULL — `false` says "a
+         * declared figure" and there is no figure to declare.
+         */
+        $ingredient->nutrition_estimated = array_key_exists('nutrition_estimated', $attributes)
+            ? ($attributes['nutrition_estimated'] === null ? null : (bool) $attributes['nutrition_estimated'])
+            : ($ingredient->nutrition_per_100g === null ? null : false);
+        $ingredient->nutrition_note = $this->trimmedOrNull($attributes['nutrition_note'] ?? null);
         $ingredient->b2b_price_amount = $this->decimalOrNull($attributes['b2b_price_amount'] ?? null);
         $ingredient->b2c_price_amount = $this->decimalOrNull($attributes['b2c_price_amount'] ?? null);
         $ingredient->unit_price_amount = $this->decimalOrNull($attributes['unit_price_amount'] ?? null);
@@ -218,7 +247,16 @@ final readonly class IngredientCatalogueService
             $fork->purchase_unit_id = $source->purchase_unit_id;
             $fork->composition = $source->composition;
             $fork->items_per_unit = $source->items_per_unit;
+            // Carried with `default_unit_id` above, and only meaningful beside
+            // it: the mass is the mass of one of *that* unit.
+            $fork->grams_per_unit = $source->grams_per_unit;
             $fork->nutrition_per_100g = $source->nutrition_per_100g;
+            // Copied with the figures they describe. A fork of a row whose
+            // 350 kcal is a family figure for dry batter mixes is still a
+            // family figure; dropping the flag would silently promote the copy
+            // to a declaration nobody made.
+            $fork->nutrition_estimated = $source->nutrition_estimated;
+            $fork->nutrition_note = $source->nutrition_note;
             $fork->b2b_price_amount = $source->b2b_price_amount;
             $fork->b2c_price_amount = $source->b2c_price_amount;
             $fork->unit_price_amount = $source->unit_price_amount;
@@ -379,6 +417,7 @@ final readonly class IngredientCatalogueService
     public function update(Ingredient $ingredient, array $attributes, int $expectedLockVersion): Ingredient
     {
         $this->assertWritable($ingredient);
+        $this->assertNutritionNotDerived($ingredient, $attributes);
 
         // A PATCH may move either half of the pair on its own, so the check has
         // to be against the *effective* pair — what is being sent, falling back
@@ -394,7 +433,7 @@ final readonly class IngredientCatalogueService
 
         $changes = [];
 
-        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'nutrition_per_100g', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
+        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'grams_per_unit', 'nutrition_per_100g', 'nutrition_estimated', 'nutrition_note', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
@@ -405,11 +444,66 @@ final readonly class IngredientCatalogueService
                 $value = trim($value);
             }
 
-            if (in_array($field, ['notes', 'composition'], true) && $value === '') {
+            if (in_array($field, ['notes', 'composition', 'nutrition_note'], true) && $value === '') {
                 $value = null;
             }
 
             $changes[$field] = $value;
+        }
+
+        /*
+         * The provenance moves with the figures, on the same rule `create()`
+         * states: a typed set is a declaration unless the writer says otherwise.
+         *
+         * So a PATCH that replaces `nutrition_per_100g` and says nothing about
+         * the two columns beside it resets them rather than leaving them
+         * standing. Leaving them is the worse answer twice over: an "estimated"
+         * badge would survive onto a supplier's label somebody just transcribed,
+         * and the sentence under it — "Estimated generic dry tempura batter mix"
+         * — would go on describing a figure that is no longer there.
+         *
+         * A PATCH that *clears* the facts clears both to NULL instead of to
+         * `false`: `false` claims a declared figure, and there is none.
+         *
+         * A PATCH that sends a flag or a note **without** the facts is left
+         * alone by this block — that is somebody correcting the provenance of
+         * figures that are already right, which is a real edit and not a
+         * replacement.
+         */
+        if (array_key_exists('nutrition_per_100g', $changes)) {
+            $declared = $changes['nutrition_per_100g'] === null ? null : false;
+
+            if (! array_key_exists('nutrition_estimated', $changes)) {
+                $changes['nutrition_estimated'] = $declared;
+            }
+
+            if (! array_key_exists('nutrition_note', $changes)) {
+                $changes['nutrition_note'] = null;
+            }
+        }
+
+        /*
+         * A stored mass belongs to the unit it was measured against.
+         *
+         * `grams_per_unit` says what *one default unit* weighs — 1080 g for a
+         * litre of soya sauce. Move the default unit to millilitres and that
+         * figure is off by a thousand, but it is still a plausible number, so
+         * nothing downstream can tell it has gone wrong: the roll-up would
+         * quietly multiply a recipe line by a mass that no longer applies.
+         *
+         * So a unit change with no mass beside it clears the mass. An absent
+         * density is a named warning the kitchen can act on; a wrong one is a
+         * nutrition panel nobody knows to doubt. A PATCH that sends both moves
+         * them together and is left alone — that is an operator who has already
+         * answered the question.
+         */
+        if (
+            array_key_exists('default_unit_id', $changes)
+            && $changes['default_unit_id'] !== $ingredient->default_unit_id
+            && ! array_key_exists('grams_per_unit', $changes)
+            && $ingredient->grams_per_unit !== null
+        ) {
+            $changes['grams_per_unit'] = null;
         }
 
         if ($changes === []) {
@@ -420,6 +514,8 @@ final readonly class IngredientCatalogueService
 
         $this->compareAndSwap($ingredient, $changes, $expectedLockVersion);
 
+        [$stale, $organisations] = $this->invalidateNutritionDerivations($ingredient, $changes);
+
         $this->audit->record(
             'catalogue.ingredient_updated',
             actorUserId: $this->context->userId(),
@@ -428,10 +524,124 @@ final readonly class IngredientCatalogueService
             metadata: [
                 'changed_fields' => array_values(array_diff(array_keys($changes), ['updated_by'])),
                 'lock_version' => $ingredient->lock_version,
+
+                // Counts, mirroring `AllergenMappingService`: how many labels
+                // this edit reached and how wide the blast radius was, never
+                // which versions or whose. A platform correction that reached
+                // eleven kitchens is a fact the operator must be able to see
+                // afterwards; *which* eleven is not theirs to read out of an
+                // audit row. Both are zero on the ordinary edit, which is the
+                // useful signal — this row changed nothing downstream.
+                'stale_recipe_versions' => count($stale),
+                'affected_organisations' => $organisations,
             ],
         );
 
         return $ingredient;
+    }
+
+    /**
+     * Refuse to edit facts a recipe owns.
+     *
+     * An ingredient a published version *outputs* — a pesto mix, a taouk
+     * preparation — has its per-100 g figures derived from the formulation that
+     * makes it, and `nutrition_derived_from_version_id` records which. Two
+     * things go wrong if a PATCH is allowed through on such a row, and only the
+     * first is obvious: the typed figure survives until the next recompute and
+     * then silently disappears, so the edit *looks* accepted and is not. The
+     * worse one is what it means while it stands — a number on the ingredient
+     * disagreeing with the recipe that defines the thing, with nothing on
+     * either screen to say which is the real one.
+     *
+     * `grams_per_unit` is refused beside the facts because it is the other half
+     * of the same arithmetic: a parent line stated in litres is weighed through
+     * it, so moving it moves every derived amount downstream just as surely.
+     *
+     * `nutrition_estimated` and `nutrition_note` are refused for the other
+     * reason: they are not arithmetic at all, they are a *claim about* the
+     * figures, and the figures are the recipe's. Marking a derivation estimated
+     * says something about a formulation that this row is in no position to say
+     * — and, like the facts themselves, the next recompute would drop it.
+     *
+     * The fix for a wrong figure here is the formulation. Retiring the version
+     * releases the row — see `RecipeOutputNutritionWriter::clear()` — and it
+     * becomes an ordinary editable ingredient again.
+     *
+     * @param  array<string, mixed>  $attributes
+     *
+     * @throws ApiException
+     */
+    private function assertNutritionNotDerived(Ingredient $ingredient, array $attributes): void
+    {
+        if ($ingredient->nutrition_derived_from_version_id === null) {
+            return;
+        }
+
+        $derived = array_intersect(
+            ['nutrition_per_100g', 'grams_per_unit', 'nutrition_estimated', 'nutrition_note'],
+            array_keys($attributes),
+        );
+
+        if ($derived === []) {
+            return;
+        }
+
+        throw new ApiException(ErrorCode::ValidationFailed, details: ['fields' => [
+            'nutrition_per_100g' => ['These facts are derived from a published recipe version; change the recipe instead.'],
+        ]]);
+    }
+
+    /**
+     * Mark every derived label downstream of a nutrition-bearing change stale.
+     *
+     * **Three fields, and only three.** A recipe's nutrition is derived from an
+     * ingredient's per-100 g facts and from the mass of one line of it, so the
+     * inputs are:
+     *
+     * - `nutrition_per_100g` — the facts themselves. Obvious.
+     * - `grams_per_unit` — what one default unit weighs. A line stated in
+     *   litres is weighed *through* this figure, so moving it moves every
+     *   derived amount by the same ratio, and clearing it withholds the label
+     *   entirely. Note this catches the clear the guard above performs as well
+     *   as one an operator sent, because the guard writes into `$changes`.
+     * - `default_unit_id` — the unit the density is measured *against*. On its
+     *   own it changes no number, but it changes what the number beside it
+     *   means, and the two cases it produces both matter: the guard cleared the
+     *   density (labels must be withheld) or the operator sent a replacement
+     *   (labels must be recomputed against it).
+     *
+     * Nothing else on the row reaches a label. A name, a category, a price, a
+     * yield factor, an availability tier — none of them is an input to the
+     * arithmetic, and invalidating on a rename would queue a recompute of every
+     * version using an ingredient every time somebody fixed its spelling. That
+     * includes `nutrition_estimated` and `nutrition_note`, which arrive in
+     * `$changes` beside the facts and are deliberately not on this list: they
+     * say how good a figure is, not what it is, and a recompute over a reworded
+     * caveat would produce byte-identical snapshots. The
+     * allergen mappings are the other half of this and are not on this table:
+     * `AllergenMappingService` invalidates its own writes.
+     *
+     * The layer is the row's own owner rather than the caller's. A platform row
+     * has no organisation, and its facts changing reaches *every* tenant whose
+     * recipes cite it — which is why NULL is passed straight through to the
+     * fan-out. A tenant row is only ever in that tenant's recipes. This differs
+     * from `AllergenMappingService`, which passes `callerLayer()`, and the
+     * difference is real: an allergen write may be a tenant's own overlay on a
+     * platform row and reach only that tenant, whereas there is no overlay on a
+     * number — a platform ingredient's facts are one value that everyone reads.
+     *
+     * @param  array<string, mixed>  $changes
+     * @return array{0: list<string>, 1: int}
+     */
+    private function invalidateNutritionDerivations(Ingredient $ingredient, array $changes): array
+    {
+        $inputs = ['nutrition_per_100g', 'grams_per_unit', 'default_unit_id'];
+
+        if (array_intersect($inputs, array_keys($changes)) === []) {
+            return [[], 0];
+        }
+
+        return $this->invalidator->invalidate($ingredient, $ingredient->organisation_id);
     }
 
     /**

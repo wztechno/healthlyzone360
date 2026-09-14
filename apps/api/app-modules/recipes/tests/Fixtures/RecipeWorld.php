@@ -247,6 +247,60 @@ final class RecipeWorld
     }
 
     /**
+     * The slim envelope `ingredients.nutrition_per_100g` holds, in the
+     * canonical units the roll-up insists on: energy in kcal, sodium in mg,
+     * everything else in grams.
+     *
+     * Malformed sets — a duplicate id, energy in kJ — are written literally by
+     * the tests that need them, so the shape under test is visible in the test
+     * rather than hidden behind a flag here.
+     *
+     * @param  array<string, float|int|string>  $values  nutrient id => amount per 100 g
+     * @return array<string, mixed>
+     */
+    public static function nutritionEnvelope(array $values): array
+    {
+        $units = ['energy' => 'kcal', 'sodium' => 'mg'];
+
+        $amounts = [];
+
+        foreach ($values as $nutrientId => $value) {
+            $amounts[] = [
+                'nutrient_id' => $nutrientId,
+                'unit' => $units[$nutrientId] ?? 'g',
+                'value' => $value,
+            ];
+        }
+
+        return ['basis' => 'per_100g', 'amounts' => $amounts];
+    }
+
+    /**
+     * Give an existing ingredient reference facts, a default unit, and — for
+     * the ones a volume or a count has to be weighed through — the mass of one
+     * default unit.
+     *
+     * Takes an ingredient rather than creating one, because the callers differ
+     * on everything else about it: one wants an allergen mapping on it, one
+     * wants it verified and clean, one wants it archived.
+     *
+     * @param  array<string, mixed>|null  $envelope  null to model an ingredient nobody has recorded facts for
+     */
+    public static function nourish(
+        Ingredient $ingredient,
+        ?array $envelope,
+        string $defaultUnitCode = 'g',
+        ?string $gramsPerUnit = null,
+    ): Ingredient {
+        $ingredient->nutrition_per_100g = $envelope;
+        $ingredient->default_unit_id = self::unit($defaultUnitCode);
+        $ingredient->grams_per_unit = $gramsPerUnit;
+        $ingredient->save();
+
+        return $ingredient->load('defaultUnit');
+    }
+
+    /**
      * The burghul/pita case (appendix D risk R1): the source workbook tags it
      * allergen-free while its own allergen key does not, so it is recorded as
      * a contradiction awaiting a human rather than resolved silently.

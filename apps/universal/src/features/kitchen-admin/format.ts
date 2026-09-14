@@ -314,6 +314,7 @@ const ROLLUP_WARNING_KEYS: Readonly<Record<string, string>> = {
     'rollup.unconvertible_unit': 'kitchen:rollup.warningUnconvertibleUnit',
     'rollup.missing_cost': 'kitchen:rollup.warningMissingCost',
     'rollup.missing_facts': 'kitchen:rollup.warningMissingFacts',
+    'rollup.missing_nutrition': 'kitchen:rollup.warningMissingNutrition',
 };
 
 /** The i18n key for a warning code, or `null` when only the server's sentence is available. */

@@ -83,6 +83,14 @@ final readonly class IngredientWriter
             $ingredient->ingredient_category_id = $categories[$definition['category_code'] ?? ''] ?? null;
             $ingredient->ingredient_subcategory_id = $categories[$definition['subcategory_code'] ?? ''] ?? null;
             $ingredient->default_unit_id = $units[$definition['default_unit']] ?? $units['kg'];
+
+            // Facts, where the dictionary declares them — Water is all seven
+            // zeros, and a zero that somebody wrote down is a fact rather than
+            // an absence. Both keys are optional and both are NULL otherwise:
+            // the row is insert-if-absent, so this writes once and a kitchen's
+            // later correction is never overwritten.
+            $ingredient->nutrition_per_100g = $definition['nutrition_per_100g'];
+            $ingredient->grams_per_unit = $definition['grams_per_unit'];
             $ingredient->availability_tier = null;
             $ingredient->status = IngredientStatus::Active;
             $ingredient->verification_status = IngredientVerificationStatus::Unverified;

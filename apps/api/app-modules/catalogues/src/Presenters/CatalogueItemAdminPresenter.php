@@ -55,6 +55,7 @@ final class CatalogueItemAdminPresenter
      *     kitchen_category: string|null,
      *     kitchen_subcategory: string|null,
      *     recipe_id: string|null,
+     *     portion_factor: string,
      *     ingredient_id: string|null,
      *     purchasing_unit_id: string|null,
      *     usage_unit_id: string|null,
@@ -92,6 +93,10 @@ final class CatalogueItemAdminPresenter
             'kitchen_category' => $item->kitchen_category,
             'kitchen_subcategory' => $item->kitchen_subcategory,
             'recipe_id' => $item->recipe_id,
+            // A string on the wire like every other decimal here: three places
+            // are three places, and a JSON number would round-trip 0.5 through
+            // a float on its way to a kitchen's scales.
+            'portion_factor' => (string) $item->portion_factor,
             'ingredient_id' => $item->ingredient_id,
             'purchasing_unit_id' => $item->purchasing_unit_id,
             'usage_unit_id' => $item->usage_unit_id,

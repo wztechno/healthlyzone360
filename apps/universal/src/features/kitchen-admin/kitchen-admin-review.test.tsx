@@ -141,6 +141,7 @@ function ingredient(overrides: Partial<IngredientAdmin> = {}): IngredientAdmin {
         purchaseUnit: null,
         composition: null,
         itemsPerUnit: null,
+        gramsPerUnit: null,
         // Packaging's three, null on food — which every fixture in this file is.
         purchasePrice: null,
         wastePercent: null,
@@ -151,6 +152,9 @@ function ingredient(overrides: Partial<IngredientAdmin> = {}): IngredientAdmin {
         isSellable: false,
         costPer100g: null,
         per100g: null,
+        nutritionDerivedFromVersionId: null,
+        nutritionEstimated: null,
+        nutritionNote: null,
         allergens: [],
         dietClassifications: [],
         aliases: [],
