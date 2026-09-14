@@ -103,6 +103,7 @@ export function BasketRail({
             <View className="flex-col gap-hair px-snug pb-tight pt-tight">
                 <DeskSectionHeading
                     title={t('kitchen:desk.sale.basketTitle')}
+                    strong
                     action={
                         <Text variant="mono" tone="secondary" testID={`${testID}-count`}>
                             {t('kitchen:desk.sale.itemCount', { count: itemCount })}

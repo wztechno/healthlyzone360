@@ -1,4 +1,4 @@
-﻿import { ApiError, apiFailure } from '@healthy360/api-client';
+import { ApiError, apiFailure } from '@healthy360/api-client';
 import type {
     OrderDeskRequirement,
     OrderDeskRequirements,
@@ -9,7 +9,23 @@ import { screen, waitFor } from '@testing-library/react-native';
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { OrderDeskRequirementsScreen } from './screens/order-desk-requirements-screen.tsx';
+import { Dimensions } from 'react-native';
 
+/**
+ * These screens draw their tables through `CatalogueList`, which only lays out columns at `md` and
+ * above; React Native's Jest window is 750px. Desk width for the whole file, restored afterwards.
+ */
+const narrowWindow = Dimensions.get('window');
+const narrowScreen = Dimensions.get('screen');
+beforeAll(() => {
+    Dimensions.set({
+        window: { ...narrowWindow, width: 1440, height: 900 },
+        screen: { ...narrowScreen, width: 1440, height: 900 },
+    });
+});
+afterAll(() => {
+    Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+});
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -191,7 +207,7 @@ describe('order desk requirements — what the rows say', () => {
         ).toHaveTextContent('0');
     });
 
-    it('badges the rows the shelf cannot cover, and only those', async () => {
+    it('marks a short row by its Short figure, with no position column', async () => {
         await renderRequirements(async () =>
             answer([
                 requirement({ stockItemId: SHELF_ID, short: '8.0000' }),
@@ -208,13 +224,13 @@ describe('order desk requirements — what the rows say', () => {
 
         await settled();
 
-        // Emphasis is a badge carrying a word plus a tone — never colour alone.
         expect(
-            screen.getByTestId(`kitchen-order-desk-requirement-${SHELF_ID}-short-badge`),
-        ).toBeTruthy();
-        expect(
-            screen.queryByTestId(`kitchen-order-desk-requirement-${SECOND_SHELF_ID}-short-badge`),
+            screen.queryByTestId(`kitchen-order-desk-requirement-${SHELF_ID}-short-badge`),
         ).toBeNull();
+        expect(
+            screen.queryByTestId(`kitchen-order-desk-requirement-${SECOND_SHELF_ID}-covered-badge`),
+        ).toBeNull();
+        expect(screen.getByTestId(`kitchen-order-desk-requirement-${SHELF_ID}-short`)).toBeTruthy();
     });
 
     it('reports what could not be computed beside the table rather than as a zero inside it', async () => {

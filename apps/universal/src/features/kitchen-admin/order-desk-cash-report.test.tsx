@@ -10,7 +10,23 @@ import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { todayIso } from '../commerce/dates.ts';
 import { OrderDeskCashReportScreen } from './screens/order-desk-cash-report-screen.tsx';
+import { Dimensions } from 'react-native';
 
+/**
+ * These screens draw their tables through `CatalogueList`, which only lays out columns at `md` and
+ * above; React Native's Jest window is 750px. Desk width for the whole file, restored afterwards.
+ */
+const narrowWindow = Dimensions.get('window');
+const narrowScreen = Dimensions.get('screen');
+beforeAll(() => {
+    Dimensions.set({
+        window: { ...narrowWindow, width: 1440, height: 900 },
+        screen: { ...narrowScreen, width: 1440, height: 900 },
+    });
+});
+afterAll(() => {
+    Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+});
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -254,15 +270,11 @@ describe('order desk cash report — rows, totals and the em dash', () => {
         expect(screen.getByTestId(rowTestId(nameless, 'amount'))).toBeTruthy();
     });
 
-    it('states the clock the day was cut on, and that this is not a drawer reconciliation', async () => {
+    it('prints no day-of line under the picker, and no drawer reconciliation', async () => {
         await renderReport(async () => report(seedRows()));
         await settled();
 
-        // UTC, from `meta` — a table that did not say which midnight it showed would imply the
-        // reader's own.
-        expect(screen.getByTestId('kitchen-order-desk-cash-report-measured-on')).toHaveTextContent(
-            /UTC/,
-        );
+        expect(screen.queryByTestId('kitchen-order-desk-cash-report-measured-on')).toBeNull();
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-scope')).toBeNull();
         expect(
             screen.getByTestId('kitchen-order-desk-cash-report-figures-receipts-value'),

@@ -4,7 +4,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Callout,
-    DataList,
     DatePickerButton,
     EmptyState,
     ErrorState,
@@ -12,7 +11,6 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
-import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +23,14 @@ import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { CatalogueStatCards } from '../catalogue/index.ts';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 
 /**
@@ -130,12 +136,19 @@ function OrderDeskCashReport() {
     const totals = report.data?.totals ?? [];
     const meta = report.data?.meta ?? null;
 
-    const columns: readonly DataListColumn<OrderDeskCashReportRow>[] = [
+    const columns: readonly ControlledColumn<
+        OrderDeskCashReportRow,
+        CatalogueColumn<OrderDeskCashReportRow>
+    >[] = [
         {
             key: 'agent',
+            role: 'title',
+            value: (row) => row.displayName ?? EM_DASH,
             label: t('kitchen:ops.cashReport.columnAgent'),
             width: 180,
             priority: 100,
+            sort: (left, right, direction) =>
+                compareText(left.displayName, right.displayName, direction),
             render: (row) => (
                 <Text
                     variant="strong"
@@ -153,9 +166,18 @@ function OrderDeskCashReport() {
         },
         {
             key: 'method',
+            role: 'meta',
             label: t('kitchen:ops.cashReport.columnMethod'),
             width: 160,
             priority: 90,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.method))].map((method) => ({
+                        key: method,
+                        label: t(kitchenOrderPaymentMethodKey(method)),
+                    })),
+                match: (row, value) => row.method === value,
+            },
             render: (row) => (
                 <Text tone="secondary" testID={`${rowTestId(row)}-method`}>
                     {t(kitchenOrderPaymentMethodKey(row.method))}
@@ -167,6 +189,14 @@ function OrderDeskCashReport() {
             label: t('kitchen:ops.cashReport.columnCurrency'),
             width: 80,
             priority: 70,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.currencyCode))].map((code) => ({
+                        key: code,
+                        label: code,
+                    })),
+                match: (row, value) => row.currencyCode === value,
+            },
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-currency`}>
                     {row.currencyCode}
@@ -179,6 +209,8 @@ function OrderDeskCashReport() {
             width: 80,
             priority: 60,
             align: 'end',
+            sort: (left, right, direction) =>
+                compareNumber(left.receiptCount, right.receiptCount, direction),
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-count`}>
                     {formatter.formatNumber(row.receiptCount)}
@@ -187,10 +219,13 @@ function OrderDeskCashReport() {
         },
         {
             key: 'amount',
+            role: 'metric',
             label: t('kitchen:ops.cashReport.columnAmount'),
             width: 140,
             priority: 95,
             align: 'end',
+            sort: (left, right, direction) =>
+                compareNumber(left.amountMinorSum, right.amountMinorSum, direction),
             render: (row) => (
                 <Text variant="mono" testID={`${rowTestId(row)}-amount`}>
                     {formatMoney(formatter, {
@@ -201,6 +236,7 @@ function OrderDeskCashReport() {
             ),
         },
     ];
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-cash-report-table');
 
     return (
         <Stack space="md" testID="kitchen-order-desk-cash-report-screen">
@@ -219,20 +255,7 @@ function OrderDeskCashReport() {
                     <Text variant="caption" tone="secondary">
                         {t('kitchen:ops.cashReport.dateHint')}
                     </Text>
-                ) : (
-                    // The day and the clock the server cut on. Printed rather than assumed — see
-                    // the file header.
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        testID="kitchen-order-desk-cash-report-measured-on"
-                    >
-                        {t('kitchen:ops.cashReport.measuredOn', {
-                            date: formatter.formatDate(meta.date, { dateStyle: 'medium' }),
-                            timezone: meta.timezone,
-                        })}
-                    </Text>
-                )}
+                ) : null}
             </View>
 
             {filters === null ? (
@@ -303,12 +326,13 @@ function OrderDeskCashReport() {
                         ]}
                     />
 
-                    <DataList<OrderDeskCashReportRow>
+                    <CatalogueList<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
                         label={t('kitchen:ops.cashReport.caption')}
-                        columns={columns}
-                        rows={rows}
+                        columns={controls.columns}
+                        rows={controls.rows}
                         rowKey={rowTestId}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
                     />
 
                     {/*

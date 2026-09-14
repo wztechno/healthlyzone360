@@ -128,7 +128,16 @@ export interface CalendarSlotDescriptor {
  * day columns without slot rows rather than inventing a row to put dashes in.
  */
 /** Slot codes in the order a day runs, not the alphabet's. */
-const DAY_ORDER: readonly string[] = ['morning', 'midday', 'evening'];
+const DAY_ORDER: readonly string[] = [
+    'morning',
+    'breakfast',
+    'midday',
+    'lunch',
+    'afternoon',
+    'snack',
+    'evening',
+    'dinner',
+];
 
 export function calendarSlots(
     days: readonly OrderDeskCalendarDay[],
@@ -142,6 +151,10 @@ export function calendarSlots(
             else named.add(window.code);
         }
     }
+
+    // Snack always has its row once the week is answered, so the kitchen sees the sitting even on
+    // a week nobody booked one — its squares then read a true `0`. `afternoon` already is Snack.
+    if ((named.size > 0 || unslotted) && !named.has('afternoon')) named.add('snack');
 
     // The day's own order — morning, midday, evening — then any other code in code-unit order,
     // so a slot named `12` stays the string `12` rather than a number sorting before `2`.

@@ -217,7 +217,8 @@ describe('order desk calendar — the slot rows', () => {
 
         // Both rows on both days: Monday's evening square then reads `0`, which is true, and is the
         // comparison a week view exists to make.
-        expect(slots.map((slot) => slot.code)).toEqual(['morning', 'evening']);
+        // Snack is always a row, between the day's middle and its evening.
+        expect(slots.map((slot) => slot.code)).toEqual(['morning', 'snack', 'evening']);
     });
 
     it('orders slots as the day runs, then any other code alphabetically', () => {
@@ -235,8 +236,8 @@ describe('order desk calendar — the slot rows', () => {
         expect(slots.map((slot) => slot.code)).toEqual([
             'morning',
             'midday',
-            'evening',
             'afternoon',
+            'evening',
             'late',
         ]);
     });
@@ -251,7 +252,7 @@ describe('order desk calendar — the slot rows', () => {
 
         // `12` before `2`, which is what alphabetical means and what the server already answered.
         // A client that coerced the codes to numbers would disagree with it.
-        expect(slots.map((slot) => slot.code)).toEqual(['12', '2']);
+        expect(slots.map((slot) => slot.code)).toEqual(['snack', '12', '2']);
     });
 
     it('puts the unslotted bucket last, and only when a day actually has one', () => {
@@ -262,8 +263,8 @@ describe('order desk calendar — the slot rows', () => {
             ]),
         ]);
 
-        expect(withUnslotted.map((slot) => slot.code)).toEqual(['morning', null]);
-        expect(withUnslotted[1]?.key).toBe(UNSLOTTED_SLOT_KEY);
+        expect(withUnslotted.map((slot) => slot.code)).toEqual(['morning', 'snack', null]);
+        expect(withUnslotted[2]?.key).toBe(UNSLOTTED_SLOT_KEY);
         // Prefixed, so a kitchen whose own code is literally `unslotted` cannot collide with it.
         expect(withUnslotted[0]?.key).toBe('slot-morning');
 
@@ -272,7 +273,7 @@ describe('order desk calendar — the slot rows', () => {
         const named = calendarSlots([
             day('2026-08-17', counts(1, 0, 0), [{ code: 'morning', counts: counts(1, 0, 0) }]),
         ]);
-        expect(named.map((slot) => slot.code)).toEqual(['morning']);
+        expect(named.map((slot) => slot.code)).toEqual(['morning', 'snack']);
 
         expect(calendarSlots(week())).toEqual([]);
     });
@@ -394,7 +395,10 @@ describe('order desk calendar — the squares', () => {
         const cell = screen.getByTestId(`kitchen-order-desk-calendar-${FIRST}-slot-morning`);
         const header = screen.getByTestId(`kitchen-order-desk-calendar-day-${FIRST}`);
 
-        for (const node of [cell, header]) {
+        // The day header is the date alone — no figures to sum.
+        expect(header).not.toHaveTextContent(/\b[234]\b/);
+
+        for (const node of [cell]) {
             // The parts, each on its own.
             expect(node).toHaveTextContent(/2/);
             expect(node).toHaveTextContent(/3/);
@@ -425,7 +429,7 @@ describe('order desk calendar — the squares', () => {
             screen.getAllByLabelText(
                 'Forecast: 4. Worked out from subscription patterns, not a booking.',
             ),
-        ).toHaveLength(2);
+        ).toHaveLength(1);
     });
 
     it('renders the unslotted row last, and a true zero as a zero', async () => {

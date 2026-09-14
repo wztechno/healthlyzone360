@@ -61,15 +61,23 @@ export function DeskFact({
 export function DeskSectionHeading({
     title,
     action,
+    strong = false,
     testID,
 }: {
     readonly title: string;
     readonly action?: ReactNode | undefined;
+    /** Set the title at the choice-card label size rather than the column-label step. */
+    readonly strong?: boolean | undefined;
     readonly testID?: string | undefined;
 }) {
     return (
         <View className="min-h-control-sm flex-row items-center justify-between gap-tight border-b border-stroke-subtle pb-hair">
-            <Text variant="micro" tone="secondary" accessibilityRole="header" testID={testID}>
+            <Text
+                variant={strong ? 'strong' : 'micro'}
+                tone={strong ? 'primary' : 'secondary'}
+                accessibilityRole="header"
+                testID={testID}
+            >
                 {title}
             </Text>
             {action}

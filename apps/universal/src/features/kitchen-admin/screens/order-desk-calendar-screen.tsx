@@ -1,6 +1,5 @@
 import type { CalendarBasis, OrderDeskCalendarFilters } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
     CalendarGrid,
     EmptyState,
@@ -145,6 +144,18 @@ const BASIS_LABEL_KEYS: Readonly<Record<CalendarBasis, string>> = {
     projected: 'kitchen:calendar.basis.projected',
 };
 
+/** The kitchen's own words for the day's three slots; any other code is humanised as sent. */
+const SLOT_LABEL_KEYS: Readonly<Record<string, string>> = {
+    morning: 'kitchen:calendar.slot.breakfast',
+    breakfast: 'kitchen:calendar.slot.breakfast',
+    midday: 'kitchen:calendar.slot.lunch',
+    lunch: 'kitchen:calendar.slot.lunch',
+    afternoon: 'kitchen:calendar.slot.snack',
+    snack: 'kitchen:calendar.slot.snack',
+    evening: 'kitchen:calendar.slot.dinner',
+    dinner: 'kitchen:calendar.slot.dinner',
+};
+
 /**
  * One book's figure.
  *
@@ -238,9 +249,7 @@ function CalendarSquare({
             }
         >
             <View className="flex-col gap-hair">
-                <Text variant="caption" tone="secondary">
-                    {label}
-                </Text>
+                <Text variant="strong">{label}</Text>
 
                 {unknown ? (
                     <Text
@@ -388,11 +397,8 @@ function OrderDeskCalendarWeek() {
     const renderDayHeader = (day: CalendarDay) => {
         const testID = `kitchen-order-desk-calendar-day-${day.key}`;
         const isToday = day.today === true;
-        // The three books for the whole day, above the slot squares that split them. The header
-        // carries them because it is the first thing read, and because a screen whose only figures
-        // were per-slot would make somebody add up a column to answer "how much is Tuesday?" —
-        // which is the one addition that *is* safe (each book within itself, never across the
-        // three), and therefore the one this surface should do for them.
+        // The date and nothing else — the figures live in the slot squares below. Today's column
+        // keeps its brand tint so the eye still finds it.
         return (
             <View
                 testID={testID}
@@ -402,34 +408,11 @@ function OrderDeskCalendarWeek() {
                         : 'rounded bg-surface-sunken px-tight py-tight'
                 }
             >
-                <View className="flex-col gap-hair">
-                    <View className="flex-row flex-wrap items-baseline gap-hair">
-                        <Text variant="strong" tone={isToday ? 'brand' : 'primary'}>
-                            {day.shortLabel ?? day.label}
-                        </Text>
-                        {day.sublabel === undefined ? null : (
-                            <Text variant="mono" tone="secondary">
-                                {day.sublabel}
-                            </Text>
-                        )}
-                        {isToday ? (
-                            <Badge
-                                testID={`${testID}-today`}
-                                tone="success"
-                                icon={null}
-                                label={t('kitchen:calendar.today')}
-                            />
-                        ) : null}
-                    </View>
-                    {dayReadings(calendarDayFor(days, day.key)).map((reading) => (
-                        <Reading
-                            key={reading.basis}
-                            reading={reading}
-                            emphasis
-                            testID={`${testID}-${reading.basis}`}
-                        />
-                    ))}
-                </View>
+                <Text variant="section" tone={isToday ? 'brand' : 'primary'}>
+                    {day.sublabel === undefined
+                        ? (day.shortLabel ?? day.label)
+                        : `${day.shortLabel ?? day.label} ${day.sublabel}`}
+                </Text>
             </View>
         );
     };
@@ -568,7 +551,9 @@ function OrderDeskCalendarWeek() {
                                       label:
                                           slot.code === null
                                               ? t('kitchen:calendar.noSlot')
-                                              : humaniseCode(slot.code),
+                                              : slot.code in SLOT_LABEL_KEYS
+                                                ? t(SLOT_LABEL_KEYS[slot.code] as string)
+                                                : humaniseCode(slot.code),
                                   }))
                         }
                         showSlotLegend={false}

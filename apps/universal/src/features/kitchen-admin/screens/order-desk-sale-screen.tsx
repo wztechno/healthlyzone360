@@ -17,7 +17,6 @@ import {
     EmptyState,
     ErrorState,
     FormGrid,
-    FormSection,
     Icon,
     Inline,
     SearchInput,
@@ -233,6 +232,7 @@ function SaleWizard() {
 
     const [state, setState] = useState<SaleWizardState>(initialSaleWizardState);
     const [step, setStep] = useState<OrderDeskSaleStep>(FIRST_SALE_STEP);
+    const [pickerQuery, setPickerQuery] = useState('');
     /** The finished counter sale. Non-null puts the screen into its completed state. */
     const [completed, setCompleted] = useState<KitchenOrder | null>(null);
 
@@ -399,6 +399,38 @@ function SaleWizard() {
                 }))}
             />
 
+            {/*
+             * Every step's opening lives in one slot of one height above the row, so the rail and
+             * the step's content start on the same line on every step — the basket's search takes
+             * the slot a heading takes elsewhere.
+             */}
+            <View style={{ minHeight: STEP_HEADER_HEIGHT }} className="justify-end">
+                {step === 'basket' ? (
+                    <View style={{ width: fieldWidth }}>
+                        <SearchInput
+                            testID="kitchen-order-desk-sale-picker-search"
+                            label={t('kitchen:desk.sale.pickerSearchLabel')}
+                            placeholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
+                            value={pickerQuery}
+                            onChangeText={setPickerQuery}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                    </View>
+                ) : (
+                    <View className="flex-col gap-hair">
+                        <Text variant="section" role="heading" aria-level={3}>
+                            {t(STEP_HEADER_KEYS[step].title)}
+                        </Text>
+                        <Text variant="caption" tone="secondary">
+                            {t(STEP_HEADER_KEYS[step].description, {
+                                count: CUSTOMER_SEARCH_MIN_LENGTH,
+                            })}
+                        </Text>
+                    </View>
+                )}
+            </View>
+
             <View className="flex-row flex-wrap items-start gap-loose">
                 <View
                     // eslint-disable-next-line no-restricted-syntax -- the step column is the row's filler beside the fixed rail.
@@ -435,6 +467,7 @@ function SaleWizard() {
                     {step === 'basket' ? (
                         <BasketStep
                             state={state}
+                            query={pickerQuery}
                             onLines={(lines) => {
                                 update({ ...state, lines });
                             }}
@@ -561,6 +594,32 @@ function SaleWizard() {
  */
 const STEP_MIN_WIDTH = 320;
 
+/** Tall enough for the basket's labelled search, the tallest opening. A style: no token for it. */
+const STEP_HEADER_HEIGHT = 64;
+
+const STEP_HEADER_KEYS = {
+    type: {
+        title: 'kitchen:desk.sale.typeLabel',
+        description: 'kitchen:desk.sale.typeDescription',
+    },
+    customer: {
+        title: 'kitchen:desk.sale.step.customer',
+        description: 'kitchen:desk.sale.customerSearchHint',
+    },
+    address: {
+        title: 'kitchen:desk.sale.step.address',
+        description: 'kitchen:desk.sale.addressDescription',
+    },
+    payment: {
+        title: 'kitchen:desk.sale.step.payment',
+        description: 'kitchen:desk.sale.paymentDescription',
+    },
+    review: {
+        title: 'kitchen:desk.sale.step.review',
+        description: 'kitchen:desk.sale.reviewDescription',
+    },
+} as const satisfies Record<Exclude<OrderDeskSaleStep, 'basket'>, object>;
+
 /* ------------------------------------------------------------------------------------------------
  * Choice cards — the kind of sale, and the way it is paid
  * ---------------------------------------------------------------------------------------------- */
@@ -631,12 +690,7 @@ function TypeStep({
     const { t } = useTranslation();
 
     return (
-        <FormSection
-            first
-            testID="kitchen-order-desk-sale-type"
-            title={t('kitchen:desk.sale.typeLabel')}
-            description={t('kitchen:desk.sale.typeDescription')}
-        >
+        <View testID="kitchen-order-desk-sale-type" className="z-auto flex-col">
             <View
                 role="radiogroup"
                 aria-label={t('kitchen:desk.sale.typeLabel')}
@@ -656,7 +710,7 @@ function TypeStep({
                     />
                 ))}
             </View>
-        </FormSection>
+        </View>
     );
 }
 
@@ -694,14 +748,7 @@ function CustomerStep({
     }
 
     return (
-        <FormSection
-            first
-            testID="kitchen-order-desk-sale-customer"
-            title={t('kitchen:desk.sale.step.customer')}
-            description={t('kitchen:desk.sale.customerSearchHint', {
-                count: CUSTOMER_SEARCH_MIN_LENGTH,
-            })}
-        >
+        <View testID="kitchen-order-desk-sale-customer" className="z-auto flex-col">
             <View className="flex-col gap-tight">
                 {state.customerAccountId === null || chosen === null ? null : (
                     <Callout
@@ -950,7 +997,7 @@ function CustomerStep({
                     </Inline>
                 )}
             </View>
-        </FormSection>
+        </View>
     );
 }
 
@@ -1016,12 +1063,7 @@ function AddressStep({
     );
 
     return (
-        <FormSection
-            first
-            testID="kitchen-order-desk-sale-address"
-            title={t('kitchen:desk.sale.step.address')}
-            description={t('kitchen:desk.sale.addressDescription')}
-        >
+        <View testID="kitchen-order-desk-sale-address" className="z-auto flex-col">
             <View className="flex-col gap-snug">
                 <Callout
                     testID="kitchen-order-desk-sale-address-note"
@@ -1154,7 +1196,7 @@ function AddressStep({
                     />
                 </Inline>
             </View>
-        </FormSection>
+        </View>
     );
 }
 
@@ -1182,15 +1224,17 @@ interface PickerRow {
  */
 function BasketStep({
     state,
+    query,
     onLines,
 }: {
     readonly state: SaleWizardState;
+    /** Held by the screen: the search sits above the row so the table and the rail share a top. */
+    readonly query: string;
     readonly onLines: (lines: readonly BasketLine[]) => void;
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
     const debounced = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
 
     /*
@@ -1390,18 +1434,6 @@ function BasketStep({
         // No heading: the step tab above already says "Basket", and the rail beside it is the basket.
         <View testID="kitchen-order-desk-sale-basket">
             <View testID="kitchen-order-desk-sale-picker" className="flex-col gap-tight">
-                <View style={{ width: fieldWidth }}>
-                    <SearchInput
-                        testID="kitchen-order-desk-sale-picker-search"
-                        label={t('kitchen:desk.sale.pickerSearchLabel')}
-                        placeholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
-                        value={query}
-                        onChangeText={setQuery}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
-                </View>
-
                 {loading ? (
                     <Skeleton
                         testID="kitchen-order-desk-sale-picker-loading"
@@ -1461,12 +1493,7 @@ function PaymentStep({
     };
 
     return (
-        <FormSection
-            first
-            testID="kitchen-order-desk-sale-payment"
-            title={t('kitchen:desk.sale.step.payment')}
-            description={t('kitchen:desk.sale.paymentDescription')}
-        >
+        <View testID="kitchen-order-desk-sale-payment" className="z-auto flex-col">
             <View className="flex-col gap-snug">
                 <MethodChoices
                     testID="kitchen-order-desk-sale-payment-method"
@@ -1524,7 +1551,7 @@ function PaymentStep({
                     />
                 </FormGrid>
             </View>
-        </FormSection>
+        </View>
     );
 }
 
@@ -1592,12 +1619,7 @@ function ReviewStep({
     );
 
     return (
-        <FormSection
-            first
-            testID="kitchen-order-desk-sale-review"
-            title={t('kitchen:desk.sale.step.review')}
-            description={t('kitchen:desk.sale.reviewDescription')}
-        >
+        <View testID="kitchen-order-desk-sale-review" className="z-auto flex-col">
             <View className="flex-col gap-snug">
                 <View className="flex-col">
                     <DeskFact
@@ -1661,7 +1683,7 @@ function ReviewStep({
                     </View>
                 )}
             </View>
-        </FormSection>
+        </View>
     );
 }
 

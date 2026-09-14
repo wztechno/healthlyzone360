@@ -1,8 +1,6 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Callout,
-    DataList,
     DatePickerButton,
     EmptyState,
     ErrorState,
@@ -10,7 +8,6 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
-import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +18,15 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskRequirementsQuery } from '../../../data/order-desk-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { addDays, todayIso } from '../../commerce/dates.ts';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueStatCards } from '../catalogue/index.ts';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 
 /**
@@ -126,21 +131,22 @@ function OrderDeskRequirements() {
 
     const shortCount = (requirements.data?.requirements ?? []).filter((row) => isShort(row)).length;
 
-    const columns: readonly DataListColumn<OrderDeskRequirement>[] = [
+    const columns: readonly ControlledColumn<
+        OrderDeskRequirement,
+        CatalogueColumn<OrderDeskRequirement>
+    >[] = [
         {
             key: 'ingredient',
+            role: 'title',
+            value: (row) => row.nameEn,
             label: t('kitchen:ops.requirements.columnIngredient'),
             width: 220,
             priority: 100,
+            sort: (left, right, direction) => compareText(left.nameEn, right.nameEn, direction),
             render: (row) => (
-                <View className="flex-row flex-wrap items-baseline gap-tight">
-                    <Text variant="strong" testID={`${rowTestId(row)}-name`}>
-                        {row.nameEn}
-                    </Text>
-                    <Text variant="mono" tone="secondary">
-                        {row.code}
-                    </Text>
-                </View>
+                <Text variant="strong" testID={`${rowTestId(row)}-name`}>
+                    {row.nameEn}
+                </Text>
             ),
         },
         {
@@ -148,7 +154,9 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnRequired'),
             width: 100,
             priority: 95,
-            align: 'end',
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.required), Number(right.required), direction),
             render: (row) => (
                 <Text variant="mono" testID={`${rowTestId(row)}-required`}>
                     {quantity(row.required)}
@@ -160,7 +168,9 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnAvailable'),
             width: 100,
             priority: 80,
-            align: 'end',
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.available), Number(right.available), direction),
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-available`}>
                     {quantity(row.available)}
@@ -169,10 +179,13 @@ function OrderDeskRequirements() {
         },
         {
             key: 'short',
+            role: 'metric',
             label: t('kitchen:ops.requirements.columnShort'),
             width: 100,
             priority: 90,
-            align: 'end',
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.short), Number(right.short), direction),
             render: (row) => (
                 <Text
                     variant="mono"
@@ -188,7 +201,9 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnSuggestedBuy'),
             width: 110,
             priority: 70,
-            align: 'end',
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.suggestedBuy), Number(right.suggestedBuy), direction),
             render: (row) => (
                 <Text variant="mono" testID={`${rowTestId(row)}-suggested-buy`}>
                     {quantity(row.suggestedBuy)}
@@ -200,6 +215,15 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnUnit'),
             width: 70,
             priority: 60,
+            align: 'center',
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.unitCode ?? EM_DASH))].map((unit) => ({
+                        key: unit,
+                        label: unit,
+                    })),
+                match: (row, value) => (row.unitCode ?? EM_DASH) === value,
+            },
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-unit`}>
                     {/* The one genuine unknown on this row. A shelf with no resolved unit still has
@@ -207,31 +231,6 @@ function OrderDeskRequirements() {
                     {row.unitCode ?? EM_DASH}
                 </Text>
             ),
-        },
-        {
-            key: 'position',
-            label: t('kitchen:ops.requirements.columnPosition'),
-            width: 96,
-            priority: 85,
-            align: 'end',
-            // A word, never a dot: the platform's standing rule that colour does not carry a
-            // meaning alone. Short and Covered read the same in greyscale.
-            render: (row) =>
-                isShort(row) ? (
-                    <Badge
-                        testID={`${rowTestId(row)}-short-badge`}
-                        tone="danger"
-                        icon="warning"
-                        label={t('kitchen:ops.requirements.shortBadge')}
-                    />
-                ) : (
-                    <Badge
-                        testID={`${rowTestId(row)}-covered-badge`}
-                        tone="success"
-                        icon={null}
-                        label={t('kitchen:ops.requirements.coveredBadge')}
-                    />
-                ),
         },
     ];
 
@@ -262,6 +261,7 @@ function OrderDeskRequirements() {
 
     const failure = toFailure(requirements.error);
     const rows = requirements.data?.requirements ?? [];
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-requirements-table');
 
     return (
         <Stack space="md" testID="kitchen-order-desk-requirements-screen">
@@ -381,12 +381,13 @@ function OrderDeskRequirements() {
                             body={t('kitchen:ops.requirements.noRowsBody')}
                         />
                     ) : (
-                        <DataList<OrderDeskRequirement>
+                        <CatalogueList<OrderDeskRequirement>
                             testID="kitchen-order-desk-requirements-table"
                             label={t('kitchen:ops.requirements.title')}
-                            columns={columns}
-                            rows={rows}
+                            columns={controls.columns}
+                            rows={controls.rows}
                             rowKey={(row) => row.stockItemId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
                         />
                     )}
                 </View>
