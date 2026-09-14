@@ -64,6 +64,7 @@ export const REVIEW_REASON_CODES = [
     'unverifiedAllergens',
     'missingTranslation',
     'dataQuality',
+    'draft',
 ] as const;
 export type ReviewReasonCode = (typeof REVIEW_REASON_CODES)[number];
 
@@ -177,7 +178,10 @@ function itemFrom(
 
 /** `quarantined` when the record is in the stored quarantine, and nothing otherwise. */
 function quarantineReason(meta: AdminEntityMeta): readonly ReviewReason[] {
-    return meta.status === 'review_required' ? [{ code: 'quarantined', count: null }] : [];
+    if (meta.status === 'review_required') return [{ code: 'quarantined', count: null }];
+    // A draft is work still to finish before it can go out — never a wall, so never blocking.
+    if (meta.status === 'draft') return [{ code: 'draft', count: null }];
+    return [];
 }
 
 /** `missingTranslation` when either half of the name is blank — the publish gate's own rule. */
@@ -358,6 +362,7 @@ const REASON_KEYS: Readonly<Record<ReviewReasonCode, string>> = {
     unverifiedAllergens: 'kitchen:review.reasonUnverifiedAllergens',
     missingTranslation: 'kitchen:review.reasonMissingTranslation',
     dataQuality: 'kitchen:review.reasonDataQuality',
+    draft: 'kitchen:review.reasonDraft',
 };
 
 export function reviewReasonKey(code: ReviewReasonCode): string {

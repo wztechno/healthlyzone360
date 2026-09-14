@@ -1,9 +1,14 @@
-import { Badge, Button, Drawer, Separator, Text } from '@healthy360/design-system';
+import { DerivedChipPanel, RecordWindow, Text } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
 
 /**
  * The read-only record panel behind a row's View action — handoff §4.1.
+ *
+ * **Now a centred `RecordWindow`, not a drawer** (Workbench handoff §0). The side drawer was retired
+ * for every kitchen-admin "view a record" surface, and this file is re-pointed rather than each
+ * Catalogue screen, so the Catalogue and the workbench cannot diverge. The props did not change;
+ * the diagram below still names the parts, now laid out as the window's title bar, field grid and
+ * footer.
  *
  * ```
  * INGREDIENT                                    ✕
@@ -72,8 +77,9 @@ export interface CatalogueViewDrawerProps {
     /** Translated. The footer's second button opens the editor. Omit to draw Close alone. */
     readonly editLabel?: string | undefined;
     readonly onEdit?: (() => void) | undefined;
+    /** Unused since the window: its Close carries `common:action.close`. Kept so callers compile. */
     readonly closeLabel: string;
-    /** Translated heading over the field list — "Fields". */
+    /** Unused since the window: its field grid has no heading. Kept so callers compile. */
     readonly fieldsLabel: string;
     readonly testID: string;
 }
@@ -92,119 +98,47 @@ export function CatalogueViewDrawer({
     chips,
     editLabel,
     onEdit,
-    closeLabel,
-    fieldsLabel,
+    fieldsLabel: _fieldsLabel,
+    closeLabel: _closeLabel,
     testID,
 }: CatalogueViewDrawerProps) {
     return (
-        <Drawer
+        <RecordWindow
             open={open}
             onClose={onClose}
-            // `Drawer` draws this as the panel's visible heading *and* its accessible name, so the
-            // record's name lives there and the body opens with the two things the header has no
-            // room for — what kind of record it is, and what state it is in.
             title={title}
-            placement="end"
-            testID={testID}
-            footer={
-                <View className="flex-row items-center justify-end gap-tight">
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        label={closeLabel}
-                        onPress={onClose}
-                        testID={`${testID}-close`}
-                    />
-                    {editLabel === undefined || onEdit === undefined ? null : (
-                        <Button
-                            size="sm"
-                            label={editLabel}
-                            onPress={onEdit}
-                            testID={`${testID}-edit`}
-                        />
-                    )}
-                </View>
-            }
-        >
-            <View className="flex-col gap-snug">
-                {/*
-                 * The identity line — kind, reference, state. The *name* is deliberately not here:
-                 * `Drawer` already prints it two lines up, and drawing it again put "Tahini paste"
-                 * twice in the top 60px of a 372px panel.
-                 */}
-                <View className="flex-col gap-hair">
-                    <View className="flex-row flex-wrap items-baseline gap-tight">
-                        <Text variant="micro" tone="secondary">
-                            {kindLabel}
+            kind={kindLabel}
+            // The reference and the list's own status badge sit in the title bar, beside the kind:
+            // they are the record's identity, and the field grid below is its facts.
+            titleAside={
+                <>
+                    {reference === undefined ? null : (
+                        <Text variant="mono" tone="secondary" testID={`${testID}-reference`}>
+                            {reference}
                         </Text>
-                        {reference === undefined ? null : (
-                            <Text variant="mono" tone="secondary" testID={`${testID}-reference`}>
-                                {reference}
-                            </Text>
-                        )}
-                    </View>
-                    {status === undefined ? null : (
-                        <View className="flex-row items-center">{status}</View>
                     )}
-                </View>
-
-                <View className="flex-col">
-                    <Text variant="micro" tone="secondary">
-                        {fieldsLabel}
-                    </Text>
-                    <Separator />
-                    {fields.map((field) => (
-                        /*
-                         * A two-track row rather than a `FormGrid`: this is a definition list, not a
-                         * form, and the labels want a common start edge so the eye can run down them
-                         * — which is the one thing the no-stretch field grid deliberately does not
-                         * give you. The 118px label track is the design's.
-                         */
-                        <View
-                            key={field.key}
-                            testID={`${testID}-field-${field.key}`}
-                            className="flex-row items-baseline gap-snug border-b border-stroke-subtle py-tight"
-                        >
-                            <View style={{ width: 118 }}>
-                                <Text variant="caption" tone="secondary">
-                                    {field.label}
-                                </Text>
-                            </View>
-                            {/*
-                             * `flex-1` on the value column is the row's own container — the case the
-                             * no-stretch fence exempts — so a long value wraps inside its track
-                             * instead of pushing the label off the panel.
-                             */}
-                            {/* eslint-disable-next-line no-restricted-syntax -- the value column *is* the row. */}
-                            <View className="min-w-0 flex-1">
-                                <Text variant={field.mono === true ? 'mono' : 'label'}>
-                                    {field.value}
-                                </Text>
-                            </View>
-                        </View>
-                    ))}
-                </View>
-
-                {chipsLabel === undefined || chips === undefined ? null : (
-                    <View className="flex-col gap-tight">
-                        <View className="flex-row flex-wrap items-center gap-tight">
-                            <Text variant="micro" tone="secondary">
-                                {chipsLabel}
-                            </Text>
-                            {chipsSource === undefined ? null : (
-                                <Badge tone="info" label={chipsSource} />
-                            )}
-                        </View>
-                        <Separator />
-                        {chipsCaption === undefined ? null : (
-                            <Text variant="caption" tone="secondary">
-                                {chipsCaption}
-                            </Text>
-                        )}
-                        <View className="flex-row flex-wrap items-center gap-tight">{chips}</View>
-                    </View>
-                )}
-            </View>
-        </Drawer>
+                    {status}
+                </>
+            }
+            fields={fields}
+            lines={
+                chipsLabel === undefined || chips === undefined ? undefined : (
+                    <DerivedChipPanel
+                        testID={`${testID}-chips`}
+                        label={chipsLabel}
+                        badge={chipsSource}
+                        caption={chipsCaption}
+                    >
+                        {chips}
+                    </DerivedChipPanel>
+                )
+            }
+            primaryAction={
+                editLabel === undefined || onEdit === undefined
+                    ? undefined
+                    : { label: editLabel, onPress: onEdit, testID: `${testID}-edit` }
+            }
+            testID={testID}
+        />
     );
 }

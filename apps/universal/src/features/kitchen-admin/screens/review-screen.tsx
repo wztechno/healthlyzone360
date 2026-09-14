@@ -1,69 +1,69 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
-    Callout,
-    Card,
     EmptyState,
     ErrorState,
-    Heading,
-    Inline,
+    RecordWindow,
     Skeleton,
     Stack,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import type { TFunction } from 'i18next';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useReviewQueueQuery } from '../../../data/kitchen-admin-hooks.ts';
+import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
-import { displayName, statusKey, statusTone } from '../format.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
-import {
-    buildReviewQueue,
-    isBlockingReason,
-    reviewFamilyKey,
-    reviewReasonKey,
-    reviewRowTestId,
-} from '../review-queue.ts';
-import type { ReviewItem, ReviewQueue } from '../review-queue.ts';
+import { displayName, statusKey } from '../format.ts';
+import { ReviewFamilySection } from '../review/review-family-section.tsx';
+import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '../review-queue.ts';
+import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 
 /**
- * `/kitchen/review` — the publication review queue (K1.8).
+ * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
+ *
+ * ```
+ * Needs review  [ READ ONLY ]
+ * ┌ SHOWN ┐ ┌ BLOCKED ┐ ┌ TO FINISH ┐
+ * [ ⌕ Designation or name ]  [ All | Blocked | To finish ]
+ * ── INGREDIENTS  3 records  [ 1 BLOCKED ] ─────────────────────────
+ * DESIGNATION         WHY IT IS HERE          LAST CHANGED          ◉ ✎
+ * ── RECIPES … ─────────────────────────────────────────────────────
+ * Checked: …   Not checked here: …
+ * ```
  *
  * ## The one screen in this workspace that is not about a family
  *
- * Every other kitchen screen answers "show me the ingredients / the recipes / the price lists". This
- * one answers the question a kitchen manager actually opens the workspace with: **what is stopping
- * anything from going out?** That is a question across six families at once, which is why the queue
- * is a section per family rather than a seventh list — and why a family with nothing to report gets
- * no heading at all. A heading with nothing under it reads as a loading state that never resolved.
+ * Every other kitchen screen answers "show me the ingredients". This one answers **what is stopping
+ * anything from going out?** — a question across six families at once, which is why it is a section
+ * per family, and why a family with nothing to report gets no heading at all.
  *
  * ## It states what it checked, and it never claims more
  *
- * `KitchenAdminRepository` publishes no readiness verdict — no `getReadiness`, no `blockers`, no
- * `quarantineReason` field on any shape. So the reasons on these rows are derived from what the
- * contract *does* say, in `../review-queue.ts`, and the all-clear state prints the list of things
- * that were examined instead of a bare tick. "Nothing needs review" is only trustworthy if the
- * reader can see what "nothing" was measured against; a green tick over an unstated check is the
- * most expensive true-sounding sentence a management screen can print.
- *
- * Three parts of the workspace are named as *not* checked, for the same reason: delivery zones have
- * no `publishZone` on the contract and so cannot be quarantined, a branch's operating week has no
- * publication state at all, and the allergen classes are platform reference data nobody in a kitchen
- * can change (decision D-041).
+ * The repository publishes no readiness verdict, so the reasons are derived in `../review-queue.ts`
+ * and both footnotes — `review.scope` and `review.notChecked` — stay below the last section. They are
+ * the screen's answer to "is this everything?". The all-clear prints the scope too: a green state over
+ * an unstated check is the most expensive true-sounding sentence a management screen can print.
  *
  * ## Nothing is written from here
  *
- * There is no "resolve", no "publish anyway" and no bulk action. Every row is a link into the
- * family's own editor, which is where the lock version, the unsaved guard, the conflict dialog and
- * the publish confirmation already live — and where a quarantine banner already renders. A queue
- * that could clear a food-safety quarantine in one click, from a screen holding no lock version and
- * showing none of the record, would be the single most dangerous control in this programme.
+ * No resolve, no publish-anyway, no bulk action. The row body opens a read-only `RecordWindow`, and
+ * both its primary and the row's pen go to the family's own editor, where the lock version, the unsaved
+ * guard and the publish confirmation already live.
+ *
+ * ## The cards count the filtered queue
+ *
+ * Shown, Blocked and To finish are counted over the rows the search and scope leave on screen, so
+ * narrowing the queue moves the cards with it (§3z rule 1). Shown's unit states the whole queue — "of
+ * 6" — which is the one figure a filter should not move.
  */
 export function ReviewScreen() {
     return (
@@ -77,120 +77,21 @@ export function ReviewScreen() {
     );
 }
 
-/**
- * One row: what it is, why it is here, and when it last moved.
- *
- * The reasons are chips rather than a sentence because a record can carry several — a quarantined
- * recipe whose derivation is also stale is two different jobs — and a comma-joined sentence would
- * make the blocking one indistinguishable from the rest. Blocking reasons take the danger tone;
- * everything else is a warning, which is the distinction `../review-queue.ts` documents: "you
- * cannot" and "you have not yet" are different sentences.
- */
-function ReviewRow({ item }: { readonly item: ReviewItem }) {
-    const { t } = useTranslation();
-    const { locale } = useLocale();
-    const formatter = useFormatter();
-    const router = useRouter();
+type ReviewScope = 'all' | 'blocked' | 'unblocked';
 
-    const testID = reviewRowTestId(item.familyKey, item.id);
-    const name = displayName(item.name, locale);
-
-    return (
-        <Card testID={testID} padding="md">
-            <Stack space="sm">
-                <Inline space="sm" align="center" wrap>
-                    <Text variant="bodyStrong" testID={`${testID}-name`}>
-                        {name.value}
-                    </Text>
-                    <Badge
-                        testID={`${testID}-status`}
-                        tone={statusTone(item.status)}
-                        label={t(statusKey(item.status))}
-                    />
-                </Inline>
-
-                <Inline space="xs" wrap testID={`${testID}-reasons`}>
-                    {item.reasons.map((reason) => (
-                        <Badge
-                            key={reason.code}
-                            testID={`${testID}-reason-${reason.code}`}
-                            tone={isBlockingReason(reason.code) ? 'danger' : 'warning'}
-                            icon="warning"
-                            label={t(reviewReasonKey(reason.code), {
-                                count: reason.count ?? 1,
-                            })}
-                        />
-                    ))}
-                </Inline>
-
-                <Text variant="caption" tone="secondary" testID={`${testID}-updated`}>
-                    {item.updatedByName === null
-                        ? t('kitchen:review.updatedBySeed', {
-                              when: formatter.formatRelativeTime(item.updatedAt),
-                          })
-                        : t('kitchen:review.updatedBy', {
-                              when: formatter.formatRelativeTime(item.updatedAt),
-                              name: item.updatedByName,
-                          })}
-                </Text>
-
-                <Inline space="sm" wrap>
-                    <Button
-                        testID={`${testID}-open`}
-                        size="sm"
-                        variant="secondary"
-                        label={t('kitchen:review.open')}
-                        onPress={() => {
-                            router.push(item.href as never);
-                        }}
-                    />
-                </Inline>
-            </Stack>
-        </Card>
-    );
-}
-
-function ReviewSections({ queue }: { readonly queue: ReviewQueue }) {
-    const { t } = useTranslation();
-
-    return (
-        <Stack space="lg" testID="kitchen-review-sections">
-            {queue.sections.map((section) => (
-                <Stack
-                    key={section.familyKey}
-                    space="sm"
-                    testID={`kitchen-review-section-${section.familyKey}`}
-                >
-                    <Inline space="sm" align="center" wrap>
-                        <Heading
-                            level={2}
-                            testID={`kitchen-review-section-${section.familyKey}-title`}
-                        >
-                            {t(reviewFamilyKey(section.familyKey))}
-                        </Heading>
-                        <Badge
-                            testID={`kitchen-review-section-${section.familyKey}-count`}
-                            tone="neutral"
-                            icon="dot"
-                            label={t('kitchen:review.sectionCount', {
-                                count: section.items.length,
-                            })}
-                        />
-                    </Inline>
-
-                    {section.items.map((item) => (
-                        <ReviewRow key={item.id} item={item} />
-                    ))}
-                </Stack>
-            ))}
-        </Stack>
-    );
+interface Viewing {
+    readonly item: ReviewItem;
 }
 
 function ReviewQueueBody() {
     const { t } = useTranslation();
+    const { locale } = useLocale();
     const router = useRouter();
     const sources = useReviewQueueQuery();
+
+    const [search, setSearch] = useState('');
+    const [scope, setScope] = useState<ReviewScope>('all');
+    const [viewing, setViewing] = useState<Viewing | null>(null);
 
     const queue = useMemo(
         () =>
@@ -208,54 +109,78 @@ function ReviewQueueBody() {
         [sources.data],
     );
 
+    const sections = useMemo(
+        () => (queue === null ? [] : narrow(queue, search, scope, locale)),
+        [queue, search, scope, locale],
+    );
+
     /**
-     * The failure, and the reason it is derived from `isError` rather than from `toFailure` alone.
-     *
-     * `toFailure` answers `null` for anything that is not a recognisable `ApiFailure` — a thrown
-     * `TypeError`, a rejected promise carrying a string. On most screens that only costs a generic
-     * message. Here it would be a *lie*: falling through to the next branch would render the
-     * all-clear state, and a review queue that celebrates because its own request blew up is the one
-     * failure mode this screen must not have. So the query's own error flag decides, and an
-     * unclassifiable rejection is presented as the server-side problem it is.
+     * Derived from `isError`, not from `toFailure` alone: an unclassifiable rejection would otherwise
+     * fall through to the all-clear, and a review queue that celebrates because its own request blew
+     * up is the one failure this screen must not have.
      */
     const failure = sources.isError
         ? (toFailure(sources.error) ?? apiFailure('server', { retryable: true }))
         : null;
 
-    return (
-        <Stack space="lg" testID="kitchen-review-screen">
-            <Button
-                testID="kitchen-review-back"
-                variant="ghost"
-                size="sm"
-                label={t('kitchen:common.back')}
-                onPress={() => {
-                    router.push('/kitchen' as never);
-                }}
-            />
+    const open = (item: ReviewItem) => {
+        setViewing(null);
+        router.push(item.href as never);
+    };
 
-            <KitchenPageHeader
-                testID="kitchen-review-header"
-                title={t('kitchen:review.title')}
-                subtitle={t('kitchen:review.subtitle')}
-                titleTestID="kitchen-review-title"
-                subtitleTestID="kitchen-review-subtitle"
-            />
+    return (
+        <Stack space="md" testID="kitchen-review-screen">
+            {queue === null || queue.total === 0 || failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-review-summary"
+                    cards={statCards(queue, sections, t, (next) => {
+                        setScope(next);
+                        setViewing(null);
+                    })}
+                />
+            )}
+
+            {queue === null || queue.total === 0 || failure !== null ? null : (
+                <CatalogueToolbar<ReviewScope>
+                    testID="kitchen-review-toolbar"
+                    search={search}
+                    onSearchChange={(next) => {
+                        setSearch(next);
+                        setViewing(null);
+                    }}
+                    searchLabel={t('kitchen:review.searchLabel')}
+                    searchPlaceholder={t('kitchen:review.searchPlaceholder')}
+                    statusLabel={t('kitchen:review.scopeLabel')}
+                    statusSegments={[
+                        { value: 'all', label: t('kitchen:review.scopeAll') },
+                        { value: 'blocked', label: t('kitchen:review.scopeBlocked') },
+                        { value: 'unblocked', label: t('kitchen:review.scopeUnblocked') },
+                    ]}
+                    status={scope}
+                    onStatusChange={(next) => {
+                        setScope(next);
+                        setViewing(null);
+                    }}
+                />
+            )}
 
             {sources.isPending ? (
-                <Stack space="sm" testID="kitchen-review-loading">
-                    {Array.from({ length: 3 }, (_, index) => (
-                        <Card key={index} padding="md">
-                            <Stack space="xs">
-                                <Skeleton
-                                    testID={`kitchen-review-skeleton-${String(index + 1)}`}
-                                    heightClassName="h-5"
-                                />
-                                <Skeleton heightClassName="h-4" widthClassName="w-2/3" />
-                            </Stack>
-                        </Card>
+                <View testID="kitchen-review-loading" className="flex-col">
+                    {Array.from({ length: 6 }, (_, index) => (
+                        <View
+                            key={index}
+                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
+                        >
+                            <Skeleton
+                                testID={`kitchen-review-skeleton-${String(index + 1)}`}
+                                heightClassName="h-2"
+                            />
+                        </View>
                     ))}
-                </Stack>
+                    <Text variant="caption" tone="secondary" className="pt-2.5">
+                        {t('kitchen:review.loadingCaption')}
+                    </Text>
+                </View>
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-review-error"
@@ -267,55 +192,217 @@ function ReviewQueueBody() {
                     retrying={sources.isFetching}
                 />
             ) : queue === null || queue.total === 0 ? (
-                /*
-                 * The all-clear, which has to be honest before it is celebratory. It names the six
-                 * families that were examined, because a green state whose scope is unstated is
-                 * indistinguishable from a query that silently returned nothing.
-                 */
-                <Stack space="sm">
-                    <EmptyState
-                        testID="kitchen-review-clear"
-                        title={t('kitchen:review.clearTitle')}
-                        body={t('kitchen:review.clearBody')}
-                    />
-                    <Text variant="caption" tone="secondary" testID="kitchen-review-clear-scope">
-                        {t('kitchen:review.scope')}
-                    </Text>
-                </Stack>
+                <EmptyState
+                    testID="kitchen-review-clear"
+                    title={t('kitchen:review.clearTitle')}
+                    body={t('kitchen:review.clearBody')}
+                />
             ) : (
-                <Stack space="lg">
-                    <Callout
-                        testID="kitchen-review-summary"
-                        role={queue.blocked > 0 ? 'alert' : 'note'}
-                        tone={queue.blocked > 0 ? 'warning' : 'info'}
-                        title={t('kitchen:review.summaryTitle', { count: queue.total })}
-                        body={
-                            queue.blocked > 0
-                                ? t('kitchen:review.summaryBlocked', { count: queue.blocked })
-                                : t('kitchen:review.summaryUnblocked')
-                        }
-                    />
-
-                    {sources.data?.truncated === true ? (
-                        <Callout
-                            testID="kitchen-review-truncated"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:review.truncatedTitle')}
-                            body={t('kitchen:review.truncatedBody')}
+                <Stack space="md">
+                    {sections.length === 0 ? (
+                        /*
+                         * The queue has records and the search or scope hid all of them. Not the
+                         * all-clear: "nothing is waiting" would be false, and it is the one sentence
+                         * this screen must never say by accident.
+                         */
+                        <EmptyState
+                            testID="kitchen-review-filtered-empty"
+                            title={t('kitchen:review.filteredEmptyTitle')}
+                            body={t('kitchen:review.filteredEmptyBody')}
+                            actions={
+                                <Button
+                                    testID="kitchen-review-clear-filters"
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('kitchen:toolbar.clearFilters')}
+                                    onPress={() => {
+                                        setSearch('');
+                                        setScope('all');
+                                    }}
+                                />
+                            }
                         />
-                    ) : null}
-
-                    <ReviewSections queue={queue} />
-
-                    <Text variant="caption" tone="secondary" testID="kitchen-review-scope">
-                        {t('kitchen:review.scope')}
-                    </Text>
-                    <Text variant="caption" tone="secondary" testID="kitchen-review-not-checked">
-                        {t('kitchen:review.notChecked')}
-                    </Text>
+                    ) : (
+                        <View testID="kitchen-review-sections" className="flex-col gap-base">
+                            {sections.map((section) => (
+                                <ReviewFamilySection
+                                    key={section.familyKey}
+                                    section={section}
+                                    onView={(item) => {
+                                        setViewing({ item });
+                                    }}
+                                    onOpen={open}
+                                />
+                            ))}
+                        </View>
+                    )}
                 </Stack>
+            )}
+
+            {viewing === null ? null : (
+                <ReviewWindow
+                    item={viewing.item}
+                    onClose={() => {
+                        setViewing(null);
+                    }}
+                    onOpen={open}
+                />
             )}
         </Stack>
     );
+}
+
+function ReviewWindow({
+    item,
+    onClose,
+    onOpen,
+}: {
+    readonly item: ReviewItem;
+    readonly onClose: () => void;
+    readonly onOpen: (item: ReviewItem) => void;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const formatter = useFormatter();
+    const blocked = isBlocked(item);
+
+    return (
+        <RecordWindow
+            testID="kitchen-review-window"
+            open
+            onClose={onClose}
+            title={displayName(item.name, locale).value}
+            kind={t(reviewFamilyKey(item.familyKey))}
+            status={
+                blocked
+                    ? { label: t('kitchen:review.scopeBlocked'), tone: 'danger' }
+                    : { label: t('kitchen:review.scopeUnblocked'), tone: 'warning' }
+            }
+            note={t('kitchen:review.window.note')}
+            fields={[
+                {
+                    key: 'family',
+                    label: t('kitchen:review.window.fieldFamily'),
+                    value: t(reviewFamilyKey(item.familyKey)),
+                },
+                {
+                    key: 'status',
+                    label: t('kitchen:review.window.fieldStatus'),
+                    value: t(statusKey(item.status)),
+                },
+                {
+                    key: 'updated',
+                    label: t('kitchen:review.columnUpdated'),
+                    value:
+                        item.updatedByName === null
+                            ? t('kitchen:review.updatedBySeed', {
+                                  when: formatter.formatRelativeTime(item.updatedAt),
+                              })
+                            : t('kitchen:review.updatedBy', {
+                                  when: formatter.formatRelativeTime(item.updatedAt),
+                                  name: item.updatedByName,
+                              }),
+                },
+                {
+                    key: 'publication',
+                    label: t('kitchen:review.window.fieldPublication'),
+                    value: blocked
+                        ? t('kitchen:review.window.publicationBlocked')
+                        : t('kitchen:review.window.publicationUnblocked'),
+                },
+            ]}
+            chipsLabel={t('kitchen:review.columnWhy')}
+            chipsCaption={t('kitchen:review.window.chipsCaption')}
+            chips={item.reasons.map((reason) => ({
+                key: reason.code,
+                label: t(reviewReasonKey(reason.code), { count: reason.count ?? 1 }),
+            }))}
+            primaryAction={{
+                label: t('kitchen:review.open'),
+                onPress: () => {
+                    onOpen(item);
+                },
+            }}
+        />
+    );
+}
+
+/** The sections the search and scope leave, each keeping only its matching rows. */
+function narrow(
+    queue: ReviewQueue,
+    search: string,
+    scope: ReviewScope,
+    locale: string,
+): readonly ReviewSection[] {
+    const needle = search.trim().toLocaleLowerCase(locale);
+    return queue.sections
+        .map((section) => ({
+            ...section,
+            items: section.items.filter((item) => {
+                if (scope === 'blocked' && !isBlocked(item)) return false;
+                if (scope === 'unblocked' && isBlocked(item)) return false;
+                if (needle.length === 0) return true;
+                // Both languages, whichever the reader is in: a bilingual kitchen searches by the
+                // name it remembers, not by the one the interface happens to display.
+                return [item.name.en, item.name.ar].some((name) =>
+                    name.toLocaleLowerCase(locale).includes(needle),
+                );
+            }),
+        }))
+        .filter((section) => section.items.length > 0);
+}
+
+/** The admin's standard figure cards — each one also narrows the queue to what it counts. */
+function statCards(
+    queue: ReviewQueue,
+    sections: readonly ReviewSection[],
+    t: TFunction,
+    setScope: (scope: ReviewScope) => void,
+): readonly CatalogueStatCard[] {
+    const shown = sections.reduce((sum, section) => sum + section.items.length, 0);
+    const blocked = sections.reduce(
+        (sum, section) => sum + section.items.filter(isBlocked).length,
+        0,
+    );
+    return [
+        {
+            key: 'shown',
+            label: t('kitchen:review.statShown'),
+            value: String(shown),
+            unit: t('kitchen:list.statShownUnit', { total: queue.total }),
+            caption: t('kitchen:review.statShownCaption', { count: sections.length }),
+            mark: 'calendar',
+            tone: 'brand',
+            onPress: () => {
+                setScope('all');
+            },
+            accessibilityLabel: t('kitchen:review.scopeAll'),
+        },
+        {
+            key: 'blocked',
+            label: t('kitchen:review.scopeBlocked'),
+            value: String(blocked),
+            unit: t('kitchen:list.statRecords'),
+            caption: t('kitchen:review.statBlockedCaption'),
+            mark: 'warning',
+            tone: blocked === 0 ? 'default' : 'danger',
+            onPress: () => {
+                setScope('blocked');
+            },
+            accessibilityLabel: t('kitchen:review.scopeBlocked'),
+        },
+        {
+            key: 'unblocked',
+            label: t('kitchen:review.scopeUnblocked'),
+            value: String(shown - blocked),
+            unit: t('kitchen:list.statRecords'),
+            caption: t('kitchen:review.statToFinishCaption'),
+            mark: 'eyeOff',
+            tone: shown - blocked === 0 ? 'default' : 'warning',
+            onPress: () => {
+                setScope('unblocked');
+            },
+            accessibilityLabel: t('kitchen:review.scopeUnblocked'),
+        },
+    ];
 }
