@@ -3130,7 +3130,26 @@
         "title": "Composition & allergens",
         "fromDatabase": "From database",
         "description": "Nutrients and allergen classes resolve from the reference food database on save. They are shown for confirmation and cannot be typed in.",
+        "allergensDescription": "Allergen classes resolve from the reference food database. They are shown for confirmation and cannot be typed in; a correction happens on the reference record.",
         "per100g": "{{unit}} / 100 g"
+    },
+    "nutritionFacts": {
+        "title": "Nutrition per 100 g",
+        "hint": "Per 100 g of the ingredient as purchased. Recipes are costed and labelled from these figures.",
+        "unitKcal": "kcal",
+        "unitGrams": "g",
+        "unitMilligrams": "mg",
+        "saturatedFatHint": "Optional. Leave blank when the label does not state it.",
+        "estimateLabel": "These figures are an estimate",
+        "estimateDescription": "Tick when the numbers are representative of this kind of ingredient rather than measured from this one. Left unticked, they are recorded as a declaration.",
+        "noteLabel": "Note on the figures",
+        "noteHint": "One sentence: where the numbers came from, or what they depend on. Up to 300 characters.",
+        "notePlaceholder": "Supplier label, March 2026 batch",
+        "partialError": "Fill in all seven figures, or clear them all.",
+        "partialHint": "A part-filled set cannot be added up: a recipe roll-up reads a blank as nothing at all and prints a label that understates it.",
+        "estimatedBadge": "Estimated",
+        "derivedBadge": "Derived from a recipe",
+        "derivedDescription": "These figures are worked out from the published recipe that makes this ingredient, per 100 g of its finished mass. Change the recipe to change them."
     },
     "packaging": {
         "caption": "Packaging",

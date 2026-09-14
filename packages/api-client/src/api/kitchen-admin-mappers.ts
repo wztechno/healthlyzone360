@@ -348,6 +348,11 @@ export function mapIngredientAdmin(
             wire.nutrition_derived_from_version_id == null
                 ? null
                 : RecipeVersionId.unsafe(wire.nutrition_derived_from_version_id),
+        // `?? null`, never `?? false`: the column has three states and "nobody has said" is one of
+        // them. Reading an absent flag as "declared" would badge 306 seeded rows as somebody's
+        // statement about the thing in the store cupboard.
+        nutritionEstimated: wire.nutrition_estimated ?? null,
+        nutritionNote: wire.nutrition_note ?? null,
         // Both the collection and the single resource carry the mappings, so the list's allergen
         // column and its View panel state the real declaration rather than "none declared" on every
         // row — which is what they did while this could only be filled from the dedicated
@@ -376,12 +381,31 @@ export function mapIngredientAdmin(
  * envelope the screens render. Provenance is honest about what it is: a
  * professional entry recorded on the ingredient, not a laboratory analysis and
  * not a derivation — those arrive with the recipe-rollup phase.
+ *
+ * ## An estimated row says so in the provenance line, not only on a badge
+ *
+ * `nutrition_estimated` is what the reference document flags on 56 of its 306
+ * rows: a figure true of the *category* rather than measured of this
+ * ingredient. Every reader of these facts renders `source.label` and
+ * `calculation.notes` — that is what the "how was this worked out?" panel is —
+ * so the flag belongs there as well as on the editor's badge. A badge only one
+ * screen draws is provenance that travels no further than that screen.
+ *
+ * **`source.kind` stays `professional_entry`.** The union has no member for
+ * "representative figure": its options describe *who* recorded a value, and an
+ * estimate flag describes *how good* it is. `estimated` is a `NutritionValueKind`
+ * rather than a source kind, but the amounts are still points and not ranges —
+ * they carry no tolerance — so restating them as estimates would claim a
+ * precision contract the envelope cannot honour. The honest answer is the true
+ * source kind with the caveat stated in words beside it.
  */
 function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
     const payload = wire.nutrition_per_100g;
     if (payload == null) return null;
 
     const recordedAt = wire.updated_at ?? UNKNOWN_ISO_DATE_TIME;
+    const estimated = wire.nutrition_estimated === true;
+    const note = wire.nutrition_note ?? null;
 
     return {
         basis: 'per_100g',
@@ -396,8 +420,11 @@ function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
             tolerance: null,
         })),
         source: {
+            // See the note above on why an estimate does not move this.
             kind: 'professional_entry',
-            label: 'Kitchen-recorded reference facts',
+            label: estimated
+                ? 'Estimated reference facts — representative of the category, not measured'
+                : 'Kitchen-recorded reference facts',
             version: 'ingredient-record',
             calculatedAt: recordedAt,
         },
@@ -407,7 +434,7 @@ function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
             calculatedAt: recordedAt,
             prototype: false,
             rounding: 'as_entered',
-            notes: [],
+            notes: note === null ? [] : [note],
         },
     };
 }

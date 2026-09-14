@@ -80,8 +80,9 @@ class IngredientNutritionSeeder extends Seeder
 
         $this->command?->warn(sprintf(
             '%d of the %d rows are flagged estimated by the source — recipe-, brand-, salt- or preparation-dependent '
-            .'figures rather than measured ones. The flag stays in the seed document; replace one with a supplier label '
-            .'before it reaches a printed panel.',
+            .'figures rather than measured ones. The flag and the source note now land on the rows themselves '
+            .'(`nutrition_estimated`, `nutrition_note`), so the kitchen can see which they are; replace one with a '
+            .'supplier label before it reaches a printed panel.',
             $report->estimated,
             $report->rows,
         ));

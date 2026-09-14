@@ -389,6 +389,29 @@ export interface IngredientAdmin {
      * than no control. Retiring the version clears both the facts and this link.
      */
     readonly nutritionDerivedFromVersionId: RecipeVersionId | null;
+    /**
+     * How good {@link per100g} is. Three states, and the `null` is a third answer rather than a
+     * missing `false`.
+     *
+     * - `true` — a representative figure. True of the *category* rather than measured of this
+     *   ingredient: recipe-, brand-, salt- or preparation-dependent. The platform library flags 56
+     *   of its 306 rows this way, and the instruction that comes with them is to replace one with
+     *   a supplier's label before it reaches a printed panel. Badge it; do not hide it.
+     * - `false` — a declared figure. Somebody stated it about this ingredient.
+     * - `null` — nobody has said.
+     *
+     * A save that sends {@link per100g} without this flag is recorded as `false`: a typed figure is
+     * a declaration unless the writer says otherwise.
+     */
+    readonly nutritionEstimated: boolean | null;
+    /**
+     * One sentence about the figures — their basis, a caveat, the brand they were read off.
+     *
+     * Not {@link notes}, which is the kitchen's free text about the *ingredient*. This one is about
+     * the *numbers*, which is why replacing them clears it: a note left standing over a
+     * replacement describes a figure that is no longer there.
+     */
+    readonly nutritionNote: string | null;
     readonly allergens: readonly IngredientAllergenMapping[];
     readonly dietClassifications: readonly DietClassification[];
     /** Alternative designations seen on delivery notes and technical sheets. */
@@ -520,6 +543,16 @@ export interface CreateIngredientRequest {
     readonly itemsPerUnit?: number | undefined;
     /** Mass of one `measurementUnit` in grams; omit on a mass unit, which needs none. */
     readonly gramsPerUnit?: number | undefined;
+    /**
+     * Per-100 g reference facts, when the form collected a complete set. Only `amounts` is sent —
+     * the server stores a slim envelope and dates it itself, so the provenance this type carries
+     * is the reader's, not the writer's.
+     */
+    readonly per100g?: NutritionFacts | undefined;
+    /** `true` marks the facts representative rather than declared. Omitted beside facts means `false`. */
+    readonly nutritionEstimated?: boolean | undefined;
+    /** One sentence about the figures, up to 300 characters. */
+    readonly nutritionNote?: string | undefined;
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
     readonly unitPrice?: CostAmount | undefined;
@@ -555,6 +588,15 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly isSellable?: boolean | undefined;
     /** Per-100 g reference facts; `null` clears them. */
     readonly per100g?: NutritionFacts | null | undefined;
+    /**
+     * `true` marks the facts representative rather than declared; `null` says nobody has.
+     *
+     * Sending {@link per100g} without this resets it to `false`, and clearing the facts resets it
+     * to `null` — the provenance belongs to the figures, so a replacement replaces it.
+     */
+    readonly nutritionEstimated?: boolean | null | undefined;
+    /** One sentence about the figures; `null` clears it, and so does sending {@link per100g} alone. */
+    readonly nutritionNote?: string | null | undefined;
     readonly reference?: string | null | undefined;
     readonly costPer100g?: CostAmount | null | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;

@@ -548,37 +548,87 @@ export function IngredientDetail({
                         first
                         title={t('kitchen:composition.title')}
                         aside={
-                            <Badge
-                                testID={`${testID}-composition-source`}
-                                tone="neutral"
-                                label={t('kitchen:composition.fromDatabase')}
-                            />
+                            /*
+                             * Where the figures came from, and how good they are, beside the
+                             * title rather than buried in the panel.
+                             *
+                             * `Estimated` is not decoration: the reference library flags 56 of
+                             * its 306 rows as representative of the category rather than measured
+                             * of the thing, and the instruction that comes with them is to replace
+                             * one with a supplier's label before it reaches a printed panel. A
+                             * reader who cannot see which rows those are cannot act on it.
+                             *
+                             * `Derived from a recipe` answers a different question — not how good
+                             * the figures are but whose they are — which is why it is a second
+                             * badge rather than a third tone on the first.
+                             */
+                            <View className="flex-row flex-wrap items-center gap-tight">
+                                <Badge
+                                    testID={`${testID}-composition-source`}
+                                    tone="neutral"
+                                    label={t('kitchen:composition.fromDatabase')}
+                                />
+                                {ingredient.nutritionEstimated !== true ? null : (
+                                    <Badge
+                                        testID={`${testID}-nutrition-estimated`}
+                                        tone="warning"
+                                        label={t('kitchen:nutritionFacts.estimatedBadge')}
+                                    />
+                                )}
+                                {ingredient.nutritionDerivedFromVersionId === null ? null : (
+                                    <Badge
+                                        testID={`${testID}-nutrition-derived`}
+                                        tone="info"
+                                        label={t('kitchen:nutritionFacts.derivedBadge')}
+                                    />
+                                )}
+                            </View>
                         }
                     >
-                        <DerivedPanel
-                            testID={`${testID}-composition-panel`}
-                            description={t('kitchen:list.viewAllergensCaption')}
-                            figures={figures}
-                            emptyValue={dash}
-                            chips={
-                                ingredient.allergens.length === 0 ? (
-                                    <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
-                                ) : (
-                                    ingredient.allergens.map((mapping) => (
-                                        <Tag
-                                            key={mapping.allergenCode}
-                                            testID={`${testID}-allergen-${mapping.allergenCode}`}
-                                            tone={
-                                                mapping.containment === 'contains'
-                                                    ? 'danger'
-                                                    : 'warning'
-                                            }
-                                            label={mapping.allergenCode}
-                                        />
-                                    ))
-                                )
-                            }
-                        />
+                        <View className="flex-col gap-snug">
+                            <DerivedPanel
+                                testID={`${testID}-composition-panel`}
+                                description={t('kitchen:list.viewAllergensCaption')}
+                                figures={figures}
+                                emptyValue={dash}
+                                chips={
+                                    ingredient.allergens.length === 0 ? (
+                                        <Text tone="secondary">
+                                            {t('kitchen:list.noAllergens')}
+                                        </Text>
+                                    ) : (
+                                        ingredient.allergens.map((mapping) => (
+                                            <Tag
+                                                key={mapping.allergenCode}
+                                                testID={`${testID}-allergen-${mapping.allergenCode}`}
+                                                tone={
+                                                    mapping.containment === 'contains'
+                                                        ? 'danger'
+                                                        : 'warning'
+                                                }
+                                                label={mapping.allergenCode}
+                                            />
+                                        ))
+                                    )
+                                }
+                            />
+
+                            {/*
+                             * The source's own sentence about the numbers — a basis, a caveat,
+                             * the brand they were read off. Under the tiles rather than over
+                             * them: the figures are what a reader came for, and the caveat is
+                             * what they read next.
+                             */}
+                            {ingredient.nutritionNote === null ? null : (
+                                <Text
+                                    testID={`${testID}-nutrition-note`}
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {ingredient.nutritionNote}
+                                </Text>
+                            )}
+                        </View>
                     </FormSection>
                 </View>
             ) : null}

@@ -25,7 +25,10 @@
         "protein": "البروتين",
         "carbohydrate": "الكربوهيدرات",
         "fat": "الدهون",
-        "fibre": "الألياف"
+        "fibre": "الألياف",
+        "sugars": "السكريات",
+        "sodium": "الصوديوم",
+        "saturatedFat": "الدهون المشبعة"
     },
     "energy": {
         "title": "الطاقة",

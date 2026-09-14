@@ -145,6 +145,8 @@ function item({ ordinal, name, overrides = {} }: ItemSeed): IngredientAdmin {
         isSellable: false,
         per100g: null,
         nutritionDerivedFromVersionId: null,
+        nutritionEstimated: null,
+        nutritionNote: null,
         allergens: [],
         dietClassifications: [],
         aliases: [],

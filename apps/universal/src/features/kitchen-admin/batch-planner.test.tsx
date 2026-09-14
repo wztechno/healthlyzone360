@@ -139,6 +139,8 @@ function ingredient(id: IngredientId, name: string): IngredientAdmin {
         costPer100g: null,
         per100g: null,
         nutritionDerivedFromVersionId: null,
+        nutritionEstimated: null,
+        nutritionNote: null,
         allergens: [],
         dietClassifications: [],
         aliases: [],

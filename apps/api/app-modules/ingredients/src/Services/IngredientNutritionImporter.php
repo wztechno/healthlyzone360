@@ -25,9 +25,14 @@ use Throwable;
  * ## Fill-empty, per column, independently
  *
  * Insert-if-absent (risk R8): a null column takes the document's value and a
- * filled one keeps what it has. The two columns are decided separately — an
+ * filled one keeps what it has. The columns are decided separately — an
  * ingredient can have curated nutrition and no density, or the reverse, and
  * neither answer blocks the other.
+ *
+ * The two provenance columns — `nutrition_estimated` and `nutrition_note` —
+ * follow the same rule with one addition: a pass that writes or rewrites the
+ * envelope writes them whatever they held, because they describe the figures
+ * that just landed rather than the row. See the block that sets them.
  *
  * ## Overwrite rewrites only what nobody has touched
  *
@@ -122,6 +127,15 @@ final readonly class IngredientNutritionImporter
      * shape, and the sorting above is what makes the side that came back from
      * `jsonb` agree with the side that never left memory.
      *
+     * **`nutrition_estimated` and `nutrition_note` are deliberately not in it.**
+     * The question this hash answers is "are these *figures* still the ones we
+     * seeded", and the two provenance columns are not figures: nothing
+     * downstream computes with them, and a note somebody reworded — or an
+     * operator ticking "this one is an estimate" — is not a curated *value* and
+     * must not make the row unrewritable. Folding them in would also break every
+     * fingerprint already stamped on a deployed database, for nothing. They are
+     * written beside the envelope instead, on the runs that own it.
+     *
      * @param  array<string, mixed>|null  $envelope
      * @param  numeric-string|null  $gramsPerUnit
      */
@@ -206,11 +220,16 @@ final readonly class IngredientNutritionImporter
                 $untouched = $stored !== null && $stored === self::fingerprint($currentEnvelope, $currentGrams);
 
                 $wrote = false;
+                // Tracked separately from `$wrote`, which also goes true for a
+                // density: the provenance below describes the *envelope*, so it
+                // is the envelope's own writes that own it.
+                $wroteEnvelope = false;
 
                 if ($currentEnvelope === null) {
                     $ingredient->nutrition_per_100g = $fileEnvelope;
                     $filled++;
                     $wrote = true;
+                    $wroteEnvelope = true;
                 }
 
                 if (is_numeric($documentGrams) && ($currentGrams === null || $overwrite)) {
@@ -233,6 +252,7 @@ final readonly class IngredientNutritionImporter
                     if ($currentEnvelope !== null && self::canonical($currentEnvelope) !== self::canonical($fileEnvelope)) {
                         $ingredient->nutrition_per_100g = $fileEnvelope;
                         $changed = true;
+                        $wroteEnvelope = true;
                     }
 
                     if ($currentGrams !== null && $unitAgrees && is_numeric($documentGrams)
@@ -245,6 +265,45 @@ final readonly class IngredientNutritionImporter
                         $rewritten++;
                         $rewrittenRefs[] = $sourceRef;
                         $wrote = true;
+                    }
+                }
+
+                /*
+                 * The provenance travels with the figures it describes.
+                 *
+                 * Two moments own it. A pass that **wrote or rewrote the
+                 * envelope** owns both columns outright: the sentence and the
+                 * flag are about the numbers that just landed, so carrying the
+                 * previous row's ones over would leave a note describing a
+                 * figure that is no longer there. And a **plain run over a row
+                 * still holding exactly the file's envelope** fills whichever
+                 * column is still NULL — that is the fill-empty rule the rest of
+                 * this class applies, reaching the 306 rows seeded before these
+                 * columns existed without disturbing anything an operator has
+                 * since said about them.
+                 *
+                 * Per column, independently, for the same reason the envelope
+                 * and the density are: an operator who ticked "estimated" and
+                 * left the sentence blank has answered one question, not both.
+                 *
+                 * Deliberately does **not** set `$wrote`. Nothing derives from
+                 * either column — no roll-up reads them, no label is computed
+                 * from them — so marking a published version stale over a note
+                 * would queue a recompute that cannot change a single number.
+                 */
+                if ($wroteEnvelope || self::canonical($ingredient->nutrition_per_100g) === self::canonical($fileEnvelope)) {
+                    if ($wroteEnvelope || $ingredient->nutrition_estimated === null) {
+                        $ingredient->nutrition_estimated = (bool) ($row['estimated'] ?? false);
+                    }
+
+                    if ($wroteEnvelope || $ingredient->nutrition_note === null) {
+                        // Straight through at the document's own length. The
+                        // column holds 300 and the longest note in the file is
+                        // 58, so a truncation here would only ever fire on a
+                        // document nobody has reviewed — and silently shortening
+                        // a caveat is worse than the loud write that refuses it.
+                        $note = $row['note'] ?? null;
+                        $ingredient->nutrition_note = is_string($note) && trim($note) !== '' ? trim($note) : null;
                     }
                 }
 

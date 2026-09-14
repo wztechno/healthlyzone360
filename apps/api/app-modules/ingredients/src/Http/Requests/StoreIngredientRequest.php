@@ -71,6 +71,17 @@ class StoreIngredientRequest extends FormRequest
             'nutrition_per_100g.amounts.*.nutrient_id' => ['required', 'distinct', 'in:energy,protein,carbohydrate,fat,fibre,sugars,saturated_fat,sodium'],
             'nutrition_per_100g.amounts.*.unit' => ['required', 'in:kcal,kJ,g,mg'],
             'nutrition_per_100g.amounts.*.value' => ['required', 'numeric', 'min:0'],
+            /*
+             * How good the figures above are, and what the source said about
+             * them. Three states rather than two: `null` is "nobody has said",
+             * which is not the same claim as `false` — see the column's own
+             * migration. A write that states the facts and says nothing about
+             * their provenance is recorded as a declaration by
+             * `IngredientCatalogueService`, which is where that rule belongs:
+             * it is about the pair, and a validator sees one field at a time.
+             */
+            'nutrition_estimated' => ['sometimes', 'nullable', 'boolean'],
+            'nutrition_note' => ['sometimes', 'nullable', 'string', 'max:300'],
         ];
     }
 

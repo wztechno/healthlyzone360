@@ -466,6 +466,70 @@ it('keeps the nutrition document and the ingredient library in step', function (
     expect($mismatches)->toBe([]);
 });
 
+it('carries the source flag and note onto every row whose facts it wrote', function (): void {
+    // The 56 estimated rows are the whole point of these two columns: the
+    // document's own notice tells a kitchen to replace one with a supplier's
+    // label before it reaches a printed panel, and that is an instruction
+    // nothing could act on while the flag stayed in the file. What is pinned
+    // here is that the flag and the sentence beside it reached the row that
+    // the figures they describe reached.
+    $document = json_decode(
+        (string) file_get_contents(
+            base_path('app-modules/ingredients/database/data/platform-ingredient-nutrition.json')
+        ),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    /** @var array<string, array<string, mixed>> $rows */
+    $rows = collect($document['ingredients'])->keyBy('source_ref')->all();
+
+    // Counted from the file, never written down. The number moves the next time
+    // the owner sends a revised table, and a hard-coded 56 would then fail for
+    // the one reason that is not a bug. The floor below is what stops the
+    // whole assertion collapsing into a tautology if the flag ever stops being
+    // parsed and every row reads `false`.
+    $estimatedInDocument = count(array_filter(
+        $rows,
+        static fn (array $row): bool => ($row['estimated'] ?? false) === true,
+    ));
+
+    expect($estimatedInDocument)->toBeGreaterThan(0);
+
+    $library = Ingredient::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->where('source_ref', 'like', 'ING-%')
+        ->get();
+
+    $offenders = [];
+
+    foreach ($library as $row) {
+        $sourceRef = (string) $row->source_ref;
+        $expectedFlag = ($rows[$sourceRef]['estimated'] ?? false) === true;
+        $note = $rows[$sourceRef]['note'] ?? null;
+        $expectedNote = is_string($note) && trim($note) !== '' ? trim($note) : null;
+
+        if ($row->nutrition_estimated !== $expectedFlag) {
+            $offenders[] = $sourceRef.': flag';
+        }
+
+        if ($row->nutrition_note !== $expectedNote) {
+            $offenders[] = $sourceRef.': note';
+        }
+    }
+
+    // Strict comparisons throughout: `null == false` in PHP, so a column the
+    // seeder never touched would pass a loose count of the declared rows.
+    $flags = $library->map(static fn (Ingredient $row): ?bool => $row->nutrition_estimated);
+
+    expect($offenders)->toBe([])
+        ->and($flags->filter(static fn (?bool $flag): bool => $flag === true))->toHaveCount($estimatedInDocument)
+        ->and($flags->filter(static fn (?bool $flag): bool => $flag === false))->toHaveCount(306 - $estimatedInDocument)
+        ->and($flags->filter(static fn (?bool $flag): bool => $flag === null))->toHaveCount(0)
+        ->and($library->filter(static fn (Ingredient $row): bool => $row->nutrition_note === null))->toHaveCount(0);
+});
+
 it('seeds the twelve organisation types with both names', function (): void {
     expect(OrganisationType::query()->count())->toBe(12)
         ->and(OrganisationType::query()->pluck('code')->all())->toEqualCanonicalizing([

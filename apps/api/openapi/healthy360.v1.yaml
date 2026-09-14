@@ -21717,6 +21717,35 @@ components:
 
             Null is the ordinary answer: every platform-library row, and every
             ingredient a kitchen typed in itself.
+        nutrition_estimated:
+          type: ['boolean', 'null']
+          description: |
+            How good `nutrition_per_100g` is. Three states, and the null is a
+            third answer rather than a missing `false`:
+
+            - `true` — a representative or estimated figure. Recipe-, brand-,
+              salt- or preparation-dependent; true of the *category* rather
+              than measured of this ingredient. The reference document flags
+              56 of its 306 rows this way and says to replace them with a
+              supplier's label before they reach a printed panel.
+            - `false` — a declared figure. Somebody stated it about this
+              ingredient: a supplier's label, or a kitchen typing in what the
+              packet says.
+            - `null` — nobody has said.
+
+            A write that sends `nutrition_per_100g` without this field is
+            recorded as `false`: a typed figure is a declaration unless the
+            writer says otherwise. Clearing the facts clears this to `null`,
+            because `false` claims a declared figure and there is none.
+        nutrition_note:
+          type: ['string', 'null']
+          maxLength: 300
+          description: |
+            What the source said about the figures — a basis, a caveat, a
+            brand. Distinct from `notes`, which is the kitchen's free text
+            about the *ingredient*: this one is about the *numbers*, so
+            replacing them replaces it.
+          examples: ['Estimated generic dry tempura batter mix']
         b2b_price_amount:
           type: ['string', 'null']
           description: |
@@ -21984,6 +22013,23 @@ components:
           oneOf:
             - $ref: '#/components/schemas/IngredientNutritionPer100g'
             - type: 'null'
+        nutrition_estimated:
+          type: ['boolean', 'null']
+          description: |
+            Whether `nutrition_per_100g` is a representative figure rather than
+            a declared one. Omit it beside a set of facts and the server records
+            `false` — a typed figure is a declaration unless the writer says
+            otherwise. Send `true` for a figure that is true of the category
+            rather than measured of this ingredient. `null` says nobody has
+            said, and is what clearing the facts leaves behind.
+        nutrition_note:
+          type: ['string', 'null']
+          maxLength: 300
+          description: |
+            One sentence about the figures — their basis, a caveat, the brand
+            they were read off. Cleared whenever `nutrition_per_100g` is sent
+            without it: a note describes the numbers beside it, and a
+            replacement leaves it describing nothing.
         b2b_price_amount:
           type: ['number', 'null']
           minimum: 0
@@ -22065,6 +22111,23 @@ components:
           oneOf:
             - $ref: '#/components/schemas/IngredientNutritionPer100g'
             - type: 'null'
+        nutrition_estimated:
+          type: ['boolean', 'null']
+          description: |
+            Whether `nutrition_per_100g` is a representative figure rather than
+            a declared one. Omit it beside a set of facts and the server records
+            `false` — a typed figure is a declaration unless the writer says
+            otherwise. Send `true` for a figure that is true of the category
+            rather than measured of this ingredient. `null` says nobody has
+            said, and is what clearing the facts leaves behind.
+        nutrition_note:
+          type: ['string', 'null']
+          maxLength: 300
+          description: |
+            One sentence about the figures — their basis, a caveat, the brand
+            they were read off. Cleared whenever `nutrition_per_100g` is sent
+            without it: a note describes the numbers beside it, and a
+            replacement leaves it describing nothing.
         b2b_price_amount:
           type: ['number', 'null']
           minimum: 0

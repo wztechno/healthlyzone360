@@ -17,6 +17,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -1051,4 +1052,147 @@ it('refuses energy in kilojoules, and every other non-canonical pairing', functi
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'validation.failed');
     }
+});
+
+/*
+|--------------------------------------------------------------------------
+| Nutrition provenance — how good the figures are, and whose they are
+|--------------------------------------------------------------------------
+|
+| The reference library flags 56 of its 306 rows as representative of the
+| category rather than measured of the thing, and tells a kitchen to replace
+| one with a supplier's label before it reaches a printed panel. That is an
+| instruction nothing could act on while the flag lived in a seed file, so it
+| is on the row and on the wire.
+|
+| The rule the tests below pin is that the provenance belongs to the
+| *figures*, not to the row: it arrives with them, a replacement that says
+| nothing about it resets it, and on a row whose figures a recipe owns it is
+| as unwritable as they are.
+|
+*/
+
+it('records an estimate flag and its note beside the facts a create states', function (): void {
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Tempura mix',
+        'default_unit_id' => gramsId(),
+        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
+        'nutrition_estimated' => true,
+        'nutrition_note' => 'Estimated generic dry tempura batter mix',
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.ingredient.nutrition_estimated', true)
+        ->assertJsonPath('data.ingredient.nutrition_note', 'Estimated generic dry tempura batter mix');
+});
+
+it('reads facts with no flag beside them as a declaration, and no facts as no answer', function (): void {
+    $this->actingAs($this->a->user);
+
+    // A kitchen typing figures in is stating what *this* ingredient is. The
+    // estimate flag exists for the other case, and that is a claim the writer
+    // has to make — defaulting to `true` would mark every honest transcription
+    // off a packet as a guess, and every screen would badge it.
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Declared Sumac',
+        'default_unit_id' => gramsId(),
+        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.ingredient.nutrition_estimated', false)
+        ->assertJsonPath('data.ingredient.nutrition_note', null);
+
+    // And a row with no figures has nothing to be estimated *about*: `false`
+    // would claim a declared figure where there is none.
+    $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Unmeasured Sumac',
+        'default_unit_id' => gramsId(),
+    ], catalogueHeaders($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.ingredient.nutrition_estimated', null)
+        ->assertJsonPath('data.ingredient.nutrition_note', null);
+});
+
+it('resets the provenance when a PATCH replaces the facts without it', function (): void {
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'default_unit_id' => gramsId(),
+        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
+        'nutrition_estimated' => true,
+        'nutrition_note' => 'Estimated generic dry tempura batter mix',
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    // Somebody has transcribed the supplier's own label over the family figure.
+    // Leaving the flag standing would badge a declaration as an estimate, and
+    // leaving the sentence would describe a number that is no longer there.
+    $this->patchJson($url, [
+        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
+    ], $headers + ['If-Match' => (string) $etag])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.nutrition_estimated', false)
+        ->assertJsonPath('data.ingredient.nutrition_note', null);
+
+    $stored = Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->sole();
+
+    expect($stored->nutrition_estimated)->toBeFalse()
+        ->and($stored->nutrition_note)->toBeNull();
+});
+
+it('leaves the provenance alone on a PATCH that never mentions the facts', function (): void {
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'default_unit_id' => gramsId(),
+        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
+        'nutrition_estimated' => true,
+        'nutrition_note' => 'Estimated generic dry tempura batter mix',
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    // The reset is about a *replacement*. A rename is not one.
+    $this->patchJson($url, ['name_en' => 'Renamed'], $headers + ['If-Match' => (string) $etag])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.nutrition_estimated', true)
+        ->assertJsonPath('data.ingredient.nutrition_note', 'Estimated generic dry tempura batter mix');
+});
+
+it('refuses an estimate flag and a note on a row a published recipe derives', function (): void {
+    // A sub-recipe's output. Its facts are whatever the formulation that makes
+    // it works out to, so a claim *about* those facts is the recipe's to make
+    // as well — and, like a typed figure, one typed here would survive only
+    // until the next recompute dropped it.
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'default_unit_id' => gramsId(),
+        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
+        'nutrition_derived_from_version_id' => (string) Str::uuid7(),
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+
+    foreach ([['nutrition_estimated' => true], ['nutrition_note' => 'Weighed here']] as $payload) {
+        $etag = $this->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+        $response = $this->patchJson($url, $payload, $headers + ['If-Match' => (string) $etag])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation.failed');
+
+        expect(array_keys($response->json('error.details.fields')))->toContain('nutrition_per_100g');
+    }
+
+    expect(Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->value('nutrition_estimated'))
+        ->toBeNull();
 });

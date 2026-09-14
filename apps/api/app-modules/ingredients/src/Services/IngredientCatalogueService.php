@@ -82,6 +82,8 @@ final readonly class IngredientCatalogueService
      *     items_per_unit?: float|string|null,
      *     grams_per_unit?: float|string|null,
      *     nutrition_per_100g?: array<string, mixed>|null,
+     *     nutrition_estimated?: bool|null,
+     *     nutrition_note?: string|null,
      *     b2b_price_amount?: float|string|null,
      *     b2c_price_amount?: float|string|null,
      *     unit_price_amount?: float|string|null,
@@ -117,6 +119,24 @@ final readonly class IngredientCatalogueService
         $ingredient->items_per_unit = $this->decimalOrNull($attributes['items_per_unit'] ?? null);
         $ingredient->grams_per_unit = $this->decimalOrNull($attributes['grams_per_unit'] ?? null);
         $ingredient->nutrition_per_100g = $attributes['nutrition_per_100g'] ?? null;
+        /*
+         * A typed figure is a declaration unless the writer says otherwise.
+         *
+         * Somebody entering a per-100 g set is stating what *this* ingredient
+         * is — off a packet, off a supplier's sheet, off a lab report. The
+         * estimate flag exists for the other case, where the number is true of
+         * the category rather than of the thing, and that is a claim the writer
+         * has to make: defaulting to `true` would mark every honest transcription
+         * as a guess, and every screen would badge it.
+         *
+         * Facts with no flag beside them are therefore `false`, and facts that
+         * are absent altogether leave both columns NULL — `false` says "a
+         * declared figure" and there is no figure to declare.
+         */
+        $ingredient->nutrition_estimated = array_key_exists('nutrition_estimated', $attributes)
+            ? ($attributes['nutrition_estimated'] === null ? null : (bool) $attributes['nutrition_estimated'])
+            : ($ingredient->nutrition_per_100g === null ? null : false);
+        $ingredient->nutrition_note = $this->trimmedOrNull($attributes['nutrition_note'] ?? null);
         $ingredient->b2b_price_amount = $this->decimalOrNull($attributes['b2b_price_amount'] ?? null);
         $ingredient->b2c_price_amount = $this->decimalOrNull($attributes['b2c_price_amount'] ?? null);
         $ingredient->unit_price_amount = $this->decimalOrNull($attributes['unit_price_amount'] ?? null);
@@ -231,6 +251,12 @@ final readonly class IngredientCatalogueService
             // it: the mass is the mass of one of *that* unit.
             $fork->grams_per_unit = $source->grams_per_unit;
             $fork->nutrition_per_100g = $source->nutrition_per_100g;
+            // Copied with the figures they describe. A fork of a row whose
+            // 350 kcal is a family figure for dry batter mixes is still a
+            // family figure; dropping the flag would silently promote the copy
+            // to a declaration nobody made.
+            $fork->nutrition_estimated = $source->nutrition_estimated;
+            $fork->nutrition_note = $source->nutrition_note;
             $fork->b2b_price_amount = $source->b2b_price_amount;
             $fork->b2c_price_amount = $source->b2c_price_amount;
             $fork->unit_price_amount = $source->unit_price_amount;
@@ -407,7 +433,7 @@ final readonly class IngredientCatalogueService
 
         $changes = [];
 
-        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'grams_per_unit', 'nutrition_per_100g', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
+        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'grams_per_unit', 'nutrition_per_100g', 'nutrition_estimated', 'nutrition_note', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
@@ -418,11 +444,42 @@ final readonly class IngredientCatalogueService
                 $value = trim($value);
             }
 
-            if (in_array($field, ['notes', 'composition'], true) && $value === '') {
+            if (in_array($field, ['notes', 'composition', 'nutrition_note'], true) && $value === '') {
                 $value = null;
             }
 
             $changes[$field] = $value;
+        }
+
+        /*
+         * The provenance moves with the figures, on the same rule `create()`
+         * states: a typed set is a declaration unless the writer says otherwise.
+         *
+         * So a PATCH that replaces `nutrition_per_100g` and says nothing about
+         * the two columns beside it resets them rather than leaving them
+         * standing. Leaving them is the worse answer twice over: an "estimated"
+         * badge would survive onto a supplier's label somebody just transcribed,
+         * and the sentence under it — "Estimated generic dry tempura batter mix"
+         * — would go on describing a figure that is no longer there.
+         *
+         * A PATCH that *clears* the facts clears both to NULL instead of to
+         * `false`: `false` claims a declared figure, and there is none.
+         *
+         * A PATCH that sends a flag or a note **without** the facts is left
+         * alone by this block — that is somebody correcting the provenance of
+         * figures that are already right, which is a real edit and not a
+         * replacement.
+         */
+        if (array_key_exists('nutrition_per_100g', $changes)) {
+            $declared = $changes['nutrition_per_100g'] === null ? null : false;
+
+            if (! array_key_exists('nutrition_estimated', $changes)) {
+                $changes['nutrition_estimated'] = $declared;
+            }
+
+            if (! array_key_exists('nutrition_note', $changes)) {
+                $changes['nutrition_note'] = null;
+            }
         }
 
         /*
@@ -500,6 +557,12 @@ final readonly class IngredientCatalogueService
      * of the same arithmetic: a parent line stated in litres is weighed through
      * it, so moving it moves every derived amount downstream just as surely.
      *
+     * `nutrition_estimated` and `nutrition_note` are refused for the other
+     * reason: they are not arithmetic at all, they are a *claim about* the
+     * figures, and the figures are the recipe's. Marking a derivation estimated
+     * says something about a formulation that this row is in no position to say
+     * — and, like the facts themselves, the next recompute would drop it.
+     *
      * The fix for a wrong figure here is the formulation. Retiring the version
      * releases the row — see `RecipeOutputNutritionWriter::clear()` — and it
      * becomes an ordinary editable ingredient again.
@@ -514,7 +577,10 @@ final readonly class IngredientCatalogueService
             return;
         }
 
-        $derived = array_intersect(['nutrition_per_100g', 'grams_per_unit'], array_keys($attributes));
+        $derived = array_intersect(
+            ['nutrition_per_100g', 'grams_per_unit', 'nutrition_estimated', 'nutrition_note'],
+            array_keys($attributes),
+        );
 
         if ($derived === []) {
             return;
@@ -547,7 +613,11 @@ final readonly class IngredientCatalogueService
      * Nothing else on the row reaches a label. A name, a category, a price, a
      * yield factor, an availability tier — none of them is an input to the
      * arithmetic, and invalidating on a rename would queue a recompute of every
-     * version using an ingredient every time somebody fixed its spelling. The
+     * version using an ingredient every time somebody fixed its spelling. That
+     * includes `nutrition_estimated` and `nutrition_note`, which arrive in
+     * `$changes` beside the facts and are deliberately not on this list: they
+     * say how good a figure is, not what it is, and a recompute over a reworded
+     * caveat would produce byte-identical snapshots. The
      * allergen mappings are the other half of this and are not on this table:
      * `AllergenMappingService` invalidates its own writes.
      *
