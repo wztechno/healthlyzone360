@@ -3416,7 +3416,10 @@
       "estimated": false,
       "sources": [
         "https://fdc.nal.usda.gov/"
-      ]
+      ],
+      "grams_per_unit": 50,
+      "grams_per_unit_of": "piece",
+      "grams_per_unit_note": "USDA large egg, edible portion 50 g; the sheets count eggs in pieces."
     },
     {
       "source_ref": "ING-208",

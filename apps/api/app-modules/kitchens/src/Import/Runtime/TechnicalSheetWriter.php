@@ -352,11 +352,23 @@ final readonly class TechnicalSheetWriter
      * Pesto Mix, Cordon Bleu Marination and Sour Cream come out of the real
      * workbook this way, and nothing had to be enumerated for them to.
      *
-     * The intermediates that have **no sheet** — Chicken Breast Marination,
-     * Mix Cheese Preparation, Butter Mix — reach here at all, because no
-     * version is named after them. They get a known-gaps entry instead. An
-     * output row pointing at a fabricated recipe is precisely the risk the
-     * outputs table was introduced to avoid.
+     * The intermediates that have **no sheet** — Mix Cheese Preparation,
+     * Butter Mix — never reach here, because no version is named after them.
+     * They get a known-gaps entry instead. An output row pointing at a
+     * fabricated recipe is precisely the risk the outputs table was introduced
+     * to avoid.
+     *
+     * **A sheet that states no yield still produces its output, at the mass it
+     * consumed.** Chicken Breast Marination is the real case: its sheet names
+     * one of the kitchen's own ingredients and leaves Quantity Produced empty,
+     * and refusing an output for it left the whole marination chain
+     * unreachable from the versions that eat it. So the input sum the same
+     * sheet states becomes the output quantity, in kilograms, with the
+     * `intermediate_output_from_input_mass` finding saying so. That is not a
+     * fabricated number — it is the sheet's own arithmetic under the
+     * assumption the sheet itself makes by not mentioning a loss. The
+     * alternative, a yield of nothing, is the one claim the document
+     * definitely does not make. A sheet with neither figure is still refused.
      */
     private function writeOutput(RecipeVersion $version, string $designation, string $organisationId, ImportReport $report): void
     {
@@ -380,12 +392,19 @@ final readonly class TechnicalSheetWriter
             return;
         }
 
-        if ($version->yield_quantity === null) {
+        // The sheet's own line sum, already on the version: `input_quantity_total`
+        // is assigned from `totals.input_quantity` before the lines are written.
+        $fromInputMass = $version->yield_quantity === null;
+        $quantity = $fromInputMass ? $version->input_quantity_total : $version->yield_quantity;
+        $unitId = $fromInputMass ? UnitMap::idForCode('kg') : ($version->yield_unit_id ?? UnitMap::idForCode('kg'));
+
+        if ($quantity === null || ! is_numeric($quantity) || bccomp($quantity, '0', 4) !== 1) {
             $report->finding(
                 'intermediate_output_not_written',
                 sprintf(
                     '"%s" names one of this kitchen\'s own ingredients, so the sheet produces it — but the sheet '
-                    .'states no yield quantity, so there is no amount to record. No outputs row was written.',
+                    .'states neither a yield quantity nor an input total, so there is no amount to record. No '
+                    .'outputs row was written.',
                     $designation,
                 ),
                 (string) $version->source_ref,
@@ -394,12 +413,25 @@ final readonly class TechnicalSheetWriter
             return;
         }
 
+        if ($fromInputMass) {
+            $report->finding(
+                'intermediate_output_from_input_mass',
+                sprintf(
+                    '"%s" states no yield, so the output is the input mass: %s kg, the sum of the sheet\'s own '
+                    .'lines. A sheet that records no loss claims none.',
+                    $designation,
+                    $quantity,
+                ),
+                (string) $version->source_ref,
+            );
+        }
+
         $output = new RecipeVersionOutput;
         $output->recipe_version_id = (string) $version->getKey();
         $output->organisation_id = $organisationId;
         $output->ingredient_id = $ingredientId;
-        $output->output_quantity = $version->yield_quantity;
-        $output->unit_id = $version->yield_unit_id ?? (string) UnitMap::idForCode('kg');
+        $output->output_quantity = $quantity;
+        $output->unit_id = (string) $unitId;
         $output->is_primary = true;
         $output->save();
 

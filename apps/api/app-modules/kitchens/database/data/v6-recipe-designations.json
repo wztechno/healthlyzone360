@@ -1,5 +1,5 @@
 {
-    "_comment": "Curated designation dictionary for the v6 recipe technical sheets (kitchen:import-v6-recipes). Names, links and raw-material declarations only — no formulation, no quantity, no cost lives here; those stay in the private v6-recipes.json beside the source workbooks. Same schema as kitchen-workbook-aliases.json. Every entry is a human decision: aliases map the sheets' wording onto existing rows (the safe direction — an alias that GAINS allergen coverage is acceptable, one that loses it is not); tenant_ingredients declare the raw materials the sheets use and the v6 library does not carry; recipe_links tie a catalogue item to its technical sheet; declined links document exactly why an ambiguous match was NOT made.",
+    "_comment": "Curated designation dictionary for the v6 recipe technical sheets (kitchen:import-v6-recipes). Names, links and raw-material declarations only — no formulation, no quantity, no cost lives here; those stay in the private v6-recipes.json beside the source workbooks. Same schema as kitchen-workbook-aliases.json. Every entry is a human decision: aliases map the sheets' wording onto existing rows (the safe direction — an alias that GAINS allergen coverage is acceptable, one that loses it is not); tenant_ingredients declare the raw materials the sheets use and the v6 library does not carry; recipe_links tie a catalogue item to its technical sheet; declined links document exactly why an ambiguous match was NOT made. A tenant_ingredients entry may also carry two optional keys the importer writes onto the row it mints: nutrition_per_100g, the slim envelope ingredients.nutrition_per_100g holds (basis per_100g plus a flat amounts list in the canonical units — energy kcal, protein/carbohydrate/fat/fibre/sugars g, sodium mg), and grams_per_unit, the mass in grams of one default_unit. Both are insert-if-absent like the row itself, and both are omitted rather than guessed: a raw material nobody has facts for must say so.",
     "aliases": [
         {
             "designation": "7 Spices",
@@ -62,6 +62,10 @@
             "resolves_to": "Mustard, yellow (American)"
         },
         {
+            "designation": "Dill Pickles",
+            "resolves_to": "Pickles, dill"
+        },
+        {
             "designation": "Fat",
             "resolves_to": "Beef fat"
         },
@@ -76,6 +80,14 @@
         {
             "designation": "Ginger Powder",
             "resolves_to": "Ginger"
+        },
+        {
+            "designation": "Green Onions",
+            "resolves_to": "Green onion (scallion)"
+        },
+        {
+            "designation": "Jalapenos",
+            "resolves_to": "Pickles, jalapeno"
         },
         {
             "designation": "Lemon Juice",
@@ -115,7 +127,7 @@
         },
         {
             "designation": "Panko",
-            "resolves_to": "Panko breadcrumbs"
+            "resolves_to": "Crumb"
         },
         {
             "designation": "Parmesan",
@@ -123,7 +135,7 @@
         },
         {
             "designation": "Pineapple Juice (maccaw)",
-            "resolves_to": "Pineapple juice"
+            "resolves_to": "Pineapple, canned"
         },
         {
             "designation": "Red Pepper",
@@ -160,6 +172,10 @@
         {
             "designation": "Sweet Paprika",
             "resolves_to": "Paprika"
+        },
+        {
+            "designation": "Swiss Cheese",
+            "resolves_to": "Emmental cheese"
         },
         {
             "designation": "Turkey Breast",
@@ -286,46 +302,6 @@
             "sheet_missing": false
         },
         {
-            "name_en": "Jalapenos",
-            "slug": "jalapenos",
-            "category_code": "vegetable",
-            "subcategory_code": "vegetable-tomatoes-peppers",
-            "default_unit": "kg",
-            "note": "Named by the v6 technical sheets; not in the v6 ingredient master.",
-            "intermediate": false,
-            "sheet_missing": false
-        },
-        {
-            "name_en": "Dill Pickles",
-            "slug": "dill-pickles",
-            "category_code": "vegetable",
-            "subcategory_code": "vegetable-olives-pickles",
-            "default_unit": "kg",
-            "note": "Named by the v6 technical sheets; not in the v6 ingredient master. Brine vinegar — sulphites need a supplier confirmation.",
-            "intermediate": false,
-            "sheet_missing": false
-        },
-        {
-            "name_en": "Green Onions",
-            "slug": "green-onions",
-            "category_code": "vegetable",
-            "subcategory_code": "vegetable-onions-garlic",
-            "default_unit": "kg",
-            "note": "Named by the v6 technical sheets; not the master's \"Onions\" — a different vegetable, not a spelling of it.",
-            "intermediate": false,
-            "sheet_missing": false
-        },
-        {
-            "name_en": "Swiss Cheese",
-            "slug": "swiss-cheese",
-            "category_code": "dairy",
-            "subcategory_code": "dairy-cheese",
-            "default_unit": "kg",
-            "note": "Named by the v6 technical sheets. NOT aliased onto Emmental: plausibly the same, and \"plausibly\" is not a food-safety standard. Merge deliberately if the kitchen confirms.",
-            "intermediate": false,
-            "sheet_missing": false
-        },
-        {
             "name_en": "Filet",
             "slug": "filet",
             "category_code": "meat-egg",
@@ -343,7 +319,19 @@
             "default_unit": "kg",
             "note": "Named by the v6 technical sheets as a costed raw material.",
             "intermediate": false,
-            "sheet_missing": false
+            "sheet_missing": false,
+            "nutrition_per_100g": {
+                "basis": "per_100g",
+                "amounts": [
+                    { "nutrient_id": "energy", "unit": "kcal", "value": 0 },
+                    { "nutrient_id": "protein", "unit": "g", "value": 0 },
+                    { "nutrient_id": "carbohydrate", "unit": "g", "value": 0 },
+                    { "nutrient_id": "fat", "unit": "g", "value": 0 },
+                    { "nutrient_id": "fibre", "unit": "g", "value": 0 },
+                    { "nutrient_id": "sugars", "unit": "g", "value": 0 },
+                    { "nutrient_id": "sodium", "unit": "mg", "value": 0 }
+                ]
+            }
         },
         {
             "name_en": "Butter Mix",
@@ -513,20 +501,6 @@
         }
     ],
     "never_merge": [
-        {
-            "names": [
-                "Green Onions",
-                "Onions"
-            ],
-            "reason": "Different vegetables; the sheets use both."
-        },
-        {
-            "names": [
-                "Swiss Cheese",
-                "Emmental cheese"
-            ],
-            "reason": "Plausibly identical, unconfirmed by the kitchen — a merge is a food-safety statement."
-        },
         {
             "names": [
                 "Filet",

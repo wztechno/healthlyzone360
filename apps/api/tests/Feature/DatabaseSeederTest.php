@@ -361,19 +361,29 @@ it('writes every nutrition envelope on the per-100 g basis with the seven canoni
     expect($offenders)->toBe([]);
 });
 
-it('seeds a density only for the nineteen ingredients stocked by volume', function (): void {
+it('seeds a density for twenty rows: nineteen by volume, one by the piece', function (): void {
     $withDensity = Ingredient::withoutTenancy()
         ->whereNull('organisation_id')
         ->whereNotNull('grams_per_unit')
         ->with('defaultUnit')
         ->get();
 
-    expect($withDensity)->toHaveCount(19)
-        ->and($withDensity->pluck('defaultUnit.code')->unique()->all())->toBe(['l'])
-        ->and($withDensity->firstWhere('source_ref', 'ING-026')?->grams_per_unit)->toBe('1080.0000');
+    $byUnit = $withDensity
+        ->groupBy(fn (Ingredient $row): string => (string) $row->defaultUnit?->code)
+        ->map->count()
+        ->sortKeys()
+        ->all();
+
+    // Eggs are the one row that is counted rather than poured: every technical
+    // sheet states them in pieces, so the library stocks them that way and the
+    // density is the mass of one egg rather than of one litre.
+    expect($withDensity)->toHaveCount(20)
+        ->and($byUnit)->toBe(['l' => 19, 'piece' => 1])
+        ->and($withDensity->firstWhere('source_ref', 'ING-026')?->grams_per_unit)->toBe('1080.0000')
+        ->and($withDensity->firstWhere('source_ref', 'ING-207')?->grams_per_unit)->toBe('50.0000');
 
     // A mass unit converts arithmetically, so a density on one would be a
-    // second, redundant and silently disagreeing source of truth. The 14
+    // second, redundant and silently disagreeing source of truth. The other 14
     // piece rows are left for a kitchen to weigh.
     $piece = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
 
@@ -1416,7 +1426,8 @@ it('leaves a curated platform ingredient alone on a re-run', function (): void {
 it('leaves curated ingredient nutrition and densities alone on a re-run', function (): void {
     // Fill-empty, per column, independently (risk R8). A kitchen that has
     // replaced a generic figure with its supplier's label, or weighed one of
-    // the fourteen piece rows, must not lose it to the next deployment.
+    // the piece rows the document has no mass for, must not lose it to the
+    // next deployment.
     $curated = ['basis' => 'per_100g', 'amounts' => [['nutrient_id' => 'energy', 'unit' => 'kcal', 'value' => 1]]];
 
     $baking = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-001')->sole();

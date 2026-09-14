@@ -11,8 +11,8 @@ use Illuminate\Database\Seeder;
 use RuntimeException;
 
 /**
- * Per-100 g nutrition for the 306 platform ingredients, and the 19 densities
- * that make a volume line weighable.
+ * Per-100 g nutrition for the 306 platform ingredients, and the 20 densities
+ * that make a volume or per-piece line weighable.
  *
  * The figures come from the owner's reference table
  * (`scripts/convert-nutrition-table.py` → `data/platform-ingredient-nutrition.json`),
@@ -43,8 +43,8 @@ use RuntimeException;
  * ## The density is written only while the unit still agrees
  *
  * `grams_per_unit` is grams per one `default_unit`, and the document states
- * which unit each figure was measured against (`grams_per_unit_of`, `l` for
- * all nineteen). If a kitchen has since re-stocked soya sauce by the
+ * which unit each figure was measured against (`grams_per_unit_of`: `l` for
+ * nineteen, `piece` for eggs). If a kitchen has since re-stocked soya sauce by the
  * millilitre, writing 1080 would be wrong by a factor of a thousand and would
  * look exactly like a correct row. Those rows are skipped and counted, never
  * relabelled. It is the same rule `IngredientCatalogueService::update()`

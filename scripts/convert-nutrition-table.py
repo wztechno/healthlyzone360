@@ -41,10 +41,13 @@ here — in the generator, beside its own provenance — rather than being typed
 into the JSON, so a re-conversion cannot drop it.
 
 Four of the nineteen are estimates rather than measurements and say so in their
-own note. The other 287 rows get no density: 273 are already stocked by mass
-and need none, and the 14 piece-based rows are left NULL for a kitchen to weigh
-(`grams_per_unit` is nullable precisely so that "nobody has weighed this" is
-sayable).
+own note. `GRAMS_PER_PIECE` is the same idea for a row that is counted rather
+than poured: eggs, which every technical sheet states in pieces. Each row takes
+whichever table names it and a row in both is a contradiction the self-test
+refuses. The remaining 286 rows get no density: 272 are already stocked by mass
+and need none, and the other 14 piece-based rows are left NULL for a kitchen to
+weigh (`grams_per_unit` is nullable precisely so that "nobody has weighed this"
+is sayable).
 
 `--self-test` parses a miniature table with every shape in it and asserts the
 normalised output; it also runs automatically before every real conversion.
@@ -102,6 +105,16 @@ GRAMS_PER_LITRE = {
     "ING-067": (1030, "USDA: 1 cup = 244 g."),
 }
 
+# Grams in one piece, for the rows a kitchen counts rather than weighs. Same contract as the
+# densities above — the seeder writes the figure only while the row still stocks in the unit
+# named beside it, which for these is `piece` rather than `l`.
+GRAMS_PER_PIECE = {
+    "ING-207": (50, "USDA large egg, edible portion 50 g; the sheets count eggs in pieces."),
+}
+
+# Density table -> the stock unit its figures are measured against.
+GRAMS_PER_UNIT_TABLES = ((GRAMS_PER_LITRE, "l"), (GRAMS_PER_PIECE, "piece"))
+
 NOTICE = (
     "Per 100 g of the ingredient as purchased. Generic ingredients carry representative "
     "food-composition values; rows whose note begins \"Estimated\" are recipe-, brand-, salt- or "
@@ -148,14 +161,16 @@ def convert(text: str) -> dict:
         row["estimated"] = note.lower().startswith("estimated")
         row["sources"] = [cells[10]] + ([cells[11]] if cells[11] else [])
 
-        if row["source_ref"] in GRAMS_PER_LITRE:
-            grams, basis = GRAMS_PER_LITRE[row["source_ref"]]
+        for table, unit in GRAMS_PER_UNIT_TABLES:
+            if row["source_ref"] not in table:
+                continue
+            grams, basis = table[row["source_ref"]]
             row["grams_per_unit"] = grams
             # Named rather than assumed: the seeder writes the figure only when
             # the ingredient's *current* default unit still is this one, so an
             # operator who re-stocks soya sauce by the millilitre does not get a
             # per-litre mass relabelled onto it.
-            row["grams_per_unit_of"] = "l"
+            row["grams_per_unit_of"] = unit
             row["grams_per_unit_note"] = basis
 
         ingredients.append(row)
@@ -178,6 +193,7 @@ MINI_TABLE = """Sheet1
 | ING-001 | Baking powder | 53.0 | 0.0 | 28.1 | 0.0 | 0.2 | 0.0 | 10600 | Generic baking powder; sodium varies | https://fdc.nal.usda.gov/ | https://world.openfoodfacts.org/ |
 | ING-006 | Tempura mix | 350.0 | 8.0 | 74.0 | 2.0 | 2.0 | 2.0 | 800 | Estimated generic dry tempura batter mix | https://fdc.nal.usda.gov/ | https://world.openfoodfacts.org/ |
 | ING-026 | Soya sauce | 53.0 | 8.1 | 4.9 | 0.6 | 0.8 | 0.4 | 5493 | Generic soy sauce | https://fdc.nal.usda.gov/ |  |
+| ING-207 | Eggs | 143.0 | 12.6 | 0.7 | 9.5 | 0.0 | 0.4 | 142 | Whole raw egg | https://fdc.nal.usda.gov/ |  |
 
 Sheet2
 
@@ -192,7 +208,7 @@ def self_test() -> None:
     rows = {row["source_ref"]: row for row in doc["ingredients"]}
 
     # The legend block and both header rows are skipped, not counted away.
-    assert doc["basis"] == "per_100g" and len(rows) == 3, doc
+    assert doc["basis"] == "per_100g" and len(rows) == 4, doc
 
     baking = rows["ING-001"]
     assert baking["name_en"] == "Baking powder"
@@ -210,13 +226,25 @@ def self_test() -> None:
     assert soy["grams_per_unit"] == 1080 and soy["grams_per_unit_of"] == "l"
     assert soy["grams_per_unit_note"].startswith("USDA"), soy
 
+    # A row weighed by the piece rather than by the litre takes its own unit with it — the
+    # seeder compares that name against the ingredient's default unit before writing anything.
+    eggs = rows["ING-207"]
+    assert eggs["grams_per_unit"] == 50 and eggs["grams_per_unit_of"] == "piece", eggs
+    assert eggs["energy_kcal"] == 143, "the density does not disturb the transcribed numbers"
+
     # Round-trip: what is written is what is read back.
     assert json.loads(json.dumps(doc, ensure_ascii=False)) == doc
 
     assert len(GRAMS_PER_LITRE) == 19, len(GRAMS_PER_LITRE)
-    assert all(grams > 0 for grams, _ in GRAMS_PER_LITRE.values())
+    assert len(GRAMS_PER_PIECE) == 1, len(GRAMS_PER_PIECE)
+    # One row, one unit. A ref in both tables would make the merge order decide the figure's
+    # meaning, and an ingredient is not stocked in two units at once.
+    assert not set(GRAMS_PER_LITRE) & set(GRAMS_PER_PIECE), "a ref may name only one density table"
+    assert all(grams > 0 for table, _ in GRAMS_PER_UNIT_TABLES for grams, _ in table.values())
 
-    print(f"self-test OK ({len(rows)} rows parsed, {len(GRAMS_PER_LITRE)} densities held)")
+    held = sum(len(table) for table, _ in GRAMS_PER_UNIT_TABLES)
+
+    print(f"self-test OK ({len(rows)} rows parsed, {held} densities held)")
 
 
 # ---------------------------------------------------------------- entrypoint
@@ -240,7 +268,8 @@ def main() -> None:
     assert len(rows) == 306, f"expected 306 ING rows, got {len(rows)}"
     assert refs == [f"ING-{n:03d}" for n in range(1, 307)], "ids must be contiguous ING-001..306"
     assert all(row[key] >= 0 for row in rows for key in NUMERIC_KEYS), "a negative nutrient is a typo"
-    assert set(GRAMS_PER_LITRE) <= set(refs), "a density names an ingredient the table does not"
+    for table, unit in GRAMS_PER_UNIT_TABLES:
+        assert set(table) <= set(refs), f"a {unit} density names an ingredient the table does not"
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
