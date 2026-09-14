@@ -162,11 +162,24 @@ export {
     yearRange,
 } from './forms/date-field-shared.ts';
 export type { DateParts } from './forms/date-field-shared.ts';
+/** Extensionless for the same reason `DateField` is — see `forms/picker-field.tsx`. */
+export { PickerField } from './forms/picker-field';
+export type { PickerFieldProps } from './forms/picker-field';
+export { PICKER_FORMAT, PICKER_KINDS, PICKER_WIDTH } from './forms/picker-field-shared.ts';
+export type { PickerKind } from './forms/picker-field-shared.ts';
 export { DatePickerButton } from './forms/date-picker-button.tsx';
 export type { DatePickerButtonProps } from './forms/date-picker-button.tsx';
 
 export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
+export { DerivedChipPanel } from './content/derived-chip-panel.tsx';
+export type { DerivedChipPanelProps } from './content/derived-chip-panel.tsx';
+export { ListSummaryCards, SUMMARY_CARD_TONES } from './content/list-summary-cards.tsx';
+export type {
+    ListSummaryCardsProps,
+    SummaryCard,
+    SummaryCardTone,
+} from './content/list-summary-cards.tsx';
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
 export { DataList, UNDROPPABLE_PRIORITY, fitColumns, spreadColumns } from './content/data-list.tsx';
@@ -260,6 +273,8 @@ export { Menu } from './overlays/menu.tsx';
 export type { MenuItem, MenuProps, MenuSection } from './overlays/menu.tsx';
 export { Dialog } from './overlays/dialog.tsx';
 export type { DialogProps } from './overlays/dialog.tsx';
+export { RecordWindow, RecordWindowFieldGrid } from './overlays/record-window.tsx';
+export type { RecordWindowField, RecordWindowProps } from './overlays/record-window.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
 export type { DrawerPlacement, DrawerProps } from './overlays/drawer.tsx';
 export { ACTION_TONES, ActionSheet } from './overlays/action-sheet.tsx';

@@ -130,6 +130,31 @@ html:lang(ar) * {
 }
 
 /* ================================================================================================
+   PickerField (design-system `forms/picker-field.web.tsx`) — Workbench handoff §1b.
+
+   The browser's own picker indicator is made invisible and stretched over the 28px at the field's
+   inline end, directly under the drawn calendar/clock glyph (which carries pointer-events: none).
+   The click lands on the real indicator, so the OS picker opens with no JavaScript. Keyed on a data
+   attribute for the reason the blocks around it are: react-native-web's classes are hashed.
+   ============================================================================================== */
+input[data-picker-field]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    width: 28px;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+input[data-picker-field]::-webkit-inner-spin-button,
+input[data-picker-field]::-webkit-clear-button {
+    display: none;
+}
+
+/* ================================================================================================
    Print / Save PDF — the Phase 1 export (supplier plan §7, SUP7).
 
    Everything below bites only under print media, so the application on screen is untouched. It is

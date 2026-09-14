@@ -21,6 +21,10 @@ import {
     DataList,
     DateField,
     DatePickerButton,
+    DerivedChipPanel,
+    ListSummaryCards,
+    PickerField,
+    RecordWindow,
     DensityProvider,
     Dialog,
     Drawer,
@@ -352,6 +356,10 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [toolbarSearch, setToolbarSearch] = useState('');
     const [toolbarStatus, setToolbarStatus] = useState('all');
     const [viewOpen, setViewOpen] = useState(false);
+    const [recordOpen, setRecordOpen] = useState(false);
+    const [pickerMonth, setPickerMonth] = useState('2026-08');
+    const [pickerDate, setPickerDate] = useState('2026-08-01');
+    const [pickerTime, setPickerTime] = useState('08:30');
     const [pressedRow, setPressedRow] = useState<string | null>(null);
     const [kinds, setKinds] = useState<readonly string[]>(['paste']);
 
@@ -1569,6 +1577,124 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         </>
                     }
                 />
+            </Stack>
+
+            {/*
+             * The Workbench pass (design_handoff_workbench): the centred record window that retired
+             * the side drawer, the header count strip, the derived chip panel, the drawn icons and
+             * the picker fields whose drawn button is the OS picker's trigger.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Record window
+                </Text>
+                <Inline space="sm" align="center">
+                    <Button
+                        testID={id('record-window-open')}
+                        size="sm"
+                        variant="secondary"
+                        label="Open the record window"
+                        onPress={() => setRecordOpen(true)}
+                    />
+                    <Icon name="eye" size="sm" className="text-content-secondary" />
+                    <Icon name="pen" size="sm" className="text-content-secondary" />
+                    <Icon name="archive" size="sm" className="text-content-secondary" />
+                    <Icon name="calendar" size="sm" className="text-content-secondary" />
+                    <Icon name="clock" size="sm" className="text-content-secondary" />
+                    <Icon name="more" size="sm" className="text-content-secondary" />
+                </Inline>
+                <RecordWindow
+                    testID={id('record-window')}
+                    open={recordOpen}
+                    onClose={() => setRecordOpen(false)}
+                    title="Zaatar blend, house"
+                    kind="Ingredient"
+                    status={{ label: 'Blocked', tone: 'danger' }}
+                    note="Nothing is resolved from this window."
+                    fields={[
+                        { key: 'reference', label: 'Reference', value: 'ING-0412', mono: true },
+                        { key: 'family', label: 'Family', value: 'Ingredients' },
+                        { key: 'updated', label: 'Last changed', value: '2 days ago' },
+                        { key: 'publication', label: 'Publication', value: 'Blocked' },
+                    ]}
+                    chipsLabel="Why it is here"
+                    chipsCaption="A reason clears when the record itself is corrected."
+                    chips={[
+                        { key: 'q', label: 'Quarantined — publication refused' },
+                        { key: 'a', label: '2 allergen mappings are unverified' },
+                    ]}
+                    primaryAction={{
+                        label: 'Open the record',
+                        onPress: () => setRecordOpen(false),
+                    }}
+                />
+                <Text variant="section" tone="secondary">
+                    List summary cards
+                </Text>
+                <ListSummaryCards
+                    testID={id('summary-cards')}
+                    cards={[
+                        {
+                            key: 'shown',
+                            label: 'Shown',
+                            count: 6,
+                            value: '6',
+                            unit: 'of 6',
+                            caption: '3 families',
+                        },
+                        {
+                            key: 'blocked',
+                            label: 'Blocked',
+                            count: 2,
+                            value: '2',
+                            unit: 'records',
+                            caption: 'publication refused',
+                            tone: 'danger',
+                        },
+                        {
+                            key: 'zero',
+                            label: 'Blocked (zero)',
+                            count: 0,
+                            value: '0',
+                            unit: 'records',
+                            caption: 'a zero is never red',
+                            tone: 'danger',
+                        },
+                    ]}
+                />
+                <DerivedChipPanel
+                    testID={id('derived-chips')}
+                    label="Allergens"
+                    badge="From database"
+                    chips={[
+                        { key: 'sesame', label: 'Sesame' },
+                        { key: 'milk', label: 'Milk' },
+                    ]}
+                    caption="Resolved from the ingredient database."
+                />
+                <Inline space="sm" align="end" wrap>
+                    <PickerField
+                        kind="month"
+                        testID={id('picker-month')}
+                        label="From month"
+                        value={pickerMonth}
+                        onChange={setPickerMonth}
+                    />
+                    <PickerField
+                        kind="date"
+                        testID={id('picker-date')}
+                        label="Raised from"
+                        value={pickerDate}
+                        onChange={setPickerDate}
+                    />
+                    <PickerField
+                        kind="time"
+                        testID={id('picker-time')}
+                        label="Opens"
+                        value={pickerTime}
+                        onChange={setPickerTime}
+                    />
+                </Inline>
             </Stack>
 
             {/*

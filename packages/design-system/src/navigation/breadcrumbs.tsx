@@ -61,7 +61,7 @@ export function Breadcrumbs({
         : 'font-semibold text-content-primary';
     // 11px on the admin — the handoff's breadcrumb line. `caption` rather than `micro`: a trail
     // reads as prose, and `micro` is the column-label step, one weight heavier and two sizes down.
-    const sizeClass = density === 'compact' ? 'text-role-caption' : 'text-sm';
+    const sizeClass = density === 'compact' ? 'text-sm' : 'text-base';
 
     return (
         <View
