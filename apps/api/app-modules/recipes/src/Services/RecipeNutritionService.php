@@ -604,19 +604,24 @@ final class RecipeNutritionService
     /**
      * A bcmath-safe decimal string for a number that arrived as JSON.
      *
-     * Null rather than an exception, because the two callers disagree about
-     * what a malformed number means: an ingredient's stored facts are operator
-     * data, and an unusable set is a *result* (`missing_nutrition`), while a
-     * snapshot being rescaled is this system's own output and a bad number in
-     * one is a bug. Each applies its own policy to the null.
+     * Null rather than an exception, because the callers disagree about what a
+     * malformed number means: an ingredient's stored facts are operator data,
+     * and an unusable set is a *result* (`missing_nutrition`), while a snapshot
+     * being rescaled is this system's own output and a bad number in one is a
+     * bug. Each applies its own policy to the null.
      *
      * Floats are rendered rather than cast: `(string) 1.0E-7` is `1.0E-7`, and
      * bcmath reads that as zero — the silent-zero failure mode this whole class
      * exists to avoid.
      *
+     * Public for the same reason {@see scale()} is: `DerivedNutritionService`
+     * divides a hundred grams by a snapshot's `total_grams`, which arrives from
+     * `jsonb` as an int or a float, and a second rendering rule written over
+     * there is how the silent zero gets reintroduced in a place nobody looks.
+     *
      * @return numeric-string|null
      */
-    private function decimalString(mixed $value): ?string
+    public function decimalString(mixed $value): ?string
     {
         if (is_int($value)) {
             return (string) $value;

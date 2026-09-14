@@ -296,16 +296,30 @@ final readonly class MarketplaceMeals
      * cannot reach this method anyway, because the readiness gate refuses to
      * publish a meal that can say nothing about what is in it.
      *
+     * **Inside the kitchen's tenant context, for {@see nutritionOf()}'s reason
+     * and with the same consequence.** `DerivedAllergenService` prefers the
+     * published recipe version's frozen label and falls back to the item's own
+     * linked ingredients. `recipe_versions` is a tenant row whose row-level
+     * policy fails closed for a request with no organisation, so an anonymous
+     * marketplace read could not see the frozen label at all: it silently took
+     * the weaker basis, and a label frozen at publication is precisely the one
+     * an allergy sufferer is entitled to. The test suite cannot catch this
+     * because it runs as the schema owner, which the policies do not apply to —
+     * which is why the wrap is here rather than waiting for a red test.
+     *
      * @return list<string>
      */
     public function allergenCodesOf(CatalogueItem $meal): array
     {
-        $derived = $this->allergens->forItem($meal);
+        /** @var list<string> $codes */
+        $codes = $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal): array {
+            $derived = $this->allergens->forItem($meal);
 
-        $codes = array_map(
-            static fn (array $row): string => $row['allergen_code'],
-            $derived['allergens'],
-        );
+            return array_map(
+                static fn (array $row): string => $row['allergen_code'],
+                $derived['allergens'],
+            );
+        });
 
         $unique = array_values(array_unique($codes));
         sort($unique);

@@ -28,14 +28,19 @@ use Healthy360\Recipes\Services\RecipeNutritionService;
  *    portion factor**, which is the same definition `MealExplosion` consumes
  *    stock by — one arithmetic, so what a customer is told and what the kitchen
  *    deducts cannot describe different portions.
- * 3. **Null.** No linked published version, no snapshot on it, or no piece
- *    count to divide by.
+ * 3. **The same snapshot per 100 g.** A version that states a finished mass but
+ *    no piece count — a bottled sauce, a dressing, anything sold by weight —
+ *    has no portion to divide into, and per 100 g is what the back of a bottle
+ *    prints. See {@see perHundredGrams()}.
+ * 4. **Null.** No linked published version, no snapshot on it, or no mass on
+ *    that snapshot to re-base onto.
  *
- * The piece-count refusal is `MealExplosion::explode()`'s, word for word and for
- * its reason: without a divisor there is no "per sold unit", and a null piece
- * count means "the kitchen has not stated one", never "assume one". A
- * batch of forty portions labelled as a single serving is not a smaller error
- * than no label at all.
+ * A piece count is never invented. Where one is stated it wins outright, for
+ * `MealExplosion::explode()`'s reason: a null piece count means "the kitchen has
+ * not stated one", never "assume one", and a batch of forty portions labelled as
+ * a single serving is not a smaller error than no label at all. What changed is
+ * only what its absence falls through *to* — a figure on a second, plainly
+ * labelled basis rather than silence about figures already computed.
  *
  * **Nothing is stored**, which is {@see DerivedAllergenService}'s rule and this
  * class is its sibling: a copy on `catalogue_items` would go stale the moment
@@ -50,6 +55,12 @@ final readonly class DerivedNutritionService
      * this listing sells.
      */
     public const string METHOD_PER_SOLD_UNIT = 'catalogue.nutrition.per_sold_unit';
+
+    /**
+     * What the envelope's `calculation.method` says the fallback figure is: the
+     * whole recipe re-expressed on a hundred grams of itself.
+     */
+    public const string METHOD_PER_100G = 'catalogue.nutrition.per_100g';
 
     public function __construct(
         private DerivedAllergenService $allergens,
@@ -82,7 +93,7 @@ final readonly class DerivedNutritionService
         $pieces = $version->yield_piece_count;
 
         if ($pieces === null || $pieces <= 0) {
-            return null;
+            return $this->perHundredGrams($facts);
         }
 
         $scaled = $this->nutrition->scale(
@@ -117,5 +128,47 @@ final readonly class DerivedNutritionService
         ];
 
         return $scaled;
+    }
+
+    /**
+     * The snapshot re-expressed per 100 g, or null when its mass is unknown.
+     *
+     * A bottled sauce or a dressing states what the bottle holds and never how
+     * many pieces it is, because it is not sold in pieces. There is no portion
+     * to divide into, so "per sold unit" has no answer for it — but per 100 g
+     * does, it is the honest figure for a thing sold by weight, and it is the
+     * comparison basis a printed label uses. Refusing here would leave a whole
+     * shelf silent about figures the kitchen has already computed.
+     *
+     * `serving` stays null, because there still is not one. The basis is what
+     * the client reads to decide between a serving panel and a single per-100 g
+     * view; a `serving` invented to fill the field would be the same fabrication
+     * the piece-count refusal exists to prevent.
+     *
+     * `total_grams` comes out as 100 by construction — the envelope says on its
+     * face what its amounts are a hundred grams of — and every amount is scaled
+     * by the same factor, so the basis and the numbers cannot drift apart.
+     *
+     * @param  array<string, mixed>  $facts
+     * @return array<string, mixed>|null
+     */
+    private function perHundredGrams(array $facts): ?array
+    {
+        $totalGrams = $this->nutrition->decimalString($facts['total_grams'] ?? null);
+
+        // No mass, or a mass of zero: nothing to divide a hundred grams by, and
+        // this is where the refusal moves to rather than disappearing.
+        if ($totalGrams === null || bccomp($totalGrams, '0', RecipeNutritionService::WORKING_SCALE) <= 0) {
+            return null;
+        }
+
+        return $this->nutrition->scale(
+            $facts,
+            bcdiv('100', $totalGrams, RecipeNutritionService::WORKING_SCALE),
+            'per_100g',
+            self::METHOD_PER_100G,
+            null,
+            RecipeNutritionService::TRANSPORT_SCALE,
+        );
     }
 }

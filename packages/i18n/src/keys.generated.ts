@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6668 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6671 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1010,6 +1010,7 @@ export interface NamespaceKeys {
     | 'facts.prototypeFlag'
     | 'facts.recipeVersion'
     | 'facts.rounding'
+    | 'facts.soldByWeight'
     | 'facts.source'
     | 'facts.sourceTitle'
     | 'facts.syntheticNote'
@@ -1048,6 +1049,7 @@ export interface NamespaceKeys {
     | 'macros.referenceTitle'
     | 'macros.ringLabel'
     | 'macros.ringValue'
+    | 'macros.ringValuePer100g'
     | 'macros.title'
     | 'meal.actionErrorBody'
     | 'meal.actionErrorTitle'
@@ -1086,6 +1088,7 @@ export interface NamespaceKeys {
     | 'meal.macroRingCaption'
     | 'meal.macroValue'
     | 'meal.macrosTitle'
+    | 'meal.macrosTitlePer100g'
     | 'meal.noPlanBody'
     | 'meal.noPlanBrowse'
     | 'meal.noPlanHome'
@@ -7703,6 +7706,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.prototypeFlag',
   'catalogue:facts.recipeVersion',
   'catalogue:facts.rounding',
+  'catalogue:facts.soldByWeight',
   'catalogue:facts.source',
   'catalogue:facts.sourceTitle',
   'catalogue:facts.syntheticNote',
@@ -7741,6 +7745,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:macros.referenceTitle',
   'catalogue:macros.ringLabel',
   'catalogue:macros.ringValue',
+  'catalogue:macros.ringValuePer100g',
   'catalogue:macros.title',
   'catalogue:meal.actionErrorBody',
   'catalogue:meal.actionErrorTitle',
@@ -7779,6 +7784,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.macroRingCaption',
   'catalogue:meal.macroValue',
   'catalogue:meal.macrosTitle',
+  'catalogue:meal.macrosTitlePer100g',
   'catalogue:meal.noPlanBody',
   'catalogue:meal.noPlanBrowse',
   'catalogue:meal.noPlanHome',

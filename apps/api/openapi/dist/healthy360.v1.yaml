@@ -7703,9 +7703,13 @@ paths:
         one, otherwise per-serving facts derived from the published recipe
         version's ingredient snapshot (`source.kind = ingredient_derived`, where
         one sold unit is one yield piece times the item's portion factor and
-        `serving.grams` comes from the finished-mass basis), otherwise null. A
-        listing with no recorded facts, no published recipe version, no snapshot
-        on it or no stated yield piece count returns null rather than a guess.
+        `serving.grams` comes from the finished-mass basis), otherwise that same
+        snapshot per 100 g when the version states a finished mass but no piece
+        count (`basis = per_100g`, `total_grams = 100`, `serving = null`), which
+        is the honest basis for a bottled sauce or a dressing sold by weight.
+        Otherwise null: a listing with no recorded facts, no published recipe
+        version, no snapshot on it or no finished mass on that snapshot returns
+        null rather than a guess.
         The demonstration menu uses `synthetic_prototype` facts that the client
         visibly labels as estimates; they are not a kitchen declaration or
         laboratory analysis.
@@ -27347,7 +27351,7 @@ components:
       additionalProperties: false
     MarketplaceNutritionFacts:
       type: object
-      description: Per-serving nutrition facts with their source and calculation method.
+      description: Nutrition facts on the basis `basis` names, with their source and calculation method.
       required:
         - basis
         - kind
@@ -27489,7 +27493,9 @@ components:
             one the kitchen declared alongside its own recorded facts; on a
             derived payload, one sold unit, whose `label` is empty because
             nobody wrote a phrase for it and whose `grams` is the finished mass
-            of that unit. Null when `nutrition` is.
+            of that unit. Null when `nutrition` is, and also null on a
+            `per_100g` payload: a listing sold by weight has a mass but no
+            portion, and an invented one would describe a serving nobody sells.
           oneOf:
             - $ref: '#/components/schemas/MarketplaceServing'
             - type: 'null'
@@ -27503,11 +27509,17 @@ components:
             catalogue.nutrition.per_sold_unit`, where one sold unit is one yield
             piece times the item's portion factor and `serving.grams` comes from
             the finished-mass basis recorded in `calculation.notes`), otherwise
-            null. Null covers every gap rather than a guess: no recorded facts,
-            no published recipe version, no snapshot on it, or no stated yield
-            piece count to divide by. A `synthetic_prototype` source is a
-            visibly labelled demonstration estimate, not a kitchen declaration
-            or a laboratory analysis.
+            the same snapshot re-expressed per 100 g when the version states a
+            finished mass but no piece count (`basis = per_100g`,
+            `calculation.method = catalogue.nutrition.per_100g`, `total_grams =
+            100`, `serving = null`) — a bottled sauce or a dressing is sold by
+            weight and has no portion to divide into, and per 100 g is the basis
+            a printed label uses. Otherwise null: no recorded facts, no
+            published recipe version, no snapshot on it, or no finished mass on
+            that snapshot to re-base onto. Null covers every gap rather than a
+            guess. A `synthetic_prototype` source is a visibly labelled
+            demonstration estimate, not a kitchen declaration or a laboratory
+            analysis.
           oneOf:
             - $ref: '#/components/schemas/MarketplaceNutritionFacts'
             - type: 'null'

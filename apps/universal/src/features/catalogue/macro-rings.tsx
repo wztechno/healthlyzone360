@@ -32,6 +32,13 @@ import { macroBreakdown } from './format.ts';
  *
  * The accompanying note says in plain words that the band describes a population and not the
  * reader, because a person who lands outside one must not read that as a diagnosis.
+ *
+ * ## What "one serving" means when there is not one
+ *
+ * A listing sold by weight arrives on the `per_100g` basis with no serving at all, so the spoken
+ * figure says "of the energy in 100 g" instead. The shares themselves are unchanged — a proportion
+ * of energy is the same proportion whatever mass it was measured over — but a screen reader
+ * announcing "in this serving" over a bottle of sauce would be naming a portion nobody sells.
  */
 
 /**
@@ -74,6 +81,10 @@ export function MacroRings({
 
     const energy = amountValue(facts, 'energy');
     const shares = macroBreakdown(facts);
+    const ringValueKey =
+        facts.basis === 'per_100g'
+            ? 'catalogue:macros.ringValuePer100g'
+            : 'catalogue:macros.ringValue';
 
     return (
         <Stack space="sm" testID={testID}>
@@ -105,7 +116,7 @@ export function MacroRings({
                                         maximumFractionDigits: 1,
                                     }),
                                 })}
-                                valueText={t('catalogue:macros.ringValue', {
+                                valueText={t(ringValueKey, {
                                     grams: formatter.formatNumber(share.grams, {
                                         maximumFractionDigits: 1,
                                     }),

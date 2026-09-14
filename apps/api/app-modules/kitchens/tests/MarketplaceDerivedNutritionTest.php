@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Kitchens\Presenters\MarketplaceMealPresenter;
 use Healthy360\Kitchens\Services\MarketplaceChannels;
 use Healthy360\Kitchens\Services\MarketplaceMeals;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Services\ResolvedPrice;
+use Healthy360\Recipes\Enums\AllergenDerivation;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
@@ -109,4 +112,65 @@ it('projects the derived per-serving facts and the serving they apply to', funct
         ->and($projected['serving']['unit'] ?? null)->toBe('portion')
         ->and($projected['serving']['label'] ?? null)->toBe('')
         ->and($projected['serving']['grams'] ?? null)->toEqual(100);
+});
+
+/**
+ * The sibling derivation, pinned here rather than in a file of its own because
+ * it is the same claim about the same method's neighbour: what basis
+ * `MarketplaceMeals` chooses for a meal that has both a published version and
+ * its own ingredient rows.
+ *
+ * **This pins the basis choice, not the row-level policy.** The suite runs as
+ * the schema owner, whom the policies on `recipe_versions` do not apply to, so
+ * it cannot observe the failure that put `allergenCodesOf()` inside the
+ * kitchen's tenant context: an anonymous marketplace read could not see the
+ * version at all, fell silently to the weaker linked-ingredient basis, and
+ * published a label that was not the frozen one. What a test *can* hold is the
+ * half above the policy — that when the version is visible, its frozen label is
+ * the answer — and it fails loudly if the wrap is ever removed in a way that
+ * changes which basis is asked for.
+ */
+it('reports the published versions frozen allergen label over the items own ingredients', function (): void {
+    $organisation = RecipeWorld::organisation();
+    $recipe = Recipe::factory()->create(['organisation_id' => $organisation->getKey()]);
+
+    $version = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisation->getKey(),
+    ]);
+
+    // Frozen at publication from the whole formulation — including a component
+    // that never reaches the customer-facing ingredient summary.
+    RecipeVersionAllergen::withoutTenancy()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'allergen_code' => RecipeWorld::allergen('gluten')->code,
+        'containment' => AllergenContainment::Contains,
+        'derivation' => AllergenDerivation::Derived,
+    ]);
+
+    $catalogue = Catalogue::factory()->create([
+        'organisation_id' => $organisation->getKey(),
+        'code' => 'default',
+    ]);
+
+    $created = CatalogueItem::factory()->meal()->published()->create([
+        'catalogue_id' => $catalogue->getKey(),
+        'organisation_id' => $organisation->getKey(),
+        'name_ar' => 'وجبة',
+        'recipe_id' => $recipe->getKey(),
+    ]);
+
+    // The item's own list says sesame and says nothing about gluten. If the
+    // projection were computing over this instead, the assertion below would
+    // read `['sesame']` — which is the wrong label for this dish.
+    $created->ingredients()->create([
+        'organisation_id' => $organisation->getKey(),
+        'ingredient_id' => RecipeWorld::mappedIngredient($organisation, 'Tahini', 'sesame')->getKey(),
+        'display_order' => 1,
+    ]);
+
+    $meal = CatalogueItem::withoutTenancy()->whereKey($created->getKey())->sole();
+
+    expect(app(MarketplaceMeals::class)->allergenCodesOf($meal))->toBe(['gluten']);
 });

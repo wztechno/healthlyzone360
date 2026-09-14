@@ -225,6 +225,15 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                         )}
                                     </Inline>
 
+                                    {/*
+                                     * Nothing at all rather than "One serving is ." — the mapper's
+                                     * `UNSTATED_SERVING` carries an empty label and a null mass
+                                     * precisely so a screen prints nothing instead of a phrase the
+                                     * kitchen never wrote, and a listing sold by weight (per-100 g
+                                     * facts, no portion) is the case that makes it visible. The
+                                     * facts panel below still says what basis it is on.
+                                     */}
+                                    {item.serving.label === '' && item.serving.grams === null ? null : (
                                     <Stack space="xs" testID="meal-detail-serving">
                                         <Text variant="label">
                                             {t('catalogue:meal.servingTitle')}
@@ -249,6 +258,7 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                             </Text>
                                         )}
                                     </Stack>
+                                    )}
 
                                     {/*
                                      * The classification and the commerce panel are in the
@@ -280,7 +290,13 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                             </View>
 
                             <Stack space="sm" testID="meal-detail-macros">
-                                <Text variant="label">{t('catalogue:meal.macrosTitle')}</Text>
+                                <Text variant="label">
+                                    {t(
+                                        item.nutrition.basis === 'per_100g'
+                                            ? 'catalogue:meal.macrosTitlePer100g'
+                                            : 'catalogue:meal.macrosTitle',
+                                    )}
+                                </Text>
                                 <MacroRings
                                     testID="meal-detail-macro-rings"
                                     facts={item.nutrition}

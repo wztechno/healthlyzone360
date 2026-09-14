@@ -26,9 +26,14 @@ use Healthy360\ReferenceData\Models\MeasurementUnit;
 |     measured this dish; a derivation is a calculation about a dish.
 |  2. The published recipe version's per-recipe snapshot, divided by the
 |     pieces it yields and multiplied by the item's portion factor.
-|  3. Null — and null for every gap, never a guess. No published version, no
-|     snapshot on it, or no stated piece count all answer the same way, for
-|     `MealExplosion`'s reason: without a divisor there is no "per sold unit".
+|  3. The same snapshot per 100 g, when the version states a finished mass but
+|     no piece count — a bottled sauce or a dressing is sold by weight, has no
+|     portion to divide into, and per 100 g is the basis a printed label uses.
+|  4. Null — and null for every gap, never a guess. No published version, no
+|     snapshot on it, or no finished mass to re-base onto all answer the same
+|     way. A piece count is still never invented: `MealExplosion`'s refusal is
+|     intact and wins outright where one is stated, and only what its absence
+|     falls through *to* has changed.
 |
 | The last case here is the one that matters most and is easiest to lose: the
 | editor's per-100 g tiles and the customer's serving panel are two views of
@@ -295,20 +300,100 @@ it('says nothing for a listing whose recipe has no published version', function 
     expect(app(DerivedNutritionService::class)->forItem($item))->toBeNull();
 });
 
-it('says nothing when the published version states no yield piece count', function (): void {
+it('falls back to per 100 g when the published version states no piece count', function (): void {
     $tahini = RecipeWorld::nourish(
         RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Tahini', 'sesame'),
         soldUnitFacts(),
     );
 
-    $version = publishForSoldUnit($this->kitchen, $this->headers, $this->grams, [[$tahini, 400]]);
+    // 800 g of a 200 kcal/100 g ingredient: 1600 kcal in the bottle, 200 in a
+    // hundred grams of it. The mass is chosen so the factor is 0.125 rather
+    // than 1 — a test whose scaler could be a no-op would pass on a bug.
+    $version = publishForSoldUnit($this->kitchen, $this->headers, $this->grams, [[$tahini, 800]]);
 
-    // The snapshot is there and correct. What is missing is the divisor, and
-    // a batch of unknown portions labelled as one serving is a worse answer
-    // than no label — the refusal `MealExplosion` makes for the same input.
     expect($version->nutrition_facts)->not->toBeNull()
-        ->and($version->yield_piece_count)->toBeNull()
-        ->and(app(DerivedNutritionService::class)->forItem(soldItem($this, $version)))->toBeNull();
+        ->and($version->yield_piece_count)->toBeNull();
+
+    $facts = app(DerivedNutritionService::class)->forItem(soldItem($this, $version));
+
+    // The divisor for a *serving* is what is missing, and inventing one is
+    // still refused. What the bottle does state is its mass, and per 100 g is
+    // the basis its own printed label would use.
+    expect($facts)->toBeArray()
+        ->and($facts['basis'])->toBe('per_100g')
+        ->and($facts['calculation']['method'])->toBe('catalogue.nutrition.per_100g')
+        ->and($facts['calculation']['basis'])->toBe('per_100g')
+        ->and($facts['calculation']['rounding'])->toBe('half_away_from_zero_3dp')
+
+        // A hundred grams, said on the envelope's face — the amounts below are
+        // a hundred grams of this, and nothing has to infer that.
+        ->and($facts['total_grams'])->toEqual(100)
+
+        // Null, not an invented portion: the client reads the basis and shows
+        // one per-100 g view rather than a serving panel.
+        ->and($facts['serving'])->toBeNull()
+
+        // Carried through untouched, as on the per-serving branch.
+        ->and($facts['source']['kind'])->toBe('ingredient_derived')
+        ->and($facts['calculation']['notes'])->toBe(['mass_basis: input']);
+
+    expect(amountsOf($facts))->toEqual([
+        'energy' => 200.0,
+        'protein' => 10.0,
+        'carbohydrate' => 20.0,
+        'fat' => 5.0,
+        'fibre' => 2.0,
+        'sugars' => 1.0,
+        'sodium' => 400.0,
+    ]);
+});
+
+it('divides by a stated piece count rather than falling back to per 100 g', function (): void {
+    // The fallback is for the *absence* of a piece count, never an alternative
+    // to one: the same 800 g formulation with four pieces stated is four
+    // servings of 200 g, and that is what a customer eats.
+    $tahini = RecipeWorld::nourish(
+        RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Tahini', 'sesame'),
+        soldUnitFacts(),
+    );
+
+    $version = publishForSoldUnit($this->kitchen, $this->headers, $this->grams,
+        [[$tahini, 800]], ['yield_piece_count' => 4]);
+
+    $facts = app(DerivedNutritionService::class)->forItem(soldItem($this, $version));
+
+    expect($facts)->toBeArray()
+        ->and($facts['basis'])->toBe('per_serving')
+        ->and($facts['calculation']['method'])->toBe('catalogue.nutrition.per_sold_unit')
+        ->and($facts['total_grams'])->toEqual(200)
+        ->and($facts['serving']['grams'])->toEqual(200)
+        ->and(amountsOf($facts)['energy'])->toEqual(400.0);
+});
+
+it('says nothing when the snapshot carries no finished mass', function (): void {
+    $tahini = RecipeWorld::nourish(
+        RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Tahini', 'sesame'),
+        soldUnitFacts(),
+    );
+
+    $version = publishForSoldUnit($this->kitchen, $this->headers, $this->grams, [[$tahini, 800]]);
+
+    // Written over rather than published this way, because the publish path
+    // cannot produce it: a formulation whose lines resolve always has an input
+    // mass, and one whose lines do not withholds the whole snapshot. The
+    // refusal still has to exist — `total_grams` is nullable on the envelope,
+    // and dividing a hundred grams by nothing is where a silent zero would get
+    // in. Encoded by hand because a query-builder update does not run casts.
+    $massless = $version->nutrition_facts;
+    $massless['total_grams'] = null;
+
+    RecipeVersion::withoutTenancy()->whereKey($version->getKey())->update([
+        'nutrition_facts' => json_encode($massless, JSON_THROW_ON_ERROR),
+    ]);
+
+    $item = soldItem($this, RecipeVersion::withoutTenancy()->whereKey($version->getKey())->sole());
+
+    expect(app(DerivedNutritionService::class)->forItem($item))->toBeNull();
 });
 
 it('says nothing when the published version carries no snapshot', function (): void {

@@ -2359,7 +2359,7 @@ export const zMarketplaceNutritionCalculation = z.object({
 });
 
 /**
- * Per-serving nutrition facts with their source and calculation method.
+ * Nutrition facts on the basis `basis` names, with their source and calculation method.
  */
 export const zMarketplaceNutritionFacts = z.object({
     basis: z.enum([

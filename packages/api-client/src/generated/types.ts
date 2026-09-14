@@ -3320,7 +3320,7 @@ export type MarketplaceNutritionCalculation = {
 };
 
 /**
- * Per-serving nutrition facts with their source and calculation method.
+ * Nutrition facts on the basis `basis` names, with their source and calculation method.
  */
 export type MarketplaceNutritionFacts = {
     basis: 'per_serving' | 'per_100g' | 'per_recipe' | 'per_meal' | 'per_day' | 'per_week';
@@ -3386,7 +3386,9 @@ export type MarketplaceMeal = {
      * one the kitchen declared alongside its own recorded facts; on a
      * derived payload, one sold unit, whose `label` is empty because
      * nobody wrote a phrase for it and whose `grams` is the finished mass
-     * of that unit. Null when `nutrition` is.
+     * of that unit. Null when `nutrition` is, and also null on a
+     * `per_100g` payload: a listing sold by weight has a mass but no
+     * portion, and an invented one would describe a serving nobody sells.
      *
      */
     serving: MarketplaceServing | null;
@@ -3399,11 +3401,17 @@ export type MarketplaceMeal = {
      * catalogue.nutrition.per_sold_unit`, where one sold unit is one yield
      * piece times the item's portion factor and `serving.grams` comes from
      * the finished-mass basis recorded in `calculation.notes`), otherwise
-     * null. Null covers every gap rather than a guess: no recorded facts,
-     * no published recipe version, no snapshot on it, or no stated yield
-     * piece count to divide by. A `synthetic_prototype` source is a
-     * visibly labelled demonstration estimate, not a kitchen declaration
-     * or a laboratory analysis.
+     * the same snapshot re-expressed per 100 g when the version states a
+     * finished mass but no piece count (`basis = per_100g`,
+     * `calculation.method = catalogue.nutrition.per_100g`, `total_grams =
+     * 100`, `serving = null`) — a bottled sauce or a dressing is sold by
+     * weight and has no portion to divide into, and per 100 g is the basis
+     * a printed label uses. Otherwise null: no recorded facts, no
+     * published recipe version, no snapshot on it, or no finished mass on
+     * that snapshot to re-base onto. Null covers every gap rather than a
+     * guess. A `synthetic_prototype` source is a visibly labelled
+     * demonstration estimate, not a kitchen declaration or a laboratory
+     * analysis.
      *
      */
     nutrition: MarketplaceNutritionFacts | null;
