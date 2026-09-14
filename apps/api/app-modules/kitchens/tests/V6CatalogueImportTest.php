@@ -84,7 +84,8 @@ it('imports every family with its ingredient rows, allergens and prices', functi
     expect($report->countOf('catalogue_item', 'created'))->toBe(7)
         ->and($report->countOf('ingredient', 'created'))->toBe(5)
         ->and($report->countOf('ingredient_allergen', 'created'))->toBe(5)
-        ->and($report->countOf('catalogue_item_variant', 'created'))->toBe(9)
+        // Six packs, none of them on the two meals: a meal is priced at item level.
+        ->and($report->countOf('catalogue_item_variant', 'created'))->toBe(6)
         ->and($report->countOf('price_list_item', 'created'))->toBe(5)
         ->and($report->countOf('channel_catalogue_item', 'created'))->toBe(5);
 
@@ -140,6 +141,18 @@ it('imports every family with its ingredient rows, allergens and prices', functi
 
     expect($b2c->unit_amount_minor)->toBe(300)
         ->and($b2c->price_status->value)->toBe('confirmed');
+
+    // The sauce's price sits on its B2C pack. The meal's sits on the item
+    // itself — the row the marketplace, the cart and the B2B browse all ask a
+    // meal for — and the meal carries no pack at all.
+    $mealB2c = PriceListItem::withoutTenancy()
+        ->where('organisation_id', $org->getKey())
+        ->where('source_ref', 'PRD-901/b2c')
+        ->sole();
+
+    expect($b2c->catalogue_item_variant_id)->not->toBeNull()
+        ->and($mealB2c->catalogue_item_variant_id)->toBeNull()
+        ->and(CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $items['PRD-901']->getKey())->count())->toBe(0);
 });
 
 it('changes nothing on a second run', function (): void {
@@ -218,7 +231,7 @@ it('keeps unpriced items away from customers even once published', function (): 
 
     CatalogueItem::withoutTenancy()
         ->where('organisation_id', $org->getKey())
-        ->whereIn('source_ref', ['SAC-901', 'SAC-902', 'DRS-901'])
+        ->whereIn('source_ref', ['SAC-901', 'SAC-902', 'DRS-901', 'PRD-901'])
         ->update(['status' => CatalogueItemStatus::Published->value]);
 
     $meals = app(MarketplaceMeals::class);
@@ -230,5 +243,7 @@ it('keeps unpriced items away from customers even once published', function (): 
     $channels = $meals->listingChannelsOf((string) $org->getKey());
 
     expect($meals->priceOf($items['SAC-901'], $channels))->not->toBeNull()
-        ->and($meals->priceOf($items['SAC-902'], $channels))->toBeNull();
+        ->and($meals->priceOf($items['SAC-902'], $channels))->toBeNull()
+        // A priced meal lists too: its price is read at item level, where the importer put it.
+        ->and($meals->priceOf($items['PRD-901'], $channels))->not->toBeNull();
 });
