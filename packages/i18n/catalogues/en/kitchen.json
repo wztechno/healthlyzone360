@@ -906,7 +906,18 @@
             "spendIncomplete": "Spend incomplete",
             "spendIncompleteTitle": "Some purchases are still waiting on their prices",
             "spendIncompleteBody_one": "One receipt line in {{months}} has no usable price yet, so that month's purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.",
-            "spendIncompleteBody_other": "{{count}} receipt lines in {{months}} have no usable price yet, so those months' purchasing spend is understated. The purchases ledger's weekly and monthly view lists them."
+            "spendIncompleteBody_other": "{{count}} receipt lines in {{months}} have no usable price yet, so those months' purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.",
+            "chip": "Costs",
+            "monthInvalid": "Use a month as YYYY-MM.",
+            "openExceptions": "Open consumption exceptions",
+            "chartRevenueCogs": "Revenue and COGS by month",
+            "chartRevenueMixTitle": "Revenue by line of business",
+            "window": {
+                "kind": "Month",
+                "flaggedNote": "This month has unresolved consumption exceptions, so its cost of goods sold is understated by whatever those lines were. The margin inherits the same understatement.",
+                "currencyValue": "{{currency}} — one currency at a time, never mixed",
+                "openLedger": "Open the purchases ledger"
+            }
         },
         "exceptions": {
             "title": "Consumption exceptions",
@@ -945,6 +956,29 @@
                 "unit_conversion_unsupported": "Units cannot be converted",
                 "no_ingredient_cost": "No cost to value COGS",
                 "insufficient_stock": "Not enough stock"
+            },
+            "chip": "Retry writes stock",
+            "statUnit": "exceptions",
+            "statShownCaption": "on this page",
+            "statUnresolvedCaption": "nothing deducted",
+            "statResolvedCaption": "the gap was accepted",
+            "fromInvalid": "Use a date as YYYY-MM-DD.",
+            "showingCount_one": "Showing {{count}} exception",
+            "showingCount_other": "Showing {{count}} exceptions",
+            "resolvedToast": "The exception on order {{order}} is resolved.",
+            "resolveTitle": "Resolve this exception?",
+            "resolveBody": "Resolving accepts the stock gap for good: nothing is deducted for this line, and stock stays as it is. Retry instead if the cause has been fixed.",
+            "resolveConfirm": "Resolve and accept the gap",
+            "window": {
+                "title": "Order {{order}}",
+                "kind": "Exception",
+                "openNote": "Nothing was deducted for this line. Retrying re-runs the deduction against stock as it stands now; resolving accepts the gap and leaves stock alone.",
+                "fieldItem": "Item",
+                "fieldDetail": "Detail",
+                "fieldResolutionNote": "Resolution note",
+                "fieldMoney": "Money",
+                "moneyValue": "None — an exception names a sale and a stock gap, not a valuation",
+                "retry": "Retry the deduction"
             }
         },
         "requirements": {
@@ -1027,7 +1061,7 @@
             "emptyTitle": "Nothing was taken that day",
             "emptyBody": "No payment was written down against any order on this day. That is an answer rather than a gap.",
             "columnAgent": "Taken by",
-            "columnMethod": "How",
+            "columnMethod": "Type",
             "columnCount": "Receipts",
             "columnAmount": "Amount",
             "totalsHeading": "Totals",
@@ -1472,6 +1506,12 @@
             "projected": "Forecast"
         },
         "noSlot": "No slot named",
+        "slot": {
+            "breakfast": "Breakfast",
+            "lunch": "Lunch",
+            "dinner": "Dinner",
+            "snack": "Snack"
+        },
         "loadErrorTitle": "The calendar could not be loaded",
         "emptyTitle": "Nothing this week",
         "emptyBody": "No orders, no scheduled deliveries and nothing forecast between these dates. Look at another week, or take a sale at the desk.",
@@ -1482,6 +1522,7 @@
             "nothing": "Nothing on any book."
         },
         "today": "Today",
+        "dayTotal": "Day total",
         "noteOrder": "Every square names its three books beside their figures, always in the same order: Orders, Scheduled, Forecast. A slot not named on the order has its own row, and only on days that have one.",
         "noteZero": "0 is a true zero — the server walked that slot and found nothing. — means the day was never answered, which is a different fact and is never shown as a zero."
     },
@@ -1654,7 +1695,9 @@
                 "b2b": "B2B",
                 "pos": "POS",
                 "staff": "Staff meals"
-            }
+            },
+            "productionTrendUnit": "units per period",
+            "trendBarTitle": "{{label}} · {{value}} units"
         },
         "status": {
             "all": "All statuses",
@@ -1676,7 +1719,18 @@
             "completion": "Done",
             "avgMinutes": "Avg min",
             "updated": "Updated",
-            "empty": "No rows match these filters."
+            "empty": "No rows match these filters.",
+            "sampleNote": "sample figures until live reporting lands"
+        },
+        "units": {
+            "count": "units",
+            "percent": "%",
+            "minutes": "min"
+        },
+        "window": {
+            "kind": "Line item",
+            "note": "These are sample figures until live reporting lands. Nothing on this screen is read from the order book.",
+            "fieldAvgMinutes": "Average minutes"
         }
     },
     "review": {
@@ -1701,6 +1755,7 @@
         "reasonMissingTranslation": "One language of the name is still empty",
         "reasonDataQuality_one": "{{count}} import finding is unresolved",
         "reasonDataQuality_other": "{{count}} import findings are unresolved",
+        "reasonDraft": "Not published yet",
         "clearTitle": "Nothing is waiting for review",
         "clearBody": "No record in this kitchen is quarantined, out of date, or missing something that would stop it being published.",
         "clearBadge": "All clear",
@@ -1712,7 +1767,35 @@
         "notChecked": "Not checked here: delivery zones and opening hours, which have no publication state to hold anything back, and the allergen classes, which the platform owns.",
         "truncatedTitle": "More records match than are shown",
         "truncatedBody": "At least one family filled the page this queue reads. Open that family and filter it by status to see the rest.",
-        "errorTitle": "The review queue could not be loaded"
+        "errorTitle": "The review queue could not be loaded",
+        "chip": "Read only",
+        "columnDesignation": "Designation",
+        "columnWhy": "Why it is here",
+        "columnUpdated": "Last changed",
+        "view": "View",
+        "searchLabel": "Search the queue",
+        "searchPlaceholder": "Designation",
+        "scopeLabel": "Show",
+        "scopeAll": "All",
+        "scopeBlocked": "Blocked",
+        "scopeUnblocked": "To finish",
+        "statShown": "Shown",
+        "statShownCaption_one": "{{count}} family",
+        "statShownCaption_other": "{{count}} families",
+        "statBlockedCaption": "publication refused",
+        "statToFinishCaption": "not blocked outright",
+        "loadingCaption": "Checking every family that can hold something back…",
+        "filteredEmptyTitle": "No record in the queue matches",
+        "filteredEmptyBody": "Clear the search, or show every record again.",
+        "window": {
+            "note": "Nothing is resolved from this window. Opening the record takes you to the family’s own editor, which holds the lock version, the unsaved guard and the publish confirmation.",
+            "fieldFamily": "Family",
+            "fieldStatus": "Status",
+            "fieldPublication": "Publication",
+            "publicationBlocked": "Blocked — publication refused",
+            "publicationUnblocked": "Not blocked — work to finish",
+            "chipsCaption": "Resolved by the review queue’s own checks. A reason clears when the record itself is corrected."
+        }
     },
     "status": {
         "label": "Status",
