@@ -212,6 +212,7 @@ REDIS_CACHE_DB=$REDIS_CACHE_DB
 # Mail is written to the container log. Nothing on a test instance should be
 # able to email a real person by accident.
 MAIL_MAILER=log
+MAIL_LOG_CHANNEL=mail
 MAIL_FROM_ADDRESS=noreply@healthy360.com
 MAIL_FROM_NAME="Healthy 360"
 EOF
