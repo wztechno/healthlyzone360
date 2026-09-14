@@ -421,6 +421,7 @@ export const zAdminIngredient = z.object({
     items_per_unit: z.string().nullish(),
     grams_per_unit: z.string().nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
+    nutrition_derived_from_version_id: zUuid.nullish(),
     b2b_price_amount: z.string().nullish(),
     b2c_price_amount: z.string().nullish(),
     unit_price_amount: z.string().nullish(),

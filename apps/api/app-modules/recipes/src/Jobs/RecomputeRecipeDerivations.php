@@ -17,6 +17,7 @@ use Healthy360\Recipes\Services\AllergenRollupService;
 use Healthy360\Recipes\Services\RecipeCostingService;
 use Healthy360\Recipes\Services\RecipeLabelWriter;
 use Healthy360\Recipes\Services\RecipeNutritionService;
+use Healthy360\Recipes\Services\RecipeOutputNutritionWriter;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -54,7 +55,8 @@ use Illuminate\Support\Facades\Log;
  *
  * **What a recompute rewrites**, in order: the frozen allergen rows, the
  * derivation state, timestamp and input fingerprint, the per-recipe nutrition
- * snapshot, and — when every line is costed — one appended cost snapshot.
+ * snapshot, the per-100 g facts on whatever the version *produces*, and — when
+ * every line is costed — one appended cost snapshot.
  *
  * **Nutrition is rewritten unconditionally and never quarantines.** The
  * snapshot is written on every pass, *including* when it is null: an ingredient
@@ -142,6 +144,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         RecipeLabelWriter $labels,
         RecipeCostingService $costing,
         RecipeNutritionService $nutrition,
+        RecipeOutputNutritionWriter $outputNutrition,
         RecipeUsageRegistry $usage,
         AuditRecorder $audit,
     ): void {
@@ -154,12 +157,13 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
                 $labels,
                 $costing,
                 $nutrition,
+                $outputNutrition,
                 $usage,
                 $audit,
             ): void {
                 $context->restore(['user_id' => null, 'organisation_id' => $this->organisationId, 'branch_id' => null]);
 
-                $this->recompute($rollup, $labels, $costing, $nutrition, $usage, $audit);
+                $this->recompute($rollup, $labels, $costing, $nutrition, $outputNutrition, $usage, $audit);
             });
         } finally {
             $context->restore($ambient);
@@ -174,6 +178,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         RecipeLabelWriter $labels,
         RecipeCostingService $costing,
         RecipeNutritionService $nutrition,
+        RecipeOutputNutritionWriter $outputNutrition,
         RecipeUsageRegistry $usage,
         AuditRecorder $audit,
     ): void {
@@ -235,6 +240,24 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         });
 
         $version->refresh();
+
+        /*
+         * Everything this version *produces* gets the figures too, before the
+         * walk below reaches the formulations built on it.
+         *
+         * A component's output ingredient is defined by the component, so a
+         * recompute that refreshed the version's own snapshot and stopped would
+         * leave the parent recipe deriving its total from yesterday's
+         * intermediate — with a `derived_at` saying otherwise. Order matters:
+         * the parents are re-derived from the row this writes, so the row has
+         * to move first. The writer no-ops on anything but a published version.
+         *
+         * It is told not to schedule those parents itself: `propagate()` below
+         * walks the same output → line edge carrying the visited set and the
+         * depth cap, and a second dispatcher starting a fresh walk at depth
+         * zero is exactly the unbounded cascade those two guards exist to stop.
+         */
+        $outputNutrition->write($version, $facts, scheduleDependants: false);
 
         $this->writeCostSnapshot($version, $costing, $lines);
 

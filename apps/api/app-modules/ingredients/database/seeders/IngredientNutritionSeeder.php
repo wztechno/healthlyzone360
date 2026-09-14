@@ -124,6 +124,17 @@ class IngredientNutritionSeeder extends Seeder
                 $estimated++;
             }
 
+            // A row whose facts a published recipe version derives is that
+            // recipe's to state, and reference data must not write over a
+            // derivation: the next recompute would overwrite this seeder's
+            // figure anyway, and in between the ingredient would disagree with
+            // the formulation that defines it. No platform row is ever in that
+            // position — outputs are a kitchen's own intermediates — so this is
+            // a guard against the day one is, not a case being handled.
+            if ($ingredient->nutrition_derived_from_version_id !== null) {
+                continue;
+            }
+
             if ($ingredient->nutrition_per_100g === null) {
                 $ingredient->nutrition_per_100g = $this->envelope($row);
                 $filled++;

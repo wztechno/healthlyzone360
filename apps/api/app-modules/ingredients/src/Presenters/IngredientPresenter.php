@@ -64,6 +64,7 @@ final class IngredientPresenter
      *     capacity_quantity: string|null,
      *     capacity_unit_code: string|null,
      *     nutrition_per_100g: array<string, mixed>|null,
+     *     nutrition_derived_from_version_id: string|null,
      *     b2b_price_amount: string|null,
      *     b2c_price_amount: string|null,
      *     unit_price_amount: string|null,
@@ -128,6 +129,13 @@ final class IngredientPresenter
             'capacity_quantity' => $ingredient->capacity_quantity === null ? null : (string) $ingredient->capacity_quantity,
             'capacity_unit_code' => $ingredient->relationLoaded('capacityUnit') ? $ingredient->capacityUnit?->code : null,
             'nutrition_per_100g' => $ingredient->nutrition_per_100g,
+            /*
+             * Set when the facts above were derived from a published recipe version rather than
+             * entered — a sub-recipe's output, whose nutrition is whatever the recipe that makes it
+             * works out to. On the wire so an editor can render the panel read-only and say why,
+             * rather than offering a control whose save 422s.
+             */
+            'nutrition_derived_from_version_id' => $ingredient->nutrition_derived_from_version_id,
             'b2b_price_amount' => $ingredient->b2b_price_amount === null ? null : (string) $ingredient->b2b_price_amount,
             'b2c_price_amount' => $ingredient->b2c_price_amount === null ? null : (string) $ingredient->b2c_price_amount,
             'unit_price_amount' => $ingredient->unit_price_amount === null ? null : (string) $ingredient->unit_price_amount,

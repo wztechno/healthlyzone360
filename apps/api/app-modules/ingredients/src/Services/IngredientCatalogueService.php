@@ -391,6 +391,7 @@ final readonly class IngredientCatalogueService
     public function update(Ingredient $ingredient, array $attributes, int $expectedLockVersion): Ingredient
     {
         $this->assertWritable($ingredient);
+        $this->assertNutritionNotDerived($ingredient, $attributes);
 
         // A PATCH may move either half of the pair on its own, so the check has
         // to be against the *effective* pair — what is being sent, falling back
@@ -480,6 +481,48 @@ final readonly class IngredientCatalogueService
         );
 
         return $ingredient;
+    }
+
+    /**
+     * Refuse to edit facts a recipe owns.
+     *
+     * An ingredient a published version *outputs* — a pesto mix, a taouk
+     * preparation — has its per-100 g figures derived from the formulation that
+     * makes it, and `nutrition_derived_from_version_id` records which. Two
+     * things go wrong if a PATCH is allowed through on such a row, and only the
+     * first is obvious: the typed figure survives until the next recompute and
+     * then silently disappears, so the edit *looks* accepted and is not. The
+     * worse one is what it means while it stands — a number on the ingredient
+     * disagreeing with the recipe that defines the thing, with nothing on
+     * either screen to say which is the real one.
+     *
+     * `grams_per_unit` is refused beside the facts because it is the other half
+     * of the same arithmetic: a parent line stated in litres is weighed through
+     * it, so moving it moves every derived amount downstream just as surely.
+     *
+     * The fix for a wrong figure here is the formulation. Retiring the version
+     * releases the row — see `RecipeOutputNutritionWriter::clear()` — and it
+     * becomes an ordinary editable ingredient again.
+     *
+     * @param  array<string, mixed>  $attributes
+     *
+     * @throws ApiException
+     */
+    private function assertNutritionNotDerived(Ingredient $ingredient, array $attributes): void
+    {
+        if ($ingredient->nutrition_derived_from_version_id === null) {
+            return;
+        }
+
+        $derived = array_intersect(['nutrition_per_100g', 'grams_per_unit'], array_keys($attributes));
+
+        if ($derived === []) {
+            return;
+        }
+
+        throw new ApiException(ErrorCode::ValidationFailed, details: ['fields' => [
+            'nutrition_per_100g' => ['These facts are derived from a published recipe version; change the recipe instead.'],
+        ]]);
     }
 
     /**

@@ -243,6 +243,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         isSellable: false,
         costPer100g: { amount: 1.25, currency: 'AED' },
         per100g: null,
+        nutritionDerivedFromVersionId: null,
         allergens: [],
         dietClassifications: [],
         aliases: [],

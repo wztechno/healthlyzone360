@@ -342,6 +342,12 @@ export function mapIngredientAdmin(
         isSellable: wire.is_sellable ?? false,
         costPer100g: null,
         per100g: mapIngredientPer100g(wire),
+        // Set only on a sub-recipe's output, where the facts beside it are derived from the
+        // formulation rather than entered — which is what makes them read-only.
+        nutritionDerivedFromVersionId:
+            wire.nutrition_derived_from_version_id == null
+                ? null
+                : RecipeVersionId.unsafe(wire.nutrition_derived_from_version_id),
         // Both the collection and the single resource carry the mappings, so the list's allergen
         // column and its View panel state the real declaration rather than "none declared" on every
         // row — which is what they did while this could only be filled from the dedicated

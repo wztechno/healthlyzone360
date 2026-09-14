@@ -69,6 +69,7 @@ final readonly class RecipeVersionService
         private RecipeVersionReadiness $readiness,
         private RecipeLabelWriter $labels,
         private RecipeNutritionService $nutrition,
+        private RecipeOutputNutritionWriter $outputNutrition,
     ) {}
 
     /**
@@ -929,6 +930,15 @@ final readonly class RecipeVersionService
             ],
         );
 
+        // Outside the transaction and after the trail, because this writes to
+        // other rows and queues work: a version that produces an ingredient has
+        // just defined what that ingredient is made of, and the invalidation
+        // behind it dispatches a recompute of every parent formulation using
+        // it. Neither belongs inside the transaction that demotes the
+        // incumbent, and a job dispatched from inside one can be picked up by a
+        // worker before the commit it depends on has landed.
+        $this->outputNutrition->write($version, $nutrition);
+
         return $version;
     }
 
@@ -984,6 +994,12 @@ final readonly class RecipeVersionService
                 'lock_version' => $version->lock_version,
             ],
         );
+
+        // A withdrawn child withholds the parent. Whatever this version derived
+        // onto the ingredients it produces was true of a formulation that is no
+        // longer published, and a parent recipe must not go on totalling
+        // against it — see {@see RecipeOutputNutritionWriter::clear()}.
+        $this->outputNutrition->clear($version);
 
         return $version;
     }

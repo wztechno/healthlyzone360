@@ -448,6 +448,29 @@ export type AdminIngredient = {
     grams_per_unit?: string | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
     /**
+     * The published recipe version `nutrition_per_100g` above was derived
+     * from, when it was derived rather than entered.
+     *
+     * Set on an ingredient some version *produces* — a sub-recipe's
+     * output, such as a pesto mix a pesto mayonnaise is built on. Nothing
+     * looks such a row's facts up in a reference table: they are whatever
+     * the formulation that makes it works out to, per 100 g of its
+     * finished mass, recomputed at every publication and whenever an
+     * ingredient underneath it changes.
+     *
+     * While this is set, `nutrition_per_100g` and `grams_per_unit` are
+     * **read-only**: a `PATCH` sending either is refused with
+     * `validation.failed`. A figure typed over a derivation survives only
+     * until the next recompute, and while it stands it disagrees with the
+     * recipe that defines the thing. Retiring the version clears both the
+     * facts and this link, and the row becomes editable again.
+     *
+     * Null is the ordinary answer: every platform-library row, and every
+     * ingredient a kitchen typed in itself.
+     *
+     */
+    nutrition_derived_from_version_id?: Uuid | null;
+    /**
      * Trade list price in major currency units, as a six-place decimal
      * string so no client rounds it. A list price on the article — not
      * a cost (that is org-specific and lives in the inventory valuation

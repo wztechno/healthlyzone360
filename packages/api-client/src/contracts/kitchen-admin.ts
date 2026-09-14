@@ -376,6 +376,19 @@ export interface IngredientAdmin {
     readonly isSellable: boolean;
     /** Per-100 g reference facts, when the ingredient has any. Never fabricated to fill the field. */
     readonly per100g: NutritionFacts | null;
+    /**
+     * The published recipe version {@link per100g} was derived from, or `null` when the facts were
+     * entered rather than derived.
+     *
+     * Set on an ingredient some version *produces* — a pesto mix a pesto mayonnaise is built on.
+     * There is no reference figure for such a thing; its nutrition is whatever the formulation that
+     * makes it works out to, per 100 g of finished mass, recomputed at every publication.
+     *
+     * While it is set, {@link per100g} and {@link gramsPerUnit} are read-only and the server
+     * refuses a write to either. Render the panel accordingly: a control that always 422s is worse
+     * than no control. Retiring the version clears both the facts and this link.
+     */
+    readonly nutritionDerivedFromVersionId: RecipeVersionId | null;
     readonly allergens: readonly IngredientAllergenMapping[];
     readonly dietClassifications: readonly DietClassification[];
     /** Alternative designations seen on delivery notes and technical sheets. */

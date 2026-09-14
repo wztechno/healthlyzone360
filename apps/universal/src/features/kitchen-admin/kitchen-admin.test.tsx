@@ -172,6 +172,7 @@ function ingredient(ordinal: number, overrides: Partial<IngredientAdmin> = {}): 
         isSellable: false,
         costPer100g: null,
         per100g: null,
+        nutritionDerivedFromVersionId: null,
         allergens: [],
         dietClassifications: [],
         aliases: [],

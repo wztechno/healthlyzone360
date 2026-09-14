@@ -117,6 +117,42 @@ final readonly class RecipeNutritionResult
     }
 
     /**
+     * The same per-100 g figures in the **slim** shape an ingredient stores —
+     * `{basis, amounts[{nutrient_id, unit, value}]}`, the one
+     * `StoreIngredientRequest::nutritionRules()` validates — or null.
+     *
+     * What a version's outputs are given: an intermediate's facts are per 100 g
+     * of its *finished* mass, which is exactly the basis {@see per100g()}
+     * already divides by, so this is that envelope with the transport
+     * decoration dropped rather than a second computation of the same numbers.
+     * Null for the same two reasons it is: nothing may be published as a label
+     * unless every line resolved, and a mass basis of zero has no per-100 g.
+     *
+     * @return array{basis: string, amounts: list<array{nutrient_id: string, unit: string, value: float}>}|null
+     */
+    public function per100gSlim(int $scale = RecipeNutritionService::SNAPSHOT_SCALE): ?array
+    {
+        $facts = $this->per100g($scale);
+
+        if ($facts === null) {
+            return null;
+        }
+
+        $amounts = [];
+
+        /** @var array{nutrient_id: string, unit: string, value: float} $amount */
+        foreach (is_array($facts['amounts']) ? $facts['amounts'] : [] as $amount) {
+            $amounts[] = [
+                'nutrient_id' => $amount['nutrient_id'],
+                'unit' => $amount['unit'],
+                'value' => $amount['value'],
+            ];
+        }
+
+        return ['basis' => 'per_100g', 'amounts' => $amounts];
+    }
+
+    /**
      * The per-recipe envelope at snapshot precision, encoded — what the publish
      * and recompute paths write to `recipe_versions.nutrition_facts`.
      *
