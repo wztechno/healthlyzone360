@@ -40,6 +40,7 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Services\IngredientNutritionImporter;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
@@ -388,6 +389,31 @@ it('seeds a density for twenty rows: nineteen by volume, one by the piece', func
     $piece = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
 
     expect($piece->grams_per_unit)->toBeNull();
+});
+
+it('stamps every seeded row with a fingerprint of the figures it wrote', function (): void {
+    // What `--overwrite` reads, and therefore what it is safe to run at all: a
+    // row whose stored hash still describes its own values is the importer's to
+    // rewrite, and one whose hash has stopped matching belongs to whoever
+    // edited it. A seeding that stamped nothing, or stamped the wrong form,
+    // would make every row look curated on the next run — which fails silently,
+    // by doing nothing, and so is pinned here rather than left to be noticed.
+    //
+    // Both sides read the row through the model, because that is the contract
+    // `fingerprint()` states: `jsonb` hands the envelope's keys back in its own
+    // order, and the canonical form inside the hash is what makes the order
+    // stop mattering.
+    $offenders = [];
+
+    foreach (Ingredient::withoutTenancy()->whereNull('organisation_id')->whereNotNull('nutrition_per_100g')->get() as $row) {
+        $expected = IngredientNutritionImporter::fingerprint($row->nutrition_per_100g, $row->grams_per_unit);
+
+        if ($row->nutrition_seed_fingerprint !== $expected) {
+            $offenders[] = (string) $row->source_ref;
+        }
+    }
+
+    expect($offenders)->toBe([]);
 });
 
 it('keeps the nutrition document and the ingredient library in step', function (): void {

@@ -43,6 +43,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property numeric-string|null $items_per_unit
  * @property array<string, mixed>|null $nutrition_per_100g
  * @property string|null $nutrition_derived_from_version_id the published recipe version that derived the facts above, when they were derived rather than entered
+ * @property string|null $nutrition_seed_fingerprint sha256 of the nutrition and density the seeder last wrote; a mismatch means somebody has curated them since
  * @property numeric-string|null $b2b_price_amount
  * @property numeric-string|null $b2c_price_amount
  * @property numeric-string|null $unit_price_amount
