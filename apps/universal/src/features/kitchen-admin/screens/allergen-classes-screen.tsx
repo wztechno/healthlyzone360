@@ -23,8 +23,9 @@ import {
     thresholdLabel,
 } from '../catalogue/allergen-columns.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueColumnHeader } from '../catalogue/catalogue-column-header.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
+import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -117,10 +118,20 @@ function AllergenClasses() {
         [t, locale, formatter],
     );
 
-    const withHeaders = columns.map((column) => ({
-        ...column,
-        renderHeader: headerMenu(column, list),
-    }));
+    const controls = useColumnControls<AllergenClass, CatalogueColumn<AllergenClass>>(
+        list.rows,
+        columns.map((column) => ({ ...column, ...columnControl(column.key) })),
+        'kitchen-allergen-classes',
+        {
+            sort: {
+                key: list.sortKey,
+                direction: list.sortDirection,
+                onChange: (key, direction) => {
+                    if (isAllergenClassSortKey(key)) list.setSort(key, direction);
+                },
+            },
+        },
+    );
 
     const statusSegments: readonly CatalogueStatusSegment<AllergenStatusFilter>[] = SEGMENTS.map(
         (value) => ({
@@ -216,7 +227,7 @@ function AllergenClasses() {
                 <CatalogueList
                     testID="kitchen-allergen-classes-table"
                     label={t('kitchen:classes.title')}
-                    columns={withHeaders}
+                    columns={controls.columns}
                     rows={list.rows}
                     rowKey={(entry) => String(entry.code)}
                     density="sm"
@@ -376,52 +387,22 @@ function viewFields(
 }
 
 /**
- * The header control for one column — §4.3's sort menu.
+ * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Sort only: none of these columns carries a filter of its own. The one cut this list makes is
- * Active / Withdrawn, and that is on the toolbar's segments where a reader meets it first; a Status
- * column menu offering the same two values would be the same control drawn twice, sixteen pixels
- * apart. Markets would be a genuine second cut, and it is not offered because the request carries no
- * market parameter — the same reason the ingredient list's Unit column still has no filter.
+ * Sort only. The one cut this list makes, Active / Withdrawn, is on the toolbar where a reader
+ * meets it first; a Status menu offering the same two would be that control drawn twice. Markets
+ * would be a real second cut, and is not offered: the request carries no market parameter.
  */
-function headerMenu(
-    column: CatalogueColumn<AllergenClass>,
-    list: AllergenListState,
-): (() => React.ReactNode) | undefined {
-    const sortKey = sortKeyFor(column.key);
-    if (sortKey === null) return undefined;
-
-    const active = list.sortKey === sortKey;
-
-    /*
-     * Every column here sorts and none of them filter, so the press is the sort - see
-     * `onToggleSort`. This list never had a value list to put in a menu, which makes it the
-     * simplest case: no `sections`, no panel, and the header is one press target throughout.
-     */
-    return () => (
-        <CatalogueColumnHeader
-            label={column.label}
-            align={column.align}
-            sections={[]}
-            onToggleSort={() => {
-                list.setSort(sortKey, active && list.sortDirection === 'asc' ? 'desc' : 'asc');
-            }}
-            sortDirection={active ? list.sortDirection : null}
-            testID={`kitchen-allergen-classes-column-${column.key}`}
-        />
-    );
+function columnControl(key: string): ColumnControl<AllergenClass> {
+    return isAllergenClassSortKey(key) ? { sort: 'external' } : {};
 }
 
-/** The sort this list understands for a column, or `null` where there is none. */
-function sortKeyFor(key: string): AllergenListState['sortKey'] | null {
-    if (
+function isAllergenClassSortKey(key: string): key is AllergenListState['sortKey'] {
+    return (
         key === 'code' ||
         key === 'name' ||
         key === 'regulation' ||
         key === 'threshold' ||
         key === 'status'
-    ) {
-        return key;
-    }
-    return null;
+    );
 }

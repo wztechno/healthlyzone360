@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+html,body{margin:0;padding:0;background:#F7FCF9;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#157043;text-decoration:none}
+a:hover{color:#0B3B26;text-decoration:underline}
+button{font-family:inherit}
+input,select{font-family:inherit}
+@keyframes h360shimmer{0%{opacity:.45}50%{opacity:.9}100%{opacity:.45}}
+@keyframes h360slide{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes h360fade{from{opacity:0}to{opacity:1}}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#CCEEDA;border-radius:8px}
+</style>
+</helmet>
+
+<div dir="{{ dir }}" style="display:flex;min-height:880px;background:#F7FCF9;font-family:Inter,system-ui,sans-serif;color:#1F2937;position:relative">
+
+  <aside style="width:232px;flex:0 0 232px;background:linear-gradient(180deg,#0B3B26 0%,#0E4429 100%);display:flex;flex-direction:column;max-height:880px">
+    <div style="padding:18px 16px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#16A34A 0%,#0E6B41 100%);display:flex;align-items:center;justify-content:center;font:700 16px 'Space Grotesk',sans-serif;color:#fff">H</div>
+      <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+        <span style="font:700 16px 'Space Grotesk',sans-serif;color:#fff;letter-spacing:-.01em">Healthy360</span>
+        <span style="font-size:12px;color:rgba(220,252,231,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Kitchen · Beirut Central</span>
+      </div>
+    </div>
+
+    <nav style="flex:1;overflow-y:auto;padding:4px 10px 10px;display:flex;flex-direction:column;gap:14px">
+      <sc-for list="{{ navSections }}" as="sec" hint-placeholder-count="5">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="font:700 12px Inter,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:rgba(220,252,231,.62);padding:6px 8px 4px">{{ sec.label }}</div>
+          <sc-for list="{{ sec.items }}" as="it" hint-placeholder-count="4">
+            <button type="button" onClick="{{ it.go }}" style="{{ it.style }}" style-hover="background:rgba(220,252,231,.10)">
+              <span style="overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+              <sc-if value="{{ it.badge }}">
+                <span style="flex:0 0 auto;background:#FDF2D6;color:#79480A;font:700 12px Inter,sans-serif;border-radius:8px;padding:1px 7px">{{ it.badge }}</span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="padding:12px 16px 16px;border-top:1px solid rgba(220,252,231,.14)">
+      <button type="button" style="width:100%;height:36px;border-radius:10px;background:transparent;border:1px solid rgba(220,252,231,.28);color:rgba(220,252,231,.78);font:600 14px Inter,sans-serif;cursor:pointer" style-hover="background:rgba(220,252,231,.08);color:#DCFCE7">Sign out</button>
+    </div>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;max-height:880px;overflow-y:auto">
+
+    <header style="padding:26px 30px 18px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:6px">
+        <h1 style="margin:0;font:700 30px 'Space Grotesk',sans-serif;letter-spacing:-.02em;color:#1F2937">{{ pageTitle }}</h1>
+        <p style="margin:0;font-size:14px;color:#5B6673;max-width:62ch;text-wrap:pretty">{{ pageSubtitle }}</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#646E7C">Saturday 12 September 2026 · day cut on the UTC clock</p>
+      </div>
+      <sc-if value="{{ showNewSale }}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{ startSale }}" style="height:40px;padding:0 20px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(23,21,20,.05)" style-hover="background:#0B3B26">New sale</button>
+      </sc-if>
+    </header>
+
+    <div style="padding:0 30px 34px;display:flex;flex-direction:column;gap:16px">
+
+      <sc-if value="{{ isOffline }}">
+        <div style="display:flex;align-items:center;gap:12px;background:#EDF6F0;border:1px solid #CCEEDA;border-radius:14px;padding:14px 16px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#8A5A09;flex:0 0 auto"></span>
+          <div style="flex:1;min-width:0">
+            <div style="font:600 14px Inter,sans-serif;color:#1F2937">You're offline</div>
+            <div style="font-size:14px;color:#5B6673">The queue stopped refreshing itself at 14:32. What you see is the last copy that arrived — nothing has been lost.</div>
+          </div>
+          <button type="button" style="height:36px;padding:0 14px;border:1px solid #AADDC0;border-radius:10px;background:#fff;color:#157043;font:600 14px Inter,sans-serif;cursor:pointer">Try again</button>
+        </div>
+      </sc-if>
+
+      <!-- ══════════════════════ QUEUE ══════════════════════ -->
+      <sc-if value="{{ isQueue }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="display:inline-flex;background:#EDF6F0;border-radius:10px;padding:3px;gap:2px">
+              <sc-for list="{{ windows }}" as="w" hint-placeholder-count="3">
+                <button type="button" onClick="{{ w.go }}" style="{{ w.style }}">{{ w.label }}</button>
+              </sc-for>
+            </div>
+
+            <span style="width:1px;height:24px;background:#CCEEDA"></span>
+
+            <sc-for list="{{ statusChips }}" as="c" hint-placeholder-count="2">
+              <button type="button" onClick="{{ c.go }}" style="{{ c.style }}">{{ c.label }}</button>
+            </sc-for>
+
+            <span style="width:1px;height:24px;background:#CCEEDA"></span>
+
+            <div style="position:relative;display:inline-flex">
+              <select value="{{ kind }}" onChange="{{ setKind }}" style="height:40px;padding:0 34px 0 12px;border:1px solid #AADDC0;border-radius:10px;background:#fff;font:400 14px Inter,sans-serif;color:#1F2937;appearance:none;cursor:pointer">
+                <option value="any">All kinds</option>
+                <option value="counter">Counter</option>
+                <option value="pickup">Collection</option>
+                <option value="delivery">Delivery</option>
+              </select>
+              <span style="position:absolute;inset-inline-end:12px;top:13px;pointer-events:none;color:#5F8F76;font-size:12px">▾</span>
+            </div>
+
+            <label style="flex:1;min-width:200px;position:relative;display:flex;align-items:center">
+              <span style="position:absolute;inset-inline-start:12px;color:#5F8F76;font-size:14px;pointer-events:none">⌕</span>
+              <input value="{{ q }}" onChange="{{ setQ }}" placeholder="Order number, name or phone" style="width:100%;height:40px;border:1px solid #AADDC0;border-radius:10px;background:#fff;padding-inline:32px 12px;font:400 14px Inter,sans-serif;color:#1F2937" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+            </label>
+
+            <span style="font:700 14px 'Space Grotesk',sans-serif;color:#5B6673;white-space:nowrap"><span style="color:#157043">{{ rowCount }}</span> open</span>
+          </div>
+
+          <sc-if value="{{ isLoading }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);padding:18px 22px 8px">
+              <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid #EDF6F0">
+                  <div style="height:14px;width:76px;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="flex:2;display:flex;flex-direction:column;gap:6px">
+                    <div style="height:14px;width:60%;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                    <div style="height:11px;width:38%;border-radius:6px;background:#F1F7F3;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  </div>
+                  <div style="flex:1;height:22px;border-radius:9px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="flex:1;height:14px;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="width:84px;height:18px;border-radius:8px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                </div>
+              </sc-for>
+              <div style="padding:14px 0 16px;font-size:12px;color:#646E7C">Reading the open book…</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isError }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);padding:44px 30px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+              <div style="width:44px;height:44px;border-radius:14px;background:#FDECEA;display:flex;align-items:center;justify-content:center;color:#C02722;font-size:20px">!</div>
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">The queue could not be loaded</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:46ch;text-wrap:pretty">Nothing has been lost — no order was changed by this. Try again, and if it keeps failing the orders are still in the order book.</p>
+              <button type="button" onClick="{{ retry }}" style="margin-top:6px;height:40px;padding:0 20px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="background:#0B3B26">Try again</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isEmpty }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);padding:56px 30px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+              <div style="width:44px;height:44px;border-radius:50%;background:#DCFCE7;display:flex;align-items:center;justify-content:center;color:#157043;font-size:18px">✓</div>
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Nothing due right now</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:48ch;text-wrap:pretty">Orders land here as customers place them, soonest due at the top. Take a walk-in at the counter in the meantime.</p>
+              <button type="button" onClick="{{ startSale }}" style="margin-top:6px;height:40px;padding:0 20px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="background:#0B3B26">New sale</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showTable }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <sc-if value="{{ truncatedOn }}">
+                <div style="display:flex;gap:12px;align-items:flex-start;background:#EFF8FC;border:1px solid #CCE7F3;border-radius:14px;padding:14px 16px">
+                  <span style="color:#0369A1;font-size:14px;line-height:1.4">i</span>
+                  <div>
+                    <div style="font:600 14px Inter,sans-serif;color:#1F2937">Showing the first 50 orders</div>
+                    <div style="font-size:14px;color:#5B6673;text-wrap:pretty">More matched than this view will ever show, and there is no second page. Narrow the window, the status or the kind of sale to reach the rest.</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);overflow-x:auto;overflow-y:hidden">
+                <div style="display:grid;grid-template-columns:{{ gridCols }};gap:8px;align-items:center;padding:0 22px;border-bottom:1.5px solid #CCEEDA;height:42px;min-width:1040px">
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Order</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Customer</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Due</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Kind</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Delivery</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Payment</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C;text-align:end">Total</span>
+                  <span></span>
+                </div>
+
+                <sc-for list="{{ rows }}" as="row" hint-placeholder-count="8">
+                  <div onClick="{{ row.open }}" onMouseEnter="{{ row.enter }}" onMouseLeave="{{ row.leave }}" style="{{ row.rowStyle }}">
+                    <span style="font:600 16px Inter,sans-serif;color:#1F2937">{{ row.number }}</span>
+
+                    <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+                      <span style="font-size:16px;color:{{ row.nameColor }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.name }}</span>
+                      <span style="font-size:12px;color:#646E7C">{{ row.phone }}</span>
+                    </div>
+
+                    <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+                      <span style="font:700 18px 'Space Grotesk',sans-serif;color:#1F2937;letter-spacing:-.01em">{{ row.due }}</span>
+                      <span style="{{ row.ageStyle }}">{{ row.age }}</span>
+                    </div>
+
+                    <span style="font-size:14px;color:#5B6673">{{ row.kind }}</span>
+
+                    <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0">
+                      <span style="{{ row.deliveryStyle }}">{{ row.delivery }}</span>
+                      <span style="font-size:12px;color:#646E7C;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.tracking }}</span>
+                    </div>
+
+                    <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0">
+                      <span style="font-size:14px;color:#1F2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.method }}</span>
+                      <span style="{{ row.payStyle }}">{{ row.payState }}</span>
+                    </div>
+
+                    <span style="font:700 18px 'Space Grotesk',sans-serif;color:#1F2937;text-align:end;letter-spacing:-.01em">{{ row.total }}</span>
+
+                    <span style="text-align:end;opacity:{{ row.openOpacity }};transition:opacity .14s ease">
+                      <span style="display:inline-flex;align-items:center;height:32px;padding:0 12px;border:1px solid #CCEEDA;border-radius:9px;background:#fff;color:#157043;font:600 14px Inter,sans-serif">Open</span>
+                    </span>
+                  </div>
+                </sc-for>
+
+                <div style="padding:14px 22px 16px;font-size:12px;color:#646E7C;border-top:1px solid #EDF6F0;min-width:1040px">{{ footNote }}</div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══════════════════════ NEW SALE ══════════════════════ -->
+      <sc-if value="{{ isSale }}">
+        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+          <div style="flex:1;min-width:340px;display:flex;flex-direction:column;gap:16px">
+
+            <div style="background:#fff;border-radius:14px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+                <span style="font:700 18px 'Space Grotesk',sans-serif;color:#1F2937">{{ stepName }}</span>
+                <span style="font-size:14px;color:#5B6673">{{ stepPosition }}</span>
+              </div>
+              <div style="height:8px;border-radius:6px;background:#EDF6F0;overflow:hidden">
+                <div style="height:100%;width:{{ stepPercent }};background:#16A34A;border-radius:6px;transition:width .2s ease"></div>
+              </div>
+            </div>
+
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);padding:26px 26px 24px;display:flex;flex-direction:column;gap:18px">
+
+              <sc-if value="{{ stepType }}">
+                <div style="display:flex;flex-direction:column;gap:16px">
+                  <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">What kind of sale is this?</h2>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+                    <sc-for list="{{ saleTypes }}" as="ty" hint-placeholder-count="3">
+                      <button type="button" onClick="{{ ty.go }}" style="{{ ty.style }}">
+                        <span style="font:700 20px 'Space Grotesk',sans-serif;color:#1F2937">{{ ty.label }}</span>
+                        <span style="font-size:14px;color:#5B6673;text-wrap:pretty">{{ ty.hint }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ stepCustomer }}">
+                <div style="display:flex;flex-direction:column;gap:16px">
+                  <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Who is this for?</h2>
+                  <label style="display:flex;flex-direction:column;gap:6px">
+                    <span style="font:600 14px Inter,sans-serif;color:#1F2937">Find the customer</span>
+                    <input value="{{ custQuery }}" onChange="{{ setCustQuery }}" placeholder="A name, or a telephone number" style="height:40px;border:1px solid #AADDC0;border-radius:10px;background:#fff;padding:0 12px;font-size:14px;color:#1F2937" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+                    <span style="font-size:12px;color:#646E7C">Numbers must include the country code.</span>
+                  </label>
+
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ customers }}" as="cu" hint-placeholder-count="3">
+                      <div style="{{ cu.style }}">
+                        <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                          <span style="font:600 16px Inter,sans-serif;color:#1F2937">{{ cu.name }}</span>
+                          <span style="font-size:14px;color:#5B6673">{{ cu.phone }}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                          <sc-if value="{{ cu.regular }}">
+                            <span style="background:#DCFCE7;color:#14532D;font:600 12px Inter,sans-serif;border-radius:8px;padding:3px 9px">Ordered here before</span>
+                          </sc-if>
+                          <button type="button" onClick="{{ cu.go }}" style="{{ cu.btnStyle }}">{{ cu.btnLabel }}</button>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <sc-if value="{{ noCustomerMatch }}">
+                    <div style="background:#EDF6F0;border-radius:14px;padding:20px;text-align:center">
+                      <div style="font:600 16px Inter,sans-serif;color:#1F2937">Nobody matches that</div>
+                      <div style="font-size:14px;color:#5B6673;margin-top:4px;text-wrap:pretty">Try part of the name, or the number with its country code. If this is a first-time caller, write them down below.</div>
+                    </div>
+                  </sc-if>
+
+                  <div style="border-top:1px solid #EDF6F0;padding-top:16px;display:flex;flex-direction:column;gap:12px">
+                    <sc-if value="{{ creatingCustomer }}">
+                      <div style="display:flex;flex-direction:column;gap:12px">
+                        <span style="font:600 16px Inter,sans-serif">Write down a new customer</span>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+                          <label style="display:flex;flex-direction:column;gap:6px">
+                            <span style="font:600 14px Inter,sans-serif">Name</span>
+                            <input placeholder="Whatever the caller gives you" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font-size:14px" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+                          </label>
+                          <label style="display:flex;flex-direction:column;gap:6px">
+                            <span style="font:600 14px Inter,sans-serif">Telephone</span>
+                            <input placeholder="+9613000111" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font-size:14px" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+                          </label>
+                        </div>
+                        <div style="display:flex;gap:10px">
+                          <button type="button" onClick="{{ saveNewCustomer }}" style="height:40px;padding:0 18px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer">Save customer</button>
+                          <button type="button" onClick="{{ stopCreating }}" style="height:40px;padding:0 16px;border:1px solid #CCEEDA;border-radius:10px;background:#fff;color:#5B6673;font:600 14px Inter,sans-serif;cursor:pointer">Not now</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ notCreatingCustomer }}">
+                      <button type="button" onClick="{{ startCreating }}" style="align-self:flex-start;height:40px;padding:0 16px;border:1px solid #CCEEDA;border-radius:10px;background:#fff;color:#157043;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="border-color:#16A34A">This is a new customer</button>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ stepAddress }}">
+                <div style="display:flex;flex-direction:column;gap:16px">
+                  <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Where is it going?</h2>
+                  <div style="display:flex;gap:12px;align-items:flex-start;background:#FDF2D6;border-radius:14px;padding:14px 16px">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#8A5A09;margin-top:6px;flex:0 0 auto"></span>
+                    <div>
+                      <div style="font:600 14px Inter,sans-serif;color:#1F2937">Write the address down as they give it</div>
+                      <div style="font-size:14px;color:#79480A;text-wrap:pretty">The desk can add an address but cannot read the ones a customer already has, so this is written fresh each time. Check it back to them before saving.</div>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+                    <label style="display:flex;flex-direction:column;gap:6px">
+                      <span style="font:600 14px Inter,sans-serif">Area</span>
+                      <select style="height:40px;border:1px solid #AADDC0;border-radius:10px;background:#fff;padding:0 12px;font-size:14px;color:#1F2937">
+                        <option>Achrafieh</option>
+                        <option>Hamra</option>
+                        <option>Gemmayzeh</option>
+                        <option>Badaro</option>
+                      </select>
+                      <span style="font-size:12px;color:#646E7C">Chosen from the list, never typed — deliveries are matched to a zone by area.</span>
+                    </label>
+                    <label style="display:flex;flex-direction:column;gap:6px">
+                      <span style="font:600 14px Inter,sans-serif">Address</span>
+                      <input placeholder="Rue Sursock" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font-size:14px" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+                    </label>
+                    <label style="display:flex;flex-direction:column;gap:6px">
+                      <span style="font:600 14px Inter,sans-serif">Building</span>
+                      <input placeholder="Building 12, 3rd floor" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font-size:14px" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+                    </label>
+                    <label style="display:flex;flex-direction:column;gap:6px">
+                      <span style="font:600 14px Inter,sans-serif">Directions for the driver</span>
+                      <input placeholder="Green gate, park on the street" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font-size:14px" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+                    </label>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ stepBasket }}">
+                <div style="display:flex;flex-direction:column;gap:18px">
+                  <div style="display:flex;flex-direction:column;gap:4px">
+                    <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">What are they having?</h2>
+                    <p style="margin:0;font-size:14px;color:#5B6673;text-wrap:pretty">Prices come from the quote beside this once something is in the basket — nothing here is priced until it is.</p>
+                  </div>
+                  <label style="display:flex;flex-direction:column;gap:6px;max-width:360px">
+                    <span style="font:600 14px Inter,sans-serif">Search the menu</span>
+                    <input value="{{ menuQuery }}" onChange="{{ setMenuQuery }}" placeholder="For example coffee" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font-size:14px" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+                  </label>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <sc-for list="{{ menu }}" as="m" hint-placeholder-count="6">
+                      <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #EDF6F0">
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                          <span style="font-size:16px;color:#1F2937">{{ m.name }}</span>
+                          <span style="font-size:12px;color:#646E7C">{{ m.kind }}</span>
+                        </div>
+                        <sc-if value="{{ m.blocked }}">
+                          <span style="background:#FDF2D6;color:#79480A;font:600 12px Inter,sans-serif;border-radius:8px;padding:4px 10px">Not offered at the desk</span>
+                        </sc-if>
+                        <sc-if value="{{ m.inBasket }}">
+                          <span style="font:600 14px Inter,sans-serif;color:#157043">In the basket</span>
+                        </sc-if>
+                        <button type="button" onClick="{{ m.add }}" style="{{ m.addStyle }}">Add</button>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ menuEmpty }}">
+                      <div style="padding:26px 0;text-align:center">
+                        <div style="font:600 16px Inter,sans-serif">Nothing published matches</div>
+                        <div style="font-size:14px;color:#5B6673">Only published meals and products can be sold. Try a different search.</div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ stepPayment }}">
+                <div style="display:flex;flex-direction:column;gap:16px">
+                  <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">How are they paying?</h2>
+                  <div style="display:flex;flex-direction:column;gap:10px;max-width:480px">
+                    <sc-for list="{{ methods }}" as="me" hint-placeholder-count="2">
+                      <button type="button" onClick="{{ me.go }}" style="{{ me.style }}">
+                        <span style="{{ me.dotStyle }}"></span>
+                        <span style="font:600 16px Inter,sans-serif;color:#1F2937">{{ me.label }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ wishChosen }}">
+                    <div style="display:flex;flex-direction:column;gap:14px;max-width:480px">
+                      <div style="display:flex;gap:12px;align-items:flex-start;background:#FDF2D6;border-radius:14px;padding:14px 16px">
+                        <span style="width:8px;height:8px;border-radius:50%;background:#8A5A09;margin-top:6px;flex:0 0 auto"></span>
+                        <div>
+                          <div style="font:600 14px Inter,sans-serif;color:#1F2937">You are confirming this yourself</div>
+                          <div style="font-size:14px;color:#79480A;text-wrap:pretty">Nothing checks a WISH transfer for us. Only record it once you have seen the money arrive, and write down the transfer reference so it can be found again.</div>
+                        </div>
+                      </div>
+                      <label style="display:flex;flex-direction:column;gap:6px">
+                        <span style="font:600 14px Inter,sans-serif">Transfer reference</span>
+                        <input placeholder="WSH-40912-8871" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font-size:14px" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+                      </label>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ stepReview }}">
+                <div style="display:flex;flex-direction:column;gap:18px">
+                  <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Read it back to them</h2>
+                  <div style="display:flex;flex-direction:column;gap:0">
+                    <sc-for list="{{ reviewFacts }}" as="f" hint-placeholder-count="4">
+                      <div style="display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid #EDF6F0">
+                        <span style="font-size:14px;color:#5B6673">{{ f.label }}</span>
+                        <span style="font-size:16px;color:#1F2937;text-align:end">{{ f.value }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ hasRefusal }}">
+                    <div style="display:flex;gap:12px;align-items:flex-start;background:#FDECEA;border-radius:14px;padding:14px 16px">
+                      <span style="width:8px;height:8px;border-radius:50%;background:#C02722;margin-top:6px;flex:0 0 auto"></span>
+                      <div>
+                        <div style="font:600 14px Inter,sans-serif;color:#1F2937">This order cannot be placed as it stands</div>
+                        <div style="font-size:14px;color:#8F1F1A;text-wrap:pretty">{{ refusalText }}</div>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ salePlaced }}">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:30px 0;text-align:center">
+                  <div style="width:48px;height:48px;border-radius:50%;background:#DCFCE7;display:flex;align-items:center;justify-content:center;color:#157043;font-size:22px">✓</div>
+                  <h2 style="margin:0;font:700 24px 'Space Grotesk',sans-serif">Sold</h2>
+                  <div style="font:700 30px 'Space Grotesk',sans-serif;color:#157043;letter-spacing:-.02em">{{ placedTotal }}</div>
+                  <p style="margin:0;font-size:16px;color:#5B6673">Order 0162 placed and recorded. Nothing else is needed.</p>
+                  <div style="display:flex;gap:10px;margin-top:8px">
+                    <button type="button" onClick="{{ startSale }}" style="height:40px;padding:0 18px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer">Start another sale</button>
+                    <button type="button" onClick="{{ goQueue }}" style="height:40px;padding:0 16px;border:1px solid #CCEEDA;border-radius:10px;background:#fff;color:#5B6673;font:600 14px Inter,sans-serif;cursor:pointer">Back to the queue</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ saleInProgress }}">
+                <div style="display:flex;align-items:center;gap:10px;border-top:1px solid #EDF6F0;padding-top:18px">
+                  <button type="button" onClick="{{ stepBack }}" style="{{ backStyle }}">Back</button>
+                  <span style="flex:1"></span>
+                  <button type="button" onClick="{{ stepNext }}" style="{{ nextStyle }}">{{ nextLabel }}</button>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <aside style="width:320px;flex:0 0 320px;background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);padding:20px;display:flex;flex-direction:column;gap:14px;position:sticky;top:8px">
+            <span style="font:700 12px Inter,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#646E7C">The basket</span>
+            <sc-if value="{{ basketEmpty }}">
+              <p style="margin:0;font-size:14px;color:#5B6673;text-wrap:pretty">Nothing in the basket yet. Add something from the menu and the total will be priced for you.</p>
+            </sc-if>
+            <sc-for list="{{ basketLines }}" as="b" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:8px;padding-bottom:12px;border-bottom:1px solid #EDF6F0">
+                <div style="display:flex;justify-content:space-between;gap:10px">
+                  <span style="font-size:14px;color:#1F2937;flex:1;min-width:0">{{ b.name }}</span>
+                  <span style="font:700 16px 'Space Grotesk',sans-serif;color:{{ b.priceColor }}">{{ b.price }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="display:inline-flex;align-items:center;border:1px solid #CCEEDA;border-radius:10px;overflow:hidden;height:36px">
+                    <button type="button" onClick="{{ b.dec }}" style="width:36px;height:36px;border:none;background:#fff;color:#157043;font-size:16px;cursor:pointer" style-hover="background:#EDF6F0">−</button>
+                    <span style="width:34px;text-align:center;font:700 16px 'Space Grotesk',sans-serif">{{ b.qty }}</span>
+                    <button type="button" onClick="{{ b.inc }}" style="width:36px;height:36px;border:none;background:#fff;color:#157043;font-size:16px;cursor:pointer" style-hover="background:#EDF6F0">+</button>
+                  </div>
+                  <button type="button" onClick="{{ b.remove }}" style="height:32px;padding:0 10px;border:none;background:transparent;color:#646E7C;font:600 12px Inter,sans-serif;cursor:pointer" style-hover="color:#C02722">Remove</button>
+                </div>
+                <sc-if value="{{ b.blocked }}">
+                  <div style="background:#FDF2D6;border-radius:10px;padding:8px 10px;font-size:12px;color:#79480A;text-wrap:pretty">Not available at the desk — this article is not offered at the counter. Remove it to place the order; the rest is still priced below.</div>
+                </sc-if>
+              </div>
+            </sc-for>
+
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto">
+              <div style="display:flex;justify-content:space-between;font-size:14px;color:#5B6673"><span>Subtotal</span><span>{{ subtotal }}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px;color:#5B6673"><span>Delivery</span><span>{{ deliveryFee }}</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid #CCEEDA">
+                <span style="font:600 16px Inter,sans-serif;color:#1F2937">Total</span>
+                <span style="font:700 30px 'Space Grotesk',sans-serif;color:#157043;letter-spacing:-.02em">{{ total }}</span>
+              </div>
+              <span style="font-size:12px;color:#646E7C">{{ quoteNote }}</span>
+            </div>
+          </aside>
+        </div>
+      </sc-if>
+
+      <!-- ══════════════════════ CALENDAR ══════════════════════ -->
+      <sc-if value="{{ isCalendar }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button type="button" onClick="{{ prevWeek }}" style="height:40px;padding:0 14px;border:1px solid #AADDC0;border-radius:10px;background:#fff;color:#157043;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="border-color:#16A34A">‹ Previous week</button>
+            <button type="button" onClick="{{ thisWeek }}" style="height:40px;padding:0 14px;border:1px solid #AADDC0;border-radius:10px;background:#fff;color:#157043;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="border-color:#16A34A">This week</button>
+            <button type="button" onClick="{{ nextWeek }}" style="height:40px;padding:0 14px;border:1px solid #AADDC0;border-radius:10px;background:#fff;color:#157043;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="border-color:#16A34A">Next week ›</button>
+            <span style="font:700 16px 'Space Grotesk',sans-serif;color:#1F2937;margin-inline-start:6px">{{ weekRange }}</span>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;background:#EDF6F0;border-radius:14px;padding:14px 16px">
+            <span style="color:#157043;font-size:14px;line-height:1.4">i</span>
+            <div>
+              <div style="font:600 14px Inter,sans-serif;color:#1F2937">Three numbers, never one</div>
+              <div style="font-size:14px;color:#5B6673;max-width:86ch;text-wrap:pretty">Orders, claimed deliveries and the forecast overlap — a projected day becomes a claimed one, and a claimed one becomes an order. Adding them counts the same meal twice, so they are shown side by side and never totalled.</div>
+            </div>
+          </div>
+
+          <sc-if value="{{ calLoading }}">
+            <div style="overflow-x:auto;padding-bottom:4px"><div style="display:grid;grid-template-columns:repeat(7,minmax(132px,1fr));gap:10px;min-width:1000px">
+              <sc-for list="{{ skeletonDays }}" as="s" hint-placeholder-count="7">
+                <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:16px;display:flex;flex-direction:column;gap:14px;height:250px">
+                  <div style="height:13px;width:64px;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:30px;width:52px;border-radius:8px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:30px;width:52px;border-radius:8px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:30px;width:52px;border-radius:8px;background:#F1F7F3;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                </div>
+              </sc-for>
+            </div></div>
+          </sc-if>
+
+          <sc-if value="{{ calError }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:44px 30px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+              <div style="width:44px;height:44px;border-radius:14px;background:#FDECEA;display:flex;align-items:center;justify-content:center;color:#C02722;font-size:20px">!</div>
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">The calendar could not be loaded</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:44ch;text-wrap:pretty">None of the three books answered. Nothing is wrong with the orders themselves.</p>
+              <button type="button" onClick="{{ retry }}" style="margin-top:6px;height:40px;padding:0 20px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer">Try again</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ calEmpty }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:56px 30px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Nothing this week</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:48ch;text-wrap:pretty">No orders, no claimed deliveries and nothing forecast between these dates. Look at another week, or take a sale at the desk.</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ calNormal }}">
+            <div style="overflow-x:auto;padding-bottom:4px"><div style="display:grid;grid-template-columns:repeat(7,minmax(132px,1fr));gap:10px;min-width:1000px">
+              <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+                <div style="{{ d.cardStyle }}">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span style="font:600 14px Inter,sans-serif;color:{{ d.labelColor }}">{{ d.weekday }}</span>
+                    <span style="font:700 20px 'Space Grotesk',sans-serif;color:#1F2937;letter-spacing:-.01em;white-space:nowrap">{{ d.date }}</span>
+                    <sc-if value="{{ d.isToday }}">
+                      <span style="align-self:flex-start;margin-top:4px;background:#157043;color:#fff;font:700 12px Inter,sans-serif;border-radius:8px;padding:2px 8px">Today</span>
+                    </sc-if>
+                  </div>
+
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+                    <div style="background:#EDF6F0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px">
+                      <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Orders</span>
+                      <span style="font:700 30px 'Space Grotesk',sans-serif;color:#1F2937;letter-spacing:-.02em;line-height:1">{{ d.orders }}</span>
+                    </div>
+                    <div style="background:#DCFCE7;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px">
+                      <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#14532D">Claimed</span>
+                      <span style="font:700 30px 'Space Grotesk',sans-serif;color:#14532D;letter-spacing:-.02em;line-height:1">{{ d.claimed }}</span>
+                    </div>
+                    <div style="border:1.5px dashed #5F8F76;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;background:repeating-linear-gradient(135deg,rgba(95,143,118,.10) 0 6px,transparent 6px 12px)">
+                      <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#5B6673">Projected</span>
+                      <span style="font:700 30px 'Space Grotesk',sans-serif;color:#5B6673;letter-spacing:-.02em;line-height:1">{{ d.projected }}</span>
+                      <span style="font-size:12px;color:#646E7C">forecast, not booked</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div></div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══════════════════════ CASH REPORT ══════════════════════ -->
+      <sc-if value="{{ isCash }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
+            <label style="display:flex;flex-direction:column;gap:6px">
+              <span style="font:600 14px Inter,sans-serif;color:#1F2937">Day</span>
+              <input type="date" value="{{ cashDate }}" onChange="{{ setCashDate }}" style="height:40px;border:1px solid #AADDC0;border-radius:10px;background:#fff;padding:0 12px;font-size:14px;color:#1F2937" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+            </label>
+            <span style="font-size:12px;color:#646E7C;padding-bottom:12px">The day is cut on the UTC clock, not this kitchen's local midnight.</span>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;background:#EDF6F0;border-radius:14px;padding:14px 16px">
+            <span style="color:#157043;font-size:14px;line-height:1.4">i</span>
+            <div style="font-size:14px;color:#5B6673;max-width:84ch;text-wrap:pretty">This shows what was taken. It can't tell you if the cash box balances — nothing here is a count of the drawer.</div>
+          </div>
+
+          <sc-if value="{{ cashLoading }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:18px 22px">
+              <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="6">
+                <div style="display:flex;gap:20px;padding:14px 0;border-bottom:1px solid #EDF6F0">
+                  <div style="height:14px;flex:2;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:14px;flex:2;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:14px;width:70px;border-radius:7px;background:#F1F7F3;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:14px;width:110px;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cashError }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:44px 30px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+              <div style="width:44px;height:44px;border-radius:14px;background:#FDECEA;display:flex;align-items:center;justify-content:center;color:#C02722;font-size:20px">!</div>
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">The day could not be read</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:44ch;text-wrap:pretty">The receipts are safe — this is only the reading of them that failed.</p>
+              <button type="button" onClick="{{ retry }}" style="margin-top:6px;height:40px;padding:0 20px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer">Try again</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cashEmpty }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:56px 30px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Nothing was taken on this day</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:44ch;text-wrap:pretty">No receipt was written down between these two UTC midnights. Try another day.</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cashNormal }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);overflow-x:auto;overflow-y:hidden">
+              <div style="display:grid;grid-template-columns:1.6fr 1.4fr .7fr 1.1fr;align-items:center;gap:12px;padding:0 22px;border-bottom:1.5px solid #CCEEDA;height:42px;min-width:720px">
+                <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Agent</span>
+                <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">How it arrived</span>
+                <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Currency</span>
+                <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C;text-align:end">Amount</span>
+              </div>
+              <sc-for list="{{ cashRows }}" as="cr" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:1.6fr 1.4fr .7fr 1fr;align-items:center;padding:0 22px;height:56px;border-bottom:1px solid #EDF6F0">
+                  <span style="font-size:16px;color:#1F2937">{{ cr.agent }}</span>
+                  <span style="font-size:14px;color:#5B6673">{{ cr.method }}</span>
+                  <span style="font-size:14px;color:#5B6673">{{ cr.currency }}</span>
+                  <span style="font:700 18px 'Space Grotesk',sans-serif;color:#1F2937;text-align:end;letter-spacing:-.01em">{{ cr.amount }}</span>
+                </div>
+              </sc-for>
+              <div style="padding:16px 22px 18px;display:flex;flex-direction:column;gap:10px;background:#F7FCF9">
+                <span style="font:700 12px Inter,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#646E7C">Taken, by currency</span>
+                <sc-for list="{{ cashTotals }}" as="ct" hint-placeholder-count="2">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px">
+                    <span style="font-size:14px;color:#5B6673">{{ ct.currency }}</span>
+                    <span style="font:700 24px 'Space Grotesk',sans-serif;color:#157043;letter-spacing:-.02em">{{ ct.amount }}</span>
+                  </div>
+                </sc-for>
+                <span style="font-size:12px;color:#646E7C;text-wrap:pretty">Each currency stands on its own. There is no figure across them — adding two currencies would invent an exchange rate nobody agreed.</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══════════════════════ REQUIREMENTS ══════════════════════ -->
+      <sc-if value="{{ isReq }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
+            <label style="display:flex;flex-direction:column;gap:6px;min-width:220px">
+              <span style="font:600 14px Inter,sans-serif;color:#1F2937">Branch</span>
+              <select value="{{ branch }}" onChange="{{ setBranch }}" style="height:40px;border:1px solid #AADDC0;border-radius:10px;background:#fff;padding:0 12px;font-size:14px;color:#1F2937">
+                <option value="">Choose a branch</option>
+                <option value="beirut-central">Beirut Central</option>
+                <option value="jounieh">Jounieh</option>
+                <option value="saida">Saida</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:6px">
+              <span style="font:600 14px Inter,sans-serif;color:#1F2937">From</span>
+              <input type="date" value="2026-09-12" style="height:40px;border:1px solid #AADDC0;border-radius:10px;background:#fff;padding:0 12px;font-size:14px;color:#1F2937">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:6px">
+              <span style="font:600 14px Inter,sans-serif;color:#1F2937">To</span>
+              <input type="date" value="2026-09-18" style="height:40px;border:1px solid #AADDC0;border-radius:10px;background:#fff;padding:0 12px;font-size:14px;color:#1F2937">
+            </label>
+            <span style="font-size:12px;color:#646E7C;padding-bottom:12px;max-width:34ch;text-wrap:pretty">Read-only. Nothing is bought or edited here.</span>
+          </div>
+
+          <sc-if value="{{ reqNoBranch }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:52px 30px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+              <div style="width:44px;height:44px;border-radius:14px;background:#EDF6F0;display:flex;align-items:center;justify-content:center;color:#157043;font-size:20px">▤</div>
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Choose a branch first</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:52ch;text-wrap:pretty">A buy list is a statement about one store cupboard: what these days need, against what is on that branch's shelves. With no branch named there is no shelf to compare against — so pick one above and the list appears.</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ reqLoading }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:18px 22px">
+              <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="6">
+                <div style="display:flex;gap:20px;padding:14px 0;border-bottom:1px solid #EDF6F0">
+                  <div style="height:14px;flex:2;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:14px;width:80px;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:14px;width:80px;border-radius:7px;background:#F1F7F3;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                  <div style="height:14px;width:80px;border-radius:7px;background:#EDF6F0;animation:h360shimmer 1.4s ease-in-out infinite"></div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ reqError }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:44px 30px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+              <div style="width:44px;height:44px;border-radius:14px;background:#FDECEA;display:flex;align-items:center;justify-content:center;color:#C02722;font-size:20px">!</div>
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">The buy list could not be worked out</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:46ch;text-wrap:pretty">The shelf counts and the days ahead could not be read together. Nothing has changed in either.</p>
+              <button type="button" onClick="{{ retry }}" style="margin-top:6px;height:40px;padding:0 20px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer">Try again</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ reqEmpty }}">
+            <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:56px 30px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+              <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Nothing to buy for these days</h2>
+              <p style="margin:0;font-size:14px;color:#5B6673;max-width:48ch;text-wrap:pretty">Every ingredient these days need is already on the shelf at this branch.</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ reqNormal }}">
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+                <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:18px 20px;display:flex;flex-direction:column;gap:4px">
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Items short</span>
+                  <span style="font:700 36px 'Space Grotesk',sans-serif;color:#C02722;letter-spacing:-.02em;line-height:1">4</span>
+                  <span style="font-size:12px;color:#646E7C">needed more than the shelf holds</span>
+                </div>
+                <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:18px 20px;display:flex;flex-direction:column;gap:4px">
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Ingredients needed</span>
+                  <span style="font:700 36px 'Space Grotesk',sans-serif;color:#1F2937;letter-spacing:-.02em;line-height:1">8</span>
+                  <span style="font-size:12px;color:#646E7C">across the confirmed days ahead</span>
+                </div>
+                <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05);padding:18px 20px;display:flex;flex-direction:column;gap:4px">
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Window</span>
+                  <span style="font:700 36px 'Space Grotesk',sans-serif;color:#1F2937;letter-spacing:-.02em;line-height:1">7</span>
+                  <span style="font-size:12px;color:#646E7C">days, 12 to 18 September</span>
+                </div>
+              </div>
+
+              <div style="background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);overflow:hidden">
+                <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.1fr;align-items:center;padding:0 22px;border-bottom:1.5px solid #CCEEDA;height:42px">
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C">Ingredient</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C;text-align:end">Needed</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C;text-align:end">On the shelf</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C;text-align:end">Short by</span>
+                  <span style="font:700 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#646E7C;text-align:end">Position</span>
+                </div>
+                <sc-for list="{{ reqRows }}" as="r" hint-placeholder-count="8">
+                  <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.1fr;align-items:center;padding:0 22px;height:58px;border-bottom:1px solid #EDF6F0">
+                    <span style="font-size:16px;color:#1F2937">{{ r.name }}</span>
+                    <span style="font:700 18px 'Space Grotesk',sans-serif;color:#1F2937;text-align:end;letter-spacing:-.01em">{{ r.needed }}</span>
+                    <span style="font:700 18px 'Space Grotesk',sans-serif;color:#5B6673;text-align:end;letter-spacing:-.01em">{{ r.shelf }}</span>
+                    <span style="font:700 18px 'Space Grotesk',sans-serif;color:{{ r.shortColor }};text-align:end;letter-spacing:-.01em">{{ r.short }}</span>
+                    <span style="text-align:end"><span style="{{ r.chipStyle }}">{{ r.position }}</span></span>
+                  </div>
+                </sc-for>
+                <div style="padding:14px 22px 16px;font-size:12px;color:#646E7C;border-top:1px solid #EDF6F0;text-wrap:pretty">Needed quantities come from confirmed orders and claimed subscription deliveries only — never from the forecast. Shelf counts are the last stock count at Beirut Central.</div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+    </div>
+  </main>
+
+  <!-- ══════════════════════ DRAWER ══════════════════════ -->
+  <sc-if value="{{ drawerOpen }}">
+    <div style="position:absolute;inset:0;display:flex;justify-content:flex-end;z-index:20">
+      <div onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:rgba(11,59,38,.34);animation:h360fade .16s ease"></div>
+      <div style="position:relative;width:520px;max-width:100%;background:#fff;box-shadow:-20px 0 48px -24px rgba(11,59,38,.5);display:flex;flex-direction:column;animation:h360slide .18s cubic-bezier(.2,0,0,1)">
+
+        <div style="padding:20px 24px 16px;border-bottom:1px solid #EDF6F0;display:flex;align-items:flex-start;gap:14px">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+            <span style="font:700 24px 'Space Grotesk',sans-serif;letter-spacing:-.02em">Order {{ open.number }}</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <span style="{{ open.statusStyle }}">{{ open.status }}</span>
+              <span style="background:#EDF6F0;color:#5B6673;font:600 12px Inter,sans-serif;border-radius:8px;padding:3px 9px">{{ open.kind }}</span>
+              <span style="{{ open.ageStyle }}">{{ open.age }}</span>
+            </div>
+          </div>
+          <button type="button" onClick="{{ closeDrawer }}" style="width:36px;height:36px;border:1px solid #CCEEDA;border-radius:10px;background:#fff;color:#5B6673;font-size:16px;cursor:pointer;flex:0 0 auto" style-hover="background:#EDF6F0">✕</button>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;padding:20px 24px 24px;display:flex;flex-direction:column;gap:22px">
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <span style="font:700 12px Inter,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#646E7C">Customer</span>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font:600 18px Inter,sans-serif;color:#1F2937">{{ open.name }}</span>
+              <span style="font-size:14px;color:#5B6673">{{ open.phone }}</span>
+              <span style="font-size:14px;color:#5B6673;text-wrap:pretty">{{ open.address }}</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <span style="font:700 12px Inter,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#646E7C">What they ordered</span>
+            <div style="display:flex;flex-direction:column;gap:0">
+              <sc-for list="{{ open.lines }}" as="l" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #EDF6F0">
+                  <span style="flex:1;min-width:0;font-size:16px;color:#1F2937">{{ l.name }}</span>
+                  <span style="font:700 16px 'Space Grotesk',sans-serif;color:#5B6673">×{{ l.qty }}</span>
+                  <span style="width:88px;text-align:end;font:700 16px 'Space Grotesk',sans-serif;color:#1F2937">{{ l.total }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px">
+              <div style="display:flex;justify-content:space-between;font-size:14px;color:#5B6673"><span>Subtotal</span><span>{{ open.subtotal }}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px;color:#5B6673"><span>Delivery</span><span>{{ open.fee }}</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:8px;border-top:1px solid #CCEEDA">
+                <span style="font:600 16px Inter,sans-serif">Total</span>
+                <span style="font:700 30px 'Space Grotesk',sans-serif;color:#1F2937;letter-spacing:-.02em">{{ open.total }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <span style="font:700 12px Inter,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#646E7C">Payment</span>
+            <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px"><span style="color:#5B6673">Paying by</span><span style="color:#1F2937">{{ open.method }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px"><span style="color:#5B6673">Received so far</span><span style="color:#1F2937">{{ open.received }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;align-items:center"><span style="color:#5B6673">Position</span><span style="{{ open.payStyle }}">{{ open.payState }}</span></div>
+            <sc-if value="{{ open.canRecord }}">
+              <button type="button" onClick="{{ openPayment }}" style="align-self:flex-start;height:36px;padding:0 14px;border:1px solid #CCEEDA;border-radius:10px;background:#fff;color:#157043;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="border-color:#16A34A">Record a payment</button>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ open.hasRun }}">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <span style="font:700 12px Inter,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#646E7C">The run</span>
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;align-items:center"><span style="color:#5B6673">Where it stands</span><span style="{{ open.deliveryStyle }}">{{ open.delivery }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px"><span style="color:#5B6673">Driver</span><span style="color:#1F2937">{{ open.driver }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px"><span style="color:#5B6673">The customer has been told</span><span style="color:#1F2937">{{ open.tracking }}</span></div>
+              <button type="button" onClick="{{ openAssign }}" style="align-self:flex-start;height:36px;padding:0 14px;border:1px solid #CCEEDA;border-radius:10px;background:#fff;color:#157043;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="border-color:#16A34A">{{ open.assignLabel }}</button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="padding:16px 24px;border-top:1px solid #EDF6F0;background:#F7FCF9;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <sc-if value="{{ open.hasRun }}">
+            <span style="font-size:12px;color:#646E7C;flex:1;min-width:120px">{{ open.tracking }}</span>
+          </sc-if>
+          <span style="flex:1"></span>
+          <button type="button" onClick="{{ advanceOrder }}" style="height:40px;padding:0 22px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="background:#0B3B26">{{ open.primaryLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ══════════════════════ ASSIGN DRIVER DIALOG ══════════════════════ -->
+  <sc-if value="{{ assignOpen }}">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;padding:24px">
+      <div onClick="{{ closeDialog }}" style="position:absolute;inset:0;background:rgba(11,59,38,.42);animation:h360fade .16s ease"></div>
+      <div style="position:relative;width:460px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 24px 60px -20px rgba(11,59,38,.55);display:flex;flex-direction:column;animation:h360fade .16s ease">
+        <div style="padding:22px 24px 14px;display:flex;flex-direction:column;gap:4px">
+          <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Who takes this run?</h2>
+          <p style="margin:0;font-size:14px;color:#5B6673">Order {{ open.number }}. Only the person you choose is told about it.</p>
+        </div>
+        <div style="padding:0 24px;display:flex;flex-direction:column;gap:10px">
+          <input value="{{ driverQuery }}" onChange="{{ setDriverQuery }}" placeholder="Part of a name" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font-size:14px" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+          <div style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ drivers }}" as="dr" hint-placeholder-count="4">
+              <div style="{{ dr.style }}">
+                <span style="font:600 16px Inter,sans-serif;color:{{ dr.nameColor }}">{{ dr.name }}</span>
+                <button type="button" onClick="{{ dr.go }}" style="{{ dr.btnStyle }}">{{ dr.btnLabel }}</button>
+              </div>
+            </sc-for>
+            <sc-if value="{{ driversEmpty }}">
+              <div style="padding:22px 0;text-align:center">
+                <div style="font:600 16px Inter,sans-serif">Nobody matches that</div>
+                <div style="font-size:14px;color:#5B6673;text-wrap:pretty">Clear the search to see everybody, including anyone who has not put a name on their profile yet.</div>
+              </div>
+            </sc-if>
+          </div>
+          <span style="font-size:12px;color:#646E7C">Everybody with an active membership here is listed.</span>
+        </div>
+        <div style="padding:18px 24px 22px;display:flex;justify-content:flex-end;gap:10px">
+          <button type="button" onClick="{{ closeDialog }}" style="height:40px;padding:0 16px;border:1px solid #CCEEDA;border-radius:10px;background:#fff;color:#5B6673;font:600 14px Inter,sans-serif;cursor:pointer">Not now</button>
+          <button type="button" onClick="{{ confirmAssign }}" style="{{ assignBtnStyle }}">Give them the run</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ══════════════════════ RECORD PAYMENT DIALOG ══════════════════════ -->
+  <sc-if value="{{ paymentOpen }}">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;padding:24px">
+      <div onClick="{{ closeDialog }}" style="position:absolute;inset:0;background:rgba(11,59,38,.42);animation:h360fade .16s ease"></div>
+      <div style="position:relative;width:460px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 24px 60px -20px rgba(11,59,38,.55);display:flex;flex-direction:column;gap:16px;padding:22px 24px 22px;animation:h360fade .16s ease">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <h2 style="margin:0;font:700 20px 'Space Grotesk',sans-serif">Record a payment</h2>
+          <p style="margin:0;font-size:14px;color:#5B6673">Order {{ open.number }}. Write down what actually arrived, however it arrived.</p>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:6px">
+          <span style="font:600 14px Inter,sans-serif">How did the money arrive?</span>
+          <select style="height:40px;border:1px solid #AADDC0;border-radius:10px;background:#fff;padding:0 12px;font-size:14px;color:#1F2937">
+            <option>Cash on delivery</option>
+            <option>Cash at the counter</option>
+            <option>WISH transfer</option>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:6px">
+          <span style="font:600 14px Inter,sans-serif">Amount</span>
+          <input value="{{ open.outstandingInput }}" style="height:40px;border:1px solid #AADDC0;border-radius:10px;padding:0 12px;font:700 18px 'Space Grotesk',sans-serif;color:#1F2937" style-focus="border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.16);outline:none">
+          <span style="font-size:12px;color:#646E7C;text-wrap:pretty">Prefilled with the {{ open.outstanding }} still owed. Part payments are fine, and so is more than the total.</span>
+        </label>
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button type="button" onClick="{{ closeDialog }}" style="height:40px;padding:0 16px;border:1px solid #CCEEDA;border-radius:10px;background:#fff;color:#5B6673;font:600 14px Inter,sans-serif;cursor:pointer">Not now</button>
+          <button type="button" onClick="{{ recordPayment }}" style="height:40px;padding:0 18px;border:none;border-radius:10px;background:#157043;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer" style-hover="background:#0B3B26">Record it</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ══════════════════════ TOAST ══════════════════════ -->
+  <sc-if value="{{ toastOn }}">
+    <div style="position:absolute;inset-inline:0;bottom:24px;display:flex;justify-content:center;z-index:60;pointer-events:none">
+      <div style="background:#0B3B26;color:#DCFCE7;border-radius:12px;padding:12px 18px;font:600 14px Inter,sans-serif;box-shadow:0 16px 34px -18px rgba(11,59,38,.7);animation:h360fade .16s ease">{{ toastText }}</div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:880},&quot;dataState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;error&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ltr&quot;,&quot;rtl&quot;],&quot;default&quot;:&quot;ltr&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;truncated&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;rowDensity&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;comfortable&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const NAV = [
+  { label: 'Order desk', items: [
+    { key: 'queue', label: 'Order desk' },
+    { key: 'calendar', label: 'Order calendar' },
+    { key: 'requirements', label: 'Requirements' },
+    { key: 'cash', label: 'Cash report' },
+  ]},
+  { label: 'Workbench', items: [
+    { key: 'review', label: 'Review queue', badge: '6' },
+    { key: 'analytics', label: 'Kitchen analytics' },
+    { key: 'cost', label: 'Cost report' },
+    { key: 'exceptions', label: 'Stock exceptions', badge: '2' },
+  ]},
+  { label: 'Catalogue', items: [
+    { key: 'ingredients', label: 'Ingredients' },
+    { key: 'packaging', label: 'Packaging' },
+    { key: 'recipes', label: 'Recipes' },
+    { key: 'products', label: 'Products' },
+    { key: 'sauces', label: 'Sauces & dressings' },
+    { key: 'meals', label: 'Meals' },
+    { key: 'allergens', label: 'Allergen classes' },
+  ]},
+  { label: 'Commercial', items: [
+    { key: 'prices', label: 'Price lists' },
+    { key: 'quotations', label: 'Quotations' },
+    { key: 'plans', label: 'Plans' },
+    { key: 'zones', label: 'Delivery zones' },
+    { key: 'operating', label: 'Branch operating' },
+  ]},
+  { label: 'Operations', items: [
+    { key: 'orders', label: 'Orders' },
+    { key: 'stock', label: 'Stock' },
+    { key: 'supply', label: 'Supply orders' },
+    { key: 'suppliers', label: 'Suppliers' },
+    { key: 'procurement', label: 'Procurement' },
+    { key: 'production', label: 'Production' },
+    { key: 'qc', label: 'Quality control' },
+  ]},
+];
+
+const ORDERS = [
+  { id: 1, number: '0148', name: 'Nadia Haddad', phone: '+961 3 118 204', due: '14:02', mins: -30,
+    kind: 'Delivery', status: 'Placed', delivery: 'Needs a driver', deliveryTone: 'warn',
+    tracking: 'Waiting for a driver', method: 'Cash on delivery', settled: false, cur: 'USD',
+    subtotal: 2150, fee: 300, total: 2450, received: 0, driver: null,
+    address: 'Achrafieh · Rue Sursock, Building 12, 3rd floor',
+    lines: [ { name: 'Grilled chicken quinoa bowl', qty: 2, total: 1700 }, { name: 'Green detox juice 330 ml', qty: 1, total: 450 } ] },
+  { id: 2, number: '0151', name: 'Rami Aoun', phone: '+961 71 340 992', due: '14:17', mins: -15,
+    kind: 'Delivery', status: 'Confirmed', delivery: 'With a driver', deliveryTone: 'ok',
+    tracking: 'On the way', method: 'WISH transfer', settled: true, cur: 'USD',
+    subtotal: 3900, fee: 300, total: 4200, received: 4200, driver: 'Sara Nassar',
+    address: 'Badaro · Rue 78, Building Karam',
+    lines: [ { name: 'Baked salmon & greens', qty: 2, total: 2400 }, { name: 'Lentil & spinach soup', qty: 2, total: 950 }, { name: 'Almond protein bar', qty: 2, total: 550 } ] },
+  { id: 3, number: '0153', name: 'Layla Mansour', phone: '+961 3 447 019', due: '14:45', mins: 13,
+    kind: 'Collection', status: 'Confirmed', delivery: null, deliveryTone: null,
+    tracking: '', method: 'Cash at the counter', settled: false, cur: 'USD',
+    subtotal: 1275, fee: null, total: 1275, received: 0, driver: null,
+    address: 'Collecting at Beirut Central',
+    lines: [ { name: 'Falafel power wrap', qty: 1, total: 725 }, { name: 'Cold brew coffee 250 ml', qty: 1, total: 350 }, { name: 'Sparkling water 500 ml', qty: 2, total: 200 } ] },
+  { id: 4, number: '0154', name: 'Georges Khoury', phone: '+961 76 220 118', due: '14:52', mins: 20,
+    kind: 'Delivery', status: 'Placed', delivery: 'On confirmation', deliveryTone: 'info',
+    tracking: 'No run yet — confirm first', method: 'Cash on delivery', settled: false, cur: 'LBP',
+    subtotal: 120000000, fee: 7500000, total: 127500000, received: 0, driver: null,
+    address: 'Hamra · Rue Jeanne d\u2019Arc, Building Nasr',
+    lines: [ { name: 'Halloumi breakfast plate', qty: 3, total: 82500000 }, { name: 'Green detox juice 330 ml', qty: 5, total: 37500000 } ] },
+  { id: 5, number: '0155', name: '\u2014', phone: 'No number on this order', due: '15:10', mins: 38,
+    kind: 'Collection', status: 'Placed', delivery: null, deliveryTone: null,
+    tracking: '', method: 'Cash at the counter', settled: false, cur: 'USD',
+    subtotal: 825, fee: null, total: 825, received: 0, driver: null,
+    address: 'Collecting at Beirut Central',
+    lines: [ { name: 'Lentil & spinach soup', qty: 1, total: 475 }, { name: 'Almond protein bar', qty: 1, total: 275 }, { name: 'Sparkling water 500 ml', qty: 1, total: 100 } ] },
+  { id: 6, number: '0157', name: 'Hiba Saad', phone: '+961 3 902 441', due: '15:30', mins: 58,
+    kind: 'Delivery', status: 'Confirmed', delivery: 'With a driver', deliveryTone: 'ok',
+    tracking: 'Collected', method: 'Cash on delivery', settled: false, cur: 'USD',
+    subtotal: 2900, fee: 300, total: 3200, received: 1000, driver: 'Omar Chehab',
+    address: 'Gemmayzeh · Rue Gouraud, Building Sfeir',
+    lines: [ { name: 'Grilled chicken quinoa bowl', qty: 2, total: 1700 }, { name: 'Falafel power wrap', qty: 1, total: 725 }, { name: 'Cold brew coffee 250 ml', qty: 1, total: 350 }, { name: 'Sparkling water 500 ml', qty: 1, total: 125 } ] },
+  { id: 7, number: '0159', name: 'Karim Bitar', phone: '+961 81 556 703', due: '16:00', mins: 88,
+    kind: 'Delivery', status: 'Confirmed', delivery: 'No run recorded', deliveryTone: 'warn',
+    tracking: 'Nothing has been said yet', method: 'WISH transfer', settled: true, cur: 'USD',
+    subtotal: 6040, fee: 300, total: 6340, received: 6340, driver: null,
+    address: 'Achrafieh · Rue Huvelin, Building Zahar',
+    lines: [ { name: 'Baked salmon & greens', qty: 4, total: 4800 }, { name: 'Halloumi breakfast plate', qty: 1, total: 650 }, { name: 'Green detox juice 330 ml', qty: 1, total: 450 }, { name: 'Almond protein bar', qty: 0.5, total: 140 } ] },
+  { id: 8, number: '0161', name: 'Maya Fares', phone: '+961 3 771 285', due: '16:30', mins: 118,
+    kind: 'Collection', status: 'Placed', delivery: null, deliveryTone: null,
+    tracking: '', method: 'Cash at the counter', settled: false, cur: 'USD',
+    subtotal: 2100, fee: null, total: 2100, received: 0, driver: null,
+    address: 'Collecting at Beirut Central',
+    lines: [ { name: 'Grilled chicken quinoa bowl', qty: 1, total: 850 }, { name: 'Baked salmon & greens', qty: 1, total: 1200 }, { name: 'Sparkling water 500 ml', qty: 0.5, total: 50 } ] },
+];
+
+const CUSTOMERS = [
+  { id: 'c1', name: 'Layla Mansour', phone: '+961 3 447 019', regular: true },
+  { id: 'c2', name: 'Georges Khoury', phone: '+961 76 220 118', regular: true },
+  { id: 'c3', name: 'Name withheld', phone: '+961 3 990 112', regular: false },
+];
+
+const MENU = [
+  { id: 'm1', name: 'Grilled chicken quinoa bowl', kind: 'Meal', price: 850 },
+  { id: 'm2', name: 'Lentil & spinach soup', kind: 'Meal', price: 475 },
+  { id: 'm3', name: 'Falafel power wrap', kind: 'Meal', price: 725 },
+  { id: 'm4', name: 'Baked salmon & greens', kind: 'Meal', price: 1200 },
+  { id: 'm5', name: 'Halloumi breakfast plate', kind: 'Meal', price: 650 },
+  { id: 'p1', name: 'Green detox juice 330 ml', kind: 'Product', price: 450 },
+  { id: 'p2', name: 'Almond protein bar', kind: 'Product', price: 275 },
+  { id: 'p3', name: 'Sparkling water 500 ml', kind: 'Product', price: 125 },
+  { id: 'p4', name: 'Cold brew coffee 250 ml', kind: 'Product', price: 350, blocked: true },
+];
+
+const DRIVERS = [
+  { id: 'd1', name: 'Sara Nassar' },
+  { id: 'd2', name: 'Omar Chehab' },
+  { id: 'd3', name: 'Tarek El Amine' },
+  { id: 'd4', name: '\u2014', unnamed: true },
+  { id: 'd5', name: 'Joe Haddad' },
+];
+
+const WEEKS = [
+  { range: '7 to 13 September 2026', days: [
+    { weekday: 'Monday', date: '7 Sep', orders: 18, claimed: 12, projected: 4 },
+    { weekday: 'Tuesday', date: '8 Sep', orders: 22, claimed: 14, projected: 5 },
+    { weekday: 'Wednesday', date: '9 Sep', orders: 19, claimed: 11, projected: 6 },
+    { weekday: 'Thursday', date: '10 Sep', orders: 24, claimed: 15, projected: 5 },
+    { weekday: 'Friday', date: '11 Sep', orders: 31, claimed: 18, projected: 7 },
+    { weekday: 'Saturday', date: '12 Sep', orders: 27, claimed: 16, projected: 6, today: true },
+    { weekday: 'Sunday', date: '13 Sep', orders: 9, claimed: 5, projected: 3 },
+  ]},
+  { range: '14 to 20 September 2026', days: [
+    { weekday: 'Monday', date: '14 Sep', orders: 11, claimed: 13, projected: 9 },
+    { weekday: 'Tuesday', date: '15 Sep', orders: 8, claimed: 14, projected: 11 },
+    { weekday: 'Wednesday', date: '16 Sep', orders: 6, claimed: 12, projected: 12 },
+    { weekday: 'Thursday', date: '17 Sep', orders: 4, claimed: 15, projected: 14 },
+    { weekday: 'Friday', date: '18 Sep', orders: 3, claimed: 17, projected: 15 },
+    { weekday: 'Saturday', date: '19 Sep', orders: 1, claimed: 16, projected: 16 },
+    { weekday: 'Sunday', date: '20 Sep', orders: 0, claimed: 5, projected: 6 },
+  ]},
+];
+
+const CASH = [
+  { agent: 'Sara Nassar', method: 'Cash at the counter', cur: 'USD', amount: 41250 },
+  { agent: 'Sara Nassar', method: 'WISH transfer', cur: 'USD', amount: 16800 },
+  { agent: 'Omar Chehab', method: 'Cash on delivery', cur: 'USD', amount: 9625 },
+  { agent: 'Omar Chehab', method: 'Cash on delivery', cur: 'LBP', amount: 345000000 },
+  { agent: 'Rania Sleiman', method: 'Cash at the counter', cur: 'LBP', amount: 182000000 },
+  { agent: 'Rania Sleiman', method: 'WISH transfer', cur: 'USD', amount: 5400 },
+];
+
+const REQS = [
+  { name: 'Chicken breast', needed: '48.0 kg', shelf: '31.5 kg', short: '16.5 kg' },
+  { name: 'Baby spinach', needed: '14.5 kg', shelf: '6.0 kg', short: '8.5 kg' },
+  { name: 'Tahini', needed: '9.0 L', shelf: '4.0 L', short: '5.0 L' },
+  { name: 'Lemons', needed: '320 pcs', shelf: '260 pcs', short: '60 pcs' },
+  { name: 'Quinoa', needed: '22.0 kg', shelf: '24.0 kg', short: null },
+  { name: 'Red lentils', needed: '18.0 kg', shelf: '18.0 kg', short: null },
+  { name: 'Halloumi', needed: '12.0 kg', shelf: '13.2 kg', short: null },
+  { name: 'Olive oil', needed: '26.0 L', shelf: '40.0 L', short: null },
+];
+
+const SCREEN_META = {
+  queue: { title: 'Order desk', sub: 'The open book in the order it has to be worked \u2014 soonest due at the top. It refreshes itself while it is on screen.' },
+  sale: { title: 'New sale', sub: 'Ring up a walk-in, take a collection, or write down a delivery over the telephone.' },
+  calendar: { title: 'Order calendar', sub: 'The week ahead on three separate books: what exists, what has been claimed, and what is only expected.' },
+  cash: { title: 'Cash report', sub: 'What each agent took on one day, and how it arrived.' },
+  requirements: { title: 'Requirements', sub: 'What this branch must buy to cook the days ahead \u2014 needed against what is on the shelf.' },
+};
+
+const TONE = {
+  ok:   'background:#DCFCE7;color:#14532D',
+  warn: 'background:#FDF2D6;color:#79480A',
+  bad:  'background:#FDECEA;color:#8F1F1A',
+  info: 'background:#EFF8FC;color:#0369A1',
+  flat: 'background:#EDF6F0;color:#5B6673',
+};
+
+function chip(tone) {
+  return 'display:inline-flex;align-items:center;font:600 12px Inter,sans-serif;border-radius:8px;padding:3px 9px;white-space:nowrap;' + TONE[tone];
+}
+
+class Component extends DCLogic {
+  state = {
+    screen: 'queue',
+    win: 'today',
+    statuses: [],
+    kind: 'any',
+    q: '',
+    hover: null,
+    openId: null,
+    dialog: null,
+    driverQuery: '',
+    chosenDriver: null,
+    toast: null,
+    week: 0,
+    cashDate: '2026-09-11',
+    branch: 'beirut-central',
+    saleStep: 0,
+    saleType: null,
+    customer: null,
+    creating: false,
+    custQuery: '',
+    menuQuery: '',
+    basket: [],
+    method: null,
+    placed: false,
+    moved: {},
+  };
+
+  money(minor, cur) {
+    if (cur === 'LBP') {
+      return Math.round(minor / 100).toLocaleString('en-US') + ' LBP';
+    }
+    return '$' + (minor / 100).toFixed(2);
+  }
+
+  flash(text) {
+    this.setState({ toast: text });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  go(screen) {
+    this.setState({ screen, openId: null, dialog: null });
+  }
+
+  ageOf(mins) {
+    if (mins < 0) {
+      const late = -mins;
+      return { text: late + ' min late', tone: late >= 30 ? 'bad' : 'warn' };
+    }
+    if (mins < 60) return { text: 'in ' + mins + ' min', tone: 'flat' };
+    const h = Math.round(mins / 60);
+    return { text: 'in ' + h + (h === 1 ? ' hr' : ' hrs'), tone: 'flat' };
+  }
+
+  visibleOrders() {
+    const s = this.state;
+    const q = s.q.trim().toLowerCase();
+    return ORDERS.filter((o) => {
+      const status = s.moved[o.id] || o.status;
+      if (s.win === 'overdue' && o.mins >= 0) return false;
+      if (s.statuses.length > 0 && !s.statuses.includes(status.toLowerCase())) return false;
+      if (s.kind !== 'any') {
+        const map = { counter: 'Counter', pickup: 'Collection', delivery: 'Delivery' };
+        if (o.kind !== map[s.kind]) return false;
+      }
+      if (q !== '' && !(o.number.includes(q) || o.name.toLowerCase().includes(q) || o.phone.replace(/\s/g, '').includes(q.replace(/\s/g, '')))) return false;
+      return true;
+    });
+  }
+
+  saleSteps() {
+    const t = this.state.saleType;
+    if (t === 'Counter') return ['Kind of sale', 'Basket', 'Payment', 'Review'];
+    if (t === 'Delivery') return ['Kind of sale', 'Customer', 'Delivery address', 'Basket', 'Payment', 'Review'];
+    if (t === 'Collection') return ['Kind of sale', 'Customer', 'Basket', 'Payment', 'Review'];
+    return ['Kind of sale', 'Customer', 'Basket', 'Payment', 'Review'];
+  }
+
+  basketMath() {
+    const lines = this.state.basket.map((b) => {
+      const item = MENU.find((m) => m.id === b.id);
+      return { item, qty: b.qty };
+    });
+    const subtotal = lines.reduce((sum, l) => sum + (l.item.blocked ? 0 : l.item.price * l.qty), 0);
+    const fee = this.state.saleType === 'Delivery' && subtotal > 0 ? 300 : 0;
+    return { lines, subtotal, fee, total: subtotal + fee, blocked: lines.some((l) => l.item.blocked) };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const dataState = this.props.dataState ?? 'normal';
+    const dense = (this.props.rowDensity ?? 'comfortable') === 'compact';
+    const rowH = dense ? 56 : 68;
+    const meta = SCREEN_META[s.screen] || SCREEN_META.queue;
+    const orders = this.visibleOrders();
+    const open = ORDERS.find((o) => o.id === s.openId) || null;
+
+    const v = {
+      dir: (this.props.direction ?? 'ltr') === 'rtl' ? 'rtl' : 'ltr',
+      pageTitle: meta.title,
+      pageSubtitle: meta.sub,
+      showNewSale: s.screen === 'queue',
+      startSale: () => this.setState({ screen: 'sale', saleStep: 0, saleType: null, customer: null, basket: [], method: null, placed: false, openId: null }),
+      goQueue: () => this.go('queue'),
+      retry: () => this.flash('Asked again \u2014 nothing changed in the prototype.'),
+      isQueue: s.screen === 'queue',
+      isSale: s.screen === 'sale',
+      isCalendar: s.screen === 'calendar',
+      isCash: s.screen === 'cash',
+      isReq: s.screen === 'requirements',
+      isOffline: dataState === 'offline',
+      isLoading: s.screen === 'queue' && dataState === 'loading',
+      isError: s.screen === 'queue' && dataState === 'error',
+      skeletonRows: [1, 2, 3, 4, 5, 6],
+      skeletonDays: [1, 2, 3, 4, 5, 6, 7],
+      toastOn: s.toast !== null,
+      toastText: s.toast || '',
+      navSections: NAV.map((sec) => ({
+        label: sec.label,
+        items: sec.items.map((it) => {
+          const active = it.key === s.screen || (it.key === 'queue' && s.screen === 'sale');
+          return {
+            label: it.label,
+            badge: it.badge || null,
+            go: () => { if (['queue', 'calendar', 'requirements', 'cash'].includes(it.key)) this.go(it.key); else this.flash(it.label + ' is outside this redesign.'); },
+            style: 'display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:34px;padding:0 10px;border:none;border-radius:9px;cursor:pointer;text-align:start;white-space:nowrap;font:' + (active ? '700' : '500') + ' 14px Inter,sans-serif;background:' + (active ? '#157043' : 'transparent') + ';color:' + (active ? '#FFFFFF' : 'rgba(220,252,231,.78)'),
+          };
+        }),
+      })),
+    };
+
+    // ── Queue ──────────────────────────────────────────────────────────
+    const emptyQueue = dataState === 'empty' || orders.length === 0;
+    v.isEmpty = s.screen === 'queue' && dataState !== 'loading' && dataState !== 'error' && emptyQueue;
+    v.showTable = s.screen === 'queue' && dataState !== 'loading' && dataState !== 'error' && !emptyQueue;
+    v.truncatedOn = (this.props.truncated ?? false) === true;
+    v.rowCount = String(orders.length);
+    v.gridCols = '104px minmax(150px,1.6fr) 118px 96px minmax(140px,1.3fr) minmax(140px,1.3fr) minmax(104px,.9fr) 92px';
+    v.footNote = v.truncatedOn
+      ? 'Showing the first 50 of more than 50. Sorted by how soon each order is due \u2014 this order is fixed, and no column here sorts.'
+      : 'Showing all ' + orders.length + ' open orders. Sorted by how soon each is due \u2014 this order is fixed, and no column here sorts.';
+
+    v.windows = [
+      { key: 'today', label: 'Today' },
+      { key: 'overdue', label: 'Overdue' },
+      { key: 'next7', label: 'Next 7 days' },
+    ].map((w) => ({
+      label: w.label,
+      go: () => this.setState({ win: w.key }),
+      style: 'height:34px;padding:0 14px;border:none;border-radius:8px;cursor:pointer;font:' + (s.win === w.key ? '700' : '500') + ' 14px Inter,sans-serif;background:' + (s.win === w.key ? '#157043' : 'transparent') + ';color:' + (s.win === w.key ? '#FFFFFF' : '#5B6673'),
+    }));
+
+    v.statusChips = [
+      { key: 'placed', label: 'Placed' },
+      { key: 'confirmed', label: 'Confirmed' },
+    ].map((c) => {
+      const on = s.statuses.includes(c.key);
+      return {
+        label: c.label,
+        go: () => this.setState({ statuses: on ? s.statuses.filter((x) => x !== c.key) : [...s.statuses, c.key] }),
+        style: 'height:40px;padding:0 16px;border-radius:999px;cursor:pointer;font:600 14px Inter,sans-serif;border:1px solid ' + (on ? '#16A34A' : '#CCEEDA') + ';background:' + (on ? '#DCFCE7' : '#FFFFFF') + ';color:' + (on ? '#14532D' : '#5B6673'),
+      };
+    });
+
+    v.kind = s.kind;
+    v.setKind = (e) => this.setState({ kind: e.target.value });
+    v.q = s.q;
+    v.setQ = (e) => this.setState({ q: e.target.value });
+
+    v.rows = orders.map((o) => {
+      const age = this.ageOf(o.mins);
+      const status = s.moved[o.id] || o.status;
+      const outstanding = o.total - o.received;
+      return {
+        number: o.number,
+        name: o.name,
+        nameColor: o.name === '\u2014' ? '#646E7C' : '#1F2937',
+        phone: o.phone,
+        due: o.due,
+        age: age.text,
+        ageStyle: chip(age.tone),
+        kind: o.kind,
+        delivery: o.delivery || '\u2014',
+        deliveryStyle: o.delivery ? chip(o.deliveryTone) : 'font-size:16px;color:#646E7C',
+        tracking: o.delivery ? o.tracking : 'Nothing is driven anywhere',
+        method: o.method,
+        payState: o.settled ? 'Settled' : this.money(outstanding, o.cur) + ' outstanding',
+        payStyle: o.settled ? chip('ok') : 'font-size:12px;color:#646E7C',
+        total: this.money(o.total, o.cur),
+        openOpacity: s.hover === o.id ? '1' : '0',
+        rowStyle: 'display:grid;grid-template-columns:' + v.gridCols + ';align-items:center;gap:8px;padding:0 22px;min-width:1040px;height:' + rowH + 'px;border-bottom:1px solid #EDF6F0;cursor:pointer;text-align:start;background:' + (s.hover === o.id ? '#F7FCF9' : '#FFFFFF'),
+        enter: () => this.setState({ hover: o.id }),
+        leave: () => this.setState({ hover: null }),
+        open: () => this.setState({ openId: o.id, dialog: null, chosenDriver: null, driverQuery: '' }),
+        _status: status,
+      };
+    });
+
+    // ── Drawer ─────────────────────────────────────────────────────────
+    v.drawerOpen = open !== null;
+    v.assignOpen = open !== null && s.dialog === 'assign';
+    v.paymentOpen = open !== null && s.dialog === 'payment';
+    v.closeDrawer = () => this.setState({ openId: null, dialog: null });
+    v.closeDialog = () => this.setState({ dialog: null });
+    v.openAssign = () => this.setState({ dialog: 'assign', chosenDriver: null, driverQuery: '' });
+    v.openPayment = () => this.setState({ dialog: 'payment' });
+
+    if (open) {
+      const status = s.moved[open.id] || open.status;
+      const age = this.ageOf(open.mins);
+      const outstanding = open.total - open.received;
+      const driver = s.chosenDriver || open.driver;
+      v.open = {
+        number: open.number,
+        status,
+        statusStyle: chip(status === 'Confirmed' ? 'ok' : 'info'),
+        kind: open.kind,
+        age: age.text,
+        ageStyle: chip(age.tone),
+        name: open.name,
+        phone: open.phone,
+        address: open.address,
+        lines: open.lines.map((l) => ({ name: l.name, qty: l.qty, total: this.money(l.total, open.cur) })),
+        subtotal: this.money(open.subtotal, open.cur),
+        fee: open.fee === null ? 'No delivery fee' : this.money(open.fee, open.cur),
+        total: this.money(open.total, open.cur),
+        method: open.method,
+        received: this.money(open.received, open.cur),
+        payState: open.settled ? 'Settled' : 'Not settled',
+        payStyle: open.settled ? chip('ok') : chip('warn'),
+        canRecord: !open.settled,
+        outstanding: this.money(outstanding, open.cur),
+        outstandingInput: open.cur === 'LBP' ? String(Math.round(outstanding / 100)) : (outstanding / 100).toFixed(2),
+        hasRun: open.kind === 'Delivery',
+        delivery: driver ? 'With a driver' : (open.delivery || '\u2014'),
+        deliveryStyle: chip(driver ? 'ok' : (open.deliveryTone || 'flat')),
+        driver: driver || 'Nobody yet',
+        tracking: open.tracking,
+        assignLabel: driver ? 'Change driver' : 'Assign a driver',
+        primaryLabel: status === 'Placed' ? 'Confirm' : 'Fulfil',
+      };
+      v.advanceOrder = () => {
+        const next = status === 'Placed' ? 'Confirmed' : 'Fulfilled';
+        this.setState({ moved: { ...s.moved, [open.id]: next }, openId: next === 'Fulfilled' ? null : open.id });
+        this.flash(next === 'Confirmed' ? 'Order ' + open.number + ' confirmed.' : 'Order ' + open.number + ' fulfilled \u2014 it has left the queue.');
+      };
+      v.recordPayment = () => {
+        this.setState({ dialog: null });
+        this.flash(this.money(outstanding, open.cur) + ' recorded against ' + open.number + '.');
+      };
+      v.confirmAssign = () => {
+        if (s.chosenDriver === null) return;
+        this.setState({ dialog: null });
+        this.flash('The run is with ' + s.chosenDriver + '.');
+      };
+      v.assignBtnStyle = 'height:40px;padding:0 18px;border:none;border-radius:10px;font:600 14px Inter,sans-serif;' + (s.chosenDriver === null
+        ? 'background:#EDF6F0;color:#646E7C;cursor:not-allowed'
+        : 'background:#157043;color:#fff;cursor:pointer');
+    } else {
+      v.open = { number: '', lines: [] };
+      v.advanceOrder = () => {};
+      v.recordPayment = () => {};
+      v.confirmAssign = () => {};
+      v.assignBtnStyle = 'display:none';
+    }
+
+    v.driverQuery = s.driverQuery;
+    v.setDriverQuery = (e) => this.setState({ driverQuery: e.target.value });
+    const dq = s.driverQuery.trim().toLowerCase();
+    const dlist = DRIVERS.filter((d) => dq === '' || (!d.unnamed && d.name.toLowerCase().includes(dq)));
+    v.driversEmpty = dlist.length === 0;
+    v.drivers = dlist.map((d) => {
+      const on = s.chosenDriver === d.name;
+      return {
+        name: d.unnamed ? 'No name on this profile' : d.name,
+        nameColor: d.unnamed ? '#646E7C' : '#1F2937',
+        style: 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid ' + (on ? '#16A34A' : '#CCEEDA') + ';background:' + (on ? '#DCFCE7' : '#FFFFFF'),
+        go: () => this.setState({ chosenDriver: d.name }),
+        btnLabel: on ? 'Chosen' : 'Choose',
+        btnStyle: 'height:32px;padding:0 12px;border-radius:9px;font:600 14px Inter,sans-serif;cursor:pointer;' + (on
+          ? 'border:none;background:#157043;color:#fff'
+          : 'border:1px solid #CCEEDA;background:#fff;color:#157043'),
+      };
+    });
+
+    // ── Sale wizard ────────────────────────────────────────────────────
+    const steps = this.saleSteps();
+    const stepName = steps[s.saleStep] || steps[0];
+    const math = this.basketMath();
+    v.stepName = stepName;
+    v.stepPosition = 'Step ' + (s.saleStep + 1) + ' of ' + steps.length;
+    v.stepPercent = Math.round(((s.saleStep + 1) / steps.length) * 100) + '%';
+    v.salePlaced = s.placed;
+    v.saleInProgress = !s.placed;
+    v.stepType = !s.placed && stepName === 'Kind of sale';
+    v.stepCustomer = !s.placed && stepName === 'Customer';
+    v.stepAddress = !s.placed && stepName === 'Delivery address';
+    v.stepBasket = !s.placed && stepName === 'Basket';
+    v.stepPayment = !s.placed && stepName === 'Payment';
+    v.stepReview = !s.placed && stepName === 'Review';
+
+    v.saleTypes = [
+      { key: 'Counter', label: 'Counter', hint: 'The customer is here and pays now. Nothing is delivered and no name is needed.' },
+      { key: 'Collection', label: 'Collection', hint: 'The customer collects later, so we need to know who they are. They pay on collection.' },
+      { key: 'Delivery', label: 'Delivery', hint: 'We take it to them. We need the customer and somewhere to send it, and they pay at the door.' },
+    ].map((t) => ({
+      label: t.label,
+      hint: t.hint,
+      go: () => this.setState({ saleType: t.key, method: null }),
+      style: 'display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:start;padding:20px;border-radius:14px;cursor:pointer;min-height:132px;border:1.5px solid ' + (s.saleType === t.key ? '#16A34A' : '#CCEEDA') + ';background:' + (s.saleType === t.key ? '#DCFCE7' : '#FFFFFF'),
+    }));
+
+    v.custQuery = s.custQuery;
+    v.setCustQuery = (e) => this.setState({ custQuery: e.target.value });
+    const cq = s.custQuery.trim().toLowerCase();
+    const clist = CUSTOMERS.filter((c) => cq === '' || c.name.toLowerCase().includes(cq) || c.phone.replace(/\s/g, '').includes(cq.replace(/\s/g, '')));
+    v.noCustomerMatch = clist.length === 0;
+    v.customers = clist.map((c) => {
+      const on = s.customer === c.name;
+      return {
+        name: c.name,
+        phone: c.phone,
+        regular: c.regular,
+        style: 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid ' + (on ? '#16A34A' : '#CCEEDA') + ';background:' + (on ? '#DCFCE7' : '#FFFFFF'),
+        go: () => this.setState({ customer: c.name }),
+        btnLabel: on ? 'Chosen' : 'Choose',
+        btnStyle: 'height:32px;padding:0 12px;border-radius:9px;font:600 14px Inter,sans-serif;cursor:pointer;' + (on
+          ? 'border:none;background:#157043;color:#fff'
+          : 'border:1px solid #CCEEDA;background:#fff;color:#157043'),
+      };
+    });
+    v.creatingCustomer = s.creating;
+    v.notCreatingCustomer = !s.creating;
+    v.startCreating = () => this.setState({ creating: true });
+    v.stopCreating = () => this.setState({ creating: false });
+    v.saveNewCustomer = () => { this.setState({ creating: false, customer: 'New customer' }); this.flash('Customer saved.'); };
+
+    v.menuQuery = s.menuQuery;
+    v.setMenuQuery = (e) => this.setState({ menuQuery: e.target.value });
+    const mq = s.menuQuery.trim().toLowerCase();
+    const mlist = MENU.filter((m) => mq === '' || m.name.toLowerCase().includes(mq));
+    v.menuEmpty = mlist.length === 0;
+    v.menu = mlist.map((m) => {
+      const inBasket = s.basket.some((b) => b.id === m.id);
+      return {
+        name: m.name,
+        kind: m.kind,
+        blocked: m.blocked === true,
+        inBasket,
+        add: () => {
+          const found = s.basket.find((b) => b.id === m.id);
+          this.setState({ basket: found ? s.basket.map((b) => (b.id === m.id ? { ...b, qty: b.qty + 1 } : b)) : [...s.basket, { id: m.id, qty: 1 }] });
+        },
+        addStyle: 'height:36px;padding:0 14px;border-radius:10px;font:600 14px Inter,sans-serif;cursor:pointer;border:1px solid ' + (inBasket ? '#16A34A' : '#CCEEDA') + ';background:#fff;color:#157043',
+      };
+    });
+
+    v.basketEmpty = s.basket.length === 0;
+    v.basketLines = math.lines.map((l) => ({
+      name: l.item.name,
+      qty: l.qty,
+      blocked: l.item.blocked === true,
+      price: l.item.blocked ? 'Not priced' : this.money(l.item.price * l.qty, 'USD'),
+      priceColor: l.item.blocked ? '#79480A' : '#1F2937',
+      inc: () => this.setState({ basket: s.basket.map((b) => (b.id === l.item.id ? { ...b, qty: b.qty + 1 } : b)) }),
+      dec: () => this.setState({ basket: s.basket.flatMap((b) => (b.id === l.item.id ? (b.qty <= 1 ? [] : [{ ...b, qty: b.qty - 1 }]) : [b])) }),
+      remove: () => this.setState({ basket: s.basket.filter((b) => b.id !== l.item.id) }),
+    }));
+    v.subtotal = math.subtotal === 0 ? '\u2014' : this.money(math.subtotal, 'USD');
+    v.deliveryFee = s.saleType === 'Delivery' ? (math.fee === 0 ? '\u2014' : this.money(math.fee, 'USD')) : 'No delivery fee';
+    v.total = math.total === 0 ? '\u2014' : this.money(math.total, 'USD');
+    v.quoteNote = math.total === 0
+      ? 'Add something to the basket to see the total.'
+      : 'Quoted by the kitchen, not worked out here.';
+
+    v.methods = (s.saleType === 'Delivery'
+      ? [{ key: 'Cash on delivery', label: 'Cash on delivery' }, { key: 'WISH transfer', label: 'WISH transfer' }]
+      : [{ key: 'Cash at the counter', label: 'Cash at the counter' }, { key: 'WISH transfer', label: 'WISH transfer' }]
+    ).map((m) => {
+      const on = s.method === m.key;
+      return {
+        label: m.label,
+        go: () => this.setState({ method: m.key }),
+        style: 'display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;cursor:pointer;text-align:start;border:1.5px solid ' + (on ? '#16A34A' : '#CCEEDA') + ';background:' + (on ? '#DCFCE7' : '#FFFFFF'),
+        dotStyle: 'width:18px;height:18px;border-radius:50%;flex:0 0 auto;border:2px solid ' + (on ? '#157043' : '#AADDC0') + ';background:' + (on ? '#157043' : '#fff') + ';box-shadow:' + (on ? 'inset 0 0 0 3px #fff' : 'none'),
+      };
+    });
+    v.wishChosen = s.method === 'WISH transfer';
+
+    v.reviewFacts = [
+      { label: 'This is a', value: s.saleType || 'Not chosen yet' },
+      { label: 'Customer', value: s.saleType === 'Counter' ? 'Nobody \u2014 a counter sale needs no name' : (s.customer || 'Not chosen yet') },
+      { label: 'Items', value: String(s.basket.reduce((n, b) => n + b.qty, 0)) },
+      { label: 'Paying by', value: s.method || 'Not chosen yet' },
+      { label: 'Total', value: math.total === 0 ? '\u2014' : this.money(math.total, 'USD') },
+    ];
+    v.hasRefusal = math.blocked;
+    v.refusalText = 'Cold brew coffee 250 ml is not offered at the counter. Remove it and the rest can be placed \u2014 or publish it to the desk channel first.';
+
+    const canNext = (() => {
+      if (stepName === 'Kind of sale') return s.saleType !== null;
+      if (stepName === 'Customer') return s.customer !== null;
+      if (stepName === 'Basket') return s.basket.length > 0;
+      if (stepName === 'Payment') return s.method !== null;
+      if (stepName === 'Review') return !math.blocked && math.total > 0;
+      return true;
+    })();
+    v.nextLabel = stepName === 'Review' ? 'Place order' : 'Next';
+    v.nextStyle = 'height:40px;padding:0 22px;border:none;border-radius:10px;font:600 14px Inter,sans-serif;' + (canNext
+      ? 'background:#157043;color:#fff;cursor:pointer'
+      : 'background:#EDF6F0;color:#646E7C;cursor:not-allowed');
+    v.backStyle = 'height:40px;padding:0 16px;border-radius:10px;font:600 14px Inter,sans-serif;border:1px solid #CCEEDA;background:#fff;' + (s.saleStep === 0
+      ? 'color:#AADDC0;cursor:not-allowed'
+      : 'color:#5B6673;cursor:pointer');
+    v.stepBack = () => { if (s.saleStep > 0) this.setState({ saleStep: s.saleStep - 1 }); };
+    v.stepNext = () => {
+      if (!canNext) return;
+      if (stepName === 'Review') { this.setState({ placed: true }); this.flash('Order 0162 placed.'); return; }
+      this.setState({ saleStep: s.saleStep + 1 });
+    };
+    v.placedTotal = math.total === 0 ? '\u2014' : this.money(math.total, 'USD');
+
+    // ── Calendar ───────────────────────────────────────────────────────
+    const week = WEEKS[s.week] || WEEKS[0];
+    v.weekRange = week.range;
+    v.prevWeek = () => this.setState({ week: 0 });
+    v.nextWeek = () => this.setState({ week: 1 });
+    v.thisWeek = () => this.setState({ week: 0 });
+    v.calLoading = s.screen === 'calendar' && dataState === 'loading';
+    v.calError = s.screen === 'calendar' && dataState === 'error';
+    v.calEmpty = s.screen === 'calendar' && dataState === 'empty';
+    v.calNormal = s.screen === 'calendar' && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty';
+    v.days = week.days.map((d) => ({
+      weekday: d.weekday,
+      date: d.date,
+      isToday: d.today === true,
+      orders: String(d.orders),
+      claimed: String(d.claimed),
+      projected: String(d.projected),
+      labelColor: d.today ? '#157043' : '#5B6673',
+      cardStyle: 'display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(23,21,20,.05),0 14px 30px -18px rgba(11,59,38,.18);' + (d.today ? 'outline:2px solid #16A34A;outline-offset:-2px' : ''),
+    }));
+
+    // ── Cash report ────────────────────────────────────────────────────
+    v.cashDate = s.cashDate;
+    v.setCashDate = (e) => this.setState({ cashDate: e.target.value });
+    v.cashLoading = s.screen === 'cash' && dataState === 'loading';
+    v.cashError = s.screen === 'cash' && dataState === 'error';
+    v.cashEmpty = s.screen === 'cash' && dataState === 'empty';
+    v.cashNormal = s.screen === 'cash' && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty';
+    v.cashRows = CASH.map((c) => ({
+      agent: c.agent,
+      method: c.method,
+      currency: c.cur,
+      amount: this.money(c.amount, c.cur),
+    }));
+    v.cashTotals = ['USD', 'LBP'].map((cur) => ({
+      currency: cur,
+      amount: this.money(CASH.filter((c) => c.cur === cur).reduce((n, c) => n + c.amount, 0), cur),
+    }));
+
+    // ── Requirements ───────────────────────────────────────────────────
+    v.branch = s.branch;
+    v.setBranch = (e) => this.setState({ branch: e.target.value });
+    const noBranch = s.branch === '';
+    v.reqNoBranch = s.screen === 'requirements' && noBranch;
+    v.reqLoading = s.screen === 'requirements' && !noBranch && dataState === 'loading';
+    v.reqError = s.screen === 'requirements' && !noBranch && dataState === 'error';
+    v.reqEmpty = s.screen === 'requirements' && !noBranch && dataState === 'empty';
+    v.reqNormal = s.screen === 'requirements' && !noBranch && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty';
+    v.reqRows = REQS.map((r) => ({
+      name: r.name,
+      needed: r.needed,
+      shelf: r.shelf,
+      short: r.short || '\u2014',
+      shortColor: r.short ? '#C02722' : '#646E7C',
+      position: r.short ? 'Short' : 'Covered',
+      chipStyle: chip(r.short ? 'bad' : 'ok'),
+    }));
+
+    return v;
+  }
+}
+
+</script>
+</body>
+</html>

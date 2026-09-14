@@ -7,7 +7,12 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { useAccessState } from '../../session/session-provider.tsx';
-import { OVERVIEW_HREF, isKitchenNavActive, kitchenNavSections } from './kitchen-nav.ts';
+import {
+    OVERVIEW_HREF,
+    activeKitchenNavHref,
+    isKitchenNavActive,
+    kitchenNavSections,
+} from './kitchen-nav.ts';
 
 /**
  * Kitchen area content chrome — the density, a trail back to the hub, and the gap between them.
@@ -130,9 +135,12 @@ export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
         // is furniture.
         if (isKitchenNavActive(pathname, OVERVIEW_HREF)) return [];
 
-        const family = kitchenNavSections(accessState)
-            .flatMap((section) => section.items)
-            .find((item) => isKitchenNavActive(pathname, item.href));
+        const items = kitchenNavSections(accessState).flatMap((section) => section.items);
+        const activeHref = activeKitchenNavHref(
+            pathname,
+            items.map((item) => item.href),
+        );
+        const family = items.find((item) => item.href === activeHref);
 
         // A route the registry does not know — permission-filtered away, or new and unregistered.
         // Still offer the way home rather than rendering nothing.

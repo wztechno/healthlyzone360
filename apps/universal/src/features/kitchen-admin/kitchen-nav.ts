@@ -70,3 +70,19 @@ export function isKitchenNavActive(pathname: string, href: string): boolean {
     }
     return pathname === href || pathname.startsWith(`${href}/`);
 }
+
+/**
+ * The one nav href a pathname belongs to, when several match.
+ *
+ * The order desk's own pages live *under* it (`/kitchen/order-desk/requirements`), so the prefix
+ * rule alone lights both "Order desk" and "Requirements". The longest matching href is the most
+ * specific page, and it is the only one that should be marked.
+ */
+export function activeKitchenNavHref(pathname: string, hrefs: readonly string[]): string | null {
+    let best: string | null = null;
+    for (const href of hrefs) {
+        if (!isKitchenNavActive(pathname, href)) continue;
+        if (best === null || href.length > best.length) best = href;
+    }
+    return best;
+}

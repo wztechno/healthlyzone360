@@ -402,6 +402,8 @@ export default tseslint.config(
         files: [
             'apps/universal/src/features/kitchen-admin/catalogue/**/*.{ts,tsx}',
             'apps/universal/src/features/kitchen-admin/screens/ingredients-screen.tsx',
+            'apps/universal/src/features/kitchen-admin/order-desk/**/*.{ts,tsx}',
+            'apps/universal/src/features/kitchen-admin/screens/order-desk*.tsx',
         ],
         rules: {
             'no-restricted-syntax': [

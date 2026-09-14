@@ -4,29 +4,27 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Callout,
-    Card,
+    DataList,
     EmptyState,
     ErrorState,
-    Heading,
-    Inline,
     Skeleton,
     Stack,
-    Table,
     Text,
     TextInputField,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
+import { CataloguePageHeader, CatalogueSummaryBar } from '../catalogue/index.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 
 /**
@@ -132,15 +130,16 @@ function OrderDeskCashReport() {
     const totals = report.data?.totals ?? [];
     const meta = report.data?.meta ?? null;
 
-    const columns: readonly TableColumn<OrderDeskCashReportRow>[] = [
+    const columns: readonly DataListColumn<OrderDeskCashReportRow>[] = [
         {
             key: 'agent',
-            header: t('kitchen:ops.cashReport.columnAgent'),
-            rowHeader: true,
-            flex: 2,
+            label: t('kitchen:ops.cashReport.columnAgent'),
+            width: 180,
+            priority: 100,
             render: (row) => (
                 <Text
-                    variant="bodyStrong"
+                    variant="strong"
+                    tone={row.displayName === null ? 'secondary' : 'primary'}
                     testID={`${rowTestId(row)}-agent`}
                     // The dash is silent to a screen reader, so the cell says in words what it has
                     // instead of a name.
@@ -154,30 +153,46 @@ function OrderDeskCashReport() {
         },
         {
             key: 'method',
-            header: t('kitchen:ops.cashReport.columnMethod'),
+            label: t('kitchen:ops.cashReport.columnMethod'),
+            width: 160,
+            priority: 90,
             render: (row) => (
-                <Text testID={`${rowTestId(row)}-method`}>
+                <Text tone="secondary" testID={`${rowTestId(row)}-method`}>
                     {t(kitchenOrderPaymentMethodKey(row.method))}
                 </Text>
             ),
         },
         {
-            key: 'count',
-            header: t('kitchen:ops.cashReport.columnCount'),
-            numeric: true,
+            key: 'currency',
+            label: t('kitchen:ops.cashReport.columnCurrency'),
+            width: 80,
+            priority: 70,
             render: (row) => (
-                <Text tone="secondary" testID={`${rowTestId(row)}-count`}>
+                <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-currency`}>
+                    {row.currencyCode}
+                </Text>
+            ),
+        },
+        {
+            key: 'count',
+            label: t('kitchen:ops.cashReport.columnCount'),
+            width: 80,
+            priority: 60,
+            align: 'end',
+            render: (row) => (
+                <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-count`}>
                     {formatter.formatNumber(row.receiptCount)}
                 </Text>
             ),
         },
         {
             key: 'amount',
-            header: t('kitchen:ops.cashReport.columnAmount'),
-            numeric: true,
-            primary: true,
+            label: t('kitchen:ops.cashReport.columnAmount'),
+            width: 140,
+            priority: 95,
+            align: 'end',
             render: (row) => (
-                <Text variant="bodyStrong" testID={`${rowTestId(row)}-amount`}>
+                <Text variant="mono" testID={`${rowTestId(row)}-amount`}>
                     {formatMoney(formatter, {
                         amount: row.amountMinorSum,
                         currency: row.currencyCode,
@@ -188,30 +203,64 @@ function OrderDeskCashReport() {
     ];
 
     return (
-        <Stack space="lg" testID="kitchen-order-desk-cash-report-screen">
-            <KitchenPageHeader
+        <Stack space="md" testID="kitchen-order-desk-cash-report-screen">
+            <CataloguePageHeader
                 testID="kitchen-order-desk-cash-report-header"
                 title={t('kitchen:ops.cashReport.title')}
-                subtitle={t('kitchen:ops.cashReport.subtitle')}
                 titleTestID="kitchen-order-desk-cash-report-title"
-                subtitleTestID="kitchen-order-desk-cash-report-subtitle"
-                meta={
-                    meta === null ? undefined : (
-                        // The day and the clock the server cut on. Printed rather than assumed —
-                        // see the file header.
-                        <Text
-                            variant="caption"
-                            tone="secondary"
-                            testID="kitchen-order-desk-cash-report-measured-on"
-                        >
-                            {t('kitchen:ops.cashReport.measuredOn', {
-                                date: formatter.formatDate(meta.date, { dateStyle: 'medium' }),
-                                timezone: meta.timezone,
-                            })}
-                        </Text>
-                    )
-                }
             />
+
+            <CatalogueSummaryBar
+                testID="kitchen-order-desk-cash-report-subtitle"
+                segments={[
+                    t('kitchen:ops.cashReport.subtitle'),
+                    ...(rows.length === 0
+                        ? []
+                        : [
+                              t('kitchen:ops.cashReport.summaryRows', { count: rows.length }),
+                              t('kitchen:ops.cashReport.summaryCurrencies', {
+                                  count: new Set(totals.map((total) => total.currencyCode)).size,
+                              }),
+                          ]),
+                ]}
+            />
+
+            {/* One 28px row: the day, and the clock it was cut on. */}
+            <View
+                testID="kitchen-order-desk-cash-report-toolbar"
+                className="min-h-control-sm flex-row flex-wrap items-center gap-tight"
+            >
+                <View style={{ width: DATE_WIDTH }}>
+                    <TextInputField
+                        testID="kitchen-order-desk-cash-report-date"
+                        id="kitchen-order-desk-cash-report-date"
+                        label={t('kitchen:ops.cashReport.dateLabel')}
+                        labelHidden
+                        size="sm"
+                        value={date}
+                        onChangeText={setDate}
+                        placeholder="YYYY-MM-DD"
+                    />
+                </View>
+                {meta === null ? (
+                    <Text variant="caption" tone="secondary">
+                        {t('kitchen:ops.cashReport.dateHint')}
+                    </Text>
+                ) : (
+                    // The day and the clock the server cut on. Printed rather than assumed — see
+                    // the file header.
+                    <Text
+                        variant="caption"
+                        tone="secondary"
+                        testID="kitchen-order-desk-cash-report-measured-on"
+                    >
+                        {t('kitchen:ops.cashReport.measuredOn', {
+                            date: formatter.formatDate(meta.date, { dateStyle: 'medium' }),
+                            timezone: meta.timezone,
+                        })}
+                    </Text>
+                )}
+            </View>
 
             {/*
              * Stated once, at the top, and not as a warning tone: nothing here is wrong. It is the
@@ -226,21 +275,6 @@ function OrderDeskCashReport() {
                 body={t('kitchen:ops.cashReport.scopeBody')}
             />
 
-            <Card tone="raised" padding="md" testID="kitchen-order-desk-cash-report-toolbar">
-                <Inline space="sm" align="end" wrap>
-                    <TextInputField
-                        testID="kitchen-order-desk-cash-report-date"
-                        id="kitchen-order-desk-cash-report-date"
-                        label={t('kitchen:ops.cashReport.dateLabel')}
-                        hint={t('kitchen:ops.cashReport.dateHint')}
-                        value={date}
-                        onChangeText={setDate}
-                        placeholder="YYYY-MM-DD"
-                        className="w-40"
-                    />
-                </Inline>
-            </Card>
-
             {filters === null ? (
                 <Callout
                     testID="kitchen-order-desk-cash-report-date-invalid"
@@ -249,11 +283,16 @@ function OrderDeskCashReport() {
                     body={t('kitchen:ops.cashReport.dateInvalidBody')}
                 />
             ) : report.isPending ? (
-                <Stack space="sm" testID="kitchen-order-desk-cash-report-loading">
-                    {Array.from({ length: 4 }, (_, index) => (
-                        <Skeleton key={index} heightClassName="h-10" />
+                <View testID="kitchen-order-desk-cash-report-loading" className="flex-col">
+                    {Array.from({ length: 6 }, (_, index) => (
+                        <View
+                            key={index}
+                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
+                        >
+                            <Skeleton heightClassName="h-2" />
+                        </View>
                     ))}
-                </Stack>
+                </View>
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-order-desk-cash-report-error"
@@ -271,55 +310,51 @@ function OrderDeskCashReport() {
                     body={t('kitchen:ops.cashReport.emptyBody')}
                 />
             ) : (
-                <Stack space="md">
-                    <Table<OrderDeskCashReportRow>
+                <View className="flex-col gap-loose">
+                    <DataList<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
-                        caption={t('kitchen:ops.cashReport.caption')}
-                        captionHidden
+                        label={t('kitchen:ops.cashReport.caption')}
                         columns={columns}
                         rows={rows}
                         rowKey={rowTestId}
                     />
 
                     {/*
-                     * The totals, as a list of labelled pairs rather than a footer row of the table
-                     * above. Two reasons, and the second is the load-bearing one.
-                     *
-                     * A footer row would have to sit under the "Agent" column with nothing to put in
-                     * it, and `Table` has no footer slot to put it in honestly. And a total per
-                     * *(method, currency)* is not a column sum: three agents taking dirhams and one
-                     * taking dollars produce two totals, not one, and a row across the bottom would
-                     * be a shape that could only show one of them.
+                     * The totals, as a panel of labelled pairs rather than a footer row of the list
+                     * above. A total per *(method, currency)* is not a column sum: three agents taking
+                     * dirhams and one taking dollars produce two totals, not one, and a row across the
+                     * bottom would be a shape that could only show one of them. The panel has no
+                     * grand-total line to fill, because that would add currencies together.
                      */}
-                    <Stack space="xs" testID="kitchen-order-desk-cash-report-totals">
-                        <Heading level={2}>{t('kitchen:ops.cashReport.totalsHeading')}</Heading>
-                        <Text
-                            variant="caption"
-                            tone="secondary"
-                            testID="kitchen-order-desk-cash-report-totals-note"
-                        >
-                            {t('kitchen:ops.cashReport.totalsNote')}
-                        </Text>
+                    <View
+                        testID="kitchen-order-desk-cash-report-totals"
+                        style={{ maxWidth: TOTALS_MAX_WIDTH }}
+                        className="flex-col rounded border border-stroke bg-surface-sunken"
+                    >
+                        <View className="px-snug pb-hair pt-tight">
+                            <Text variant="micro" tone="secondary" accessibilityRole="header">
+                                {t('kitchen:ops.cashReport.totalsHeading')}
+                            </Text>
+                        </View>
                         {totals.map((total) => (
-                            <Inline
+                            <View
                                 key={totalKey(total)}
-                                space="sm"
-                                align="start"
-                                justify="between"
-                                wrap
+                                className="flex-row items-baseline justify-between gap-snug border-t border-stroke-subtle px-snug py-tight"
                             >
                                 {/*
                                  * The method alone, through the shared table the queue and the sale
                                  * wizard read. The currency is not repeated in the label because the
-                                 * formatted amount beside it already carries one — two totals for
-                                 * one method are told apart by the money, which is the only place
-                                 * the distinction is unambiguous.
+                                 * formatted amount beside it already carries one — two totals for one
+                                 * method are told apart by the money, which is the only place the
+                                 * distinction is unambiguous.
                                  */}
-                                <Text tone="secondary" variant="caption">
+                                <Text variant="label">
                                     {t(kitchenOrderPaymentMethodKey(total.method))}
                                 </Text>
                                 <Text
-                                    variant="bodyStrong"
+                                    variant="strong"
+                                    tone="brand"
+                                    className="tabular-nums"
                                     testID={`kitchen-order-desk-cash-report-total-${totalKey(total)}`}
                                 >
                                     {formatMoney(formatter, {
@@ -327,14 +362,29 @@ function OrderDeskCashReport() {
                                         currency: total.currencyCode,
                                     })}
                                 </Text>
-                            </Inline>
+                            </View>
                         ))}
-                    </Stack>
-                </Stack>
+                        <View className="border-t border-stroke-subtle px-snug py-tight">
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID="kitchen-order-desk-cash-report-totals-note"
+                            >
+                                {t('kitchen:ops.cashReport.totalsNote')}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
             )}
         </Stack>
     );
 }
+
+/** The date field's width — wide enough for `YYYY-MM-DD`. A style: there is no token for it. */
+const DATE_WIDTH = 140;
+
+/** How wide the totals panel may grow. It is a short list of pairs, not a second table. */
+const TOTALS_MAX_WIDTH = 620;
 
 /**
  * A row's identity, which is all three of its key parts.
