@@ -127,7 +127,14 @@ final readonly class CartService
     ): CartItem {
         $this->assertShoppable($cart);
 
+        $channel = $this->channelOf($cart);
+        $buyer = $this->buyerOf($cart);
         $asked = $this->validatedQuantity($quantity);
+
+        // The app names the article, never the pack. Settle the pack before the
+        // merge lookup, so a repeat add lands on the line the first add created.
+        $catalogueItemVariantId ??= $this->probe->packFor($channel, $catalogueItemId, $asked, $deliveryDate, $buyer);
+
         $existing = $this->lineOf($cart, $catalogueItemId, $catalogueItemVariantId, $deliveryDate);
         $total = $this->decimal((float) $asked + ($existing instanceof CartItem ? (float) $existing->quantity : 0.0));
 
@@ -136,13 +143,13 @@ final readonly class CartService
         // added, and probing the increment alone would price a top-up against
         // the wrong tier.
         $result = $this->probe->probe(
-            $this->channelOf($cart),
+            $channel,
             $catalogueItemId,
             $catalogueItemVariantId,
             $total,
             $deliveryDate,
             $cart->currency_code,
-            $this->buyerOf($cart),
+            $buyer,
         );
 
         if (! $result->isOrderable()) {
