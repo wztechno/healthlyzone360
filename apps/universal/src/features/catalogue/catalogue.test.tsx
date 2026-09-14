@@ -386,7 +386,14 @@ const WEIGHED_MEAL: MarketplaceMeal = {
     ...testMeal({ ordinal: 101, name: 'Smoked chilli sauce', slug: 'verdant-smoked-chilli-sauce' }),
     // `UNSTATED_SERVING`, written out rather than imported: it is not on the package's public
     // surface, and a fixture that states the shape is the one a reader can check against the wire.
-    serving: { label: '', quantity: 1, unit: 'portion', grams: null, millilitres: null, householdMeasure: null },
+    serving: {
+        label: '',
+        quantity: 1,
+        unit: 'portion',
+        grams: null,
+        millilitres: null,
+        householdMeasure: null,
+    },
     nutrition: {
         ...testFacts({ totalGrams: 100 }),
         basis: 'per_100g',
@@ -931,7 +938,9 @@ describe('MealDetailScreen', () => {
 
         // And the table says which hundred grams these are, rather than leaving the reader to
         // assume the amounts describe a portion.
-        expect(screen.getByTestId('meal-detail-facts-table-caption')).toHaveTextContent(/Per 100 g/);
+        expect(screen.getByTestId('meal-detail-facts-table-caption')).toHaveTextContent(
+            /Per 100 g/,
+        );
     });
 
     it('never puts a business price on a consumer page', async () => {

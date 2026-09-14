@@ -233,31 +233,32 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                      * facts, no portion) is the case that makes it visible. The
                                      * facts panel below still says what basis it is on.
                                      */}
-                                    {item.serving.label === '' && item.serving.grams === null ? null : (
-                                    <Stack space="xs" testID="meal-detail-serving">
-                                        <Text variant="label">
-                                            {t('catalogue:meal.servingTitle')}
-                                        </Text>
-                                        <Text>
-                                            {t('catalogue:meal.servingLabel', {
-                                                serving: item.serving.label,
-                                            })}
-                                        </Text>
-                                        {item.serving.grams === null ? null : (
-                                            <Text tone="secondary" variant="caption">
-                                                {t('catalogue:meal.servingGrams', {
-                                                    // Whole grams: a derived serving arrives at
-                                                    // three places (299.353 g) and the copy says
-                                                    // "about" — the precision belongs to the
-                                                    // arithmetic, not to the sentence.
-                                                    grams: formatter.formatNumber(
-                                                        item.serving.grams,
-                                                        { maximumFractionDigits: 0 },
-                                                    ),
+                                    {item.serving.label === '' &&
+                                    item.serving.grams === null ? null : (
+                                        <Stack space="xs" testID="meal-detail-serving">
+                                            <Text variant="label">
+                                                {t('catalogue:meal.servingTitle')}
+                                            </Text>
+                                            <Text>
+                                                {t('catalogue:meal.servingLabel', {
+                                                    serving: item.serving.label,
                                                 })}
                                             </Text>
-                                        )}
-                                    </Stack>
+                                            {item.serving.grams === null ? null : (
+                                                <Text tone="secondary" variant="caption">
+                                                    {t('catalogue:meal.servingGrams', {
+                                                        // Whole grams: a derived serving arrives at
+                                                        // three places (299.353 g) and the copy says
+                                                        // "about" — the precision belongs to the
+                                                        // arithmetic, not to the sentence.
+                                                        grams: formatter.formatNumber(
+                                                            item.serving.grams,
+                                                            { maximumFractionDigits: 0 },
+                                                        ),
+                                                    })}
+                                                </Text>
+                                            )}
+                                        </Stack>
                                     )}
 
                                     {/*

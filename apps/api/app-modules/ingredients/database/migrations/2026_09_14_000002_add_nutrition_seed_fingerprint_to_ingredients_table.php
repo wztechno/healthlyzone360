@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Healthy360\Ingredients\Services\IngredientNutritionImporter;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * `sha256(json_encode([nutrition_per_100g, grams_per_unit]))` — the two columns
  * the reference document owns, exactly as the seeder wrote them, hashed
- * together as one pair. {@see \Healthy360\Ingredients\Services\IngredientNutritionImporter::fingerprint()}
+ * together as one pair. {@see IngredientNutritionImporter::fingerprint()}
  * is the only thing that computes it, so the canonical form (object keys sorted,
  * the decimal cast applied) lives in one place rather than in every caller.
  *
