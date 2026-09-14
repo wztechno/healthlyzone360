@@ -283,7 +283,7 @@ class OrderDeskDemoSeeder extends Seeder
      */
     private function menu(string $organisationId): array
     {
-        return DB::table('catalogue_items')
+        return array_values(DB::table('catalogue_items')
             ->where('organisation_id', $organisationId)
             ->where('status', 'published')
             ->whereIn('item_type', ['meal', 'product'])
@@ -297,7 +297,7 @@ class OrderDeskDemoSeeder extends Seeder
                 'ar' => (string) $item->name_ar,
                 'price' => 450 + ($index * 175) % 1100,
             ])
-            ->all();
+            ->all());
     }
 
     /**
