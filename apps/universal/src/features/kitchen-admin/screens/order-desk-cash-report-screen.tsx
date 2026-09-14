@@ -5,12 +5,12 @@ import type {
 import {
     Callout,
     DataList,
+    DatePickerButton,
     EmptyState,
     ErrorState,
     Skeleton,
     Stack,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -23,8 +23,8 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CataloguePageHeader, CatalogueSummaryBar } from '../catalogue/index.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
+import { CatalogueStatCards } from '../catalogue/index.ts';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 
 /**
@@ -204,44 +204,17 @@ function OrderDeskCashReport() {
 
     return (
         <Stack space="md" testID="kitchen-order-desk-cash-report-screen">
-            <CataloguePageHeader
-                testID="kitchen-order-desk-cash-report-header"
-                title={t('kitchen:ops.cashReport.title')}
-                titleTestID="kitchen-order-desk-cash-report-title"
-            />
-
-            <CatalogueSummaryBar
-                testID="kitchen-order-desk-cash-report-subtitle"
-                segments={[
-                    t('kitchen:ops.cashReport.subtitle'),
-                    ...(rows.length === 0
-                        ? []
-                        : [
-                              t('kitchen:ops.cashReport.summaryRows', { count: rows.length }),
-                              t('kitchen:ops.cashReport.summaryCurrencies', {
-                                  count: new Set(totals.map((total) => total.currencyCode)).size,
-                              }),
-                          ]),
-                ]}
-            />
-
             {/* One 28px row: the day, and the clock it was cut on. */}
             <View
                 testID="kitchen-order-desk-cash-report-toolbar"
-                className="min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
             >
-                <View style={{ width: DATE_WIDTH }}>
-                    <TextInputField
-                        testID="kitchen-order-desk-cash-report-date"
-                        id="kitchen-order-desk-cash-report-date"
-                        label={t('kitchen:ops.cashReport.dateLabel')}
-                        labelHidden
-                        size="sm"
-                        value={date}
-                        onChangeText={setDate}
-                        placeholder="YYYY-MM-DD"
-                    />
-                </View>
+                <DatePickerButton
+                    testID="kitchen-order-desk-cash-report-date"
+                    label={t('kitchen:ops.cashReport.dateLabel')}
+                    value={date}
+                    onChange={setDate}
+                />
                 {meta === null ? (
                     <Text variant="caption" tone="secondary">
                         {t('kitchen:ops.cashReport.dateHint')}
@@ -261,19 +234,6 @@ function OrderDeskCashReport() {
                     </Text>
                 )}
             </View>
-
-            {/*
-             * Stated once, at the top, and not as a warning tone: nothing here is wrong. It is the
-             * limit of what the figures below mean, and a manager who took this table for a drawer
-             * reconciliation would be trusting it further than it goes.
-             */}
-            <Callout
-                testID="kitchen-order-desk-cash-report-scope"
-                tone="info"
-                role="status"
-                title={t('kitchen:ops.cashReport.scopeTitle')}
-                body={t('kitchen:ops.cashReport.scopeBody')}
-            />
 
             {filters === null ? (
                 <Callout
@@ -311,6 +271,38 @@ function OrderDeskCashReport() {
                 />
             ) : (
                 <View className="flex-col gap-loose">
+                    <CatalogueStatCards
+                        testID="kitchen-order-desk-cash-report-figures"
+                        cards={[
+                            {
+                                key: 'receipts',
+                                label: t('kitchen:ops.cashReport.kpiReceipts'),
+                                value: formatter.formatNumber(
+                                    rows.reduce((sum, row) => sum + row.receiptCount, 0),
+                                ),
+                                caption: t('kitchen:ops.cashReport.kpiReceiptsCaption'),
+                                mark: 'basket',
+                                tone: 'brand',
+                            },
+                            {
+                                key: 'rows',
+                                label: t('kitchen:ops.cashReport.kpiRows'),
+                                value: formatter.formatNumber(rows.length),
+                                caption: t('kitchen:ops.cashReport.kpiRowsCaption'),
+                                mark: 'user',
+                            },
+                            {
+                                key: 'currencies',
+                                label: t('kitchen:ops.cashReport.kpiCurrencies'),
+                                value: formatter.formatNumber(
+                                    new Set(totals.map((total) => total.currencyCode)).size,
+                                ),
+                                caption: t('kitchen:ops.cashReport.kpiCurrenciesCaption'),
+                                mark: 'calendar',
+                            },
+                        ]}
+                    />
+
                     <DataList<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
                         label={t('kitchen:ops.cashReport.caption')}
@@ -379,9 +371,6 @@ function OrderDeskCashReport() {
         </Stack>
     );
 }
-
-/** The date field's width — wide enough for `YYYY-MM-DD`. A style: there is no token for it. */
-const DATE_WIDTH = 140;
 
 /** How wide the totals panel may grow. It is a short list of pairs, not a second table. */
 const TOTALS_MAX_WIDTH = 620;

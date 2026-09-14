@@ -1319,9 +1319,6 @@ function OrderDeskQueueList() {
                     aria-label={t('kitchen:desk.statusLabel')}
                     className="flex-row items-center gap-hair"
                 >
-                    <Text variant="micro" tone="secondary" testID="kitchen-order-desk-status-label">
-                        {t('kitchen:desk.statusLabel')}
-                    </Text>
                     {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
                         <FilterChip
                             key={candidate}

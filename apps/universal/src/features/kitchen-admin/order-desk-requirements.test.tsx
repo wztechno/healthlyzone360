@@ -1,4 +1,4 @@
-import { ApiError, apiFailure } from '@healthy360/api-client';
+﻿import { ApiError, apiFailure } from '@healthy360/api-client';
 import type {
     OrderDeskRequirement,
     OrderDeskRequirements,
@@ -227,11 +227,13 @@ describe('order desk requirements — what the rows say', () => {
 
         await settled();
 
-        const callout = screen.getByTestId('kitchen-order-desk-requirements-not-computable');
+        const card = screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable');
 
-        expect(callout).toHaveTextContent(/3 days could not be worked out/);
-        expect(callout).toHaveTextContent(/Plan has no menu \(2\)/);
-        expect(callout).toHaveTextContent(/Meal has no recipe \(1\)/);
+        expect(
+            screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable-value'),
+        ).toHaveTextContent('3');
+        expect(card).toHaveTextContent(/Plan has no menu \(2\)/);
+        expect(card).toHaveTextContent(/Meal has no recipe \(1\)/);
 
         // And the table still carries exactly the one row that could be computed.
         expect(
@@ -244,6 +246,8 @@ describe('order desk requirements — what the rows say', () => {
 
         await settled();
 
-        expect(screen.queryByTestId('kitchen-order-desk-requirements-not-computable')).toBeNull();
+        expect(
+            screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable-value'),
+        ).toHaveTextContent('0');
     });
 });

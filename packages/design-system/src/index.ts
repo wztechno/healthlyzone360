@@ -162,6 +162,8 @@ export {
     yearRange,
 } from './forms/date-field-shared.ts';
 export type { DateParts } from './forms/date-field-shared.ts';
+export { DatePickerButton } from './forms/date-picker-button.tsx';
+export type { DatePickerButtonProps } from './forms/date-picker-button.tsx';
 
 export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';

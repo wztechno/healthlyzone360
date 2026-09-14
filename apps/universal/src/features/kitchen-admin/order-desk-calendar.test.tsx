@@ -217,20 +217,28 @@ describe('order desk calendar — the slot rows', () => {
 
         // Both rows on both days: Monday's evening square then reads `0`, which is true, and is the
         // comparison a week view exists to make.
-        expect(slots.map((slot) => slot.code)).toEqual(['evening', 'morning']);
+        expect(slots.map((slot) => slot.code)).toEqual(['morning', 'evening']);
     });
 
-    it('sorts named codes rather than taking them in first-seen order', () => {
+    it('orders slots as the day runs, then any other code alphabetically', () => {
         const slots = calendarSlots([
             day('2026-08-17', counts(1, 0, 0), [{ code: 'evening', counts: counts(1, 0, 0) }]),
             day('2026-08-18', counts(1, 0, 0), [
+                { code: 'late', counts: counts(1, 0, 0) },
+                { code: 'midday', counts: counts(1, 0, 0) },
                 { code: 'morning', counts: counts(1, 0, 0) },
                 { code: 'afternoon', counts: counts(1, 0, 0) },
             ]),
         ]);
 
         // First-seen order would put `evening` first purely because Monday was quiet.
-        expect(slots.map((slot) => slot.code)).toEqual(['afternoon', 'evening', 'morning']);
+        expect(slots.map((slot) => slot.code)).toEqual([
+            'morning',
+            'midday',
+            'evening',
+            'afternoon',
+            'late',
+        ]);
     });
 
     it('keeps a slot named like a number a string, and sorts it as one', () => {
@@ -424,10 +432,12 @@ describe('order desk calendar — the squares', () => {
         await renderCalendar(async () => busyWeek());
         await settled();
 
-        const legend = screen.getByTestId('kitchen-order-desk-calendar-grid-slot-legend', {
-            includeHiddenElements: true,
-        });
-        expect(legend).toHaveTextContent(/Morning.*No slot named/s);
+        // No legend row: every square names its own slot.
+        expect(
+            screen.queryByTestId('kitchen-order-desk-calendar-grid-slot-legend', {
+                includeHiddenElements: true,
+            }),
+        ).toBeNull();
 
         // The unslotted bucket carries nothing on this day and the server said so by sending it
         // with three zeroes — so the square reads `0`, not a dash.
@@ -511,13 +521,12 @@ describe('order desk calendar — moving through the weeks', () => {
         expect(asked[4]).toEqual({ from: mondayOf(todayIso()), to: SUNDAY });
     });
 
-    it('states the three books are not one, in words rather than by layout alone', async () => {
+    it('prints the day count and no page title or banner', async () => {
         await renderCalendar(async () => calendar(week([mondayWithOneOrder()])));
         await settled();
 
-        expect(screen.getByTestId('kitchen-order-desk-calendar-bases')).toHaveTextContent(
-            /never totalled/,
-        );
+        expect(screen.queryByTestId('kitchen-order-desk-calendar-bases')).toBeNull();
+        expect(screen.queryByTestId('kitchen-order-desk-calendar-title')).toBeNull();
         // The server's own count of squares — of days, never of work.
         expect(screen.getByTestId('kitchen-order-desk-calendar-day-count')).toHaveTextContent(
             /7 days/,

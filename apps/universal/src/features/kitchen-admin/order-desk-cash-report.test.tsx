@@ -8,6 +8,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { todayIso } from '../commerce/dates.ts';
 import { OrderDeskCashReportScreen } from './screens/order-desk-cash-report-screen.tsx';
 
 jest.mock('expo-router', () => ({
@@ -180,37 +181,24 @@ describe('order desk cash report — the ladder', () => {
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-totals')).toBeNull();
     });
 
-    it('asks for nothing while the date box holds something that is not a day', async () => {
+    it('asks for the day chosen from the calendar picker', async () => {
         const { repositories } = await renderReport(async () => report(seedRows()));
 
         await settled();
         expect(repositories.orderDesk.getCashReport).toHaveBeenCalledTimes(1);
 
-        fireEvent.changeText(
-            screen.getByTestId('kitchen-order-desk-cash-report-date-input'),
-            '2026-0',
+        const firstOfMonth = `${todayIso().slice(0, 8)}01`;
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-date-trigger'));
+        fireEvent.press(
+            await screen.findByTestId(`kitchen-order-desk-cash-report-date-day-${firstOfMonth}`),
         );
 
-        await waitFor(
-            () => {
-                expect(
-                    screen.getByTestId('kitchen-order-desk-cash-report-date-invalid'),
-                ).toBeTruthy();
-            },
-            { timeout: 5000 },
-        );
-        // A `422` per keystroke is what this gate exists to prevent.
-        expect(repositories.orderDesk.getCashReport).toHaveBeenCalledTimes(1);
-
-        fireEvent.changeText(
-            screen.getByTestId('kitchen-order-desk-cash-report-date-input'),
-            '2026-05-09',
-        );
         await waitFor(() => {
             expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
-                date: '2026-05-09',
+                date: firstOfMonth,
             });
         });
+        expect(screen.queryByTestId('kitchen-order-desk-cash-report-date-panel')).toBeNull();
     });
 });
 
@@ -275,7 +263,9 @@ describe('order desk cash report — rows, totals and the em dash', () => {
         expect(screen.getByTestId('kitchen-order-desk-cash-report-measured-on')).toHaveTextContent(
             /UTC/,
         );
-        // And the limit of what the figures mean, stated rather than left to be inferred.
-        expect(screen.getByTestId('kitchen-order-desk-cash-report-scope')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-order-desk-cash-report-scope')).toBeNull();
+        expect(
+            screen.getByTestId('kitchen-order-desk-cash-report-figures-receipts-value'),
+        ).toHaveTextContent('5');
     });
 });

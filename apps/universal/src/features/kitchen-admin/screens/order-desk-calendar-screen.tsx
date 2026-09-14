@@ -2,7 +2,6 @@ import type { CalendarBasis, OrderDeskCalendarFilters } from '@healthy360/api-cl
 import {
     Badge,
     Button,
-    Callout,
     CalendarGrid,
     EmptyState,
     ErrorState,
@@ -22,10 +21,8 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskCalendarQuery } from '../../../data/order-desk-hooks.ts';
 import { addDays, dateInstant, todayIso } from '../../planner/format.ts';
-import { CataloguePageHeader, CatalogueSummaryBar } from '../catalogue/index.ts';
 import { ORDER_VIEW_PERMISSION, SUBSCRIPTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
-import { DeskFootnote } from '../order-desk/desk-parts.tsx';
 import type { CalendarReading, CalendarSlotDescriptor } from '../order-desk-calendar.ts';
 import {
     CALENDAR_WEEK_DAYS,
@@ -54,9 +51,8 @@ import {
  *
  * They overlap by construction — a projected day becomes a claimed one, a claimed one becomes an
  * order — so a total over-counts, and a kitchen buying from that total over-buys quietly. Nothing in
- * `order-desk-calendar.ts` returns a sum, this screen renders three figures per square, and the
- * standing callout at the top says so in words rather than leaving a reader to infer it from a
- * layout. The forecast column is the one that most invites addition, which is why it is also the one
+ * `order-desk-calendar.ts` returns a sum, and this screen renders three separately labelled figures
+ * per square. The forecast column is the one that most invites addition, which is why it is also the one
  * that is drawn differently.
  *
  * ## `projected` is drawn as a forecast, and the drawing is not colour
@@ -455,32 +451,22 @@ function OrderDeskCalendarWeek() {
 
     return (
         <Stack space="md" testID="kitchen-order-desk-calendar-screen">
-            <CataloguePageHeader
-                testID="kitchen-order-desk-calendar-header"
-                title={t('kitchen:calendar.title')}
-                titleTestID="kitchen-order-desk-calendar-title"
-            />
-
-            <View className="flex-col gap-hair">
-                <CatalogueSummaryBar
-                    testID="kitchen-order-desk-calendar-subtitle"
-                    segments={[t('kitchen:calendar.subtitle')]}
-                />
-                {/*
-                 * The live region. Week navigation changes the whole grid without a navigation
-                 * event, so the move is spoken here — see `useCalendarAnnouncement`.
-                 */}
-                <Text
-                    testID="kitchen-order-desk-calendar-announcer"
-                    role="status"
-                    aria-live="polite"
-                    accessibilityLiveRegion="polite"
-                    variant="caption"
-                    tone="secondary"
-                >
-                    {message}
-                </Text>
-            </View>
+            {/*
+             * The live region. Week navigation changes the whole grid without a navigation
+             * event, so the move is spoken here — see `useCalendarAnnouncement`. Always mounted: a
+             * region inserted with its text already in it is not announced. Visually hidden.
+             */}
+            <Text
+                testID="kitchen-order-desk-calendar-announcer"
+                role="status"
+                aria-live="polite"
+                accessibilityLiveRegion="polite"
+                variant="caption"
+                tone="secondary"
+                className="absolute h-px w-px overflow-hidden opacity-0"
+            >
+                {message}
+            </Text>
 
             {/* One 28px row: the week stepper and the range it is on. */}
             <View
@@ -537,13 +523,6 @@ function OrderDeskCalendarWeek() {
                 )}
             </View>
 
-            <Callout
-                testID="kitchen-order-desk-calendar-bases"
-                tone="info"
-                title={t('kitchen:calendar.basesTitle')}
-                body={t('kitchen:calendar.basesBody')}
-            />
-
             {calendar.isPending ? (
                 <View testID="kitchen-order-desk-calendar-loading" className="flex-row gap-tight">
                     {Array.from({ length: CALENDAR_WEEK_DAYS }, (_, index) => (
@@ -592,18 +571,10 @@ function OrderDeskCalendarWeek() {
                                               : humaniseCode(slot.code),
                                   }))
                         }
+                        showSlotLegend={false}
                         renderDayHeader={renderDayHeader}
                         renderCell={renderCell}
                     />
-
-                    <View className="flex-col gap-hair">
-                        <DeskFootnote testID="kitchen-order-desk-calendar-note-order">
-                            {t('kitchen:calendar.noteOrder')}
-                        </DeskFootnote>
-                        <DeskFootnote testID="kitchen-order-desk-calendar-note-zero">
-                            {t('kitchen:calendar.noteZero')}
-                        </DeskFootnote>
-                    </View>
                 </View>
             )}
         </Stack>

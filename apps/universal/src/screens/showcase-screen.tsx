@@ -20,6 +20,7 @@ import {
     Collapse,
     DataList,
     DateField,
+    DatePickerButton,
     DensityProvider,
     Dialog,
     Drawer,
@@ -2534,6 +2535,14 @@ export function ShowcaseScreen() {
                         id="showcase-date"
                         label={t('designSystem:showcase.dateLabel')}
                         value={startDate}
+                        min="2026-01-01"
+                        max="2027-12-31"
+                        onChange={setStartDate}
+                    />
+                    <DatePickerButton
+                        testID="showcase-date-picker"
+                        label={t('designSystem:showcase.dateLabel')}
+                        value={startDate ?? '2026-08-03'}
                         min="2026-01-01"
                         max="2027-12-31"
                         onChange={setStartDate}

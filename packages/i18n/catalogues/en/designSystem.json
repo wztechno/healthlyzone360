@@ -92,6 +92,10 @@
         "month": "Month",
         "year": "Year"
     },
+    "datePicker": {
+        "previousMonth": "Previous month",
+        "nextMonth": "Next month"
+    },
     "rating": {
         "summary": "{{value}} out of {{max}}",
         "count_one": "{{count}} rating",

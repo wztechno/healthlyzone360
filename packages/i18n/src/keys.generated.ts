@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6674 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6688 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1781,6 +1781,8 @@ export interface NamespaceKeys {
     | 'dateField.day'
     | 'dateField.month'
     | 'dateField.year'
+    | 'datePicker.nextMonth'
+    | 'datePicker.previousMonth'
     | 'emptyState.prototypeBadge'
     | 'emptyState.prototypeBody'
     | 'fileUpload.choose'
@@ -3150,6 +3152,12 @@ export interface NamespaceKeys {
     | 'ops.cashReport.dateLabel'
     | 'ops.cashReport.emptyBody'
     | 'ops.cashReport.emptyTitle'
+    | 'ops.cashReport.kpiCurrencies'
+    | 'ops.cashReport.kpiCurrenciesCaption'
+    | 'ops.cashReport.kpiReceipts'
+    | 'ops.cashReport.kpiReceiptsCaption'
+    | 'ops.cashReport.kpiRows'
+    | 'ops.cashReport.kpiRowsCaption'
     | 'ops.cashReport.loadErrorTitle'
     | 'ops.cashReport.measuredOn'
     | 'ops.cashReport.scopeBody'
@@ -3587,6 +3595,12 @@ export interface NamespaceKeys {
     | 'ops.requirements.filterFrom'
     | 'ops.requirements.filterTo'
     | 'ops.requirements.footnote'
+    | 'ops.requirements.kpiIngredients'
+    | 'ops.requirements.kpiIngredientsCaption'
+    | 'ops.requirements.kpiNotComputable'
+    | 'ops.requirements.kpiNotComputableNone'
+    | 'ops.requirements.kpiShort'
+    | 'ops.requirements.kpiShortCaption'
     | 'ops.requirements.metrics.ingredients'
     | 'ops.requirements.metrics.notComputable'
     | 'ops.requirements.metrics.short'
@@ -8477,6 +8491,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:dateField.day',
   'designSystem:dateField.month',
   'designSystem:dateField.year',
+  'designSystem:datePicker.nextMonth',
+  'designSystem:datePicker.previousMonth',
   'designSystem:emptyState.prototypeBadge',
   'designSystem:emptyState.prototypeBody',
   'designSystem:fileUpload.choose',
@@ -9842,6 +9858,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.dateLabel',
   'kitchen:ops.cashReport.emptyBody',
   'kitchen:ops.cashReport.emptyTitle',
+  'kitchen:ops.cashReport.kpiCurrencies',
+  'kitchen:ops.cashReport.kpiCurrenciesCaption',
+  'kitchen:ops.cashReport.kpiReceipts',
+  'kitchen:ops.cashReport.kpiReceiptsCaption',
+  'kitchen:ops.cashReport.kpiRows',
+  'kitchen:ops.cashReport.kpiRowsCaption',
   'kitchen:ops.cashReport.loadErrorTitle',
   'kitchen:ops.cashReport.measuredOn',
   'kitchen:ops.cashReport.scopeBody',
@@ -10279,6 +10301,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.filterFrom',
   'kitchen:ops.requirements.filterTo',
   'kitchen:ops.requirements.footnote',
+  'kitchen:ops.requirements.kpiIngredients',
+  'kitchen:ops.requirements.kpiIngredientsCaption',
+  'kitchen:ops.requirements.kpiNotComputable',
+  'kitchen:ops.requirements.kpiNotComputableNone',
+  'kitchen:ops.requirements.kpiShort',
+  'kitchen:ops.requirements.kpiShortCaption',
   'kitchen:ops.requirements.metrics.ingredients',
   'kitchen:ops.requirements.metrics.notComputable',
   'kitchen:ops.requirements.metrics.short',
