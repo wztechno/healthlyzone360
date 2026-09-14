@@ -8,6 +8,7 @@ import {
     Heading,
     Inline,
     SegmentedControl,
+    Select,
     Skeleton,
     Stack,
     Table,
@@ -40,6 +41,7 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { parseQuantity } from '../format.ts';
+import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
 import {
@@ -102,8 +104,86 @@ export function StockScreen() {
 
 type MovementMode = 'adjust' | 'waste';
 
-/** The latest-purchase endpoint's own cap. Asking for more than it accepts would fail the lot. */
-const MAX_PRICED_ITEMS = 200;
+/**
+ * Rows per page, and the default.
+ *
+ * Ten, because three tables stack on this one screen and a page of ten keeps all three readable
+ * without scrolling past the next heading. Fifty is the ceiling for the same reason the
+ * last-purchase read has one: the visible ids are what that request asks about, and the whole
+ * library in one query string is how it became a `414` at the edge.
+ */
+const PAGE_SIZES = [10, 25, 50] as const;
+const DEFAULT_PAGE_SIZE = 10;
+
+/**
+ * One table's page of a list this screen already holds whole.
+ *
+ * Client-side because the stock reads are not paginated — `listStockItems` answers the branch's
+ * whole book in one request, and asking the server to slice it would be a second pagination scheme
+ * beside the catalogue's (`data/kitchen-admin-hooks.ts`) for no gain here.
+ *
+ * The page is **clamped rather than corrected**: widening the page size while deep in a list
+ * renders the last page immediately instead of via an effect, and the stored page is still the
+ * right one if the rows come back.
+ */
+function usePagedRows<T>(rows: readonly T[], pageSize: number) {
+    const [page, setPage] = useState(1);
+
+    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+    const current = Math.min(page, totalPages);
+    const from = (current - 1) * pageSize;
+
+    // Memoised: this array is what the last-purchase read keys on, so a fresh one per render would
+    // be a fresh query per render.
+    const visible = useMemo(() => rows.slice(from, from + pageSize), [rows, from, pageSize]);
+
+    return {
+        page: current,
+        setPage,
+        totalPages,
+        visible,
+        from,
+        shown: visible.length,
+        total: rows.length,
+    };
+}
+
+/** Everything {@link StockPager} needs from a {@link usePagedRows} page. */
+interface StockPageState {
+    readonly page: number;
+    readonly setPage: (page: number) => void;
+    readonly totalPages: number;
+    /** Zero-based index of the first visible row — the caption counts from one. */
+    readonly from: number;
+    readonly shown: number;
+    readonly total: number;
+}
+
+/**
+ * The range caption and page buttons under one table.
+ *
+ * `CataloguePager` and the catalogue's own strings, rather than a second pager: three tables on one
+ * screen must agree with each other and with every other paged list in the kitchen, and the range
+ * is written as `{{from}}–{{to}}` in the catalogue so the dash lands where the script wants it.
+ */
+function StockPager({ testID, page }: { readonly testID: string; readonly page: StockPageState }) {
+    const { t } = useTranslation();
+
+    return (
+        <CataloguePager
+            testID={`${testID}-pagination`}
+            range={t('kitchen:catalogue.pagerRange', {
+                from: page.total === 0 ? 0 : page.from + 1,
+                to: page.from + page.shown,
+                total: page.total,
+            })}
+            page={page.page}
+            totalPages={page.totalPages}
+            onPageChange={page.setPage}
+            label={t('kitchen:catalogue.pagerLabel')}
+        />
+    );
+}
 
 function Stock() {
     const { t } = useTranslation();
@@ -126,11 +206,13 @@ function Stock() {
     const [movementQuantity, setMovementQuantity] = useState('');
     const [movementDirection, setMovementDirection] = useState<'increase' | 'decrease'>('increase');
 
+    const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+
     const [thresholdItem, setThresholdItem] = useState<StockItem | null>(null);
     const [thresholdValue, setThresholdValue] = useState('');
     const [parLevelValue, setParLevelValue] = useState('');
 
-    const levelRows = levels.data ?? [];
+    const levelRows = useMemo(() => levels.data ?? [], [levels.data]);
 
     // The two books, split off `items.data` rather than off a `?? []` fallback: the fallback is a
     // fresh array on every render, which would make both memos recompute forever.
@@ -147,12 +229,15 @@ function Stock() {
         [items.data],
     );
 
-    // Both books at once, capped at the endpoint's own limit. A kitchen with more shelves than
-    // that gets prices for the ranked head of the list — which is the part somebody scrolling
-    // actually reads — rather than a refused request and no column at all.
+    const levelPage = usePagedRows(levelRows, pageSize);
+    const ingredientPage = usePagedRows(ingredientRows, pageSize);
+    const productPage = usePagedRows(productRows, pageSize);
+
+    // Both books, but only what is on screen: a price nobody can see is a price nobody asked for,
+    // and the whole library's ids in one query string is what the edge refused with a `414`.
     const pricedItemIds = useMemo(
-        () => (items.data ?? []).slice(0, MAX_PRICED_ITEMS).map((row) => row.id),
-        [items.data],
+        () => [...ingredientPage.visible, ...productPage.visible].map((row) => row.id),
+        [ingredientPage.visible, productPage.visible],
     );
     const latestPurchases = useItemLatestPurchasesQuery(pricedItemIds);
 
@@ -605,6 +690,27 @@ function Stock() {
                     />
                 ) : (
                     <Stack space="lg" testID="kitchen-stock-content">
+                        {/*
+                         * One control for all three tables. Three would be three decisions about
+                         * the same question, and the tables are read together.
+                         */}
+                        <Inline justify="end">
+                            <View className="w-[180px]">
+                                <Select
+                                    testID="kitchen-stock-page-size"
+                                    label={t('kitchen:ops.stock.pageSize')}
+                                    options={PAGE_SIZES.map((size) => ({
+                                        value: String(size),
+                                        label: formatter.formatNumber(size),
+                                    }))}
+                                    value={String(pageSize)}
+                                    onChange={(value) => {
+                                        setPageSize(Number(value));
+                                    }}
+                                />
+                            </View>
+                        </Inline>
+
                         <Stack space="sm">
                             <Heading level={2} testID="kitchen-stock-levels-title">
                                 {t('kitchen:ops.stock.levelsTitle')}
@@ -614,14 +720,17 @@ function Stock() {
                                     {t('kitchen:ops.stock.noLevels')}
                                 </Text>
                             ) : (
-                                <Table<StockLevel>
-                                    testID="kitchen-stock-levels-table"
-                                    caption={t('kitchen:ops.stock.levelsTitle')}
-                                    captionHidden
-                                    columns={levelColumns}
-                                    rows={levelRows}
-                                    rowKey={(row) => row.id}
-                                />
+                                <>
+                                    <Table<StockLevel>
+                                        testID="kitchen-stock-levels-table"
+                                        caption={t('kitchen:ops.stock.levelsTitle')}
+                                        captionHidden
+                                        columns={levelColumns}
+                                        rows={levelPage.visible}
+                                        rowKey={(row) => row.id}
+                                    />
+                                    <StockPager testID="kitchen-stock-levels" page={levelPage} />
+                                </>
                             )}
                         </Stack>
 
@@ -640,15 +749,21 @@ function Stock() {
                                     body={t('kitchen:ops.stock.ingredientsEmptyBody')}
                                 />
                             ) : (
-                                <Table<StockItem>
-                                    testID="kitchen-stock-ingredients-table"
-                                    caption={t('kitchen:ops.stock.ingredientsTitle')}
-                                    captionHidden
-                                    columns={itemColumns}
-                                    rows={ingredientRows}
-                                    rowKey={(row) => String(row.id)}
-                                    rowAction={itemRowAction}
-                                />
+                                <>
+                                    <Table<StockItem>
+                                        testID="kitchen-stock-ingredients-table"
+                                        caption={t('kitchen:ops.stock.ingredientsTitle')}
+                                        captionHidden
+                                        columns={itemColumns}
+                                        rows={ingredientPage.visible}
+                                        rowKey={(row) => String(row.id)}
+                                        rowAction={itemRowAction}
+                                    />
+                                    <StockPager
+                                        testID="kitchen-stock-ingredients"
+                                        page={ingredientPage}
+                                    />
+                                </>
                             )}
                         </Stack>
 
@@ -667,15 +782,21 @@ function Stock() {
                                     body={t('kitchen:ops.stock.productsEmptyBody')}
                                 />
                             ) : (
-                                <Table<StockItem>
-                                    testID="kitchen-stock-products-table"
-                                    caption={t('kitchen:ops.stock.productsTitle')}
-                                    captionHidden
-                                    columns={itemColumns}
-                                    rows={productRows}
-                                    rowKey={(row) => String(row.id)}
-                                    rowAction={itemRowAction}
-                                />
+                                <>
+                                    <Table<StockItem>
+                                        testID="kitchen-stock-products-table"
+                                        caption={t('kitchen:ops.stock.productsTitle')}
+                                        captionHidden
+                                        columns={itemColumns}
+                                        rows={productPage.visible}
+                                        rowKey={(row) => String(row.id)}
+                                        rowAction={itemRowAction}
+                                    />
+                                    <StockPager
+                                        testID="kitchen-stock-products"
+                                        page={productPage}
+                                    />
+                                </>
                             )}
                         </Stack>
                     </Stack>

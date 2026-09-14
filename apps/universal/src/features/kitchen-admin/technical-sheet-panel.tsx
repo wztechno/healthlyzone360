@@ -191,6 +191,10 @@ export function TechnicalSheetPanel({
                             rows={rows}
                             rowKey={(row: Row) => row.key}
                             emptyLabel={t('kitchen:recipes.sheetNoLines')}
+                            // A sheet of nine lines is read as a column of figures, and the table's
+                            // default row is a control's height: the compact row keeps the whole
+                            // formulation in one glance, the way the batch planner's tables do.
+                            rowSize="sm"
                         />
 
                         {rows.length > 0 ? (
