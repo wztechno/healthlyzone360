@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Import\Runtime;
 
-use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Enums\CostBasis;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeCompleteness;
@@ -14,7 +13,6 @@ use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
-use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\Recipes\Services\CostComputation;
 use Healthy360\Recipes\Services\RecipeCostingService;
 use Illuminate\Support\Str;
@@ -340,100 +338,25 @@ final readonly class TechnicalSheetWriter
     }
 
     /**
-     * A sheet that makes an ingredient gets an outputs row, so that a version
-     * consuming it is traceably fed by the version that makes it (master plan
-     * v2 §4.2).
+     * The version's outputs row, decided by {@see RecipeOutputRule}.
      *
-     * **Decided from the data, not from a list.** An intermediate is exactly
-     * "an ingredient that appears in some version's outputs" — that is the
-     * whole reason `recipe_version_outputs` replaced `produced_by_recipe_id` —
-     * so the rule here is the mirror of it: if the sheet's own designation
-     * resolves to one of this kitchen's ingredients, that version produces it.
-     * Pesto Mix, Cordon Bleu Marination and Sour Cream come out of the real
-     * workbook this way, and nothing had to be enumerated for them to.
-     *
-     * The intermediates that have **no sheet** — Mix Cheese Preparation,
-     * Butter Mix — never reach here, because no version is named after them.
-     * They get a known-gaps entry instead. An output row pointing at a
-     * fabricated recipe is precisely the risk the outputs table was introduced
-     * to avoid.
-     *
-     * **A sheet that states no yield still produces its output, at the mass it
-     * consumed.** Chicken Breast Marination is the real case: its sheet names
-     * one of the kitchen's own ingredients and leaves Quantity Produced empty,
-     * and refusing an output for it left the whole marination chain
-     * unreachable from the versions that eat it. So the input sum the same
-     * sheet states becomes the output quantity, in kilograms, with the
-     * `intermediate_output_from_input_mass` finding saying so. That is not a
-     * fabricated number — it is the sheet's own arithmetic under the
-     * assumption the sheet itself makes by not mentioning a loss. The
-     * alternative, a yield of nothing, is the one claim the document
-     * definitely does not make. A sheet with neither figure is still refused.
+     * The rule lives beside this writer rather than in it because
+     * `kitchen:relink-recipe-lines` has to apply exactly the same one to the
+     * versions this writer skips as existing.
      */
     private function writeOutput(RecipeVersion $version, string $designation, string $organisationId, ImportReport $report): void
     {
-        $ingredientId = $this->resolver->resolve($designation);
+        $rule = RecipeOutputRule::for($this->resolver, $version, $designation, $organisationId);
 
-        if ($ingredientId === null) {
-            // The overwhelmingly common case: a sheet makes a dish, and a dish
-            // is not an ingredient of anything.
+        if ($rule->findingCode !== null) {
+            $report->finding($rule->findingCode, (string) $rule->findingDetail, (string) $version->source_ref);
+        }
+
+        if (! $rule->writesOutput()) {
             return;
         }
 
-        // **Tenant rows only.** An intermediate is something *this kitchen*
-        // makes and then uses — Pesto Mix goes into Pesto Mayo. A platform
-        // library row is a generic foodstuff the library defines for everybody,
-        // and claiming that one kitchen's version produces it would be a much
-        // larger statement than the sheet makes: several sheets share a name
-        // with a library entry without being the thing that defines it.
-        $owner = Ingredient::withoutTenancy()->whereKey($ingredientId)->value('organisation_id');
-
-        if ($owner !== $organisationId) {
-            return;
-        }
-
-        // The sheet's own line sum, already on the version: `input_quantity_total`
-        // is assigned from `totals.input_quantity` before the lines are written.
-        $fromInputMass = $version->yield_quantity === null;
-        $quantity = $fromInputMass ? $version->input_quantity_total : $version->yield_quantity;
-        $unitId = $fromInputMass ? UnitMap::idForCode('kg') : ($version->yield_unit_id ?? UnitMap::idForCode('kg'));
-
-        if ($quantity === null || ! is_numeric($quantity) || bccomp($quantity, '0', 4) !== 1) {
-            $report->finding(
-                'intermediate_output_not_written',
-                sprintf(
-                    '"%s" names one of this kitchen\'s own ingredients, so the sheet produces it — but the sheet '
-                    .'states neither a yield quantity nor an input total, so there is no amount to record. No '
-                    .'outputs row was written.',
-                    $designation,
-                ),
-                (string) $version->source_ref,
-            );
-
-            return;
-        }
-
-        if ($fromInputMass) {
-            $report->finding(
-                'intermediate_output_from_input_mass',
-                sprintf(
-                    '"%s" states no yield, so the output is the input mass: %s kg, the sum of the sheet\'s own '
-                    .'lines. A sheet that records no loss claims none.',
-                    $designation,
-                    $quantity,
-                ),
-                (string) $version->source_ref,
-            );
-        }
-
-        $output = new RecipeVersionOutput;
-        $output->recipe_version_id = (string) $version->getKey();
-        $output->organisation_id = $organisationId;
-        $output->ingredient_id = $ingredientId;
-        $output->output_quantity = $quantity;
-        $output->unit_id = (string) $unitId;
-        $output->is_primary = true;
-        $output->save();
+        $rule->write();
 
         $report->created('recipe_version_output');
     }
