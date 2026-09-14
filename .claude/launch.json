@@ -8,6 +8,23 @@
             "port": 8081
         },
         {
+            "name": "universal-web-heap",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": [
+                "--filter",
+                "universal",
+                "exec",
+                "node",
+                "--max-old-space-size=4096",
+                "../../node_modules/expo/bin/cli",
+                "start",
+                "--web",
+                "--port",
+                "8081"
+            ],
+            "port": 8081
+        },
+        {
             "name": "universal-static-api",
             "runtimeExecutable": "node",
             "runtimeArgs": [

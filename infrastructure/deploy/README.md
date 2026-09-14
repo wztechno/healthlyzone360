@@ -59,15 +59,19 @@ Garage is absent because only three surfaces write files — B2B exports, KYC
 documents and the kitchen workbook import — and they are served from the api
 storage volume. Add it back the moment anything needs pre-signed URLs.
 
-## Demo data
+## Data
 
-`deploy.sh` seeds through a one-off container with `APP_ENV=local`, because
-every demo seeder refuses to run outside `local`/`testing` — a guard worth
-keeping, since it is what stops a real deployment of this code from inventing
-tenants. The instance itself runs as `production`.
+`deploy.sh` migrates and nothing else: it holds no seed flag, because shipping
+code and changing what testers are looking at are separate operations. The
+instance runs as `production`.
 
-Set `DEMO_PASSWORD` to give every seeded persona a shared password other than
-the `password` the seeders write. `SKIP_SEED=1` migrates without touching data.
+Building a database from nothing — reference layer, operator login, and the v6
+HealthZone360 kitchen — is `healthzone-rebuild.sh`, which is destructive and
+says so before it starts.
+
+Set `DEMO_PASSWORD` to put a shared password on the four known logins. It is
+applied on the run that names it, and remembered in `.env` so
+`healthzone-rebuild.sh` can reapply it after a rebuild.
 
 ## Operating
 

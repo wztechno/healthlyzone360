@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6688 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6736 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2802,6 +2802,8 @@ export interface NamespaceKeys {
     | 'families.allergenClasses.name'
     | 'families.analytics.description'
     | 'families.analytics.name'
+    | 'families.batch.description'
+    | 'families.batch.name'
     | 'families.branchOperating.description'
     | 'families.branchOperating.name'
     | 'families.consumptionExceptions.description'
@@ -3139,6 +3141,38 @@ export interface NamespaceKeys {
     | 'nav.groups.workspace'
     | 'nav.overview'
     | 'nav.railTitle'
+    | 'ops.batch.basis.fills_yield'
+    | 'ops.batch.basis.per_batch'
+    | 'ops.batch.basis.per_container'
+    | 'ops.batch.columnBasis'
+    | 'ops.batch.columnItem'
+    | 'ops.batch.columnNote'
+    | 'ops.batch.columnQuantity'
+    | 'ops.batch.columnUnit'
+    | 'ops.batch.ingredientsHeading'
+    | 'ops.batch.loadErrorTitle'
+    | 'ops.batch.metrics.batches'
+    | 'ops.batch.metrics.pieces'
+    | 'ops.batch.metrics.quantity'
+    | 'ops.batch.metrics.waste'
+    | 'ops.batch.modeLabel'
+    | 'ops.batch.modePieces'
+    | 'ops.batch.modeYield'
+    | 'ops.batch.noPackaging'
+    | 'ops.batch.noPiecesHint'
+    | 'ops.batch.optionalBadge'
+    | 'ops.batch.packagingHeading'
+    | 'ops.batch.pickRecipeBody'
+    | 'ops.batch.pickRecipeTitle'
+    | 'ops.batch.piecesUnit'
+    | 'ops.batch.recipeLabel'
+    | 'ops.batch.recipePlaceholder'
+    | 'ops.batch.recipesErrorTitle'
+    | 'ops.batch.subtitle'
+    | 'ops.batch.targetLabel'
+    | 'ops.batch.targetNeededBody'
+    | 'ops.batch.targetNeededTitle'
+    | 'ops.batch.title'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.caption'
     | 'ops.cashReport.columnAgent'
@@ -3676,6 +3710,7 @@ export interface NamespaceKeys {
     | 'ops.stock.noLevels'
     | 'ops.stock.noPurchaseSupplier'
     | 'ops.stock.noThreshold'
+    | 'ops.stock.pageSize'
     | 'ops.stock.productsEmptyBody'
     | 'ops.stock.productsEmptyTitle'
     | 'ops.stock.productsHint'
@@ -4524,6 +4559,7 @@ export interface NamespaceKeys {
     | 'recipes.create'
     | 'recipes.createTitle'
     | 'recipes.createdToast'
+    | 'recipes.currencyMixed'
     | 'recipes.currentVersion'
     | 'recipes.descriptionLabel'
     | 'recipes.discard'
@@ -4571,6 +4607,14 @@ export interface NamespaceKeys {
     | 'recipes.outputsEmpty'
     | 'recipes.outputsExplainerBody'
     | 'recipes.outputsExplainerTitle'
+    | 'recipes.packageCostLabel'
+    | 'recipes.packageCostsHint'
+    | 'recipes.packageCostsNoLines'
+    | 'recipes.packageCostsNoYield'
+    | 'recipes.packageCostsNone'
+    | 'recipes.packageCostsSkipped'
+    | 'recipes.packageHolds'
+    | 'recipes.packageInBatch'
     | 'recipes.packagingHint'
     | 'recipes.packagingPlaceholder'
     | 'recipes.packagingWasteHint'
@@ -4599,6 +4643,7 @@ export interface NamespaceKeys {
     | 'recipes.sectionIdentity'
     | 'recipes.sectionLines'
     | 'recipes.sectionOutputs'
+    | 'recipes.sectionPackageCosts'
     | 'recipes.sectionPackaging'
     | 'recipes.sectionPackagingWaste'
     | 'recipes.sectionRawMaterials'
@@ -4652,11 +4697,14 @@ export interface NamespaceKeys {
     | 'recipes.summaryYield'
     | 'recipes.tabCosting'
     | 'recipes.tabDescription'
+    | 'recipes.tabNext'
     | 'recipes.tabPackaging'
+    | 'recipes.tabPrevious'
     | 'recipes.tabProduction'
     | 'recipes.tabSheet'
     | 'recipes.tabsLabel'
     | 'recipes.title'
+    | 'recipes.uncostedLines'
     | 'recipes.unnamedLine'
     | 'recipes.unnamedOutput'
     | 'recipes.versionCount'
@@ -9508,6 +9556,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.allergenClasses.name',
   'kitchen:families.analytics.description',
   'kitchen:families.analytics.name',
+  'kitchen:families.batch.description',
+  'kitchen:families.batch.name',
   'kitchen:families.branchOperating.description',
   'kitchen:families.branchOperating.name',
   'kitchen:families.consumptionExceptions.description',
@@ -9845,6 +9895,38 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nav.groups.workspace',
   'kitchen:nav.overview',
   'kitchen:nav.railTitle',
+  'kitchen:ops.batch.basis.fills_yield',
+  'kitchen:ops.batch.basis.per_batch',
+  'kitchen:ops.batch.basis.per_container',
+  'kitchen:ops.batch.columnBasis',
+  'kitchen:ops.batch.columnItem',
+  'kitchen:ops.batch.columnNote',
+  'kitchen:ops.batch.columnQuantity',
+  'kitchen:ops.batch.columnUnit',
+  'kitchen:ops.batch.ingredientsHeading',
+  'kitchen:ops.batch.loadErrorTitle',
+  'kitchen:ops.batch.metrics.batches',
+  'kitchen:ops.batch.metrics.pieces',
+  'kitchen:ops.batch.metrics.quantity',
+  'kitchen:ops.batch.metrics.waste',
+  'kitchen:ops.batch.modeLabel',
+  'kitchen:ops.batch.modePieces',
+  'kitchen:ops.batch.modeYield',
+  'kitchen:ops.batch.noPackaging',
+  'kitchen:ops.batch.noPiecesHint',
+  'kitchen:ops.batch.optionalBadge',
+  'kitchen:ops.batch.packagingHeading',
+  'kitchen:ops.batch.pickRecipeBody',
+  'kitchen:ops.batch.pickRecipeTitle',
+  'kitchen:ops.batch.piecesUnit',
+  'kitchen:ops.batch.recipeLabel',
+  'kitchen:ops.batch.recipePlaceholder',
+  'kitchen:ops.batch.recipesErrorTitle',
+  'kitchen:ops.batch.subtitle',
+  'kitchen:ops.batch.targetLabel',
+  'kitchen:ops.batch.targetNeededBody',
+  'kitchen:ops.batch.targetNeededTitle',
+  'kitchen:ops.batch.title',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.caption',
   'kitchen:ops.cashReport.columnAgent',
@@ -10382,6 +10464,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.noLevels',
   'kitchen:ops.stock.noPurchaseSupplier',
   'kitchen:ops.stock.noThreshold',
+  'kitchen:ops.stock.pageSize',
   'kitchen:ops.stock.productsEmptyBody',
   'kitchen:ops.stock.productsEmptyTitle',
   'kitchen:ops.stock.productsHint',
@@ -11230,6 +11313,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.create',
   'kitchen:recipes.createTitle',
   'kitchen:recipes.createdToast',
+  'kitchen:recipes.currencyMixed',
   'kitchen:recipes.currentVersion',
   'kitchen:recipes.descriptionLabel',
   'kitchen:recipes.discard',
@@ -11277,6 +11361,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.outputsEmpty',
   'kitchen:recipes.outputsExplainerBody',
   'kitchen:recipes.outputsExplainerTitle',
+  'kitchen:recipes.packageCostLabel',
+  'kitchen:recipes.packageCostsHint',
+  'kitchen:recipes.packageCostsNoLines',
+  'kitchen:recipes.packageCostsNoYield',
+  'kitchen:recipes.packageCostsNone',
+  'kitchen:recipes.packageCostsSkipped',
+  'kitchen:recipes.packageHolds',
+  'kitchen:recipes.packageInBatch',
   'kitchen:recipes.packagingHint',
   'kitchen:recipes.packagingPlaceholder',
   'kitchen:recipes.packagingWasteHint',
@@ -11305,6 +11397,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sectionIdentity',
   'kitchen:recipes.sectionLines',
   'kitchen:recipes.sectionOutputs',
+  'kitchen:recipes.sectionPackageCosts',
   'kitchen:recipes.sectionPackaging',
   'kitchen:recipes.sectionPackagingWaste',
   'kitchen:recipes.sectionRawMaterials',
@@ -11358,11 +11451,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.summaryYield',
   'kitchen:recipes.tabCosting',
   'kitchen:recipes.tabDescription',
+  'kitchen:recipes.tabNext',
   'kitchen:recipes.tabPackaging',
+  'kitchen:recipes.tabPrevious',
   'kitchen:recipes.tabProduction',
   'kitchen:recipes.tabSheet',
   'kitchen:recipes.tabsLabel',
   'kitchen:recipes.title',
+  'kitchen:recipes.uncostedLines',
   'kitchen:recipes.unnamedLine',
   'kitchen:recipes.unnamedOutput',
   'kitchen:recipes.versionCount',

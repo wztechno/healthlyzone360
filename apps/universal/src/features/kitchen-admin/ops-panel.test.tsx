@@ -1,6 +1,6 @@
 import type { ItemLatestPurchase, StockItem, StockLevel } from '@healthy360/api-client/contracts';
 import { GoodsReceiptId, SupplierId } from '@healthy360/domain-types';
-import { screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
@@ -116,6 +116,55 @@ describe('ops panels', () => {
         expect(screen.getByTestId('kitchen-stock-ingredients-table')).toBeTruthy();
         expect(screen.getByTestId('kitchen-stock-products-table')).toBeTruthy();
         expect(screen.getByTestId('kitchen-stock-levels-table')).toBeTruthy();
+    });
+
+    it('shows ten shelves a page, and asks only about the prices on that page', async () => {
+        const { repositories } = await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () =>
+                        Array.from({ length: 12 }, (_, index) => stockItem(index + 1)),
+                    listStockLevels: async () => [],
+                    listItemLatestPurchases: async () => [],
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
+        });
+
+        // The name cell, which every row draws in either of `Table`'s two layouts.
+        const rowFor = (ordinal: number) =>
+            `${stockItemRowTestId(String(stockItem(ordinal).id))}-name`;
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-stock-ingredients-table')).toBeTruthy();
+        });
+
+        // Ten by default, and the other two are on the next page rather than below the fold.
+        expect(screen.getByTestId(rowFor(1))).toBeTruthy();
+        expect(screen.getByTestId(rowFor(10))).toBeTruthy();
+        expect(screen.queryByTestId(rowFor(11))).toBeNull();
+
+        // The point of the page: the price read asks about what is on screen. Asking about the
+        // whole library is what made this request a `414` at the edge.
+        expect(repositories.kitchenOps.listItemLatestPurchases).toHaveBeenCalledWith(
+            Array.from({ length: 10 }, (_, index) => stockItem(index + 1).id),
+        );
+
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-stock-ingredients-pagination-pages-page-2'),
+            );
+        });
+
+        expect(screen.getByTestId(rowFor(11))).toBeTruthy();
+        expect(screen.queryByTestId(rowFor(1))).toBeNull();
+        await waitFor(() => {
+            expect(repositories.kitchenOps.listItemLatestPurchases).toHaveBeenCalledWith([
+                stockItem(11).id,
+                stockItem(12).id,
+            ]);
+        });
     });
 
     it('offers no way to declare a stock item — a shelf follows an ingredient or a product', async () => {

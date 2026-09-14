@@ -679,6 +679,29 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'batch',
+        // A reading of one recipe version, not a family of records: nothing is created, nothing has
+        // a lifecycle and nothing is written. The production order this page's arithmetic would
+        // feed belongs to the family below it, which is why the two sit together.
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.batch.name',
+        descriptionKey: 'kitchen:families.batch.description',
+        // `◯`, the plain round — a plate, and the closest honest reading the glyph table has for
+        // "how much food this makes". The workspace-wide compromise applies unchanged: the icon set
+        // is a table of typographic characters, and a real icon set retires it.
+        icon: 'plate',
+        // Top-level, not nested under `/kitchen/recipes`: `isKitchenNavActive` matches on
+        // `startsWith(href + '/')`, so a nested path would light the recipe book's nav row.
+        href: '/kitchen/batch',
+        // The recipe code, because a batch sheet is a reading of a recipe. The screen's own `<Gate>`
+        // asks for `catalogue.view_organisation` as well — the ingredient endpoint behind every name
+        // on the page demands it — and a slot holds one code.
+        permission: RECIPE_VIEW_PERMISSION,
+        // A plan, not an order. Everything this page suggests is committed on the production screen.
+        managePermission: null,
+    },
+    {
         key: 'production',
         kind: 'managed',
         group: 'operations',
