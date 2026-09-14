@@ -320,7 +320,7 @@ describe('order desk queue — the four-state ladder', () => {
         expect(screen.getByTestId('kitchen-order-desk-clear')).toBeTruthy();
     });
 
-    it('renders the queue in the order the server answered, with no pagination under it', async () => {
+    it('renders the queue in the order the server answered, one page of it', async () => {
         await renderDesk(async () => queue(seedQueue()));
 
         await waitFor(
@@ -334,8 +334,11 @@ describe('order desk queue — the four-state ladder', () => {
         expect(screen.getByTestId(rowTestId(3, 'number'))).toHaveTextContent('H360-2026-0148');
         // 16 000 minor units through the currency's own exponent, exactly once.
         expect(screen.getByTestId(rowTestId(1, 'total'))).toHaveTextContent('AED 160.00');
-        // The queue is bounded, not paged: there is no page control to offer.
-        expect(screen.queryByTestId('kitchen-order-desk-pagination')).toBeNull();
+        // Pages are cut from the loaded queue, eighteen rows each; three rows need no page buttons.
+        expect(screen.getByTestId('kitchen-order-desk-pagination-range')).toHaveTextContent(
+            'Showing 3 of 3',
+        );
+        expect(screen.queryByTestId('kitchen-order-desk-pagination-pages')).toBeNull();
     });
 });
 
@@ -640,14 +643,9 @@ describe('order desk queue — the delivery column', () => {
             /With a driver/,
         );
 
-        // The tracking axis is what the *customer* has been told, and it is shown on both — an
-        // unassigned run has already told somebody it is waiting for a driver.
-        expect(screen.getByTestId(rowTestId(4, 'delivery-tracking'))).toHaveTextContent(
-            'Waiting for a driver',
-        );
-        expect(screen.getByTestId(rowTestId(5, 'delivery-tracking'))).toHaveTextContent(
-            'On the way',
-        );
+        // The cell is the label alone. The tracking axis lives in the drawer, beside Fulfil.
+        expect(screen.queryByTestId(rowTestId(4, 'delivery-tracking'))).toBeNull();
+        expect(screen.queryByTestId(rowTestId(5, 'delivery-tracking'))).toBeNull();
     });
 
     /**

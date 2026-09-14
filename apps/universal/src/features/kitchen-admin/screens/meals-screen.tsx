@@ -19,13 +19,13 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueColumnHeader } from '../catalogue/catalogue-column-header.tsx';
+import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
+import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -128,10 +128,20 @@ function MealsList() {
 
     const columns = useMemo(() => mealColumns({ t, locale, formatter }), [t, locale, formatter]);
 
-    const withHeaders = columns.map((column) => ({
-        ...column,
-        renderHeader: headerMenu(column, list, t, locale),
-    }));
+    const controls = useColumnControls<MealAdmin, CatalogueColumn<MealAdmin>>(
+        list.rows,
+        columns.map((column) => ({ ...column, ...columnControl(column.key, list, t, locale) })),
+        'kitchen-meals',
+        {
+            sort: {
+                key: list.sortKey,
+                direction: list.sortDirection,
+                onChange: (key, direction) => {
+                    if (isMealAdminSortKey(key)) list.setSort(key, direction);
+                },
+            },
+        },
+    );
 
     const active = list.statuses[0];
     const segmentValue: StatusSegmentValue =
@@ -232,7 +242,7 @@ function MealsList() {
                     <CatalogueList
                         testID="kitchen-meals-table"
                         label={t('kitchen:meals.caption')}
-                        columns={withHeaders}
+                        columns={controls.columns}
                         rows={list.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
@@ -557,176 +567,77 @@ function viewFields(
 }
 
 /**
- * The header control for one column — §4.3's sort-and-filter menu.
+ * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Returns `undefined` for a column that can neither sort nor filter, which is what tells `DataList`
- * to draw a plain label rather than a focusable trigger nobody can act on.
+ * Only what `MealAdminFilter` carries — `statuses`, `mealTypes`, `allergenCodes` — all sent with
+ * the request. Channels and the filing pair have no parameter, so their headers stay plain:
+ * narrowing one loaded page would misreport every page after it. The allergen filter has to be
+ * the server's: a meal's label is derived at read time, so nothing on the row could be matched.
  */
-function headerMenu(
-    column: CatalogueColumn<MealAdmin>,
-    list: MealListState,
-    t: TFunction,
-    locale: string,
-): (() => ReactNode) | undefined {
-    const sortKey = sortKeyFor(column.key);
-    const filter = filterItemsFor(column.key, list, t, locale);
-    if (sortKey === null && filter.length === 0) return undefined;
-
-    const active = sortKey !== null && list.sortKey === sortKey;
-    // Any value in this column's own list that is currently applied. Derived from the items
-    // rather than restated per entity: the screens already mark the applied value `selected`
-    // so the menu can tick it, and "the menu has a tick" is exactly "the column is filtered".
-    const filtered = filter.some((item) => item.selected === true);
-
-    /*
-     * A column with nothing to filter by sorts on the press itself - see `onToggleSort`. The cycle
-     * is the one a reader expects from a table: first press sorts ascending, pressing the column
-     * already sorted flips it.
-     */
-    const toggleSort =
-        sortKey === null || filter.length > 0
-            ? undefined
-            : () => {
-                  list.setSort(sortKey, active && list.sortDirection === 'asc' ? 'desc' : 'asc');
-              };
-
-    return () => (
-        <CatalogueColumnHeader
-            label={column.label}
-            align={column.align}
-            {...(toggleSort === undefined ? {} : { onToggleSort: toggleSort })}
-            /*
-             * Values only. The sort pair used to lead this list, which meant a column that could
-             * only sort still opened a panel to ask "ascending or descending" - a second press for
-             * something the first press already meant. Sorting is the press itself now, so a column
-             * with no values to choose from has no menu at all, and `sections` being empty is
-             * exactly what tells the header that.
-             */
-            sections={
-                filter.length === 0 ? [] : [{ label: t('kitchen:catalogue.filter'), items: filter }]
-            }
-            // Three states, not two: `undefined` where the column cannot sort at all, so the
-            // header knows to draw no arrow rather than a grey one pointing at nothing.
-            sortDirection={
-                sortKey === null || filter.length > 0
-                    ? undefined
-                    : active
-                      ? list.sortDirection
-                      : null
-            }
-            filtered={filtered}
-            testID={`kitchen-meals-column-${column.key}`}
-        />
-    );
-}
-
-/** The sort the hook understands for a column, or `null` where there is none. */
-function sortKeyFor(key: string): MealSortKey | null {
-    if (key === 'name' || key === 'category' || key === 'status' || key === 'updatedAt') {
-        return key;
-    }
-    return null;
-}
-
-/**
- * The value list under a column's Filter heading.
- *
- * Only what the request can carry: `MealAdminFilter` publishes `statuses`, `mealTypes` and now
- * `allergenCodes`. Channels and the kitchen's own filing pair still have no parameter, so their
- * headers do not offer to narrow by them — filtering one loaded page would misreport every page
- * after it.
- *
- * The allergen filter is the server's, and it has to be: a meal's label is derived at read time
- * from a published recipe version or from the item's own ingredients, so there is nothing stored
- * on the row for a client-side pass to match against. `CatalogueItemIndexController` resolves the
- * same bases in the same order of authority, which is what keeps the filter and the column
- * answering the same question.
- */
-function filterItemsFor(
+function columnControl(
     key: string,
     list: MealListState,
     t: TFunction,
     locale: string,
-): readonly MenuItem[] {
-    if (key === 'allergens') {
-        /*
-         * Every class the platform declares, not only the ones on the loaded page.
-         *
-         * The page-derived alternative is the trap the ingredient list already documents: the rows
-         * in front of you carry four classes between them, so the menu offers four and the other
-         * ten look as though nothing declares them. The vocabulary is closed and on the contract,
-         * so it is read from there.
-         */
-        return [
-            ...list.allergenClasses.map((entry) => ({
-                key: entry.code,
-                label: displayName(entry.name, locale).value,
-                selected: list.allergen === entry.code,
-                testID: `kitchen-meals-column-allergens-${entry.code}`,
-                onSelect: () => {
-                    list.setAllergen(list.allergen === entry.code ? null : entry.code);
-                },
-            })),
-            ...(list.allergen === null
-                ? []
-                : [
-                      clearItem('allergens', t, () => {
-                          list.setAllergen(null);
-                      }),
-                  ]),
-        ];
-    }
-
+): ColumnControl<MealAdmin> {
     if (key === 'status') {
-        return [
-            ...MEAL_STATUS_FILTERS.map((status: PublishableStatus) => ({
-                key: status,
-                label: t(statusShortKey(status)),
-                selected: list.statuses.includes(status),
-                testID: `kitchen-meals-column-status-${status}`,
-                onSelect: () => {
-                    list.setStatuses(list.statuses[0] === status ? [] : [status]);
+        return {
+            filter: {
+                values: () =>
+                    MEAL_STATUS_FILTERS.map((status: PublishableStatus) => ({
+                        key: status,
+                        label: t(statusShortKey(status)),
+                    })),
+                external: {
+                    value: list.statuses[0] ?? null,
+                    onChange: (next) => {
+                        list.setStatuses(next === null ? [] : [next as PublishableStatus]);
+                    },
                 },
-            })),
-            ...(list.statuses.length === 0
-                ? []
-                : [
-                      clearItem('status', t, () => {
-                          list.setStatuses([]);
-                      }),
-                  ]),
-        ];
+            },
+        };
     }
-
+    if (key === 'allergens') {
+        // Every class the platform declares, not only the ones on the loaded page — a page-derived
+        // menu makes the classes nobody on this page carries look as though nothing declares them.
+        return {
+            filter: {
+                values: () =>
+                    list.allergenClasses.map((entry) => ({
+                        key: entry.code,
+                        label: displayName(entry.name, locale).value,
+                    })),
+                external: {
+                    value: list.allergen,
+                    onChange: (next) => {
+                        list.setAllergen(
+                            list.allergenClasses.find((entry) => entry.code === next)?.code ?? null,
+                        );
+                    },
+                },
+            },
+        };
+    }
     if (key === 'mealTypes') {
-        return [
-            ...MEAL_TYPES.map((type: MealType) => ({
-                key: type,
-                label: t(mealTypeKey(type)),
-                selected: list.mealType === type,
-                testID: `kitchen-meals-column-meal-type-${type}`,
-                onSelect: () => {
-                    list.setMealType(list.mealType === type ? null : type);
+        return {
+            filter: {
+                values: () =>
+                    MEAL_TYPES.map((type: MealType) => ({
+                        key: type,
+                        label: t(mealTypeKey(type)),
+                    })),
+                external: {
+                    value: list.mealType,
+                    onChange: (next) => {
+                        list.setMealType(next as MealType | null);
+                    },
                 },
-            })),
-            ...(list.mealType === null
-                ? []
-                : [
-                      clearItem('meal-type', t, () => {
-                          list.setMealType(null);
-                      }),
-                  ]),
-        ];
+            },
+        };
     }
-
-    return [];
+    return isMealAdminSortKey(key) ? { sort: 'external' } : {};
 }
 
-function clearItem(column: string, t: TFunction, onSelect: () => void): MenuItem {
-    return {
-        key: 'clear',
-        label: t('kitchen:catalogue.clearFilter'),
-        testID: `kitchen-meals-column-${column}-clear`,
-        onSelect,
-    };
+function isMealAdminSortKey(key: string): key is MealSortKey {
+    return key === 'name' || key === 'category' || key === 'status' || key === 'updatedAt';
 }

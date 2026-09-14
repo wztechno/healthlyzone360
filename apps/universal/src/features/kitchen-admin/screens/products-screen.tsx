@@ -23,7 +23,8 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueColumnHeader } from '../catalogue/catalogue-column-header.tsx';
+import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
+import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -216,10 +217,20 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
         [t, locale, formatter, categoryName],
     );
 
-    const withHeaders = columns.map((column) => ({
-        ...column,
-        renderHeader: headerMenu(column, list, t),
-    }));
+    const controls = useColumnControls<ProductAdmin, CatalogueColumn<ProductAdmin>>(
+        list.rows,
+        columns.map((column) => ({ ...column, ...columnControl(column.key, list, t) })),
+        'kitchen-products',
+        {
+            sort: {
+                key: list.sortKey,
+                direction: list.sortDirection,
+                onChange: (key, direction) => {
+                    if (isProductAdminSortKey(key)) list.setSort(key, direction);
+                },
+            },
+        },
+    );
 
     // A status the segments do not name — Archived, reached from the Status column's own filter —
     // leaves the set on "all" rather than lighting a segment that is not on the row.
@@ -332,7 +343,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                     <CatalogueList
                         testID="kitchen-products-table"
                         label={t(family.caption)}
-                        columns={withHeaders}
+                        columns={controls.columns}
                         rows={list.rows}
                         rowKey={(row) => String(row.id)}
                         // Fixed, not switchable: the S/M/L control is gone.
@@ -666,150 +677,61 @@ function viewFields(
 }
 
 /**
- * The header control for one column — §4.3's sort-and-filter menu.
+ * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Returns `undefined` for a column that can neither sort nor filter, which is what tells `DataList`
- * to draw a plain label instead of a focusable trigger nobody can act on.
+ * Only Status and Category filter, because only those two travel on `ProductAdminFilter`;
+ * Packs, Channels and Flags have no parameter, and narrowing the loaded page would misreport
+ * every page after it. Status offers all four, Archived included, so the toolbar can name three.
  */
-function headerMenu(
-    column: CatalogueColumn<ProductAdmin>,
+function columnControl(
+    key: string,
     list: ProductListState,
     t: TFunction,
-): (() => ReactNode) | undefined {
-    const sortKey = sortKeyFor(column.key);
-    const filter = filterItemsFor(column.key, list, t);
-    if (sortKey === null && filter.length === 0) return undefined;
-
-    const active = sortKey !== null && list.sortKey === sortKey;
-    // Any value in this column's own list that is currently applied. Derived from the items
-    // rather than restated per entity: the screens already mark the applied value `selected`
-    // so the menu can tick it, and "the menu has a tick" is exactly "the column is filtered".
-    const filtered = filter.some((item) => item.selected === true);
-
-    /*
-     * A column with nothing to filter by sorts on the press itself - see `onToggleSort`. The cycle
-     * is the one a reader expects from a table: first press sorts ascending, pressing the column
-     * already sorted flips it.
-     */
-    const toggleSort =
-        sortKey === null || filter.length > 0
-            ? undefined
-            : () => {
-                  list.setSort(sortKey, active && list.sortDirection === 'asc' ? 'desc' : 'asc');
-              };
-
-    return () => (
-        <CatalogueColumnHeader
-            label={column.label}
-            align={column.align}
-            {...(toggleSort === undefined ? {} : { onToggleSort: toggleSort })}
-            /*
-             * Values only. The sort pair used to lead this list, which meant a column that could
-             * only sort still opened a panel to ask "ascending or descending" - a second press for
-             * something the first press already meant. Sorting is the press itself now, so a column
-             * with no values to choose from has no menu at all, and `sections` being empty is
-             * exactly what tells the header that.
-             */
-            sections={
-                filter.length === 0 ? [] : [{ label: t('kitchen:catalogue.filter'), items: filter }]
-            }
-            // Three states, not two: `undefined` where the column cannot sort at all, so the
-            // header knows to draw no arrow rather than a grey one pointing at nothing.
-            sortDirection={
-                sortKey === null || filter.length > 0
-                    ? undefined
-                    : active
-                      ? list.sortDirection
-                      : null
-            }
-            filtered={filtered}
-            testID={`kitchen-products-column-${column.key}`}
-        />
-    );
+): ColumnControl<ProductAdmin> {
+    if (key === 'status') {
+        return {
+            filter: {
+                values: () =>
+                    PRODUCT_STATUS_FILTERS.map((status: PublishableStatus) => ({
+                        key: status,
+                        label: t(statusShortKey(status)),
+                    })),
+                external: {
+                    value: list.statuses[0] ?? null,
+                    onChange: (next) => {
+                        list.setStatuses(next === null ? [] : [next as PublishableStatus]);
+                    },
+                },
+            },
+        };
+    }
+    if (key === 'category') {
+        return {
+            filter: {
+                // A value with no id is not offered: the endpoint narrows by id, so a code the read
+                // could not pair with one would send no constraint while the header claimed a filter.
+                values: () =>
+                    list.categories
+                        .filter((entry) => entry.id !== null)
+                        .map((entry) => ({ key: entry.code, label: humaniseCode(entry.code) })),
+                external: {
+                    value: list.category,
+                    onChange: (next) => {
+                        list.setCategory(next);
+                    },
+                },
+            },
+        };
+    }
+    return isProductAdminSortKey(key) ? { sort: 'external' } : {};
 }
 
-/** The sort the hook understands for a column, or `null` where there is none. */
-function sortKeyFor(key: string): SortKey | null {
-    if (
+function isProductAdminSortKey(key: string): key is SortKey {
+    return (
         key === 'reference' ||
         key === 'name' ||
         key === 'category' ||
         key === 'status' ||
         key === 'updatedAt'
-    ) {
-        return key;
-    }
-    return null;
-}
-
-/**
- * The value list under a column's Filter heading.
- *
- * Only the two the request can carry. Packs, Channels and Flags have no filter parameter on
- * `ProductAdminFilter`, so their headers sort nothing and filter nothing — narrowing one loaded
- * page and calling it a filter would misreport every page after it.
- *
- * Status offers all four, including Archived, which is what makes it fine for the toolbar's
- * segments to name only three.
- */
-function filterItemsFor(key: string, list: ProductListState, t: TFunction): readonly MenuItem[] {
-    if (key === 'status') {
-        return [
-            ...PRODUCT_STATUS_FILTERS.map((status: PublishableStatus) => ({
-                key: status,
-                label: t(statusShortKey(status)),
-                selected: list.statuses.includes(status),
-                testID: `kitchen-products-column-status-${status}`,
-                onSelect: () => {
-                    list.setStatuses(list.statuses[0] === status ? [] : [status]);
-                },
-            })),
-            ...(list.statuses.length === 0
-                ? []
-                : [
-                      clearItem('status', t, () => {
-                          list.setStatuses([]);
-                      }),
-                  ]),
-        ];
-    }
-
-    if (key === 'category') {
-        return [
-            /*
-             * A value with no id is not offered: the endpoint narrows by id, so a code the read
-             * could not pair with one would send no constraint and answer with the whole list
-             * while the header claimed a filter was on.
-             */
-            ...list.categories
-                .filter((entry) => entry.id !== null)
-                .map((entry) => ({
-                    key: entry.code,
-                    label: humaniseCode(entry.code),
-                    selected: list.category === entry.code,
-                    testID: `kitchen-products-column-category-${entry.code}`,
-                    onSelect: () => {
-                        list.setCategory(list.category === entry.code ? null : entry.code);
-                    },
-                })),
-            ...(list.category === null
-                ? []
-                : [
-                      clearItem('category', t, () => {
-                          list.setCategory(null);
-                      }),
-                  ]),
-        ];
-    }
-
-    return [];
-}
-
-function clearItem(column: string, t: TFunction, onSelect: () => void): MenuItem {
-    return {
-        key: 'clear',
-        label: t('kitchen:catalogue.clearFilter'),
-        testID: `kitchen-products-column-${column}-clear`,
-        onSelect,
-    };
+    );
 }

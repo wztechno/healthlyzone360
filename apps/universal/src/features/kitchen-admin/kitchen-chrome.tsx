@@ -10,7 +10,12 @@ import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
 import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
 import { permittedNavigation } from '../../navigation/items.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
-import { OVERVIEW_HREF, isKitchenNavActive, kitchenNavSections } from './kitchen-nav.ts';
+import {
+    OVERVIEW_HREF,
+    activeKitchenNavHref,
+    isKitchenNavActive,
+    kitchenNavSections,
+} from './kitchen-nav.ts';
 import { buildReviewQueue } from './review-queue.ts';
 
 /**
@@ -126,6 +131,11 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
     const exceptionTotal = exceptions.data ?? null;
 
     return useMemo(() => {
+        const activeHref = activeKitchenNavHref(
+            pathname,
+            sections.flatMap((section) => section.items.map((item) => item.href)),
+        );
+
         const queueCount = (key: string): number | null => {
             if (key === 'review') return reviewTotal;
             if (key === 'consumption-exceptions') return exceptionTotal;
@@ -143,7 +153,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 key: item.key,
                 label: t(item.nameKey),
                 icon: item.icon,
-                active: isKitchenNavActive(pathname, item.href),
+                active: item.href === activeHref,
                 testID: `nav-${item.key}`,
                 ...(count === null || count === 0
                     ? {}
