@@ -57,12 +57,16 @@ final class IngredientPresenter
      *     purchase_unit_code: string|null,
      *     composition: string|null,
      *     items_per_unit: string|null,
+     *     grams_per_unit: string|null,
      *     purchase_price_amount: string|null,
      *     purchase_price_currency: string|null,
      *     waste_percent: string|null,
      *     capacity_quantity: string|null,
      *     capacity_unit_code: string|null,
      *     nutrition_per_100g: array<string, mixed>|null,
+     *     nutrition_derived_from_version_id: string|null,
+     *     nutrition_estimated: bool|null,
+     *     nutrition_note: string|null,
      *     b2b_price_amount: string|null,
      *     b2c_price_amount: string|null,
      *     unit_price_amount: string|null,
@@ -101,6 +105,15 @@ final class IngredientPresenter
             'composition' => $ingredient->composition,
             'items_per_unit' => $ingredient->items_per_unit === null ? null : (string) $ingredient->items_per_unit,
             /*
+             * What one default unit weighs, in grams — 1080 for a litre of soya sauce.
+             *
+             * Only ever asked of a non-mass unit: a kilogram already weighs what it weighs, and
+             * storing 1000 against it would be a second source of truth for arithmetic the unit
+             * table already does. Null is the common answer and an honest one — the roll-up names
+             * the line it could not weigh rather than guessing a density.
+             */
+            'grams_per_unit' => $ingredient->grams_per_unit === null ? null : (string) $ingredient->grams_per_unit,
+            /*
              * The three figures packaging brought with it when it came back into this table.
              *
              * `purchase_price_amount` is per **purchase pack**, not per issued unit — a sleeve at
@@ -118,6 +131,24 @@ final class IngredientPresenter
             'capacity_quantity' => $ingredient->capacity_quantity === null ? null : (string) $ingredient->capacity_quantity,
             'capacity_unit_code' => $ingredient->relationLoaded('capacityUnit') ? $ingredient->capacityUnit?->code : null,
             'nutrition_per_100g' => $ingredient->nutrition_per_100g,
+            /*
+             * Set when the facts above were derived from a published recipe version rather than
+             * entered — a sub-recipe's output, whose nutrition is whatever the recipe that makes it
+             * works out to. On the wire so an editor can render the panel read-only and say why,
+             * rather than offering a control whose save 422s.
+             */
+            'nutrition_derived_from_version_id' => $ingredient->nutrition_derived_from_version_id,
+            /*
+             * How good the figures are, and the source's own sentence about them.
+             *
+             * Three states, and the null is load-bearing: `true` is a representative figure —
+             * true of the category rather than measured of this thing — `false` is a declared
+             * one, and `null` is nobody having said. The reference document flags 56 of its 306
+             * rows and tells a kitchen to replace those with a supplier's label, which is an
+             * instruction nothing could act on while the flag stayed in the seed file.
+             */
+            'nutrition_estimated' => $ingredient->nutrition_estimated,
+            'nutrition_note' => $ingredient->nutrition_note,
             'b2b_price_amount' => $ingredient->b2b_price_amount === null ? null : (string) $ingredient->b2b_price_amount,
             'b2c_price_amount' => $ingredient->b2c_price_amount === null ? null : (string) $ingredient->b2c_price_amount,
             'unit_price_amount' => $ingredient->unit_price_amount === null ? null : (string) $ingredient->unit_price_amount,

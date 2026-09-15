@@ -7,6 +7,7 @@ namespace Healthy360\Cart\Services;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
+use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
@@ -44,7 +45,10 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
  *    retired article stays in an old basket and is refused here, visibly,
  *    which is the whole reason the `restrictOnDelete` on `cart_items` exists.
  * 4. **The variant belongs to the article and is active.** A pack is not
- *    separately published, so `active` is its whole test.
+ *    separately published, so `active` is its whole test. When the caller
+ *    names no pack for a pack kind, the probe picks one the way the
+ *    marketplace listing did ({@see offeredPack()}): consumer surfaces name
+ *    the article, never the pack.
  * 5. **The channel offers it on the day.** The absence of an assignment says
  *    nothing at all — availability and publication are different questions —
  *    so an article no channel has been given is refused rather than assumed.
@@ -108,6 +112,36 @@ final readonly class LineProbe
         );
     }
 
+    /**
+     * Which pack a line for this article is held under when the caller names
+     * none — the same choice {@see probe()} makes, exposed so a basket can
+     * merge a repeat add into the line the first add created. Null for a
+     * meal, an unknown article, or an article no pack of which the channel
+     * offers and prices.
+     */
+    public function packFor(
+        SalesChannel $channel,
+        string $catalogueItemId,
+        string $quantity,
+        ?CarbonImmutable $on,
+        ?CustomerAccount $buyer = null,
+    ): ?string {
+        return $this->tenantContext->during(null, (string) $channel->organisation_id, null, function () use ($channel, $catalogueItemId, $quantity, $on, $buyer): ?string {
+            $item = CatalogueItem::withoutTenancy()
+                ->whereKey($catalogueItemId)
+                ->where('organisation_id', $channel->organisation_id)
+                ->first();
+
+            if (! $item instanceof CatalogueItem || $item->item_type->variantType() !== VariantType::Pack) {
+                return null;
+            }
+
+            $pack = $this->offeredPack($channel, $item, $quantity, ($on ?? CarbonImmutable::now())->startOfDay(), $buyer);
+
+            return $pack?->getKey() === null ? null : (string) $pack->getKey();
+        });
+    }
+
     private function probeWithinTenant(
         SalesChannel $channel,
         string $catalogueItemId,
@@ -165,6 +199,8 @@ final readonly class LineProbe
                     'status' => $variant->status->value,
                 ];
             }
+        } elseif ($item->item_type->variantType() === VariantType::Pack) {
+            $variant = $this->offeredPack($channel, $item, $quantity, $day, $buyer);
         }
 
         if (! $this->offeredOn($channel, $item, $variant, $day)) {
@@ -201,6 +237,49 @@ final readonly class LineProbe
         }
 
         return new LineProbeResult($item, $variant, $refusals === [] ? $price : null, $refusals);
+    }
+
+    /**
+     * The pack a line takes when only the article is named.
+     *
+     * The marketplace listing shows one price for a sauce or a product, and
+     * the app adds the item id alone. That price was found by trying the
+     * item's active packs, default first (`MarketplaceMeals::priceOf`), so the
+     * basket chooses the same way — or a customer is shown a price and then
+     * refused when they try to buy at it. Offered on this channel today and
+     * priced, in that order, so the pack picked is one this channel actually
+     * sells. No such pack leaves the line item-level, where the refusals name
+     * what is missing exactly as they did before.
+     */
+    private function offeredPack(SalesChannel $channel, CatalogueItem $item, string $quantity, CarbonImmutable $day, ?CustomerAccount $buyer): ?CatalogueItemVariant
+    {
+        $packs = CatalogueItemVariant::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('status', VariantStatus::Active->value)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->get();
+
+        foreach ($packs as $pack) {
+            if (! $this->offeredOn($channel, $item, $pack, $day)) {
+                continue;
+            }
+
+            $price = $this->prices->currentFor(
+                (string) $channel->getKey(),
+                (string) $item->getKey(),
+                (string) $pack->getKey(),
+                $quantity,
+                $day,
+                $buyer,
+            );
+
+            if ($price instanceof ResolvedPrice) {
+                return $pack;
+            }
+        }
+
+        return null;
     }
 
     /**

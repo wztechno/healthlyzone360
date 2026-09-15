@@ -626,7 +626,7 @@ describe('ConsentsScreen', () => {
     it('blocks every required agreement until the age is confirmed, then accepts one', async () => {
         const privacyText = 'What Healthy360 records about you, and for how long.';
         let consents: readonly ConsentState[] = [
-            consent('age_confirmation', { required: true, title: 'Your age' }),
+            consent('consent.age_confirmation', { required: true, title: 'Your age' }),
             consent('terms_of_service', { required: true, title: 'Terms of service' }),
             consent('privacy_notice', {
                 required: true,
@@ -662,7 +662,7 @@ describe('ConsentsScreen', () => {
             ).toBe(false);
         });
         expect(repositories.account.setConsent).toHaveBeenCalledWith({
-            key: 'age_confirmation',
+            key: 'consent.age_confirmation',
             granted: true,
         });
 

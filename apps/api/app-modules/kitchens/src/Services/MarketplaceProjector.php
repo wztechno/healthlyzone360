@@ -128,6 +128,7 @@ final class MarketplaceProjector
             $locale,
             $price,
             $allergens,
+            $this->meals->nutritionOf($meal),
             $this->meals->dietClassificationCodesOf($meal),
 
             // Nothing on the item records a meal's time of day; see the

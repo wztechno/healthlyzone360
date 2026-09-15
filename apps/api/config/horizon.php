@@ -199,7 +199,11 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['default'],
+            // Every queue the application dispatches to. A queue missing here is
+            // a job that never runs: the OTP mail (`notifications`) and the
+            // scheduler's housekeeping (`maintenance`) sat unworked on the
+            // droplet until they were added.
+            'queue' => ['default', 'notifications', 'maintenance'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,

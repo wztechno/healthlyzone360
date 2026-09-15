@@ -31,7 +31,18 @@ class PreviewRecipeRollupRequest extends FormRequest
     {
         return [
             'recipe_id' => ['nullable', 'uuid'],
-            'servings' => ['required', 'numeric', 'gt:0', 'max:9999'],
+
+            /*
+             * Optional, and never defaulted.
+             *
+             * It divides the per-serving figures and nothing else, so a draft
+             * that has not said how it is portioned gets `per_serving: null`
+             * rather than a per-serving label computed over an invented one.
+             * A twelve-portion batch labelled as a single serving is the exact
+             * failure this refuses; `gt:0` keeps a stated zero out too, because
+             * "zero servings" is a typo, not an answer.
+             */
+            'servings' => ['nullable', 'numeric', 'gt:0', 'max:9999'],
             'waste_percent' => ['nullable', 'numeric', 'gte:0', 'max:100'],
             'lines' => ['present', 'array', 'max:200'],
             'lines.*.ingredient_id' => ['required', 'uuid'],
@@ -69,7 +80,7 @@ class PreviewRecipeRollupRequest extends FormRequest
     /**
      * @return array{
      *     recipe_id: string|null,
-     *     servings: float|string,
+     *     servings: float|string|null,
      *     waste_percent: float|string|null,
      *     lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>,
      *     yield_quantity: string|null,
@@ -81,12 +92,12 @@ class PreviewRecipeRollupRequest extends FormRequest
      */
     public function draft(): array
     {
-        /** @var array{recipe_id?: string|null, servings: float|string, waste_percent?: float|string|null, lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>, yield_quantity?: float|string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: float|string|null, packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>} $validated */
+        /** @var array{recipe_id?: string|null, servings?: float|string|null, waste_percent?: float|string|null, lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>, yield_quantity?: float|string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: float|string|null, packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>} $validated */
         $validated = $this->validated();
 
         return [
             'recipe_id' => isset($validated['recipe_id']) ? (string) $validated['recipe_id'] : null,
-            'servings' => $validated['servings'],
+            'servings' => $validated['servings'] ?? null,
             'waste_percent' => $validated['waste_percent'] ?? null,
             'lines' => $validated['lines'],
             'yield_quantity' => isset($validated['yield_quantity']) ? (string) $validated['yield_quantity'] : null,

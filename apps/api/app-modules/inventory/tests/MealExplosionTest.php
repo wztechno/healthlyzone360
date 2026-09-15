@@ -174,6 +174,43 @@ it('groups a mixed-unit recipe by unit before converting, and lands on the figur
         ]);
 });
 
+it('consumes half the ingredients for a half-portion item', function (): void {
+    // One sold unit = one yield piece × the item's portion factor. The same
+    // recipe, the same version, the same shelf — only the article's declared
+    // portion differs, and the deduction has to follow it or a kitchen selling
+    // small squares would run its stock down twice as fast on paper as in life.
+    //
+    //   1 kg ÷ 4 pieces = 0.250000000000  per piece
+    //   × 3 meals ordered                 → 0.750000  at factor 1
+    //   × 0.5 portion factor              → 0.375000  at factor 0.5
+    [$flour, $shelves] = explodableShelves($this, $this->kg, ['sku-flour']);
+
+    $meal = explodableMeal($this, yieldPieceCount: 4, wastePercent: '0.00', lines: [
+        [$flour, '1', $this->kg],
+    ]);
+
+    // The default first: adding the column moved nothing.
+    $whole = $this->explosion->explode($this->organisationId, $meal, '3', (string) $this->branch->getKey());
+
+    expect($whole->failures)->toBe([])
+        ->and($whole->rows)->toHaveCount(1)
+        ->and($whole->rows[0]['quantity'])->toBe('0.750000');
+
+    $meal->portion_factor = '0.5';
+    $meal->save();
+
+    $half = $this->explosion->explode($this->organisationId, $meal, '3', (string) $this->branch->getKey());
+
+    expect($half->failures)->toBe([])
+        ->and($half->rows)->toHaveCount(1)
+        ->and($half->rows[0])->toBe([
+            'stock_item_id' => (string) $shelves[0]->getKey(),
+            'stock_unit_id' => (string) $this->kg->getKey(),
+            'ingredient_id' => (string) $flour->getKey(),
+            'quantity' => '0.375000',
+        ]);
+});
+
 it('breaks a tie between two shelves for one ingredient on the branch that already holds a level', function (): void {
     // Two shelves for the same ingredient. `aaa-` sorts first by code and would
     // win on ordering alone; `zzz-` is the one this branch actually counts, so

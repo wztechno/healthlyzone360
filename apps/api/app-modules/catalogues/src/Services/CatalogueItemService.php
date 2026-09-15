@@ -96,6 +96,7 @@ final readonly class CatalogueItemService
      *     product_category_id?: string|null,
      *     production_mode?: string|null,
      *     recipe_id?: string|null,
+     *     portion_factor?: float|string|null,
      *     ingredient_id?: string|null,
      *     purchasing_unit_id?: string|null,
      *     usage_unit_id?: string|null,
@@ -145,6 +146,9 @@ final readonly class CatalogueItemService
             $item->usage_unit_id = $links['usage_unit_id'];
             $item->is_market_priced = (bool) ($attributes['is_market_priced'] ?? false);
             $item->is_assorted = (bool) ($attributes['is_assorted'] ?? false);
+            // One sold unit is one yield piece unless the kitchen says
+            // otherwise.
+            $item->portion_factor = $this->portionFactor($attributes['portion_factor'] ?? '1');
             $item->status = CatalogueItemStatus::Draft;
             $item->image_placeholder_id = $this->trimmedOrNull($attributes['image_placeholder_id'] ?? null);
             $item->lock_version = 0;
@@ -221,6 +225,13 @@ final readonly class CatalogueItemService
             if (array_key_exists($field, $attributes)) {
                 $changes[$field] = (bool) $attributes[$field];
             }
+        }
+
+        // `array_key_exists` rather than `??`, and no null coalesce: the column
+        // is NOT NULL, an explicit null is refused by the request rules, and
+        // "absent" has to keep the stored factor rather than reset it to one.
+        if (array_key_exists('portion_factor', $attributes)) {
+            $changes['portion_factor'] = $this->portionFactor($attributes['portion_factor']);
         }
 
         foreach (['product_category_id', 'production_mode', 'recipe_id', 'ingredient_id', 'purchasing_unit_id', 'usage_unit_id'] as $field) {
@@ -658,6 +669,35 @@ final readonly class CatalogueItemService
     private function asString(mixed $value): ?string
     {
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * The sold portion, narrowed to a decimal string the stock arithmetic can
+     * multiply by.
+     *
+     * A string rather than the float that arrived: the column stores three
+     * places and a float would reach the database having already lost some of
+     * them. Refused rather than defaulted to `1` when it is not a number at
+     * all — the request rules already return a named 422 for that, so anything
+     * reaching here is a caller inside the server, and a portion factor that
+     * quietly became "one whole piece" would over-deduct stock and over-state
+     * a label on every sale. Zero and negatives are left to the column's own
+     * CHECK; the request rules stop them a layer earlier, at the column's
+     * precision.
+     *
+     * @return numeric-string
+     *
+     * @throws ApiException
+     */
+    private function portionFactor(mixed $value): string
+    {
+        $string = is_scalar($value) ? (string) $value : '';
+
+        if (! is_numeric($string)) {
+            throw $this->invalid('portion_factor', 'A portion factor is a number of recipe yield pieces.');
+        }
+
+        return $string;
     }
 
     private function trimmedOrNull(?string $value): ?string

@@ -373,8 +373,42 @@ const DETAIL_MEAL = testMeal({
     channels: salesChannels('b2c', 'marketplace', 'delivery', 'subscription', 'b2b'),
 });
 
+/**
+ * The same screen for a listing sold by weight.
+ *
+ * A bottled sauce's published recipe version states what the bottle holds and no piece count, so
+ * the server derives per-100 g facts (`catalogue.nutrition.per_100g`) and sends `serving: null` —
+ * which the API mapper turns into `UNSTATED_SERVING`, an empty label and an unknown mass. Both
+ * halves are authored here exactly as they arrive, because it is the *pair* the screen has to read
+ * correctly: a per-serving view over these amounts would be naming a portion nobody sells.
+ */
+const WEIGHED_MEAL: MarketplaceMeal = {
+    ...testMeal({ ordinal: 101, name: 'Smoked chilli sauce', slug: 'verdant-smoked-chilli-sauce' }),
+    // `UNSTATED_SERVING`, written out rather than imported: it is not on the package's public
+    // surface, and a fixture that states the shape is the one a reader can check against the wire.
+    serving: {
+        label: '',
+        quantity: 1,
+        unit: 'portion',
+        grams: null,
+        millilitres: null,
+        householdMeasure: null,
+    },
+    nutrition: {
+        ...testFacts({ totalGrams: 100 }),
+        basis: 'per_100g',
+        serving: null,
+        calculation: {
+            ...testFacts().calculation,
+            method: 'catalogue.nutrition.per_100g',
+            basis: 'per_100g',
+        },
+    },
+};
+
 async function getMeal(mealId: MealId): Promise<MarketplaceMeal> {
     if (mealId === DETAIL_MEAL.id) return DETAIL_MEAL;
+    if (mealId === WEIGHED_MEAL.id) return WEIGHED_MEAL;
     const meal = CATALOGUE_MEALS.find((candidate) => candidate.id === mealId);
     if (meal === undefined) throw new ApiError(apiFailure('resource.not_found'));
     return meal;
@@ -855,6 +889,10 @@ describe('MealDetailScreen', () => {
         expect(screen.getByTestId('meal-detail-facts-calculated-at')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-facts-synthetic')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-macro-rings-protein')).toBeTruthy();
+        // The per-serving half of the contrast the weighed listing below draws: this meal states a
+        // portion, so it gets a serving block and a basis control with both views on it.
+        expect(screen.getByTestId('meal-detail-serving')).toBeTruthy();
+        expect(screen.getByTestId('meal-detail-facts-basis-per-serving')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-allergen-list')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-availability')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-price')).toBeTruthy();
@@ -879,6 +917,30 @@ describe('MealDetailScreen', () => {
                 perServing,
             );
         });
+    });
+
+    it('shows a listing sold by weight per 100 g, with no serving and no per-serving view', async () => {
+        await renderStubScreen(<MealDetailScreen mealId={String(WEIGHED_MEAL.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        await waitFor(() => screen.getByTestId('meal-detail-facts'));
+
+        // Nothing where "One serving is …" would be: the label is empty and the mass unknown, and
+        // printing a sentence around that is how a phrase the kitchen never wrote reaches a page.
+        expect(screen.queryByTestId('meal-detail-serving')).toBeNull();
+
+        // No basis control at all, so there is no "Per serving" tab to press — the facts are
+        // already on the comparison basis and there is no second view to offer.
+        expect(screen.queryByTestId('meal-detail-facts-basis')).toBeNull();
+        expect(screen.queryByTestId('meal-detail-facts-basis-per-serving')).toBeNull();
+        expect(screen.getByTestId('meal-detail-facts-sold-by-weight')).toBeTruthy();
+
+        // And the table says which hundred grams these are, rather than leaving the reader to
+        // assume the amounts describe a portion.
+        expect(screen.getByTestId('meal-detail-facts-table-caption')).toHaveTextContent(
+            /Per 100 g/,
+        );
     });
 
     it('never puts a business price on a consumer page', async () => {

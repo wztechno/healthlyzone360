@@ -42,6 +42,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $composition
  * @property numeric-string|null $items_per_unit
  * @property array<string, mixed>|null $nutrition_per_100g
+ * @property string|null $nutrition_derived_from_version_id the published recipe version that derived the facts above, when they were derived rather than entered
+ * @property string|null $nutrition_seed_fingerprint sha256 of the nutrition and density the seeder last wrote; a mismatch means somebody has curated them since
+ * @property bool|null $nutrition_estimated true = a representative figure, false = a declared one, null = nobody has said
+ * @property string|null $nutrition_note what the source said about the figures; not the kitchen's own notes column
  * @property numeric-string|null $b2b_price_amount
  * @property numeric-string|null $b2c_price_amount
  * @property numeric-string|null $unit_price_amount
@@ -51,6 +55,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $purchase_price_currency
  * @property numeric-string|null $waste_percent null = unmeasured, 0 = measured and none
  * @property numeric-string|null $capacity_quantity
+ * @property numeric-string|null $grams_per_unit mass of one default_unit, in grams; null = unweighed
  * @property string|null $capacity_unit_id
  * @property numeric-string $yield_factor
  * @property string|null $forked_from_ingredient_id
@@ -94,6 +99,9 @@ class Ingredient extends BaseModel implements OrganisationScoped
             'yield_factor' => 'decimal:4',
             'items_per_unit' => 'decimal:2',
             'nutrition_per_100g' => 'array',
+            // Nullable, and the null is a third answer rather than a missing
+            // false: "nobody has said" is not "declared". See the migration.
+            'nutrition_estimated' => 'boolean',
             'b2b_price_amount' => 'decimal:6',
             'b2c_price_amount' => 'decimal:6',
             'unit_price_amount' => 'decimal:6',
@@ -103,6 +111,10 @@ class Ingredient extends BaseModel implements OrganisationScoped
             // too — "nobody has measured this", as against a `0` that says there is none.
             'waste_percent' => 'decimal:2',
             'capacity_quantity' => 'decimal:4',
+            // Grams in one `default_unit`. Null on anything stocked by mass —
+            // where the conversion is arithmetic — and on anything nobody has
+            // weighed yet; a roll-up withholds rather than reading it as zero.
+            'grams_per_unit' => 'decimal:4',
         ];
     }
 

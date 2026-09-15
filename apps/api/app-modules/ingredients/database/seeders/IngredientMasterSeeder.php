@@ -246,6 +246,9 @@ class IngredientMasterSeeder extends Seeder
                     'capacity_unit_id' => is_numeric($capacityQuantity) && $capacityUnitCode !== null
                         ? $this->unitIdFor($unitIds, $capacityUnitCode)
                         : null,
+                    // Null on insert, and deliberately: the v6 workbook carries no
+                    // nutrition. `IngredientNutritionSeeder` runs straight after this
+                    // one and fills it from the owner's own reference table.
                     'nutrition_per_100g' => null,
                     'yield_factor' => 1,
                     'forked_from_ingredient_id' => null,

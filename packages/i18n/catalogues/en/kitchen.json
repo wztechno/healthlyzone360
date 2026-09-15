@@ -2019,11 +2019,14 @@
         "stockUnit": "Stock unit",
         "stockUnitHint": "The unit this ingredient is issued and costed in.",
         "itemsPerPurchaseUnit": "Items per purchase unit",
+        "gramsPerUnit": "Mass of 1 {{unit}}",
+        "gramsPerUnitHint": "In grams. What lets a recipe weigh a line measured by volume or by piece.",
         "designation": "Designation",
         "referencePlaceholder": "Assigned on save",
         "unitPlaceholder": "Choose a unit",
         "unitPricePlaceholder": "0.00",
-        "itemsPerUnitPlaceholder": "0"
+        "itemsPerUnitPlaceholder": "0",
+        "gramsPerUnitPlaceholder": "0"
     },
     "units": {
         "dimensionMass": "Mass",
@@ -2439,10 +2442,11 @@
         "warningsTitle": "What could not be counted",
         "warningsNone": "Every line was counted.",
         "warningLines": "Lines: {{names}}",
-        "warningUnknownIngredient": "A line points at an ingredient that is not in the library.",
-        "warningUnconvertibleUnit": "A line is measured in a unit that cannot be converted to a mass here, so it was left out of the figures.",
+        "warningUnknownIngredient": "The figures are withheld: there is no library entry for {{names}}.",
+        "warningUnconvertibleUnit": "The figures are withheld: {{names}} cannot be weighed in grams. Record a weight per unit on the ingredient.",
         "warningMissingCost": "At least one ingredient has no recorded cost, so no total is shown.",
-        "warningMissingFacts": "At least one ingredient carries no reference facts, so it was left out of the figures.",
+        "warningMissingFacts": "No allergen assessment yet for {{names}}, so the declaration may be incomplete.",
+        "warningMissingNutrition": "The figures are withheld: there are no reference nutrition facts for {{names}}.",
         "unsavedNotice": "This preview stores nothing. Save the draft to keep it."
     },
     "rows": {
@@ -3346,7 +3350,26 @@
         "title": "Composition & allergens",
         "fromDatabase": "From database",
         "description": "Nutrients and allergen classes resolve from the reference food database on save. They are shown for confirmation and cannot be typed in.",
+        "allergensDescription": "Allergen classes resolve from the reference food database. They are shown for confirmation and cannot be typed in; a correction happens on the reference record.",
         "per100g": "{{unit}} / 100 g"
+    },
+    "nutritionFacts": {
+        "title": "Nutrition per 100 g",
+        "hint": "Per 100 g of the ingredient as purchased. Recipes are costed and labelled from these figures.",
+        "unitKcal": "kcal",
+        "unitGrams": "g",
+        "unitMilligrams": "mg",
+        "saturatedFatHint": "Optional. Leave blank when the label does not state it.",
+        "estimateLabel": "These figures are an estimate",
+        "estimateDescription": "Tick when the numbers are representative of this kind of ingredient rather than measured from this one. Left unticked, they are recorded as a declaration.",
+        "noteLabel": "Note on the figures",
+        "noteHint": "One sentence: where the numbers came from, or what they depend on. Up to 300 characters.",
+        "notePlaceholder": "Supplier label, March 2026 batch",
+        "partialError": "Fill in all seven figures, or clear them all.",
+        "partialHint": "A part-filled set cannot be added up: a recipe roll-up reads a blank as nothing at all and prints a label that understates it.",
+        "estimatedBadge": "Estimated",
+        "derivedBadge": "Derived from a recipe",
+        "derivedDescription": "These figures are worked out from the published recipe that makes this ingredient, per 100 g of its finished mass. Change the recipe to change them."
     },
     "packaging": {
         "caption": "Packaging",
@@ -3397,6 +3420,7 @@
         "whereUsedBody": "The recipes and sauces consuming this ingredient, with the quantity each takes per batch.",
         "sectionPackCost": "Pack & cost",
         "fieldItemsPerUnit": "Items per purchase unit",
+        "fieldGramsPerUnit": "Mass of 1 {{unit}}",
         "fieldPackCost": "Pack cost",
         "packCostValue": "{{cost}} for {{items}} × {{quantity}} {{unit}}",
         "sectionSuppliers": "Suppliers",

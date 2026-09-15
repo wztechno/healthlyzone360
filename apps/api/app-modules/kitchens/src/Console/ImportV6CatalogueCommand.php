@@ -111,11 +111,23 @@ final class ImportV6CatalogueCommand extends Command
             if ($publish !== self::SUCCESS) {
                 return self::FAILURE;
             }
+
+            // Buyable includes across the counter. The importer opens `web-shop`
+            // and `wholesale` only, so without this the kitchen reaches the
+            // order desk and is refused by `DeskChannelLocator` for having no
+            // `desk` channel — last, because the desk mirrors what the web shop
+            // was just given.
+            $desk = $this->call('kitchen:open-desk-channel', ['--org' => $options->organisationSlug]);
+
+            if ($desk !== self::SUCCESS) {
+                return self::FAILURE;
+            }
         } elseif ($options->writes()) {
             $this->line('');
             $this->line('  Imported rows stay draft until tariffs are active and items pass readiness.');
             $this->line(sprintf('  Next: kitchen:activate-imported-tariffs --org=%s', $options->organisationSlug));
             $this->line(sprintf('        kitchen:publish-ready --org=%s', $options->organisationSlug));
+            $this->line(sprintf('        kitchen:open-desk-channel --org=%s', $options->organisationSlug));
             $this->line('  Or re-run with --publish.');
         }
 
