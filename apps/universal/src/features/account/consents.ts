@@ -9,7 +9,11 @@ import type { ConsentState } from '@healthy360/api-client/contracts';
  */
 
 /** The consent whose absence blocks every other agreement on the screen. */
-export const AGE_CONFIRMATION_KEY = 'age_confirmation';
+// The wire code, not the bare purpose: `mapConsent` keys every consent by its `code`, which is
+// also what `POST /me/consents` and `DELETE /me/consents/{code}` take back. A bare
+// 'age_confirmation' matched nothing the API sends, which left the age control disabled and
+// every required agreement gated behind it forever.
+export const AGE_CONFIRMATION_KEY = 'consent.age_confirmation';
 
 export const CONSENT_STATUSES = ['granted', 'reconsent', 'withdrawn', 'never'] as const;
 export type ConsentStatus = (typeof CONSENT_STATUSES)[number];
