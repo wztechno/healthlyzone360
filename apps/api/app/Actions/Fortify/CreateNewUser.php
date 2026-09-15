@@ -12,6 +12,7 @@ use Healthy360\Customers\Services\CustomerAccountLifecycle;
 use Healthy360\Identity\Enums\ContactChannel;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Identity\Services\ContactPointRegistry;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -26,6 +27,7 @@ class CreateNewUser implements CreatesNewUsers
         private readonly ConsentLedger $consents,
         private readonly ContactPointRegistry $contacts,
         private readonly CustomerAccountLifecycle $accounts,
+        private readonly DatabaseTenantContext $session,
         private readonly Request $request,
     ) {}
 
@@ -49,20 +51,23 @@ class CreateNewUser implements CreatesNewUsers
      * address exists in a form, not that the person holds it; the `Verified`
      * listener stamps it when the signed link or the passcode settles that.
      *
-     * **`account_type` is optional, and `b2c` opens the customer account here**
-     * (J1). Registration is shared: a kitchen's chef and a consumer create an
-     * identity through the same endpoint, and a chef must not acquire an
-     * onboarding checklist they will never complete. So the consumer account is
-     * asked for rather than assumed, by the one client that knows which journey
-     * the person is in.
+     * **Every self-registration opens a consumer account.** J1 asked for it
+     * with `account_type=b2c`, on the theory that a kitchen's chef — who
+     * registers through this same shared endpoint — must not acquire an
+     * onboarding checklist they will never complete. No client ever sent it, so
+     * the people it was protecting were the only ones who got an account and
+     * everybody who registered normally could not open a basket. The account is
+     * now assumed rather than asked for: staff and corporate people register
+     * here and then accept an invitation, and a provisional account they never
+     * touch is reaped after `provisional_expires_at` by
+     * `PurgeAbandonedProvisionalAccounts`.
      *
-     * When it is asked for, it is opened **inside this transaction** for the
-     * same reason as the contact point: a registration that half-succeeded — an
-     * identity with no account, or an account with no consent — must never be
-     * observable, and a consumer client that had to make a second call would
-     * have a window in which it was. The lifecycle converges on the existing row
-     * rather than colliding with it, so a retried registration still produces
-     * one account.
+     * It is opened **inside this transaction** for the same reason as the
+     * contact point: a registration that half-succeeded — an identity with no
+     * account, or an account with no consent — must never be observable, and a
+     * consumer client that had to make a second call would have a window in
+     * which it was. The lifecycle converges on the existing row rather than
+     * colliding with it, so a retried registration still produces one account.
      *
      * The account is opened `provisional`, never active. Nothing here satisfies
      * an activation requirement — the address is unverified, no address exists,
@@ -84,7 +89,11 @@ class CreateNewUser implements CreatesNewUsers
             'accepts_terms' => ['accepted'],
             'accepts_privacy' => ['accepted'],
 
-            // `b2c` is the only value J1 accepts. `b2b` accounts are
+            // Inert: the consumer account is opened either way. Still accepted,
+            // and still only as `b2c`, so the published contract and the
+            // generated client do not have to change — and so a client that
+            // does send it is not answered with a validation failure for
+            // declaring the thing that now happens anyway. `b2b` accounts are
             // provisioned against an organisation by an approved application
             // (B1) and a guest account is opened by the guest journey (G1);
             // neither is something a registration form may declare itself into.
@@ -122,9 +131,12 @@ class CreateNewUser implements CreatesNewUsers
 
             $this->consents->grant($user, ConsentLedger::REGISTRATION_CODES, $this->channel());
 
-            if (($validated['account_type'] ?? null) === CustomerAccountType::B2c->value) {
-                $this->accounts->openConsumerAccount($user);
-            }
+            // Declared to the database session for the write, exactly as the
+            // consent ledger declares it for its own: the `customer_accounts`
+            // INSERT policy matches `app.user_id`, and at registration nobody
+            // is authenticated yet, so the runtime role would be refused the
+            // row it is creating for the person in front of it.
+            $this->session->asUser((string) $user->getKey(), fn () => $this->accounts->openConsumerAccount($user));
 
             return $user;
         });

@@ -6,6 +6,9 @@ use App\Models\User;
 use Healthy360\Consent\Enums\ConsentStatus;
 use Healthy360\Consent\Models\ConsentDefinition;
 use Healthy360\Consent\Models\ConsentGrant;
+use Healthy360\Customers\Enums\CustomerAccountStatus;
+use Healthy360\Customers\Enums\CustomerAccountType;
+use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Identity\Models\UserProfile;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Facades\Notification;
@@ -62,6 +65,17 @@ it('registers an account, a profile and the accepted consents in one act', funct
     $codes = ConsentDefinition::query()->whereIn('id', $granted)->orderBy('code')->pluck('code')->all();
 
     expect($codes)->toBe(['consent.privacy', 'consent.terms']);
+
+    // One customer account, opened without being asked for: the payload above
+    // carries no `account_type` and no client ever sent one, so registering and
+    // then being unable to open a basket was every self-registered person's
+    // experience. Provisional, because nothing here satisfies an activation
+    // requirement.
+    $accounts = CustomerAccount::query()->where('user_id', $user->getKey())->get();
+
+    expect($accounts)->toHaveCount(1)
+        ->and($accounts->first()->account_type)->toBe(CustomerAccountType::B2c)
+        ->and($accounts->first()->status)->toBe(CustomerAccountStatus::Provisional);
 
     Notification::assertSentTo($user, VerifyEmail::class);
 });

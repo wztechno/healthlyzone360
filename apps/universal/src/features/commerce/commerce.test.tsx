@@ -124,6 +124,7 @@ import {
 } from './state-badge.tsx';
 import {
     ALLERGEN_CONFLICT_WARNING,
+    CHECKOUT_ADDRESS_MISSING,
     CHECKOUT_EMPTY_CART,
     SUBSCRIPTION_DAY_UNAVAILABLE,
     displayableWarnings,
@@ -1405,6 +1406,13 @@ describe('preview warnings', () => {
     it('has written copy for every code the repository can emit', () => {
         expect(isKnownWarning(CHECKOUT_EMPTY_CART)).toBe(true);
         expect(isKnownWarning(SUBSCRIPTION_DAY_UNAVAILABLE)).toBe(true);
+        // A basket priced before an address is chosen is the ordinary first render of the
+        // checkout, and the generic "a note we do not recognise" sentence is not what to say
+        // about it.
+        expect(isKnownWarning(CHECKOUT_ADDRESS_MISSING)).toBe(true);
+        expect(warningMessageKey(CHECKOUT_ADDRESS_MISSING)).toBe(
+            'commerce:warnings.checkout_address_missing',
+        );
         expect(warningMessageKey(SUBSCRIPTION_DAY_UNAVAILABLE)).toBe(
             'commerce:warnings.subscription_delivery_day_unavailable',
         );
@@ -1759,6 +1767,42 @@ describe('CheckoutScreen', () => {
         expect(screen.queryByTestId('checkout-success-screen')).toBeNull();
         expect(basket.cart.items).toHaveLength(1);
     });
+
+    /**
+     * A refusal about the *account* is not fixable from the checkout, so it carries the way out.
+     * Without it the sentence "complete the outstanding steps" names a screen nobody is standing
+     * on and does not say where it is.
+     */
+    it('points an account-shaped refusal at the account checklist', async () => {
+        await renderCheckout(basketOf(1), {
+            addresses: [HOME_ADDRESS],
+            commerce: {
+                placeOrder: () =>
+                    Promise.reject(
+                        new ApiError(
+                            orderPlacementRefusedFailure([
+                                { reason: 'account_not_ready', context: {} },
+                            ]),
+                        ),
+                    ),
+            },
+        });
+
+        await reviewCheckout(HOME_ADDRESS.id);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-place-error-reason-account_not_ready')).toBeTruthy();
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-finish-setup'));
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account');
+    });
+
 });
 
 /* ══ screens: the configurator ═════════════════════════════════════════════════════════════════ */

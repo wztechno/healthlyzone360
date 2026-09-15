@@ -89,6 +89,10 @@ export { DEFAULT_API_BASE_URL } from './api/config.ts';
 export type { ClientPlatform } from './api/config.ts';
 
 export { SORT_DIRECTIONS, emptyPage, pageCount } from './contracts/index.ts';
+
+/** Every Healthy360 passcode, so a code field sizes itself from the platform's one statement of it. */
+export { PASSCODE_LENGTH } from './api/verification-repository.ts';
+
 export {
     REPOSITORY_SURFACE,
     REPOSITORY_SURFACE_KEYS,

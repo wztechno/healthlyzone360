@@ -48,8 +48,10 @@ export const REPOSITORY_SURFACE = {
         'listContactPoints',
         'removeContactPoint',
         'resendChallenge',
+        'sendEmailPasscode',
         'setPrimaryContactPoint',
         'verifyChallenge',
+        'verifyEmailPasscode',
     ],
     account: [
         'addAddress',
