@@ -13,6 +13,8 @@
 
 export interface DateFieldProps {
     readonly label: string;
+    /** See `FormField`'s `labelHidden` — for a control named by a column header. */
+    readonly labelHidden?: boolean | undefined;
     /** ISO `YYYY-MM-DD`, or `null` when nothing has been chosen. */
     readonly value: string | null;
     readonly onChange: (value: string | null) => void;

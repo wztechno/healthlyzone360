@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import {
     mealsFromPages,
     useDietCategoryQuery,
@@ -53,6 +54,7 @@ export interface DietCategoryScreenProps {
 
 export function DietCategoryScreen({ slug }: DietCategoryScreenProps) {
     const { t } = useTranslation();
+    const basket = useBasketAdd({ labelKey: 'catalogue:nav.meals', testID: 'diet-category' });
     const router = useRouter();
     const formatter = useFormatter();
 
@@ -188,6 +190,9 @@ export function DietCategoryScreen({ slug }: DietCategoryScreenProps) {
                                                             `/meals/${String(meal.id)}` as never,
                                                         );
                                                     }}
+                                                    onAdd={() => {
+                                                        basket.add(meal);
+                                                    }}
                                                 />
                                             </CardGridItem>
                                         ))}
@@ -234,6 +239,8 @@ export function DietCategoryScreen({ slug }: DietCategoryScreenProps) {
                     </Stack>
                 )}
             </QueryStates>
+
+            {basket.dialog}
         </Stack>
     );
 }

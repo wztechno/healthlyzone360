@@ -90,13 +90,15 @@ return new class extends Migration
         Schema::dropIfExists('kitchen_display_tickets');
     }
 
+    /**
+     * Nothing to put back, and nothing to fail on. The five `create` migrations
+     * left the repository in the same commit as this one, so the schema a
+     * rollback returns to is already the schema without these tables — there is
+     * no earlier state in which they exist. `up()` is `dropIfExists` throughout,
+     * so re-migrating over this no-op is a no-op as well.
+     */
     public function down(): void
     {
-        throw new RuntimeException(
-            'The POS and kitchen-display tables cannot be restored: their migrations, models and '
-            .'controllers were deleted in the same commit that dropped them, so there is no code '
-            .'left for a recreated schema to serve. A demolition does not un-happen — the Order '
-            .'Desk is the way back to a counter sale.'
-        );
+        //
     }
 };

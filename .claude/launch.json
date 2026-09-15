@@ -8,10 +8,27 @@
             "port": 8081
         },
         {
+            "name": "universal-web-heap",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": [
+                "--filter",
+                "universal",
+                "exec",
+                "node",
+                "--max-old-space-size=4096",
+                "../../node_modules/expo/bin/cli",
+                "start",
+                "--web",
+                "--port",
+                "8081"
+            ],
+            "port": 8081
+        },
+        {
             "name": "universal-static-api",
             "runtimeExecutable": "node",
             "runtimeArgs": [
-                "apps/universal/e2e/static-server.mjs",
+                "apps/universal/scripts/static-server.mjs",
                 "--root",
                 "apps/universal/dist-api",
                 "--port",
@@ -24,6 +41,24 @@
             "runtimeExecutable": "pnpm",
             "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8085"],
             "port": 8085
+        },
+        {
+            "name": "universal-web-fresh",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8087"],
+            "port": 8087
+        },
+        {
+            "name": "universal-web-ingredient-editor",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8093"],
+            "port": 8093
+        },
+        {
+            "name": "universal-web-catalogue-lists",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["--filter", "universal", "run", "web", "--port", "8095"],
+            "port": 8095
         }
     ]
 }

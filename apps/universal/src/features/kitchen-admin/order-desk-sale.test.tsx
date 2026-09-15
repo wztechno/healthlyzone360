@@ -101,8 +101,10 @@ function adminProduct(): ProductAdmin {
         },
         name: { en: 'Cold brew', ar: 'قهوة باردة' },
         description: { en: 'A bottle of it.', ar: 'زجاجة منه.' },
+        categoryId: null,
         categoryCode: 'drinks',
         itemType: 'product',
+        reference: null,
         kitchenCategory: null,
         kitchenSubcategory: null,
         composition: null,
@@ -278,6 +280,15 @@ beforeEach(() => {
     mockReplace.mockClear();
 });
 
+/** A counter sale's strip: type, basket, payment, review — and no customer or address tab. */
+function expectCounterLadder() {
+    for (const step of ['type', 'basket', 'payment', 'review']) {
+        expect(screen.getByTestId(`kitchen-order-desk-sale-step-${step}`)).toBeTruthy();
+    }
+    expect(screen.queryByTestId('kitchen-order-desk-sale-step-customer')).toBeNull();
+    expect(screen.queryByTestId('kitchen-order-desk-sale-step-address')).toBeNull();
+}
+
 describe('sale wizard — the ladder each sale walks', () => {
     it('starts on the type step with counter chosen and four steps to walk', async () => {
         await renderSale();
@@ -285,9 +296,7 @@ describe('sale wizard — the ladder each sale walks', () => {
 
         // The shortest sale, pre-selected but never assumed — the step is explicit.
         expect(screen.getByTestId('kitchen-order-desk-sale-stepper')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-order-desk-sale-position')).toHaveTextContent(
-            'Step 1 of 4',
-        );
+        expectCounterLadder();
         // Back is a dead end on the first step, and it says so rather than disappearing.
         expect(screen.getByTestId('kitchen-order-desk-sale-back')).toBeDisabled();
     });
@@ -312,10 +321,9 @@ describe('sale wizard — the ladder each sale walks', () => {
         });
 
         await waitFor(() => {
-            // Five steps now, not four.
-            expect(screen.getByTestId('kitchen-order-desk-sale-position')).toHaveTextContent(
-                'Step 1 of 5',
-            );
+            // Five steps now, not four: the customer tab has joined the strip.
+            expect(screen.getByTestId('kitchen-order-desk-sale-step-customer')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-order-desk-sale-step-address')).toBeTruthy();
         });
 
         fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-next'));
@@ -510,9 +518,7 @@ describe('sale wizard — a counter sale, end to end', () => {
         });
 
         await untilVisible('kitchen-order-desk-sale-type');
-        expect(screen.getByTestId('kitchen-order-desk-sale-position')).toHaveTextContent(
-            'Step 1 of 4',
-        );
+        expectCounterLadder();
     });
 
     it('demands a transfer reference before a WISH sale may be completed', async () => {

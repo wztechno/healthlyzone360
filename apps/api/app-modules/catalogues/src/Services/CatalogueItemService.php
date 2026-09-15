@@ -58,6 +58,24 @@ use Illuminate\Support\Str;
  */
 final readonly class CatalogueItemService
 {
+    /**
+     * The series each sellable kind is numbered in, and what the v6 sheets already wrote.
+     *
+     * These handles are the kitchen's own — `SAC-001`, `DRS-019` — and the import put the same one
+     * on the item *and* on the ingredient twin it writes beside it, so a sauce is quotable whether
+     * a cook is looking at what is sold or at what a recipe consumes. A row created here joins the
+     * series rather than arriving without a handle.
+     *
+     * Products and meals are absent on purpose. The sheets number them `RSL-`/`PRD-`, but not all
+     * of them — a fifth of the products carry a source path instead of a handle — so a generated
+     * `RSL-056` would sit in a column where the existing values do not agree on what a reference
+     * is. That is a decision about those two families, and it is not this change's to make.
+     */
+    private const array REFERENCE_SERIES = [
+        'sauce' => 'SAC-',
+        'dressing' => 'DRS-',
+    ];
+
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
@@ -78,6 +96,7 @@ final readonly class CatalogueItemService
      *     product_category_id?: string|null,
      *     production_mode?: string|null,
      *     recipe_id?: string|null,
+     *     portion_factor?: float|string|null,
      *     ingredient_id?: string|null,
      *     purchasing_unit_id?: string|null,
      *     usage_unit_id?: string|null,
@@ -127,9 +146,18 @@ final readonly class CatalogueItemService
             $item->usage_unit_id = $links['usage_unit_id'];
             $item->is_market_priced = (bool) ($attributes['is_market_priced'] ?? false);
             $item->is_assorted = (bool) ($attributes['is_assorted'] ?? false);
+            // One sold unit is one yield piece unless the kitchen says
+            // otherwise.
+            $item->portion_factor = $this->portionFactor($attributes['portion_factor'] ?? '1');
             $item->status = CatalogueItemStatus::Draft;
             $item->image_placeholder_id = $this->trimmedOrNull($attributes['image_placeholder_id'] ?? null);
             $item->lock_version = 0;
+            // The kitchen's own handle, where its kind has a series. `source_system` stays null, so
+            // nothing here is mistaken for an imported row: the import matches on the pair.
+            $prefix = self::REFERENCE_SERIES[$type->value] ?? null;
+            if ($prefix !== null) {
+                $item->source_ref = $this->nextReferenceFor($organisationId, $prefix);
+            }
             $item->created_by = $this->context->userId();
             $item->updated_by = $this->context->userId();
             $item->save();
@@ -197,6 +225,13 @@ final readonly class CatalogueItemService
             if (array_key_exists($field, $attributes)) {
                 $changes[$field] = (bool) $attributes[$field];
             }
+        }
+
+        // `array_key_exists` rather than `??`, and no null coalesce: the column
+        // is NOT NULL, an explicit null is refused by the request rules, and
+        // "absent" has to keep the stored factor rather than reset it to one.
+        if (array_key_exists('portion_factor', $attributes)) {
+            $changes['portion_factor'] = $this->portionFactor($attributes['portion_factor']);
         }
 
         foreach (['product_category_id', 'production_mode', 'recipe_id', 'ingredient_id', 'purchasing_unit_id', 'usage_unit_id'] as $field) {
@@ -539,7 +574,15 @@ final readonly class CatalogueItemService
      */
     private function usableIngredient(string $id, string $field): Ingredient
     {
-        $ingredient = Ingredient::query()->whereKey($id)->first();
+        /*
+         * Food only.
+         *
+         * Packaging shares this table — a recipe has to be able to cost the box its meal
+         * ships in — but a catalogue item's ingredient list names a raw material. Without the scope a
+         * bin liner is a legal answer here, and the roll-up would then be asked to derive
+         * nutrition and allergens from it.
+         */
+        $ingredient = Ingredient::query()->excludingPackaging()->whereKey($id)->first();
 
         if (! $ingredient instanceof Ingredient) {
             throw $this->invalid($field, 'This ingredient does not exist, or is not one you can use.');
@@ -562,6 +605,37 @@ final readonly class CatalogueItemService
     /**
      * @throws ApiException
      */
+    /**
+     * The next number in one series, for this kitchen.
+     *
+     * Scanned over the items rather than over a counter column, and over *this* table rather than
+     * the recipes': `SAC-043` and `DRS-019` are here, written by the import, and a series that
+     * counted somewhere else would hand out `SAC-001` again to a kitchen that already has one.
+     *
+     * Public because a create form draws the handle before it saves, and the only way the number it
+     * shows can be the one the record takes is for the same scan to answer both. A preview, not a
+     * reservation — two forms open at once are both told 044, and the second save lands at 045.
+     */
+    public function nextReferenceFor(string $organisationId, string $prefix): string
+    {
+        $highest = 0;
+
+        $existing = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereNotNull('source_ref')
+            ->pluck('source_ref');
+
+        foreach ($existing as $reference) {
+            if (preg_match('/^'.preg_quote($prefix, '/').'(\d+)$/', (string) $reference, $matches) !== 1) {
+                continue;
+            }
+
+            $highest = max($highest, (int) $matches[1]);
+        }
+
+        return $prefix.str_pad((string) ($highest + 1), 3, '0', STR_PAD_LEFT);
+    }
+
     private function requireOrganisation(): string
     {
         $organisationId = $this->context->organisationId();
@@ -595,6 +669,35 @@ final readonly class CatalogueItemService
     private function asString(mixed $value): ?string
     {
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * The sold portion, narrowed to a decimal string the stock arithmetic can
+     * multiply by.
+     *
+     * A string rather than the float that arrived: the column stores three
+     * places and a float would reach the database having already lost some of
+     * them. Refused rather than defaulted to `1` when it is not a number at
+     * all — the request rules already return a named 422 for that, so anything
+     * reaching here is a caller inside the server, and a portion factor that
+     * quietly became "one whole piece" would over-deduct stock and over-state
+     * a label on every sale. Zero and negatives are left to the column's own
+     * CHECK; the request rules stop them a layer earlier, at the column's
+     * precision.
+     *
+     * @return numeric-string
+     *
+     * @throws ApiException
+     */
+    private function portionFactor(mixed $value): string
+    {
+        $string = is_scalar($value) ? (string) $value : '';
+
+        if (! is_numeric($string)) {
+            throw $this->invalid('portion_factor', 'A portion factor is a number of recipe yield pieces.');
+        }
+
+        return $string;
     }
 
     private function trimmedOrNull(?string $value): ?string

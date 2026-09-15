@@ -342,48 +342,6 @@ export const zIngredientNutritionPer100g = z.object({
     amounts: z.array(zIngredientNutrientAmount).max(20)
 });
 
-/**
- * The administrative shape of an ingredient. Carries **both** names and
- * ignores `Accept-Language` for them: a bilingual editor has to see what
- * it is editing. There is no public ingredient projection.
- *
- */
-export const zAdminIngredient = z.object({
-    id: zUuid,
-    organisation_id: zUuid.nullable(),
-    is_platform: z.boolean(),
-    slug: z.string().max(120),
-    name_en: z.string(),
-    name_ar: z.string(),
-    ingredient_category_id: zUuid.nullable(),
-    ingredient_subcategory_id: zUuid.nullable(),
-    default_unit_id: zUuid,
-    default_unit_code: z.string().nullish(),
-    purchase_unit_id: zUuid.nullish(),
-    purchase_unit_code: z.string().nullish(),
-    composition: z.string().nullish(),
-    items_per_unit: z.string().nullish(),
-    nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
-    yield_factor: z.string(),
-    forked_from_ingredient_id: zUuid.nullish(),
-    availability_tier: zAvailabilityTier.optional(),
-    status: zIngredientStatus,
-    verification_status: zIngredientVerificationStatus,
-    notes: z.string().nullish(),
-    source_system: z.string().nullish(),
-    source_ref: z.string().nullish(),
-    lock_version: z.int().gte(0),
-    created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
-});
-
-export const zIngredientEnvelope = z.object({
-    data: z.object({
-        ingredient: zAdminIngredient
-    }),
-    meta: zMeta
-});
-
 export const zIngredientAlias = z.object({
     id: zUuid,
     alias: z.string().max(160),
@@ -439,6 +397,59 @@ export const zIngredientAllergenMapping = z.object({
     evidence: z.string().nullish()
 });
 
+/**
+ * The administrative shape of an ingredient. Carries **both** names and
+ * ignores `Accept-Language` for them: a bilingual editor has to see what
+ * it is editing. There is no public ingredient projection.
+ *
+ */
+export const zAdminIngredient = z.object({
+    id: zUuid,
+    organisation_id: zUuid.nullable(),
+    is_platform: z.boolean(),
+    is_editable: z.boolean(),
+    slug: z.string().max(120),
+    name_en: z.string(),
+    name_ar: z.string(),
+    ingredient_category_id: zUuid.nullable(),
+    ingredient_subcategory_id: zUuid.nullable(),
+    default_unit_id: zUuid,
+    default_unit_code: z.string().nullish(),
+    purchase_unit_id: zUuid.nullish(),
+    purchase_unit_code: z.string().nullish(),
+    composition: z.string().nullish(),
+    items_per_unit: z.string().nullish(),
+    grams_per_unit: z.string().nullish(),
+    nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
+    nutrition_derived_from_version_id: zUuid.nullish(),
+    nutrition_estimated: z.boolean().nullish(),
+    nutrition_note: z.string().max(300).nullish(),
+    b2b_price_amount: z.string().nullish(),
+    b2c_price_amount: z.string().nullish(),
+    unit_price_amount: z.string().nullish(),
+    price_currency_code: z.string().length(3).nullish(),
+    is_sellable: z.boolean().optional(),
+    yield_factor: z.string(),
+    forked_from_ingredient_id: zUuid.nullish(),
+    availability_tier: zAvailabilityTier.optional(),
+    status: zIngredientStatus,
+    verification_status: zIngredientVerificationStatus,
+    notes: z.string().nullish(),
+    source_system: z.string().nullish(),
+    source_ref: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish(),
+    allergens: z.array(zIngredientAllergenMapping).optional()
+});
+
+export const zIngredientEnvelope = z.object({
+    data: z.object({
+        ingredient: zAdminIngredient
+    }),
+    meta: zMeta
+});
+
 export const zIngredientAllergenCollection = z.object({
     data: z.array(zIngredientAllergenMapping),
     meta: zMeta
@@ -454,7 +465,15 @@ export const zCreateIngredientRequest = z.object({
     purchase_unit_id: zUuid.nullish(),
     composition: z.string().max(2000).nullish(),
     items_per_unit: z.number().gt(0).nullish(),
+    grams_per_unit: z.number().gte(0.0001).lte(99999999.9999).nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
+    nutrition_estimated: z.boolean().nullish(),
+    nutrition_note: z.string().max(300).nullish(),
+    b2b_price_amount: z.number().gte(0).nullish(),
+    b2c_price_amount: z.number().gte(0).nullish(),
+    unit_price_amount: z.number().gte(0).nullish(),
+    price_currency_code: z.string().length(3).nullish(),
+    is_sellable: z.boolean().optional(),
     yield_factor: z.number().gt(0).lte(99.9999).optional(),
     availability_tier: zAvailabilityTier.optional(),
     notes: z.string().max(2000).nullish()
@@ -475,7 +494,15 @@ export const zUpdateIngredientRequest = z.object({
     purchase_unit_id: zUuid.nullish(),
     composition: z.string().max(2000).nullish(),
     items_per_unit: z.number().gt(0).nullish(),
+    grams_per_unit: z.number().gte(0.0001).lte(99999999.9999).nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
+    nutrition_estimated: z.boolean().nullish(),
+    nutrition_note: z.string().max(300).nullish(),
+    b2b_price_amount: z.number().gte(0).nullish(),
+    b2c_price_amount: z.number().gte(0).nullish(),
+    unit_price_amount: z.number().gte(0).nullish(),
+    price_currency_code: z.string().length(3).nullish(),
+    is_sellable: z.boolean().optional(),
     yield_factor: z.number().gt(0).lte(99.9999).optional(),
     availability_tier: zAvailabilityTier.optional(),
     notes: z.string().max(2000).nullish()
@@ -611,41 +638,6 @@ export const zRecipeEnvelope = z.object({
 });
 
 /**
- * The header of a recipe version. `derived_input_hash` is deliberately
- * absent from the wire: it is an internal fingerprint, and publishing it
- * would invite clients to compare hashes instead of reading
- * `derivation_state`.
- *
- */
-export const zAdminRecipeVersion = z.object({
-    id: zUuid,
-    recipe_id: zUuid,
-    version_number: z.int().gte(1),
-    status: zRecipeVersionStatus,
-    completeness: zRecipeCompleteness,
-    yield_quantity: z.string().nullish(),
-    yield_unit_id: zUuid.nullish(),
-    yield_piece_count: z.int().gte(1).nullish(),
-    input_quantity_total: z.string().nullish(),
-    waste_coefficient_percent: z.string(),
-    derivation_state: zDerivationState,
-    derived_at: z.iso.datetime({ offset: true }).nullish(),
-    published_at: z.iso.datetime({ offset: true }).nullish(),
-    review_reason: z.string().max(200).nullish(),
-    notes: z.string().nullish(),
-    lock_version: z.int().gte(0),
-    created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
-});
-
-export const zRecipeVersionEnvelope = z.object({
-    data: z.object({
-        version: zAdminRecipeVersion
-    }),
-    meta: zMeta
-});
-
-/**
  * One formulation line.
  *
  * **No cost fields.** `recipe_version_lines` carries
@@ -663,6 +655,48 @@ export const zRecipeLine = z.object({
     quantity: z.string().nullish(),
     unit_id: zUuid.nullish(),
     source_designation: z.string().max(160).nullish(),
+    comment: z.string().max(255).nullish()
+});
+
+/**
+ * How a packaging quantity is arrived at.
+ *
+ * * `fills_yield` — the container the yield goes into. The server divides
+ * the yield by the item's recorded capacity and rounds up, so the
+ * quantity is a container count nobody types.
+ * * `per_container` — one per container filled, multiplied by the count
+ * `fills_yield` produced. A cap goes on every bottle.
+ * * `per_batch` — a flat quantity per batch, independent of the yield.
+ * The only basis that accepts `quantity`.
+ *
+ */
+export const zPackagingBasis = z.enum([
+    'fills_yield',
+    'per_container',
+    'per_batch'
+]);
+
+/**
+ * One packaging line, as stored.
+ *
+ * **No cost fields**, for `RecipeLine`'s reason and one of its own: the
+ * unit cost of a box is read from the catalogue row rather than carried
+ * here, so the costed view is the technical sheet and this projection has
+ * nothing to withhold.
+ *
+ * `basis` travels beside `quantity` and always. Without it the quantity
+ * is unreadable — `6` means "the yield fills six of these" on one basis
+ * and "somebody typed six" on another, and only the first is still right
+ * after the yield changes.
+ *
+ */
+export const zRecipePackagingLine = z.object({
+    id: zUuid,
+    line_number: z.int().gte(1),
+    ingredient_id: zUuid,
+    basis: zPackagingBasis,
+    quantity: z.string(),
+    unit_id: zUuid.nullish(),
     comment: z.string().max(255).nullish()
 });
 
@@ -766,22 +800,6 @@ export const zCostSnapshot = z.object({
     created_at: z.iso.datetime({ offset: true }).nullish()
 });
 
-/**
- * The confidential cost projection of one recipe version.
- */
-export const zTechnicalSheet = z.object({
-    version: zAdminRecipeVersion,
-    completeness: zRecipeCompleteness,
-    currency_code: z.string().length(3).nullish(),
-    currency_conflict: z.boolean(),
-    lines: z.array(zTechnicalSheetLine),
-    uncosted_line_numbers: z.array(z.int().gte(1)),
-    snapshots: z.object({
-        recalculated: zCostSnapshot.nullable(),
-        as_recorded: zCostSnapshot.nullable()
-    })
-});
-
 export const zCreateRecipeRequest = z.object({
     name_en: z.string().max(255),
     name_ar: z.string().max(255).nullish(),
@@ -819,22 +837,6 @@ export const zCreateRecipeVersionRequest = z.object({
     copy_from_version: z.int().gte(1).nullish()
 });
 
-/**
- * A partial update of a version header. `status`, `derivation_state`,
- * `derived_at`, `published_at` and `published_by` are absent by design:
- * each is a conclusion the server reached.
- *
- */
-export const zUpdateRecipeVersionRequest = z.object({
-    completeness: zRecipeCompleteness.optional(),
-    yield_quantity: z.number().gt(0).lte(99999999.9999).nullish(),
-    yield_unit_id: zUuid.nullish(),
-    yield_piece_count: z.int().gte(1).nullish(),
-    input_quantity_total: z.number().gt(0).lte(99999999.9999).nullish(),
-    waste_coefficient_percent: z.number().gte(0).lte(999.99).optional(),
-    notes: z.string().max(2000).nullish()
-});
-
 export const zReplaceRecipeLinesRequest = z.object({
     lines: z.array(z.object({
         ingredient_id: zUuid,
@@ -848,6 +850,15 @@ export const zReplaceRecipeLinesRequest = z.object({
         source_designation: z.string().max(160).nullish(),
         comment: z.string().max(255).nullish()
     })).max(200)
+});
+
+export const zReplaceRecipePackagingRequest = z.object({
+    packaging: z.array(z.object({
+        ingredient_id: zUuid,
+        basis: zPackagingBasis,
+        quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+        comment: z.string().max(255).nullish()
+    })).max(50)
 });
 
 /**
@@ -1151,6 +1162,7 @@ export const zAdminCatalogueItem = z.object({
     kitchen_subcategory: z.string().nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
     recipe_id: zUuid.nullish(),
+    portion_factor: z.string(),
     ingredient_id: zUuid.nullish(),
     purchasing_unit_id: zUuid.nullish(),
     usage_unit_id: zUuid.nullish(),
@@ -1296,6 +1308,7 @@ export const zCreateCatalogueItemRequest = z.object({
     product_category_id: zUuid.nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
     recipe_id: zUuid.nullish(),
+    portion_factor: z.number().gte(0.001).lte(999.999).optional(),
     ingredient_id: zUuid.nullish(),
     purchasing_unit_id: zUuid.nullish(),
     usage_unit_id: zUuid.nullish(),
@@ -1323,6 +1336,7 @@ export const zUpdateCatalogueItemRequest = z.object({
     product_category_id: zUuid.nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
     recipe_id: zUuid.nullish(),
+    portion_factor: z.number().gte(0.001).lte(999.999).optional(),
     ingredient_id: zUuid.nullish(),
     purchasing_unit_id: zUuid.nullish(),
     usage_unit_id: zUuid.nullish(),
@@ -1392,6 +1406,79 @@ export const zPublicDietClassification = z.object({
  *
  */
 export const zCurrencyCode = z.string().length(3).regex(/^[A-Z]{3}$/);
+
+/**
+ * The header of a recipe version. `derived_input_hash` is deliberately
+ * absent from the wire: it is an internal fingerprint, and publishing it
+ * would invite clients to compare hashes instead of reading
+ * `derivation_state`.
+ *
+ */
+export const zAdminRecipeVersion = z.object({
+    id: zUuid,
+    recipe_id: zUuid,
+    version_number: z.int().gte(1),
+    status: zRecipeVersionStatus,
+    completeness: zRecipeCompleteness,
+    yield_quantity: z.string().nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).nullish(),
+    input_quantity_total: z.string().nullish(),
+    waste_coefficient_percent: z.string(),
+    b2b_price_amount: z.string().nullish(),
+    b2c_price_amount: z.string().nullish(),
+    price_currency_code: zCurrencyCode.nullish(),
+    derivation_state: zDerivationState,
+    derived_at: z.iso.datetime({ offset: true }).nullish(),
+    published_at: z.iso.datetime({ offset: true }).nullish(),
+    review_reason: z.string().max(200).nullish(),
+    notes: z.string().nullish(),
+    lock_version: z.int().gte(0),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+export const zRecipeVersionEnvelope = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion
+    }),
+    meta: zMeta
+});
+
+/**
+ * The confidential cost projection of one recipe version.
+ */
+export const zTechnicalSheet = z.object({
+    version: zAdminRecipeVersion,
+    completeness: zRecipeCompleteness,
+    currency_code: z.string().length(3).nullish(),
+    currency_conflict: z.boolean(),
+    lines: z.array(zTechnicalSheetLine),
+    uncosted_line_numbers: z.array(z.int().gte(1)),
+    snapshots: z.object({
+        recalculated: zCostSnapshot.nullable(),
+        as_recorded: zCostSnapshot.nullable()
+    })
+});
+
+/**
+ * A partial update of a version header. `status`, `derivation_state`,
+ * `derived_at`, `published_at` and `published_by` are absent by design:
+ * each is a conclusion the server reached.
+ *
+ */
+export const zUpdateRecipeVersionRequest = z.object({
+    completeness: zRecipeCompleteness.optional(),
+    yield_quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).nullish(),
+    input_quantity_total: z.number().gt(0).lte(99999999.9999).nullish(),
+    waste_coefficient_percent: z.number().gte(0).lte(999.99).optional(),
+    b2b_price_amount: z.number().gte(0).lte(1000000000000).nullish(),
+    b2c_price_amount: z.number().gte(0).lte(1000000000000).nullish(),
+    price_currency_code: zCurrencyCode.nullish(),
+    notes: z.string().max(2000).nullish()
+});
 
 /**
  * The **operational** lifecycle of a tariff, deliberately not the
@@ -2278,7 +2365,7 @@ export const zMarketplaceNutritionCalculation = z.object({
 });
 
 /**
- * Per-serving nutrition facts with their source and calculation method.
+ * Nutrition facts on the basis `basis` names, with their source and calculation method.
  */
 export const zMarketplaceNutritionFacts = z.object({
     basis: z.enum([
@@ -6314,8 +6401,9 @@ export const zOrganisationInvitation = z.object({
 export const zRecipeRollupWarning = z.object({
     code: z.enum([
         'rollup.unknown_ingredient',
-        'nutrition_unavailable',
         'rollup.missing_facts',
+        'rollup.missing_nutrition',
+        'rollup.unconvertible_unit',
         'rollup.mixed_cost_currency',
         'rollup.missing_cost'
     ]),
@@ -6338,15 +6426,16 @@ export const zRecipeRollupAllergenSource = z.object({
  * What a draft formulation would declare, computed and thrown away.
  */
 export const zRecipeRollupPreview = z.object({
-    per_recipe: z.null(),
-    per_serving: z.null(),
-    per_100g: z.null(),
+    per_recipe: zMarketplaceNutritionFacts.nullable(),
+    per_serving: zMarketplaceNutritionFacts.nullable(),
+    per_100g: zMarketplaceNutritionFacts.nullable(),
     allergen_sources: z.array(zRecipeRollupAllergenSource),
     estimated_cost: z.object({
         amount: z.string(),
         currency: z.string().length(3)
     }).nullable(),
-    warnings: z.array(zRecipeRollupWarning).min(1)
+    computed_cost: z.record(z.string(), z.unknown()).nullable(),
+    warnings: z.array(zRecipeRollupWarning)
 });
 
 export const zPreviewRecipeRollupLine = z.object({
@@ -6357,11 +6446,22 @@ export const zPreviewRecipeRollupLine = z.object({
     cost_currency_code: z.string().length(3).nullish()
 });
 
+export const zPreviewRecipeRollupPackagingLine = z.object({
+    ingredient_id: zUuid,
+    basis: zPackagingBasis,
+    quantity: z.number().gt(0).lte(99999999.9999).nullish()
+});
+
 export const zPreviewRecipeRollupRequest = z.object({
     recipe_id: zUuid.nullish(),
-    servings: z.number().gt(0).lte(9999),
+    servings: z.number().gt(0).lte(9999).nullish(),
     waste_percent: z.number().gte(0).lte(100).nullish(),
-    lines: z.array(zPreviewRecipeRollupLine).max(200)
+    lines: z.array(zPreviewRecipeRollupLine).max(200),
+    yield_quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).lte(100000).nullish(),
+    packaging_waste_percent: z.number().gte(0).lte(100).nullish(),
+    packaging: z.array(zPreviewRecipeRollupPackagingLine).max(50).optional()
 });
 
 export const zCatalogueItemAvailabilityDay = z.object({
@@ -9135,7 +9235,9 @@ export const zListIngredientsQuery = z.object({
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zIngredientStatus.optional(),
-    category: zUuid.optional()
+    category: zUuid.optional(),
+    exclude_category: zUuid.optional(),
+    reference_series: z.enum(['ING-', 'PKG-']).optional()
 });
 
 /**
@@ -9209,6 +9311,20 @@ export const zArchiveIngredientPath = z.object({
  * The archived ingredient.
  */
 export const zArchiveIngredientResponse = zIngredientEnvelope;
+
+export const zForkIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zForkIngredientPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The fork this kitchen already had.
+ */
+export const zForkIngredientResponse = zIngredientEnvelope;
 
 export const zListIngredientAllergensHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -9361,7 +9477,8 @@ export const zListRecipesQuery = z.object({
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zRecipeStatus.optional(),
-    category: z.string().max(40).optional()
+    category: z.string().max(40).optional(),
+    allergen: z.string().max(20).optional()
 });
 
 /**
@@ -9561,6 +9678,33 @@ export const zReplaceRecipeLinesResponse = z.object({
     data: z.object({
         version: zAdminRecipeVersion,
         lines: z.array(zRecipeLine)
+    }),
+    meta: zMeta
+});
+
+export const zReplaceRecipePackagingBody = zReplaceRecipePackagingRequest;
+
+export const zReplaceRecipePackagingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceRecipePackagingPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The version and its new packaging, as stored.
+ */
+export const zReplaceRecipePackagingResponse = z.object({
+    data: z.object({
+        version: zAdminRecipeVersion,
+        packaging: z.array(zRecipePackagingLine)
     }),
     meta: zMeta
 });
@@ -9903,6 +10047,29 @@ export const zUpdateSalesChannelPath = z.object({
  */
 export const zUpdateSalesChannelResponse = zSalesChannelEnvelope;
 
+export const zNextCatalogueReferenceHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zNextCatalogueReferenceQuery = z.object({
+    prefix: z.enum([
+        'ING-',
+        'RC-',
+        'SAC-',
+        'DRS-'
+    ])
+});
+
+/**
+ * The next handle in that series.
+ */
+export const zNextCatalogueReferenceResponse = z.object({
+    data: z.object({
+        reference: z.string().max(40)
+    })
+});
+
 export const zListCatalogueItemsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -9916,7 +10083,8 @@ export const zListCatalogueItemsQuery = z.object({
     query: z.string().max(160).optional(),
     status: zCatalogueItemStatus.optional(),
     item_type: zCatalogueItemType.optional(),
-    product_category_id: zUuid.optional()
+    product_category_id: zUuid.optional(),
+    allergen: z.string().max(20).optional()
 });
 
 /**

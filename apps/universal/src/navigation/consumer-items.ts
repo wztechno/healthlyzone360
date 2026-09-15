@@ -29,6 +29,16 @@ export interface ConsumerNavigationDescriptor extends NavigationDescriptor {
      * flag rather than a number on the descriptor because the count is data, not configuration.
      */
     readonly badge?: 'cart' | undefined;
+    /**
+     * A destination that belongs to the site rather than to the shop.
+     *
+     * The top bar carries the places a person browses to buy — the catalogue, the kitchens, the
+     * plans. Marketing pages are still first-class destinations, but putting them in the same row
+     * makes that row too long to sit on one line, and it spends the most valuable horizontal space
+     * on the pages people visit once. They are listed in the footer instead, where they already
+     * were, so nothing here removes a way to reach them.
+     */
+    readonly secondary?: boolean | undefined;
 }
 
 /**
@@ -141,6 +151,7 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/how-it-works',
         icon: 'info',
         area: 'public',
+        secondary: true,
     },
     {
         key: 'for-business',
@@ -148,6 +159,7 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         href: '/for-business',
         icon: 'branch',
         area: 'public',
+        secondary: true,
     },
 ];
 

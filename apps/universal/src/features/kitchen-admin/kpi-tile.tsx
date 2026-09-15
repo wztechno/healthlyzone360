@@ -46,7 +46,7 @@ export function KpiTile({
             testID={testID}
             className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
         >
-            <Text tone="secondary" variant="caption" className="uppercase tracking-widest">
+            <Text tone="secondary" variant="micro">
                 {label}
             </Text>
             {pending ? (
@@ -62,8 +62,8 @@ export function KpiTile({
                     testID={`${testID}-value`}
                     className={
                         size === 'lg'
-                            ? 'mt-1 font-display text-3xl font-bold text-content-primary'
-                            : 'mt-1 font-display text-2xl font-bold text-content-primary'
+                            ? 'mt-1 tabular-nums text-3xl font-bold text-content-primary text-start'
+                            : 'mt-1 tabular-nums text-2xl font-bold text-content-primary text-start'
                     }
                 >
                     {value ?? '—'}
@@ -73,7 +73,10 @@ export function KpiTile({
                 <View className="mt-2 flex-row items-center">{trend}</View>
             )}
             {hint === undefined ? null : (
-                <RNText testID={`${testID}-hint`} className="mt-1.5 text-xs font-bold text-brand-600">
+                <RNText
+                    testID={`${testID}-hint`}
+                    className="mt-1.5 text-xs font-bold text-brand-600"
+                >
                     {hint}
                 </RNText>
             )}

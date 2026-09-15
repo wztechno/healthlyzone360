@@ -105,11 +105,11 @@ export function AiBand({ title, body, actionLabel, onAction, testID = 'ai-band' 
                     <OriginPill testID={`${testID}-origin`} />
                     <RNText
                         testID={`${testID}-title`}
-                        className="font-display text-xl leading-tight tracking-display text-content-on-canopy text-start"
+                        className="text-xl leading-tight tracking-display text-content-on-canopy text-start"
                     >
                         {title}
                     </RNText>
-                    <RNText className="max-w-[560px] text-sm text-content-on-canopy-muted/95 text-start">
+                    <RNText className="max-w-[560px] text-sm text-content-on-canopy-muted text-start">
                         {body}
                     </RNText>
                 </View>
@@ -163,13 +163,11 @@ export function AiRailCard({
                 <OriginPill testID={`${testID}-origin`} />
                 <RNText
                     testID={`${testID}-title`}
-                    className="font-display text-xl leading-tight tracking-display text-content-on-canopy text-start"
+                    className="text-xl leading-tight tracking-display text-content-on-canopy text-start"
                 >
                     {title}
                 </RNText>
-                <RNText className="text-sm text-content-on-canopy-muted/95 text-start">
-                    {body}
-                </RNText>
+                <RNText className="text-sm text-content-on-canopy-muted text-start">{body}</RNText>
                 <Button
                     testID={`${testID}-action`}
                     variant="secondary"

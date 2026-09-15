@@ -1,4 +1,5 @@
 import { ApiError, apiFailure, rateLimitFailure, validationFailure } from '@healthy360/api-client';
+import { otpInvalidFailure } from '@healthy360/api-client/contracts';
 import type { LoginResult, MeResponse, PendingConsent } from '@healthy360/api-client';
 import type {
     ActiveContext,
@@ -29,6 +30,7 @@ import { ForbiddenScreen } from './forbidden-screen.tsx';
 import { OrganisationPickerScreen } from './organisation-picker-screen.tsx';
 import { ProfileScreen } from './profile-screen.tsx';
 import { SignInScreen } from './sign-in-screen.tsx';
+import { VerifyEmailScreen } from './verify-email-screen.tsx';
 import { WorkspaceSelectorScreen } from './workspace-selector-screen.tsx';
 
 /**
@@ -597,6 +599,69 @@ describe('DevicesScreen', () => {
             expect(await repositories.devices.list()).toHaveLength(2);
             expect(screen.getByTestId('device-revoked-toast')).toBeTruthy();
         });
+    });
+});
+
+/**
+ * The mail carries a link *and* six digits (D-036), and the digits are the half a native client
+ * can finish on: the link opens a browser and the trip back loses the session often enough to be
+ * where onboarding is abandoned. So the screen has to accept a typed code, and the endpoints it
+ * types into name no challenge — the server holds the only live one.
+ */
+describe('VerifyEmailScreen', () => {
+    const unverified = (): MeResponse => testMeResponse({ user: { emailVerifiedAt: null } });
+
+    it('spends a typed code against the account', async () => {
+        const { repositories } = await renderStubScreen(<VerifyEmailScreen />, {
+            session: unverified(),
+            repositories: { verification: { verifyEmailPasscode: async () => undefined } },
+        });
+
+        await waitFor(() => screen.getByTestId('verify-email-code-input'));
+
+        await fireEvent.changeText(screen.getByTestId('verify-email-code-input'), '123456');
+        await fireEvent.press(screen.getByTestId('verify-email-submit'));
+
+        await waitFor(() => {
+            expect(repositories.verification.verifyEmailPasscode).toHaveBeenCalledWith({
+                code: '123456',
+            });
+        });
+    });
+
+    /** The server knows whether the code was wrong, expired or spent; each has its own remedy. */
+    it('reports the refusal on the field and asks the server for another code', async () => {
+        const { repositories } = await renderStubScreen(<VerifyEmailScreen />, {
+            session: unverified(),
+            repositories: {
+                verification: {
+                    verifyEmailPasscode: () =>
+                        Promise.reject(new ApiError(otpInvalidFailure(2))),
+                },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('verify-email-code-input'));
+        await fireEvent.changeText(screen.getByTestId('verify-email-code-input'), '000000');
+        await fireEvent.press(screen.getByTestId('verify-email-submit'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('verify-email-code-error')).toBeTruthy();
+        });
+
+        // Unstubbed on purpose: what matters is which endpoint the button reaches for, and a
+        // stubbed-out surface rejects loudly rather than quietly doing nothing.
+        await fireEvent.press(screen.getByTestId('verify-email-resend'));
+        await waitFor(() => {
+            expect(repositories.verification.sendEmailPasscode).toHaveBeenCalled();
+        });
+    });
+
+    it('offers nothing to confirm once the address is confirmed', async () => {
+        await renderStubScreen(<VerifyEmailScreen />, { session: testMeResponse() });
+
+        await waitFor(() => screen.getByTestId('verify-email-verified'));
+        expect(screen.queryByTestId('verify-email-code-input')).toBeNull();
     });
 });
 

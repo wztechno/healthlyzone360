@@ -468,7 +468,13 @@ export function createApiAccountRepository(
     }
 
     async function readAccount(): Promise<WireAccount> {
-        return transport.request<WireAccount>({ method: 'GET', path: '/customer-account' });
+        // The envelope nests the account under `account` (`CustomerAccountEnvelope`); mapping the
+        // wrapper read `checklist` off the wrong object and the account screen never showed it.
+        const wire = await transport.request<{ account: WireAccount }>({
+            method: 'GET',
+            path: '/customer-account',
+        });
+        return wire.account;
     }
 
     return {
@@ -563,11 +569,13 @@ export function createApiAccountRepository(
         },
 
         async getDietaryProfile(): Promise<DietaryProfile> {
-            const wire = await transport.request<WireDietaryProfile>({
+            // The envelope nests the profile under `dietary_profile` (`CustomerDietaryProfileResponse`);
+            // mapping the wrapper read `allergens` off the wrong object and threw on every load.
+            const wire = await transport.request<{ dietary_profile: WireDietaryProfile }>({
                 method: 'GET',
                 path: '/me/dietary-profile',
             });
-            return mapDietaryProfile(wire);
+            return mapDietaryProfile(wire.dietary_profile);
         },
 
         /**
@@ -579,7 +587,7 @@ export function createApiAccountRepository(
          * diet-classification kinds the wire also supports have no screen and are not invented here.
          */
         async saveDietaryProfile(request: SaveDietaryProfileRequest): Promise<DietaryProfile> {
-            const wire = await transport.request<WireDietaryProfile>({
+            const wire = await transport.request<{ dietary_profile: WireDietaryProfile }>({
                 method: 'PUT',
                 path: '/me/dietary-profile',
                 body: {
@@ -597,7 +605,7 @@ export function createApiAccountRepository(
                     diet_classification_id: request.dietCategoryCodes[0] ?? null,
                 },
             });
-            return mapDietaryProfile(wire);
+            return mapDietaryProfile(wire.dietary_profile);
         },
 
         async listConsents(): Promise<readonly ConsentState[]> {

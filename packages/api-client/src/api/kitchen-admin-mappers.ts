@@ -29,6 +29,9 @@ import type {
     DeliveryZoneAdmin,
     IngredientAdmin,
     IngredientAllergenMapping,
+    IngredientCategoryAdmin,
+    PackagingBasis,
+    RecipePackagingLine,
     MealAdmin,
     MealAvailabilityDay,
     PlanAdmin,
@@ -59,6 +62,7 @@ import type {
 } from '../contracts/kitchen-admin.ts';
 import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
+import { mapNutritionFacts } from './marketplace-mappers.ts';
 import type {
     AdminCatalogueItem,
     AdminCatalogueItemVariant,
@@ -88,6 +92,7 @@ import type {
     PriceListChannelAssignment,
     PriceListStatus,
     RecipeLine as WireRecipeLine,
+    RecipeRollupPreview as WireRecipeRollupPreview,
     RecipeOutput as WireRecipeOutput,
     RecipeStep as WireRecipeStep,
     RecipeVersionAllergen,
@@ -138,6 +143,15 @@ export function apiStatusForPublishableFilter(status: PublishableStatus): Ingred
 export interface CategoryLookup {
     readonly codeToId: ReadonlyMap<string, string>;
     readonly idToCode: ReadonlyMap<string, string>;
+    /**
+     * Child code → parent code, for the codes that have a parent.
+     *
+     * `ingredient_categories` is one self-referencing table and the endpoint returns the whole tree
+     * with `parent_id` on every row, so the shape is available here and was simply being discarded.
+     * Keeping it is what lets a two-level picker exist at all, and what lets a caller check a leaf
+     * belongs to the branch it is being filed under without a second round trip.
+     */
+    readonly parentOf: ReadonlyMap<string, string>;
 }
 
 export function buildCategoryLookup(categories: readonly WireIngredientCategory[]): CategoryLookup {
@@ -149,25 +163,73 @@ export function buildCategoryLookup(categories: readonly WireIngredientCategory[
         idToCode.set(category.id, category.code);
     }
 
-    return { codeToId, idToCode };
+    // Second pass: a child can appear before its parent in the response, so the parent's code is
+    // only reliably resolvable once every id is known.
+    const parentOf = new Map<string, string>();
+
+    for (const category of categories) {
+        if (category.parent_id === null || category.parent_id === undefined) continue;
+        const parent = idToCode.get(category.parent_id);
+        if (parent !== undefined) parentOf.set(category.code, parent);
+    }
+
+    return { codeToId, idToCode, parentOf };
 }
 
-function categoryCodeFor(
+/**
+ * One category row, wire → contract.
+ *
+ * `parent_id` is translated to the parent's *code* rather than passed through: the whole client
+ * side of this feature — the filter, both pickers, the ingredient's own `categoryCode` — speaks
+ * codes, and an id here would make every consumer carry the id→code map to use it. A parent id
+ * that resolves to nothing is treated as top-level rather than dropped: a category with an
+ * unresolvable parent is still a real category, and hiding it would hide the ingredients filed
+ * under it.
+ */
+export function mapIngredientCategoryAdmin(
+    wire: WireIngredientCategory,
+    idToCode: ReadonlyMap<string, string>,
+): IngredientCategoryAdmin {
+    const parentCode =
+        wire.parent_id === null || wire.parent_id === undefined
+            ? null
+            : (idToCode.get(wire.parent_id) ?? null);
+
+    return {
+        code: wire.code,
+        name: { en: wire.name_en, ar: wire.name_ar },
+        parentCode,
+        displayOrder: wire.display_order,
+        isActive: wire.is_active,
+    };
+}
+
+/**
+ * The category the ingredient is filed under, and the leaf within it.
+ *
+ * These used to be one value, with the child preferred — which read back plausibly and then
+ * corrupted the record on the next save, because the write layer only ever sent
+ * `ingredient_category_id`. Saving a sub-categorised ingredient unchanged therefore wrote the
+ * *child's* id into the parent column. Returning the pair is what makes the round trip lossless.
+ *
+ * A sub-category id that resolves to no known code is dropped rather than guessed at: the category
+ * is still right, and a leaf nobody can name is not information.
+ */
+function categoryPairFor(
     lookup: CategoryLookup,
     categoryId: string | null,
     subcategoryId: string | null | undefined,
-): string {
-    if (subcategoryId !== null && subcategoryId !== undefined) {
-        const sub = lookup.idToCode.get(subcategoryId);
-        if (sub !== undefined) return sub;
-    }
+): { readonly categoryCode: string; readonly subcategoryCode: string | null } {
+    const categoryCode = categoryId === null ? undefined : lookup.idToCode.get(categoryId);
+    const subcategoryCode =
+        subcategoryId === null || subcategoryId === undefined
+            ? undefined
+            : lookup.idToCode.get(subcategoryId);
 
-    if (categoryId !== null) {
-        const parent = lookup.idToCode.get(categoryId);
-        if (parent !== undefined) return parent;
-    }
-
-    return 'uncategorized';
+    return {
+        categoryCode: categoryCode ?? 'uncategorized',
+        subcategoryCode: subcategoryCode ?? null,
+    };
 }
 
 function mapMeasureUnit(code: string | null | undefined): MeasureUnit {
@@ -208,8 +270,25 @@ export function mapIngredientAllergenMapping(wire: WireAllergenMapping): Ingredi
     };
 }
 
+/**
+ * The three fields packaging brought back with it, which the generated `AdminIngredient` does not
+ * know about yet.
+ *
+ * `apps/api/openapi/healthy360.v1.yaml` describes the ingredient resource as it was before the two
+ * families were merged. Widening here rather than editing the generated types keeps the generator
+ * authoritative: regenerate the spec and this alias becomes `AdminIngredient` again, deletable in
+ * one line.
+ */
+type WireIngredient = AdminIngredient & {
+    readonly purchase_price_amount?: string | null;
+    readonly purchase_price_currency?: string | null;
+    readonly waste_percent?: string | null;
+    readonly capacity_quantity?: string | null;
+    readonly capacity_unit_code?: string | null;
+};
+
 export function mapIngredientAdmin(
-    wire: AdminIngredient,
+    wire: WireIngredient,
     lookup: CategoryLookup,
     options?: {
         readonly aliases?: readonly string[];
@@ -228,23 +307,71 @@ export function mapIngredientAdmin(
         },
         name: { en: wire.name_en, ar: wire.name_ar },
         reference: wire.source_ref ?? null,
-        categoryCode: categoryCodeFor(
-            lookup,
-            wire.ingredient_category_id,
-            wire.ingredient_subcategory_id,
-        ),
+        ...categoryPairFor(lookup, wire.ingredient_category_id, wire.ingredient_subcategory_id),
         measurementUnit: mapMeasureUnit(wire.default_unit_code),
         purchaseUnit:
             wire.purchase_unit_code == null ? null : mapMeasureUnit(wire.purchase_unit_code),
         composition: wire.composition ?? null,
         itemsPerUnit: wire.items_per_unit == null ? null : parseDecimal(wire.items_per_unit),
+        gramsPerUnit: wire.grams_per_unit == null ? null : parseDecimal(wire.grams_per_unit),
+        /*
+         * Packaging's three figures, null on food.
+         *
+         * `purchasePrice` is per purchase *pack* and `unitPrice` below is per issued *unit*; they
+         * are two fields because they are two denominators, and folding them together scales a
+         * cost by `itemsPerUnit` without saying so.
+         */
+        purchasePrice: mapCostAmount(
+            wire.purchase_price_amount ?? null,
+            wire.purchase_price_currency ?? null,
+        ),
+        wastePercent: wire.waste_percent == null ? null : parseDecimal(wire.waste_percent),
+        // Both halves or nothing: a quantity with no unit is not a capacity, it is a number.
+        capacity:
+            wire.capacity_quantity == null || wire.capacity_unit_code == null
+                ? null
+                : {
+                      quantity: parseDecimal(wire.capacity_quantity),
+                      unit: mapMeasureUnit(wire.capacity_unit_code),
+                  },
+        b2bPrice: mapCostAmount(wire.b2b_price_amount, wire.price_currency_code),
+        b2cPrice: mapCostAmount(wire.b2c_price_amount, wire.price_currency_code),
+        unitPrice: mapCostAmount(wire.unit_price_amount, wire.price_currency_code),
+        // The column defaults to false and the presenter always sends it; `undefined` here means an
+        // older payload, and "not on sale" is the safe reading of one.
+        isSellable: wire.is_sellable ?? false,
         costPer100g: null,
         per100g: mapIngredientPer100g(wire),
-        allergens: options?.allergens ?? [],
+        // Set only on a sub-recipe's output, where the facts beside it are derived from the
+        // formulation rather than entered — which is what makes them read-only.
+        nutritionDerivedFromVersionId:
+            wire.nutrition_derived_from_version_id == null
+                ? null
+                : RecipeVersionId.unsafe(wire.nutrition_derived_from_version_id),
+        // `?? null`, never `?? false`: the column has three states and "nobody has said" is one of
+        // them. Reading an absent flag as "declared" would badge 306 seeded rows as somebody's
+        // statement about the thing in the store cupboard.
+        nutritionEstimated: wire.nutrition_estimated ?? null,
+        nutritionNote: wire.nutrition_note ?? null,
+        // Both the collection and the single resource carry the mappings, so the list's allergen
+        // column and its View panel state the real declaration rather than "none declared" on every
+        // row — which is what they did while this could only be filled from the dedicated
+        // sub-resource, and no list can afford a request per row. The override stays for the callers
+        // that read that sub-resource directly.
+        allergens: options?.allergens ?? (wire.allergens ?? []).map(mapIngredientAllergenMapping),
         dietClassifications: [],
         aliases: options?.aliases ?? [],
         organisationId:
             wire.organisation_id === null ? null : OrganisationId.unsafe(wire.organisation_id),
+        // `is_editable` answers for this caller; `is_platform` only says which library the row is
+        // in. A platform row is writable by the platform operator, so the client must not infer the
+        // first from the second. `undefined` means an older payload, where read-only is the safe
+        // reading.
+        isEditable: wire.is_editable ?? false,
+        forkedFromId:
+            wire.forked_from_ingredient_id == null
+                ? null
+                : IngredientId.unsafe(wire.forked_from_ingredient_id),
         notes: wire.notes ?? null,
     };
 }
@@ -254,12 +381,31 @@ export function mapIngredientAdmin(
  * envelope the screens render. Provenance is honest about what it is: a
  * professional entry recorded on the ingredient, not a laboratory analysis and
  * not a derivation — those arrive with the recipe-rollup phase.
+ *
+ * ## An estimated row says so in the provenance line, not only on a badge
+ *
+ * `nutrition_estimated` is what the reference document flags on 56 of its 306
+ * rows: a figure true of the *category* rather than measured of this
+ * ingredient. Every reader of these facts renders `source.label` and
+ * `calculation.notes` — that is what the "how was this worked out?" panel is —
+ * so the flag belongs there as well as on the editor's badge. A badge only one
+ * screen draws is provenance that travels no further than that screen.
+ *
+ * **`source.kind` stays `professional_entry`.** The union has no member for
+ * "representative figure": its options describe *who* recorded a value, and an
+ * estimate flag describes *how good* it is. `estimated` is a `NutritionValueKind`
+ * rather than a source kind, but the amounts are still points and not ranges —
+ * they carry no tolerance — so restating them as estimates would claim a
+ * precision contract the envelope cannot honour. The honest answer is the true
+ * source kind with the caveat stated in words beside it.
  */
 function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
     const payload = wire.nutrition_per_100g;
     if (payload == null) return null;
 
     const recordedAt = wire.updated_at ?? UNKNOWN_ISO_DATE_TIME;
+    const estimated = wire.nutrition_estimated === true;
+    const note = wire.nutrition_note ?? null;
 
     return {
         basis: 'per_100g',
@@ -274,8 +420,11 @@ function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
             tolerance: null,
         })),
         source: {
+            // See the note above on why an estimate does not move this.
             kind: 'professional_entry',
-            label: 'Kitchen-recorded reference facts',
+            label: estimated
+                ? 'Estimated reference facts — representative of the category, not measured'
+                : 'Kitchen-recorded reference facts',
             version: 'ingredient-record',
             calculatedAt: recordedAt,
         },
@@ -285,7 +434,7 @@ function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
             calculatedAt: recordedAt,
             prototype: false,
             rounding: 'as_entered',
-            notes: [],
+            notes: note === null ? [] : [note],
         },
     };
 }
@@ -430,8 +579,10 @@ export function mapProductAdminFromItem(
             wire.item_type === 'sauce' || wire.item_type === 'dressing'
                 ? wire.item_type
                 : 'product',
+        reference: wire.source_ref ?? null,
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
+        categoryId: wire.product_category_id ?? null,
         categoryCode: wire.product_category_code ?? 'uncategorized',
         kitchenCategory: wire.kitchen_category ?? null,
         kitchenSubcategory: wire.kitchen_subcategory ?? null,
@@ -481,7 +632,11 @@ export function mapMealAdminFromItem(
         kitchenId: mapKitchenId(wire.organisation_id),
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         recipeVersionId: null,
-        portionFactor: 1,
+        // The `== null` fallback is for a payload predating the column, not for
+        // a server that omits it: the field is required on `AdminCatalogueItem`
+        // and NOT NULL in the database, and one piece per sold unit is exactly
+        // what a row without the column meant.
+        portionFactor: wire.portion_factor == null ? 1 : Number(wire.portion_factor),
         mealTypes: [],
         dietClassifications: options?.dietClassifications ?? [],
         allergens: options?.allergens ?? [],
@@ -509,53 +664,15 @@ export function mapMealAvailabilityDays(
 }
 
 /**
- * Empty facts used when the server has not computed nutrition yet (N1). The
- * roll-up warning list carries the honest reason; inventing numbers would lie.
+ * The roll-up preview, as the editor's Technical sheet reads it.
+ *
+ * The three nutrition fields are `null` or they are facts, and the `null` is
+ * load-bearing: the server withholds all three the moment one line cannot be
+ * resolved, and `warnings` names the ingredients responsible. Nothing is
+ * substituted for them here — an empty envelope would render as a panel of
+ * zeroes, which is a claim about the dish rather than a gap in the data.
  */
-function unavailableNutritionFacts(
-    basis: NutritionFacts['basis'],
-    calculatedAt: string,
-): NutritionFacts {
-    return {
-        basis,
-        kind: 'planned',
-        serving: null,
-        totalGrams: null,
-        amounts: [],
-        source: {
-            kind: 'ingredient_derived',
-            label: 'Unavailable until N1 nutrition authority',
-            version: '0',
-            calculatedAt,
-        },
-        calculation: {
-            method: 'rollup.preview.unavailable',
-            basis,
-            calculatedAt,
-            prototype: false,
-            rounding: 'none',
-            notes: ['Nutrition figures are not computed on the server yet.'],
-        },
-    };
-}
-
-export function mapRecipeRollupPreview(wire: {
-    readonly per_recipe: unknown;
-    readonly per_serving: unknown;
-    readonly per_100g: unknown;
-    readonly allergen_sources: ReadonlyArray<{
-        readonly allergen_code: string;
-        readonly containment: string;
-        readonly ingredient_ids: readonly string[];
-    }>;
-    readonly estimated_cost: { readonly amount: string; readonly currency: string } | null;
-    readonly warnings: ReadonlyArray<{
-        readonly code: string;
-        readonly message: string;
-        readonly ingredient_ids?: readonly string[];
-    }>;
-}): RecipeRollupPreview {
-    const calculatedAt = UNKNOWN_ISO_DATE_TIME;
+export function mapRecipeRollupPreview(wire: WireRecipeRollupPreview): RecipeRollupPreview {
     const estimated =
         wire.estimated_cost !== null && isCurrencyCode(wire.estimated_cost.currency)
             ? {
@@ -571,10 +688,9 @@ export function mapRecipeRollupPreview(wire: {
     }));
 
     return {
-        perRecipe: unavailableNutritionFacts('per_recipe', calculatedAt),
-        perServing: unavailableNutritionFacts('per_serving', calculatedAt),
-        per100g:
-            wire.per_100g === null ? null : unavailableNutritionFacts('per_100g', calculatedAt),
+        perRecipe: wire.per_recipe === null ? null : mapNutritionFacts(wire.per_recipe),
+        perServing: wire.per_serving === null ? null : mapNutritionFacts(wire.per_serving),
+        per100g: wire.per_100g === null ? null : mapNutritionFacts(wire.per_100g),
         allergenSources: wire.allergen_sources.flatMap((source) => {
             if (!ALLERGEN_CONTAINMENTS.includes(source.containment as AllergenContainment)) {
                 return [];
@@ -641,7 +757,9 @@ export function mapRecipeAdminSummary(
             wire.branch_id === null || wire.branch_id === undefined
                 ? mapKitchenId(wire.organisation_id)
                 : KitchenId.unsafe(wire.branch_id),
+        reference: wire.source_ref ?? null,
         sourceKind: wire.source_kind ?? null,
+        recipeCategory: wire.recipe_category ?? null,
         currentVersionNumber,
         versionCount: options?.versionCount ?? 1,
     };
@@ -726,10 +844,40 @@ function mapRecipeAllergen(wire: RecipeVersionAllergen): RecipeAllergenDeclarati
     };
 }
 
+/** One packaging line on a recipe version, wire → contract. */
+export interface WireRecipePackagingLine {
+    readonly id: string;
+    readonly line_number: number;
+    readonly ingredient_id: string;
+    readonly basis: string;
+    readonly quantity: string | null;
+    readonly unit_id: string | null;
+    readonly comment: string | null;
+}
+
+function mapPackagingBasis(basis: string): PackagingBasis {
+    return basis === 'per_container' || basis === 'per_batch' ? basis : 'fills_yield';
+}
+
+export function mapRecipePackagingLine(
+    wire: WireRecipePackagingLine,
+    units: UnitCodeLookup = NO_UNIT_LOOKUP,
+): RecipePackagingLine {
+    return {
+        ingredientId: IngredientId.unsafe(wire.ingredient_id),
+        basis: mapPackagingBasis(wire.basis),
+        // The server computes this for two of the three bases, so it is read rather than echoed.
+        quantity: parseDecimal(wire.quantity ?? '0', 0),
+        unit: measureUnitById(wire.unit_id, units),
+        comment: wire.comment ?? null,
+    };
+}
+
 export function mapRecipeVersionAdmin(
     wire: AdminRecipeVersion,
     details: {
         readonly lines: readonly WireRecipeLine[];
+        readonly packaging?: readonly WireRecipePackagingLine[] | undefined;
         readonly outputs: readonly WireRecipeOutput[];
         readonly steps: readonly WireRecipeStep[];
         readonly allergens: readonly RecipeVersionAllergen[];
@@ -745,7 +893,12 @@ export function mapRecipeVersionAdmin(
         yieldUnit: measureUnitById(wire.yield_unit_id, units),
         yieldPieces: wire.yield_piece_count ?? null,
         wastePercent: parseDecimal(wire.waste_coefficient_percent, 3),
+        // The two list prices share one currency by construction — the column CHECK refuses an
+        // amount without one — so both read the same code rather than each carrying its own.
+        b2bPrice: mapCostAmount(wire.b2b_price_amount, wire.price_currency_code),
+        b2cPrice: mapCostAmount(wire.b2c_price_amount, wire.price_currency_code),
         lines: details.lines.map((line) => mapRecipeLine(line, units)),
+        packaging: (details.packaging ?? []).map((line) => mapRecipePackagingLine(line, units)),
         outputs: details.outputs.map((output) => mapRecipeOutput(output, units)),
         steps: details.steps.map(mapRecipeStep),
         allergens: details.allergens.map(mapRecipeAllergen),

@@ -11,9 +11,12 @@ use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Allergens\Models\Allergen;
 use Healthy360\Ingredients\Enums\AllergenContainment;
+use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
+use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Services\PackagingBranch;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
@@ -144,6 +147,79 @@ final class RecipeWorld
     }
 
     /**
+     * A priced packaging item this kitchen owns.
+     *
+     * `$capacity` is how much *product* the item holds, in `$capacityUnit` —
+     * the unit a recipe's yield is stated in, not the container's nominal
+     * volume. A 300 ml bottle is created here as holding `0.3` kg, which is
+     * what keeps `ceil(yield / capacity)` same-unit and free of any density.
+     *
+     * Null capacity is the ordinary case for a cap or a label, and is what a
+     * `per_container` or `per_batch` line is built on.
+     */
+    public static function packagingItem(
+        Organisation $organisation,
+        string $name,
+        string $price,
+        ?string $capacity = null,
+        string $capacityUnit = 'kg',
+        string $currency = 'USD',
+    ): Ingredient {
+        $item = new Ingredient;
+        $item->organisation_id = $organisation->getKey();
+        $item->slug = mb_strtolower(str_replace(' ', '-', $name)).'-'.uniqid();
+        $item->name_en = $name;
+        $item->name_ar = $name;
+        // Filed under the packaging branch, which is what *makes* it packaging now that the two
+        // families share a table. A row created without it is food, and `onlyPackaging()` — the
+        // scope a recipe's packaging line resolves through — would refuse it.
+        $item->ingredient_category_id = self::packagingCategory();
+        $item->default_unit_id = self::unit('piece');
+        $item->purchase_unit_id = self::unit('piece');
+        $item->purchase_price_amount = $price;
+        $item->purchase_price_currency = $currency;
+        $item->capacity_quantity = $capacity;
+        $item->capacity_unit_id = $capacity === null ? null : self::unit($capacityUnit);
+        $item->status = IngredientStatus::Active;
+        $item->verification_status = IngredientVerificationStatus::Verified;
+        $item->yield_factor = 1;
+        $item->lock_version = 0;
+        $item->save();
+
+        return $item;
+    }
+
+    /**
+     * The platform taxonomy node that marks a row as packaging.
+     *
+     * Created once per test database rather than per item, and at the platform layer, because that
+     * is where the seeder puts it and where {@see PackagingBranch} looks for it.
+     */
+    public static function packagingCategory(): string
+    {
+        $existing = IngredientCategory::withoutTenancy()
+            ->where('code', PackagingBranch::CODE)
+            ->first();
+
+        if ($existing !== null) {
+            return (string) $existing->getKey();
+        }
+
+        return (string) IngredientCategory::asPlatformRow(static function (): IngredientCategory {
+            $category = new IngredientCategory;
+            $category->organisation_id = null;
+            $category->code = PackagingBranch::CODE;
+            $category->name_en = 'Packaging & disposables';
+            $category->name_ar = 'Packaging & disposables';
+            $category->display_order = 99;
+            $category->is_active = true;
+            $category->save();
+
+            return $category;
+        })->getKey();
+    }
+
+    /**
      * An ingredient with no mapping rows at all and no verification — the
      * "nobody has assessed this" case the publish gate refuses. Silence is not
      * a statement of absence.
@@ -168,6 +244,60 @@ final class RecipeWorld
             'name_en' => $name,
             'verification_status' => IngredientVerificationStatus::Verified,
         ]);
+    }
+
+    /**
+     * The slim envelope `ingredients.nutrition_per_100g` holds, in the
+     * canonical units the roll-up insists on: energy in kcal, sodium in mg,
+     * everything else in grams.
+     *
+     * Malformed sets — a duplicate id, energy in kJ — are written literally by
+     * the tests that need them, so the shape under test is visible in the test
+     * rather than hidden behind a flag here.
+     *
+     * @param  array<string, float|int|string>  $values  nutrient id => amount per 100 g
+     * @return array<string, mixed>
+     */
+    public static function nutritionEnvelope(array $values): array
+    {
+        $units = ['energy' => 'kcal', 'sodium' => 'mg'];
+
+        $amounts = [];
+
+        foreach ($values as $nutrientId => $value) {
+            $amounts[] = [
+                'nutrient_id' => $nutrientId,
+                'unit' => $units[$nutrientId] ?? 'g',
+                'value' => $value,
+            ];
+        }
+
+        return ['basis' => 'per_100g', 'amounts' => $amounts];
+    }
+
+    /**
+     * Give an existing ingredient reference facts, a default unit, and — for
+     * the ones a volume or a count has to be weighed through — the mass of one
+     * default unit.
+     *
+     * Takes an ingredient rather than creating one, because the callers differ
+     * on everything else about it: one wants an allergen mapping on it, one
+     * wants it verified and clean, one wants it archived.
+     *
+     * @param  array<string, mixed>|null  $envelope  null to model an ingredient nobody has recorded facts for
+     */
+    public static function nourish(
+        Ingredient $ingredient,
+        ?array $envelope,
+        string $defaultUnitCode = 'g',
+        ?string $gramsPerUnit = null,
+    ): Ingredient {
+        $ingredient->nutrition_per_100g = $envelope;
+        $ingredient->default_unit_id = self::unit($defaultUnitCode);
+        $ingredient->grams_per_unit = $gramsPerUnit;
+        $ingredient->save();
+
+        return $ingredient->load('defaultUnit');
     }
 
     /**

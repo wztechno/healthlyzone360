@@ -1,4 +1,5 @@
 import type {
+    AllergenCode,
     IngredientId,
     KitchenBranchId,
     DeliveryZoneId,
@@ -18,6 +19,7 @@ import type {
     DeliveryZoneAdminFilter,
     IngredientAdmin,
     IngredientAdminFilter,
+    IngredientCategoryAdmin,
     KitchenAdminRepository,
     MealAdmin,
     MealAdminFilter,
@@ -30,10 +32,11 @@ import type {
     ProductAdminFilter,
     RecipeAdmin,
     RecipeAdminFilter,
+    ReferenceSeries,
     RecipeAdminSummary,
     TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
-import { ApiError } from '../contracts/failure.ts';
+import { ApiError, apiFailure, throwFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     AdminCatalogueItem,
@@ -50,7 +53,6 @@ import type {
     DeliveryZone,
     DerivedAllergen,
     EnergyBand,
-    IngredientAllergenMapping as WireAllergenMapping,
     IngredientCategory as WireIngredientCategory,
     MealCombinationOption,
     NumberedPaginationMeta,
@@ -71,6 +73,8 @@ import type {
 import {
     apiStatusForPublishableFilter,
     buildCategoryLookup,
+    mapIngredientCategoryAdmin,
+    type WireRecipePackagingLine,
     buildSalesChannelLookup,
     mapBranchOperating,
     mapChannelAssignments,
@@ -78,7 +82,6 @@ import {
     mapDeliveryWindow,
     mapDeliveryZoneAdmin,
     mapIngredientAdmin,
-    mapIngredientAllergenMapping,
     mapMealAdminFromItem,
     mapPlanAdminFromItem,
     mapPlanCombination,
@@ -193,8 +196,10 @@ type CatalogueItemShowPayload = {
  */
 export type ApiKitchenAdminReads = Pick<
     KitchenAdminRepository,
+    | 'nextReference'
     | 'listIngredients'
     | 'getIngredient'
+    | 'listIngredientCategories'
     | 'listRecipes'
     | 'getRecipe'
     | 'getRecipeTechnicalSheet'
@@ -238,6 +243,25 @@ function cursorQuery(
     return rendered === '' ? '' : `?${rendered}`;
 }
 
+/**
+ * The one allergen class an endpoint can take, out of a filter that is typed to carry several.
+ *
+ * `/catalogue/recipes` and `/catalogue/items` both accept a single `allergen`, because a single
+ * class is the question a list column asks — its menu is single-select and clearing is how you
+ * ask a different one. The plural field on the filter is there because the ingredient twin
+ * genuinely takes a union, and one shape across the three filters is worth more than a field
+ * that changes arity per entity.
+ *
+ * A caller passing several gets the first rather than a page-local pass over the union. The
+ * ingredient repository does keep that pass, and can: it is answering a picker that loads one page
+ * and means it. These two answer paged browse lists, where narrowing the loaded page leaves the
+ * count and every page after it describing the unfiltered set — the failure this whole filter was
+ * added to avoid, so it is not one to reintroduce as a fallback.
+ */
+function soleAllergen(codes?: readonly AllergenCode[] | undefined): string | undefined {
+    return codes === undefined || codes.length === 0 ? undefined : codes[0];
+}
+
 export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdminReads {
     let unitCodeLookup: ReadonlyMap<string, string> | null = null;
 
@@ -262,18 +286,30 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
     }
 
     let categoryLookup: CategoryLookup | null = null;
+    // The rows the lookup was built from, kept rather than discarded: `listIngredientCategories`
+    // answers from the same fetch the id↔code translation already needs, so a screen that shows the
+    // tree and a write that resolves a code do not make two requests for one response.
+    let categoryRows: readonly WireIngredientCategory[] | null = null;
     let salesChannelLookup: SalesChannelLookup | null = null;
 
-    async function loadCategoryLookup(): Promise<CategoryLookup> {
-        if (categoryLookup !== null) return categoryLookup;
+    async function loadCategories(): Promise<readonly WireIngredientCategory[]> {
+        if (categoryRows !== null) return categoryRows;
 
         const categories = await transport.request<WireIngredientCategory[]>({
             method: 'GET',
             path: '/catalogue/ingredient-categories',
         });
 
+        categoryRows = categories;
         categoryLookup = buildCategoryLookup(categories);
-        return categoryLookup;
+        return categories;
+    }
+
+    async function loadCategoryLookup(): Promise<CategoryLookup> {
+        if (categoryLookup !== null) return categoryLookup;
+
+        await loadCategories();
+        return categoryLookup ?? buildCategoryLookup([]);
     }
 
     async function loadSalesChannelLookup(): Promise<SalesChannelLookup> {
@@ -300,12 +336,21 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         itemType: AdminCatalogueItem['item_type'],
         filter?: CursorQueryFilter,
         status?: string | undefined,
+        categoryId?: string | undefined,
+        allergen?: string | undefined,
     ): Promise<CursorPage<AdminCatalogueItem>> {
         const envelope = await transport.requestEnvelope<AdminCatalogueItem[]>({
             method: 'GET',
+            /*
+             * `product_category_id` was never sent, which is why the products list's category
+             * filter narrowed the page in hand and left the count describing the whole collection.
+             * The endpoint has taken it all along; only the client had not asked.
+             */
             path: `/catalogue/items${cursorQuery(pickCursorFilter(filter), {
                 item_type: itemType,
                 status,
+                product_category_id: categoryId,
+                allergen,
             })}`,
         });
 
@@ -314,6 +359,31 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
     }
 
     return {
+        async nextReference(prefix: ReferenceSeries): Promise<string> {
+            const envelope = await transport.requestEnvelope<{ readonly reference: string }>({
+                method: 'GET',
+                path: `/catalogue/references/next?prefix=${encodeURIComponent(prefix)}`,
+            });
+
+            return envelope.data.reference;
+        },
+
+        async listIngredientCategories(): Promise<readonly IngredientCategoryAdmin[]> {
+            const rows = await loadCategories();
+            const idToCode = new Map(rows.map((row) => [row.id, row.code]));
+
+            // Sorted here rather than at each call site: three consumers need the same order and
+            // the endpoint's own is not guaranteed. `display_order` is the catalogue's stated
+            // intent; the code breaks ties so the list is at least stable when it is unset.
+            return rows
+                .map((row) => mapIngredientCategoryAdmin(row, idToCode))
+                .sort(
+                    (left, right) =>
+                        left.displayOrder - right.displayOrder ||
+                        left.code.localeCompare(right.code),
+                );
+        },
+
         async listIngredients(
             filter?: IngredientAdminFilter,
         ): Promise<CursorPage<IngredientAdmin>> {
@@ -338,7 +408,77 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
             if (filter?.categoryCode !== undefined) {
                 const categoryId = lookup.codeToId.get(filter.categoryCode);
-                if (categoryId !== undefined) search.set('category', categoryId);
+
+                /*
+                 * An unresolvable category returns nothing rather than everything.
+                 *
+                 * This used to drop the filter, and the packaging page is what that cost: it asked
+                 * for one branch, the branch was removed from the taxonomy, the code stopped
+                 * resolving, and the request degraded to the unfiltered list — so a page meant to
+                 * show thirty-one boxes showed three hundred ingredients and looked like it had
+                 * worked. Widening a request nobody widened is the worse of the two failures,
+                 * because an empty page is obviously wrong and a full one is not.
+                 */
+                if (categoryId === undefined) {
+                    return { items: [], nextCursor: null, hasMore: false, totalCount: 0 };
+                }
+
+                search.set('category', categoryId);
+            }
+
+            /*
+             * An unresolvable *exclusion* is refused, not dropped.
+             *
+             * The mirror of the rule above, and the half that was still open. This used to skip
+             * the constraint when the code did not resolve, on the argument that an exclusion
+             * which cannot be translated must not become a narrower request by accident — and the
+             * honest failure was said to be the unfiltered list.
+             *
+             * That argument does not survive packaging moving back into this table. The unfiltered
+             * list is now food *and* thirty-three boxes, so a dropped exclusion is not the caller
+             * getting "what they would have got before the filter existed" — it is the ingredient
+             * picker quietly offering bin liners, which is the same failure the inclusive branch
+             * above documents, pointed the other way. Neither list may widen by accident.
+             *
+             * It throws rather than returning empty because the two cases differ: an unresolvable
+             * *inclusion* has an honest empty answer, while an unresolvable exclusion has no honest
+             * answer at all — every row is a candidate and none can be ruled out.
+             */
+            if (filter?.excludeCategoryCode !== undefined) {
+                const excludedId = lookup.codeToId.get(filter.excludeCategoryCode);
+
+                if (excludedId === undefined) {
+                    throwFailure(
+                        apiFailure('server', {
+                            message: `The category "${filter.excludeCategoryCode}" could not be resolved, so it cannot be excluded. Refusing rather than returning a list that would include it.`,
+                        }),
+                    );
+                }
+
+                search.set('exclude_category', excludedId);
+            }
+
+            if (filter?.referenceSeries !== undefined) {
+                search.set('reference_series', filter.referenceSeries);
+            }
+
+            /*
+             * One code goes to the server; more than one stays client-side.
+             *
+             * `allergen` narrows the whole collection, which is what a paged browse list needs — a
+             * filter applied to the loaded page narrows that page while the count and every page
+             * after it go on describing the unfiltered set. The endpoint takes a single class
+             * because that is the question a list column asks; a caller passing several is asking
+             * for a union the endpoint cannot express, so it keeps the page-local pass below and
+             * the page-local caveat that comes with it.
+             */
+            const serverAllergen =
+                filter?.allergenCodes !== undefined && filter.allergenCodes.length === 1
+                    ? filter.allergenCodes[0]
+                    : undefined;
+
+            if (serverAllergen !== undefined) {
+                search.set('allergen', serverAllergen);
             }
 
             const rendered = search.toString();
@@ -363,8 +503,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ));
 
             if (!needsClientStatusFilter && filter?.ownedOnly !== true) {
+                // The single-code case was answered by the server above; only a union is left.
                 const allergenFilter =
-                    filter?.allergenCodes !== undefined && filter.allergenCodes.length > 0;
+                    serverAllergen === undefined &&
+                    filter?.allergenCodes !== undefined &&
+                    filter.allergenCodes.length > 0;
                 if (!allergenFilter) return page;
             }
 
@@ -373,7 +516,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     if (!filter.statuses.includes(row.meta.status)) return false;
                 }
                 if (filter?.ownedOnly === true && row.organisationId === null) return false;
-                if (filter?.allergenCodes !== undefined && filter.allergenCodes.length > 0) {
+                if (
+                    serverAllergen === undefined &&
+                    filter?.allergenCodes !== undefined &&
+                    filter.allergenCodes.length > 0
+                ) {
                     const codes = filter.allergenCodes;
                     if (!row.allergens.some((mapping) => codes.includes(mapping.allergenCode))) {
                         return false;
@@ -396,18 +543,13 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}`,
             });
 
-            const allergenWire = await transport.request<WireAllergenMapping[]>({
-                method: 'GET',
-                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/allergens`,
-            });
-
+            // The allergen mappings ride on the resource now, so the second request this used to
+            // make is gone. `/catalogue/ingredients/{id}/allergens` remains the mapping editor's
+            // own resource and is what the PUT writes against; it is simply not needed to render a
+            // record whose declaration arrived with it.
             const aliases = envelope.data.aliases.map((row) => row.alias);
-            const allergens = allergenWire.map(mapIngredientAllergenMapping);
 
-            return mapIngredientAdmin(envelope.data.ingredient, lookup, {
-                aliases,
-                allergens,
-            });
+            return mapIngredientAdmin(envelope.data.ingredient, lookup, { aliases });
         },
 
         async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
@@ -425,6 +567,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/recipes${cursorQuery(pickCursorFilter(filter), {
                     status: status === 'active' ? undefined : status,
                     stale_only: filter?.staleOnly === true ? '1' : undefined,
+                    allergen: soleAllergen(filter?.allergenCodes),
                 })}`,
             });
 
@@ -480,7 +623,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                         derivation_state: 'current',
                         lock_version: 1,
                     },
-                    { lines: [], outputs: [], steps: [], allergens: [] },
+                    { lines: [], packaging: [], outputs: [], steps: [], allergens: [] },
                 );
 
                 return mapRecipeAdmin(recipeWire, versionsWire, emptyVersion);
@@ -489,6 +632,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const versionEnvelope = await transport.requestEnvelope<{
                 version: AdminRecipeVersion;
                 lines: WireRecipeLine[];
+                packaging: WireRecipePackagingLine[];
                 outputs: WireRecipeOutput[];
                 steps: WireRecipeStep[];
                 allergens: RecipeVersionAllergen[];
@@ -502,6 +646,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 versionEnvelope.data.version,
                 {
                     lines: versionEnvelope.data.lines,
+                    packaging: versionEnvelope.data.packaging,
                     outputs: versionEnvelope.data.outputs,
                     steps: versionEnvelope.data.steps,
                     allergens: versionEnvelope.data.allergens,
@@ -522,6 +667,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 filter?.itemType ?? 'product',
                 pickCursorFilter(filter),
                 status,
+                filter?.categoryId,
             );
             return {
                 ...page,
@@ -548,7 +694,13 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems('meal', pickCursorFilter(filter), status);
+            const page = await listCatalogueItems(
+                'meal',
+                pickCursorFilter(filter),
+                status,
+                filter?.categoryId,
+                soleAllergen(filter?.allergenCodes),
+            );
             return {
                 ...page,
                 items: page.items.map((wire) => mapMealAdminFromItem(wire)),

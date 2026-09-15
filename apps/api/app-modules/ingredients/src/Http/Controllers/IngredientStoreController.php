@@ -36,7 +36,7 @@ final class IngredientStoreController
         $attributes = $request->validated();
 
         $ingredient = $this->catalogue->create($attributes);
-        $ingredient->load(['defaultUnit', 'purchaseUnit']);
+        $ingredient->load(['defaultUnit', 'purchaseUnit', 'capacityUnit']);
 
         return ApiResponse::data(['ingredient' => $this->presenter->ingredient($ingredient)], status: 201)
             ->withHeaders(['ETag' => '"'.$ingredient->lock_version.'"']);

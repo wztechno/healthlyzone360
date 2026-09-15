@@ -14,6 +14,7 @@ import type {
 import type {
     AllergenCode,
     DeliveryZoneId,
+    DietClassification,
     DietitianId,
     KitchenBranchId,
     KitchenId,
@@ -150,6 +151,8 @@ interface KitchenSeed {
     readonly name: string;
     readonly slug: string;
     readonly cuisines?: readonly string[] | undefined;
+    /** What the kitchen's meals classify as. The directory's diet chips narrow on exactly this. */
+    readonly diets?: readonly DietClassification[] | undefined;
     readonly channels?: KitchenSalesChannels | undefined;
 }
 
@@ -163,7 +166,7 @@ function testKitchen(seed: KitchenSeed): Kitchen {
         description: `${seed.name} is authored by this test file.`,
         countryCode: 'AE',
         cuisines: seed.cuisines ?? ['Levantine'],
-        dietClassifications: ['omnivore'],
+        dietClassifications: seed.diets ?? ['omnivore'],
         channels: seed.channels ?? CONSUMER_CHANNELS,
         branches: [testBranch(id, seed.ordinal)],
         deliveryWindows: [
@@ -182,6 +185,7 @@ const SAFFRON = testKitchen({
     name: 'Saffron and Sea',
     slug: 'saffron-and-sea',
     cuisines: ['Coastal'],
+    diets: ['pescatarian'],
 });
 /** Wholesale only: it sells to businesses and has no consumer listing at all. */
 const NORTHWIND = testKitchen({
@@ -542,8 +546,13 @@ describe('KitchensScreen', () => {
         expect(screen.getByTestId('kitchens-empty-clear')).toBeTruthy();
     });
 
+    /**
+     * Diet is the one directory filter that narrows on the client: the repository has no parameter
+     * for it, and `MarketplaceKitchenPresenter` does publish `diet_classifications`. So the screen
+     * itself is what has to do the work, and this is the test that says it does.
+     */
     it('narrows the list from a URL filter parameter', async () => {
-        routerState.params = { cuisine: 'Coastal' };
+        routerState.params = { diet: 'pescatarian' };
         await renderStubScreen(<KitchensScreen />, {
             repositories: { marketplace: { listKitchens } },
         });
@@ -566,17 +575,90 @@ describe('KitchensScreen', () => {
 /* ── kitchen profile and menu ────────────────────────────────────────────────────────────────── */
 
 describe('KitchenProfileScreen', () => {
-    it('renders the profile, its channels and its branches', async () => {
+    it('opens with the claim, the standing facts and the order panel', async () => {
         await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
-            repositories: { marketplace: { getKitchen } },
+            repositories: { marketplace: { getKitchen, listMeals } },
         });
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-name')).toBeTruthy();
         });
-        expect(screen.getByTestId('kitchen-channels')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-branches')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-facts')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-order-panel')).toBeTruthy();
         expect(screen.getByTestId('kitchen-view-menu')).toBeTruthy();
+
+        // The pill states the day's published window, never "open now" — see `storefront-facts.ts`.
+        expect(screen.getByTestId('kitchen-hours-today')).toBeTruthy();
+    });
+
+    it('lists the kitchen menu on the storefront rather than only behind the link', async () => {
+        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+            repositories: { marketplace: { getKitchen, listMeals } },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-sections')).toBeTruthy();
+        });
+
+        const rows = screen.getAllByTestId(/^storefront-menu-[a-z0-9-]+$/);
+        expect(rows.length).toBeGreaterThan(0);
+
+        await fireEvent.press(rows[0]!);
+        expect(routerMock.__push).toHaveBeenCalledWith(expect.stringMatching(/^\/meals\//));
+    });
+
+    /**
+     * Every diet, not the three the card had room for.
+     *
+     * The directory card shows three and collapses the rest into a `+8`. The card is a single
+     * press target — a pill inside it cannot be its own control without becoming a
+     * `nested-interactive` failure — so that press lands here, and the count is only honest if
+     * this page resolves it. Uncapped on purpose: a second `+N` would be the same dead end one
+     * page further on.
+     */
+    it('lists every diet the kitchen cooks for, uncapped', async () => {
+        const many = testKitchen({
+            ordinal: 1,
+            name: 'Verdant Kitchen',
+            slug: 'verdant-kitchen',
+            diets: [
+                'omnivore',
+                'vegetarian',
+                'vegan',
+                'pescatarian',
+                'keto',
+                'low_carb',
+                'high_protein',
+                'mediterranean',
+            ],
+        });
+
+        await renderStubScreen(<KitchenProfileScreen kitchenId={String(many.id)} />, {
+            repositories: {
+                marketplace: { getKitchen: async () => Promise.resolve(many), listMeals },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('kitchen-diets'));
+
+        for (const diet of many.dietClassifications) {
+            expect(screen.getByTestId(`kitchen-diets-tags-${diet}`)).toBeTruthy();
+        }
+
+        // No overflow pill: the whole point of the page is that there is nothing left over.
+        expect(screen.queryByTestId('kitchen-diets-tags-more')).toBeNull();
+    });
+
+    it('states no delivery figure the contract cannot answer', async () => {
+        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+            repositories: { marketplace: { getKitchen, listMeals } },
+        });
+
+        await waitFor(() => screen.getByTestId('kitchen-order-panel'));
+
+        // The design draws a "next slot" time. Nothing answers slot availability ahead of
+        // checkout, so the row is absent rather than filled with a plausible-looking time.
+        expect(screen.queryByTestId('kitchen-order-slot')).toBeNull();
     });
 
     it('reports a failure rather than an empty page when the kitchen is unknown', async () => {
@@ -613,12 +695,93 @@ describe('KitchenMenuScreen', () => {
         const cards = screen.getAllByTestId(/^meal-card-.*-nutrition$/);
         expect(cards).toHaveLength(2);
 
-        const pressable = screen.getAllByTestId(/^meal-card-[a-z0-9-]+$/)[0];
-        expect(pressable).toBeTruthy();
-        await fireEvent.press(pressable!);
+        /*
+         * The *title* is the link, not the card.
+         *
+         * Every meal card carries an Add button now, and a control inside a pressable is an axe
+         * `nested-interactive` failure — so the card is a grouping element and its title is the
+         * target (`meal-card.tsx`, `BrowseCard`'s `titleAction`). This used to press the card root
+         * with a regex that also matched the card's own children, which passed by accident of DOM
+         * order; `-open` names the link outright.
+         */
+        const link = screen.getAllByTestId(/^meal-card-[a-z0-9-]+-open$/)[0];
+        expect(link).toBeTruthy();
+        await fireEvent.press(link!);
 
         // The catalogue wave's `/meals/{meal}` replaced the in-place summary drawer.
         expect(routerMock.__push).toHaveBeenCalledWith(expect.stringMatching(/^\/meals\//));
+    });
+
+    /**
+     * All four macros, each a figure over its name, and only the ones the kitchen published.
+     *
+     * The card carried energy and protein; carbohydrate and fat were on the meal's own page. The
+     * rating left this row for the title's baseline to make the room.
+     *
+     * They were one string of joined text — `520 cal  32g P` — and are now four stacked tiles, so
+     * this asserts the number and the name where each is drawn. The unit went with the
+     * abbreviation: a tile headed `Protein` does not need its figure to repeat that protein is
+     * weighed in grams, and the bare numeral is what compares across a row of cards.
+     */
+    it('puts all four macros on the card, each figure over its name', async () => {
+        await renderStubScreen(<KitchenMenuScreen kitchenId={String(VERDANT.id)} />, {
+            repositories: { marketplace: { getKitchen, listMeals } },
+        });
+
+        await waitFor(() => screen.getByTestId('kitchen-menu-grid'));
+
+        /*
+         * 520 kcal, 32 g protein, 54 g carbohydrate, 18 g fat — the fixture's own numbers.
+         *
+         * A tile's two lines aggregate to one string, so each expectation is `figure` then `name`
+         * with nothing between them. The names are capitalised in CSS, not in the catalogue, which
+         * is why they read lower case here.
+         */
+        const base = 'meal-card-verdant-harvest-bowl-macro';
+        for (const [key, content] of [
+            ['energy', '520kcal'],
+            ['protein', '32protein'],
+            ['carbohydrate', '54carbs'],
+            ['fat', '18fat'],
+        ] as const) {
+            expect(screen.getByTestId(`${base}-${key}`)).toHaveTextContent(content);
+        }
+    });
+
+    /**
+     * Silence, when there is nothing to declare.
+     *
+     * The card used to state "the kitchen declares no allergens in this dish" on every meal that
+     * had none, at a reserved height. A grid of cards announcing what they do *not* contain is
+     * noise on the scan the grid exists for; the claim is still made in full on the meal's own
+     * page, which is where somebody deciding what they can safely eat actually reads.
+     */
+    it('says nothing about allergens when the kitchen declared none', async () => {
+        await renderStubScreen(<KitchenMenuScreen kitchenId={String(VERDANT.id)} />, {
+            repositories: { marketplace: { getKitchen, listMeals } },
+        });
+
+        await waitFor(() => screen.getByTestId('kitchen-menu-grid'));
+        expect(screen.queryByTestId('meal-card-verdant-harvest-bowl-allergens')).toBeNull();
+    });
+
+    /**
+     * Add is on the card for everybody, and an anonymous press is a question rather than a wall.
+     *
+     * It used to be on no card here at all, and on the discover grid only for people who had
+     * already signed in. `commerce/use-basket-add.tsx` is the one implementation now, so a guest
+     * gets the same offer from a grid that the meal page has always made.
+     */
+    it('offers Add on every card, and asks an anonymous visitor how to continue', async () => {
+        await renderStubScreen(<KitchenMenuScreen kitchenId={String(VERDANT.id)} />, {
+            repositories: { marketplace: { getKitchen, listMeals } },
+        });
+
+        await waitFor(() => screen.getByTestId('kitchen-menu-grid'));
+        await fireEvent.press(screen.getByTestId('meal-card-verdant-harvest-bowl-add'));
+
+        await waitFor(() => screen.getByTestId('kitchen-menu-guest-continue'));
+        expect(screen.getByTestId('kitchen-menu-guest-sign-in')).toBeTruthy();
     });
 
     it('carries the medical disclaimer, because the cards carry figures', async () => {
@@ -747,25 +910,35 @@ describe('ForBusinessScreen', () => {
 /* ── discover ────────────────────────────────────────────────────────────────────────────────── */
 
 describe('DiscoverScreen', () => {
-    it('hands a search over to the kitchen directory with the query in the URL', async () => {
+    /*
+     * The search hand-off this suite used to assert here now lives in the chrome
+     * (`shell/marketplace-shell.tsx`), so that it is reachable from every marketplace screen rather
+     * than only from this one. It writes the same `?q=` the catalogue's own filters read. There is
+     * no shell test to move the assertion into, so that behaviour is currently uncovered — see the
+     * note in the handoff rather than assuming it is tested somewhere else.
+     */
+    it('sends the hero call to action into the catalogue', async () => {
         await renderStubScreen(<DiscoverScreen />, {
-            repositories: { marketplace: { listKitchens } },
+            repositories: { marketplace: { listKitchens, listMeals } },
         });
 
-        await fireEvent.changeText(screen.getByTestId('discover-search-input'), 'coastal');
-        await fireEvent.press(screen.getByTestId('discover-search-submit'));
-
-        expect(routerMock.__push).toHaveBeenCalledWith('/kitchens?q=coastal');
-    });
-
-    it('links every catalogue family to its real route', async () => {
-        await renderStubScreen(<DiscoverScreen />, {
-            repositories: { marketplace: { listKitchens } },
-        });
-
-        await fireEvent.press(screen.getByTestId('discover-family-meals'));
+        await fireEvent.press(screen.getByTestId('discover-hero-meals'));
 
         expect(routerMock.__push).toHaveBeenCalledWith('/meals');
+    });
+
+    /*
+     * The tile carries the filter, not just the destination. A category that landed on the bare
+     * catalogue would look like it worked while quietly ignoring the thing the person picked.
+     */
+    it('opens the catalogue filtered to a meal type from a category tile', async () => {
+        await renderStubScreen(<DiscoverScreen />, {
+            repositories: { marketplace: { listKitchens, listMeals } },
+        });
+
+        await fireEvent.press(screen.getByTestId('discover-category-lunch'));
+
+        expect(routerMock.__push).toHaveBeenCalledWith('/meals?mealType=lunch');
     });
 });
 

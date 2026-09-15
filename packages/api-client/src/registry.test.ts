@@ -5,6 +5,16 @@ import { createMemoryTokenStore } from './contracts/index.ts';
 import { MissingApiBaseUrlError, createRepositories } from './registry.ts';
 
 describe('createRepositories', () => {
+    /**
+     * The explicit timeout is not padding, and it is not hiding a slow unit.
+     *
+     * `createRepositories` resolves the API layer through a dynamic `import()`, so the *first* case
+     * here pays the module's cold transform and every later one pays nothing — measured at 939ms
+     * against 0ms on an idle machine. Vitest's 5s default left about four seconds of headroom,
+     * which this package shares with ten others under `turbo run test`; two of them are Jest
+     * projects with their own workers. That was enough to miss the deadline intermittently, and a
+     * suite that fails on machine load rather than on behaviour tells you nothing when it goes red.
+     */
     it.each(['development', 'preview', 'production'] as const)(
         'builds API repositories in %s',
         async (appEnv) => {
@@ -18,6 +28,7 @@ describe('createRepositories', () => {
             expect(repositories.context).toBeDefined();
             expect(repositories.devices).toBeDefined();
         },
+        30_000,
     );
 
     it('defaults to the local API outside production', async () => {

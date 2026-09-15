@@ -94,6 +94,7 @@ export type KitchenId = Brand<string, 'KitchenId'>;
 export type KitchenBranchId = Brand<string, 'KitchenBranchId'>;
 export type DeliveryZoneId = Brand<string, 'DeliveryZoneId'>;
 export type IngredientId = Brand<string, 'IngredientId'>;
+export type PackagingItemId = Brand<string, 'PackagingItemId'>;
 export type RecipeId = Brand<string, 'RecipeId'>;
 export type MealId = Brand<string, 'MealId'>;
 export type MealPlanId = Brand<string, 'MealPlanId'>;
@@ -118,6 +119,8 @@ export const KitchenBranchId: IdCodec<KitchenBranchId> =
 export const DeliveryZoneId: IdCodec<DeliveryZoneId> =
     createIdCodec<DeliveryZoneId>('DeliveryZoneId');
 export const IngredientId: IdCodec<IngredientId> = createIdCodec<IngredientId>('IngredientId');
+export const PackagingItemId: IdCodec<PackagingItemId> =
+    createIdCodec<PackagingItemId>('PackagingItemId');
 export const RecipeId: IdCodec<RecipeId> = createIdCodec<RecipeId>('RecipeId');
 export const MealId: IdCodec<MealId> = createIdCodec<MealId>('MealId');
 export const MealPlanId: IdCodec<MealPlanId> = createIdCodec<MealPlanId>('MealPlanId');

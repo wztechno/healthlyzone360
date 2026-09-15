@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import type { TextProps } from 'react-native';
 
 import { cx } from '../internal/class-names.ts';
+import { drawIcon } from './icon-drawing';
 
 /**
  * Icons.
@@ -77,6 +78,17 @@ export const ICON_GLYPHS = {
     calendar: '▤',
     more: '⋯',
     /*
+     * The Catalogue's two row actions, closing the gap the Catalogue handoff's §10.0 left open.
+     *
+     * `pen` is the substitute that handoff names (§4.5). **`archive` is not** — it asks for `▤`,
+     * which `calendar` above already holds, and the next candidate `▣` is `basket`; the test below
+     * asserts a distinct glyph per name, and two names sharing a character is a row action that
+     * looks like a date filter. `▥` is the nearest unclaimed mark in the same Geometric Shapes
+     * block, so it carries the same coverage argument as the three neighbours already shipping.
+     */
+    pen: '✎',
+    archive: '▥',
+    /*
      * Closing the gap `consumer-items.ts` and `onboarding/steps.ts` both used to record.
      *
      * Still characters, not drawings. The handoff's §2.8 originally specified stroked 24×24 SVGs;
@@ -96,6 +108,14 @@ export const ICON_GLYPHS = {
     leaf: '♣',
     medicalCross: '✚',
     sparkle: '✧',
+    sun: '☀',
+    moon: '☾',
+    /*
+     * The time-field trigger (Workbench handoff §1b). On the web it is drawn — see
+     * `icon-drawing.web.tsx` — and this character is the native fallback, from the same Geometric
+     * Shapes block as `archive` and `basket`.
+     */
+    clock: '◷',
 } as const;
 
 export type IconGlyphName = keyof typeof ICON_GLYPHS;
@@ -140,6 +160,16 @@ export function resolveIconGlyph(name: IconName, isRtl: boolean): string {
 export function Icon({ name, size = 'md', className, label, testID, ...rest }: IconProps) {
     const isRtl = useIsRtl();
     const decorative = label === undefined;
+
+    /*
+     * Six action names are drawn rather than typed on the web (Workbench handoff §1a): the row
+     * actions `eye` / `pen` / `archive`, the overflow `more`, and the picker triggers `calendar` /
+     * `clock`. A character cannot carry the stroke the design asks for, and a stroked SVG inherits
+     * the text colour exactly as the glyph does. Native keeps the glyph — `react-native-svg` is a
+     * native module this file has already declined — so `drawIcon` answers `null` there.
+     */
+    const drawing = drawIcon(name, size, className, decorative ? undefined : label, testID);
+    if (drawing !== null) return drawing;
 
     return (
         <Text

@@ -8,6 +8,7 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Services\IngredientCatalogueService;
 
 /**
  * The administrative wire shapes of the ingredient catalogue.
@@ -20,14 +21,31 @@ use Healthy360\Ingredients\Models\IngredientCategory;
  * `is_platform` is on the wire because the client has to know which rows it
  * may not edit before it offers an edit control; discovering it from a 403 is
  * a worse experience and a worse contract.
+ *
+ * `is_editable` is the answer that flag was being asked for and could not
+ * give. "Platform row" is a fact about the row; "you may not edit it" is a
+ * fact about the row *and the caller*, because the platform operator writes
+ * exactly the rows a kitchen may not. Clients read `is_editable`;
+ * `is_platform` stays for what it actually says — which library the row is in.
  */
 final class IngredientPresenter
 {
+    public function __construct(private readonly IngredientCatalogueService $catalogue) {}
+
     /**
+     * @param  iterable<IngredientAllergen>|null  $allergens  the mappings visible to this caller,
+     *                                                        when the endpoint has already loaded
+     *                                                        them; omitted from the shape entirely
+     *                                                        rather than sent as an empty list,
+     *                                                        because "none declared" and "not
+     *                                                        loaded" are different answers and a
+     *                                                        client must not render the second as
+     *                                                        the first
      * @return array{
      *     id: string,
      *     organisation_id: string|null,
      *     is_platform: bool,
+     *     is_editable: bool,
      *     slug: string,
      *     name_en: string,
      *     name_ar: string,
@@ -39,7 +57,21 @@ final class IngredientPresenter
      *     purchase_unit_code: string|null,
      *     composition: string|null,
      *     items_per_unit: string|null,
+     *     grams_per_unit: string|null,
+     *     purchase_price_amount: string|null,
+     *     purchase_price_currency: string|null,
+     *     waste_percent: string|null,
+     *     capacity_quantity: string|null,
+     *     capacity_unit_code: string|null,
      *     nutrition_per_100g: array<string, mixed>|null,
+     *     nutrition_derived_from_version_id: string|null,
+     *     nutrition_estimated: bool|null,
+     *     nutrition_note: string|null,
+     *     b2b_price_amount: string|null,
+     *     b2c_price_amount: string|null,
+     *     unit_price_amount: string|null,
+     *     price_currency_code: string|null,
+     *     is_sellable: bool,
      *     yield_factor: string,
      *     forked_from_ingredient_id: string|null,
      *     availability_tier: string|null,
@@ -50,15 +82,17 @@ final class IngredientPresenter
      *     source_ref: string|null,
      *     lock_version: int,
      *     created_at: string|null,
-     *     updated_at: string|null
+     *     updated_at: string|null,
+     *     allergens?: list<array<string, mixed>>
      * }
      */
-    public function ingredient(Ingredient $ingredient): array
+    public function ingredient(Ingredient $ingredient, ?iterable $allergens = null): array
     {
-        return [
+        $presented = [
             'id' => (string) $ingredient->getKey(),
             'organisation_id' => $ingredient->organisation_id,
             'is_platform' => $ingredient->isPlatformRow(),
+            'is_editable' => $this->catalogue->isWritable($ingredient),
             'slug' => $ingredient->slug,
             'name_en' => $ingredient->name_en,
             'name_ar' => $ingredient->name_ar,
@@ -70,7 +104,56 @@ final class IngredientPresenter
             'purchase_unit_code' => $ingredient->relationLoaded('purchaseUnit') ? $ingredient->purchaseUnit?->code : null,
             'composition' => $ingredient->composition,
             'items_per_unit' => $ingredient->items_per_unit === null ? null : (string) $ingredient->items_per_unit,
+            /*
+             * What one default unit weighs, in grams — 1080 for a litre of soya sauce.
+             *
+             * Only ever asked of a non-mass unit: a kilogram already weighs what it weighs, and
+             * storing 1000 against it would be a second source of truth for arithmetic the unit
+             * table already does. Null is the common answer and an honest one — the roll-up names
+             * the line it could not weigh rather than guessing a density.
+             */
+            'grams_per_unit' => $ingredient->grams_per_unit === null ? null : (string) $ingredient->grams_per_unit,
+            /*
+             * The three figures packaging brought with it when it came back into this table.
+             *
+             * `purchase_price_amount` is per **purchase pack**, not per issued unit — a sleeve at
+             * $6.50, never a bag at $0.065 — which is why it is a separate field from
+             * `unit_price_amount` beside it rather than the same one wearing two hats. Confusing
+             * the two scales a cost by `items_per_unit`, and does it silently.
+             *
+             * All three are null on food, and that is not the same as zero: a null
+             * `waste_percent` says nobody has measured this one, a `0` says they did and there is
+             * none.
+             */
+            'purchase_price_amount' => $ingredient->purchase_price_amount === null ? null : (string) $ingredient->purchase_price_amount,
+            'purchase_price_currency' => $ingredient->purchase_price_currency,
+            'waste_percent' => $ingredient->waste_percent === null ? null : (string) $ingredient->waste_percent,
+            'capacity_quantity' => $ingredient->capacity_quantity === null ? null : (string) $ingredient->capacity_quantity,
+            'capacity_unit_code' => $ingredient->relationLoaded('capacityUnit') ? $ingredient->capacityUnit?->code : null,
             'nutrition_per_100g' => $ingredient->nutrition_per_100g,
+            /*
+             * Set when the facts above were derived from a published recipe version rather than
+             * entered — a sub-recipe's output, whose nutrition is whatever the recipe that makes it
+             * works out to. On the wire so an editor can render the panel read-only and say why,
+             * rather than offering a control whose save 422s.
+             */
+            'nutrition_derived_from_version_id' => $ingredient->nutrition_derived_from_version_id,
+            /*
+             * How good the figures are, and the source's own sentence about them.
+             *
+             * Three states, and the null is load-bearing: `true` is a representative figure —
+             * true of the category rather than measured of this thing — `false` is a declared
+             * one, and `null` is nobody having said. The reference document flags 56 of its 306
+             * rows and tells a kitchen to replace those with a supplier's label, which is an
+             * instruction nothing could act on while the flag stayed in the seed file.
+             */
+            'nutrition_estimated' => $ingredient->nutrition_estimated,
+            'nutrition_note' => $ingredient->nutrition_note,
+            'b2b_price_amount' => $ingredient->b2b_price_amount === null ? null : (string) $ingredient->b2b_price_amount,
+            'b2c_price_amount' => $ingredient->b2c_price_amount === null ? null : (string) $ingredient->b2c_price_amount,
+            'unit_price_amount' => $ingredient->unit_price_amount === null ? null : (string) $ingredient->unit_price_amount,
+            'price_currency_code' => $ingredient->price_currency_code,
+            'is_sellable' => $ingredient->is_sellable,
             'yield_factor' => (string) $ingredient->yield_factor,
             'forked_from_ingredient_id' => $ingredient->forked_from_ingredient_id,
             'availability_tier' => $ingredient->availability_tier?->value,
@@ -83,6 +166,17 @@ final class IngredientPresenter
             'created_at' => $ingredient->created_at?->toIso8601String(),
             'updated_at' => $ingredient->updated_at?->toIso8601String(),
         ];
+
+        // Added rather than spread in: a conditional spread leaves the shape of what comes back
+        // unknowable, and this array is the documented one every catalogue response is built on.
+        if ($allergens !== null) {
+            $presented['allergens'] = array_values(array_map(
+                fn (IngredientAllergen $mapping): array => $this->mapping($mapping),
+                is_array($allergens) ? $allergens : iterator_to_array($allergens),
+            ));
+        }
+
+        return $presented;
     }
 
     /**

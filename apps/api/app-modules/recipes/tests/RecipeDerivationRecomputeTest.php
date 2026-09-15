@@ -10,9 +10,11 @@ use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\AllergenMarketScope;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Services\AllergenMappingService;
+use Healthy360\Ingredients\Services\IngredientCatalogueService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationType;
@@ -36,7 +38,7 @@ use Illuminate\Support\Facades\Queue;
 | diner was promised has actually changed — pulls the version and everything
 | selling it off sale.
 |
-| Five things have to hold.
+| Six things have to hold.
 |
 | 1. A mapping edit that changes nothing leaves a published version published.
 |    A quarantine nobody needed is a review queue nobody reads.
@@ -47,6 +49,10 @@ use Illuminate\Support\Facades\Queue;
 |    context — the documented K1.2 gap.
 | 4. The walk follows outputs into the versions that consume them.
 | 5. Two components that produce what the other consumes terminate.
+| 6. A change to what an ingredient is *made of* — its per-100 g facts or the
+|    mass of one of its units — rewrites the nutrition snapshot of every
+|    published version built on it, and quarantines nothing. An allergen is a
+|    safety promise and a calorie is an accuracy one.
 |
 */
 
@@ -393,4 +399,197 @@ it('stops at the depth cap rather than walking forever', function (): void {
 
     expect(RecipeVersion::withoutTenancy()->whereKey($sourceId)->sole()->derivation_state)
         ->toBe(DerivationState::Current);
+});
+
+/**
+ * The seven canonical per-100 g figures, with the one under test parameterised.
+ *
+ * Only energy moves in these tests: it is the figure a customer reads first,
+ * and holding the other six still is what makes a changed snapshot provably the
+ * consequence of the edit rather than of a recompute that ran anyway.
+ *
+ * @return array<string, mixed>
+ */
+function recomputeFacts(float|int $energy): array
+{
+    return RecipeWorld::nutritionEnvelope([
+        'energy' => $energy, 'protein' => 17, 'carbohydrate' => 21.2,
+        'fat' => 53.8, 'fibre' => 9.3, 'sugars' => 0.5, 'sodium' => 115,
+    ]);
+}
+
+/**
+ * The energy amount off a stored snapshot, or null when the snapshot is.
+ */
+function snapshotEnergy(string $versionId): ?float
+{
+    $facts = RecipeVersion::withoutTenancy()->whereKey($versionId)->sole()->nutrition_facts;
+
+    foreach ($facts['amounts'] ?? [] as $amount) {
+        if (($amount['nutrient_id'] ?? null) === 'energy') {
+            return (float) $amount['value'];
+        }
+    }
+
+    return null;
+}
+
+/**
+ * PATCH one ingredient through the API, behind its own `If-Match`.
+ *
+ * Through HTTP rather than through the service, because the invalidation hook
+ * under test lives in `IngredientCatalogueService::update()` and the claim is
+ * that an ordinary operator edit reaches the labels — not that the service does
+ * when it is called directly.
+ *
+ * @param  array<string, mixed>  $payload
+ * @param  array<string, string>  $headers
+ */
+function patchIngredient(Ingredient $ingredient, array $payload, array $headers): void
+{
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+    $etag = test()->getJson($url, $headers)->assertOk()->headers->get('ETag');
+
+    test()->patchJson($url, $payload, $headers + ['If-Match' => (string) $etag])->assertOk();
+}
+
+it('refreshes the nutrition snapshot when an ingredients per-100 g facts change, without quarantining', function (): void {
+    $tahini = RecipeWorld::nourish(
+        RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Tahini', 'sesame'),
+        recomputeFacts(595),
+    );
+
+    $versionId = publishedVersionId($this->kitchen, $this->headers, $this->grams, [$tahini], 'Tahini Sauce');
+
+    // 250 g of a 595 kcal/100 g ingredient.
+    expect(snapshotEnergy($versionId))->toBe(1487.5);
+
+    // The supplier restates the figure. Nothing about the formulation changed,
+    // and everything about the label a customer reads off it did.
+    patchIngredient($tahini, ['nutrition_per_100g' => recomputeFacts(700)], $this->headers);
+
+    expect(snapshotEnergy($versionId))->toBe(1750.0);
+
+    $version = RecipeVersion::withoutTenancy()->whereKey($versionId)->sole();
+
+    // A calorie moving is not a broken promise. Quarantining here would put a
+    // dish into a review queue nobody can action, and teach the kitchen to
+    // clear that queue without reading it — which is where the real ones land.
+    expect($version->status)->toBe(RecipeVersionStatus::Published)
+        ->and($version->review_reason)->toBeNull()
+        ->and($version->derivation_state)->toBe(DerivationState::Current);
+
+    expect(AuditLog::query()->where('action', 'catalogue.allergen_rollup_changed')->count())->toBe(0);
+
+    // How far the edit reached, on the ingredient's own audit row.
+    $event = AuditLog::query()->where('action', 'catalogue.ingredient_updated')->sole();
+
+    expect($event->metadata['stale_recipe_versions'] ?? null)->toBe(1)
+        ->and($event->metadata['affected_organisations'] ?? null)->toBe(1);
+});
+
+it('refreshes the nutrition snapshot when the mass of one unit changes', function (): void {
+    // A line stated in litres is weighed *through* `grams_per_unit`, so that
+    // figure is as much an input to the label as the facts themselves — and it
+    // is the one a kitchen is most likely to correct, because it starts empty.
+    $litres = RecipeWorld::unit('l');
+
+    $vinegar = RecipeWorld::nourish(
+        RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Cider Vinegar', 'sulphites'),
+        recomputeFacts(595),
+        'l',
+        '1000.0000',
+    );
+
+    $versionId = publishedVersionId($this->kitchen, $this->headers, $litres, [$vinegar], 'Vinaigrette');
+
+    // 250 l × 1000 g/l = 250 000 g, at 595 kcal per 100 g.
+    expect(snapshotEnergy($versionId))->toBe(1487500.0);
+
+    patchIngredient($vinegar, ['grams_per_unit' => 1080], $this->headers);
+
+    expect(snapshotEnergy($versionId))->toBe(1606500.0);
+
+    $version = RecipeVersion::withoutTenancy()->whereKey($versionId)->sole();
+
+    expect($version->status)->toBe(RecipeVersionStatus::Published)
+        ->and($version->review_reason)->toBeNull();
+});
+
+it('leaves a null snapshot when an ingredient loses its facts', function (): void {
+    // The case the unconditional write exists for. A snapshot that survived its
+    // own inputs being withdrawn is the worst of both worlds: a `derived_at`
+    // saying it is current, over a number nothing stands behind any more.
+    $tahini = RecipeWorld::nourish(
+        RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Tahini', 'sesame'),
+        recomputeFacts(595),
+    );
+
+    $versionId = publishedVersionId($this->kitchen, $this->headers, $this->grams, [$tahini], 'Tahini Sauce');
+
+    expect(snapshotEnergy($versionId))->toBe(1487.5);
+
+    patchIngredient($tahini, ['nutrition_per_100g' => null], $this->headers);
+
+    $version = RecipeVersion::withoutTenancy()->whereKey($versionId)->sole();
+
+    expect($version->nutrition_facts)->toBeNull()
+        ->and($version->status)->toBe(RecipeVersionStatus::Published)
+        ->and($version->review_reason)->toBeNull();
+});
+
+it('carries a platform ingredients corrected facts into a tenants published version', function (): void {
+    // The guard on the extracted invalidator. The platform operator's own
+    // context cannot see this kitchen's versions — the row-level policies fail
+    // closed — so without the fan-out the correction would reach the reference
+    // row and stop there, which is exactly the K1.2 gap allergens already
+    // close. One tenant is enough to prove the crossing; the two-tenant
+    // arithmetic is already pinned by the allergen fan-out case above.
+    $platformTahini = Ingredient::factory()->platform()->create([
+        'name_en' => 'Platform Tahini',
+        'verification_status' => IngredientVerificationStatus::Verified,
+    ]);
+
+    RecipeWorld::nourish($platformTahini, recomputeFacts(595));
+
+    $versionId = publishedVersionId($this->kitchen, $this->headers, $this->grams, [$platformTahini], 'Platform Tahini Sauce');
+
+    expect(snapshotEnergy($versionId))->toBe(1487.5);
+
+    // The operator's context. Its organisation *type* is what lets it write a
+    // row that belongs to nobody — never a request field.
+    $platform = Organisation::factory()->create([
+        'organisation_type_id' => OrganisationType::query()->where('code', RequirePlatformContext::PLATFORM_OPERATOR_TYPE)->sole()->getKey(),
+        'country_code' => 'LB',
+        'default_currency_code' => 'USD',
+        'default_language_code' => 'en',
+    ]);
+
+    app(TenantContext::class)->setOrganisation(
+        (string) $this->kitchen->user->getKey(),
+        (string) $platform->getKey(),
+    );
+
+    // The service directly rather than over HTTP: the platform-operator request
+    // surface needs a membership, a role and the platform middleware, none of
+    // which is what this test is about. The fan-out case above exercises
+    // `AllergenMappingService` the same way.
+    app(IngredientCatalogueService::class)->update(
+        $platformTahini,
+        ['nutrition_per_100g' => recomputeFacts(700)],
+        $platformTahini->lock_version,
+    );
+
+    expect(snapshotEnergy($versionId))->toBe(1750.0);
+
+    $event = AuditLog::query()->where('action', 'catalogue.ingredient_updated')->sole();
+
+    expect($event->metadata['stale_recipe_versions'] ?? null)->toBe(1)
+        ->and($event->metadata['affected_organisations'] ?? null)->toBe(1);
+
+    // The fan-out puts the ambient context back whatever happens: the
+    // operator's request still has an audit row to write and a response to
+    // serialise, and leaving it pointed at the last tenant in the loop would be
+    // a tenancy breach caused by tidying up badly.
+    expect(app(TenantContext::class)->organisationId())->toBe((string) $platform->getKey());
 });

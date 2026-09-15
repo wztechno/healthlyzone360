@@ -75,6 +75,39 @@ export function areaHref(area: RouteArea): string {
     return `/${area}`;
 }
 
+/**
+ * A glyph per workspace area, for the tiles on `/workspace`.
+ *
+ * **Decoration, never the message.** Every tile renders the area's translated name beside this
+ * glyph and the `Icon` is left unlabelled, so the name is what a screen reader announces and what a
+ * reader who cannot tell `◇` from `◈` relies on. That is also why choosing a glyph needs no new
+ * translation key: nothing here carries meaning the name does not already carry.
+ *
+ * Typed against the whole of `RouteArea` rather than only the eleven in `WORKSPACE_AREAS`, so a
+ * thirteenth area added to the registry fails the typecheck here instead of rendering a tile with a
+ * hole where its icon should be. `public` and `auth` are not workspaces and never reach a tile;
+ * they are present only to keep the record total.
+ *
+ * The set is deliberately all-distinct. Two areas sharing a glyph would make the grid read as a
+ * mistake, and the pairs that tempt one — clinic and patient, partner and corporate — are exactly
+ * the ones a person needs to tell apart at a glance.
+ */
+export const AREA_ICONS: Readonly<Record<RouteArea, IconName>> = {
+    public: 'home',
+    auth: 'user',
+    customer: 'home',
+    patient: 'user',
+    dietitian: 'leaf',
+    clinic: 'medicalCross',
+    kitchen: 'plate',
+    kds: 'device',
+    driver: 'basket',
+    partner: 'branch',
+    corporate: 'organisation',
+    insurance: 'lock',
+    'platform-admin': 'prototype',
+};
+
 /** Filters the descriptors down to what this state may actually reach. */
 export function permittedNavigation(
     state: AccessState,

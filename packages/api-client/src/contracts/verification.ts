@@ -194,6 +194,22 @@ export interface VerificationRepository {
     removeContactPoint(request: { readonly contactPointId: string }): Promise<void>;
     setPrimaryContactPoint(request: { readonly contactPointId: string }): Promise<ContactPoint>;
 
+    /**
+     * The login address's own passcode, in both directions without a challenge identifier.
+     *
+     * The pair `POST /verification/email/challenges` and `POST /verification/email/verify` is the
+     * inline half of D-036: the registration mail carries a signed link *and* six digits, and this
+     * is what the six digits are typed into. Neither call names a contact or a challenge — the
+     * server reads the destination off the account and finds the one live challenge itself — and
+     * both are reachable *before* the address is verified, which is the whole point of them: a
+     * caller behind `verified` could never reach the thing that makes them verified.
+     *
+     * Verification answers nothing here on purpose. The fact it settles lives on the session, so
+     * the caller re-reads `/me` rather than trusting an echo of what it just sent.
+     */
+    sendEmailPasscode(): Promise<OtpChallenge>;
+    verifyEmailPasscode(request: { readonly code: string }): Promise<void>;
+
     issueChallenge(request: IssueOtpRequest): Promise<OtpChallenge>;
     /** Re-read a live challenge — after a reload, or when returning from a mail client. */
     getChallenge(request: { readonly challengeId: string }): Promise<OtpChallenge>;

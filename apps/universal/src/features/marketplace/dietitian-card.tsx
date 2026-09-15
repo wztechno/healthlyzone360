@@ -1,4 +1,4 @@
-import { Badge, Card, Chip, Inline, Rating, Stack, Text } from '@healthy360/design-system';
+import { Badge, Card, Inline, Rating, Stack, TagRow, Text } from '@healthy360/design-system';
 import type { Dietitian } from '@healthy360/api-client/contracts';
 import { useTranslation } from 'react-i18next';
 
@@ -43,7 +43,7 @@ export function DietitianCard({ dietitian, onPress, testID }: DietitianCardProps
      * above happen to end.
      */
     const footer = (
-        <View className="flex-col gap-1 border-t border-surface-sunken pt-3">
+        <View className="flex-col gap-1 border-t border-stroke-subtle pt-3">
             <Text
                 testID={`${resolvedTestID}-languages`}
                 tone="secondary"
@@ -124,11 +124,19 @@ export function DietitianCard({ dietitian, onPress, testID }: DietitianCardProps
                     )}
                 </Inline>
 
-                <Inline space="xs" wrap testID={`${resolvedTestID}-specialisms`}>
-                    {dietitian.specialisms.map((specialism) => (
-                        <Chip key={specialism} label={specialism} tone="brand" />
-                    ))}
-                </Inline>
+                {/*
+                 * The same `TagRow` the browse cards use. A specialism is a word about the person,
+                 * not a control, and drawing it with the shared component is what stops this row
+                 * and a kitchen's diets drifting a pixel apart every time one of them is touched.
+                 */}
+                <TagRow
+                    testID={`${resolvedTestID}-specialisms`}
+                    items={dietitian.specialisms.map((specialism) => ({
+                        key: specialism,
+                        label: specialism,
+                        tone: 'brand' as const,
+                    }))}
+                />
             </Stack>
         </Card>
     );

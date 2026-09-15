@@ -1,29 +1,33 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Callout,
+    DatePickerButton,
     EmptyState,
     ErrorState,
-    Inline,
     Skeleton,
     Stack,
-    Table,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskRequirementsQuery } from '../../../data/order-desk-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { addDays, todayIso } from '../../commerce/dates.ts';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueStatCards } from '../catalogue/index.ts';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
-import { OpsPanel } from '../ops-panel.tsx';
-import type { OpsMetric } from '../ops-panel.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -68,7 +72,7 @@ import type { OpsMetric } from '../ops-panel.tsx';
  *
  * **What is emphatically not a zero is `not_computable`.** A dish with no recipe, a plan whose menu
  * was never written, a unit that will not convert — those days produce no quantity *and no row*, and
- * the panel above the table reports them separately, by count of days and by reason. "Buy nothing
+ * a card above the table reports them separately, by count of days and by reason. "Buy nothing
  * for that" and "we could not work out what to buy for that" are opposite statements, and the whole
  * layout exists so a buyer can tell which one they are reading.
  *
@@ -125,106 +129,103 @@ function OrderDeskRequirements() {
 
     const notComputable = requirements.data?.notComputable ?? null;
 
-    /**
-     * The panel's metrics: how much there is to buy, how much of it is short, and how much of the
-     * window nobody could answer.
-     *
-     * `null` while pending, which `OpsMetric` renders as an em dash — the same three-way collapse
-     * the hub's KPI tiles use. A zero here would claim an answer the screen does not have yet.
-     */
-    const metrics: readonly OpsMetric[] = [
-        {
-            key: 'ingredients',
-            labelKey: 'kitchen:ops.requirements.metrics.ingredients',
-            value: requirements.data === undefined ? null : requirements.data.requirements.length,
-        },
-        {
-            key: 'short',
-            labelKey: 'kitchen:ops.requirements.metrics.short',
-            value:
-                requirements.data === undefined
-                    ? null
-                    : requirements.data.requirements.filter((row) => isShort(row)).length,
-        },
-        {
-            key: 'notComputable',
-            labelKey: 'kitchen:ops.requirements.metrics.notComputable',
-            value: notComputable?.days ?? null,
-        },
-    ];
+    const shortCount = (requirements.data?.requirements ?? []).filter((row) => isShort(row)).length;
 
-    const columns: readonly TableColumn<OrderDeskRequirement>[] = [
+    const columns: readonly ControlledColumn<
+        OrderDeskRequirement,
+        CatalogueColumn<OrderDeskRequirement>
+    >[] = [
         {
             key: 'ingredient',
-            header: t('kitchen:ops.requirements.columnIngredient'),
-            rowHeader: true,
-            flex: 2,
+            role: 'title',
+            value: (row) => row.nameEn,
+            label: t('kitchen:ops.requirements.columnIngredient'),
+            width: 220,
+            priority: 100,
+            sort: (left, right, direction) => compareText(left.nameEn, right.nameEn, direction),
             render: (row) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" testID={`${rowTestId(row)}-name`}>
-                        {row.nameEn}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {row.code}
-                    </Text>
-                </Stack>
+                <Text variant="strong" testID={`${rowTestId(row)}-name`}>
+                    {row.nameEn}
+                </Text>
             ),
         },
         {
             key: 'required',
-            header: t('kitchen:ops.requirements.columnRequired'),
-            numeric: true,
-            primary: true,
+            label: t('kitchen:ops.requirements.columnRequired'),
+            width: 100,
+            priority: 95,
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.required), Number(right.required), direction),
             render: (row) => (
-                <Text testID={`${rowTestId(row)}-required`}>{quantity(row.required)}</Text>
+                <Text variant="mono" testID={`${rowTestId(row)}-required`}>
+                    {quantity(row.required)}
+                </Text>
             ),
         },
         {
             key: 'available',
-            header: t('kitchen:ops.requirements.columnAvailable'),
-            numeric: true,
+            label: t('kitchen:ops.requirements.columnAvailable'),
+            width: 100,
+            priority: 80,
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.available), Number(right.available), direction),
             render: (row) => (
-                <Text tone="secondary" testID={`${rowTestId(row)}-available`}>
+                <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-available`}>
                     {quantity(row.available)}
                 </Text>
             ),
         },
         {
             key: 'short',
-            header: t('kitchen:ops.requirements.columnShort'),
-            numeric: true,
+            role: 'metric',
+            label: t('kitchen:ops.requirements.columnShort'),
+            width: 100,
+            priority: 90,
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.short), Number(right.short), direction),
             render: (row) => (
-                <Inline space="xs" align="center" justify="end">
-                    {isShort(row) ? (
-                        <Badge
-                            testID={`${rowTestId(row)}-short-badge`}
-                            tone="danger"
-                            icon="warning"
-                            label={t('kitchen:ops.requirements.shortBadge')}
-                        />
-                    ) : null}
-                    <Text
-                        testID={`${rowTestId(row)}-short`}
-                        tone={isShort(row) ? 'danger' : 'primary'}
-                    >
-                        {quantity(row.short)}
-                    </Text>
-                </Inline>
+                <Text
+                    variant="mono"
+                    testID={`${rowTestId(row)}-short`}
+                    tone={isShort(row) ? 'danger' : 'secondary'}
+                >
+                    {quantity(row.short)}
+                </Text>
             ),
         },
         {
             key: 'suggestedBuy',
-            header: t('kitchen:ops.requirements.columnSuggestedBuy'),
-            numeric: true,
+            label: t('kitchen:ops.requirements.columnSuggestedBuy'),
+            width: 110,
+            priority: 70,
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.suggestedBuy), Number(right.suggestedBuy), direction),
             render: (row) => (
-                <Text testID={`${rowTestId(row)}-suggested-buy`}>{quantity(row.suggestedBuy)}</Text>
+                <Text variant="mono" testID={`${rowTestId(row)}-suggested-buy`}>
+                    {quantity(row.suggestedBuy)}
+                </Text>
             ),
         },
         {
             key: 'unit',
-            header: t('kitchen:ops.requirements.columnUnit'),
+            label: t('kitchen:ops.requirements.columnUnit'),
+            width: 70,
+            priority: 60,
+            align: 'center',
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.unitCode ?? EM_DASH))].map((unit) => ({
+                        key: unit,
+                        label: unit,
+                    })),
+                match: (row, value) => (row.unitCode ?? EM_DASH) === value,
+            },
             render: (row) => (
-                <Text tone="secondary" testID={`${rowTestId(row)}-unit`}>
+                <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-unit`}>
                     {/* The one genuine unknown on this row. A shelf with no resolved unit still has
                         real quantities; it is the label for them that is missing. */}
                     {row.unitCode ?? EM_DASH}
@@ -260,100 +261,137 @@ function OrderDeskRequirements() {
 
     const failure = toFailure(requirements.error);
     const rows = requirements.data?.requirements ?? [];
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-requirements-table');
 
     return (
-        <Stack space="lg" testID="kitchen-order-desk-requirements-screen">
-            <OpsPanel
-                testID="kitchen-order-desk-requirements-panel"
-                titleKey="kitchen:ops.requirements.title"
-                subtitleKey="kitchen:ops.requirements.subtitle"
-                metrics={metrics}
-                emptyTitleKey="kitchen:ops.requirements.emptyTitle"
-                emptyBodyKey="kitchen:ops.requirements.emptyBody"
+        <Stack space="md" testID="kitchen-order-desk-requirements-screen">
+            {/* One 28px row: the window. The branch is the workspace's — see the file header. */}
+            <View
+                testID="kitchen-order-desk-requirements-content"
+                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
             >
-                <Stack space="md" testID="kitchen-order-desk-requirements-content">
-                    <Inline space="sm" align="end" wrap>
-                        <TextInputField
-                            testID="kitchen-order-desk-requirements-from"
-                            label={t('kitchen:ops.requirements.filterFrom')}
-                            value={from}
-                            onChangeText={setFrom}
-                            placeholder="YYYY-MM-DD"
-                            className="w-40"
-                        />
-                        <TextInputField
-                            testID="kitchen-order-desk-requirements-to"
-                            label={t('kitchen:ops.requirements.filterTo')}
-                            value={to}
-                            onChangeText={setTo}
-                            placeholder="YYYY-MM-DD"
-                            className="w-40"
-                        />
-                    </Inline>
+                <DatePickerButton
+                    testID="kitchen-order-desk-requirements-from"
+                    label={t('kitchen:ops.requirements.filterFrom')}
+                    value={from}
+                    onChange={setFrom}
+                    max={to}
+                />
+                <Text variant="caption" tone="secondary" aria-hidden>
+                    {t('kitchen:ops.requirements.windowTo')}
+                </Text>
+                <DatePickerButton
+                    testID="kitchen-order-desk-requirements-to"
+                    label={t('kitchen:ops.requirements.filterTo')}
+                    value={to}
+                    onChange={setTo}
+                    min={from}
+                />
+            </View>
 
-                    {branchId === null ? (
-                        <Callout
-                            testID="kitchen-order-desk-requirements-branch-required"
-                            tone="info"
-                            title={t('kitchen:ops.requirements.branchRequiredTitle')}
-                            body={t('kitchen:ops.requirements.branchRequiredBody')}
-                        />
-                    ) : filters === null ? (
-                        <Callout
-                            testID="kitchen-order-desk-requirements-window-invalid"
-                            tone="info"
-                            title={t('kitchen:ops.requirements.windowInvalidTitle')}
-                            body={t('kitchen:ops.requirements.windowInvalidBody')}
-                        />
-                    ) : requirements.isPending ? (
-                        <Stack space="sm" testID="kitchen-order-desk-requirements-loading">
-                            {Array.from({ length: 4 }, (_, index) => (
-                                <Skeleton key={index} heightClassName="h-10" />
-                            ))}
-                        </Stack>
-                    ) : failure !== null ? (
-                        <ErrorState
-                            testID="kitchen-order-desk-requirements-error"
-                            failure={failure}
-                            onRetry={() => {
-                                void requirements.refetch();
-                            }}
-                            retrying={requirements.isFetching}
+            {/*
+             * The figures as cards. Absent until something has answered — a zero here would claim
+             * an answer the screen does not have yet.
+             */}
+            {branchId === null || filters === null || failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-order-desk-requirements-figures"
+                    cards={[
+                        {
+                            key: 'ingredients',
+                            label: t('kitchen:ops.requirements.kpiIngredients'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(rows.length),
+                            caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
+                            mark: 'basket',
+                            tone: 'brand',
+                        },
+                        {
+                            key: 'short',
+                            label: t('kitchen:ops.requirements.kpiShort'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(shortCount),
+                            caption: t('kitchen:ops.requirements.kpiShortCaption'),
+                            mark: 'warning',
+                            tone: shortCount > 0 ? 'danger' : 'default',
+                        },
+                        {
+                            key: 'notComputable',
+                            label: t('kitchen:ops.requirements.kpiNotComputable'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(notComputable?.days ?? 0),
+                            caption:
+                                notComputable !== null && notComputable.days > 0
+                                    ? reasonSummary(notComputable.reasons)
+                                    : t('kitchen:ops.requirements.kpiNotComputableNone'),
+                            mark: 'calendar',
+                            tone:
+                                notComputable !== null && notComputable.days > 0
+                                    ? 'warning'
+                                    : 'default',
+                        },
+                    ]}
+                />
+            )}
+
+            {branchId === null ? (
+                // Friendly rather than an error: the reader did nothing wrong, the list simply
+                // needs a shelf to compare against.
+                <EmptyState
+                    testID="kitchen-order-desk-requirements-branch-required"
+                    title={t('kitchen:ops.requirements.branchRequiredTitle')}
+                    body={t('kitchen:ops.requirements.branchRequiredBody')}
+                />
+            ) : filters === null ? (
+                <Callout
+                    testID="kitchen-order-desk-requirements-window-invalid"
+                    tone="info"
+                    title={t('kitchen:ops.requirements.windowInvalidTitle')}
+                    body={t('kitchen:ops.requirements.windowInvalidBody')}
+                />
+            ) : requirements.isPending ? (
+                <View testID="kitchen-order-desk-requirements-loading" className="flex-col">
+                    {Array.from({ length: 6 }, (_, index) => (
+                        <View
+                            key={index}
+                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
+                        >
+                            <Skeleton heightClassName="h-2" />
+                        </View>
+                    ))}
+                </View>
+            ) : failure !== null ? (
+                <ErrorState
+                    testID="kitchen-order-desk-requirements-error"
+                    failure={failure}
+                    onRetry={() => {
+                        void requirements.refetch();
+                    }}
+                    retrying={requirements.isFetching}
+                />
+            ) : (
+                <View className="flex-col gap-snug">
+                    {rows.length === 0 ? (
+                        <EmptyState
+                            testID="kitchen-order-desk-requirements-empty"
+                            title={t('kitchen:ops.requirements.noRowsTitle')}
+                            body={t('kitchen:ops.requirements.noRowsBody')}
                         />
                     ) : (
-                        <Stack space="md">
-                            {notComputable !== null && notComputable.days > 0 ? (
-                                <Callout
-                                    testID="kitchen-order-desk-requirements-not-computable"
-                                    tone="warning"
-                                    role="status"
-                                    title={t('kitchen:ops.requirements.notComputableTitle', {
-                                        count: notComputable.days,
-                                    })}
-                                    body={reasonSummary(notComputable.reasons)}
-                                />
-                            ) : null}
-
-                            {rows.length === 0 ? (
-                                <EmptyState
-                                    testID="kitchen-order-desk-requirements-empty"
-                                    title={t('kitchen:ops.requirements.noRowsTitle')}
-                                    body={t('kitchen:ops.requirements.noRowsBody')}
-                                />
-                            ) : (
-                                <Table<OrderDeskRequirement>
-                                    testID="kitchen-order-desk-requirements-table"
-                                    caption={t('kitchen:ops.requirements.title')}
-                                    captionHidden
-                                    columns={columns}
-                                    rows={rows}
-                                    rowKey={(row) => row.stockItemId}
-                                />
-                            )}
-                        </Stack>
+                        <CatalogueList<OrderDeskRequirement>
+                            testID="kitchen-order-desk-requirements-table"
+                            label={t('kitchen:ops.requirements.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.stockItemId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
                     )}
-                </Stack>
-            </OpsPanel>
+                </View>
+            )}
         </Stack>
     );
 }

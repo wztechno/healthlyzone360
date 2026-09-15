@@ -292,6 +292,110 @@ it('reports no basis rather than no allergens when nothing has been said', funct
         ->assertJsonPath('data.allergens', []);
 });
 
+it('narrows the item index to rows whose derived label carries a class', function (): void {
+    // The list column's filter. It has to resolve the same label the endpoint above serves, or the
+    // list would return rows whose own Allergens cell contradicted the filter that found them.
+    $sesame = CatalogueWorld::mappedIngredient($this->a->organisation, 'Tahini', 'sesame');
+
+    $declaring = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Tahini bowl',
+        'name_ar' => 'وجبة',
+    ]);
+    $declaring->ingredients()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'ingredient_id' => $sesame->getKey(),
+        'display_order' => 1,
+    ]);
+
+    // Described, and describing nothing this filter names.
+    $gluten = CatalogueWorld::mappedIngredient($this->a->organisation, 'Burghul', 'gluten');
+    $silent = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Tabbouleh',
+        'name_ar' => 'تبولة',
+    ]);
+    $silent->ingredients()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'ingredient_id' => $gluten->getKey(),
+        'display_order' => 1,
+    ]);
+
+    // Nobody has described this one at all. `basis = none` is not "no allergens", so it is neither
+    // a sesame item nor a not-sesame item, and a filter naming a class must not return it.
+    $undescribed = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Unassessed special',
+        'name_ar' => 'طبق',
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    $ids = collect(
+        $this->getJson('/api/v1/catalogue/items?allergen=sesame&limit=100', CatalogueWorld::headers($this->a))
+            ->assertOk()
+            ->json('data'),
+    )->pluck('id')->all();
+
+    expect($ids)->toContain((string) $declaring->getKey())
+        ->and($ids)->not->toContain((string) $silent->getKey())
+        ->and($ids)->not->toContain((string) $undescribed->getKey());
+});
+
+it('filters on the frozen label, not the item ingredients, once a version is published', function (): void {
+    /*
+     * The same order of authority the read endpoint applies, which is the half that cannot be
+     * flattened into one `exists`.
+     *
+     * The item lists tahini, so an ingredient-only filter would call it a sesame dish. Its recipe
+     * has a published version whose frozen label says gluten and nothing else — and that label
+     * *is* the answer, so the row's own cell reads gluten. A filter that found it under `sesame`
+     * would be pointing at a row that does not say sesame.
+     */
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+    $version = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+    ]);
+    RecipeVersionAllergen::withoutTenancy()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'allergen_code' => CatalogueWorld::allergen('gluten')->code,
+        'containment' => AllergenContainment::Contains,
+        'derivation' => AllergenDerivation::Derived,
+    ]);
+
+    $item = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Reformulated bowl',
+        'name_ar' => 'وجبة',
+        'recipe_id' => $recipe->getKey(),
+    ]);
+    $item->ingredients()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'ingredient_id' => CatalogueWorld::mappedIngredient($this->a->organisation, 'Tahini', 'sesame')->getKey(),
+        'display_order' => 1,
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a);
+
+    $bySesame = collect(
+        $this->getJson('/api/v1/catalogue/items?allergen=sesame&limit=100', $headers)->assertOk()->json('data'),
+    )->pluck('id')->all();
+    $byGluten = collect(
+        $this->getJson('/api/v1/catalogue/items?allergen=gluten&limit=100', $headers)->assertOk()->json('data'),
+    )->pluck('id')->all();
+
+    expect($byGluten)->toContain((string) $item->getKey())
+        ->and($bySesame)->not->toContain((string) $item->getKey());
+});
+
 it('retires an item from any live state and refuses a second retirement', function (): void {
     $item = CatalogueWorld::publishableProduct($this->a);
 

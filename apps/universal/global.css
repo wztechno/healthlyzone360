@@ -41,7 +41,10 @@
     }
 
     /* Per-script typography. `lang` is set before hydration by app/+html.tsx, so the correct family
-     and line height apply on first paint rather than after a flash of Latin metrics. */
+     and line height apply on first paint rather than after a flash of Latin metrics.
+
+     This sets the *document* family. It does not reach react-native-web's text elements on its own
+     — see the unlayered block below, which is what actually wins. */
     html:lang(en),
     html:lang(en-XA) {
         font-family: var(--h360-font-family-latin);
@@ -50,6 +53,105 @@
     html:lang(ar) {
         font-family: var(--h360-font-family-arabic);
     }
+}
+
+/* ================================================================================================
+   The per-script family, applied where it actually wins.
+
+   Deliberately **outside `@layer base`**, and deliberately a descendant selector.
+
+   React Native Web gives every `Text` its own class carrying the React Native default stack
+   (`-apple-system, BlinkMacSystemFont, "Segoe UI", …`), injected at runtime as an unlayered
+   stylesheet. Two things follow, and both matter:
+
+     1. Inheritance always loses to a matching rule, so the `html:lang(…)` declarations above never
+        reached a single `Text`. Only elements carrying an explicit `font-*` utility rendered the
+        family the design intended; everything else rendered the system face. That is most of what
+        "the fonts do not match" meant — three faces on screen, and the body face not among them.
+     2. Unlayered rules beat layered ones whatever the specificity, so moving this into
+        `@layer base` would silently undo it. It has to sit here.
+
+   `html:lang(en) *` is (0,1,1) against react-native-web's (0,1,0), which is the smallest margin
+   that holds. The universal selector is safe *because* there is now exactly one family per script:
+   there is no second face for it to stamp on. Reintroduce a family role and this rule has to learn
+   about it — which is the point, and is asserted in packages/design-tokens/src/scales.test.ts.
+
+   Figures line up on `tabular-nums`, which this does not touch.
+   ================================================================================================ */
+html:lang(en) *,
+html:lang(en-XA) * {
+    font-family: var(--h360-font-family-latin);
+}
+
+html:lang(ar) * {
+    font-family: var(--h360-font-family-arabic);
+}
+
+/* ================================================================================================
+   The workspace rail's own scrollbar.
+
+   The rail is a canopy panel and its navigation scrolls inside it — AppShell's sidebar ScrollView,
+   which carries the `…-sidebar-scroll` id. Left to the browser, that scroller wears the platform's
+   stock scrollbar: on Windows a light grey slab with arrow buttons, cut into a deep green panel.
+
+   The standard properties thin it and paint it in the rail's own ink; the WebKit pseudo-elements do
+   the same for engines that predate them (an engine that honours `scrollbar-color` ignores them).
+   The thumb shows only while the pointer is over the rail or a link inside it has focus — the list
+   still scrolls by wheel, keyboard and touch, and the bar appears exactly when somebody reaches
+   for it. Keyed on the test id for the print block's reason: react-native-web's classes are hashed
+   per build.
+   ============================================================================================== */
+[data-testid$='-sidebar-scroll'] {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+[data-testid$='-sidebar-scroll']:hover,
+[data-testid$='-sidebar-scroll']:focus-within {
+    scrollbar-color: rgb(var(--h360-color-on-canopy-muted) / 0.45) transparent;
+}
+
+[data-testid$='-sidebar-scroll']::-webkit-scrollbar {
+    width: 6px;
+}
+
+[data-testid$='-sidebar-scroll']::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+[data-testid$='-sidebar-scroll']::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+}
+
+[data-testid$='-sidebar-scroll']:hover::-webkit-scrollbar-thumb,
+[data-testid$='-sidebar-scroll']:focus-within::-webkit-scrollbar-thumb {
+    background: rgb(var(--h360-color-on-canopy-muted) / 0.45);
+}
+
+/* ================================================================================================
+   PickerField (design-system `forms/picker-field.web.tsx`) — Workbench handoff §1b.
+
+   The browser's own picker indicator is made invisible and stretched over the 28px at the field's
+   inline end, directly under the drawn calendar/clock glyph (which carries pointer-events: none).
+   The click lands on the real indicator, so the OS picker opens with no JavaScript. Keyed on a data
+   attribute for the reason the blocks around it are: react-native-web's classes are hashed.
+   ============================================================================================== */
+input[data-picker-field]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    width: 28px;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+input[data-picker-field]::-webkit-inner-spin-button,
+input[data-picker-field]::-webkit-clear-button {
+    display: none;
 }
 
 /* ================================================================================================

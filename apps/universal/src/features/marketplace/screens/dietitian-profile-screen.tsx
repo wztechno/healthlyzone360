@@ -4,11 +4,11 @@ import {
     Button,
     Callout,
     Card,
-    Chip,
     Heading,
     Inline,
     Rating,
     Stack,
+    TagRow,
     Text,
 } from '@healthy360/design-system';
 import { DietitianId } from '@healthy360/domain-types';
@@ -146,11 +146,14 @@ export function DietitianProfileScreen({ dietitianId }: DietitianProfileScreenPr
                             <Heading level={2}>
                                 {t('marketplace:dietitians.specialismsTitle')}
                             </Heading>
-                            <Inline space="xs" wrap testID="dietitian-specialisms">
-                                {dietitian.specialisms.map((specialism) => (
-                                    <Chip key={specialism} label={specialism} tone="brand" />
-                                ))}
-                            </Inline>
+                            <TagRow
+                                testID="dietitian-specialisms"
+                                items={dietitian.specialisms.map((specialism) => ({
+                                    key: specialism,
+                                    label: specialism,
+                                    tone: 'brand' as const,
+                                }))}
+                            />
                             <Text testID="dietitian-languages" tone="secondary" variant="caption">
                                 {t('marketplace:dietitians.speaks', {
                                     languages: dietitian.locales

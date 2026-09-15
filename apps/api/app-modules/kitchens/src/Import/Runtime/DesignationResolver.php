@@ -56,7 +56,10 @@ final class DesignationResolver
         $this->index = [];
         $this->tenantByName = [];
 
+        // Food only: this index turns a technical sheet's designation into a raw material, and
+        // packaging shares the table. See IngredientCatalogueService::resolveDesignation.
         $ingredients = Ingredient::withoutTenancy()
+            ->excludingPackaging()
             ->where(function ($query): void {
                 $query->whereNull('organisation_id');
 

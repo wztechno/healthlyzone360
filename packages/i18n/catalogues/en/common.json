@@ -20,7 +20,9 @@
         "confirm": "Confirm",
         "dismiss": "Dismiss",
         "goBack": "Go back",
-        "done": "Done"
+        "done": "Done",
+        "search": "Search",
+        "clear": "Clear"
     },
     "state": {
         "loading": "Loading…",
@@ -53,7 +55,9 @@
         "label": "Appearance",
         "light": "Light",
         "dark": "Dark",
-        "system": "Match device"
+        "system": "Match device",
+        "switchToLight": "Switch to light mode",
+        "switchToDark": "Switch to dark mode"
     },
     "direction": {
         "ltr": "Left to right",

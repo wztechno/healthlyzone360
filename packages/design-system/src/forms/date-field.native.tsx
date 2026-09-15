@@ -35,6 +35,7 @@ export type { DateFieldProps } from './date-field-shared.ts';
  */
 export function DateField({
     label,
+    labelHidden = false,
     value,
     onChange,
     min,
@@ -73,21 +74,23 @@ export function DateField({
         <View
             testID={testID}
             role="group"
-            aria-labelledby={labelId}
+            {...(labelHidden ? {} : { 'aria-labelledby': labelId })}
             accessibilityLabel={label}
             className={cx('flex-col gap-1', className)}
         >
-            <RNText
-                nativeID={labelId}
-                testID={testID === undefined ? undefined : `${testID}-label`}
-                className={cx(
-                    'text-sm font-medium text-start',
-                    disabled ? 'text-content-disabled' : 'text-content-primary',
-                )}
-            >
-                {label}
-                {required ? <RNText className="text-danger-strong">{' *'}</RNText> : null}
-            </RNText>
+            {labelHidden ? null : (
+                <RNText
+                    nativeID={labelId}
+                    testID={testID === undefined ? undefined : `${testID}-label`}
+                    className={cx(
+                        'text-sm font-medium text-start',
+                        disabled ? 'text-content-disabled' : 'text-content-primary',
+                    )}
+                >
+                    {label}
+                    {required ? <RNText className="text-danger-strong">{' *'}</RNText> : null}
+                </RNText>
+            )}
 
             {hint === undefined ? null : (
                 <RNText className="text-xs text-content-secondary text-start">{hint}</RNText>

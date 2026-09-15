@@ -131,6 +131,15 @@ export function CheckoutScreen() {
     const refusalReasons =
         placeFailure?.code === 'order.placement_refused' ? placeFailure.reasons : [];
 
+    /*
+     * Two of those reasons are about the account rather than the basket, and neither is fixable
+     * from here. The account screen routes every outstanding step, so the refusal carries a way
+     * there instead of leaving somebody to find it.
+     */
+    const accountSetupRefused = refusalReasons.some(
+        (entry) => entry.reason === 'account_not_ready' || entry.reason === 'account_not_active',
+    );
+
     const rows: readonly PriceRow[] =
         quotation === undefined
             ? []
@@ -413,6 +422,21 @@ export function CheckoutScreen() {
                                                     // preference to it.
                                                     { defaultValue: placeFailure.message },
                                                 )}
+                                                actions={
+                                                    accountSetupRefused ? (
+                                                        <Button
+                                                            testID="checkout-finish-setup"
+                                                            label={t(
+                                                                'commerce:checkout.finishSetup',
+                                                            )}
+                                                            onPress={() => {
+                                                                router.push(
+                                                                    '/customer/account' as never,
+                                                                );
+                                                            }}
+                                                        />
+                                                    ) : undefined
+                                                }
                                             >
                                                 {refusalReasons.length === 0 ? null : (
                                                     <Stack

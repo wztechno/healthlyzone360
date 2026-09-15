@@ -890,7 +890,7 @@ export function KitchenHomeScreen() {
                                                     count: reviewQueue.total,
                                                 })}
                                             </Heading>
-                                            <Text tone="inverse" className="opacity-95">
+                                            <Text tone="inverse">
                                                 {reviewQueue.blocked > 0
                                                     ? t('kitchen:review.summaryBlocked', {
                                                           count: reviewQueue.blocked,

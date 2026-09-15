@@ -77,6 +77,7 @@ use Healthy360\Catalogues\Http\Controllers\CatalogueItemShowController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemUpdateController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemVariantReplaceController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueReferenceNextController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationStoreController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationUpdateController;
@@ -155,6 +156,7 @@ use Healthy360\Ingredients\Http\Controllers\IngredientArchiveController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryUpdateController;
+use Healthy360\Ingredients\Http\Controllers\IngredientForkController;
 use Healthy360\Ingredients\Http\Controllers\IngredientIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
@@ -261,6 +263,7 @@ use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeLineReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeOutputReplaceController;
+use Healthy360\Recipes\Http\Controllers\RecipePackagingReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeRollupPreviewController;
 use Healthy360\Recipes\Http\Controllers\RecipeShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeStepReplaceController;
@@ -930,6 +933,17 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/ingredients/{ingredient}/allergens', IngredientAllergenIndexController::class)->name('catalogue.ingredients.allergens.index');
                 Route::get('/ingredients/{ingredient}/aliases', IngredientAliasIndexController::class)->name('catalogue.ingredients.aliases.index');
                 Route::get('/ingredient-categories', IngredientCategoryIndexController::class)->name('catalogue.ingredient-categories.index');
+
+                /*
+                 * Packaging has no routes of its own any more.
+                 *
+                 * It is back in `ingredients`, filed under `packaging-disposables`, so the
+                 * packaging list is `/ingredients?category=<that branch>` and the ingredient
+                 * list is the same endpoint with `exclude_category` pointed at it. Two screens
+                 * reading one collection from opposite ends, which is what
+                 * `IngredientAdminFilter`'s `categoryCode` / `excludeCategoryCode` pair has
+                 * always documented itself as being for.
+                 */
             });
 
             Route::middleware(['org.trading', 'permission:catalogue.manage_organisation'])->group(function (): void {
@@ -942,6 +956,13 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/ingredients/{ingredient}/archive', IngredientArchiveController::class)
                     ->middleware('precondition')
                     ->name('catalogue.ingredients.archive');
+
+                // No `precondition`: this creates a row rather than changing
+                // one, so there is no version to be stale against, and the
+                // service returns an existing fork rather than a second copy
+                // — which is what makes a retry safe without an If-Match.
+                Route::post('/ingredients/{ingredient}/fork', IngredientForkController::class)
+                    ->name('catalogue.ingredients.fork');
 
                 Route::put('/ingredients/{ingredient}/allergens', IngredientAllergenReplaceController::class)->name('catalogue.ingredients.allergens.replace');
 
@@ -1012,6 +1033,13 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/recipes/{recipe}/versions/{version}/lines', RecipeLineReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.recipes.versions.lines.replace');
+
+                // The formulation's other half. Wholesale like `lines`, and behind the same
+                // precondition: the set is the unit of change, so a partial send and a deletion
+                // must stay different requests.
+                Route::put('/recipes/{recipe}/versions/{version}/packaging', RecipePackagingReplaceController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.packaging.replace');
 
                 Route::put('/recipes/{recipe}/versions/{version}/outputs', RecipeOutputReplaceController::class)
                     ->middleware('precondition')
@@ -1100,6 +1128,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
                 Route::get('/sales-channels', SalesChannelIndexController::class)->name('catalogue.sales-channels.index');
                 Route::get('/sales-channels/{channel}', SalesChannelShowController::class)->name('catalogue.sales-channels.show');
+
+                // The handle the next record of a kind will take, so a create form can
+                // draw it before there is a record to read it from. A preview and never
+                // a reservation — see the controller.
+                Route::get('/references/next', CatalogueReferenceNextController::class)->name('catalogue.references.next');
 
                 Route::get('/items', CatalogueItemIndexController::class)->name('catalogue.items.index');
                 Route::get('/items/{item}', CatalogueItemShowController::class)->name('catalogue.items.show');

@@ -116,11 +116,10 @@ jobs:
           php artisan migrate:rollback --database=pgsql_migrations --force
           php artisan migrate --database=pgsql_migrations --seed --force
 
+      # The `rls` group runs inside this, so there is no separate tenancy gate: a second pass
+      # re-ran the same tests only so a failure would name itself, which is not worth the minutes.
       - name: Pest (full suite on PostgreSQL)
         run: php artisan test --compact
-
-      - name: Tenancy and RLS gates (explicit)
-        run: php artisan test --compact --group=rls
 
   openapi:
     runs-on: ubuntu-latest

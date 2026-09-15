@@ -92,11 +92,18 @@ export function RangeFilter({
                 <RNText className="text-xs text-content-secondary text-start">{hint}</RNText>
             )}
 
-            <View className="flex-row items-start gap-3">
+            {/*
+             * Wrapping, not a fixed two-up row. A stepper is [−][field][+] and stops being usable
+             * much under 150px, so in a narrow column — the meals filter rail is 264px — two of
+             * them side by side crush both fields. `basis-[150px]` with `flex-wrap` keeps them on
+             * one line wherever there is room and drops max under min where there is not, which is
+             * the reading order the labels already imply.
+             */}
+            <View className="flex-row flex-wrap items-start gap-3">
                 <NumberStepper
                     testID={testID === undefined ? undefined : `${testID}-min`}
                     id={`${base}-min`}
-                    className="flex-1"
+                    className="min-w-[150px] flex-1 basis-[150px]"
                     label={minLabel ?? t('designSystem:rangeFilter.min')}
                     value={value.min}
                     onChange={(next) => {
@@ -111,7 +118,7 @@ export function RangeFilter({
                 <NumberStepper
                     testID={testID === undefined ? undefined : `${testID}-max`}
                     id={`${base}-max`}
-                    className="flex-1"
+                    className="min-w-[150px] flex-1 basis-[150px]"
                     label={maxLabel ?? t('designSystem:rangeFilter.max')}
                     value={value.max}
                     onChange={(next) => {

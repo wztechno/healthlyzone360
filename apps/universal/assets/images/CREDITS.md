@@ -2,7 +2,7 @@
 
 Every photograph under `apps/universal/assets/images/` is **illustrative licensed stock**,
 downloaded and bundled locally and served from the app itself — the prototype makes no external
-image requests (proven by the `no-external-requests` e2e gate).
+image requests.
 
 The photographs decorate **synthetic** fixture data. The meals, recipes, kitchens, subscription
 plans and dietitian profiles remain labelled _synthetic prototype data_ on screen; these are

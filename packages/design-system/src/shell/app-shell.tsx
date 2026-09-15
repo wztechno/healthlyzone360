@@ -337,7 +337,7 @@ export function AppShell({
                                     ? 'text-content-on-brand'
                                     : 'text-content-on-brand-subtle'
                                 : onCanopy
-                                  ? 'text-content-on-canopy-muted/80'
+                                  ? 'text-content-on-canopy-muted'
                                   : 'text-content-secondary'
                         }
                     />
@@ -352,7 +352,7 @@ export function AppShell({
                                     ? 'text-content-on-brand font-bold'
                                     : 'text-content-on-brand-subtle font-medium'
                                 : onCanopy
-                                  ? 'text-content-on-canopy-muted/80'
+                                  ? 'text-content-on-canopy-muted'
                                   : 'text-content-primary',
                         )}
                     >
@@ -395,9 +395,14 @@ export function AppShell({
                                   accessibilityRole="header"
                                   aria-level={2}
                                   className={cx(
-                                      'px-3 pb-1 pt-3 text-xs font-bold uppercase tracking-widest text-start',
+                                      // Sentence case, at the weight that separates a heading from
+                                      // the items under it. It was `uppercase tracking-widest`,
+                                      // which is one of the five shapes this product used to draw
+                                      // the same demoted label in; the ramp carries the distinction
+                                      // now, so the casing does not have to.
+                                      'px-3 pb-1 pt-3 text-xs font-semibold text-start',
                                       onCanopy
-                                          ? 'text-content-on-canopy-muted/65'
+                                          ? 'text-content-on-canopy-muted'
                                           : 'text-content-secondary',
                                   )}
                               >
@@ -426,8 +431,14 @@ export function AppShell({
             )}
             {sidebarStart}
             {/* The list scrolls; the brand block above and the control below stay put. A
-                workspace rail of thirty destinations is taller than most viewports. */}
-            <ScrollView className="flex-1">{navigationList(variant === 'rail', 'canopy')}</ScrollView>
+                workspace rail of thirty destinations is taller than most viewports. The id is
+                what global.css keys the rail's own scrollbar on — see there for why. */}
+            <ScrollView
+                testID={testID === undefined ? undefined : `${testID}-sidebar-scroll`}
+                className="flex-1"
+            >
+                {navigationList(variant === 'rail', 'canopy')}
+            </ScrollView>
             {sidebarEnd}
         </View>
     );
@@ -459,7 +470,18 @@ export function AppShell({
                 <View
                     testID={testID === undefined ? undefined : `${testID}-topbar`}
                     role="banner"
-                    className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
+                    /*
+                     * Flat on the page, not a raised plane. The bar carries a hairline and takes
+                     * the page surface, so the chrome reads as an edge of the document rather than
+                     * as a card floating over it — a shadow here competes with the elevation the
+                     * content cards use to mean "this is a thing you can pick up".
+                     *
+                     * The gutters track the content gutters below (`p-4 md:px-10 lg:px-11`) so the
+                     * brand mark sits on the same vertical line as the first card in the grid.
+                     * They were fixed at `px-4`, which left the bar inset by 16px against content
+                     * inset by 44px, and the misalignment is visible on every wide viewport.
+                     */
+                    className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-base px-4 py-3.5 md:gap-7 md:px-10 lg:px-11"
                 >
                     {!wideEnoughForTopNav && navigation.length > 0 ? (
                         <IconButton
@@ -472,15 +494,20 @@ export function AppShell({
                         />
                     ) : null}
                     {topbarStart}
-                    <RNText
-                        testID={testID === undefined ? undefined : `${testID}-title`}
-                        accessibilityRole="header"
-                        aria-level={1}
-                        numberOfLines={1}
-                        className="text-base font-semibold text-content-primary text-start"
-                    >
-                        {title ?? t('common:app.name')}
-                    </RNText>
+
+                    {/*
+                     * No title in this bar, unlike every other variant.
+                     *
+                     * It was rendering a tagline as `aria-level={1}` beside the wordmark — but
+                     * every screen under this shell opens with a `PageHero` that renders its own
+                     * level-1 heading, so each marketplace page shipped *two* h1s, and the first
+                     * one named the product rather than the page. A screen-reader user landing on
+                     * the meals catalogue heard the tagline before the word "Meals".
+                     *
+                     * The brand mark in `topbarStart` is a link to home and carries its own
+                     * accessible name, so nothing is lost by dropping the text: the banner
+                     * landmark is still a banner, and the page's heading is now the page's own.
+                     */}
 
                     {/*
                      * `self-stretch` on the wrapper, not just on the row inside it. The top bar
@@ -523,18 +550,23 @@ export function AppShell({
                                         aria-current={item.active === true ? 'page' : undefined}
                                         focusable
                                         onPress={item.onPress}
-                                        className="relative min-h-touch flex-row items-center justify-center gap-2 bg-transparent px-3 py-2"
+                                        className="relative min-h-touch flex-row items-center justify-center bg-transparent px-3 py-2"
                                     >
-                                        {item.icon === undefined ? null : (
-                                            <Icon
-                                                name={item.icon}
-                                                className={
-                                                    item.active === true
-                                                        ? 'text-surface-brand'
-                                                        : 'text-content-secondary'
-                                                }
-                                            />
-                                        )}
+                                        {/*
+                                         * No glyph here, unlike the drawer and the sidebar.
+                                         *
+                                         * A top bar is read as a line of words, and a row of
+                                         * icons in front of them is decoration that costs about
+                                         * 140px of the space the row has least of — which is what
+                                         * pushed this nav onto a second line and the trailing
+                                         * controls into each other. The glyphs also carried no
+                                         * meaning: a diamond for Kitchens and a half-circle for
+                                         * Meals name nothing a reader could guess.
+                                         *
+                                         * The drawer keeps them (`item.icon` is still rendered
+                                         * there): a stacked vertical list is scanned down an edge,
+                                         * where a leading glyph genuinely helps.
+                                         */}
                                         <RNText
                                             numberOfLines={1}
                                             className={cx(

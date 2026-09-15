@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f7fcf9; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Schibsted Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  input, select, textarea, button { font-family: inherit; color: inherit; }
+  a { color: #157043; text-decoration: none; }
+  a:hover { color: #11532e; text-decoration: underline; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid #157043; outline-offset: 1px; }
+  ::placeholder { color: #94a3b8; }
+</style>
+</helmet>
+<div style="display: flex; height: 100vh; min-height: 640px; background: #f7fcf9; color: #1f2937">
+
+  <nav style="width: {{ navWidth }}; flex: 0 0 {{ navWidth }}; overflow: hidden; background: #edf6f0; border-inline-end: 1px solid #cceeda; display: flex; flex-direction: column; padding: 12px 0; transition: width 160ms ease, flex-basis 160ms ease">
+    <div style="flex: 0 0 auto; display: flex; align-items: center; justify-content: {{ navJustify }}; gap: 8px; padding: 0 {{ navPad }} 12px">
+      <div style="flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; background: #157043; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 700">H</div>
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <span style="font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap">Kitchen ops</span>
+      </sc-if>
+    </div>
+    <div style="flex: 1 1 auto; min-height: 0; overflow: hidden auto; display: flex; flex-direction: column; gap: 2px; padding: 0 {{ navRailPad }}">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="5">
+        <div style="display: flex; flex-direction: column; gap: 1px; padding-top: 6px">
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="padding: 0 8px 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; white-space: nowrap">{{ group.label }}</div>
+          </sc-if>
+          <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+            <div role="button" tabindex="0" onClick="{{ expandNav }}" title="{{ group.railTitle }}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 5px; cursor: pointer; background: {{ group.bg }}" style-hover="background: #dcfce7">
+              <span aria-hidden="true" style="font-size: 15px; line-height: 1; color: {{ group.iconFg }}">{{ group.glyph }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="4">
+              <div role="button" tabindex="0" onClick="{{ item.go }}" title="{{ item.title }}" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: 5px; cursor: {{ item.cursor }}; font-size: 12px; font-weight: {{ item.weight }}; color: {{ item.fg }}; background: {{ item.bg }}" style-hover="background: #dcfce7">
+                <span style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ item.label }}</span>
+                <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                  <span style="flex: 0 0 auto; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5b6673">{{ item.count }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <div style="flex: 0 0 auto; margin-top: 8px; padding: 10px {{ navPad }} 0; border-top: 1px solid #cceeda; font-size: 10px; line-height: 15px; color: #5b6673; text-align: {{ navFootAlign }}">
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="font-weight: 600; color: #1f2937; white-space: nowrap">Al Waha Central</div>
+        <div style="white-space: nowrap">Riyadh · Production</div>
+      </sc-if>
+      <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+        <div title="Al Waha Central · Riyadh" style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #1f2937">AW</div>
+      </sc-if>
+    </div>
+  </nav>
+
+  <main style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; overflow: hidden">
+
+    <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+      <div style="position: relative; display: flex; flex-direction: column; overflow: hidden; height: 100%">
+
+        <header style="flex: 0 0 auto; padding: 14px 20px 0">
+          <div style="display: flex; align-items: center; gap: 8px; height: 20px">
+            <span role="button" tabindex="0" onClick="{{ toggleNav }}" title="{{ navToggleTitle }}" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-inline-start: -4px; border-radius: 4px; font-size: 14px; color: #5b6673; cursor: pointer; flex: 0 0 auto" style-hover="background: #edf6f0; color: #1f2937">☰</span>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5b6673">
+              <span>Kitchen</span><span style="color: #aaddc0">/</span><span>Catalogue</span><span style="color: #aaddc0">/</span><span style="color: #1f2937">{{ listTitle }}</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-top: 4px">
+            <div>
+              <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em">{{ listTitle }}</h1>
+              <sc-if value="{{ showSummaryLine }}" hint-placeholder-val="{{ true }}">
+                <p style="margin: 2px 0 0; font-size: 11px; line-height: 16px; color: #5b6673">{{ listSummary }}</p>
+              </sc-if>
+              <sc-if value="{{ showStatCards }}" hint-placeholder-val="{{ false }}">
+                <p style="margin: 2px 0 0; font-size: 11px; line-height: 16px; color: #5b6673">{{ statsCaption }}</p>
+              </sc-if>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; padding-top: 2px">
+              <sc-if value="{{ canCardStats }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ toggleStatsView }}" title="{{ statsViewTitle }}" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: {{ statsViewBg }}; color: {{ statsViewFg }}; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #edf6f0">
+                  <span aria-hidden="true" style="font-size: 12px; line-height: 1">{{ statsViewGlyph }}</span><span>{{ statsViewLabel }}</span>
+                </button>
+              </sc-if>
+              <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #edf6f0">Import</button>
+              <button type="button" onClick="{{ openNew }}" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">
+                <span style="font-size: 13px; line-height: 1">+</span><span style="white-space: nowrap">{{ newLabel }}</span>
+              </button>
+            </div>
+          </div>
+          <sc-if value="{{ showStatCards }}" hint-placeholder-val="{{ false }}">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; max-width: 800px">
+              <sc-for list="{{ statCards }}" as="c" hint-placeholder-count="4">
+                <div role="button" tabindex="0" onClick="{{ c.go }}" title="{{ c.title }}" style="display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border: 1px solid {{ c.border }}; border-radius: 8px; background: {{ c.bg }}; cursor: {{ c.cursor }}" style-hover="border-color: #aaddc0">
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+                    <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ c.label }}</span>
+                    <span aria-hidden="true" style="flex: 0 0 auto; font-size: 11px; line-height: 1; color: {{ c.markFg }}">{{ c.mark }}</span>
+                  </div>
+                  <div style="display: flex; align-items: baseline; gap: 5px">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; line-height: 26px; font-weight: 600; color: {{ c.valueFg }}">{{ c.value }}</span>
+                    <span style="font-size: 11px; color: #5b6673">{{ c.unit }}</span>
+                  </div>
+                  <span style="font-size: 10px; line-height: 14px; color: {{ c.captionFg }}">{{ c.caption }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </header>
+
+        <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-wrap: wrap">
+          <div style="position: relative; width: 240px; flex: 0 0 240px">
+            <span style="position: absolute; inset-inline-start: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #5b6673; pointer-events: none">⌕</span>
+            <input value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search name or reference" style="width: 100%; height: 28px; padding: 0 8px 0 22px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+          </div>
+          <div style="display: inline-flex; height: 28px; padding: 2px; gap: 2px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff">
+            <sc-for list="{{ statusTabs }}" as="tab" hint-placeholder-count="4">
+              <button type="button" onClick="{{ tab.go }}" style="height: 22px; padding: 0 9px; border: 0; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: {{ tab.weight }}; color: {{ tab.fg }}; background: {{ tab.bg }}">{{ tab.label }}</button>
+            </sc-for>
+          </div>
+          <div style="flex: 1 1 auto"></div>
+          <div style="display: inline-flex; align-items: center; gap: 6px">
+            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Density</span>
+            <div style="display: inline-flex; height: 28px; padding: 2px; gap: 2px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff">
+              <sc-for list="{{ densityTabs }}" as="d" hint-placeholder-count="3">
+                <button type="button" onClick="{{ d.go }}" title="{{ d.title }}" style="height: 22px; padding: 0 8px; border: 0; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: {{ d.weight }}; color: {{ d.fg }}; background: {{ d.bg }}">{{ d.label }}</button>
+              </sc-for>
+            </div>
+            <button type="button" style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer" title="Choose fields" style-hover="background: #edf6f0">▽</button>
+          </div>
+        </div>
+
+        <div ref="{{ listRef }}" style="flex: 1 1 auto; min-height: 0; overflow: hidden auto; padding: 0 20px 16px">
+          <sc-if value="{{ isNarrow }}" hint-placeholder-val="{{ false }}">
+            <div style="border-top: 1px solid #aaddc0">
+              <sc-for list="{{ rows }}" as="row" hint-placeholder-count="10">
+                <div style="display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 6px 8px; border-bottom: 1px solid #cceeda; cursor: pointer; position: relative" style-hover="background: #edf6f0">
+                  <div onClick="{{ row.open }}" style="flex: 1 1 auto; min-width: 0">
+                    <div style="display: flex; align-items: baseline; gap: 6px">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673; flex: 0 0 auto">{{ row.refLabel }}</span>
+                      <span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ row.primary }}</span>
+                      <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: {{ row.statusBg }}; color: {{ row.statusFg }}; flex: 0 0 auto">{{ row.statusText }}</span>
+                    </div>
+                    <div style="margin-top: 1px; font-size: 11px; line-height: 16px; color: #5b6673; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ row.metaLine }}</div>
+                  </div>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; flex: 0 0 auto">{{ row.metric }}</span>
+                  <span role="button" tabindex="0" onClick="{{ row.toggleMenu }}" title="More actions" style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; font-size: 13px; color: #5b6673; cursor: pointer; flex: 0 0 auto; background: {{ row.menuBg }}" style-hover="background: #dcfce7">⋯</span>
+                  <sc-if value="{{ row.menuOpen }}" hint-placeholder-val="{{ false }}">
+                    <div onPointerDown="{{ stopEvent }}" style="position: absolute; top: 38px; inset-inline-end: 10px; z-index: 5; min-width: 156px; padding: 4px; background: #fff; border: 1px solid #aaddc0; border-radius: 6px; box-shadow: 0 6px 20px -4px rgba(16, 42, 30, 0.24)">
+                      <sc-for list="{{ row.actions }}" as="action" hint-placeholder-count="4">
+                        <div role="button" tabindex="0" onClick="{{ action.run }}" style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 4px; font-size: 12px; color: {{ action.fg }}; cursor: pointer" style-hover="background: #edf6f0">
+                          <span style="width: 12px; text-align: center; font-size: 11px; color: #5b6673">{{ action.icon }}</span>
+                          <span>{{ action.label }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isWide }}" hint-placeholder-val="{{ true }}">
+          <div style="display: grid; grid-template-columns: {{ gridTemplate }}; align-items: center; column-gap: 18px; height: 24px; padding: 0 8px; border-bottom: 1px solid #aaddc0; position: sticky; top: 0; background: #f7fcf9; z-index: 2">
+            <sc-for list="{{ columns }}" as="col" hint-placeholder-count="8">
+              <div style="position: relative; min-width: 0; text-align: {{ col.align }}">
+                <sc-if value="{{ col.sortable }}" hint-placeholder-val="{{ true }}">
+                  <span role="button" tabindex="0" onClick="{{ col.toggle }}" title="Sort and filter" style="display: inline-flex; flex-direction: {{ col.headerDir }}; align-items: center; gap: 3px; max-width: 100%; padding: 1px 3px; margin: 0 -3px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: {{ col.fg }}; cursor: pointer" style-hover="background: #dcfce7">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ col.label }}</span>
+                    <span style="font-size: 10px; line-height: 1; flex: 0 0 auto; color: {{ col.markFg }}">{{ col.mark }}</span>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ col.isAction }}" hint-placeholder-val="{{ false }}">
+                  <div style="height: 12px"></div>
+                </sc-if>
+                <sc-if value="{{ col.menuOpen }}" hint-placeholder-val="{{ false }}">
+                  <div onPointerDown="{{ stopEvent }}" style="position: absolute; top: 22px; inset-inline-start: {{ col.inlineStart }}; inset-inline-end: {{ col.inlineEnd }}; z-index: 30; width: 194px; padding: 4px; text-align: start; background: #fff; border: 1px solid #aaddc0; border-radius: 6px; box-shadow: 0 6px 20px -4px rgba(16, 42, 30, 0.24)">
+                    <div role="button" tabindex="0" onClick="{{ col.sortAsc }}" style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 4px; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">
+                      <span style="width: 12px; text-align: center; font-size: 11px; color: #5b6673">⌃</span><span>Sort ascending</span>
+                    </div>
+                    <div role="button" tabindex="0" onClick="{{ col.sortDesc }}" style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 4px; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">
+                      <span style="width: 12px; text-align: center; font-size: 11px; color: #5b6673">⌄</span><span>Sort descending</span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px 4px; margin-top: 2px; border-top: 1px solid #cceeda">
+                      <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Filter</span>
+                      <sc-if value="{{ col.hasFilter }}" hint-placeholder-val="{{ false }}">
+                        <span role="button" tabindex="0" onClick="{{ col.clear }}" style="font-size: 11px; color: #157043; cursor: pointer; font-weight: 500">Clear</span>
+                      </sc-if>
+                    </div>
+                    <div style="max-height: 168px; overflow: auto">
+                      <sc-for list="{{ col.values }}" as="v" hint-placeholder-count="4">
+                        <div role="button" tabindex="0" onClick="{{ v.toggle }}" style="display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 2px 8px; border-radius: 4px; font-size: 12px; cursor: pointer" style-hover="background: #edf6f0">
+                          <span style="width: 12px; text-align: center; font-size: 10px; color: #157043; flex: 0 0 auto">{{ v.mark }}</span>
+                          <span style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ v.label }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-for list="{{ rows }}" as="row" hint-placeholder-count="10">
+            <div style="display: grid; grid-template-columns: {{ gridTemplate }}; align-items: center; column-gap: 18px; min-height: {{ rowHeight }}; padding: 0 8px; border-bottom: 1px solid #cceeda; cursor: pointer; position: relative" style-hover="background: #edf6f0">
+              <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="8">
+                <div onClick="{{ cell.open }}" style="min-width: 0; text-align: {{ cell.align }}; font-family: {{ cell.family }}; font-size: {{ cell.size }}; font-weight: {{ cell.weight }}; color: {{ cell.fg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">
+                  <sc-if value="{{ cell.isBadge }}" hint-placeholder-val="{{ false }}">
+                    <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: {{ cell.badgeBg }}; color: {{ cell.badgeFg }}">{{ cell.text }}</span>
+                  </sc-if>
+                  <sc-if value="{{ cell.isPlain }}" hint-placeholder-val="{{ true }}">
+                    <span>{{ cell.text }}</span>
+                  </sc-if>
+                  <sc-if value="{{ cell.isAction }}" hint-placeholder-val="{{ false }}">
+                    <span role="button" tabindex="0" onClick="{{ row.toggleMenu }}" title="More actions" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; font-size: 13px; color: #5b6673; cursor: pointer; background: {{ row.menuBg }}" style-hover="background: #dcfce7">⋯</span>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ row.menuOpen }}" hint-placeholder-val="{{ false }}">
+                <div onPointerDown="{{ stopEvent }}" style="position: absolute; top: 26px; inset-inline-end: 10px; z-index: 5; min-width: 156px; padding: 4px; background: #fff; border: 1px solid #aaddc0; border-radius: 6px; box-shadow: 0 6px 20px -4px rgba(16, 42, 30, 0.24)">
+                  <sc-for list="{{ row.actions }}" as="action" hint-placeholder-count="4">
+                    <div role="button" tabindex="0" onClick="{{ action.run }}" style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 4px; font-size: 12px; color: {{ action.fg }}; cursor: pointer" style-hover="background: #edf6f0">
+                      <span style="width: 12px; text-align: center; font-size: 11px; color: #5b6673">{{ action.icon }}</span>
+                      <span>{{ action.label }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          </sc-if>
+
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0; text-align: center">
+              <div style="font-size: 13px; font-weight: 600">No match for “{{ search }}”</div>
+              <div style="font-size: 11px; color: #5b6673">Try a shorter term, or clear the status filter.</div>
+              <button type="button" onClick="{{ clearFilters }}" style="margin-top: 4px; height: 28px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer">Clear filters</button>
+            </div>
+          </sc-if>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px">
+            <span style="font-size: 11px; color: #5b6673">{{ pagerLabel }}</span>
+            <div style="display: flex; align-items: center; gap: 3px">
+              <sc-for list="{{ pages }}" as="page" hint-placeholder-count="5">
+                <button type="button" style="min-width: 24px; height: 24px; padding: 0 6px; border: 1px solid {{ page.border }}; border-radius: 4px; background: {{ page.bg }}; color: {{ page.fg }}; font-size: 11px; font-weight: {{ page.weight }}; cursor: pointer">{{ page.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <sc-if value="{{ viewOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; z-index: 40; display: flex; justify-content: flex-end">
+            <div role="button" tabindex="0" onClick="{{ closeView }}" style="position: absolute; inset: 0; background: #14231ccc"></div>
+            <aside onPointerDown="{{ stopEvent }}" style="position: relative; width: 372px; max-width: 100%; height: 100%; background: #fff; border-inline-start: 1px solid #aaddc0; box-shadow: -8px 0 24px -8px rgba(16, 42, 30, 0.22); display: flex; flex-direction: column">
+              <div style="flex: 0 0 auto; padding: 14px 16px 12px; border-bottom: 1px solid #cceeda">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+                  <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ viewKindLabel }}</span>
+                  <span role="button" tabindex="0" onClick="{{ closeView }}" title="Close" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; font-size: 12px; color: #5b6673; cursor: pointer" style-hover="background: #edf6f0">✕</span>
+                </div>
+                <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5b6673">{{ viewRef }}</span>
+                  <h2 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em">{{ viewTitle }}</h2>
+                </div>
+                <span style="display: inline-flex; align-items: center; height: 17px; margin-top: 6px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: {{ viewStatusBg }}; color: {{ viewStatusFg }}">{{ viewStatus }}</span>
+              </div>
+
+              <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 16px 16px">
+                <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; padding-bottom: 6px; border-bottom: 1px solid #cceeda">Fields</div>
+                <sc-for list="{{ viewFields }}" as="f" hint-placeholder-count="8">
+                  <div style="display: grid; grid-template-columns: 118px minmax(0, 1fr); column-gap: 12px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #cceeda">
+                    <span style="font-size: 11px; color: #5b6673">{{ f.label }}</span>
+                    <span style="font-size: 12px; font-weight: 500; font-family: {{ f.family }}">{{ f.value }}</span>
+                  </div>
+                </sc-for>
+
+                <sc-if value="{{ viewHasAllergens }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top: 16px">
+                    <div style="display: flex; align-items: center; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid #cceeda">
+                      <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">Allergens</span>
+                      <span style="display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 3px; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #e2f1fb; color: #0b4a6f">From database</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px">
+                      <sc-for list="{{ viewAllergens }}" as="a" hint-placeholder-count="2">
+                        <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; background: #fdf2d6; color: #79480a; font-size: 11px; font-weight: 500">{{ a.label }}</span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 6px; padding: 10px 16px; border-top: 1px solid #cceeda; background: #f7fcf9">
+                <button type="button" onClick="{{ closeView }}" style="height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #edf6f0">Close</button>
+                <button type="button" onClick="{{ editFromView }}" style="height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">Edit</button>
+              </div>
+            </aside>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isRecipeEdit }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; overflow: hidden; height: 100%">
+
+        <header style="flex: 0 0 auto; padding: 14px 20px 0; background: #f7fcf9">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5b6673; height: 20px">
+            <span role="button" tabindex="0" onClick="{{ toggleNav }}" title="{{ navToggleTitle }}" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-inline-start: -4px; margin-inline-end: 2px; border-radius: 4px; font-size: 14px; color: #5b6673; cursor: pointer; flex: 0 0 auto" style-hover="background: #edf6f0; color: #1f2937">☰</span>
+            <span role="button" tabindex="0" onClick="{{ backToRecipes }}" style="cursor: pointer; color: #157043">Catalogue</span>
+            <span style="color: #aaddc0">/</span>
+            <span role="button" tabindex="0" onClick="{{ backToRecipes }}" style="cursor: pointer; color: #157043">Recipes</span>
+            <span style="color: #aaddc0">/</span>
+            <span style="color: #1f2937">{{ draftName }}</span>
+          </div>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-top: 4px">
+            <div style="min-width: 0">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em">{{ draftName }}</h1>
+                <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #fdf2d6; color: #79480a">Draft</span>
+                <span style="display: inline-flex; align-items: center; gap: 4px; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #fde5e3; color: #8f1f1a" title="Restricted — not for circulation outside the kitchen">Restricted</span>
+              </div>
+              <p style="margin: 2px 0 0; font-size: 11px; line-height: 16px; color: #5b6673">{{ editorSummary }}</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; padding-top: 2px">
+              <button type="button" onClick="{{ backToRecipes }}" style="height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #edf6f0">Discard</button>
+              <button type="button" style="height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #edf6f0">Save draft</button>
+              <button type="button" style="height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">Publish</button>
+            </div>
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 2px; margin-top: 10px; border-bottom: 1px solid #aaddc0">
+            <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="5">
+              <button type="button" onClick="{{ tab.go }}" style="position: relative; height: 28px; padding: 0 10px; border: 0; background: transparent; cursor: pointer; font-size: 12px; font-weight: {{ tab.weight }}; color: {{ tab.fg }}; box-shadow: {{ tab.underline }}">
+                <span style="display: inline-flex; align-items: center; gap: 5px">
+                  <span>{{ tab.label }}</span>
+                  <sc-if value="{{ tab.hasCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5b6673">{{ tab.count }}</span>
+                  </sc-if>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+        </header>
+
+        <div style="flex: 1 1 auto; min-height: 0; overflow: hidden auto; padding: 14px 20px 24px">
+
+          <sc-if value="{{ tabDescription }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 18px">
+              <section>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                  <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Identity</h2>
+                  <span style="font-size: 11px; color: #5b6673">Designation and classification</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 12px 16px">
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Designation (EN)</span>
+                    <input value="{{ draftName }}" onChange="{{ onName }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Designation (AR)</span>
+                    <input value="صوص الجزر الألف" dir="rtl" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Reference</span>
+                    <input value="RC-0104" readonly="readonly" style="height: 28px; padding: 0 8px; border: 1px solid #cceeda; border-radius: 5px; background: #edf6f0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5b6673" />
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Kind</span>
+                    <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                      <option>Production</option>
+                      <option>Assembly</option>
+                      <option>Purchased</option>
+                    </select>
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Category</span>
+                    <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                      <option>Sauces &amp; dressings</option>
+                      <option>Condiments</option>
+                      <option>Bases</option>
+                    </select>
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Shelf life (days)</span>
+                    <input value="14" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+                  </label>
+                </div>
+              </section>
+
+              <section>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                  <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Yield</h2>
+                  <span style="font-size: 11px; color: #5b6673">Drives every per-unit cost on the Costing tab</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 12px 16px">
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Quantity produced</span>
+                    <input value="{{ yieldQty }}" onChange="{{ onYield }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Yield unit</span>
+                    <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                      <option>kg</option>
+                      <option>L</option>
+                      <option>Piece</option>
+                    </select>
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Portions per batch</span>
+                    <input value="56" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+                  </label>
+                </div>
+              </section>
+
+              <section>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                  <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Method</h2>
+                  <span style="font-size: 11px; color: #5b6673">Deliberately spans two columns — the only wide field here</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 12px 16px">
+                  <label style="display: flex; flex-direction: column; gap: 4px; grid-column: span 2">
+                    <span style="font-size: 12px; font-weight: 500">Preparation notes</span>
+                    <textarea rows="4" style="padding: 6px 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; line-height: 18px; resize: vertical">Blend mayonnaise and red pepper cold. Fold in barbecue and Louisiana sauce, then season. Rest 20 minutes before bottling.</textarea>
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Storage</span>
+                    <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                      <option>Chilled 2–4 °C</option>
+                      <option>Ambient</option>
+                      <option>Frozen</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tabLines }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda">
+                <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">{{ linesTitle }}</h2>
+                <span style="font-size: 11px; color: #5b6673">{{ linesHint }}</span>
+              </div>
+
+              <div style="position: relative; width: 320px">
+                <input value="{{ selQuery }}" onChange="{{ onSelQuery }}" onFocus="{{ openSel }}" onKeyDown="{{ onSelKey }}" placeholder="{{ selPlaceholder }}" style="width: 100%; height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+                <sc-if value="{{ selOpen }}" hint-placeholder-val="{{ false }}">
+                  <div onPointerDown="{{ stopEvent }}" style="position: absolute; top: 31px; inset-inline-start: 0; width: 360px; z-index: 20; max-height: 226px; overflow: auto; padding: 4px; background: #fff; border: 1px solid #aaddc0; border-radius: 6px; box-shadow: 0 8px 24px -6px rgba(16, 42, 30, 0.28)">
+                    <sc-for list="{{ selResults }}" as="opt" hint-placeholder-count="5">
+                      <div role="button" tabindex="0" onClick="{{ opt.pick }}" onMouseEnter="{{ opt.hover }}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 28px; padding: 0 8px; border-radius: 4px; cursor: pointer; background: {{ opt.bg }}">
+                        <span style="min-width: 0; display: flex; align-items: baseline; gap: 6px">
+                          <span style="font-size: 12px; font-weight: 500; white-space: nowrap">{{ opt.name }}</span>
+                          <span style="font-size: 11px; color: #5b6673; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ opt.meta }}</span>
+                        </span>
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673; white-space: nowrap">{{ opt.price }}</span>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ selEmpty }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding: 10px 8px; font-size: 11px; color: #5b6673">No ingredient matches “{{ selQuery }}”. <span style="color: #157043; font-weight: 500">Create it →</span></div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div>
+                <div style="display: grid; grid-template-columns: minmax(120px, 1.7fr) minmax(0, 52px) minmax(0, 68px) minmax(0, 80px) minmax(0, 80px) minmax(0, 1.3fr) 28px; align-items: center; column-gap: 10px; height: 24px; padding: 0 8px; border-bottom: 1px solid #aaddc0">
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">Designation</div>
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">Unit</div>
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: center; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">Qty</div>
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: center; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">Unit price</div>
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; text-align: center; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">Total</div>
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">Comments</div>
+                  <div></div>
+                </div>
+                <sc-for list="{{ lines }}" as="line" hint-placeholder-count="9">
+                  <div style="display: grid; grid-template-columns: minmax(120px, 1.7fr) minmax(0, 52px) minmax(0, 68px) minmax(0, 80px) minmax(0, 80px) minmax(0, 1.3fr) 28px; align-items: center; column-gap: 10px; min-height: 32px; padding: 2px 8px; border-bottom: 1px solid #cceeda" style-hover="background: #edf6f0">
+                    <div style="min-width: 0; display: flex; align-items: baseline; gap: 6px">
+                      <span style="font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ line.name }}</span>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5b6673">{{ line.ref }}</span>
+                    </div>
+                    <div style="font-size: 12px; color: #5b6673">{{ line.unit }}</div>
+                    <input value="{{ line.qty }}" onChange="{{ line.onQty }}" style="height: 24px; min-width: 0; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 4px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: center" />
+                    <input value="{{ line.up }}" onChange="{{ line.onUp }}" style="height: 24px; min-width: 0; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 4px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: center" />
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; text-align: center">{{ line.total }}</div>
+                    <input value="{{ line.comment }}" onChange="{{ line.onComment }}" placeholder="—" style="height: 24px; min-width: 0; padding: 0 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; font-size: 12px; color: #5b6673" style-hover="border-color: #cceeda; background: #fff" />
+                    <span role="button" tabindex="0" onClick="{{ line.remove }}" title="Remove line" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; font-size: 13px; color: #5b6673; cursor: pointer" style-hover="background: #fde5e3; color: #8f1f1a">✕</span>
+                  </div>
+                </sc-for>
+                <div style="display: grid; grid-template-columns: minmax(120px, 1.7fr) minmax(0, 52px) minmax(0, 68px) minmax(0, 80px) minmax(0, 80px) minmax(0, 1.3fr) 28px; align-items: center; column-gap: 10px; height: 30px; padding: 0 8px; border-bottom: 2px solid #aaddc0">
+                  <div style="font-size: 12px; font-weight: 600">Total</div>
+                  <div></div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; text-align: center">{{ linesTotalQty }}</div>
+                  <div></div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; text-align: end">{{ linesTotalCost }}</div>
+                  <div></div>
+                  <div></div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tabCosting }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; gap: 18px">
+              <section>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                  <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Cost cascade</h2>
+                  <span style="font-size: 11px; color: #5b6673">Derived from the line tables and the yield — read only</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 12px 16px">
+                  <sc-for list="{{ costCards }}" as="card" hint-placeholder-count="3">
+                    <div style="padding: 10px; border: 1px solid #cceeda; border-radius: 8px; background: {{ card.bg }}">
+                      <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ card.title }}</div>
+                      <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px">
+                        <sc-for list="{{ card.rows }}" as="r" hint-placeholder-count="3">
+                          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
+                            <span style="font-size: 11px; color: #5b6673">{{ r.label }}</span>
+                            <span style="font-family: 'IBM Plex Mono', monospace; font-size: {{ r.size }}; font-weight: {{ r.weight }}; color: {{ r.fg }}">{{ r.value }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+
+              <section>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                  <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Coefficients &amp; price</h2>
+                  <span style="font-size: 11px; color: #5b6673">Four fields in a three-column grid — the fourth keeps field width</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 12px 16px">
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Production waste (%)</span>
+                    <input value="{{ wasteProd }}" onChange="{{ onWasteProd }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Packaging waste (%)</span>
+                    <input value="{{ wastePack }}" onChange="{{ onWastePack }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+                  </label>
+                  <label style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Selling price / kg</span>
+                    <input value="{{ sellPrice }}" onChange="{{ onSellPrice }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+                  </label>
+                  <div style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="font-size: 12px; font-weight: 500">Gross margin</span>
+                    <div style="display: flex; align-items: center; height: 28px; padding: 0 8px; border: 1px solid #cceeda; border-radius: 5px; background: #edf6f0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: {{ marginFg }}">{{ marginLabel }}</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tabSheet }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; gap: 18px">
+              <section>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                  <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Composition</h2>
+                  <span style="font-size: 11px; color: #5b6673">Computed from the ingredient database — not editable here</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 200px)); justify-content: start; gap: 12px">
+                  <sc-for list="{{ nutrients }}" as="n" hint-placeholder-count="4">
+                    <div style="padding: 8px 10px; border: 1px solid #cceeda; border-radius: 8px; background: #fff">
+                      <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ n.label }}</div>
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; margin-top: 2px">{{ n.value }}</div>
+                      <div style="font-size: 10px; color: #5b6673">{{ n.per }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+
+              <section>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                  <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Allergen classes</h2>
+                  <span style="font-size: 11px; color: #5b6673">Inherited from {{ lineCount }} raw materials</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                  <sc-for list="{{ allergens }}" as="a" hint-placeholder-count="3">
+                    <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 11px; background: #fdf2d6; color: #79480a; font-size: 11px; font-weight: 500">
+                      <span>{{ a.label }}</span>
+                      <span style="font-size: 10px; color: #8a5a09">{{ a.source }}</span>
+                    </span>
+                  </sc-for>
+                </div>
+              </section>
+
+              <section>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+                  <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Technical sheet</h2>
+                  <span style="font-size: 11px; color: #5b6673">Print view · restricted circulation</span>
+                  <span role="button" tabindex="0" onClick="{{ printSheet }}" title="Download this sheet as a PDF" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; margin-inline-start: auto; padding: 0 10px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer" style-hover="background: #11532e; border-color: #11532e">
+                    <span aria-hidden="true" style="font-size: 12px; line-height: 1">⤓</span><span>Download PDF</span>
+                  </span>
+                </div>
+                <div ref="{{ sheetRef }}" style="max-width: 720px; padding: 16px; border: 1px solid #cceeda; border-radius: 8px; background: #fff">
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #1f2937">
+                    <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Technical sheet</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5b6673">RC-0104 · v4</span>
+                  </div>
+                  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 200px)); justify-content: start; gap: 8px 16px; padding: 10px 0">
+                    <sc-for list="{{ sheetFacts }}" as="f" hint-placeholder-count="4">
+                      <div>
+                        <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ f.label }}</div>
+                        <div style="font-size: 12px; font-weight: 500">{{ f.value }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid #cceeda">
+                    <sc-for list="{{ sheetLines }}" as="s" hint-placeholder-count="9">
+                      <div style="display: grid; grid-template-columns: 1fr 56px 64px 72px 72px; column-gap: 10px; align-items: baseline; padding: 3px 0; border-bottom: 1px solid #f1f5f9">
+                        <span style="font-size: 12px">{{ s.name }}</span>
+                        <span style="font-size: 11px; color: #5b6673">{{ s.unit }}</span>
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-align: end">{{ s.qty }}</span>
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-align: end; color: #5b6673">{{ s.up }}</span>
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-align: end; font-weight: 500">{{ s.total }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; padding-top: 10px; margin-top: 6px; border-top: 1px solid #1f2937">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Cost per kg</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 700">{{ totalPerKg }}</span>
+                  </div>
+                  <p style="margin: 10px 0 0; font-size: 10px; line-height: 15px; color: #8f1f1a">Restricted — this information is private and must not be shared outside the kitchen.</p>
+                </div>
+              </section>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isIngredientEdit }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; overflow: hidden; height: 100%">
+        <header style="flex: 0 0 auto; padding: 14px 20px 0">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5b6673; height: 20px">
+            <span role="button" tabindex="0" onClick="{{ toggleNav }}" title="{{ navToggleTitle }}" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-inline-start: -4px; margin-inline-end: 2px; border-radius: 4px; font-size: 14px; color: #5b6673; cursor: pointer; flex: 0 0 auto" style-hover="background: #edf6f0; color: #1f2937">☰</span>
+            <span role="button" tabindex="0" onClick="{{ backToIngredients }}" style="cursor: pointer; color: #157043">Ingredients</span>
+            <span style="color: #aaddc0">/</span><span style="color: #1f2937">Mayonnaise</span>
+          </div>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-top: 4px">
+            <div>
+              <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em">Mayonnaise</h1>
+              <p style="margin: 2px 0 0; font-size: 11px; line-height: 16px; color: #5b6673">IG-019 · Condiments · used in 14 recipes · last costed 2 days ago</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; padding-top: 2px">
+              <button type="button" onClick="{{ backToIngredients }}" style="height: 32px; padding: 0 10px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #edf6f0">Cancel</button>
+              <button type="button" style="height: 32px; padding: 0 12px; border: 1px solid #157043; border-radius: 5px; background: #157043; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer" style-hover="background: #11532e">Save</button>
+            </div>
+          </div>
+        </header>
+        <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 18px">
+          <section>
+            <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+              <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Identity</h2>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 12px 16px">
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; font-weight: 500">Designation (EN)</span>
+                <input value="Mayonnaise" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; font-weight: 500">Designation (AR)</span>
+                <input value="مايونيز" dir="rtl" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px" />
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; font-weight: 500">Category</span>
+                <select value="{{ ingCategory }}" onChange="{{ onIngCategory }}" style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                  <option>Condiments</option>
+                  <option>Produce</option>
+                  <option>Spices</option>
+                  <option>Sauces</option>
+                  <option>Oils</option>
+                  <option>Dairy</option>
+                </select>
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; font-weight: 500">Sub-category</span>
+                <select value="{{ ingSubCategory }}" onChange="{{ onIngSubCategory }}" style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px">
+                  <sc-for list="{{ ingSubOptions }}" as="o" hint-placeholder-count="4">
+                    <option value="{{ o.value }}">{{ o.label }}</option>
+                  </sc-for>
+                </select>
+                <span style="font-size: 10px; line-height: 14px; color: #5b6673">Options follow the selected category</span>
+              </label>
+            </div>
+          </section>
+          <section>
+            <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+              <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Measurement &amp; cost</h2>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 12px 16px">
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; font-weight: 500">Stock unit</span>
+                <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px"><option>kg</option><option>L</option></select>
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; font-weight: 500">Purchase unit</span>
+                <select style="height: 28px; padding: 0 6px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-size: 12px"><option>Pail 10 kg</option><option>kg</option></select>
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; font-weight: 500">Unit price</span>
+                <input value="3.50" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; font-weight: 500">Items per purchase unit</span>
+                <input value="10" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+              </label>
+            </div>
+          </section>
+          <section>
+            <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+              <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Sale</h2>
+              <span style="font-size: 11px; color: #5b6673">Sold as-is, outside recipes</span>
+            </div>
+            <div role="switch" tabindex="0" aria-checked="{{ saleOn }}" onClick="{{ toggleSale }}" style="display: inline-flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 4px; margin: 0 -4px; border-radius: 5px; cursor: pointer" style-hover="background: #edf6f0">
+              <span style="position: relative; flex: 0 0 auto; width: 34px; height: 20px; border-radius: 10px; border: 1px solid {{ saleTrackBorder }}; background: {{ saleTrackBg }}; transition: background 120ms ease">
+                <span style="position: absolute; top: 2px; inset-inline-start: {{ saleKnobStart }}; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(16, 42, 30, 0.35); transition: inset-inline-start 120ms ease"></span>
+              </span>
+              <span style="font-size: 12px; font-weight: 500">Available for sale</span>
+              <span style="font-size: 11px; color: #5b6673">{{ saleStateLabel }}</span>
+            </div>
+            <sc-if value="{{ saleOn }}" hint-placeholder-val="{{ true }}">
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 280px)); justify-content: start; gap: 12px 16px; margin-top: 12px">
+                <label style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 12px; font-weight: 500">B2B price</span>
+                  <input value="{{ b2bPrice }}" onChange="{{ onB2bPrice }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+                  <span style="font-size: 10px; line-height: 14px; color: #5b6673">Per stock unit, excl. VAT</span>
+                </label>
+                <label style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 12px; font-weight: 500">B2C price</span>
+                  <input value="{{ b2cPrice }}" onChange="{{ onB2cPrice }}" style="height: 28px; padding: 0 8px; border: 1px solid #aaddc0; border-radius: 5px; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px" />
+                  <span style="font-size: 10px; line-height: 14px; color: #5b6673">Per stock unit, incl. VAT</span>
+                </label>
+                <div style="display: flex; flex-direction: column; gap: 4px; align-self: start">
+                  <span style="font-size: 12px; font-weight: 500">Margin on cost</span>
+                  <div style="display: flex; align-items: center; height: 28px; padding: 0 8px; border: 1px solid #cceeda; border-radius: 5px; background: #edf6f0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5b6673">{{ saleMargin }}</div>
+                  <span style="font-size: 10px; line-height: 14px; color: #5b6673">B2B against unit price 3.50</span>
+                </div>
+              </div>
+            </sc-if>
+          </section>
+          <section>
+            <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #cceeda; margin-bottom: 10px">
+              <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase">Composition &amp; allergens</h2>
+              <span style="display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: #e2f1fb; color: #0b4a6f">From database</span>
+            </div>
+            <p style="margin: 0 0 10px; font-size: 11px; line-height: 16px; color: #5b6673">Nutrients and allergen classes resolve from the reference food database on save. They are shown for confirmation and cannot be typed in.</p>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 200px)); justify-content: start; gap: 12px">
+              <sc-for list="{{ ingredientNutrients }}" as="n" hint-placeholder-count="4">
+                <div style="padding: 8px 10px; border: 1px solid #cceeda; border-radius: 8px; background: #edf6f0">
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6673">{{ n.label }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; margin-top: 2px; color: #5b6673">{{ n.value }}</div>
+                  <div style="font-size: 10px; color: #5b6673">{{ n.per }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px">
+              <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; background: #fdf2d6; color: #79480a; font-size: 11px; font-weight: 500">Egg</span>
+              <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; background: #fdf2d6; color: #79480a; font-size: 11px; font-weight: 500">Mustard</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1280, &quot;height&quot;: 820}, &quot;defaultDensity&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;28&quot;, &quot;32&quot;, &quot;36&quot;], &quot;default&quot;: &quot;32&quot;, &quot;tsType&quot;: &quot;'28' | '32' | '36'&quot;, &quot;section&quot;: &quot;Density&quot;}, &quot;fieldWidth&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 280, &quot;min&quot;: 200, &quot;max&quot;: 360, &quot;step&quot;: 20, &quot;unit&quot;: &quot;px&quot;, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Layout&quot;}, &quot;listColumnGap&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 12, &quot;min&quot;: 6, &quot;max&quot;: 24, &quot;step&quot;: 2, &quot;unit&quot;: &quot;px&quot;, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Layout&quot;}, &quot;showDerivedComposition&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Content&quot;}}">
+const N = (v, d) => Number(v).toFixed(d === undefined ? 2 : d);
+const T = { primary: '#1f2937', secondary: '#5b6673', brand: '#157043' };
+const TONE = {
+  Live: { bg: '#dcfce7', fg: '#14532d' },
+  Draft: { bg: '#fdf2d6', fg: '#79480a' },
+  Review: { bg: '#e2f1fb', fg: '#0b4a6f' },
+  Archived: { bg: '#f1f5f9', fg: '#4b5563' },
+};
+
+const INGREDIENTS = [
+  { ref: 'IG-019', name: 'Mayonnaise', category: 'Condiments', unit: 'kg', up: 3.5, status: 'Live', allergens: ['Egg', 'Mustard'], kcal: 680, updated: '2 d' },
+  { ref: 'IG-021', name: 'Red Pepper', category: 'Produce', unit: 'kg', up: 2.5, status: 'Live', allergens: [], kcal: 26, updated: '2 d' },
+  { ref: 'IG-024', name: 'Barbecue', category: 'Sauces', unit: 'kg', up: 2.2, status: 'Live', allergens: ['Mustard'], kcal: 180, updated: '5 d' },
+  { ref: 'IG-026', name: 'Black Pepper', category: 'Spices', unit: 'kg', up: 11, status: 'Live', allergens: [], kcal: 251, updated: '11 d' },
+  { ref: 'IG-028', name: 'Oregano', category: 'Spices', unit: 'kg', up: 10, status: 'Live', allergens: [], kcal: 265, updated: '11 d' },
+  { ref: 'IG-031', name: 'Lemon', category: 'Produce', unit: 'kg', up: 0.6, status: 'Live', allergens: [], kcal: 29, updated: '1 d' },
+  { ref: 'IG-033', name: 'Salt', category: 'Spices', unit: 'kg', up: 0.3, status: 'Live', allergens: [], kcal: 0, updated: '20 d' },
+  { ref: 'IG-036', name: 'Sunflower Oil', category: 'Oils', unit: 'kg', up: 2, status: 'Live', allergens: [], kcal: 884, updated: '3 d' },
+  { ref: 'IG-038', name: 'Louisiana Sauce', category: 'Sauces', unit: 'kg', up: 5, status: 'Review', allergens: [], kcal: 20, updated: '1 d' },
+  { ref: 'IG-041', name: 'Tomato Paste', category: 'Condiments', unit: 'kg', up: 1.9, status: 'Live', allergens: [], kcal: 82, updated: '4 d' },
+  { ref: 'IG-044', name: 'Olive Oil', category: 'Oils', unit: 'L', up: 6.4, status: 'Live', allergens: [], kcal: 884, updated: '6 d' },
+  { ref: 'IG-046', name: 'Garlic', category: 'Produce', unit: 'kg', up: 3.1, status: 'Live', allergens: [], kcal: 149, updated: '2 d' },
+  { ref: 'IG-049', name: 'Greek Yoghurt', category: 'Dairy', unit: 'kg', up: 4.2, status: 'Live', allergens: ['Milk'], kcal: 97, updated: '1 d' },
+  { ref: 'IG-052', name: 'Tahini', category: 'Condiments', unit: 'kg', up: 7.8, status: 'Live', allergens: ['Sesame'], kcal: 595, updated: '8 d' },
+  { ref: 'IG-055', name: 'Dill', category: 'Produce', unit: 'kg', up: 8.5, status: 'Draft', allergens: [], kcal: 43, updated: '1 d' },
+  { ref: 'IG-058', name: 'White Vinegar', category: 'Condiments', unit: 'L', up: 0.9, status: 'Live', allergens: [], kcal: 18, updated: '9 d' },
+  { ref: 'IG-061', name: 'Paprika', category: 'Spices', unit: 'kg', up: 9.4, status: 'Live', allergens: [], kcal: 282, updated: '14 d' },
+  { ref: 'IG-064', name: 'Parmesan', category: 'Dairy', unit: 'kg', up: 14.2, status: 'Draft', allergens: ['Milk'], kcal: 431, updated: '1 d' },
+];
+
+const RECIPES = [
+  { ref: 'RC-0104', name: 'Thousand Islands', kind: 'Production', yieldQty: 1.7, unit: 'kg', cost: 4.57, status: 'Draft', version: 'v4', updated: '1 h' },
+  { ref: 'RC-0088', name: 'Caesar Dressing', kind: 'Production', yieldQty: 2.4, unit: 'kg', cost: 5.12, status: 'Live', version: 'v9', updated: '3 d' },
+  { ref: 'RC-0091', name: 'Barbecue Sauce', kind: 'Production', yieldQty: 3.0, unit: 'kg', cost: 2.86, status: 'Live', version: 'v6', updated: '5 d' },
+  { ref: 'RC-0096', name: 'Garlic Mayo', kind: 'Production', yieldQty: 1.2, unit: 'kg', cost: 3.94, status: 'Live', version: 'v3', updated: '6 d' },
+  { ref: 'RC-0102', name: 'Tahini Dressing', kind: 'Production', yieldQty: 1.5, unit: 'kg', cost: 6.20, status: 'Review', version: 'v2', updated: '4 h' },
+  { ref: 'RC-0110', name: 'Herb Yoghurt Dip', kind: 'Production', yieldQty: 2.0, unit: 'kg', cost: 4.05, status: 'Draft', version: 'v1', updated: '2 h' },
+  { ref: 'RC-0071', name: 'Hummus Base', kind: 'Production', yieldQty: 4.5, unit: 'kg', cost: 3.28, status: 'Live', version: 'v12', updated: '9 d' },
+  { ref: 'RC-0064', name: 'Vinaigrette Classic', kind: 'Production', yieldQty: 2.2, unit: 'L', cost: 3.61, status: 'Archived', version: 'v8', updated: '61 d' },
+];
+
+const SAUCES = RECIPES.filter((r) => /Sauce|Islands|Mayo/.test(r.name));
+
+// Sub-category is scoped by category, so the list re-seeds to its first entry whenever the
+// parent changes — never leaves a sub-category that no longer belongs to the chosen category.
+/**
+ * The workspace rail, mirroring apps/universal/src/features/kitchen-admin/entity-registry.ts:
+ * ENTITY_GROUPS order, one entry per family, glyphs taken verbatim from ICON_GLYPHS in
+ * packages/design-system/src/icons/icon.tsx. Only the catalogue trio has screens in this
+ * prototype — every other family is an icon and a label, deliberately not a destination.
+ */
+const ICON = {
+  calendar: '▤', search: '⌕', menu: '☰', warning: '⚠', branch: '◇',
+  device: '▭', eye: '◉', filter: '▽', basket: '▣', user: '◍',
+};
+
+const NAV_GROUPS = [
+  { label: 'Order desk', icon: 'calendar', items: [
+    { key: 'order-desk', label: 'Order desk', icon: 'calendar' },
+    { key: 'order-calendar', label: 'Order calendar', icon: 'calendar' },
+    { key: 'order-requirements', label: 'Requirements', icon: 'calendar' },
+    { key: 'order-cash-report', label: 'Cash report', icon: 'calendar' },
+  ] },
+  { label: 'Workbench', icon: 'search', items: [
+    { key: 'review', label: 'Review queue', icon: 'search' },
+    { key: 'analytics', label: 'Analytics', icon: 'calendar' },
+    { key: 'cost-report', label: 'Cost report', icon: 'menu' },
+    { key: 'consumption-exceptions', label: 'Consumption exceptions', icon: 'warning' },
+  ] },
+  { label: 'Catalogue', icon: 'branch', items: [
+    { key: 'ingredients', label: 'Ingredients', icon: 'branch', live: true },
+    { key: 'recipes', label: 'Recipes', icon: 'calendar', live: true },
+    { key: 'products', label: 'Products', icon: 'device' },
+    { key: 'sauces', label: 'Sauces', icon: 'device', live: true },
+    { key: 'dressings', label: 'Dressings', icon: 'device' },
+    { key: 'meals', label: 'Meals', icon: 'eye' },
+    { key: 'allergen-classes', label: 'Allergen classes', icon: 'warning' },
+  ] },
+  { label: 'Commercial', icon: 'menu', items: [
+    { key: 'price-lists', label: 'Price lists', icon: 'menu' },
+    { key: 'quotations', label: 'Quotations', icon: 'menu' },
+    { key: 'plans', label: 'Plans', icon: 'calendar' },
+    { key: 'delivery-zones', label: 'Delivery zones', icon: 'filter' },
+    { key: 'branch-operating', label: 'Branch operating', icon: 'calendar' },
+  ] },
+  { label: 'Operations', icon: 'basket', items: [
+    { key: 'orders', label: 'Orders', icon: 'menu' },
+    { key: 'stock', label: 'Stock', icon: 'menu' },
+    { key: 'supplyOrders', label: 'Supply orders', icon: 'basket' },
+    { key: 'suppliers', label: 'Suppliers', icon: 'user' },
+    { key: 'procurement', label: 'Procurement', icon: 'branch' },
+    { key: 'purchases', label: 'Purchases ledger', icon: 'menu' },
+    { key: 'production', label: 'Production', icon: 'calendar' },
+    { key: 'qc', label: 'Quality control', icon: 'search' },
+  ] },
+];
+
+const SUB_CATEGORIES = {
+  Condiments: ['Mayonnaise & emulsions', 'Pastes & concentrates', 'Vinegars', 'Sesame & nut'],
+  Produce: ['Fresh herbs', 'Roots & bulbs', 'Peppers', 'Citrus'],
+  Spices: ['Ground', 'Whole', 'Blends', 'Salt & pepper'],
+  Sauces: ['Barbecue & smoke', 'Hot sauces', 'Sweet & sour', 'Table sauces'],
+  Oils: ['Seed oils', 'Olive oils', 'Frying', 'Infused'],
+  Dairy: ['Yoghurts', 'Hard cheese', 'Soft cheese', 'Cream & butter'],
+};
+
+const PROD_LINES = [
+  { ref: 'IG-019', name: 'Mayonnaise', unit: 'kg', qty: 1, up: 3.5, comment: '' },
+  { ref: 'IG-021', name: 'Red Pepper', unit: 'kg', qty: 1, up: 2.5, comment: 'Fine dice' },
+  { ref: 'IG-024', name: 'Barbecue', unit: 'kg', qty: 0.4, up: 2.2, comment: '' },
+  { ref: 'IG-026', name: 'Black Pepper', unit: 'kg', qty: 0.003, up: 11, comment: 'Coarse' },
+  { ref: 'IG-028', name: 'Oregano', unit: 'kg', qty: 0.01, up: 10, comment: 'Dried' },
+  { ref: 'IG-031', name: 'Lemon', unit: 'kg', qty: 0.1, up: 0.6, comment: 'Juice only' },
+  { ref: 'IG-033', name: 'Salt', unit: 'kg', qty: 0.01, up: 0.3, comment: '' },
+  { ref: 'IG-036', name: 'Sunflower Oil', unit: 'kg', qty: 0.03, up: 2, comment: '' },
+  { ref: 'IG-038', name: 'Louisiana Sauce', unit: 'kg', qty: 0.01, up: 5, comment: '' },
+];
+
+const PACK_LINES = [
+  { ref: 'PK-004', name: 'Bottle 300', unit: 'Piece', qty: 1, up: 0.25, comment: '' },
+  { ref: 'PK-009', name: 'Cap', unit: 'Piece', qty: 1, up: 0.1, comment: '' },
+  { ref: 'PK-041', name: 'Sleeve label', unit: 'Piece', qty: 0, up: 0.3, comment: 'Pending artwork' },
+];
+
+class Component extends DCLogic {
+  state = {
+    // 0 means "not measured yet": the wide grid must never paint against a guessed width.
+    listWidth: 0,
+    navOpen: true,
+    statsCards: true,
+    headerMenu: null,
+    colFilters: {},
+    sortKey: null,
+    sortDir: 'asc',
+    viewRow: null,
+    screen: 'recipes',
+    tab: 'description',
+    density: 32,
+    search: '',
+    status: 'All',
+    page: 1,
+    menuRow: null,
+    selQuery: '',
+    selOpen: false,
+    selIndex: 0,
+    ingCategory: 'Condiments',
+    ingSubCategory: 'Mayonnaise & emulsions',
+    saleOn: false,
+    b2bPrice: '4.20',
+    b2cPrice: '6.90',
+    name: 'Thousand Islands',
+    yieldQty: 1.7,
+    wasteProd: 3,
+    wastePack: 5,
+    sellPrice: 6.5,
+    prodLines: PROD_LINES.map((l) => ({ ...l })),
+    packLines: PACK_LINES.map((l) => ({ ...l })),
+  };
+
+  componentDidMount() {
+    this._close = () => {
+      if (this.state.menuRow !== null || this.state.selOpen || this.state.headerMenu) {
+        this.setState({ menuRow: null, selOpen: false, headerMenu: null });
+      }
+    };
+    document.addEventListener('pointerdown', this._close);
+    this._onResize = () => this.measureList();
+    window.addEventListener('resize', this._onResize);
+    // A document that mounts hidden has no layout to measure; measure again when it is shown.
+    this._onVisible = () => { if (!document.hidden) this.trackPort(0); };
+    document.addEventListener('visibilitychange', this._onVisible);
+    this.trackPort();
+  }
+  componentWillUnmount() {
+    document.removeEventListener('pointerdown', this._close);
+    window.removeEventListener('resize', this._onResize);
+    document.removeEventListener('visibilitychange', this._onVisible);
+    if (this._ro) this._ro.disconnect();
+  }
+
+  sheetRef = (el) => { this._sheetEl = el; };
+
+  /**
+   * Print the technical sheet alone, on A4.
+   *
+   * Every style in this design is inline, so the card's own outerHTML carries its full
+   * appearance into a bare document — no stylesheet to copy and nothing to keep in sync. The
+   * clone drops the on-screen card chrome (max-width, border, radius) because the paper is the
+   * card. A hidden iframe rather than window.open: the preview runs sandboxed, where a popup is
+   * refused but an iframe's own print dialog is not.
+   */
+  printSheet = () => {
+    const el = this._sheetEl;
+    if (!el || typeof document === 'undefined') return;
+    const clone = el.cloneNode(true);
+    clone.style.maxWidth = 'none';
+    clone.style.border = '0';
+    clone.style.borderRadius = '0';
+    clone.style.padding = '0';
+    const title = `Technical sheet — ${this.state.name} — ${this.state.ref || 'RC-0104'}`;
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position: fixed; left: -10000px; top: 0; width: 210mm; height: 297mm; border: 0';
+    document.body.appendChild(frame);
+    const doc = frame.contentDocument;
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>`
+      + '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">'
+      + '<style>@page { size: A4; margin: 14mm } html, body { margin: 0; padding: 0 }'
+      + " body { font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1f2937; -webkit-print-color-adjust: exact; print-color-adjust: exact }"
+      + ' * { box-sizing: border-box }</style></head><body>'
+      + clone.outerHTML + '</body></html>');
+    doc.close();
+    const fire = () => {
+      try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch (err) { /* dialog refused */ }
+      setTimeout(() => frame.remove(), 1500);
+    };
+    if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(() => setTimeout(fire, 80), () => setTimeout(fire, 80));
+    else setTimeout(fire, 400);
+  };
+
+  /**
+   * Re-measure for `ms` (the nav's width transition), and keep retrying past the deadline until
+   * one reading lands (mount: clientWidth is 0 in the commit phase).
+   *
+   * Timer-driven, NOT requestAnimationFrame. A hidden or unpainted document suspends animation
+   * frames — the preview mounts hidden — so an rAF loop is scheduled once and never advances,
+   * which left listWidth at 0 and the narrow fallback on screen until a resize event arrived.
+   * setTimeout runs in hidden documents; the 2s cap stops a detached element retrying forever.
+   */
+  trackPort = (ms = 480) => {
+    const until = Date.now() + ms;
+    const giveUp = Date.now() + 2000;
+    let landed = false;
+    const tick = () => {
+      landed = this.measureList() || landed;
+      if ((Date.now() < until || !landed) && Date.now() < giveUp) setTimeout(tick, 16);
+    };
+    tick();
+  };
+
+  listRef = (el) => {
+    if (!el || el === this._listEl) return;
+    this._listEl = el;
+    this.trackPort(0);
+    if (this._ro) this._ro.disconnect();
+    this._ro = new ResizeObserver((entries) => {
+      const w = Math.round(entries[0].contentRect.width);
+      // A 0-width first entry must not be the only callback we ever get: re-arm on the frame
+      // loop, which stops as soon as one real reading lands.
+      if (w <= 0) { this.trackPort(0); return; }
+      if (w !== this.state.listWidth) this.setState({ listWidth: w });
+    });
+    this._ro.observe(el);
+  };
+
+  // viewRow must clear on navigation: a record held across a list change would be rendered
+  // against the new entity's field spec (recipe fields on an ingredient → NaN).
+  go = (screen) => this.setState({ screen, menuRow: null, page: 1, viewRow: null, search: '', status: 'All' });
+  set = (patch) => this.setState(patch);
+
+  /**
+   * Popovers must swallow pointerdown: the document-level closer runs on pointerdown,
+   * which would unmount the menu before its item ever receives the click.
+   */
+  stopEvent = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
+
+  /** contentRect-equivalent width: clientWidth minus the scroller's 20px inline padding. */
+  measureList = () => {
+    const el = this._listEl;
+    if (!el) return false;
+    const w = Math.round(el.clientWidth) - 40;
+    // A zero/negative reading means layout does not exist yet (mount commit, or content still
+    // streaming). Report the miss so the caller can try again next frame instead of leaving
+    // listWidth at 0, which renders the narrow fallback forever.
+    if (w <= 0) return false;
+    if (w !== this.state.listWidth) this.setState({ listWidth: w });
+    return true;
+  };
+
+  expandNav = () => { if (!this.state.navOpen) this.toggleNav(); };
+
+  toggleNav = () => this.setState(
+    (s) => ({ navOpen: !s.navOpen }),
+    // The nav animates its width, so the port's final size only exists after the transition.
+    this.trackPort,
+  );
+
+  enrich = (r) => ({
+    ...r,
+    allergenLabel: r.allergens && r.allergens.length ? r.allergens.join(', ') : '—',
+    yieldLabel: r.yieldQty ? `${r.yieldQty} ${r.unit}` : '—',
+  });
+
+  cellText = (row, col) => {
+    const raw = row[col.key];
+    return col.fmt !== undefined ? N(raw, col.fmt) : String(raw === undefined ? '' : raw);
+  };
+
+  toggleColValue = (key, value) => this.setState((s) => {
+    const current = s.colFilters[key] || [];
+    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    const filters = { ...s.colFilters };
+    if (next.length) filters[key] = next; else delete filters[key];
+    return { colFilters: filters, page: 1 };
+  });
+
+  toggleSale = () => this.setState((s) => ({ saleOn: !s.saleOn }));
+
+  onIngCategory = (e) => {
+    const cat = e.target.value;
+    this.setState({ ingCategory: cat, ingSubCategory: (SUB_CATEGORIES[cat] || [''])[0] });
+  };
+
+  onIngSubCategory = (e) => this.setState({ ingSubCategory: e.target.value });
+
+  onB2bPrice = (e) => this.setState({ b2bPrice: e.target.value });
+
+  onB2cPrice = (e) => this.setState({ b2cPrice: e.target.value });
+
+  clearColFilter = (key) => this.setState((s) => {
+    const filters = { ...s.colFilters };
+    delete filters[key];
+    return { colFilters: filters, headerMenu: null };
+  });
+
+  sortBy = (key, dir) => this.setState({ sortKey: key, sortDir: dir, headerMenu: null });
+
+  openRecord = (record, kind) => this.setState({
+    viewRow: null,
+    menuRow: null,
+    screen: kind === 'recipe' ? 'recipeEdit' : 'ingredientEdit',
+    tab: 'description',
+    name: kind === 'recipe' && record && record.name ? record.name : this.state.name,
+    yieldQty: kind === 'recipe' && record && record.yieldQty ? record.yieldQty : this.state.yieldQty,
+  });
+
+  viewRecord = (record) => this.setState({ viewRow: record, menuRow: null });
+
+  activeLines() { return this.state.tab === 'packaging' ? this.state.packLines : this.state.prodLines; }
+  linesKey() { return this.state.tab === 'packaging' ? 'packLines' : 'prodLines'; }
+
+  costs() {
+    const s = this.state;
+    const y = Number(s.yieldQty) || 1;
+    const prodCost = s.prodLines.reduce((a, l) => a + Number(l.qty) * Number(l.up), 0);
+    const prodQty = s.prodLines.reduce((a, l) => a + Number(l.qty), 0);
+    const packCost = s.packLines.reduce((a, l) => a + Number(l.qty) * Number(l.up), 0);
+    const packQty = s.packLines.reduce((a, l) => a + Number(l.qty), 0);
+    const prodPerKg = prodCost / y;
+    const prodWasted = prodPerKg * (1 + Number(s.wasteProd) / 100);
+    const packPerKg = packCost / y;
+    const packWasted = packPerKg * (1 + Number(s.wastePack) / 100);
+    return { prodCost, prodQty, packCost, packQty, prodPerKg, prodWasted, packPerKg, packWasted, total: prodWasted + packWasted };
+  }
+
+  listData() {
+    const s = this.state;
+    if (s.screen === 'ingredients') {
+      return {
+        title: 'Ingredients', newLabel: 'New ingredient', kind: 'ingredient',
+        source: INGREDIENTS,
+        columns: [
+          { key: 'ref', label: 'Ref.', w: '84px', min: 84, priority: 88, mono: true },
+          { key: 'name', label: 'Designation', w: 'minmax(150px, 1fr)', min: 150, priority: 100, weight: 500, size: '12px' },
+          { key: 'category', label: 'Category', w: '120px', min: 120, priority: 40, fg: T.secondary },
+          { key: 'unit', label: 'Unit', w: '56px', min: 56, priority: 50, fg: T.secondary },
+          { key: 'up', label: 'Unit price', w: '84px', min: 84, priority: 75, align: 'center', mono: true, fmt: 2 },
+          { key: 'allergenLabel', label: 'Allergens', w: '132px', min: 132, priority: 30, fg: T.secondary },
+          { key: 'status', label: 'Status', w: '78px', min: 78, priority: 80, badge: true },
+          { key: 'updated', label: 'Updated', w: '72px', min: 72, priority: 20, fg: T.secondary, align: 'center' },
+          { key: '_actions', label: '', w: '28px', min: 28, priority: 95, action: true },
+        ],
+      };
+    }
+    const isSauce = s.screen === 'sauces';
+    return {
+      title: isSauce ? 'Sauces & dressings' : 'Recipes',
+      newLabel: isSauce ? 'New sauce' : 'New recipe',
+      kind: 'recipe',
+      source: isSauce ? SAUCES : RECIPES,
+      columns: [
+        { key: 'ref', label: 'Ref.', w: '84px', min: 84, priority: 88, mono: true },
+        { key: 'name', label: 'Designation', w: 'minmax(150px, 1fr)', min: 150, priority: 100, weight: 500, size: '12px' },
+        { key: 'kind', label: 'Kind', w: '92px', min: 92, priority: 45, fg: T.secondary },
+        { key: 'yieldLabel', label: 'Yield', w: '80px', min: 80, priority: 60, align: 'center', mono: true },
+        { key: 'cost', label: 'Cost / kg', w: '84px', min: 84, priority: 85, align: 'center', mono: true, fmt: 2 },
+        { key: 'version', label: 'Version', w: '64px', min: 64, priority: 35, mono: true, fg: T.secondary, align: 'center' },
+        { key: 'status', label: 'Status', w: '78px', min: 78, priority: 80, badge: true },
+        { key: 'updated', label: 'Updated', w: '72px', min: 72, priority: 20, fg: T.secondary, align: 'center' },
+        { key: '_actions', label: '', w: '28px', min: 28, priority: 95, action: true },
+      ],
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const c = this.costs();
+    const list = this.listData();
+    const q = s.search.trim().toLowerCase();
+
+    const b2b = parseFloat(s.b2bPrice);
+    const saleMargin = Number.isFinite(b2b) && b2b > 0 ? `+${N(((b2b - 3.5) / 3.5) * 100, 1)} %` : '—';
+
+    // Column fitting: drop the lowest-priority column until the real track sum fits the
+    // scroll port. Designation and the overflow menu are never droppable, so the row action
+    // the user chose is always reachable without horizontal scrolling.
+    const GAP = 18;
+    const avail = s.listWidth - 16;
+    const trackSum = (cols) => cols.reduce((a, c) => a + c.min, 0) + GAP * Math.max(cols.length - 1, 0);
+    const visible = list.columns.slice();
+    while (trackSum(visible) > avail && visible.length > 2) {
+      let wi = -1;
+      visible.forEach((c, i) => {
+        if (c.priority >= 90) return;
+        if (wi === -1 || c.priority < visible[wi].priority) wi = i;
+      });
+      if (wi === -1) break;
+      visible.splice(wi, 1);
+    }
+    // Below the md breakpoint — or when even Designation + ⋯ no longer fit — the same row
+    // renders as the two-line arrangement instead of a column grid.
+    // Unmeasured (listWidth 0) also counts as narrow: the two-line row needs no width to be
+// correct, so the first frame is honest rather than a wide grid built on a guess.
+    const isNarrow = !s.listWidth || trackSum(visible) > avail || s.listWidth < 480;
+
+    const enrichedSource = list.source.map(this.enrich);
+    const filterKeys = Object.keys(s.colFilters);
+    const filtered = enrichedSource.filter((r) => {
+      const matchQ = !q || r.name.toLowerCase().includes(q) || r.ref.toLowerCase().includes(q);
+      const matchS = s.status === 'All' || r.status === s.status;
+      const matchC = filterKeys.every((k) => {
+        const col = list.columns.find((c) => c.key === k);
+        return col ? s.colFilters[k].includes(this.cellText(r, col)) : true;
+      });
+      return matchQ && matchS && matchC;
+    });
+    if (s.sortKey) {
+      const col = list.columns.find((c) => c.key === s.sortKey);
+      if (col) {
+        const dir = s.sortDir === 'asc' ? 1 : -1;
+        filtered.sort((a, b) => {
+          const av = a[col.key];
+          const bv = b[col.key];
+          const numeric = typeof av === 'number' && typeof bv === 'number';
+          if (numeric) return (av - bv) * dir;
+          return String(av).localeCompare(String(bv)) * dir;
+        });
+      }
+    }
+
+    const COUNTS = { ingredients: INGREDIENTS.length, recipes: RECIPES.length, sauces: SAUCES.length };
+    const navGroups = NAV_GROUPS.map((g) => ({
+      label: g.label,
+      // The collapsed rail is one icon per GROUP, not per family: five marks the eye can learn,
+      // where 28 stacked glyphs would be a wall. Clicking one reopens the panel at its labels.
+      glyph: ICON[g.icon],
+      railTitle: `${g.label} — ${g.items.map((n) => n.label).join(', ')}`,
+      bg: g.items.some((n) => n.live) && ['ingredients', 'recipes', 'sauces', 'recipeEdit', 'ingredientEdit'].includes(s.screen) ? '#dcfce7' : 'transparent',
+      iconFg: g.items.some((n) => n.live) ? '#157043' : '#6b7683',
+      items: g.items.map((n) => {
+        const active = s.screen === n.key
+          || (n.key === 'recipes' && s.screen === 'recipeEdit')
+          || (n.key === 'ingredients' && s.screen === 'ingredientEdit');
+        return {
+          label: n.label,
+          glyph: ICON[n.icon],
+          count: COUNTS[n.key],
+          // Counts only where a real list backs them, and only with labels showing: a bare
+          // number beside an icon in the 48px rail would read as a badge.
+          showCount: !!n.live && s.navOpen,
+          title: n.live ? n.label : `${n.label} — not in this prototype`,
+          go: n.live ? () => this.go(n.key) : undefined,
+          cursor: n.live ? 'pointer' : 'default',
+          bg: active ? '#dcfce7' : 'transparent',
+          // Inert families are muted but never faint: collapsed, the glyph is the item's only
+          // representation, so it holds 4.5:1 on the panel rather than the 2:1 a decorative
+          // grey would give. The live/inert difference is weight and ink, not visibility.
+          fg: active ? '#14532d' : (n.live ? T.primary : '#6b7683'),
+          iconFg: active ? '#157043' : (n.live ? T.secondary : '#6b7683'),
+          weight: active ? 600 : 400,
+        };
+      }),
+    }));
+
+    const seg = (label, active, onClick, title) => ({
+      label, title: title || label, go: onClick,
+      bg: active ? '#157043' : 'transparent', fg: active ? '#ffffff' : T.secondary, weight: active ? 600 : 500,
+    });
+
+    const rows = filtered.map((enriched, i) => {
+      const open = () => this.openRecord(enriched, list.kind);
+      const tone = TONE[enriched.status] || TONE.Draft;
+      return {
+        open,
+        primary: enriched.name,
+        refLabel: enriched.ref,
+        metaLine: list.kind === 'recipe'
+          ? `${enriched.kind} · yields ${enriched.yieldLabel}`
+          : `${enriched.category} · ${enriched.unit} · ${enriched.allergenLabel}`,
+        metric: list.kind === 'recipe' ? N(enriched.cost, 2) : N(enriched.up, 2),
+        statusText: enriched.status,
+        statusBg: tone.bg,
+        statusFg: tone.fg,
+        cells: visible.map((col) => {
+          if (col.action) return { isAction: true, isPlain: false, isBadge: false, align: 'end', family: 'inherit', size: '12px', weight: 400, fg: T.secondary, text: '' };
+          if (col.badge) {
+            const cellTone = TONE[enriched[col.key]] || TONE.Draft;
+            return { isBadge: true, isPlain: false, isAction: false, text: enriched[col.key], badgeBg: cellTone.bg, badgeFg: cellTone.fg, align: col.align || 'start', family: 'inherit', size: '12px', weight: 400, fg: T.primary, open };
+          }
+          const raw = enriched[col.key];
+          return {
+            isPlain: true, isBadge: false, isAction: false,
+            text: col.fmt !== undefined ? N(raw, col.fmt) : String(raw),
+            align: col.align || 'start',
+            family: col.mono ? "'IBM Plex Mono', monospace" : 'inherit',
+            size: col.mono ? '11px' : (col.size || '12px'),
+            weight: col.weight || 400,
+            fg: col.fg || T.primary,
+            open,
+          };
+        }),
+        menuOpen: s.menuRow === i,
+        menuBg: s.menuRow === i ? '#dcfce7' : 'transparent',
+        toggleMenu: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ menuRow: s.menuRow === i ? null : i }); },
+        actions: [
+          { label: 'View', icon: '◉', fg: T.primary, run: () => this.viewRecord(enriched) },
+          { label: 'Edit', icon: '✎', fg: T.primary, run: open },
+          { label: 'Archive', icon: '▤', fg: '#8f1f1a', run: () => this.setState({ menuRow: null }) },
+        ],
+      };
+    });
+
+    const missingAr = list.kind === 'ingredient' ? 3 : 2;
+    const summary = `${filtered.length} of ${list.source.length} shown · ${list.source.filter((r) => r.status === 'Draft').length} draft · ${missingAr} missing Arabic · ${list.kind === 'ingredient' ? '2 uncosted' : '1 unpublished price'}`;
+
+    // The same four figures the summary line states, as cards: each one is a number somebody
+    // acts on, so the two that need work carry amber ink and the first two are filters.
+    const draftCount = list.source.filter((r) => r.status === 'Draft').length;
+    const uncosted = list.kind === 'ingredient' ? 2 : 1;
+    const CARD = { border: '#cceeda', bg: '#fff', markFg: '#a8b2bc', valueFg: T.primary, captionFg: '#5b6673' };
+    const statCards = [
+      {
+        ...CARD, label: 'Shown', value: `${filtered.length}`, unit: `of ${list.source.length}`,
+        caption: s.search || s.status !== 'All' || Object.keys(s.colFilters).length ? 'Filtered — clear' : 'No filters applied',
+        mark: '▤', valueFg: T.brand, title: 'Clear search, status and column filters',
+        cursor: 'pointer', go: () => this.setState({ search: '', status: 'All', colFilters: {}, page: 1 }),
+      },
+      {
+        ...CARD, label: 'Draft', value: `${draftCount}`, unit: 'records', caption: 'Not yet published',
+        mark: '◌', valueFg: draftCount ? '#79480a' : T.primary, captionFg: draftCount ? '#79480a' : '#5b6673',
+        bg: draftCount ? '#fdf2d6' : '#fff', border: draftCount ? '#f0dcae' : '#cceeda', markFg: draftCount ? '#8a5a09' : '#a8b2bc',
+        title: 'Show only draft records', cursor: 'pointer', go: () => this.setState({ status: 'Draft', page: 1 }),
+      },
+      {
+        ...CARD, label: 'Missing Arabic', value: `${missingAr}`, unit: 'records', caption: 'Blocks publication',
+        mark: '⚠', valueFg: '#8f1f1a', captionFg: '#8f1f1a', title: 'Arabic designation required before publishing',
+        cursor: 'default',
+      },
+      {
+        ...CARD, label: 'Uncosted', value: `${uncosted}`, unit: 'records', caption: 'No unit price on file',
+        mark: '⚠', valueFg: '#79480a', captionFg: '#79480a', title: 'Unit price missing — cost per kg cannot resolve',
+        cursor: 'default',
+      },
+    ];
+
+    const lines = this.activeLines();
+    const key = this.linesKey();
+    const lineVals = lines.map((l, i) => ({
+      ...l,
+      total: N(Number(l.qty) * Number(l.up), 3),
+      qty: String(l.qty),
+      up: String(l.up),
+      onQty: (e) => { const v = e.target.value; this.setState((st) => ({ [key]: st[key].map((x, j) => (j === i ? { ...x, qty: v } : x)) })); },
+      onUp: (e) => { const v = e.target.value; this.setState((st) => ({ [key]: st[key].map((x, j) => (j === i ? { ...x, up: v } : x)) })); },
+      onComment: (e) => { const v = e.target.value; this.setState((st) => ({ [key]: st[key].map((x, j) => (j === i ? { ...x, comment: v } : x)) })); },
+      remove: () => this.setState((st) => ({ [key]: st[key].filter((_, j) => j !== i) })),
+    }));
+
+    const sq = s.selQuery.trim().toLowerCase();
+    const pool = s.tab === 'packaging'
+      ? [{ ref: 'PK-012', name: 'Bottle 500', category: 'Packaging', unit: 'Piece', up: 0.34 }, { ref: 'PK-018', name: 'Shrink sleeve', category: 'Packaging', unit: 'Piece', up: 0.12 }, { ref: 'PK-023', name: 'Carton 12', category: 'Packaging', unit: 'Piece', up: 1.1 }]
+      : INGREDIENTS;
+    const selResults = pool.filter((o) => !sq || o.name.toLowerCase().includes(sq) || o.ref.toLowerCase().includes(sq)).slice(0, 7).map((o, i) => ({
+      name: o.name,
+      meta: `${o.category} · ${o.unit}`,
+      price: N(o.up, 2),
+      bg: i === s.selIndex ? '#edf6f0' : 'transparent',
+      hover: () => this.setState({ selIndex: i }),
+      pick: () => this.setState((st) => ({ [key]: [...st[key], { ref: o.ref, name: o.name, unit: o.unit, qty: 1, up: o.up, comment: '' }], selQuery: '', selOpen: false, selIndex: 0 })),
+    }));
+
+    const allergenMap = {};
+    s.prodLines.forEach((l) => {
+      const ing = INGREDIENTS.find((x) => x.ref === l.ref);
+      if (ing) ing.allergens.forEach((a) => { allergenMap[a] = allergenMap[a] || []; allergenMap[a].push(ing.name); });
+    });
+    const allergens = Object.keys(allergenMap).map((a) => ({ label: a, source: `via ${allergenMap[a][0]}` }));
+
+    const totalMass = s.prodLines.reduce((a, l) => a + Number(l.qty), 0) || 1;
+    const kcal = s.prodLines.reduce((a, l) => { const ing = INGREDIENTS.find((x) => x.ref === l.ref); return a + (ing ? ing.kcal * Number(l.qty) : 0); }, 0) / totalMass;
+
+    const margin = (Number(s.sellPrice) - c.total) / (Number(s.sellPrice) || 1) * 100;
+
+    const tabs = [
+      { key: 'description', label: 'Description' },
+      { key: 'production', label: 'Production', count: s.prodLines.length },
+      { key: 'packaging', label: 'Packaging', count: s.packLines.length },
+      { key: 'costing', label: 'Costing' },
+      { key: 'sheet', label: 'Technical sheet' },
+    ].map((t) => ({
+      label: t.label, count: t.count, hasCount: t.count !== undefined,
+      go: () => this.setState({ tab: t.key, selOpen: false }),
+      weight: s.tab === t.key ? 600 : 500,
+      fg: s.tab === t.key ? T.brand : T.secondary,
+      underline: s.tab === t.key ? 'inset 0 -2px 0 0 #157043' : 'none',
+    }));
+
+    return {
+      navGroups,
+      navOpen: s.navOpen,
+      navClosed: !s.navOpen,
+      navJustify: s.navOpen ? 'flex-start' : 'center',
+      navPad: s.navOpen ? '12px' : '0px',
+      navRailPad: s.navOpen ? '6px' : '8px',
+      navItemPad: s.navOpen ? '8px' : '0px',
+      navFootAlign: s.navOpen ? 'start' : 'center',
+      expandNav: this.expandNav,
+      printSheet: this.printSheet,
+      sheetRef: this.sheetRef,
+      isList: ['ingredients', 'recipes', 'sauces'].includes(s.screen),
+      isRecipeEdit: s.screen === 'recipeEdit',
+      isIngredientEdit: s.screen === 'ingredientEdit',
+      listTitle: list.title,
+      newLabel: list.newLabel,
+      listSummary: summary,
+      statCards,
+      canCardStats: list.kind === 'ingredient',
+      showStatCards: list.kind === 'ingredient' && s.statsCards,
+      showSummaryLine: !(list.kind === 'ingredient' && s.statsCards),
+      statsCaption: `Ingredient catalogue · ${list.source.length} records`,
+      statsViewGlyph: s.statsCards ? '▤' : '▣',
+      statsViewLabel: s.statsCards ? 'Summary line' : 'Cards',
+      statsViewTitle: s.statsCards ? 'Show the figures as one line' : 'Show the figures as cards',
+      statsViewBg: s.statsCards ? '#edf6f0' : '#fff',
+      statsViewFg: s.statsCards ? '#14532d' : T.primary,
+      toggleStatsView: () => this.setState((st) => ({ statsCards: !st.statsCards })),
+      openNew: () => (list.kind === 'recipe' ? this.setState({ screen: 'recipeEdit', tab: 'description' }) : this.setState({ screen: 'ingredientEdit' })),
+      search: s.search,
+      onSearch: (e) => this.setState({ search: e.target.value }),
+      clearFilters: () => this.setState({ search: '', status: 'All' }),
+      statusTabs: ['All', 'Live', 'Draft', 'Review'].map((t) => seg(t, s.status === t, () => this.setState({ status: t }))),
+      densityTabs: [
+        seg('S', s.density === 28, () => this.setState({ density: 28 }), 'Ultra dense — 28px rows'),
+        seg('M', s.density === 32, () => this.setState({ density: 32 }), 'Dense — 32px rows'),
+        seg('L', s.density === 36, () => this.setState({ density: 36 }), 'Comfortable — 36px rows'),
+      ],
+      rowHeight: `${s.density}px`,
+      listRef: this.listRef,
+      isNarrow,
+      isWide: !isNarrow,
+      // Collapsed is a 48px icon rail, not zero: the workspace's families stay on screen and
+      // keyboard-reachable, so closing the panel trades labels for width rather than access.
+      navWidth: s.navOpen ? '208px' : '48px',
+      toggleNav: this.toggleNav,
+      navToggleTitle: s.navOpen ? 'Collapse to icons' : 'Show labels',
+      columns: visible.map((col, ci) => {
+        const active = s.headerMenu === col.key;
+        // Edge-flip: anchor the popover to the column's end when a 194px menu opened from its
+        // start edge would run past the reference box and inject horizontal overflow.
+        // The reference is the narrower of the scroll port and the grid's own max-content width —
+        // a popover overflowing the *grid* grows scrollWidth even while it looks inside the port.
+        const startOffset = visible.slice(0, ci).reduce((a, c) => a + c.min, 0) + GAP * ci;
+        const flip = startOffset + 194 > Math.min(avail, trackSum(visible));
+        const filterOn = !!s.colFilters[col.key];
+        const sortOn = s.sortKey === col.key;
+        const values = [];
+        enrichedSource.forEach((r) => {
+          const t = this.cellText(r, col);
+          if (t && !values.includes(t)) values.push(t);
+        });
+        values.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        return {
+          label: col.label,
+          align: col.align || 'start',
+          sortable: !col.action,
+          isAction: !!col.action,
+          inlineStart: flip ? 'auto' : '-4px',
+          inlineEnd: flip ? '-4px' : 'auto',
+          fg: filterOn || sortOn ? T.brand : T.secondary,
+          // Resting chevron is always present so the header reads as a control; it darkens to
+          // brand green and swaps glyph once the column is actually sorted or filtered.
+          mark: filterOn ? '▽' : (sortOn ? (s.sortDir === 'asc' ? '⌃' : '⌄') : '▾'),
+          markFg: filterOn || sortOn ? T.brand : T.secondary,
+          // On numeric (end-aligned) columns the chevron moves to the LEFT of the label, so the
+          // label's right edge stays flush with the right-aligned figures underneath it.
+          headerDir: col.align === 'end' ? 'row-reverse' : 'row',
+          hasMark: true,
+          menuOpen: active,
+          toggle: col.action ? undefined : (e) => {
+            if (e && e.stopPropagation) e.stopPropagation();
+            this.setState({ headerMenu: active ? null : col.key });
+          },
+          sortAsc: () => this.sortBy(col.key, 'asc'),
+          sortDesc: () => this.sortBy(col.key, 'desc'),
+          clear: () => this.clearColFilter(col.key),
+          hasFilter: filterOn,
+          values: values.slice(0, 12).map((v) => ({
+            label: v,
+            checked: !!(s.colFilters[col.key] && s.colFilters[col.key].includes(v)),
+            mark: s.colFilters[col.key] && s.colFilters[col.key].includes(v) ? '✓' : '',
+            toggle: () => this.toggleColValue(col.key, v),
+          })),
+        };
+      }),
+      // Every track is shrinkable (minmax(0, w)) so the grid can never exceed the scroll port:
+      // column shedding handles the coarse fit, these floors absorb the sub-pixel remainder.
+      // Authored tracks, unmodified. Fitting is column shedding's job, measured against the
+      // real port; shrinkable tracks were the mistake — a stale or lagging measurement then
+      // crushed every column to an illegible stub instead of briefly overflowing into the clip.
+      gridTemplate: visible.map((col) => col.w).join(' '),
+      rows,
+      stopEvent: this.stopEvent,
+      viewOpen: !!s.viewRow,
+      viewTitle: s.viewRow ? s.viewRow.name : '',
+      viewRef: s.viewRow ? s.viewRow.ref : '',
+      viewStatus: s.viewRow ? s.viewRow.status : '',
+      viewStatusBg: s.viewRow ? (TONE[s.viewRow.status] || TONE.Draft).bg : '#f1f5f9',
+      viewStatusFg: s.viewRow ? (TONE[s.viewRow.status] || TONE.Draft).fg : '#4b5563',
+      viewKindLabel: list.kind === 'recipe' ? 'Recipe' : 'Ingredient',
+      viewFields: (!s.viewRow ? [] : (list.kind === 'recipe' ? [
+        { label: 'Reference', value: s.viewRow.ref, mono: true },
+        { label: 'Designation', value: s.viewRow.name, mono: false },
+        { label: 'Kind', value: s.viewRow.kind, mono: false },
+        { label: 'Yield', value: s.viewRow.yieldLabel, mono: true },
+        { label: 'Cost per kg', value: N(s.viewRow.cost, 2), mono: true },
+        { label: 'Version', value: s.viewRow.version, mono: true },
+        { label: 'Status', value: s.viewRow.status, mono: false },
+        { label: 'Last updated', value: `${s.viewRow.updated} ago`, mono: false },
+      ] : [
+        { label: 'Reference', value: s.viewRow.ref, mono: true },
+        { label: 'Designation', value: s.viewRow.name, mono: false },
+        { label: 'Category', value: s.viewRow.category, mono: false },
+        { label: 'Stock unit', value: s.viewRow.unit, mono: false },
+        { label: 'Unit price', value: N(s.viewRow.up, 2), mono: true },
+        { label: 'Energy', value: `${s.viewRow.kcal} kcal / 100 g`, mono: true },
+        { label: 'Status', value: s.viewRow.status, mono: false },
+        { label: 'Last updated', value: `${s.viewRow.updated} ago`, mono: false },
+      ])).map((f) => ({ ...f, family: f.mono ? "'IBM Plex Mono', monospace" : 'inherit' })),
+      viewAllergens: s.viewRow && s.viewRow.allergens && s.viewRow.allergens.length
+        ? s.viewRow.allergens.map((a) => ({ label: a }))
+        : [],
+      viewHasAllergens: !!(s.viewRow && s.viewRow.allergens && s.viewRow.allergens.length),
+      closeView: () => this.setState({ viewRow: null }),
+      editFromView: () => this.openRecord(s.viewRow, list.kind),
+      isEmpty: filtered.length === 0,
+      pagerLabel: `Showing 1–${filtered.length} of ${list.source.length}`,
+      pages: ['‹', '1', '2', '›'].map((p) => ({
+        label: p,
+        bg: p === '1' ? '#157043' : '#ffffff',
+        fg: p === '1' ? '#ffffff' : T.secondary,
+        border: p === '1' ? '#157043' : '#aaddc0',
+        weight: p === '1' ? 600 : 400,
+      })),
+
+      tabs,
+      tabDescription: s.tab === 'description',
+      tabLines: s.tab === 'production' || s.tab === 'packaging',
+      tabCosting: s.tab === 'costing',
+      tabSheet: s.tab === 'sheet',
+      draftName: s.name,
+      onName: (e) => this.setState({ name: e.target.value }),
+      editorSummary: `RC-0104 · Production · yields ${s.yieldQty} kg · ${s.prodLines.length} raw materials · ${N(c.total, 2)} SAR/kg`,
+      backToRecipes: () => this.go('recipes'),
+      backToIngredients: () => this.go('ingredients'),
+      yieldQty: String(s.yieldQty),
+      onYield: (e) => this.setState({ yieldQty: e.target.value }),
+
+      linesTitle: s.tab === 'packaging' ? 'Packaging' : 'Raw materials',
+      linesHint: s.tab === 'packaging' ? 'Per produced batch' : 'Type to add — the picker stays inline, no modal',
+      selPlaceholder: s.tab === 'packaging' ? 'Add packaging…' : 'Add an ingredient…',
+      lines: lineVals,
+      linesTotalQty: N(s.tab === 'packaging' ? c.packQty : c.prodQty, 3),
+      linesTotalCost: N(s.tab === 'packaging' ? c.packCost : c.prodCost, 3),
+      selQuery: s.selQuery,
+      selOpen: s.selOpen,
+      selResults,
+      selEmpty: selResults.length === 0,
+      openSel: () => this.setState({ selOpen: true }),
+      onSelQuery: (e) => this.setState({ selQuery: e.target.value, selOpen: true, selIndex: 0 }),
+      onSelKey: (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); this.setState({ selIndex: Math.min(s.selIndex + 1, Math.max(selResults.length - 1, 0)), selOpen: true }); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); this.setState({ selIndex: Math.max(s.selIndex - 1, 0) }); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (selResults[s.selIndex]) selResults[s.selIndex].pick(); }
+        else if (e.key === 'Escape') this.setState({ selOpen: false });
+      },
+
+      costCards: [
+        { title: 'Production', bg: '#ffffff', rows: [
+          { label: 'Total cost', value: N(c.prodCost, 3), size: '12px', weight: 500, fg: T.primary },
+          { label: `Per ${s.yieldQty} kg batch`, value: N(c.prodPerKg, 4), size: '12px', weight: 400, fg: T.secondary },
+          { label: `+ ${s.wasteProd}% waste`, value: N(c.prodWasted, 4), size: '14px', weight: 600, fg: T.primary },
+        ] },
+        { title: 'Packaging', bg: '#ffffff', rows: [
+          { label: 'Total cost', value: N(c.packCost, 3), size: '12px', weight: 500, fg: T.primary },
+          { label: 'Per kg', value: N(c.packPerKg, 4), size: '12px', weight: 400, fg: T.secondary },
+          { label: `+ ${s.wastePack}% waste`, value: N(c.packWasted, 4), size: '14px', weight: 600, fg: T.primary },
+        ] },
+        { title: 'Total cost', bg: '#dcfce7', rows: [
+          { label: 'Production', value: N(c.prodWasted, 4), size: '12px', weight: 400, fg: '#14532d' },
+          { label: 'Packaging', value: N(c.packWasted, 4), size: '12px', weight: 400, fg: '#14532d' },
+          { label: 'Per kg', value: N(c.total, 4), size: '16px', weight: 700, fg: '#14532d' },
+        ] },
+      ],
+      wasteProd: String(s.wasteProd),
+      wastePack: String(s.wastePack),
+      sellPrice: String(s.sellPrice),
+      onWasteProd: (e) => this.setState({ wasteProd: e.target.value }),
+      onWastePack: (e) => this.setState({ wastePack: e.target.value }),
+      onSellPrice: (e) => this.setState({ sellPrice: e.target.value }),
+      marginLabel: `${N(margin, 1)} %`,
+      marginFg: margin < 20 ? '#8f1f1a' : T.primary,
+      totalPerKg: N(c.total, 2),
+
+      allergens,
+      lineCount: s.prodLines.length,
+      nutrients: [
+        { label: 'Energy', value: N(kcal, 0), per: 'kcal / 100 g' },
+        { label: 'Fat', value: N(kcal * 0.082, 1), per: 'g / 100 g' },
+        { label: 'Carbs', value: N(kcal * 0.021, 1), per: 'g / 100 g' },
+        { label: 'Protein', value: N(kcal * 0.004, 1), per: 'g / 100 g' },
+      ],
+      ingCategory: s.ingCategory,
+      ingSubCategory: s.ingSubCategory,
+      ingSubOptions: (SUB_CATEGORIES[s.ingCategory] || []).map((v) => ({ value: v, label: v })),
+      saleOn: s.saleOn,
+      saleTrackBg: s.saleOn ? T.brand : '#fff',
+      saleTrackBorder: s.saleOn ? T.brand : '#aaddc0',
+      saleKnobStart: s.saleOn ? '17px' : '3px',
+      saleStateLabel: s.saleOn ? 'On — pricing required' : 'Off',
+      b2bPrice: s.b2bPrice,
+      b2cPrice: s.b2cPrice,
+      saleMargin: saleMargin,
+      toggleSale: this.toggleSale,
+      onIngCategory: this.onIngCategory,
+      onIngSubCategory: this.onIngSubCategory,
+      onB2bPrice: this.onB2bPrice,
+      onB2cPrice: this.onB2cPrice,
+      ingredientNutrients: [
+        { label: 'Energy', value: '680', per: 'kcal / 100 g' },
+        { label: 'Fat', value: '74.8', per: 'g / 100 g' },
+        { label: 'Carbs', value: '1.4', per: 'g / 100 g' },
+        { label: 'Protein', value: '1.1', per: 'g / 100 g' },
+      ],
+      sheetFacts: [
+        { label: 'Designation', value: s.name },
+        { label: 'Kind', value: 'Production' },
+        { label: 'Yield', value: `${s.yieldQty} kg` },
+        { label: 'Raw materials', value: String(s.prodLines.length) },
+        { label: 'Shelf life', value: '14 days' },
+        { label: 'Storage', value: 'Chilled 2–4 °C' },
+      ],
+      sheetLines: s.prodLines.map((l) => ({
+        name: l.name, unit: l.unit,
+        qty: String(l.qty), up: N(l.up, 2),
+        total: N(Number(l.qty) * Number(l.up), 3),
+      })),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

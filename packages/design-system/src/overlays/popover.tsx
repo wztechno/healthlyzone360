@@ -12,6 +12,12 @@ import type { WebKeyEvent } from '../internal/web-props.ts';
 export const POPOVER_TRIGGERS = ['press', 'hover'] as const;
 export type PopoverTrigger = (typeof POPOVER_TRIGGERS)[number];
 
+export const POPOVER_TRIGGER_VARIANTS = ['link', 'button'] as const;
+export type PopoverTriggerVariant = (typeof POPOVER_TRIGGER_VARIANTS)[number];
+
+export const POPOVER_ALIGNS = ['start', 'end'] as const;
+export type PopoverAlign = (typeof POPOVER_ALIGNS)[number];
+
 export interface PopoverProps {
     /** Accessible name of the trigger — an icon-only trigger has no other name. */
     readonly triggerLabel: string;
@@ -26,6 +32,24 @@ export interface PopoverProps {
      * because a touch screen has no hover state and a hover-only affordance is unreachable there.
      */
     readonly trigger?: PopoverTrigger | undefined;
+    /**
+     * How the trigger presents itself.
+     *
+     * `link` — underlined secondary text beside a glyph. The default, and right for the job this
+     * component was built for: an inline "why this target?" explainer sitting in running copy,
+     * where a button would interrupt the sentence.
+     *
+     * `button` — an outlined control on the raised surface. For a popover that is a *destination
+     * for actions* rather than a footnote: an account menu in a top bar is a control among other
+     * controls, and underlined text there reads as a stray link between two buttons.
+     */
+    readonly triggerVariant?: PopoverTriggerVariant | undefined;
+    /**
+     * Which edge the panel is anchored to. `start` (default) hangs it from the leading edge of the
+     * trigger; `end` from the trailing edge, which is what a trigger near the end of a top bar
+     * needs so its 280px panel opens inward instead of off the side of the page.
+     */
+    readonly align?: PopoverAlign | undefined;
     readonly disabled?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -55,6 +79,8 @@ export function Popover({
     title,
     children,
     trigger = 'press',
+    triggerVariant = 'link',
+    align = 'start',
     disabled = false,
     className,
     testID,
@@ -133,11 +159,23 @@ export function Popover({
                 onPress={() => {
                     setOpen((current) => !current);
                 }}
-                className="min-h-touch flex-row items-center gap-1.5 self-start rounded-lg px-2 py-1"
+                className={cx(
+                    'min-h-touch flex-row items-center gap-1.5 self-start rounded-lg',
+                    triggerVariant === 'button'
+                        ? 'border border-stroke bg-surface-raised px-3.5 py-2'
+                        : 'px-2 py-1',
+                )}
             >
                 <Icon name={triggerIcon} size="sm" className="text-content-secondary" />
                 {triggerText === undefined ? null : (
-                    <RNText className="text-sm text-content-secondary underline text-start">
+                    <RNText
+                        className={cx(
+                            'text-sm text-start',
+                            triggerVariant === 'button'
+                                ? 'font-medium text-content-primary'
+                                : 'text-content-secondary underline',
+                        )}
+                    >
                         {triggerText}
                     </RNText>
                 )}
@@ -150,7 +188,20 @@ export function Popover({
                     role="dialog"
                     aria-label={title}
                     accessibilityLabel={title}
-                    className="absolute top-full z-tooltip mt-1 w-[280px] max-w-[92%] flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3 shadow-elevation-3"
+                    className={cx(
+                        'absolute top-full z-tooltip mt-1 w-[280px] max-w-[92%] flex-col gap-2 rounded-lg border border-stroke-subtle bg-surface-raised p-3 shadow-elevation-3',
+                        /*
+                         * `start` adds nothing, and that is deliberate — asserted by
+                         * "anchors the panel with no horizontal inset at all". An absolutely
+                         * positioned box with neither edge set resolves to its static position,
+                         * which is already the trigger's leading edge, and it does so in both
+                         * directions without a utility that could be got the wrong way round.
+                         * `end-0` is the opt-in for a trigger sitting near the end of the page,
+                         * where the panel would otherwise open off the side; it is logical, so it
+                         * mirrors under RTL rather than pinning to a physical edge.
+                         */
+                        align === 'end' ? 'end-0' : null,
+                    )}
                 >
                     <RNText
                         testID={`${base}-title`}

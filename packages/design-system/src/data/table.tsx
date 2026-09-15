@@ -5,21 +5,39 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
+import { useDensity } from '../hooks/use-density.tsx';
+import type { Density } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { GAP_CLASS } from '../primitives/stack.tsx';
+import type { SpaceStep } from '../primitives/stack.tsx';
 
 export type TableSortDirection = 'asc' | 'desc';
 
 /**
- * Column headers: small, bold, upper-case and widely tracked, in the demoted text role.
+ * Column headers: small and quiet, in the secondary text role.
  *
- * A header is a label for the column, not a competitor to the figures under it — so it is the
- * quietest thing in the table by colour and the most distinct by shape. `content-disabled` is the
- * demoted role rather than a grey invented for the purpose (§1.3 allows exactly two), and it still
- * owes the normal-text ratio because it carries real words: 5.17:1 on `surface-raised`, 4.69:1 on
- * `surface-sunken`. Both are asserted in `packages/design-tokens/src/colour.test.ts`.
+ * A header labels its column; it must not compete with the figures under it, so it is the quietest
+ * thing in the table by size and weight. The ink is `content-secondary` — the *same* ink
+ * `DataList` gives the same label. The two components draw column headers side by side in the
+ * Catalogue, and a header that is one grey here and another grey there is exactly the mismatch this
+ * pass exists to remove. It was `content-disabled`, which cleared AA on both panels but is the ink
+ * of a control nobody can press; a column header is neither disabled nor inert. Both greys are
+ * contrast-asserted in `packages/design-tokens/src/colour.test.ts`.
+ *
+ * **Density-aware, because `Table` ships on both surfaces.** On the admin it lands on the `label`
+ * step — the same shape `DataList` draws, so the two header ramps agree in size as well as in
+ * colour, and both match the 12px cells beneath them. On the customer side it stays 12px against
+ * 16px cells, which is the proportion that table already shipped.
+ *
+ * It was `text-xs font-bold uppercase tracking-widest`. Capitals and open tracking were how a
+ * header used to distinguish itself; colour and the ramp do that now.
  */
-const HEADER_CELL_CLASS = 'text-xs font-bold uppercase tracking-widest text-content-disabled';
+function headerCellClass(density: Density): string {
+    return density === 'compact'
+        ? 'text-role-label text-content-secondary'
+        : 'text-xs font-medium text-content-secondary';
+}
 
 /**
  * A trailing per-row control — "View", "Edit", a menu. `header` names the column above `md` and is
@@ -37,8 +55,8 @@ export interface TableColumn<Row> {
     readonly numeric?: boolean | undefined;
     /**
      * The one figure in the row a reader is actually comparing — a total, a price, a count. It is
-     * set in the display face so the eye finds it without reading the row, and at most one column
-     * should claim it: two "most important" numbers is none.
+     * set a step up in size and weight so the eye finds it without reading the row, and at most one
+     * column should claim it: two "most important" numbers is none.
      */
     readonly primary?: boolean | undefined;
     /**
@@ -56,6 +74,26 @@ export interface TableColumn<Row> {
     readonly render: (row: Row) => ReactNode;
 }
 
+/** Per-row emphasis. See {@link TableProps.rowTone}. */
+export type TableRowTone = 'default' | 'muted';
+
+/** Row height. See {@link TableProps.rowSize}. */
+export type TableRowSize = 'sm' | 'md' | 'lg';
+
+/**
+ * The vertical padding each row size buys.
+ *
+ * Only the padding moves: type, badges and the header row are the same at every size, because a
+ * density control that also shrank the text would be a zoom control wearing a density control's
+ * label. `sm` is the scan-a-hundred-rows setting, `lg` the one that suits a row carrying two lines
+ * of secondary text under the name.
+ */
+const ROW_SIZE_CLASS: Readonly<Record<TableRowSize, string>> = {
+    sm: 'py-1.5',
+    md: 'py-3',
+    lg: 'py-5',
+};
+
 export interface TableProps<Row> {
     /** The table's accessible name. Rendered visibly unless `captionHidden` is set. */
     readonly caption: string;
@@ -72,12 +110,24 @@ export interface TableProps<Row> {
     /** A trailing action column above `md`; a card footer below it. */
     readonly rowAction?: TableRowAction<Row> | undefined;
     /**
-     * Per-row emphasis. `muted` dims the whole row (desktop) or card (mobile)
-     * — the affordance for a row that exists but must not be used, e.g. an
-     * inactive or retired catalogue entry. Content and actions stay rendered
-     * and reachable; only the emphasis changes.
+     * Per-row emphasis. `'muted'` dims the row; `'default'`, and omitting the prop entirely,
+     * leave it at full strength.
+     *
+     * Tone only — never the sole carrier of meaning. The rows the Catalogue mutes are drafts and
+     * retired records, both of which already state that in a status badge, so a reader who cannot
+     * perceive the opacity change has lost nothing (WCAG 1.4.1).
      */
-    readonly rowTone?: ((row: Row) => 'default' | 'muted') | undefined;
+    readonly rowTone?: ((row: Row) => TableRowTone) | undefined;
+    /**
+     * Row height in the wide presentation. Defaults to `'md'`, which is the geometry every existing
+     * caller shipped with.
+     *
+     * It has no effect on the stacked branch: a card's height is its content, and a phone reading
+     * one row at a time gains nothing from three of them fitting where two did.
+     */
+    readonly rowSize?: TableRowSize | undefined;
+    /** The gap between columns, in both the header row and every data row. Defaults to 12px. */
+    readonly columnGap?: SpaceStep | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -123,13 +173,18 @@ export function Table<Row>({
     onSortChange,
     rowAction,
     rowTone,
+    rowSize = 'md',
+    columnGap,
     className,
     testID,
 }: TableProps<Row>) {
     const { t } = useTranslation();
     const { atLeast } = useBreakpoint();
+    const density = useDensity();
+    const HEADER_CELL_CLASS = headerCellClass(density);
     const generated = useId();
     const base = testID ?? `table-${generated.replace(/:/g, '')}`;
+    const rowGapClass = columnGap === undefined ? 'gap-3' : GAP_CLASS[columnGap];
     const captionId = `${base}-caption`;
     const wide = atLeast('md');
     const isEmpty = rows.length === 0;
@@ -194,7 +249,14 @@ export function Table<Row>({
         <RNText
             nativeID={captionId}
             testID={`${base}-caption`}
-            className="text-sm font-semibold text-content-primary text-start"
+            className={cx(
+                // The table's title, and it sits directly under a `FormSection` heading on the
+                // admin — so it takes the same `section` step rather than a 14px of its own. Two
+                // titles a pixel apart on one panel read as a mistake, not as a hierarchy.
+                density === 'compact'
+                    ? 'text-role-section text-content-primary text-start'
+                    : 'text-sm font-semibold text-content-primary text-start',
+            )}
         >
             {caption}
         </RNText>
@@ -297,7 +359,10 @@ export function Table<Row>({
                     <View
                         testID={`${base}-header`}
                         role="row"
-                        className="flex-row items-center gap-3 border-b-2 border-stroke-subtle px-1 pb-2"
+                        className={cx(
+                            'flex-row items-center border-b-2 border-stroke-subtle px-1 pb-2',
+                            rowGapClass,
+                        )}
                     >
                         {columns.map((column) => {
                             if (column.sortable !== true) {
@@ -410,7 +475,12 @@ export function Table<Row>({
                             testID={`${base}-row-${rowKey(row)}`}
                             role="row"
                             className={cx(
-                                'flex-row items-center gap-3 border-b border-surface-sunken px-1 py-3',
+                                'flex-row items-center border-b border-surface-sunken px-1',
+                                ROW_SIZE_CLASS[rowSize],
+                                rowGapClass,
+                                // Both branches, deliberately. The stacked branch dimmed and this
+                                // one did not, so a retired row read as retired on a phone and as
+                                // current on the desktop the Catalogue is actually used on.
                                 rowTone?.(row) === 'muted' && 'opacity-60',
                             )}
                         >
@@ -421,12 +491,21 @@ export function Table<Row>({
                                     role={column.rowHeader === true ? 'rowheader' : 'cell'}
                                     className={cx(
                                         column.numeric === true ? 'items-end' : 'items-start',
-                                        // The display face is applied to the *cell*, so a caller
-                                        // gets the treatment by declaring which column matters
-                                        // rather than by repeating a class in every `render`.
-                                        column.primary === true
-                                            ? 'font-display text-base text-content-primary'
-                                            : null,
+                                        // The emphasis is applied to the *cell*, so a caller gets
+                                        // the treatment by declaring which column matters rather
+                                        // than by repeating a class in every `render`.
+                                        //
+                                        // Size and weight carry it, not a second family. It was
+                                        // `font-display` — Space Grotesk — a fourth
+                                        // Latin face inside an admin table set in Schibsted, one
+                                        // cell wide. A number that matters is bigger and heavier
+                                        // than its neighbours; it does not need to be a different
+                                        // typeface as well.
+                                        column.primary !== true
+                                            ? null
+                                            : density === 'compact'
+                                              ? 'text-role-strong text-content-primary'
+                                              : 'text-base font-semibold text-content-primary',
                                     )}
                                     style={{ flex: column.flex ?? 1 }}
                                 >

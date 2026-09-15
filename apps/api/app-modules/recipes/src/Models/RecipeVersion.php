@@ -35,17 +35,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $version_number
  * @property RecipeVersionStatus $status
  * @property RecipeCompleteness $completeness
- * @property string|null $yield_quantity
+ * @property numeric-string|null $yield_quantity
  * @property string|null $yield_unit_id
  * @property int|null $yield_piece_count
  * @property string|null $input_quantity_total
  * @property string $waste_coefficient_percent
+ * @property string $packaging_waste_percent
+ * @property numeric-string|null $b2b_price_amount
+ * @property numeric-string|null $b2c_price_amount
+ * @property string|null $price_currency_code
  * @property DerivationState $derivation_state
  * @property CarbonImmutable|null $derived_at
  * @property string|null $derived_input_hash
  * @property CarbonImmutable|null $published_at
  * @property string|null $published_by
  * @property string|null $review_reason
+ * @property array<string, mixed>|null $nutrition_facts
  * @property string|null $notes
  * @property string|null $source_system
  * @property string|null $source_ref
@@ -56,7 +61,35 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Classified(DataClassification::Confidential, 'notes', 'review_reason', 'yield_quantity', 'input_quantity_total', 'waste_coefficient_percent')]
+/*
+ * `b2b_price_amount` and `b2c_price_amount` are deliberately **not** in the
+ * declaration below, and their omission is the claim rather than an oversight.
+ * Everything named there is an input to what the kitchen paid — a yield, a
+ * waste coefficient, a note on the method — and reading it backwards tells a
+ * competitor what a recipe costs to make. A list price is the opposite kind of
+ * figure: the B2C one is printed on a menu, and the B2B one is quoted to the
+ * buyer it names. Classifying them Confidential would make the eventual
+ * consumer projection have to argue its way past its own model, which is the
+ * wrong shape of argument to have to make. `ingredients` classifies neither of
+ * its two price columns for the same reason.
+ *
+ * `nutrition_facts` is Public on the same argument, carried one step further.
+ * Everything in the Confidential declaration is an input to what the kitchen
+ * paid or a note on how the dish is made — read backwards, it tells a
+ * competitor how to make the recipe and what it costs. The nutrition snapshot
+ * is the opposite: it is the figure a customer reads off the menu, and in
+ * several markets the figure a regulator requires be printed there. B5 projects
+ * it onto the marketplace meal page unredacted, and a column classified
+ * Confidential would make that projection argue its way past its own model to
+ * publish something that was always meant to be published. It is also not a
+ * back door onto the formulation — a total is not a line list, and the amounts
+ * here cannot be run backwards into quantities. `catalogue_items.nutrition_facts`,
+ * which holds the same envelope one hop downstream, is declared Public for
+ * exactly this reason; declaring the source of that projection differently from
+ * its destination is how two halves of one payload end up under two rules.
+ */
+#[Classified(DataClassification::Public, 'nutrition_facts')]
+#[Classified(DataClassification::Confidential, 'notes', 'review_reason', 'yield_quantity', 'input_quantity_total', 'waste_coefficient_percent', 'packaging_waste_percent')]
 class RecipeVersion extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
@@ -78,6 +111,10 @@ class RecipeVersion extends BaseModel implements OrganisationScoped
             'yield_piece_count' => 'integer',
             'input_quantity_total' => 'decimal:4',
             'waste_coefficient_percent' => 'decimal:2',
+            'packaging_waste_percent' => 'decimal:2',
+            'b2b_price_amount' => 'decimal:6',
+            'b2c_price_amount' => 'decimal:6',
+            'nutrition_facts' => 'array',
             'derived_at' => 'immutable_datetime',
             'published_at' => 'immutable_datetime',
             'seeded_at' => 'immutable_datetime',

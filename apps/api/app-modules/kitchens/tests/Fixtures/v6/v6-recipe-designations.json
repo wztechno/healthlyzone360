@@ -3,7 +3,9 @@
         { "designation": "Fixture Garlic Sauce", "resolves_to": "Fixture Garlic Sauce" }
     ],
     "tenant_ingredients": [
-        { "name_en": "Fixture Hot Paste", "slug": "fixture-hot-paste", "category_code": "condiment-sweetener", "subcategory_code": "condiment-sweetener-condiment", "default_unit": "kg", "note": "Synthetic minted raw material.", "intermediate": false, "sheet_missing": false }
+        { "name_en": "Fixture Hot Paste", "slug": "fixture-hot-paste", "category_code": "condiment-sweetener", "subcategory_code": "condiment-sweetener-condiment", "default_unit": "l", "note": "Synthetic minted raw material, stocked by volume so the declared density has something to be grams of.", "intermediate": false, "sheet_missing": false, "grams_per_unit": 1030 },
+        { "name_en": "Fixture No Yield", "slug": "fixture-no-yield", "category_code": "sauce", "subcategory_code": "sauce-marinade-prep", "default_unit": "kg", "note": "Synthetic: the sheet named after it states no yield, which is what makes it the input-mass output case.", "intermediate": true, "sheet_missing": false },
+        { "name_en": "Water", "slug": "water", "category_code": null, "subcategory_code": null, "default_unit": "kg", "note": "Copied verbatim from the committed dictionary — the one raw material whose facts are all zero.", "intermediate": false, "sheet_missing": false, "nutrition_per_100g": { "basis": "per_100g", "amounts": [{ "nutrient_id": "energy", "unit": "kcal", "value": 0 }, { "nutrient_id": "protein", "unit": "g", "value": 0 }, { "nutrient_id": "carbohydrate", "unit": "g", "value": 0 }, { "nutrient_id": "fat", "unit": "g", "value": 0 }, { "nutrient_id": "fibre", "unit": "g", "value": 0 }, { "nutrient_id": "sugars", "unit": "g", "value": 0 }, { "nutrient_id": "sodium", "unit": "mg", "value": 0 }] } }
     ],
     "recipe_links": [
         { "product": "Fixture Garlic Sauce", "recipe": "Fixture Garlic Sauce" },

@@ -1,5 +1,6 @@
 import { Text as RNText } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { fieldLabelClassName } from './field-label-shared.ts';
 import type { FieldLabelProps } from './field-label-shared.ts';
 
@@ -12,8 +13,10 @@ export type { FieldLabelProps } from './field-label-shared.ts';
  * meaning on a platform without a DOM and is deliberately unused here rather than faked.
  */
 export function FieldLabel({ id, text, requiredMark, disabled = false, testID }: FieldLabelProps) {
+    const density = useDensity();
+
     return (
-        <RNText nativeID={id} testID={testID} className={fieldLabelClassName(disabled)}>
+        <RNText nativeID={id} testID={testID} className={fieldLabelClassName(density, disabled)}>
             {text}
             {requiredMark === undefined ? null : (
                 <RNText className="text-danger-strong">{` ${requiredMark}`}</RNText>

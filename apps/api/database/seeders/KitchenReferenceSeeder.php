@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use Healthy360\Allergens\Database\Seeders\AllergenSeeder;
 use Healthy360\Catalogues\Database\Seeders\ProductCategorySeeder;
 use Healthy360\Ingredients\Database\Seeders\IngredientMasterSeeder;
+use Healthy360\Ingredients\Database\Seeders\IngredientNutritionSeeder;
 use Healthy360\ReferenceData\Database\Seeders\DeliveryAreaSeeder;
 use Illuminate\Database\Seeder;
 
@@ -30,6 +31,13 @@ use Illuminate\Database\Seeder;
  * keeping the K1 reference load in one place is what lets a deployment reason
  * about it as one thing. It depends on `CountrySeeder` for its `LB` foreign
  * key, which `ReferenceDataSeeder` has already run.
+ *
+ * The ingredient nutrition follows the master immediately and is a separate
+ * seeder rather than more columns on the master's document: the two documents
+ * have different generators — one reads a workbook that is not in this
+ * repository, the other the owner's nutrition table — and a single file with
+ * two writers loses whatever the last regeneration did not know about. It fills
+ * only what the master left NULL, so it is as re-runnable as the master is.
  */
 class KitchenReferenceSeeder extends Seeder
 {
@@ -38,6 +46,7 @@ class KitchenReferenceSeeder extends Seeder
         $this->call([
             AllergenSeeder::class,
             IngredientMasterSeeder::class,
+            IngredientNutritionSeeder::class,
             ProductCategorySeeder::class,
             DeliveryAreaSeeder::class,
         ]);

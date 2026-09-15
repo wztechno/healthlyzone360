@@ -340,7 +340,26 @@ export type IngredientVerificationStatus = 'verified' | 'unverified' | 'requires
 export type AvailabilityTier = 'core' | 'common' | 'specialty_imported' | null;
 
 export type IngredientNutrientAmount = {
+    /**
+     * Each id may appear at most once in an `amounts` list. A nutrient
+     * stated twice has no total, so the write is refused rather than one
+     * of the two silently winning.
+     *
+     */
     nutrient_id: 'energy' | 'protein' | 'carbohydrate' | 'fat' | 'fibre' | 'sugars' | 'saturated_fat' | 'sodium';
+    /**
+     * Paired with `nutrient_id`, and a write refuses any other pairing:
+     * `energy` is **kcal**, `sodium` is **mg**, and every other nutrient
+     * is **g**. The roll-up sums these across the ingredients of a
+     * recipe, and a sum is only a sum when every term is denominated the
+     * same way — so the denomination is fixed on the way in rather than
+     * converted on the way out by every reader.
+     *
+     * `kJ` remains in the enum because the envelope is shared with a
+     * catalogue item's `nutrition_facts`, where a kitchen-recorded label
+     * may legitimately quote it. Nothing on an ingredient does.
+     *
+     */
     unit: 'kcal' | 'kJ' | 'g' | 'mg';
     value: number;
 };
@@ -372,12 +391,21 @@ export type AdminIngredient = {
      */
     organisation_id: Uuid | null;
     /**
-     * Whether this is a platform-library row. On the wire so a client
-     * knows not to offer an edit control, rather than discovering it
-     * from a 403.
+     * Whether this is a platform-library row — which library it is in,
+     * and nothing more. Read `is_editable` before drawing an edit
+     * control: a platform row is editable by the platform operator and
+     * read-only to every kitchen, so the two answers differ by caller.
      *
      */
     is_platform: boolean;
+    /**
+     * Whether **this caller** may write this row, so a client never
+     * offers a control that 403s. True for a caller's own rows, and for
+     * platform-library rows when the selected organisation is the
+     * platform operator.
+     *
+     */
+    is_editable: boolean;
     slug: string;
     name_en: string;
     /**
@@ -403,7 +431,109 @@ export type AdminIngredient = {
      * Pieces per purchase pack, as a two-place decimal string.
      */
     items_per_unit?: string | null;
+    /**
+     * What **one `default_unit`** weighs, in grams, as a four-place
+     * decimal string — 1080 for a litre of soya sauce. The density a
+     * recipe roll-up needs to turn a volume or a piece into a mass.
+     *
+     * Only ever recorded against a non-mass unit: a kilogram already
+     * weighs what it weighs, and the unit table does that arithmetic.
+     * Null is the common answer and an honest one — a line that cannot
+     * be weighed is named in a warning rather than guessed at. Cleared
+     * by the server when `default_unit_id` changes without a new figure
+     * beside it: a mass measured against a unit that no longer applies
+     * is a plausible wrong number.
+     *
+     */
+    grams_per_unit?: string | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
+    /**
+     * The published recipe version `nutrition_per_100g` above was derived
+     * from, when it was derived rather than entered.
+     *
+     * Set on an ingredient some version *produces* — a sub-recipe's
+     * output, such as a pesto mix a pesto mayonnaise is built on. Nothing
+     * looks such a row's facts up in a reference table: they are whatever
+     * the formulation that makes it works out to, per 100 g of its
+     * finished mass, recomputed at every publication and whenever an
+     * ingredient underneath it changes.
+     *
+     * While this is set, `nutrition_per_100g` and `grams_per_unit` are
+     * **read-only**: a `PATCH` sending either is refused with
+     * `validation.failed`. A figure typed over a derivation survives only
+     * until the next recompute, and while it stands it disagrees with the
+     * recipe that defines the thing. Retiring the version clears both the
+     * facts and this link, and the row becomes editable again.
+     *
+     * Null is the ordinary answer: every platform-library row, and every
+     * ingredient a kitchen typed in itself.
+     *
+     */
+    nutrition_derived_from_version_id?: Uuid | null;
+    /**
+     * How good `nutrition_per_100g` is. Three states, and the null is a
+     * third answer rather than a missing `false`:
+     *
+     * - `true` — a representative or estimated figure. Recipe-, brand-,
+     * salt- or preparation-dependent; true of the *category* rather
+     * than measured of this ingredient. The reference document flags
+     * 56 of its 306 rows this way and says to replace them with a
+     * supplier's label before they reach a printed panel.
+     * - `false` — a declared figure. Somebody stated it about this
+     * ingredient: a supplier's label, or a kitchen typing in what the
+     * packet says.
+     * - `null` — nobody has said.
+     *
+     * A write that sends `nutrition_per_100g` without this field is
+     * recorded as `false`: a typed figure is a declaration unless the
+     * writer says otherwise. Clearing the facts clears this to `null`,
+     * because `false` claims a declared figure and there is none.
+     *
+     */
+    nutrition_estimated?: boolean | null;
+    /**
+     * What the source said about the figures — a basis, a caveat, a
+     * brand. Distinct from `notes`, which is the kitchen's free text
+     * about the *ingredient*: this one is about the *numbers*, so
+     * replacing them replaces it.
+     *
+     */
+    nutrition_note?: string | null;
+    /**
+     * Trade list price in major currency units, as a six-place decimal
+     * string so no client rounds it. A list price on the article — not
+     * a cost (that is org-specific and lives in the inventory valuation
+     * tables) and not a channel tariff (that is a price list).
+     *
+     */
+    b2b_price_amount?: string | null;
+    /**
+     * Consumer list price, same units and shape as `b2b_price_amount`.
+     */
+    b2c_price_amount?: string | null;
+    /**
+     * List price of one stock unit, same units and shape as
+     * `b2b_price_amount`. Still a list price and still not a cost: what a
+     * kitchen actually paid moves with every receipt and lives in the
+     * inventory valuation tables.
+     *
+     */
+    unit_price_amount?: string | null;
+    /**
+     * ISO 4217 code all three amounts are quoted in. Never null while any
+     * of them is set — a monetary value without its currency is not a
+     * monetary value.
+     *
+     */
+    price_currency_code?: string | null;
+    /**
+     * Offered for sale as-is, outside recipes. Distinct from
+     * `availability_tier`, which describes how hard the ingredient is to
+     * source rather than whether it is on sale. Defaults to false: an
+     * ingredient is a raw material until somebody says otherwise.
+     *
+     */
+    is_sellable?: boolean;
     /**
      * Decimal with four places, as a string so no client rounds it.
      */
@@ -421,6 +551,20 @@ export type AdminIngredient = {
     lock_version: number;
     created_at?: string | null;
     updated_at?: string | null;
+    /**
+     * The allergen mappings visible to this caller — the platform
+     * baseline, plus the caller's own overlay in a tenant context. Both
+     * layers, each labelled, for the reason the dedicated sub-resource
+     * gives: a list showing only the overlay would let a kitchen believe
+     * an ingredient carries no allergens when the baseline says milk.
+     *
+     * Present on the collection and the single resource. An empty array
+     * means "none declared"; the property being absent means the
+     * endpoint did not load them, and a client must not render the
+     * second as the first.
+     *
+     */
+    allergens?: Array<IngredientAllergenMapping>;
 };
 
 export type IngredientEnvelope = {
@@ -523,7 +667,53 @@ export type CreateIngredientRequest = {
     purchase_unit_id?: Uuid | null;
     composition?: string | null;
     items_per_unit?: number | null;
+    /**
+     * Mass of one `default_unit`, in grams. Only meaningful on a
+     * non-mass unit. `minimum` is the column's own precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     */
+    grams_per_unit?: number | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
+    /**
+     * Whether `nutrition_per_100g` is a representative figure rather than
+     * a declared one. Omit it beside a set of facts and the server records
+     * `false` — a typed figure is a declaration unless the writer says
+     * otherwise. Send `true` for a figure that is true of the category
+     * rather than measured of this ingredient. `null` says nobody has
+     * said, and is what clearing the facts leaves behind.
+     *
+     */
+    nutrition_estimated?: boolean | null;
+    /**
+     * One sentence about the figures — their basis, a caveat, the brand
+     * they were read off. Cleared whenever `nutrition_per_100g` is sent
+     * without it: a note describes the numbers beside it, and a
+     * replacement leaves it describing nothing.
+     *
+     */
+    nutrition_note?: string | null;
+    /**
+     * Trade list price in major currency units. Requires `price_currency_code`.
+     */
+    b2b_price_amount?: number | null;
+    /**
+     * Consumer list price in major currency units. Requires `price_currency_code`.
+     */
+    b2c_price_amount?: number | null;
+    /**
+     * List price of one stock unit, in major currency units. Requires `price_currency_code`.
+     */
+    unit_price_amount?: number | null;
+    /**
+     * ISO 4217 code. Required whenever any amount is sent.
+     */
+    price_currency_code?: string | null;
+    /**
+     * Offered for sale as-is, outside recipes.
+     */
+    is_sellable?: boolean;
     yield_factor?: number;
     availability_tier?: AvailabilityTier;
     notes?: string | null;
@@ -544,7 +734,56 @@ export type UpdateIngredientRequest = {
     purchase_unit_id?: Uuid | null;
     composition?: string | null;
     items_per_unit?: number | null;
+    /**
+     * Mass of one `default_unit`, in grams. Only meaningful on a
+     * non-mass unit. `minimum` is the column's own precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     * Sent as `null` to clear. Cleared by the server when
+     * `default_unit_id` changes without a new figure beside it.
+     *
+     */
+    grams_per_unit?: number | null;
     nutrition_per_100g?: IngredientNutritionPer100g | null;
+    /**
+     * Whether `nutrition_per_100g` is a representative figure rather than
+     * a declared one. Omit it beside a set of facts and the server records
+     * `false` — a typed figure is a declaration unless the writer says
+     * otherwise. Send `true` for a figure that is true of the category
+     * rather than measured of this ingredient. `null` says nobody has
+     * said, and is what clearing the facts leaves behind.
+     *
+     */
+    nutrition_estimated?: boolean | null;
+    /**
+     * One sentence about the figures — their basis, a caveat, the brand
+     * they were read off. Cleared whenever `nutrition_per_100g` is sent
+     * without it: a note describes the numbers beside it, and a
+     * replacement leaves it describing nothing.
+     *
+     */
+    nutrition_note?: string | null;
+    /**
+     * Trade list price in major currency units. Requires `price_currency_code`.
+     */
+    b2b_price_amount?: number | null;
+    /**
+     * Consumer list price in major currency units. Requires `price_currency_code`.
+     */
+    b2c_price_amount?: number | null;
+    /**
+     * List price of one stock unit, in major currency units. Requires `price_currency_code`.
+     */
+    unit_price_amount?: number | null;
+    /**
+     * ISO 4217 code. Required whenever any amount is sent.
+     */
+    price_currency_code?: string | null;
+    /**
+     * Offered for sale as-is, outside recipes.
+     */
+    is_sellable?: boolean;
     yield_factor?: number;
     availability_tier?: AvailabilityTier;
     notes?: string | null;
@@ -718,6 +957,26 @@ export type AdminRecipeVersion = {
      *
      */
     waste_coefficient_percent: string;
+    /**
+     * Trade list price for one unit of the yield, in **major** currency
+     * units, as a string so no client rounds it. A list price and not a
+     * cost: what the version is offered at to a kitchen or corporate
+     * buyer, rather than what its inputs cost to buy.
+     *
+     */
+    b2b_price_amount?: string | null;
+    /**
+     * Consumer list price for one unit of the yield — the counterpart to
+     * `b2b_price_amount`, quoted in the same currency.
+     *
+     */
+    b2c_price_amount?: string | null;
+    /**
+     * One currency for both amounts. A version quoted in two currencies
+     * is a price list, not a column.
+     *
+     */
+    price_currency_code?: CurrencyCode | null;
     derivation_state: DerivationState;
     derived_at?: string | null;
     published_at?: string | null;
@@ -768,6 +1027,52 @@ export type RecipeLine = {
      * The import source wording, verbatim.
      */
     source_designation?: string | null;
+    comment?: string | null;
+};
+
+/**
+ * How a packaging quantity is arrived at.
+ *
+ * * `fills_yield` — the container the yield goes into. The server divides
+ * the yield by the item's recorded capacity and rounds up, so the
+ * quantity is a container count nobody types.
+ * * `per_container` — one per container filled, multiplied by the count
+ * `fills_yield` produced. A cap goes on every bottle.
+ * * `per_batch` — a flat quantity per batch, independent of the yield.
+ * The only basis that accepts `quantity`.
+ *
+ */
+export type PackagingBasis = 'fills_yield' | 'per_container' | 'per_batch';
+
+/**
+ * One packaging line, as stored.
+ *
+ * **No cost fields**, for `RecipeLine`'s reason and one of its own: the
+ * unit cost of a box is read from the catalogue row rather than carried
+ * here, so the costed view is the technical sheet and this projection has
+ * nothing to withhold.
+ *
+ * `basis` travels beside `quantity` and always. Without it the quantity
+ * is unreadable — `6` means "the yield fills six of these" on one basis
+ * and "somebody typed six" on another, and only the first is still right
+ * after the yield changes.
+ *
+ */
+export type RecipePackagingLine = {
+    id: Uuid;
+    /**
+     * Server-authored from the submitted order.
+     */
+    line_number: number;
+    ingredient_id: Uuid;
+    basis: PackagingBasis;
+    /**
+     * Decimal with four places, as a string. Derived on `fills_yield` and
+     * `per_container`; as submitted on `per_batch`.
+     *
+     */
+    quantity: string;
+    unit_id?: Uuid | null;
     comment?: string | null;
 };
 
@@ -1036,6 +1341,23 @@ export type UpdateRecipeVersionRequest = {
     yield_piece_count?: number | null;
     input_quantity_total?: number | null;
     waste_coefficient_percent?: number;
+    /**
+     * Trade list price per unit of yield, in **major** currency units.
+     * Zero is a real price — a staff meal, a component carried at cost —
+     * and `null` is how a price is cleared, which is a different act.
+     *
+     */
+    b2b_price_amount?: number | null;
+    /**
+     * Consumer list price per unit of yield, in **major** currency units.
+     */
+    b2c_price_amount?: number | null;
+    /**
+     * Required alongside either amount: a monetary value without its
+     * currency is not a monetary value (§4.4).
+     *
+     */
+    price_currency_code?: CurrencyCode | null;
     notes?: string | null;
 };
 
@@ -1086,6 +1408,27 @@ export type ReplaceRecipeLinesRequest = {
          */
         cost_currency_code?: string | null;
         source_designation?: string | null;
+        comment?: string | null;
+    }>;
+};
+
+export type ReplaceRecipePackagingRequest = {
+    /**
+     * The complete packaging set. An empty array is a legitimate
+     * statement ("this version packs into nothing yet"), not a missing
+     * field. The array order is the line sequence.
+     *
+     */
+    packaging: Array<{
+        ingredient_id: Uuid;
+        basis: PackagingBasis;
+        /**
+         * Required on `per_batch` and refused on the other two bases,
+         * which derive their own. The server answers with what it
+         * stored, which on those two is not what was sent.
+         *
+         */
+        quantity?: number | null;
         comment?: string | null;
     }>;
 };
@@ -1437,6 +1780,19 @@ export type AdminCatalogueItem = {
      */
     recipe_id?: Uuid | null;
     /**
+     * The portion sold, as a multiple of one recipe yield piece, as a
+     * three-place decimal string. `1.000` — one piece is one sold unit —
+     * is the overwhelmingly common answer; `0.500` is the half portion of
+     * the same recipe sold as the small size.
+     *
+     * It scales **both** the customer's per-serving nutrition and the
+     * stock a sale consumes, from the one column, so a label claim and a
+     * stock count cannot disagree about how big a portion is. Never null
+     * and never zero: an unstated portion is one piece, not nothing.
+     *
+     */
+    portion_factor: string;
+    /**
      * The ingredient a resold raw good simply is.
      */
     ingredient_id?: Uuid | null;
@@ -1693,6 +2049,16 @@ export type CreateCatalogueItemRequest = {
     product_category_id?: Uuid | null;
     production_mode?: CatalogueProductionMode | null;
     recipe_id?: Uuid | null;
+    /**
+     * The portion sold, as a multiple of one recipe yield piece. Omit for
+     * `1` — one piece is one sold unit. Not nullable: the column is NOT
+     * NULL and an explicit null is refused rather than read as a reset.
+     * `minimum` is the column's own three-place precision, so a value
+     * that would round to zero is refused here rather than by the
+     * database CHECK.
+     *
+     */
+    portion_factor?: number;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
@@ -1720,6 +2086,16 @@ export type UpdateCatalogueItemRequest = {
     product_category_id?: Uuid | null;
     production_mode?: CatalogueProductionMode | null;
     recipe_id?: Uuid | null;
+    /**
+     * The portion sold, as a multiple of one recipe yield piece. Omitting
+     * it keeps the stored factor; there is no way to clear one, because
+     * the column is NOT NULL and an explicit null is refused rather than
+     * read as a reset to `1`. `minimum` is the column's own three-place
+     * precision, so a value that would round to zero is refused here
+     * rather than by the database CHECK.
+     *
+     */
+    portion_factor?: number;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
@@ -3009,7 +3385,7 @@ export type MarketplaceNutritionCalculation = {
 };
 
 /**
- * Per-serving nutrition facts with their source and calculation method.
+ * Nutrition facts on the basis `basis` names, with their source and calculation method.
  */
 export type MarketplaceNutritionFacts = {
     basis: 'per_serving' | 'per_100g' | 'per_recipe' | 'per_meal' | 'per_day' | 'per_week';
@@ -3070,16 +3446,37 @@ export type MarketplaceMeal = {
      */
     allergens: Array<AllergenCode>;
     /**
-     * The serving declared alongside recorded nutrition, or null when the
-     * kitchen has not recorded any facts for this meal.
+     * The serving `nutrition` applies to — always the same object as
+     * `nutrition.serving`, never a second opinion about the portion. The
+     * one the kitchen declared alongside its own recorded facts; on a
+     * derived payload, one sold unit, whose `label` is empty because
+     * nobody wrote a phrase for it and whose `grams` is the finished mass
+     * of that unit. Null when `nutrition` is, and also null on a
+     * `per_100g` payload: a listing sold by weight has a mass but no
+     * portion, and an invented one would describe a serving nobody sells.
      *
      */
     serving: MarketplaceServing | null;
     /**
-     * Nutrition facts with their source and calculation notes, or null when
-     * no facts are recorded. A `synthetic_prototype` source is a visibly
-     * labelled demonstration estimate, not a kitchen declaration or a
-     * laboratory analysis.
+     * Nutrition facts with their source and calculation notes, from one
+     * decision taken in order of authority: the kitchen-recorded payload
+     * when the listing has one, otherwise per-serving facts derived from
+     * the published recipe version's ingredient snapshot
+     * (`source.kind = ingredient_derived`, `calculation.method =
+     * catalogue.nutrition.per_sold_unit`, where one sold unit is one yield
+     * piece times the item's portion factor and `serving.grams` comes from
+     * the finished-mass basis recorded in `calculation.notes`), otherwise
+     * the same snapshot re-expressed per 100 g when the version states a
+     * finished mass but no piece count (`basis = per_100g`,
+     * `calculation.method = catalogue.nutrition.per_100g`, `total_grams =
+     * 100`, `serving = null`) — a bottled sauce or a dressing is sold by
+     * weight and has no portion to divide into, and per 100 g is the basis
+     * a printed label uses. Otherwise null: no recorded facts, no
+     * published recipe version, no snapshot on it, or no finished mass on
+     * that snapshot to re-base onto. Null covers every gap rather than a
+     * guess. A `synthetic_prototype` source is a visibly labelled
+     * demonstration estimate, not a kitchen declaration or a laboratory
+     * analysis.
      *
      */
     nutrition: MarketplaceNutritionFacts | null;
@@ -8742,21 +9139,27 @@ export type OrganisationInvitation = {
  */
 export type RecipeRollupWarning = {
     /**
-     * The closed set the preview can emit.
-     * `nutrition_unavailable` is on **every** response while the
-     * roll-up is not computed server-side, which is why `warnings` is
-     * never empty.
+     * The closed set the preview can emit. `warnings` may be **empty** —
+     * a complete draft whose every line resolves warns about nothing.
+     *
+     * `rollup.missing_facts` is about *allergens* (an ingredient nobody
+     * has assessed) and does not withhold anything.
+     * `rollup.missing_nutrition`, `rollup.unconvertible_unit` and
+     * `rollup.unknown_ingredient` each withhold `per_recipe`,
+     * `per_serving` and `per_100g`. The last two are about money and
+     * withhold `estimated_cost` only.
      *
      */
-    code: 'rollup.unknown_ingredient' | 'nutrition_unavailable' | 'rollup.missing_facts' | 'rollup.mixed_cost_currency' | 'rollup.missing_cost';
+    code: 'rollup.unknown_ingredient' | 'rollup.missing_facts' | 'rollup.missing_nutrition' | 'rollup.unconvertible_unit' | 'rollup.mixed_cost_currency' | 'rollup.missing_cost';
     /**
      * A safe English summary. Clients translate from `code`, never from this.
      */
     message: string;
     /**
-     * Present on `rollup.unknown_ingredient` (exactly one) and
-     * `rollup.missing_facts` (however many). Absent on the rest —
-     * absent, not empty.
+     * Present on `rollup.unknown_ingredient` (exactly one),
+     * `rollup.missing_facts`, `rollup.missing_nutrition` and
+     * `rollup.unconvertible_unit` (however many, deduplicated, in line
+     * order). Absent on the rest — absent, not empty.
      *
      */
     ingredient_ids?: Array<Uuid>;
@@ -8781,21 +9184,35 @@ export type RecipeRollupAllergenSource = {
  */
 export type RecipeRollupPreview = {
     /**
-     * **Always `null`.** Nutrition roll-up is not computed on the server
-     * yet. The key exists because it is the shape the published version
-     * will carry, and a client that had to grow three fields later would
-     * have shipped a screen with nothing to put in them.
+     * The whole formulation's figures — every line weighed in grams and
+     * its per-100 g reference facts scaled by that weight, summed.
+     *
+     * `null` when anything was withheld: see `warnings` for which lines
+     * and why. Never a partial total.
      *
      */
-    per_recipe: null;
+    per_recipe: MarketplaceNutritionFacts | null;
     /**
-     * Always `null`. See `per_recipe`.
+     * `per_recipe` divided by `servings`.
+     *
+     * `null` when the figures were withheld (see `warnings`) **and** when
+     * the request did not send `servings` — nothing here invents a
+     * portion count, so an unstated one yields no per-serving label
+     * rather than one computed as if the batch were a single serving.
+     *
      */
-    per_serving: null;
+    per_serving: MarketplaceNutritionFacts | null;
     /**
-     * Always `null`. See `per_recipe`.
+     * The comparison basis, over the **finished** mass: the stated
+     * `yield_quantity` when it is a mass, otherwise the sum of the line
+     * weights. `calculation.notes` names which, as
+     * `mass_basis: yield` or `mass_basis: input`.
+     *
+     * `null` when the figures were withheld (see `warnings`), and when
+     * nothing could be weighed at all.
+     *
      */
-    per_100g: null;
+    per_100g: MarketplaceNutritionFacts | null;
     allergen_sources: Array<RecipeRollupAllergenSource>;
     /**
      * `null` when the caller does not hold
@@ -8815,6 +9232,21 @@ export type RecipeRollupPreview = {
         amount: string;
         currency: string;
     } | null;
+    /**
+     * The technical sheet's `computed` block over this draft — the same
+     * shape and the same arithmetic `GET /catalogue/recipes/{id}/
+     * technical-sheet` returns for a saved version, so one panel renders
+     * either. `null` when the draft states no yield (every figure in the
+     * block is something *over* the yield) and when the caller does not
+     * hold `recipe.view_costs_organisation`.
+     *
+     */
+    computed_cost: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * May be empty — a draft whose every line resolves warns about nothing.
+     */
     warnings: Array<RecipeRollupWarning>;
 };
 
@@ -8843,9 +9275,13 @@ export type PreviewRecipeRollupRequest = {
      */
     recipe_id?: Uuid | null;
     /**
-     * Required. Does not currently change the answer — the per-serving figures are `null`.
+     * Divides `per_serving`, and nothing else. **Omitted when the draft
+     * does not know** — the server never substitutes one, so an unstated
+     * count yields `per_serving: null` rather than a per-serving label
+     * computed as if the whole batch were one serving.
+     *
      */
-    servings: number;
+    servings?: number | null;
     /**
      * Applied to `estimated_cost.amount` only.
      */
@@ -8856,6 +9292,45 @@ export type PreviewRecipeRollupRequest = {
      *
      */
     lines: Array<PreviewRecipeRollupLine>;
+    /**
+     * What the batch makes. When `yield_unit_id` names a **mass** unit it
+     * becomes the basis `per_100g` divides by (`mass_basis: yield`);
+     * anything else falls back to the summed line weights, because four
+     * pieces is not a mass and nothing here guesses what they weigh.
+     *
+     * It is also what asks for `computed_cost`: every figure in that
+     * block is a total over this number.
+     *
+     */
+    yield_quantity?: number | null;
+    /**
+     * Required whenever `yield_quantity` is sent. A unit that does not exist is `422`.
+     */
+    yield_unit_id?: Uuid | null;
+    /**
+     * How many sold units the yield divides into. Read by `computed_cost` only.
+     */
+    yield_piece_count?: number | null;
+    /**
+     * Applied to the packaging half of `computed_cost`.
+     */
+    packaging_waste_percent?: number | null;
+    /**
+     * What the batch ships in. Costed into `computed_cost`; never part of the nutrition or allergen figures.
+     */
+    packaging?: Array<PreviewRecipeRollupPackagingLine>;
+};
+
+export type PreviewRecipeRollupPackagingLine = {
+    ingredient_id: Uuid;
+    basis: PackagingBasis;
+    /**
+     * Read on `per_batch` only. The other two bases compute their count
+     * from the yield and from the container lines, so a figure sent with
+     * one of them is ignored rather than honoured.
+     *
+     */
+    quantity?: number | null;
 };
 
 export type CatalogueItemAvailabilityDay = {
@@ -13039,6 +13514,52 @@ export type ListIngredientsData = {
          * Restrict to one category or sub-category identifier.
          */
         category?: Uuid;
+        /**
+         * Drop a whole branch — the named category and everything filed
+         * under it — from the answer.
+         *
+         * The case it exists for is packaging. Bags, lids and cutlery are
+         * ingredient rows, and have to be: a recipe cannot cost the box its
+         * meal ships in unless the box is a record. They are not raw
+         * materials though, so the ingredient list excludes
+         * `packaging-disposables` and the packaging list asks for it with
+         * `category`. One collection, two pages, read from opposite ends.
+         *
+         * Applied before the count, so a filtered list reports the number of
+         * rows it is actually showing.
+         *
+         */
+        exclude_category?: Uuid;
+        /**
+         * Keep only the rows numbered in one series. The ingredient list asks
+         * for `ING-`.
+         *
+         * A whitelist, because everything else in this table earned its place
+         * another way. The v6 import writes an ingredient beside every
+         * sellable row it brings in — 43 `SAC-` sauces, 19 `DRS-` dressings,
+         * 69 `PRD-`/`RSL-` product and resale lines — because a sauce is both
+         * sold and consumed and a formulation has to be able to name it.
+         * Packaging carries `PKG-`. None of them are raw materials.
+         *
+         * Exclusions were tried and kept losing: filing cannot separate them,
+         * since the resale twins sit under `meat-egg`, `bread` and `dairy`
+         * alongside real food, and clearing the rows cannot either, because
+         * the import recreates whatever is missing. A series a row either
+         * carries or does not is the one property that survives both.
+         *
+         * Matched anchored and digits-only, so `ING-` admits `ING-307` and not
+         * a source path that happens to start the same way.
+         *
+         * A parameter and not a rule, for the same reason as
+         * `exclude_category`: this endpoint serves the browse list *and* the
+         * recipe line picker, and a cook writing a burger has every reason to
+         * add a sauce as a line. The list passes it; the picker does not.
+         *
+         * Applied before the count, so a filtered list reports the number of
+         * rows it is actually showing.
+         *
+         */
+        reference_series?: 'ING-' | 'PKG-';
     };
     url: '/catalogue/ingredients';
 };
@@ -13396,6 +13917,76 @@ export type ArchiveIngredientResponses = {
 };
 
 export type ArchiveIngredientResponse = ArchiveIngredientResponses[keyof ArchiveIngredientResponses];
+
+export type ForkIngredientData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/fork';
+};
+
+export type ForkIngredientErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ForkIngredientError = ForkIngredientErrors[keyof ForkIngredientErrors];
+
+export type ForkIngredientResponses = {
+    /**
+     * The fork this kitchen already had.
+     */
+    200: IngredientEnvelope;
+    /**
+     * The newly created fork.
+     */
+    201: IngredientEnvelope;
+};
+
+export type ForkIngredientResponse = ForkIngredientResponses[keyof ForkIngredientResponses];
 
 export type ListIngredientAllergensData = {
     body?: never;
@@ -13993,6 +14584,27 @@ export type ListRecipesData = {
          * Exact match on `recipe_category`.
          */
         category?: string;
+        /**
+         * Keep only recipes whose **current version** declares this allergen
+         * class. Current is the highest editable version — draft or
+         * review-required — else the published one, else the highest number
+         * there is, which is the version a client's own list column reads.
+         *
+         * A recipe that carried the class at v1 and had it formulated out by
+         * v4 does not match: matching any version would return rows whose own
+         * allergen label disagreed.
+         *
+         * Both containments match. The label prints `contains` and
+         * `may_contain` alike, and somebody narrowing a catalogue by an
+         * allergen is looking for everything that could carry it — a filter
+         * that dropped the `may_contain` rows would answer a food-safety
+         * question by under-reporting. `declared` rows match as well as
+         * `derived` ones.
+         *
+         * One class per request; there is no union.
+         *
+         */
+        allergen?: string;
     };
     url: '/catalogue/recipes';
 };
@@ -14840,6 +15452,118 @@ export type ReplaceRecipeLinesResponses = {
 };
 
 export type ReplaceRecipeLinesResponse = ReplaceRecipeLinesResponses[keyof ReplaceRecipeLinesResponses];
+
+export type ReplaceRecipePackagingData = {
+    body: ReplaceRecipePackagingRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/packaging';
+};
+
+export type ReplaceRecipePackagingErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the version is frozen (`catalogue.version_immutable` — it is
+     * published or retired, and no amount of reloading will make it writable;
+     * the answer is a new draft version) or the write lost a race
+     * (`resource.conflict`, carrying `details.current_lock_version`). Two
+     * codes, because the remedies are different.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceRecipePackagingError = ReplaceRecipePackagingErrors[keyof ReplaceRecipePackagingErrors];
+
+export type ReplaceRecipePackagingResponses = {
+    /**
+     * The version and its new packaging, as stored.
+     */
+    200: {
+        data: {
+            version: AdminRecipeVersion;
+            packaging: Array<RecipePackagingLine>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ReplaceRecipePackagingResponse = ReplaceRecipePackagingResponses[keyof ReplaceRecipePackagingResponses];
 
 export type ReplaceRecipeOutputsData = {
     body: ReplaceRecipeOutputsRequest;
@@ -16207,6 +16931,76 @@ export type UpdateSalesChannelResponses = {
 
 export type UpdateSalesChannelResponse = UpdateSalesChannelResponses[keyof UpdateSalesChannelResponses];
 
+export type NextCatalogueReferenceData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * Which series to read, and each is counted in the table its existing
+         * handles are in: `ING-` among the ingredients, `RC-` among the
+         * recipes, and `SAC-` and `DRS-` among the catalogue items — where the
+         * import wrote forty-three sauces and nineteen dressings.
+         *
+         */
+        prefix: 'ING-' | 'RC-' | 'SAC-' | 'DRS-';
+    };
+    url: '/catalogue/references/next';
+};
+
+export type NextCatalogueReferenceErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type NextCatalogueReferenceError = NextCatalogueReferenceErrors[keyof NextCatalogueReferenceErrors];
+
+export type NextCatalogueReferenceResponses = {
+    /**
+     * The next handle in that series.
+     */
+    200: {
+        data: {
+            reference: string;
+        };
+    };
+};
+
+export type NextCatalogueReferenceResponse = NextCatalogueReferenceResponses[keyof NextCatalogueReferenceResponses];
+
 export type ListCatalogueItemsData = {
     body?: never;
     headers: {
@@ -16272,6 +17066,29 @@ export type ListCatalogueItemsData = {
          * Exact match on the merchandising category.
          */
         product_category_id?: Uuid;
+        /**
+         * Keep only items whose **derived allergen label** carries this class
+         * — the same label `GET /catalogue/items/{item}/allergens` serves,
+         * resolved in the same order of authority:
+         *
+         * 1. a linked recipe's published version's frozen label, which is the
+         * whole answer whenever there is one;
+         * 2. failing that, a single linked ingredient;
+         * 3. failing that, the item's own listed ingredients.
+         *
+         * Bases 2 and 3 are consulted only in the absence of base 1, so a
+         * meal whose recipe was reformulated is judged by the frozen label
+         * and not by a stale ingredient row.
+         *
+         * An item with `basis = none` — one nobody has described — matches
+         * nothing. Silence is not a statement of absence, so such an item is
+         * neither "carries the class" nor "does not".
+         *
+         * Both containments match, for the reason the recipe index states.
+         * One class per request; there is no union.
+         *
+         */
+        allergen?: string;
     };
     url: '/catalogue/items';
 };

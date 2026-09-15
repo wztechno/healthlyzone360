@@ -5,12 +5,15 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Recipes\Enums\AllergenDerivation;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
@@ -371,6 +374,126 @@ it('filters the recipe index to rows whose current version derivation is stale',
         ->and($ids)->not->toContain((string) $freshRecipe->getKey());
 });
 
+it('filters the recipe index to rows whose current version declares an allergen class', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $organisationId = $this->a->organisation->getKey();
+    $peanut = RecipeWorld::allergen('peanut')->code;
+
+    $declaring = Recipe::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Satay Marinade',
+    ]);
+    $declaringVersion = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $declaring->getKey(),
+        'organisation_id' => $organisationId,
+    ]);
+    RecipeVersionAllergen::withoutTenancy()->create([
+        'recipe_version_id' => $declaringVersion->getKey(),
+        'organisation_id' => $organisationId,
+        'allergen_code' => $peanut,
+        'containment' => AllergenContainment::Contains,
+        'derivation' => AllergenDerivation::Derived,
+    ]);
+
+    $silent = Recipe::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Lemon Dressing',
+    ]);
+    RecipeVersion::factory()->published()->create([
+        'recipe_id' => $silent->getKey(),
+        'organisation_id' => $organisationId,
+    ]);
+
+    $ids = collect(
+        $this->getJson('/api/v1/catalogue/recipes?allergen='.$peanut.'&limit=100', $headers)
+            ->assertOk()
+            ->json('data'),
+    )->pluck('id')->all();
+
+    expect($ids)->toContain((string) $declaring->getKey())
+        ->and($ids)->not->toContain((string) $silent->getKey());
+});
+
+it('matches a may-contain declaration, because the column prints one', function (): void {
+    // The safe direction, and the one that keeps the filter agreeing with the row beside it: the
+    // Allergens cell prints `contains` and `may_contain` alike, so a row reading `peanut` that a
+    // `peanut` filter did not return would be the list contradicting itself on screen.
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $organisationId = $this->a->organisation->getKey();
+    $peanut = RecipeWorld::allergen('peanut')->code;
+
+    $recipe = Recipe::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Shared Fryer Fritters',
+    ]);
+    $version = RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisationId,
+    ]);
+    RecipeVersionAllergen::withoutTenancy()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $organisationId,
+        'allergen_code' => $peanut,
+        'containment' => AllergenContainment::MayContain,
+        'derivation' => AllergenDerivation::Declared,
+        'source_note' => 'Shared fryer.',
+    ]);
+
+    expect(collect(
+        $this->getJson('/api/v1/catalogue/recipes?allergen='.$peanut.'&limit=100', $headers)
+            ->assertOk()
+            ->json('data'),
+    )->pluck('id')->all())->toContain((string) $recipe->getKey());
+});
+
+it('reads the current version only, so a class formulated out stops matching', function (): void {
+    /*
+     * The whole point of filtering against one version rather than any.
+     *
+     * A recipe that carried peanut at v1 and had it formulated out by v2 is not a peanut recipe,
+     * and the row's own Allergens cell — which reads the current version — says so. A filter
+     * matching any version would keep returning it, and the list would be disagreeing with itself.
+     */
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $organisationId = $this->a->organisation->getKey();
+    $peanut = RecipeWorld::allergen('peanut')->code;
+
+    $recipe = Recipe::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Reformulated Satay',
+    ]);
+
+    $retired = RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisationId,
+        'version_number' => 1,
+        'status' => 'retired',
+    ]);
+    RecipeVersionAllergen::withoutTenancy()->create([
+        'recipe_version_id' => $retired->getKey(),
+        'organisation_id' => $organisationId,
+        'allergen_code' => $peanut,
+        'containment' => AllergenContainment::Contains,
+        'derivation' => AllergenDerivation::Derived,
+    ]);
+
+    // The current one declares nothing.
+    RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $organisationId,
+        'version_number' => 2,
+    ]);
+
+    expect(collect(
+        $this->getJson('/api/v1/catalogue/recipes?allergen='.$peanut.'&limit=100', $headers)
+            ->assertOk()
+            ->json('data'),
+    )->pluck('id')->all())->not->toContain((string) $recipe->getKey());
+});
+
 it('serves the recipe book as numbered pages', function (): void {
     $this->actingAs($this->a->user);
     $headers = RecipeWorld::headers($this->a);
@@ -397,4 +520,117 @@ it('serves the recipe book as numbered pages', function (): void {
     $this->getJson('/api/v1/catalogue/recipes?page=4&per_page=5', $headers)
         ->assertStatus(400)
         ->assertJsonPath('error.details.parameter', 'page');
+});
+
+/*
+|--------------------------------------------------------------------------
+| The two list prices
+|--------------------------------------------------------------------------
+|
+| `b2b_price_amount` and `b2c_price_amount` replaced the editor's single
+| "selling price", which was never posted anywhere. What has to hold: both
+| round-trip on the version, an emptied box clears rather than errors, an
+| amount cannot be written without the currency it is denominated in, and
+| opening the next draft inherits them.
+|
+*/
+
+it('round-trips the two list prices on a version', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $url = '/api/v1/catalogue/recipes/'.$recipe->getKey().'/versions/1';
+
+    $this->patchJson($url, [
+        'b2b_price_amount' => 18.5,
+        'b2c_price_amount' => 24,
+        'price_currency_code' => 'AED',
+    ], $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        // Strings on the wire, at the column's six places, so no client rounds
+        // a price on the way back in.
+        ->assertJsonPath('data.version.b2b_price_amount', '18.500000')
+        ->assertJsonPath('data.version.b2c_price_amount', '24.000000')
+        ->assertJsonPath('data.version.price_currency_code', 'AED');
+
+    // An emptied price box clears the price. It is a different act from never
+    // having priced the version, and a different act again from a typo, which
+    // the client refuses before it gets here.
+    $this->patchJson($url, ['b2b_price_amount' => null], $headers + ['If-Match' => '"1"'])
+        ->assertOk()
+        ->assertJsonPath('data.version.b2b_price_amount', null)
+        // The other price and the currency are untouched: a partial update
+        // that cleared its neighbours would lose a figure nobody edited.
+        ->assertJsonPath('data.version.b2c_price_amount', '24.000000')
+        ->assertJsonPath('data.version.price_currency_code', 'AED');
+});
+
+it('refuses a list price with no currency to denominate it', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+    $url = '/api/v1/catalogue/recipes/'.$recipe->getKey().'/versions/1';
+
+    // A monetary value without its currency is not a monetary value (§4.4).
+    // The validator says so before the column CHECK has to.
+    $this->patchJson($url, ['b2b_price_amount' => 18.5], $headers + ['If-Match' => '"0"'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['price_currency_code']]]]);
+
+    // Zero is a real list price — a staff meal, a component carried at cost
+    // inside a plan — and only a negative one is an accident every time.
+    $this->patchJson($url, ['b2b_price_amount' => 0, 'price_currency_code' => 'AED'],
+        $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.version.b2b_price_amount', '0.000000');
+
+    $this->patchJson($url, ['b2c_price_amount' => -1, 'price_currency_code' => 'AED'],
+        $headers + ['If-Match' => '"1"'])
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['b2c_price_amount']]]]);
+});
+
+it('carries the list prices into the next draft', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+    ]);
+
+    $this->actingAs($this->a->user);
+    $headers = RecipeWorld::headers($this->a);
+
+    $this->patchJson('/api/v1/catalogue/recipes/'.$recipe->getKey().'/versions/1', [
+        'b2b_price_amount' => 18.5,
+        'b2c_price_amount' => 24,
+        'price_currency_code' => 'AED',
+    ], $headers + ['If-Match' => '"0"'])->assertOk();
+
+    /*
+     * Opening the next draft is the normal way a priced recipe is edited — a
+     * line changes, the cost moves — so a draft that arrived unpriced would
+     * present a blank margin against a real cost, which reads as "this is sold
+     * at a loss" rather than "nobody has retyped the price yet".
+     */
+    $this->postJson('/api/v1/catalogue/recipes/'.$recipe->getKey().'/versions',
+        ['copy_from_version' => 1], $headers)
+        ->assertCreated()
+        ->assertJsonPath('data.version.version_number', 2)
+        ->assertJsonPath('data.version.b2b_price_amount', '18.500000')
+        ->assertJsonPath('data.version.b2c_price_amount', '24.000000')
+        ->assertJsonPath('data.version.price_currency_code', 'AED');
 });

@@ -1,12 +1,11 @@
 import type { CalendarBasis, OrderDeskCalendarFilters } from '@healthy360/api-client/contracts';
 import {
     Button,
-    Callout,
-    Card,
     CalendarGrid,
     EmptyState,
     ErrorState,
-    Inline,
+    Icon,
+    IconButton,
     Skeleton,
     Stack,
     Text,
@@ -21,7 +20,6 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskCalendarQuery } from '../../../data/order-desk-hooks.ts';
 import { addDays, dateInstant, todayIso } from '../../planner/format.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { ORDER_VIEW_PERMISSION, SUBSCRIPTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
 import type { CalendarReading, CalendarSlotDescriptor } from '../order-desk-calendar.ts';
@@ -52,9 +50,8 @@ import {
  *
  * They overlap by construction — a projected day becomes a claimed one, a claimed one becomes an
  * order — so a total over-counts, and a kitchen buying from that total over-buys quietly. Nothing in
- * `order-desk-calendar.ts` returns a sum, this screen renders three figures per square, and the
- * standing callout at the top says so in words rather than leaving a reader to infer it from a
- * layout. The forecast column is the one that most invites addition, which is why it is also the one
+ * `order-desk-calendar.ts` returns a sum, and this screen renders three separately labelled figures
+ * per square. The forecast column is the one that most invites addition, which is why it is also the one
  * that is drawn differently.
  *
  * ## `projected` is drawn as a forecast, and the drawing is not colour
@@ -147,6 +144,18 @@ const BASIS_LABEL_KEYS: Readonly<Record<CalendarBasis, string>> = {
     projected: 'kitchen:calendar.basis.projected',
 };
 
+/** The kitchen's own words for the day's three slots; any other code is humanised as sent. */
+const SLOT_LABEL_KEYS: Readonly<Record<string, string>> = {
+    morning: 'kitchen:calendar.slot.breakfast',
+    breakfast: 'kitchen:calendar.slot.breakfast',
+    midday: 'kitchen:calendar.slot.lunch',
+    lunch: 'kitchen:calendar.slot.lunch',
+    afternoon: 'kitchen:calendar.slot.snack',
+    snack: 'kitchen:calendar.slot.snack',
+    evening: 'kitchen:calendar.slot.dinner',
+    dinner: 'kitchen:calendar.slot.dinner',
+};
+
 /**
  * One book's figure.
  *
@@ -156,9 +165,12 @@ const BASIS_LABEL_KEYS: Readonly<Record<CalendarBasis, string>> = {
  */
 function Reading({
     reading,
+    emphasis = false,
     testID,
 }: {
     readonly reading: CalendarReading;
+    /** The day's own figures, at the head of its column, read larger than the slots under them. */
+    readonly emphasis?: boolean | undefined;
     readonly testID: string;
 }) {
     const { t } = useTranslation();
@@ -167,14 +179,23 @@ function Reading({
     const count = reading.count ?? 0;
 
     const line = (
-        <Inline space="xs" justify="between" align="center">
-            <Text variant="caption" tone="secondary">
+        <View className="flex-row items-center justify-between gap-hair">
+            <Text variant="micro" tone="secondary">
                 {label}
             </Text>
-            <Text variant="bodyStrong" testID={testID}>
+            <Text
+                // Orders is the book that exists, so it is the one figure a day's head sets large.
+                // A zero is a true zero and reads quieter than a count, never as a dash.
+                variant={emphasis && reading.basis === 'order' ? 'display' : 'strong'}
+                tone={
+                    count === 0 ? 'secondary' : reading.basis === 'scheduled' ? 'brand' : 'primary'
+                }
+                className="tabular-nums"
+                testID={testID}
+            >
                 {String(count)}
             </Text>
-        </Inline>
+        </View>
     );
 
     if (!reading.forecast) return line;
@@ -182,10 +203,10 @@ function Reading({
     return (
         <View
             testID={`${testID}-forecast`}
-            // Dashed, never a filled accent surface — see the file header. `border-stroke` is the
-            // plain token; nothing here is a brand colour, because this figure is the *least*
+            // Dashed, never a filled accent surface — see the file header. `border-stroke-strong` is
+            // the plain token; nothing here is a brand colour, because this figure is the *least*
             // emphatic thing on the square.
-            className="rounded-md border border-dashed border-stroke px-1.5 py-0.5"
+            className="rounded-sm border border-dashed border-stroke-strong px-control-xs"
             accessibilityLabel={t('kitchen:calendar.a11y.projected', { count })}
         >
             {line}
@@ -204,10 +225,12 @@ function Reading({
 function CalendarSquare({
     label,
     readings,
+    today,
     testID,
 }: {
     readonly label: string;
     readonly readings: readonly CalendarReading[];
+    readonly today: boolean;
     readonly testID: string;
 }) {
     const { t } = useTranslation();
@@ -215,11 +238,18 @@ function CalendarSquare({
     const empty = !unknown && isEmpty(readings);
 
     return (
-        <Card padding="sm" tone="sunken" testID={testID}>
-            <Stack space="none">
-                <Text variant="caption" tone="secondary">
-                    {label}
-                </Text>
+        <View
+            testID={testID}
+            // No outline: structure comes from alignment and the gap between squares. Today's
+            // column takes the brand tint so the eye finds it without reading a date.
+            className={
+                today
+                    ? 'rounded bg-surface-brand-subtle px-tight py-tight'
+                    : 'rounded bg-surface-raised px-tight py-tight'
+            }
+        >
+            <View className="flex-col gap-hair">
+                <Text variant="strong">{label}</Text>
 
                 {unknown ? (
                     <Text
@@ -249,8 +279,8 @@ function CalendarSquare({
                         />
                     ))
                 )}
-            </Stack>
-        </Card>
+            </View>
+        </View>
     );
 }
 
@@ -366,29 +396,24 @@ function OrderDeskCalendarWeek() {
 
     const renderDayHeader = (day: CalendarDay) => {
         const testID = `kitchen-order-desk-calendar-day-${day.key}`;
-        // The three books for the whole day, above the slot squares that split them. The header
-        // carries them because it is the first thing read, and because a screen whose only figures
-        // were per-slot would make somebody add up a column to answer "how much is Tuesday?" —
-        // which is the one addition that *is* safe, and therefore the one this surface should do
-        // for them rather than leave to a person with a finger on a screen.
+        const isToday = day.today === true;
+        // The date and nothing else — the figures live in the slot squares below. Today's column
+        // keeps its brand tint so the eye still finds it.
         return (
-            <Card padding="sm" tone={day.today === true ? 'brand' : 'default'} testID={testID}>
-                <Stack space="none">
-                    <Text variant="bodyStrong">{day.shortLabel ?? day.label}</Text>
-                    {day.sublabel === undefined ? null : (
-                        <Text variant="caption" tone="secondary">
-                            {day.sublabel}
-                        </Text>
-                    )}
-                    {dayReadings(calendarDayFor(days, day.key)).map((reading) => (
-                        <Reading
-                            key={reading.basis}
-                            reading={reading}
-                            testID={`${testID}-${reading.basis}`}
-                        />
-                    ))}
-                </Stack>
-            </Card>
+            <View
+                testID={testID}
+                className={
+                    isToday
+                        ? 'rounded bg-surface-brand-subtle px-tight py-tight'
+                        : 'rounded bg-surface-sunken px-tight py-tight'
+                }
+            >
+                <Text variant="section" tone={isToday ? 'brand' : 'primary'}>
+                    {day.sublabel === undefined
+                        ? (day.shortLabel ?? day.label)
+                        : `${day.shortLabel ?? day.label} ${day.sublabel}`}
+                </Text>
+            </View>
         );
     };
 
@@ -401,102 +426,98 @@ function OrderDeskCalendarWeek() {
             <CalendarSquare
                 label={cell.slot.label}
                 readings={slotReadings(day, descriptor.code)}
+                today={cell.day.today === true}
                 testID={`kitchen-order-desk-calendar-${cell.day.key}-${cell.slot.key}`}
             />
         );
     };
 
     return (
-        <Stack space="lg" testID="kitchen-order-desk-calendar-screen">
-            <KitchenPageHeader
-                testID="kitchen-order-desk-calendar-header"
-                title={t('kitchen:calendar.title')}
-                subtitle={t('kitchen:calendar.subtitle')}
-                titleTestID="kitchen-order-desk-calendar-title"
-                subtitleTestID="kitchen-order-desk-calendar-subtitle"
-                meta={
-                    <Stack space="none">
-                        <Text
-                            variant="caption"
-                            tone="secondary"
-                            testID="kitchen-order-desk-calendar-range"
-                        >
-                            {rangeLabel}
-                        </Text>
-                        {meta === null ? null : (
-                            // How many squares the server actually walked. A count of *days*,
-                            // never of work: there is no count of work anywhere in this response,
-                            // because that would be the total the three books must not have.
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                role="status"
-                                aria-live="polite"
-                                testID="kitchen-order-desk-calendar-day-count"
-                            >
-                                {t('kitchen:calendar.dayCount', { count: meta.dayCount })}
-                            </Text>
-                        )}
-                        <Text
-                            testID="kitchen-order-desk-calendar-announcer"
-                            role="status"
-                            aria-live="polite"
-                            accessibilityLiveRegion="polite"
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {message}
-                        </Text>
-                    </Stack>
-                }
-            />
+        <Stack space="md" testID="kitchen-order-desk-calendar-screen">
+            {/*
+             * The live region. Week navigation changes the whole grid without a navigation
+             * event, so the move is spoken here — see `useCalendarAnnouncement`. Always mounted: a
+             * region inserted with its text already in it is not announced. Visually hidden.
+             */}
+            <Text
+                testID="kitchen-order-desk-calendar-announcer"
+                role="status"
+                aria-live="polite"
+                accessibilityLiveRegion="polite"
+                variant="caption"
+                tone="secondary"
+                className="absolute h-px w-px overflow-hidden opacity-0"
+            >
+                {message}
+            </Text>
 
-            <Callout
-                testID="kitchen-order-desk-calendar-bases"
-                tone="info"
-                title={t('kitchen:calendar.basesTitle')}
-                body={t('kitchen:calendar.basesBody')}
-            />
-
-            <Card tone="raised" padding="md" testID="kitchen-order-desk-calendar-toolbar">
-                <Inline space="sm" wrap align="center">
-                    <Button
+            {/* One 28px row: the week stepper and the range it is on. */}
+            <View
+                testID="kitchen-order-desk-calendar-toolbar"
+                className="min-h-control-sm flex-row flex-wrap items-center gap-tight"
+            >
+                <View className="flex-row items-center gap-hair">
+                    <IconButton
                         testID="kitchen-order-desk-calendar-previous"
+                        size="sm"
                         variant="secondary"
                         label={t('kitchen:calendar.previousWeek')}
+                        icon={<Icon name="chevronBackward" size="sm" />}
                         onPress={() => {
                             goTo(addDays(range.from, -CALENDAR_WEEK_DAYS));
                         }}
                     />
                     <Button
                         testID="kitchen-order-desk-calendar-today"
-                        variant="ghost"
+                        size="sm"
+                        variant="secondary"
                         label={t('kitchen:calendar.thisWeek')}
                         onPress={() => {
                             goTo(today);
                         }}
                     />
-                    <Button
+                    <IconButton
                         testID="kitchen-order-desk-calendar-next"
+                        size="sm"
                         variant="secondary"
                         label={t('kitchen:calendar.nextWeek')}
+                        icon={<Icon name="chevronForward" size="sm" />}
                         onPress={() => {
                             goTo(addDays(range.from, CALENDAR_WEEK_DAYS));
                         }}
                     />
-                </Inline>
-            </Card>
+                </View>
+                <Text variant="mono" testID="kitchen-order-desk-calendar-range">
+                    {rangeLabel}
+                </Text>
+                {meta === null ? null : (
+                    // How many squares the server actually walked. A count of *days*, never of
+                    // work: there is no count of work anywhere in this response, because that
+                    // would be the total the three books must not have.
+                    <Text
+                        variant="caption"
+                        tone="secondary"
+                        role="status"
+                        aria-live="polite"
+                        testID="kitchen-order-desk-calendar-day-count"
+                    >
+                        {t('kitchen:calendar.dayCount', { count: meta.dayCount })}
+                    </Text>
+                )}
+            </View>
 
             {calendar.isPending ? (
-                <Stack space="sm" testID="kitchen-order-desk-calendar-loading">
-                    {Array.from({ length: 3 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-order-desk-calendar-skeleton-${String(index + 1)}`}
-                            heightClassName="h-16"
-                        />
+                <View testID="kitchen-order-desk-calendar-loading" className="flex-row gap-tight">
+                    {Array.from({ length: CALENDAR_WEEK_DAYS }, (_, index) => (
+                        // eslint-disable-next-line no-restricted-syntax -- each skeleton column is a share of the row.
+                        <View key={index} className="flex-1">
+                            <Skeleton
+                                testID={`kitchen-order-desk-calendar-skeleton-${String(index + 1)}`}
+                                heightClassName="h-40"
+                            />
+                        </View>
                     ))}
-                </Stack>
+                </View>
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-order-desk-calendar-error"
@@ -514,27 +535,32 @@ function OrderDeskCalendarWeek() {
                     body={t('kitchen:calendar.emptyBody')}
                 />
             ) : (
-                <CalendarGrid
-                    testID="kitchen-order-desk-calendar-grid"
-                    label={t('kitchen:calendar.gridLabel', { range: rangeLabel })}
-                    days={calendarDays}
-                    // `undefined` rather than an invented row when no slot carries anything: the
-                    // day headers already say what the week holds, and a row of dashes about a
-                    // bucket nobody used would be furniture.
-                    slots={
-                        slots.length === 0
-                            ? undefined
-                            : slots.map((slot) => ({
-                                  key: slot.key,
-                                  label:
-                                      slot.code === null
-                                          ? t('kitchen:calendar.noSlot')
-                                          : humaniseCode(slot.code),
-                              }))
-                    }
-                    renderDayHeader={renderDayHeader}
-                    renderCell={renderCell}
-                />
+                <View className="flex-col gap-snug">
+                    <CalendarGrid
+                        testID="kitchen-order-desk-calendar-grid"
+                        label={t('kitchen:calendar.gridLabel', { range: rangeLabel })}
+                        days={calendarDays}
+                        // `undefined` rather than an invented row when no slot carries anything:
+                        // the day headers already say what the week holds, and a row of dashes
+                        // about a bucket nobody used would be furniture.
+                        slots={
+                            slots.length === 0
+                                ? undefined
+                                : slots.map((slot) => ({
+                                      key: slot.key,
+                                      label:
+                                          slot.code === null
+                                              ? t('kitchen:calendar.noSlot')
+                                              : slot.code in SLOT_LABEL_KEYS
+                                                ? t(SLOT_LABEL_KEYS[slot.code] as string)
+                                                : humaniseCode(slot.code),
+                                  }))
+                        }
+                        showSlotLegend={false}
+                        renderDayHeader={renderDayHeader}
+                        renderCell={renderCell}
+                    />
+                </View>
             )}
         </Stack>
     );

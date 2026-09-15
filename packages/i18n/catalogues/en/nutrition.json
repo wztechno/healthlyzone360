@@ -25,7 +25,10 @@
         "protein": "Protein",
         "carbohydrate": "Carbohydrate",
         "fat": "Fat",
-        "fibre": "Fibre"
+        "fibre": "Fibre",
+        "sugars": "Sugars",
+        "sodium": "Sodium",
+        "saturatedFat": "Saturates"
     },
     "energy": {
         "title": "Energy",

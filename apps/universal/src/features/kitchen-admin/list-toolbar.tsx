@@ -3,13 +3,14 @@ import {
     Collapse,
     FilterChip,
     Inline,
+    SegmentedControl,
     Select,
     Stack,
     Text,
     TextInputField,
     Icon,
 } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import type { SelectOption, TableRowSize } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -57,6 +58,23 @@ export interface ListToolbarProps {
     readonly onStatusesChange: (statuses: readonly PublishableStatus[]) => void;
     /** The statuses offered as chips, in lifecycle order. */
     readonly statusOptions: readonly PublishableStatus[];
+    /**
+     * Promotes the status filter out of the panel and onto the row as a single-select segmented
+     * set — "All" followed by `statusOptions`.
+     *
+     * Single-select where the panel's chips are multi-select, and that is the trade the control
+     * makes rather than a limitation it forgot: a segmented set that could hold two segments down
+     * at once is a chip group wearing the wrong chrome. A reader who genuinely wants "draft or
+     * review" still has the panel — except that with the row set the panel no longer draws the
+     * status section, so this is an either/or per screen, not two controls fighting over one value.
+     */
+    readonly statusesOnRow?: boolean | undefined;
+    /**
+     * Row height, offered as a three-way switch on the row's trailing edge. Omit both to render no
+     * density control at all — a list whose rows are one line each has nothing to compress.
+     */
+    readonly density?: TableRowSize | undefined;
+    readonly onDensityChange?: ((density: TableRowSize) => void) | undefined;
     /** Omit to render no taxonomy filter at all — see the note above. */
     readonly categoryOptions?: readonly SelectOption[] | undefined;
     /** `null` means "every category". */
@@ -74,12 +92,18 @@ export interface ListToolbarProps {
 /** The option value that stands for "no category filter". Never a real code. */
 export const ANY_CATEGORY = '__any__';
 
+/** The segment that stands for "every status". Never a real `PublishableStatus`. */
+const ANY_STATUS = '__all__';
+
 export function ListToolbar({
     query,
     onQueryChange,
     statuses,
     onStatusesChange,
     statusOptions,
+    statusesOnRow = false,
+    density,
+    onDensityChange,
     categoryOptions,
     category = null,
     onCategoryChange,
@@ -92,16 +116,20 @@ export function ListToolbar({
 
     // Open on arrival with a filter applied, closed otherwise — the /meals behaviour. Initial-only
     // on purpose: once the person has opened or closed the panel, their choice stands.
-    const [expanded, setExpanded] = useState(statuses.length > 0 || category !== null);
+    const [expanded, setExpanded] = useState(
+        (!statusesOnRow && statuses.length > 0) || category !== null,
+    );
 
-    const activeCount = statuses.length + (category === null ? 0 : 1);
+    // A status carried by the row is not "hidden behind Filters", so it does not raise the badge on
+    // the disclosure toggle: the badge exists to account for what is applied but out of sight.
+    const activeCount = (statusesOnRow ? 0 : statuses.length) + (category === null ? 0 : 1);
     const panelId = `${testID}-filter-panel`;
 
     const categoryChipLabel = (code: string): string =>
         categoryOptions?.find((option) => option.value === code)?.label ?? code;
 
     const activeFilters: readonly ActiveFilterChip[] = [
-        ...statuses.map((status) => ({
+        ...(statusesOnRow ? [] : statuses).map((status) => ({
             key: `status-${status}`,
             label: t(statusKey(status)),
             removeLabel: t('kitchen:toolbar.removeFilter', { filter: t(statusKey(status)) }),
@@ -131,6 +159,39 @@ export function ListToolbar({
         );
     };
 
+    const quickFilter = !statusesOnRow ? undefined : (
+        <SegmentedControl
+            testID={`${testID}-status-segments`}
+            label={t('kitchen:toolbar.statusLabel')}
+            value={statuses.length === 1 ? (statuses[0] ?? ANY_STATUS) : ANY_STATUS}
+            onChange={(next) => {
+                onStatusesChange(next === ANY_STATUS ? [] : [next as PublishableStatus]);
+            }}
+            items={[
+                { value: ANY_STATUS, label: t('kitchen:toolbar.statusAll') },
+                ...statusOptions.map((status) => ({
+                    value: status as string,
+                    label: t(statusKey(status)),
+                })),
+            ]}
+        />
+    );
+
+    const densityControl =
+        density === undefined || onDensityChange === undefined ? undefined : (
+            <SegmentedControl<TableRowSize>
+                testID={`${testID}-density`}
+                label={t('kitchen:toolbar.densityLabel')}
+                value={density}
+                onChange={onDensityChange}
+                items={[
+                    { value: 'sm', label: t('kitchen:toolbar.densitySmall') },
+                    { value: 'md', label: t('kitchen:toolbar.densityMedium') },
+                    { value: 'lg', label: t('kitchen:toolbar.densityLarge') },
+                ]}
+            />
+        );
+
     return (
         <View testID={testID} className="gap-2">
             <ToolbarRow
@@ -152,6 +213,8 @@ export function ListToolbar({
                         trailing={<Icon name="search" />}
                     />
                 }
+                {...(quickFilter === undefined ? {} : { quickFilter })}
+                {...(densityControl === undefined ? {} : { sort: densityControl })}
                 filtersLabel={
                     activeCount === 0
                         ? t('kitchen:toolbar.filters')
@@ -179,24 +242,26 @@ export function ListToolbar({
             <Collapse open={expanded} nativeID={panelId} testID={panelId}>
                 <View className="rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card md:p-4">
                     <Stack space="sm">
-                        <Stack space="xs">
-                            <Text variant="label" testID={`${testID}-status-label`}>
-                                {t('kitchen:toolbar.statusLabel')}
-                            </Text>
-                            <Inline space="xs" wrap testID={`${testID}-status`}>
-                                {statusOptions.map((status) => (
-                                    <FilterChip
-                                        key={status}
-                                        testID={`${testID}-status-${status}`}
-                                        label={t(statusKey(status))}
-                                        selected={statuses.includes(status)}
-                                        onChange={(selected) => {
-                                            toggle(status, selected);
-                                        }}
-                                    />
-                                ))}
-                            </Inline>
-                        </Stack>
+                        {statusesOnRow ? null : (
+                            <Stack space="xs">
+                                <Text variant="label" testID={`${testID}-status-label`}>
+                                    {t('kitchen:toolbar.statusLabel')}
+                                </Text>
+                                <Inline space="xs" wrap testID={`${testID}-status`}>
+                                    {statusOptions.map((status) => (
+                                        <FilterChip
+                                            key={status}
+                                            testID={`${testID}-status-${status}`}
+                                            label={t(statusKey(status))}
+                                            selected={statuses.includes(status)}
+                                            onChange={(selected) => {
+                                                toggle(status, selected);
+                                            }}
+                                        />
+                                    ))}
+                                </Inline>
+                            </Stack>
+                        )}
 
                         {categoryOptions === undefined || onCategoryChange === undefined ? null : (
                             <Select

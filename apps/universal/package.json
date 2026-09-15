@@ -15,15 +15,12 @@
         "doctor": "pnpm dlx expo-doctor",
         "lint": "eslint . --max-warnings=0",
         "typecheck": "tsc --noEmit",
-        "test": "jest --ci",
-        "e2e": "playwright test",
-        "e2e:write": "playwright test --project=web-write --workers=1",
+        "test": "jest --ci --maxWorkers=2",
         "budget:export": "node scripts/check-export-budget.mjs"
     },
     "dependencies": {
         "@expo-google-fonts/ibm-plex-sans-arabic": "^0.4.2",
-        "@expo-google-fonts/inter": "^0.4.2",
-        "@expo-google-fonts/space-grotesk": "^0.4.1",
+        "@expo-google-fonts/schibsted-grotesk": "^0.4.2",
         "@healthy360/analytics": "workspace:*",
         "@healthy360/api-client": "workspace:*",
         "@healthy360/design-system": "workspace:*",
@@ -63,9 +60,7 @@
         "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@axe-core/playwright": "^4.13.0",
         "@healthy360/testing": "workspace:*",
-        "@playwright/test": "^1.62.1",
         "@testing-library/react-native": "^14.0.1",
         "@types/jest": "^29.5.14",
         "@types/react": "~19.2.18",

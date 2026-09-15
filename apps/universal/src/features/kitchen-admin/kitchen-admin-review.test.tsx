@@ -51,7 +51,23 @@ import {
 import type { ReviewSources } from './review-queue.ts';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 import { ReviewScreen } from './screens/review-screen.tsx';
+import { Dimensions } from 'react-native';
 
+/**
+ * These screens draw their tables through `CatalogueList`, which only lays out columns at `md` and
+ * above; React Native's Jest window is 750px. Desk width for the whole file, restored afterwards.
+ */
+const narrowWindow = Dimensions.get('window');
+const narrowScreen = Dimensions.get('screen');
+beforeAll(() => {
+    Dimensions.set({
+        window: { ...narrowWindow, width: 1440, height: 900 },
+        screen: { ...narrowScreen, width: 1440, height: 900 },
+    });
+});
+afterAll(() => {
+    Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+});
 /**
  * The publication review queue (K1.8), against a world this file declares.
  *
@@ -135,17 +151,34 @@ function ingredient(overrides: Partial<IngredientAdmin> = {}): IngredientAdmin {
         meta: meta(),
         name: { en: 'Burghul', ar: 'برغل' },
         reference: null,
+        subcategoryCode: null,
         categoryCode: 'store-cupboard',
         measurementUnit: 'g',
         purchaseUnit: null,
         composition: null,
         itemsPerUnit: null,
+        gramsPerUnit: null,
+        // Packaging's three, null on food — which every fixture in this file is.
+        purchasePrice: null,
+        wastePercent: null,
+        capacity: null,
+        b2bPrice: null,
+        b2cPrice: null,
+        unitPrice: null,
+        isSellable: false,
         costPer100g: null,
         per100g: null,
+        nutritionDerivedFromVersionId: null,
+        nutritionEstimated: null,
+        nutritionNote: null,
         allergens: [],
         dietClassifications: [],
         aliases: [],
         organisationId: null,
+        // A platform row the caller may write: this suite is about the quarantine banner, not about
+        // who owns the library, and a read-only fixture would disable the form it asserts on.
+        forkedFromId: null,
+        isEditable: true,
         notes: null,
         ...overrides,
     };
@@ -157,7 +190,9 @@ function recipe(overrides: Partial<RecipeAdminSummary> = {}): RecipeAdminSummary
         meta: meta({ status: 'published' }),
         name: { en: 'Lamb and burghul', ar: 'لحم وبرغل' },
         slug: 'lamb-and-burghul',
+        reference: null,
         sourceKind: null,
+        recipeCategory: null,
         kitchenId: '01935f6d-0000-7000-8000-00000000f000' as RecipeAdminSummary['kitchenId'],
         currentVersionNumber: 1,
         versionCount: 1,
@@ -208,7 +243,10 @@ describe('the review model', () => {
             }),
         ]);
 
-        expect(item?.reasons).toEqual([{ code: 'unverifiedAllergens', count: 1 }]);
+        expect(item?.reasons).toEqual([
+            { code: 'draft', count: null },
+            { code: 'unverifiedAllergens', count: 1 },
+        ]);
         expect(isBlocked(item!)).toBe(false);
     });
 
@@ -220,7 +258,10 @@ describe('the review model', () => {
 
     it('marks a name with one language still empty, because that alone blocks publication', () => {
         const [item] = ingredientReviewItems([ingredient({ name: { en: 'Burghul', ar: '  ' } })]);
-        expect(item?.reasons).toEqual([{ code: 'missingTranslation', count: null }]);
+        expect(item?.reasons).toEqual([
+            { code: 'draft', count: null },
+            { code: 'missingTranslation', count: null },
+        ]);
     });
 
     /**
@@ -278,7 +319,10 @@ describe('the review model', () => {
         };
 
         const [item] = priceListReviewItems([list]);
-        expect(item?.reasons).toEqual([{ code: 'inconsistentPrices', count: 2 }]);
+        expect(item?.reasons).toEqual([
+            { code: 'draft', count: null },
+            { code: 'inconsistentPrices', count: 2 },
+        ]);
         expect(isBlocked(item!)).toBe(true);
     });
 
@@ -288,8 +332,10 @@ describe('the review model', () => {
             meta: meta({ status: 'draft' }),
             name: { en: 'Mixed mezze tray', ar: 'صينية مزّة' },
             description: { en: 'Assorted', ar: 'متنوّعة' },
+            categoryId: null,
             categoryCode: 'prepared-food',
             itemType: 'product',
+            reference: null,
             kitchenCategory: null,
             kitchenSubcategory: null,
             composition: null,
@@ -304,6 +350,7 @@ describe('the review model', () => {
         };
 
         expect(productReviewItems([product])[0]?.reasons).toEqual([
+            { code: 'draft', count: null },
             { code: 'dataQuality', count: 2 },
         ]);
     });
@@ -583,27 +630,69 @@ describe('the review queue screen', () => {
         });
 
         await untilVisible('kitchen-review-summary');
-        expect(screen.getByTestId('kitchen-review-summary')).toHaveTextContent(/needs? review/i);
-        expect(screen.getByTestId('kitchen-review-summary')).toHaveTextContent(
-            /cannot be published/,
-        );
+        // Counted cards, not a sentence: one record shown, and that one is refused publication.
+        expect(screen.getByTestId('kitchen-review-summary-shown-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-review-summary-blocked-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-review-summary-unblocked-value')).toHaveTextContent('0');
     });
 
-    it('states what it checked and what it did not, so the scope is never inferred', async () => {
+    it('opens a read-only window from the row, whose one action is the record’s own editor', async () => {
         await renderStubScreen(<ReviewScreen />, {
             session: kitchenManagerSession(),
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-scope');
-        expect(screen.getByTestId('kitchen-review-scope')).toHaveTextContent(
-            /allergen quarantines/,
+        const row = reviewRowTestId('ingredients', String(QUARANTINED_INGREDIENT.id));
+        await untilVisible(`${row}-view`);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${row}-view`));
+        });
+
+        await untilVisible('kitchen-review-window');
+        expect(screen.getByTestId('kitchen-review-window-title')).toHaveTextContent(
+            QUARANTINED_INGREDIENT.name.en,
         );
-        // Delivery zones and opening hours have no publication state; the screen says so out loud
-        // rather than leaving a reader to wonder whether they were silently skipped.
-        expect(screen.getByTestId('kitchen-review-not-checked')).toHaveTextContent(
-            /delivery zones and opening hours/,
+        expect(screen.getByTestId('kitchen-review-window-note')).toHaveTextContent(
+            /Nothing is resolved from this window/,
         );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-review-window-primary'));
+        });
+
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            `/kitchen/ingredients/${String(QUARANTINED_INGREDIENT.id)}`,
+        );
+    });
+
+    it('narrows to blocked records without calling a filtered queue all clear', async () => {
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
+
+        await untilVisible('kitchen-review-toolbar-status-unblocked');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-review-toolbar-status-unblocked'));
+        });
+
+        await untilVisible('kitchen-review-filtered-empty');
+        expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
+        expect(screen.getByTestId('kitchen-review-summary-shown-value')).toHaveTextContent('0');
+    });
+
+    it('opens on the figures — no page title, scope footnotes or truncation banner', async () => {
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
+
+        await untilVisible('kitchen-review-summary');
+        expect(screen.queryByTestId('kitchen-review-title')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-scope')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-not-checked')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-truncated')).toBeNull();
     });
 
     it('opens the record’s own editor at the record’s own address', async () => {
@@ -664,7 +753,6 @@ describe('the review queue screen', () => {
         expect(screen.getByTestId('kitchen-review-clear')).toHaveTextContent(
             /Nothing is waiting for review/,
         );
-        expect(screen.getByTestId('kitchen-review-clear-scope')).toHaveTextContent(/Checked:/);
         expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
     });
 

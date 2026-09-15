@@ -231,7 +231,7 @@ final readonly class V6CatalogueWriter
         string $organisationId,
         array $ingredientCategoryIds,
         ImportReport $report,
-    ): ?string {
+    ): string {
         $sourceRef = (string) $item['source_ref'];
 
         $existing = Ingredient::withoutTenancy()
@@ -306,6 +306,11 @@ final readonly class V6CatalogueWriter
      * `unit` variant in its usage unit, so the item has something a price can
      * attach to the day somebody prices it.
      *
+     * Meals get no pack at all. `CatalogueItemType::variantType()` is null for
+     * them, and every reader — the marketplace listing, the cart probe, the B2B
+     * browse — asks a meal for its item-level row, so a meal's prices and
+     * channel rows attach to the item itself.
+     *
      * @param  array<string, mixed>  $item
      * @return array<string, CatalogueItemVariant> variant code → variant
      */
@@ -316,7 +321,11 @@ final readonly class V6CatalogueWriter
         string $usageUnitId,
         ImportReport $report,
     ): array {
-        /** @var array<string, array{weight_kg: float|int|null, price_minor: int, currency: string}> $prices */
+        if ($catalogueItem->item_type->variantType() !== VariantType::Pack) {
+            return [];
+        }
+
+        /** @var array<string, mixed> $prices */
         $prices = (array) ($item['prices'] ?? []);
 
         $definitions = [];
@@ -429,7 +438,7 @@ final readonly class V6CatalogueWriter
         string $sourceRef,
         ImportReport $report,
     ): void {
-        /** @var array<string, array{weight_kg: float|int|null, price_minor: int, currency: string}> $prices */
+        /** @var array<string, mixed> $prices */
         $prices = (array) ($item['prices'] ?? []);
 
         foreach ($prices as $channel => $price) {
@@ -440,8 +449,9 @@ final readonly class V6CatalogueWriter
             $listCode = $channel === 'b2b' ? KitchenWorkbookWorld::PRICE_LIST_B2B : KitchenWorkbookWorld::PRICE_LIST_B2C;
             $list = $priceLists[$listCode] ?? null;
             $variant = $variants[$channel] ?? null;
+            $packPriced = $catalogueItem->item_type->variantType() === VariantType::Pack;
 
-            if (! $list instanceof PriceList || ! $variant instanceof CatalogueItemVariant) {
+            if (! $list instanceof PriceList || ($packPriced && ! $variant instanceof CatalogueItemVariant)) {
                 throw new RuntimeException("The world is missing the {$listCode} tariff or the {$channel} pack for [{$sourceRef}].");
             }
 
@@ -449,7 +459,8 @@ final readonly class V6CatalogueWriter
             $entry->organisation_id = $organisationId;
             $entry->price_list_id = (string) $list->getKey();
             $entry->catalogue_item_id = (string) $catalogueItem->getKey();
-            $entry->catalogue_item_variant_id = (string) $variant->getKey();
+            // Pack kinds price the channel's pack; a meal prices the item itself.
+            $entry->catalogue_item_variant_id = $variant instanceof CatalogueItemVariant ? (string) $variant->getKey() : null;
             $entry->min_quantity = null;
             $entry->unit_amount_minor = $price['price_minor'];
             $entry->price_status = PriceStatus::Confirmed;
@@ -484,7 +495,7 @@ final readonly class V6CatalogueWriter
         string $organisationId,
         ImportReport $report,
     ): void {
-        /** @var array<string, array{weight_kg: float|int|null, price_minor: int, currency: string}> $prices */
+        /** @var array<string, mixed> $prices */
         $prices = (array) ($item['prices'] ?? []);
 
         foreach ($prices as $channel => $price) {
@@ -496,7 +507,7 @@ final readonly class V6CatalogueWriter
             $salesChannel = $channels[$channelCode] ?? null;
             $variant = $variants[$channel] ?? null;
 
-            if (! $salesChannel instanceof SalesChannel || ! $variant instanceof CatalogueItemVariant) {
+            if (! $salesChannel instanceof SalesChannel) {
                 continue;
             }
 
@@ -504,7 +515,7 @@ final readonly class V6CatalogueWriter
             $row->organisation_id = $organisationId;
             $row->sales_channel_id = (string) $salesChannel->getKey();
             $row->catalogue_item_id = (string) $catalogueItem->getKey();
-            $row->catalogue_item_variant_id = (string) $variant->getKey();
+            $row->catalogue_item_variant_id = $variant instanceof CatalogueItemVariant ? (string) $variant->getKey() : null;
             $row->is_available = true;
             $row->save();
 

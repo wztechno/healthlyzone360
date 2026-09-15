@@ -3,7 +3,6 @@ import {
     Breadcrumbs,
     Button,
     Card,
-    Chip,
     EmptyState,
     Heading,
     Inline,
@@ -11,9 +10,11 @@ import {
     Rating,
     SegmentedControl,
     Stack,
+    TagRow,
     Text,
 } from '@healthy360/design-system';
 
+import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import type { PlanVariant, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
@@ -78,6 +79,7 @@ function macroRanges(variant: PlanVariant) {
 
 export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
     const { t } = useTranslation();
+    const basket = useBasketAdd({ labelKey: 'catalogue:nav.plans', testID: 'plan-detail' });
     const router = useRouter();
     const formatter = useFormatter();
     const { me } = useSession();
@@ -215,15 +217,14 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                     />
                                 )}
                                 {/* Labels, not links — `/diets/{diet}` has no backend yet. */}
-                                <Inline space="xs" wrap>
-                                    {item.dietClassifications.map((diet) => (
-                                        <Chip
-                                            key={diet}
-                                            tone="brand"
-                                            label={t(`marketplace:diets.${diet}`)}
-                                        />
-                                    ))}
-                                </Inline>
+                                <TagRow
+                                    testID="plan-detail-diets"
+                                    items={item.dietClassifications.map((diet) => ({
+                                        key: diet,
+                                        label: t(`marketplace:diets.${diet}`),
+                                        tone: 'brand' as const,
+                                    }))}
+                                />
                             </Inline>
 
                             <Stack space="sm" testID="plan-detail-variants">
@@ -382,6 +383,9 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                             `/meals/${String(meal.id)}` as never,
                                                         );
                                                     }}
+                                                    onAdd={() => {
+                                                        basket.add(meal);
+                                                    }}
                                                 />
                                             </CardGridItem>
                                         ))}
@@ -457,6 +461,8 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                     )}
                 </QueryStates>
             )}
+
+            {basket.dialog}
         </Stack>
     );
 }

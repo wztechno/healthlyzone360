@@ -7,8 +7,10 @@ namespace Healthy360\Recipes\Http\Controllers;
 use Healthy360\Audit\Enums\PurposeOfUse;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Recipes\Enums\CostBasis;
+use Healthy360\Recipes\Exceptions\MixedCostCurrency;
 use Healthy360\Recipes\Models\RecipeCostSnapshot;
 use Healthy360\Recipes\Models\RecipeVersionLine;
+use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Recipes\Presenters\RecipeVersionPresenter;
 use Healthy360\Recipes\Presenters\TechnicalSheetPresenter;
 use Healthy360\Recipes\Services\RecipeCostingService;
@@ -36,12 +38,27 @@ use Illuminate\Http\JsonResponse;
  *   waste* — the latest snapshot of each basis, both when both exist, each
  *   labelled with the basis it was computed on;
  * - *what is missing* — `uncosted_line_numbers`, and a currency conflict flag
- *   for the import case where two currencies ended up on one sheet.
+ *   for the import case where two currencies ended up on one sheet;
+ * - *what does it cost us today, all in* — the `computed` block: the
+ *   formulation and the packaging costed from the same read, and the two added
+ *   together into a cost per yield unit.
  *
  * **The snapshots are read, not computed.** A sheet that recalculated on every
  * GET would show a figure that no snapshot records and that changes as
  * ingredient prices move, which is precisely the thing a costed technical
  * sheet is supposed to pin down. Recomputing is an explicit POST.
+ *
+ * **The `computed` block is the deliberate exception, and it is beside them
+ * rather than instead of them.** The two answer different questions — "what did
+ * we say this cost when we costed it" against "what does it cost given today's
+ * catalogue" — and an editor needs the second while somebody is still typing.
+ * Keeping both on one response is what lets a screen show a live figure without
+ * anybody mistaking it for the pinned one.
+ *
+ * Its two halves are computed in one pass on purpose. Packaging cost is derived
+ * from the version's yield, so it moves while the yield does; adding a live
+ * packaging figure to a production figure pinned in March would produce a total
+ * of nothing in particular. Both sides live, or no total.
  *
  * Every successful read writes an `catalogue.technical_sheet_viewed` access
  * event with a purpose of use and the `confidential` classification — after
@@ -71,8 +88,34 @@ final class RecipeTechnicalSheetController
             ->orderBy('line_number')
             ->get();
 
+        $packaging = RecipeVersionPackaging::query()
+            ->where('recipe_version_id', $record->getKey())
+            ->orderBy('line_number')
+            ->get();
+
         $uncosted = $this->costing->uncostedLineNumbers($lines);
         $currencies = $this->costing->currenciesOf($lines);
+
+        /*
+         * The live block. `computeRecalculated()` throws on a formulation in two
+         * currencies — an import defect somebody has to go and fix — and that
+         * must not take the whole sheet down with it: the lines, the snapshots
+         * and the conflict flag below are exactly what a person needs in order
+         * to *see* the problem. So the live figures are dropped and the rest of
+         * the response stands.
+         */
+        try {
+            $production = $this->costing->computeRecalculated($record, $lines);
+            $packagingCost = $this->costing->computePackaging($record, $packaging);
+
+            $computed = $this->presenter->computed(
+                $production,
+                $packagingCost,
+                $this->costing->totalCostPerYieldUnit($production, $packagingCost),
+            );
+        } catch (MixedCostCurrency) {
+            $computed = null;
+        }
 
         $snapshots = [];
 
@@ -99,6 +142,7 @@ final class RecipeTechnicalSheetController
                 'recipe_id' => $record->recipe_id,
                 'version_number' => $record->version_number,
                 'line_count' => $lines->count(),
+                'packaging_line_count' => $packaging->count(),
                 'uncosted_line_count' => count($uncosted),
             ],
         );
@@ -114,8 +158,16 @@ final class RecipeTechnicalSheetController
             'currency_code' => count($currencies) === 1 ? $currencies[0] : null,
             'currency_conflict' => count($currencies) > 1,
             'lines' => $lines->map(fn (RecipeVersionLine $line): array => $this->presenter->line($line))->all(),
+            'packaging_lines' => $packaging->map(
+                fn (RecipeVersionPackaging $row): array => $this->presenter->packagingLine($row),
+            )->all(),
             'uncosted_line_numbers' => $uncosted,
             'snapshots' => $snapshots,
+
+            // Null only when the formulation carries two currencies, which the
+            // `currency_conflict` flag above already reports. A client renders
+            // the snapshots and the conflict in that case.
+            'computed' => $computed,
         ]);
     }
 }

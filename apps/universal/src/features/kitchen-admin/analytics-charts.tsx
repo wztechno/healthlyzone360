@@ -9,7 +9,7 @@ import { Text, useTheme } from '@healthy360/design-system';
 import { brand } from '@healthy360/design-tokens';
 import { createElement, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, Text as RNText, View } from 'react-native';
 
 import type { AnalyticsPoint, AnalyticsSlice } from './analytics-sample-data.ts';
 
@@ -25,9 +25,7 @@ export function ChartFrame({ testID, title, children }: ChartFrameProps) {
             testID={testID}
             className="min-h-[280px] flex-1 basis-[280px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
         >
-            <Text className="mb-3 font-display text-base font-bold text-content-primary">
-                {title}
-            </Text>
+            <Text className="mb-3 text-base font-bold text-content-primary">{title}</Text>
             {children}
         </View>
     );
@@ -50,7 +48,9 @@ function TooltipBubble({
             <Text tone="secondary" variant="caption">
                 {label}
             </Text>
-            <Text className="font-display text-sm font-bold text-content-primary">{value}</Text>
+            <RNText className="tabular-nums text-sm font-bold text-content-primary text-start">
+                {value}
+            </RNText>
         </View>
     );
 }
@@ -312,9 +312,9 @@ export function DonutChart({ testID, slices, centerLabel, sliceLabel }: DonutCha
                         ),
                     )}
                     <View className="absolute inset-0 items-center justify-center px-6">
-                        <Text className="font-display text-xl font-bold text-content-primary">
+                        <RNText className="tabular-nums text-xl font-bold text-content-primary text-center">
                             {active === null ? `${total}%` : `${arcs[active]!.slice.value}%`}
-                        </Text>
+                        </RNText>
                         <Text tone="secondary" variant="caption" className="text-center">
                             {active === null ? centerLabel : sliceLabel(arcs[active]!.slice)}
                         </Text>
@@ -339,9 +339,9 @@ export function DonutChart({ testID, slices, centerLabel, sliceLabel }: DonutCha
                             <Text className="flex-1 text-sm text-content-primary">
                                 {sliceLabel(slice)}
                             </Text>
-                            <Text className="font-display text-sm font-bold text-content-primary">
+                            <RNText className="tabular-nums text-sm font-bold text-content-primary text-end">
                                 {slice.value}%
-                            </Text>
+                            </RNText>
                         </Pressable>
                     ))}
                 </View>
@@ -370,7 +370,9 @@ export function DonutChart({ testID, slices, centerLabel, sliceLabel }: DonutCha
                         style={{ backgroundColor: slice.colorToken }}
                     />
                     <Text className="flex-1 text-sm">{sliceLabel(slice)}</Text>
-                    <Text className="font-display font-bold">{slice.value}%</Text>
+                    <RNText className="tabular-nums text-base font-bold text-content-primary text-end">
+                        {slice.value}%
+                    </RNText>
                 </View>
             ))}
         </View>

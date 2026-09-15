@@ -910,7 +910,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
             {/* ── the record ───────────────────────────────────────────────────────────────── */}
             <Card testID="kitchen-plan-details" padding="md">
                 <Stack space="md">
-                    <Heading level={2}>{t('kitchen:plans.sectionDetails')}</Heading>
+                    <Heading level={3}>{t('kitchen:plans.sectionDetails')}</Heading>
 
                     <BilingualField
                         testID="kitchen-plan-name"
@@ -1116,7 +1116,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
             {isCreating ? (
                 <Card testID="kitchen-plan-matrix-unavailable" padding="md">
                     <Stack space="sm">
-                        <Heading level={2}>{t('kitchen:plans.sectionMatrix')}</Heading>
+                        <Heading level={3}>{t('kitchen:plans.sectionMatrix')}</Heading>
                         <Text tone="secondary">{t('kitchen:plans.createFirst')}</Text>
                     </Stack>
                 </Card>
@@ -1126,7 +1126,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     <Card testID="kitchen-plan-matrix" padding="md">
                         <Stack space="md">
                             <Stack space="xs">
-                                <Heading level={2}>{t('kitchen:plans.sectionMatrix')}</Heading>
+                                <Heading level={3}>{t('kitchen:plans.sectionMatrix')}</Heading>
                                 <Text tone="secondary" variant="caption">
                                     {t('kitchen:plans.matrixHelp')}
                                 </Text>
@@ -1237,7 +1237,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                             ) : null}
 
                             <Stack space="xs">
-                                <Heading level={3}>{t('kitchen:plans.variantsTitle')}</Heading>
+                                <Heading level={4}>{t('kitchen:plans.variantsTitle')}</Heading>
                                 <Text tone="secondary" variant="caption">
                                     {t('kitchen:plans.variantsHelp')}
                                 </Text>
@@ -1278,7 +1278,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     <Card testID="kitchen-plan-combinations" padding="md">
                         <Stack space="md">
                             <Stack space="xs">
-                                <Heading level={2}>
+                                <Heading level={3}>
                                     {t('kitchen:plans.sectionCombinations')}
                                 </Heading>
                                 <Text tone="secondary" variant="caption">
@@ -1336,7 +1336,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     <Card testID="kitchen-plan-durations" padding="md">
                         <Stack space="md">
                             <Stack space="xs">
-                                <Heading level={2}>{t('kitchen:plans.sectionDurations')}</Heading>
+                                <Heading level={3}>{t('kitchen:plans.sectionDurations')}</Heading>
                                 <Text tone="secondary" variant="caption">
                                     {t('kitchen:plans.durationsHelp')}
                                 </Text>
@@ -1421,7 +1421,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     <Card testID="kitchen-plan-menu" padding="md">
                         <Stack space="md">
                             <Stack space="xs">
-                                <Heading level={2}>{t('kitchen:plans.sectionMenu')}</Heading>
+                                <Heading level={3}>{t('kitchen:plans.sectionMenu')}</Heading>
                                 <Text tone="secondary" variant="caption">
                                     {t('kitchen:plans.menuHelp')}
                                 </Text>
@@ -1608,7 +1608,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     {/* ── prices, stated rather than edited ────────────────────────────────── */}
                     <Card testID="kitchen-plan-prices" padding="md">
                         <Stack space="sm">
-                            <Heading level={2}>{t('kitchen:plans.sectionPrices')}</Heading>
+                            <Heading level={3}>{t('kitchen:plans.sectionPrices')}</Heading>
                             <Text tone="secondary" variant="caption">
                                 {t('kitchen:plans.pricesHelp')}
                             </Text>

@@ -15,6 +15,8 @@
  */
 
 export const CHECKOUT_EMPTY_CART = 'checkout.empty_cart';
+/** `address_missing` from `POST /checkouts/preview`, under the `checkout.` prefix the repository adds. */
+export const CHECKOUT_ADDRESS_MISSING = 'checkout.address_missing';
 export const ALLERGEN_CONFLICT_WARNING = 'planner.allergen_conflict';
 export const SUBSCRIPTION_NO_DELIVERY_DAYS = 'subscription.no_delivery_days';
 export const SUBSCRIPTION_DAY_UNAVAILABLE = 'subscription.delivery_day_unavailable';
@@ -22,6 +24,7 @@ export const SUBSCRIPTION_UNKNOWN_SLOT = 'subscription.unknown_slot';
 
 const KNOWN: ReadonlySet<string> = new Set([
     CHECKOUT_EMPTY_CART,
+    CHECKOUT_ADDRESS_MISSING,
     ALLERGEN_CONFLICT_WARNING,
     SUBSCRIPTION_NO_DELIVERY_DAYS,
     SUBSCRIPTION_DAY_UNAVAILABLE,

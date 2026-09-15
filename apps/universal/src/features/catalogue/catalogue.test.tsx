@@ -26,6 +26,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { useCartQuery } from '../../data/marketplace-hooks.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import {
     centimetresFromFeetInches,
@@ -372,8 +373,42 @@ const DETAIL_MEAL = testMeal({
     channels: salesChannels('b2c', 'marketplace', 'delivery', 'subscription', 'b2b'),
 });
 
+/**
+ * The same screen for a listing sold by weight.
+ *
+ * A bottled sauce's published recipe version states what the bottle holds and no piece count, so
+ * the server derives per-100 g facts (`catalogue.nutrition.per_100g`) and sends `serving: null` —
+ * which the API mapper turns into `UNSTATED_SERVING`, an empty label and an unknown mass. Both
+ * halves are authored here exactly as they arrive, because it is the *pair* the screen has to read
+ * correctly: a per-serving view over these amounts would be naming a portion nobody sells.
+ */
+const WEIGHED_MEAL: MarketplaceMeal = {
+    ...testMeal({ ordinal: 101, name: 'Smoked chilli sauce', slug: 'verdant-smoked-chilli-sauce' }),
+    // `UNSTATED_SERVING`, written out rather than imported: it is not on the package's public
+    // surface, and a fixture that states the shape is the one a reader can check against the wire.
+    serving: {
+        label: '',
+        quantity: 1,
+        unit: 'portion',
+        grams: null,
+        millilitres: null,
+        householdMeasure: null,
+    },
+    nutrition: {
+        ...testFacts({ totalGrams: 100 }),
+        basis: 'per_100g',
+        serving: null,
+        calculation: {
+            ...testFacts().calculation,
+            method: 'catalogue.nutrition.per_100g',
+            basis: 'per_100g',
+        },
+    },
+};
+
 async function getMeal(mealId: MealId): Promise<MarketplaceMeal> {
     if (mealId === DETAIL_MEAL.id) return DETAIL_MEAL;
+    if (mealId === WEIGHED_MEAL.id) return WEIGHED_MEAL;
     const meal = CATALOGUE_MEALS.find((candidate) => candidate.id === mealId);
     if (meal === undefined) throw new ApiError(apiFailure('resource.not_found'));
     return meal;
@@ -708,8 +743,12 @@ describe('MealsScreen', () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
-        // The filters are collapsed by default so the grid leads; open them to reach the ranges.
+        // Two disclosures, and both are shut on a clean visit by design. The outer one is the
+        // narrow-viewport filter panel — the grid leads, the controls are one press away. The inner
+        // one is the numbers' own section: the rail is a contents page of five collapsed groups,
+        // and only the group you ask for opens.
         await fireEvent.press(screen.getByTestId('meals-filter-toggle'));
+        await fireEvent.press(screen.getByTestId('meals-filter-group-ranges'));
         await waitFor(() => screen.getByTestId('meals-ranges-energy'));
         for (const key of [
             'energy',
@@ -822,6 +861,19 @@ describe('NutritionFactsPanel', () => {
     });
 });
 
+/**
+ * The cart observer every real screen has above it.
+ *
+ * `marketplace-shell.tsx` renders `useCartQuery(signedIn)` for the basket pill, so on a live screen
+ * the current basket is always in the query cache. A stub screen has no shell, so a test that cares
+ * about that cache has to supply the observer itself — otherwise `gcTime: 0` collects the cart the
+ * moment a mutation writes it and the next add has nothing to read.
+ */
+function CartProbe() {
+    useCartQuery(true);
+    return null;
+}
+
 describe('MealDetailScreen', () => {
     it('renders the record: facts, provenance, macros, allergens, availability and price', async () => {
         await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
@@ -837,6 +889,10 @@ describe('MealDetailScreen', () => {
         expect(screen.getByTestId('meal-detail-facts-calculated-at')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-facts-synthetic')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-macro-rings-protein')).toBeTruthy();
+        // The per-serving half of the contrast the weighed listing below draws: this meal states a
+        // portion, so it gets a serving block and a basis control with both views on it.
+        expect(screen.getByTestId('meal-detail-serving')).toBeTruthy();
+        expect(screen.getByTestId('meal-detail-facts-basis-per-serving')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-allergen-list')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-availability')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-price')).toBeTruthy();
@@ -861,6 +917,30 @@ describe('MealDetailScreen', () => {
                 perServing,
             );
         });
+    });
+
+    it('shows a listing sold by weight per 100 g, with no serving and no per-serving view', async () => {
+        await renderStubScreen(<MealDetailScreen mealId={String(WEIGHED_MEAL.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        await waitFor(() => screen.getByTestId('meal-detail-facts'));
+
+        // Nothing where "One serving is …" would be: the label is empty and the mass unknown, and
+        // printing a sentence around that is how a phrase the kitchen never wrote reaches a page.
+        expect(screen.queryByTestId('meal-detail-serving')).toBeNull();
+
+        // No basis control at all, so there is no "Per serving" tab to press — the facts are
+        // already on the comparison basis and there is no second view to offer.
+        expect(screen.queryByTestId('meal-detail-facts-basis')).toBeNull();
+        expect(screen.queryByTestId('meal-detail-facts-basis-per-serving')).toBeNull();
+        expect(screen.getByTestId('meal-detail-facts-sold-by-weight')).toBeTruthy();
+
+        // And the table says which hundred grams these are, rather than leaving the reader to
+        // assume the amounts describe a portion.
+        expect(screen.getByTestId('meal-detail-facts-table-caption')).toHaveTextContent(
+            /Per 100 g/,
+        );
     });
 
     it('never puts a business price on a consumer page', async () => {
@@ -939,6 +1019,74 @@ describe('MealDetailScreen', () => {
         // after a round trip, so the world is asserted once it has actually settled.
         await waitFor(() => {
             expect(itemCount).toBe(1);
+        });
+    });
+
+    /**
+     * Two adds, one `getCart`.
+     *
+     * `useAddCartItemMutation` used to open the basket before every add — `POST /carts` plus a
+     * lookup for every line already in it — to learn an identifier the cache already held. On a
+     * four-line basket that was five requests per press, in series, and it was most of why adding
+     * took seconds. It now reads the cart the shell is already holding and only opens one when
+     * there is genuinely nothing to read.
+     *
+     * `CartProbe` stands in for that shell: it is the observer that keeps the cart query alive,
+     * which is the arrangement every real marketplace screen renders inside. Its own mount is the
+     * one `getCart` this test expects; neither press adds another.
+     */
+    it('opens the basket once and then reuses the identifier it was given', async () => {
+        let itemCount = 0;
+        const cartId = uuid(9, 2) as CartId;
+        const cart = (): Cart => ({
+            id: cartId,
+            items: [],
+            subtotal: { amount: 0, currency: 'AED' },
+            itemCount,
+            updatedAt: '2026-08-11T09:00:00.000Z',
+        });
+
+        const { repositories } = await renderStubScreen(
+            <>
+                <MealDetailScreen mealId={String(DETAIL_MEAL.id)} />
+                <CartProbe />
+            </>,
+            {
+                session: CONSUMER_SESSION,
+                repositories: {
+                    ...CATALOGUE_REPOSITORIES,
+                    commerce: {
+                        getCart: async () => cart(),
+                        addCartItem: async (_id: CartId, request: AddCartItemRequest) => {
+                            itemCount += request.quantity;
+                            return cart();
+                        },
+                    },
+                },
+            },
+        );
+
+        await waitFor(() => screen.getByTestId('meal-detail-add-to-basket'));
+        await waitFor(() => {
+            expect(repositories.commerce.getCart).toHaveBeenCalledTimes(1);
+        });
+
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+        await waitFor(() => {
+            expect(itemCount).toBe(1);
+        });
+
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+        await waitFor(() => {
+            expect(itemCount).toBe(2);
+        });
+
+        // Two meals in the basket, and the basket was opened exactly once — by the probe.
+        expect(repositories.commerce.getCart).toHaveBeenCalledTimes(1);
+        expect(repositories.commerce.addCartItem).toHaveBeenCalledTimes(2);
+        expect(repositories.commerce.addCartItem).toHaveBeenLastCalledWith(cartId, {
+            mealId: DETAIL_MEAL.id,
+            quantity: 1,
         });
     });
 

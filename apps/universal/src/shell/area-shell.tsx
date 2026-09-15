@@ -1,4 +1,10 @@
-import { AppShell, Button, Inline, OfflineIndicator, useBreakpoint } from '@healthy360/design-system';
+import {
+    AppShell,
+    Button,
+    Inline,
+    OfflineIndicator,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type { AppShellVariant, NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { RouteArea } from '@healthy360/domain-types';
@@ -14,6 +20,7 @@ import { isAreaAvailable } from '../features/availability.ts';
 import { permittedNavigation } from '../navigation/items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useAccessState } from '../session/session-provider.tsx';
+import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
  * Which shell chrome each area gets.
@@ -154,6 +161,7 @@ function GuardedAreaShell({
                         void setLocale(locale.startsWith('ar') ? 'en' : 'ar');
                     }}
                 />
+                <ThemeToggle />
                 {/*
                  * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit
                  * that a staff area with no single core-loop action gets no top-bar primary at
@@ -193,7 +201,7 @@ function GuardedAreaShell({
                 onPress={signOut}
                 className="min-h-touch items-center justify-center rounded-lg border border-content-on-canopy-muted/30"
             >
-                <RNText className="text-sm font-semibold text-content-on-canopy-muted/80">
+                <RNText className="text-sm font-semibold text-content-on-canopy-muted">
                     {t('common:action.signOut')}
                 </RNText>
             </Pressable>

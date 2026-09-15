@@ -6,9 +6,29 @@
 
 Outputs (paths relative to the repo root this script lives under):
   apps/api/app-modules/ingredients/database/data/platform-ingredients.json
-      Sheets "1. Ingredients" + "6.Packaging" -> the platform ingredient
+      Sheets "1. Ingredients" and "6.Packaging" -> the platform ingredient
       library (categories, ingredients, aliases) in the exact document shape
-      IngredientMasterSeeder reads.
+      IngredientMasterSeeder reads: 337 rows, ING-001..306 and PKG-001..031.
+
+      Packaging shares the ingredient table and is told apart by its category:
+      every row from sheet 6 is filed under `packaging-disposables`, the
+      ingredient list excludes that branch and the packaging list asks for it
+      by name. It was briefly its own table, and the argument for that was a
+      bug rather than a difference — a category filter that silently degraded
+      to no filter — which is now closed on both sides at the repository.
+
+      Sheet 6 carries no cost column, so the packaging rows' prices and
+      capacities come from the curated overlay beside this script's output
+      (`packaging-overlay.json`), merged in by source_ref. Those figures are
+      indicative foodservice wholesale, not transcribed — the overlay states
+      its own provenance and the seed document carries it forward.
+
+      Sheet 1 has a curated overlay of its own (`ingredient-overlay.json`),
+      also by source_ref, for the rows the workbook states wrongly or leaves
+      blank. It carries one key — `default_unit_code` — and one row: eggs,
+      which every technical sheet counts in pieces and the master sheet leaves
+      unitless. That one overrides the sheet rather than filling a gap, which
+      is why it is a short, human-written list and not a rule.
   apps/api/app-modules/kitchens/database/data/v6-catalogue.json
       Sheets 2-5 (sauces, dressings, meals, resale products) -> the org
       catalogue the kitchen:import-v6 command reads. Prices sit in their own
@@ -33,6 +53,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLATFORM_OUT = REPO_ROOT / "apps/api/app-modules/ingredients/database/data/platform-ingredients.json"
 CATALOGUE_OUT = REPO_ROOT / "apps/api/app-modules/kitchens/database/data/v6-catalogue.json"
+# Curated packaging prices and capacities. Not workbook-derived — sheet 6 has no cost column —
+# so it is an input to the conversion rather than an output of it.
+PACKAGING_OVERLAY = REPO_ROOT / "apps/api/app-modules/ingredients/database/data/packaging-overlay.json"
+# The same idea for sheet 1: curated corrections to rows the workbook states wrongly or not at
+# all. One key, `default_unit_code`, and one row today (eggs are counted, not weighed).
+INGREDIENT_OVERLAY = REPO_ROOT / "apps/api/app-modules/ingredients/database/data/ingredient-overlay.json"
 
 # ---------------------------------------------------------------- vocabulary
 
@@ -300,9 +326,16 @@ class Taxonomy:
 
 # ---------------------------------------------------------------- converters
 
-def convert_ingredients(ws, taxonomy: Taxonomy, slugs: SlugBook, repairs: list[str]):
-    """Sheet '1. Ingredients' -> platform ingredient rows."""
+def convert_ingredients(ws, taxonomy: Taxonomy, slugs: SlugBook, repairs: list[str], overlay: dict | None = None):
+    """Sheet '1. Ingredients' -> platform ingredient rows.
+
+    `overlay` is the curated corrections document keyed by source_ref. Unlike the packaging
+    one it *overrides* rather than fills a gap: the sheet's Unit column is blank for eggs, so
+    the generator defaults the row to kg, and every technical sheet then states eggs in pieces
+    against a kilogram-stocked row. A human decided which of the two the platform believes.
+    """
     out = []
+    overlay = overlay or {}
     for row in sheet_rows(ws, "ING-"):
         (rid, item, _published, category, subcategory, _ing, _prod, kind, status,
          allergen_class, composition, allergen_source, type_cell, unit_cell,
@@ -332,6 +365,16 @@ def convert_ingredients(ws, taxonomy: Taxonomy, slugs: SlugBook, repairs: list[s
         if collided:
             flags.append("slug_collision_suffixed")
 
+        # Every row of the ingredient master is a supplier good. The sheet's
+        # Kind column disagrees exactly once (ING-278 Caramelised Onions,
+        # which is also PRD-005 on the production sheet), and that is the
+        # catalogue row's fact, not this one's: whether something is made
+        # in-house is a property of the recipe that outputs it, never of the
+        # ingredient. The override is flagged rather than silent.
+        if clean(kind).lower() not in {"", "supplier", "suplier"}:
+            flags.append("kind_forced_supplier")
+            repairs.append(f"{rid}: Kind {clean(kind)!r} -> supplier")
+
         entry = {
             "source_ref": rid,
             "slug": slug,
@@ -341,9 +384,19 @@ def convert_ingredients(ws, taxonomy: Taxonomy, slugs: SlugBook, repairs: list[s
             "default_unit_code": usage,
             "purchase_unit_code": purchase,
             "status": status_value,
-            "kind": clean(kind).lower() or None,
+            "kind": "supplier",
             "allergens": mappings,
         }
+
+        # The curated half. Only a key the overlay actually states is copied, so a row it does
+        # not mention is exactly what the sheet described. A stated unit replaces the defaulted
+        # one and takes its flag with it: "defaulted to kg" stops being true the moment
+        # something else is written, and a stale flag is worse than none.
+        overlay_unit = overlay.get(rid, {}).get("default_unit_code")
+        if overlay_unit:
+            entry["default_unit_code"] = overlay_unit
+            flags = [f for f in flags if f != "unit_defaulted_kg"] + ["unit_from_overlay"]
+
         if clean(composition):
             entry["composition"] = clean(composition)
         ipu = number_or_none(items_per_unit)
@@ -357,13 +410,22 @@ def convert_ingredients(ws, taxonomy: Taxonomy, slugs: SlugBook, repairs: list[s
     return out
 
 
-def convert_packaging(ws, taxonomy: Taxonomy, slugs: SlugBook):
-    """Sheet '6.Packaging' -> platform ingredient rows (non-food supplier
-    goods; no allergens, no nutrition)."""
+def convert_packaging(ws, taxonomy: Taxonomy, slugs: SlugBook, overlay: dict):
+    """Sheet '6.Packaging' -> platform ingredient rows.
+
+    Non-food supplier goods: no allergens, no nutrition, no yield. They are
+    ingredients in storage and in shape, and packaging by category.
+
+    `overlay` is the curated price/capacity document keyed by source_ref. The
+    sheet has no cost column at all, so without it every box seeds unpriced -
+    and a recipe's technical sheet withholds its total entirely while any one
+    packaging line has no price, so one unpriced box takes the bottom line off
+    every recipe that ships in it.
+    """
     out = []
     for row in sheet_rows(ws, "PKG-"):
         (rid, item, category, subcategory, _kind, status, composition,
-         type_cell, unit_cell, items_per_unit, _waste) = (list(row) + [None] * 11)[:11]
+         type_cell, unit_cell, items_per_unit, waste) = (list(row) + [None] * 11)[:11]
         rid, item = clean(rid), clean(item)
         category_code, subcategory_code = taxonomy.add(category, subcategory)
         usage = unit_code(unit_cell) or "piece"
@@ -385,6 +447,25 @@ def convert_packaging(ws, taxonomy: Taxonomy, slugs: SlugBook):
         ipu = number_or_none(items_per_unit)
         if ipu is not None:
             entry["items_per_unit"] = ipu
+        pct = number_or_none(waste)
+        if pct is not None:
+            entry["waste_percent"] = pct
+
+        # The curated half. Only keys the overlay actually states are copied, so a row it does
+        # not mention seeds exactly as the sheet describes it rather than with invented nulls.
+        #
+        # `items_per_unit` is in this list and is the reason the list is not just prices: sheet 6
+        # leaves the column blank on every row, and it is the divisor between a pack price and a
+        # per-piece cost. Without it a case of 500 lids at 40.00 costs a recipe 40.00 a lid. The
+        # sheet still wins where it states one — the overlay only fills a gap.
+        for field in ("items_per_unit", "purchase_price_amount", "purchase_price_currency",
+                      "capacity_quantity", "capacity_unit_code"):
+            if entry.get(field) is not None:
+                continue
+            value = overlay.get(rid, {}).get(field)
+            if value is not None:
+                entry[field] = value
+
         out.append(entry)
     return out
 
@@ -591,18 +672,41 @@ def convert_products_sheet(ws, taxonomy: Taxonomy, slugs: SlugBook, repairs: lis
 
 # ---------------------------------------------------------------- driver
 
-def convert(workbook):
+def worksheet(workbook, *names):
+    """Resolve a worksheet by any of the titles the export has used for it.
+
+    Exports rename tabs between revisions — sheet 4 has shipped as both
+    "4. Meals" and "4. Production", sheet 5 as both "5. Products" and
+    "5. Resale" — while the column layout and the row identifier prefix stay
+    put. Rows are classified by their own `PRD-`/`RSL-` identifier anyway, so
+    a tab rename must not be the thing that breaks a conversion. Matching
+    ignores case and whitespace; an unknown title still fails loudly, naming
+    what the workbook actually contains.
+    """
+    available = {str(t).strip().lower(): t for t in workbook.sheetnames}
+    for name in names:
+        title = available.get(name.strip().lower())
+        if title is not None:
+            return workbook[title]
+    raise KeyError(f"no sheet named any of {list(names)}; workbook has {workbook.sheetnames}")
+
+
+def convert(workbook, packaging_overlay=None, ingredient_overlay=None):
     taxonomy = Taxonomy()
     slugs = SlugBook()
     repairs: list[str] = []
 
-    platform = convert_ingredients(workbook["1. Ingredients"], taxonomy, slugs, repairs)
-    packaging = convert_packaging(workbook["6.Packaging"], taxonomy, slugs)
+    platform = convert_ingredients(
+        worksheet(workbook, "1. Ingredients"), taxonomy, slugs, repairs, ingredient_overlay or {},
+    )
+    packaging = convert_packaging(
+        worksheet(workbook, "6.Packaging"), taxonomy, slugs, packaging_overlay or {},
+    )
     catalogue = (
-        convert_production_sheet(workbook["2. Sauce & Marination"], "SAC-", "sauce", taxonomy, slugs, repairs)
-        + convert_production_sheet(workbook["3. Dressing"], "DRS-", "dressing", taxonomy, slugs, repairs)
-        + convert_production_sheet(workbook["4. Meals"], "PRD-", "meal", taxonomy, slugs, repairs)
-        + convert_products_sheet(workbook["5. Products"], taxonomy, slugs, repairs)
+        convert_production_sheet(worksheet(workbook, "2. Sauce & Marination"), "SAC-", "sauce", taxonomy, slugs, repairs)
+        + convert_production_sheet(worksheet(workbook, "3. Dressing"), "DRS-", "dressing", taxonomy, slugs, repairs)
+        + convert_production_sheet(worksheet(workbook, "4. Meals", "4. Production"), "PRD-", "meal", taxonomy, slugs, repairs)
+        + convert_products_sheet(worksheet(workbook, "5. Products", "5. Resale"), taxonomy, slugs, repairs)
     )
 
     platform_doc = {
@@ -711,8 +815,8 @@ def build_synthetic_workbook():
     fill("6.Packaging",
          ["ID", "Item", "Category", "Sub-Category", "Kind", "Status", "Composition (Made From)",
           "Type", "Unit", "Items per Unit", "Waste (%)"],
-         [["PKG-001", "Test Bags", "Packaging & disposables", "Bags", "Supplier", "Active", "Polyethylene",
-           "BAG", "PIECE", None, None]])
+         [["PKG-001", "Test Bags", "Packaging & disposables", "Bags", "Supplier", "Active",
+           "Polyethylene", "BAG", "PIECE", 100, 2]])
     return wb
 
 
@@ -725,6 +829,7 @@ def self_test():
     ings, items = platform["ingredients"], catalogue["items"]
 
     assert len(ings) == 4 and len(items) == 10, (len(ings), len(items))
+    assert {r["kind"] for r in ings} == {"supplier"}
 
     flour = by_ref(ings, "ING-001")
     assert flour["default_unit_code"] == "kg" and flour["purchase_unit_code"] == "kg"
@@ -745,9 +850,35 @@ def self_test():
     assert coconut["allergens"][0]["market_scope"] == "us_only"
     assert coconut["purchase_unit_code"] == "pack" and coconut["default_unit_code"] == "piece"
 
+    # The curated ingredient overlay: a stated unit replaces the defaulted one, takes the
+    # `unit_defaulted_kg` flag with it, and leaves the purchase unit — what the sheet says is
+    # bought — exactly as it was. A row the overlay does not name is untouched.
+    assert vinegar["default_unit_code"] == "kg", "the un-overlaid row above is the control"
+    overlaid = convert_ingredients(
+        build_synthetic_workbook()["1. Ingredients"], Taxonomy(), SlugBook(), [],
+        {"ING-002": {"default_unit_code": "piece"}},
+    )
+    corrected = by_ref(overlaid, "ING-002")
+    assert corrected["default_unit_code"] == "piece" and corrected["purchase_unit_code"] == "kg"
+    assert corrected["flags"] == ["status_blank_inactive", "unit_from_overlay"], corrected["flags"]
+    assert by_ref(overlaid, "ING-001")["default_unit_code"] == "kg"
+
+    # Packaging is an ingredient filed under its own branch — that category *is* the
+    # discriminator, so it is the one thing here worth asserting outright.
     pkg = by_ref(ings, "PKG-001")
     assert pkg["allergens"] == [] and pkg["category_code"] == "packaging-disposables"
+    assert pkg["subcategory_code"] == "packaging-disposables-bags"
     assert pkg["default_unit_code"] == "piece" and pkg["purchase_unit_code"] == "bag"
+    assert pkg["items_per_unit"] == 100 and pkg["waste_percent"] == 2
+    # The sheet carries no cost column; the curated overlay is what supplies one, and a row the
+    # overlay does not mention keeps exactly what the sheet said.
+    assert "purchase_price_amount" not in pkg
+
+    priced = convert_packaging(
+        build_synthetic_workbook()["6.Packaging"], Taxonomy(), SlugBook(),
+        {"PKG-001": {"purchase_price_amount": 6.5, "purchase_price_currency": "USD"}},
+    )[0]
+    assert priced["purchase_price_amount"] == 6.5 and priced["purchase_price_currency"] == "USD"
 
     sauce = by_ref(items, "SAC-001")
     assert sauce["prices"]["b2b"] == {"weight_kg": 1, "price_minor": 500, "currency": "USD"}
@@ -1047,10 +1178,24 @@ def main():
     import openpyxl
 
     workbook = openpyxl.load_workbook(args[0], data_only=True)
-    platform_doc, catalogue_doc, repairs = convert(workbook)
+
+    # The curated price/capacity overlay for packaging, keyed by source_ref. Sheet 6 carries no
+    # cost column, so without this every box regenerates unpriced — and a technical sheet
+    # withholds its total entirely while one packaging line has none.
+    def load_overlay(path, warning):
+        if not path.exists():
+            print(f"warning: {path} is missing; {warning}", file=sys.stderr)
+            return {}
+        return {row["source_ref"]: row for row in json.loads(path.read_text(encoding="utf-8"))["items"]}
+
+    overlay = load_overlay(PACKAGING_OVERLAY, "packaging will regenerate unpriced")
+    # Sheet 1's curated corrections — today, the one row the workbook states in the wrong unit.
+    ingredient_overlay = load_overlay(INGREDIENT_OVERLAY, "ingredient units will regenerate as the sheet states them")
+
+    platform_doc, catalogue_doc, repairs = convert(workbook, overlay, ingredient_overlay)
 
     ings, items = platform_doc["ingredients"], catalogue_doc["items"]
-    assert len(ings) == 337, f"expected 306 ING + 31 PKG, got {len(ings)}"
+    assert len(ings) == 337, f"expected 306 ING + 31 PKG rows, got {len(ings)}"
     assert len(items) == 155, f"expected 43+19+38+55 items, got {len(items)}"
     assert len({i["source_ref"] for i in ings}) == len(ings)
     assert len({i["slug"] for i in ings}) == len(ings)

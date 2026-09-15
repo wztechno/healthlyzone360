@@ -1,5 +1,6 @@
-import { Card, RangeFilter, Stack, Text } from '@healthy360/design-system';
-import type { RangeValue } from '@healthy360/design-system';
+import { SliderField, Stack, Text } from '@healthy360/design-system';
+import type { RangeValue, SliderDirection } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
 import type { MealFilter } from '@healthy360/api-client/contracts';
 import { minorUnitExponent } from '@healthy360/domain-types';
 import type {
@@ -176,12 +177,51 @@ export interface MealRangeFiltersProps {
     readonly testID?: string | undefined;
 }
 
+/**
+ * The ceiling each slider runs to, and why these are round numbers rather than measurements.
+ *
+ * A slider needs a maximum and nothing can supply one honestly: `MealFilter` carries no extents,
+ * `MarketplaceRepository` exposes no facets endpoint, and `CursorPage` meta carries only a total.
+ * Deriving one from the fetched page would be worse than inventing one — it would move as you
+ * filtered, so the same meal would sit at a different point on the track from one keystroke to the
+ * next, and the thumb would jump under the hand that was dragging it.
+ *
+ * So these are editorial ceilings, chosen to clear the seeded catalogue with headroom, declared in
+ * one place. The day a facets endpoint exists, this constant is what it replaces.
+ */
+const MEAL_RANGE_MAXIMUMS: Readonly<Record<MealRangeKey, number>> = {
+    energy: 1200,
+    protein: 100,
+    carbohydrate: 150,
+    fat: 100,
+    price: 100,
+    preparationMinutes: 120,
+};
+
+/**
+ * Which end of the range each slider's single thumb sets.
+ *
+ * Declared per key rather than assumed, because the side is a property of the question. Energy,
+ * carbohydrate, fat, price and time are ceilings — nobody searches for the expensive half of a menu
+ * or the slowest thing on it. Protein is a floor: "at least 30 g" is the entire reason that filter
+ * exists, and "protein under 30 g" is a filter no one has ever wanted.
+ */
+const MEAL_RANGE_DIRECTIONS: Readonly<Record<MealRangeKey, SliderDirection>> = {
+    energy: 'atMost',
+    protein: 'atLeast',
+    carbohydrate: 'atMost',
+    fat: 'atMost',
+    price: 'atMost',
+    preparationMinutes: 'atMost',
+};
+
 export function MealRangeFilters({
     state,
     currency,
     testID = 'meal-ranges',
 }: MealRangeFiltersProps) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
 
     const rows: readonly {
         readonly key: MealRangeKey;
@@ -218,36 +258,72 @@ export function MealRangeFilters({
             key: 'preparationMinutes',
             label: t('catalogue:filters.preparationMinutes'),
             unit: t('catalogue:filters.unitMinutes'),
-            step: 1,
+            step: 5,
         },
     ];
 
     return (
-        <Card testID={testID} padding="md" tone="sunken">
-            <Stack space="md">
-                <Stack space="xs">
-                    <Text variant="label">{t('catalogue:filters.rangesTitle')}</Text>
-                    <Text tone="secondary" variant="caption">
-                        {t('catalogue:filters.rangesHint')}
-                    </Text>
-                </Stack>
+        /*
+         * No card and no heading of its own any more: this now renders inside an accordion panel
+         * that supplies both. A titled card inside a titled section is a box in a box, and it said
+         * "Narrow it by the numbers" twice, once in the header and once four pixels below it.
+         */
+        <Stack space="md" testID={testID}>
+            <Text tone="secondary" variant="caption">
+                {t('catalogue:filters.rangesHint')}
+            </Text>
 
-                {rows.map((row) => (
-                    <RangeFilter
+            {rows.map((row) => {
+                const direction = MEAL_RANGE_DIRECTIONS[row.key];
+                const bound =
+                    direction === 'atLeast' ? state.values[row.key].min : state.values[row.key].max;
+                /*
+                 * Composed here rather than inside the control, for the reason every other
+                 * figure on this screen is: only a screen knows the locale's numbering system,
+                 * and a sentence split around its number does not survive Arabic. "Under 700
+                 * kcal" is one interpolated string, not a word, a figure and a word.
+                 */
+                const readout =
+                    bound === null
+                        ? t('catalogue:filters.anyValue')
+                        : t(
+                              direction === 'atLeast'
+                                  ? 'catalogue:filters.atLeast'
+                                  : 'catalogue:filters.atMost',
+                              { value: formatter.formatNumber(bound), unit: row.unit },
+                          );
+
+                return (
+                    <SliderField
                         key={row.key}
                         testID={`${testID}-${row.key}`}
                         id={`${testID}-${row.key}`}
                         label={row.label}
-                        unit={row.unit}
+                        direction={direction}
+                        value={bound}
+                        min={0}
+                        max={MEAL_RANGE_MAXIMUMS[row.key]}
                         step={row.step}
-                        bounds={{ min: 0 }}
-                        value={state.values[row.key]}
+                        unit={row.unit}
+                        readout={readout}
                         onChange={(next) => {
-                            state.set(row.key, next);
+                            /*
+                             * The slider owns one end, so the other is cleared rather than left
+                             * standing: a stale `energyMin` off a shared link would go on
+                             * narrowing the grid with nothing on screen able to show it or undo
+                             * it. Both parameters are still written, so `?proteinMin=45` and
+                             * `?energyMax=500` keep meaning exactly what they always did.
+                             */
+                            state.set(
+                                row.key,
+                                direction === 'atLeast'
+                                    ? { min: next, max: null }
+                                    : { min: null, max: next },
+                            );
                         }}
                     />
-                ))}
-            </Stack>
-        </Card>
+                );
+            })}
+        </Stack>
     );
 }

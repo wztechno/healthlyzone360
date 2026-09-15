@@ -50,10 +50,6 @@
         "dev": {
             "cache": false,
             "persistent": true
-        },
-        "e2e": {
-            "dependsOn": ["build:web"],
-            "cache": false
         }
     }
 }

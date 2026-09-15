@@ -10,7 +10,12 @@ import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
 import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
 import { permittedNavigation } from '../../navigation/items.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
-import { OVERVIEW_HREF, isKitchenNavActive, kitchenNavSections } from './kitchen-nav.ts';
+import {
+    OVERVIEW_HREF,
+    activeKitchenNavHref,
+    isKitchenNavActive,
+    kitchenNavSections,
+} from './kitchen-nav.ts';
 import { buildReviewQueue } from './review-queue.ts';
 
 /**
@@ -60,18 +65,21 @@ export function KitchenBrandBlock() {
                 style={{ width: 32, height: 32, borderRadius: 8 }}
             >
                 <View className="h-full w-full items-center justify-center">
-                    <RNText className="font-display text-base text-content-on-canopy">
+                    <RNText className="text-base font-bold text-content-on-canopy">
                         {t('marketplace:brand.name').slice(0, 1)}
                     </RNText>
                 </View>
             </LinearGradient>
             <View className="min-w-0 flex-1">
-                <RNText numberOfLines={1} className="font-display text-base text-content-on-canopy">
+                <RNText
+                    numberOfLines={1}
+                    className="text-base font-bold text-content-on-canopy text-start"
+                >
                     {t('marketplace:brand.name')}
                 </RNText>
                 <RNText
                     numberOfLines={1}
-                    className="text-xs text-content-on-canopy-muted/80 text-start"
+                    className="text-xs text-content-on-canopy-muted text-start"
                 >
                     {t('kitchen:nav.railTitle')}
                 </RNText>
@@ -123,6 +131,11 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
     const exceptionTotal = exceptions.data ?? null;
 
     return useMemo(() => {
+        const activeHref = activeKitchenNavHref(
+            pathname,
+            sections.flatMap((section) => section.items.map((item) => item.href)),
+        );
+
         const queueCount = (key: string): number | null => {
             if (key === 'review') return reviewTotal;
             if (key === 'consumption-exceptions') return exceptionTotal;
@@ -140,7 +153,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 key: item.key,
                 label: t(item.nameKey),
                 icon: item.icon,
-                active: isKitchenNavActive(pathname, item.href),
+                active: item.href === activeHref,
                 testID: `nav-${item.key}`,
                 ...(count === null || count === 0
                     ? {}
@@ -176,19 +189,17 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                     group: t(section.labelKey),
                 })),
             ),
-            ...permittedNavigation(state).map(
-                (item): NavigationItem => ({
-                    key: item.key,
-                    label: t(item.labelKey),
-                    icon: item.icon,
-                    group: t('kitchen:nav.groups.workspace'),
-                    active: pathname === item.href,
-                    testID: `nav-${item.key}`,
-                    onPress: () => {
-                        router.push(item.href as never);
-                    },
-                }),
-            ),
+            ...permittedNavigation(state).map((item): NavigationItem => ({
+                key: item.key,
+                label: t(item.labelKey),
+                icon: item.icon,
+                group: t('kitchen:nav.groups.workspace'),
+                active: pathname === item.href,
+                testID: `nav-${item.key}`,
+                onPress: () => {
+                    router.push(item.href as never);
+                },
+            })),
         ];
     }, [sections, state, pathname, reviewTotal, exceptionTotal, router, t]);
 }

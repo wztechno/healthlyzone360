@@ -21,6 +21,7 @@ import type {
     MealType,
     SalesChannel,
 } from '@healthy360/domain-types';
+import type { Formatter } from '@healthy360/i18n';
 import { MEASURE_UNITS } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
 
@@ -105,6 +106,29 @@ export function statusTone(status: PublishableStatus): BadgeTone {
     return STATUS_TONES[status];
 }
 
+/**
+ * The **short** status vocabulary — Live · Draft · Review · Archived.
+ *
+ * A second vocabulary rather than a rewrite of {@link statusKey}, because the two say the same
+ * thing at two densities and both are needed. `kitchen:status.*` is the sentence-length name every
+ * other kitchen screen shows in a form field, a filter panel and a confirmation dialog
+ * ("Awaiting review"); this is the one-word chip the Catalogue's 78px Status track and its
+ * four-segment toolbar can actually hold, and it is the wording the design draws.
+ *
+ * Renaming the long vocabulary to fit the chip would have changed the word on a dozen screens that
+ * have room for it; deriving the chip by truncation would have produced "Awaiting…".
+ */
+const STATUS_SHORT_KEYS: Readonly<Record<PublishableStatus, string>> = {
+    draft: 'kitchen:statusShort.draft',
+    review_required: 'kitchen:statusShort.reviewRequired',
+    published: 'kitchen:statusShort.published',
+    retired: 'kitchen:statusShort.retired',
+};
+
+export function statusShortKey(status: PublishableStatus): string {
+    return STATUS_SHORT_KEYS[status];
+}
+
 /** Statuses the list filter offers, in lifecycle order. Archived rows are included deliberately. */
 export const INGREDIENT_STATUS_FILTERS: readonly PublishableStatus[] = [
     'draft',
@@ -184,6 +208,22 @@ export function unitKey(unit: MeasureUnit): string {
     return `kitchen:units.${unit}`;
 }
 
+/**
+ * The **abbreviated** unit — `kg`, `L`, `pc` — for a column, not a picker.
+ *
+ * {@link unitKey} resolves to "Kilograms (kg)", which is the right label on a select where the
+ * reader is choosing between dimensions and needs the word. It is the wrong label in a 56px track,
+ * where the abbreviation is what the kitchen writes on the sheet anyway. Two keys, one per job,
+ * for the same reason the status vocabulary is two.
+ *
+ * Still translated. `kg` and `L` are the same in Arabic script contexts that use Latin unit marks,
+ * but `pc`, `pack` and `bag` are not, and a symbol table welded into the presentation layer is how
+ * a catalogue ends up half-translated.
+ */
+export function unitShortKey(unit: MeasureUnit): string {
+    return `kitchen:unitsShort.${unit}`;
+}
+
 /* ── category codes ──────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -213,6 +253,43 @@ export function unitsInDimension(unit: MeasureUnit): readonly MeasureUnit[] {
     return MEASURE_UNITS.filter((candidate) => unitDimension(candidate) === dimension);
 }
 
+/**
+ * The units a quantity can actually be re-expressed in, and what one of each is worth.
+ *
+ * One table per dimension, so a lookup that finds `from` in a table and not `to` is a cross-dimension
+ * conversion and answers `null` rather than a plausible wrong number — the same refusal
+ * `RecipeVersionService::convert` makes server-side.
+ *
+ * ponytail: four units. `cup`, `tbsp` and `tsp` share the volume dimension but have no fixed factor
+ * (a cup of flour is not a cup of oil by mass and the ml figure is regional); extend the table when a
+ * recipe is actually written in cups, and give each its own ml factor then.
+ */
+const CONVERSION_FACTORS: readonly Readonly<Partial<Record<MeasureUnit, number>>>[] = [
+    { g: 1, kg: 1000 },
+    { ml: 1, l: 1000 },
+];
+
+/**
+ * `quantity` of `from`, expressed in `to`. `null` when the two cannot be converted.
+ *
+ * `null` rather than a fallback of any kind: a 300 g line read against a per-kilogram price is wrong
+ * by a factor of a thousand, and an unconvertible pair is exactly the case where a number would be
+ * confidently wrong. Identity first, so a unit outside the tables still converts to itself.
+ */
+export function normaliseQuantity(
+    quantity: number,
+    from: MeasureUnit,
+    to: MeasureUnit,
+): number | null {
+    if (from === to) return quantity;
+
+    const table = CONVERSION_FACTORS.find((candidate) => candidate[from] !== undefined);
+    const fromFactor = table?.[from];
+    const toFactor = table?.[to];
+    if (fromFactor === undefined || toFactor === undefined) return null;
+    return (quantity * fromFactor) / toFactor;
+}
+
 /* ── recipes ─────────────────────────────────────────────────────────────────────────────────── */
 
 /** Statuses the recipe list filter offers, in lifecycle order. Quarantine and retired included. */
@@ -237,6 +314,7 @@ const ROLLUP_WARNING_KEYS: Readonly<Record<string, string>> = {
     'rollup.unconvertible_unit': 'kitchen:rollup.warningUnconvertibleUnit',
     'rollup.missing_cost': 'kitchen:rollup.warningMissingCost',
     'rollup.missing_facts': 'kitchen:rollup.warningMissingFacts',
+    'rollup.missing_nutrition': 'kitchen:rollup.warningMissingNutrition',
 };
 
 /** The i18n key for a warning code, or `null` when only the server's sentence is available. */
@@ -253,6 +331,63 @@ export function rollupWarningKey(code: string): string | null {
 export function costPerServing(cost: CostAmount | null, servings: number): CostAmount | null {
     if (cost === null || !Number.isFinite(servings) || servings <= 0) return null;
     return { amount: cost.amount / servings, currency: cost.currency };
+}
+
+/**
+ * What one line costs — the quantity converted into the unit the price is quoted against, then
+ * multiplied.
+ *
+ * The conversion is the whole point. A price is recorded per *one* unit of something (per kilogram,
+ * per piece) and a line is written in whatever the kitchen's sheet used, so multiplying the raw
+ * figures reads a 300 g line against a per-kilogram price as three hundred kilograms. The server
+ * converts before it multiplies (`RecipeVersionService::costOf`) and refuses across dimensions; this
+ * is the same rule on the client.
+ *
+ * `null` is an **uncosted** line — no recorded price, or no conversion between the two units — and is
+ * never a zero. A zero is a measurement, and a costing panel full of them reads as "these things are
+ * free" rather than "nobody has priced them".
+ */
+export function lineCost(
+    quantity: number,
+    unit: MeasureUnit,
+    price: CostAmount | null,
+    pricedPer: MeasureUnit,
+): number | null {
+    if (price === null) return null;
+    const converted = normaliseQuantity(quantity, unit, pricedPer);
+    return converted === null ? null : converted * price.amount;
+}
+
+/**
+ * What one filled package costs: the product it holds, plus the container at its own waste rate.
+ *
+ * `capacity` is how much product one item holds *in the recipe's own unit* (a 300 cc bottle carries
+ * `0.3` kg of sauce — see `IngredientAdmin.capacity`), so the contents cost is the production cost
+ * per yield unit times that capacity converted into the yield's unit. The waste coefficient applies
+ * to the container alone: a box is crushed in the stack, the sauce inside it is not.
+ *
+ * `null` when the item records no capacity, or when its capacity cannot be converted to the yield
+ * unit — a `piece` capacity against a kilogram yield is a question this arithmetic cannot answer.
+ */
+export function costPerPackage({
+    productionPerYieldUnit,
+    capacity,
+    yieldUnit,
+    containerPrice,
+    packagingWastePercent,
+}: {
+    readonly productionPerYieldUnit: number;
+    readonly capacity: { readonly quantity: number; readonly unit: MeasureUnit } | null;
+    readonly yieldUnit: MeasureUnit;
+    readonly containerPrice: number | null;
+    readonly packagingWastePercent: number;
+}): number | null {
+    if (capacity === null) return null;
+    const held = normaliseQuantity(capacity.quantity, capacity.unit, yieldUnit);
+    if (held === null) return null;
+    return (
+        productionPerYieldUnit * held + (containerPrice ?? 0) * (1 + packagingWastePercent / 100)
+    );
 }
 
 /**
@@ -289,6 +424,97 @@ export function parseQuantity(value: string): number | null {
     if (trimmed === '' || !/^\d*\.?\d*$/.test(trimmed)) return null;
     const parsed = Number(trimmed);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+/* ── list prices ─────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A stored price as an input string.
+ *
+ * Two decimals is what a price is *typed* at, but `CostAmount` is stored at six
+ * (`decimal(18, 6)`, because a cost comes from dividing a purchase price by a yield). Padding to
+ * two would round a six-decimal figure into the box and then save the rounded value back on the
+ * next edit, which is a silent write nobody asked for. So only a figure that already fits two
+ * decimals is padded; one that carries more is shown in full.
+ */
+export function amountToInput(cost: CostAmount | null): string {
+    if (cost === null) return '';
+    const padded = cost.amount.toFixed(2);
+    return Number(padded) === cost.amount ? padded : String(cost.amount);
+}
+
+/**
+ * A typed amount, or the two kinds of absence.
+ *
+ * `null` is "the field is empty", which clears the price. `undefined` is "that is not a number",
+ * which is a validation error rather than a clear — the difference between deleting a price on
+ * purpose and losing one to a typo.
+ *
+ * Looser than {@link parseQuantity}, which refuses anything but digits and a point. A price is
+ * pasted at least as often as it is typed, and `Number` accepts the shapes a paste arrives in.
+ */
+export function parseAmount(value: string): number | null | undefined {
+    const trimmed = value.trim();
+    if (trimmed === '') return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+/**
+ * Gross margin of a list price over what the thing cost, as a percentage.
+ *
+ * A percentage rather than a ratio, because `%` is the field's *unit suffix* and not part of the
+ * value — `QuantityInput`'s own rule: a unit inside the value is a string no cost cascade can
+ * multiply. So the number is scaled here, and `Intl`'s `percent` style, which would scale it a
+ * second time, is deliberately not used.
+ *
+ * `null` whenever the sum cannot be stated — no price, no cost, or a cost of zero, which is a
+ * division rather than an infinite margin.
+ *
+ * Shared by the ingredient and recipe editors rather than written twice. The two read the same
+ * figure against different bases — an ingredient's unit price against its unit cost, a recipe
+ * version's price per yield unit against its cost per yield unit with waste — and the arithmetic
+ * being literally the same function is what keeps the two readouts comparable.
+ */
+export function marginPercent(
+    price: number | null | undefined,
+    cost: number | null | undefined,
+): number | null {
+    if (typeof price !== 'number' || typeof cost !== 'number' || cost === 0) return null;
+    return ((price - cost) / cost) * 100;
+}
+
+/**
+ * A money figure, with its currency when there is one to state.
+ *
+ * Every money call site in the kitchen workspace goes through this rather than calling
+ * `formatCurrency` directly, because `formatCurrency` **throws** when neither the call nor the
+ * formatter carries a code — and "which currency is this kitchen in?" is a question the contract does
+ * not answer (the gap `kitchen-admin-hooks.ts` records as 17). So a figure whose currency cannot be
+ * established renders as a bare number: honest, and not a crash on a costing panel.
+ */
+export function formatMoney(
+    formatter: Formatter,
+    value: number,
+    currency: CurrencyCode | null,
+    options?: Intl.NumberFormatOptions,
+): string {
+    return currency === null
+        ? formatter.formatNumber(value, options)
+        : formatter.formatCurrency(value, currency, options);
+}
+
+/**
+ * The currency's mark in this locale — `$`, `د.إ.‏` — falling back to the code itself.
+ *
+ * For the *unit suffix* of a price field, where the value in the box has to stay a plain number the
+ * save can send. `QuantityInput`'s own rule: a unit inside the value is a string no cost cascade can
+ * multiply, so the mark rides beside the box instead. Read off `Intl` rather than from a table,
+ * because the mark for one code differs by locale and a hand-kept table is how the two drift apart.
+ */
+export function currencySymbol(locale: string, currency: CurrencyCode): string {
+    const parts = new Intl.NumberFormat(locale, { style: 'currency', currency }).formatToParts(0);
+    return parts.find((part) => part.type === 'currency')?.value ?? currency;
 }
 
 /* ── products and meals (K1.4) ───────────────────────────────────────────────────────────────── */

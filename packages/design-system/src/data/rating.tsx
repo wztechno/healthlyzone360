@@ -19,6 +19,15 @@ export interface RatingProps {
     readonly count?: number | undefined;
     readonly variant?: RatingVariant | undefined;
     readonly size?: RatingSize | undefined;
+    /**
+     * One glyph and the figure, rather than the whole scale.
+     *
+     * For a rating that has to share a line with something else — a card title, a row of a table —
+     * where five glyphs plus a summary would take the line's whole width and push the title onto a
+     * second one. The accessible name is unchanged: the scale is still announced in full, it is
+     * simply not drawn five times.
+     */
+    readonly compact?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -33,7 +42,9 @@ export interface RatingProps {
  *
  * The glyphs are decorative and hidden from assistive technology. The **numeric label is always
  * rendered** — "4.6 / 5" as visible text — because counting partially filled stars is not something
- * a low-vision user, a screen reader user, or anyone in a hurry should be asked to do.
+ * a low-vision user, a screen reader user, or anyone in a hurry should be asked to do. `compact`
+ * shortens that figure to the value alone beside a single glyph, which is legible for the same
+ * reason a temperature beside a thermometer is; the scale stays in the accessible name.
  */
 export function Rating({
     label,
@@ -42,6 +53,7 @@ export function Rating({
     count,
     variant = 'stars',
     size = 'md',
+    compact = false,
     className,
     testID,
 }: RatingProps) {
@@ -55,6 +67,9 @@ export function Rating({
     });
 
     const glyphSize = size === 'sm' ? 'sm' : 'md';
+    // One glyph in compact, and it is always the filled one: it is a mark saying "this is a
+    // rating", not a bar to be read off. The value beside it carries the measurement.
+    const glyphCount = compact ? 1 : safeMax;
 
     return (
         <View
@@ -74,20 +89,22 @@ export function Rating({
                 importantForAccessibility="no-hide-descendants"
                 className="flex-row items-center gap-0.5"
             >
-                {Array.from({ length: safeMax }, (_unused, index) => (
+                {Array.from({ length: glyphCount }, (_unused, index) => (
                     <Icon
                         key={index}
                         size={glyphSize}
                         name={
                             variant === 'stars'
-                                ? index < filled
+                                ? compact || index < filled
                                     ? 'star'
                                     : 'starOutline'
-                                : index < filled
+                                : compact || index < filled
                                   ? 'dot'
                                   : 'dotOutline'
                         }
-                        className={index < filled ? 'text-rating' : 'text-content-secondary'}
+                        className={
+                            compact || index < filled ? 'text-rating' : 'text-content-secondary'
+                        }
                     />
                 ))}
             </View>
@@ -96,7 +113,7 @@ export function Rating({
                 testID={testID === undefined ? undefined : `${testID}-value`}
                 className="text-sm font-medium text-content-primary"
             >
-                {summary}
+                {compact ? clamped.toFixed(1) : summary}
             </RNText>
 
             {count === undefined ? null : (

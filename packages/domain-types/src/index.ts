@@ -31,6 +31,7 @@ export {
     NutritionTargetId,
     OrderId,
     OrganisationId,
+    PackagingItemId,
     PlanVariantId,
     PriceListId,
     ProductId,

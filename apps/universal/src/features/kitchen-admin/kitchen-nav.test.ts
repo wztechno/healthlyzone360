@@ -1,7 +1,7 @@
 import type { AccessState } from '@healthy360/permissions';
 
 import { ENTITY_FAMILIES } from './entity-registry.ts';
-import { isKitchenNavActive, kitchenNavSections } from './kitchen-nav.ts';
+import { activeKitchenNavHref, isKitchenNavActive, kitchenNavSections } from './kitchen-nav.ts';
 
 const managerState: AccessState = {
     mode: 'all-dev',
@@ -37,5 +37,16 @@ describe('kitchen nav', () => {
         expect(isKitchenNavActive('/kitchen/ingredients', '/kitchen')).toBe(false);
         expect(isKitchenNavActive('/kitchen/ingredients', '/kitchen/ingredients')).toBe(true);
         expect(isKitchenNavActive('/kitchen/ingredients/new', '/kitchen/ingredients')).toBe(true);
+    });
+
+    it('marks only the most specific item when a page lives under another', () => {
+        const hrefs = ['/kitchen/order-desk', '/kitchen/order-desk/requirements'];
+        expect(activeKitchenNavHref('/kitchen/order-desk/requirements', hrefs)).toBe(
+            '/kitchen/order-desk/requirements',
+        );
+        expect(activeKitchenNavHref('/kitchen/order-desk', hrefs)).toBe('/kitchen/order-desk');
+        // A page with no item of its own still belongs to the one above it.
+        expect(activeKitchenNavHref('/kitchen/order-desk/sale', hrefs)).toBe('/kitchen/order-desk');
+        expect(activeKitchenNavHref('/kitchen/stock', hrefs)).toBeNull();
     });
 });

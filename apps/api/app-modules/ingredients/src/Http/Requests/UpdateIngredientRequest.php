@@ -39,9 +39,18 @@ class UpdateIngredientRequest extends FormRequest
             'purchase_unit_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('measurement_units', 'id')],
             'composition' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'items_per_unit' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:99999999.99'],
+            // `min` at the column's own precision, not `gt:0`: `decimal(12,4)`
+            // under a `> 0` CHECK would round `0.00001` to `0.0000` and answer
+            // a 500 where a 422 belongs.
+            'grams_per_unit' => ['sometimes', 'nullable', 'numeric', 'min:0.0001', 'max:99999999.9999'],
             'yield_factor' => ['sometimes', 'required', 'numeric', 'gt:0', 'max:99.9999'],
             'availability_tier' => ['sometimes', 'nullable', new Enum(AvailabilityTier::class)],
+            // `required` rather than `nullable`, mirroring `yield_factor`: the
+            // column has no null state, so a PATCH either says which of the two
+            // values it wants or does not mention the field at all.
+            'is_sellable' => ['sometimes', 'required', 'boolean'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            ...StoreIngredientRequest::priceRules(),
             ...StoreIngredientRequest::nutritionRules(),
         ];
     }

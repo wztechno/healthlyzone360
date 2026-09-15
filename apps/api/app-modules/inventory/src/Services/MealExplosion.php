@@ -23,12 +23,13 @@ use RuntimeException;
  * digit of its arithmetic.
  *
  * A meal explodes into its published recipe: sum the version's lines per
- * ingredient, divide by the yield piece count for a per-sold-unit quantity,
- * apply the waste coefficient as a per-unit multiplier, multiply by the number
- * ordered — each ingredient converted into its branch stock item's unit. What
- * this class does *not* do is write: it hands back quantities and refusals, and
- * the caller decides whether that means a stock movement (a confirmed order) or
- * a number on a report (a requirement forecast).
+ * ingredient, divide by the yield piece count and scale by the item's portion
+ * factor for a per-sold-unit quantity, apply the waste coefficient as a
+ * per-unit multiplier, multiply by the number ordered — each ingredient
+ * converted into its branch stock item's unit. What this class does *not* do is
+ * write: it hands back quantities and refusals, and the caller decides whether
+ * that means a stock movement (a confirmed order) or a number on a report (a
+ * requirement forecast).
  *
  * That split is the whole reason the class exists. A forecast that re-derived
  * "how much flour does Tuesday need" with its own arithmetic would drift from
@@ -52,6 +53,14 @@ use RuntimeException;
  *    number — no published recipe version, no piece count, an unquantified
  *    line, no branch stock item, no convertible unit — abandons that ingredient
  *    and records why. A made-up number never reaches a ledger or a report.
+ *
+ * A fourth rule joined them with `catalogue_items.portion_factor`:
+ * **one sold unit = one yield piece × the item's portion factor.** A kitchen
+ * that sells half a portion of the same recipe takes half the ingredients off
+ * the shelf, and the column that says so is the same one the customer's
+ * per-serving nutrition is scaled by — declared once, so a label claim and a
+ * stock count cannot disagree about how big a portion is. The default is `1`,
+ * which is the arithmetic this class had before the column existed.
  *
  * `SCALE`, `WORKING_SCALE`, {@see numeric()} and {@see round()} are duplicated
  * here rather than moved or shared. That is the house pattern — five services
@@ -283,9 +292,15 @@ final readonly class MealExplosion
             $totalInStockUnit = bcadd($totalInStockUnit, $converted, self::WORKING_SCALE);
         }
 
-        // per sold unit = Σ line quantities ÷ yield piece count; × waste factor;
-        // × the number of this meal on the order.
-        $perSoldUnit = bcdiv($totalInStockUnit, $pieceCount, self::WORKING_SCALE);
+        // per sold unit = Σ line quantities ÷ yield piece count × the item's
+        // portion factor; × waste factor; × the number of this meal on the
+        // order. One sold unit = one yield piece × the item's portion factor —
+        // half a portion of the same recipe takes half the ingredients.
+        $perSoldUnit = bcmul(
+            bcdiv($totalInStockUnit, $pieceCount, self::WORKING_SCALE),
+            $this->numeric((string) $meal->portion_factor),
+            self::WORKING_SCALE,
+        );
         $withWaste = bcmul($perSoldUnit, $wasteFactor, self::WORKING_SCALE);
         $consumed = $this->round(bcmul($withWaste, $orderQuantity, self::WORKING_SCALE));
 

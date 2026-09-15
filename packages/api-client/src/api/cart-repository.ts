@@ -161,11 +161,29 @@ async function mapCartLine(
     };
 }
 
+/**
+ * A wire cart, hydrated into one the UI can render.
+ *
+ * ## The lines are fetched together, not one after another
+ *
+ * `CartPresenter::line` publishes `catalogue_item_id` and `quantity` and nothing else — no name, no
+ * price — so every line has to be looked up before a basket can be drawn. That is a server-side gap
+ * and it is recorded as one; what is fixed here is the shape of the asking. This loop used to be a
+ * `for … await`, which made a five-line basket five *sequential* round trips, and every call that
+ * returns a cart pays it: opening one, adding to one, removing from one. Adding a single item to a
+ * four-line basket cost seventeen requests in series and took seconds.
+ *
+ * `Promise.all` issues them in one wave. Order is preserved — `Promise.all` resolves positionally,
+ * not by completion — so `items` still matches `wire.lines`, which the repository tests assert.
+ *
+ * It is one wave rather than one request, and how much that buys depends on what is serving the
+ * API: php-fpm behind nginx overlaps them, PHP's built-in `artisan serve` does not. The requests
+ * that this change *removes* (see `useAddCartItemMutation`) are the ones that help either way.
+ */
 async function mapCart(transport: Transport, wire: WireCart, channelCode: string): Promise<Cart> {
-    const items: CartItem[] = [];
-    for (const line of wire.lines) {
-        items.push(await mapCartLine(transport, line, channelCode));
-    }
+    const items: CartItem[] = await Promise.all(
+        wire.lines.map((line) => mapCartLine(transport, line, channelCode)),
+    );
 
     const currency =
         items[0]?.unitPrice.currency ??

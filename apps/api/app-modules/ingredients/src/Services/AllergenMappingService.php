@@ -6,7 +6,6 @@ namespace Healthy360\Ingredients\Services;
 
 use Healthy360\AccessControl\Http\Middleware\RequirePlatformContext;
 use Healthy360\Audit\Services\AuditRecorder;
-use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\AllergenMappingSource;
 use Healthy360\Ingredients\Enums\AllergenMarketScope;
@@ -16,7 +15,6 @@ use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
-use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -47,17 +45,16 @@ use Illuminate\Support\Facades\DB;
  * recipe version whose lines use the ingredient is marked stale and queued for
  * recompute, and when the caller is writing the *baseline* that fan-out crosses
  * organisations — one write by a platform operator, one restored tenant context
- * per affected kitchen. Both halves go through `IngredientUsageRegistry`
- * because the module edge runs Recipes → Ingredients and this module must not
- * learn what a recipe is.
+ * per affected kitchen. {@see IngredientDerivationInvalidator} does both, since
+ * an ingredient's nutrition is now derived from the same rows in the same way;
+ * this service tells it which layer was written and audits the result.
  */
 final readonly class AllergenMappingService
 {
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
-        private IngredientUsageRegistry $usage,
-        private DatabaseTenantContext $database,
+        private IngredientDerivationInvalidator $invalidator,
     ) {}
 
     /**
@@ -81,6 +78,49 @@ final readonly class AllergenMappingService
             ->orderBy('allergen_code')
             ->orderByRaw('organisation_id nulls first')
             ->get();
+    }
+
+    /**
+     * The same two-layer visibility as {@see mappingsFor}, for a whole page of
+     * ingredients in one query.
+     *
+     * The list needs this because the alternative is one round trip per row:
+     * the ingredient index draws an allergen column, and a page of 25 rows
+     * asking `mappingsFor` twenty-five times is the N+1 that makes a
+     * regulatory column too expensive to draw — which is how it ended up not
+     * being drawn at all, and every row reading "none declared" whether or not
+     * it carried milk.
+     *
+     * @param  list<string>  $ingredientIds
+     * @return array<string, list<IngredientAllergen>> ingredient id → its mappings
+     */
+    public function mappingsForMany(array $ingredientIds, ?string $organisationId): array
+    {
+        if ($ingredientIds === []) {
+            return [];
+        }
+
+        $rows = IngredientAllergen::withoutTenancy()
+            ->whereIn('ingredient_id', $ingredientIds)
+            ->where(function ($query) use ($organisationId): void {
+                $query->whereNull('organisation_id');
+
+                if ($organisationId !== null) {
+                    $query->orWhere('organisation_id', $organisationId);
+                }
+            })
+            ->orderBy('allergen_code')
+            ->orderByRaw('organisation_id nulls first')
+            ->get();
+
+        /** @var array<string, list<IngredientAllergen>> $grouped */
+        $grouped = [];
+
+        foreach ($rows as $row) {
+            $grouped[$row->ingredient_id][] = $row;
+        }
+
+        return $grouped;
     }
 
     /**
@@ -151,9 +191,7 @@ final readonly class AllergenMappingService
         // published version and pull a listing off sale, and running it inside
         // the mapping editor's request would make an allergen edit take as long
         // as the largest recipe using the ingredient.
-        [$stale, $organisations] = $organisationId === null
-            ? $this->invalidateEveryTenant($ingredient)
-            : [$this->usage->markDependentDerivationsStale($ingredient), 1];
+        [$stale, $organisations] = $this->invalidator->invalidate($ingredient, $organisationId);
 
         $this->audit->record(
             'catalogue.ingredient_allergens_updated',
@@ -182,59 +220,6 @@ final readonly class AllergenMappingService
         );
 
         return $this->mappingsFor($ingredient, $organisationId);
-    }
-
-    /**
-     * The platform-baseline fan-out (K1.8) — the documented K1.2 gap.
-     *
-     * A tenant editing its own overlay affects exactly one organisation, and
-     * the ordinary path handles it. A platform operator correcting the baseline
-     * affects every kitchen that inherits the ingredient, and none of those rows
-     * is reachable from the operator's own context: the row-level security
-     * policies on `recipe_versions` fail closed, so the marking has to happen
-     * *inside* each organisation rather than around all of them.
-     *
-     * Both layers of context are restored per organisation, and both matter.
-     * `DatabaseTenantContext::during()` publishes the session variables the
-     * policies read; `TenantContext` is what the recipes module's registry
-     * consults to decide which organisation it is answering for. Setting one
-     * and not the other is how a query silently returns nothing.
-     *
-     * The ambient context is put back whatever happens. A platform operator's
-     * request continues after this call — it still has an audit event to write
-     * and a response to serialise — and leaving it pointed at the last tenant
-     * in the loop would be a tenancy breach caused by tidying up badly.
-     *
-     * @return array{0: list<string>, 1: int} the versions marked across every
-     *                                        organisation, and how many
-     *                                        organisations were reached
-     */
-    private function invalidateEveryTenant(Ingredient $ingredient): array
-    {
-        $organisationIds = $this->usage->dependentOrganisationIds($ingredient);
-
-        if ($organisationIds === []) {
-            return [[], 0];
-        }
-
-        $ambient = $this->context->toArray();
-
-        /** @var list<string> $marked */
-        $marked = [];
-
-        try {
-            foreach ($organisationIds as $organisationId) {
-                $this->database->during(null, $organisationId, null, function () use ($ingredient, $organisationId, &$marked): void {
-                    $this->context->restore(['user_id' => null, 'organisation_id' => $organisationId, 'branch_id' => null]);
-
-                    $marked = [...$marked, ...$this->usage->markDependentDerivationsStale($ingredient)];
-                });
-            }
-        } finally {
-            $this->context->restore($ambient);
-        }
-
-        return [$marked, count($organisationIds)];
     }
 
     /**

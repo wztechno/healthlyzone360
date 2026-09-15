@@ -1,13 +1,4 @@
-import {
-    Badge,
-    Button,
-    Card,
-    Checkbox,
-    Inline,
-    Rating,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Card, Checkbox, Rating, Stack, TagRow, Text } from '@healthy360/design-system';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
@@ -108,18 +99,22 @@ export function PlanCard({ plan, onOpen, kitchenName, comparison, testID }: Plan
                     <Text variant="label" tone="secondary">
                         {t('catalogue:plans.bandsLabel')}
                     </Text>
-                    <Inline space="xs" wrap testID={`${resolvedTestID}-bands`}>
-                        {plan.variants.map((variant) => (
-                            <Badge
-                                key={variant.id}
-                                tone="neutral"
-                                label={t('catalogue:plans.energyBand', {
-                                    min: formatter.formatNumber(variant.energyRange.min),
-                                    max: formatter.formatNumber(variant.energyRange.max),
-                                })}
-                            />
-                        ))}
-                    </Inline>
+                    {/*
+                     * `TagRow`, not a row of `Badge`s. A band is a label — "1,400–1,600 kcal" — and
+                     * `Badge` is the component that carries a *status*, with a tone and a mark to
+                     * say what the status means. Using it here made the bands look like four
+                     * warnings, and it is the shared tag row the cards elsewhere draw.
+                     */}
+                    <TagRow
+                        testID={`${resolvedTestID}-bands`}
+                        items={plan.variants.map((variant) => ({
+                            key: String(variant.id),
+                            label: t('catalogue:plans.energyBand', {
+                                min: formatter.formatNumber(variant.energyRange.min),
+                                max: formatter.formatNumber(variant.energyRange.max),
+                            }),
+                        }))}
+                    />
                 </Stack>
 
                 <PlanDurationSelector plan={plan} testID={`${resolvedTestID}-duration`} />

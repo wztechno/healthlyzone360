@@ -395,6 +395,23 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        // Its own family rather than a tab on Ingredients: it is a different question. Somebody
+        // opens Ingredients to ask what goes *in* a dish and Packaging to ask what it ships in,
+        // and the second was unanswerable while thirty-one boxes were scattered through three
+        // hundred foods. Same permissions, because it is the same table underneath.
+        key: 'packaging',
+        kind: 'managed',
+        group: 'catalogue',
+        nameKey: 'kitchen:families.packaging.name',
+        descriptionKey: 'kitchen:families.packaging.description',
+        // The closest the set has to a box. There is no packaging glyph, and adding one is a
+        // design-system change rather than this slice's.
+        icon: 'basket',
+        href: '/kitchen/packaging',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
         key: 'recipes',
         kind: 'managed',
         group: 'catalogue',
@@ -659,6 +676,29 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // valuation, so a person without `inventory.view_costs_organisation` never sees the card and
         // the screen behind it refuses. There is nothing to write from a ledger.
         permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'batch',
+        // A reading of one recipe version, not a family of records: nothing is created, nothing has
+        // a lifecycle and nothing is written. The production order this page's arithmetic would
+        // feed belongs to the family below it, which is why the two sit together.
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.batch.name',
+        descriptionKey: 'kitchen:families.batch.description',
+        // `◯`, the plain round — a plate, and the closest honest reading the glyph table has for
+        // "how much food this makes". The workspace-wide compromise applies unchanged: the icon set
+        // is a table of typographic characters, and a real icon set retires it.
+        icon: 'plate',
+        // Top-level, not nested under `/kitchen/recipes`: `isKitchenNavActive` matches on
+        // `startsWith(href + '/')`, so a nested path would light the recipe book's nav row.
+        href: '/kitchen/batch',
+        // The recipe code, because a batch sheet is a reading of a recipe. The screen's own `<Gate>`
+        // asks for `catalogue.view_organisation` as well — the ingredient endpoint behind every name
+        // on the page demands it — and a slot holds one code.
+        permission: RECIPE_VIEW_PERMISSION,
+        // A plan, not an order. Everything this page suggests is committed on the production screen.
         managePermission: null,
     },
     {

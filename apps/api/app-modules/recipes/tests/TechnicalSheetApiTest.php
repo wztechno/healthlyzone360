@@ -97,6 +97,30 @@ function responseKeys(array $payload): array
     return $keys;
 }
 
+/**
+ * The keys of a response that are cost figures, which no recipe endpoint may serve.
+ *
+ * `b2b_price_amount` and `b2c_price_amount` are excluded, and the exclusion is the claim rather
+ * than a hole punched to make a sweep pass. They are **list prices** — the B2C figure is printed
+ * on a menu and the B2B one is quoted to the buyer it names — so they say what the kitchen
+ * charges, never what it paid. Nothing here can be run backwards into a cost or a margin while
+ * the cost half stays withheld, which is what the rest of this sweep enforces. `RecipeVersion`
+ * makes the same argument where it declines to classify the pair Confidential, and `ingredients`
+ * treats its own two price columns identically. Every other `cost` / `margin` / `amount` key
+ * still fails here, including one a presenter grows tomorrow.
+ *
+ * @param  array<array-key, mixed>  $payload
+ * @return list<string>
+ */
+function costKeys(array $payload): array
+{
+    return array_values(array_filter(
+        array_unique(responseKeys($payload)),
+        static fn (string $key): bool => preg_match('/cost|margin|amount/i', $key) === 1
+            && preg_match('/^b2[bc]_price_amount$/', $key) !== 1,
+    ));
+}
+
 // ── Writing costs in ────────────────────────────────────────────────────────
 
 it('accepts a unit cost on a line, normalises the currency and derives the line total', function (): void {
@@ -510,15 +534,12 @@ it('serialises no cost on any recipe endpoint outside the cost permission', func
         ->assertOk()
         ->json();
 
-    // Deliberately a key sweep rather than a list of expected fields: a
+    // `costKeys()` is a key sweep rather than a list of expected fields: a
     // presenter that gains `unit_cost_amount` tomorrow fails here without
     // anybody remembering to update a list. The caller in this test *does*
     // hold the cost permission, which is the point — these endpoints must
     // serve no costs to anyone, not merely to the unprivileged.
-    $offending = array_values(array_filter(
-        array_unique(responseKeys($body)),
-        static fn (string $key): bool => preg_match('/cost|margin|amount/i', $key) === 1,
-    ));
+    $offending = costKeys($body);
 
     expect($offending)->toBe([]);
 })->with([
@@ -549,10 +570,7 @@ it('returns no cost from the lines endpoint even to a caller who just wrote one'
         ]],
     ], $this->headers + ['If-Match' => '"0"'])->assertOk()->json();
 
-    $offending = array_values(array_filter(
-        array_unique(responseKeys($body)),
-        static fn (string $key): bool => preg_match('/cost|margin|amount/i', $key) === 1,
-    ));
+    $offending = costKeys($body);
 
     expect($offending)->toBe([])
         ->and(json_encode($body, JSON_THROW_ON_ERROR))->not->toContain('4.25')
@@ -568,10 +586,7 @@ it('keeps the cost snapshot out of the publish response as well', function (): v
         ->assertOk()
         ->json();
 
-    $offending = array_values(array_filter(
-        array_unique(responseKeys($body)),
-        static fn (string $key): bool => preg_match('/cost|margin|amount/i', $key) === 1,
-    ));
+    $offending = costKeys($body);
 
     // Publication wrote a snapshot; the response says so only through
     // `completeness`, which is a state and not a figure.

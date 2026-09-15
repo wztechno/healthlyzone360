@@ -1,0 +1,8 @@
+{
+    "pkg": "@healthy360/design-system",
+    "globalName": "Healthy360DS",
+    "shape": "package",
+    "buildCmd": "node .design-sync/build-ds-web.mjs",
+    "entry": "packages/design-system/dist/index.web.js",
+    "cssEntry": "dist/ds.css"
+}

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Import\Runtime;
 
-use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Enums\CostBasis;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeCompleteness;
@@ -14,7 +13,6 @@ use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
-use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\Recipes\Services\CostComputation;
 use Healthy360\Recipes\Services\RecipeCostingService;
 use Illuminate\Support\Str;
@@ -133,8 +131,11 @@ final readonly class TechnicalSheetWriter
         $version->version_number = $this->nextVersionNumber($recipe);
         $version->status = RecipeVersionStatus::Draft;
         $version->completeness = $lines === [] ? RecipeCompleteness::Indicative : RecipeCompleteness::Costed;
-        $version->yield_quantity = $yield['quantity'];
-        $version->yield_unit_id = $yield['quantity'] === null ? null : UnitMap::idForCode($yield['unit'] ?? 'kg');
+        // A yield the workbook stated as something other than a number is no yield at all: the
+        // column is decimal, and a word written to it fails at the database rather than here.
+        $yieldQuantity = is_numeric($yield['quantity']) ? (string) $yield['quantity'] : null;
+        $version->yield_quantity = $yieldQuantity;
+        $version->yield_unit_id = $yieldQuantity === null ? null : UnitMap::idForCode($yield['unit'] ?? 'kg');
         $version->yield_piece_count = $yield['piece_count'];
         $version->input_quantity_total = $totals['input_quantity'];
         $version->waste_coefficient_percent = $this->wastePercent($sheet);
@@ -187,7 +188,7 @@ final readonly class TechnicalSheetWriter
         $yield = $version->yield_quantity;
         $input = $version->input_quantity_total;
 
-        if ($yield === null || $input === null || ! is_numeric($yield) || ! is_numeric($input)) {
+        if ($yield === null || $input === null || ! is_numeric($input)) {
             return;
         }
 
@@ -337,68 +338,25 @@ final readonly class TechnicalSheetWriter
     }
 
     /**
-     * A sheet that makes an ingredient gets an outputs row, so that a version
-     * consuming it is traceably fed by the version that makes it (master plan
-     * v2 §4.2).
+     * The version's outputs row, decided by {@see RecipeOutputRule}.
      *
-     * **Decided from the data, not from a list.** An intermediate is exactly
-     * "an ingredient that appears in some version's outputs" — that is the
-     * whole reason `recipe_version_outputs` replaced `produced_by_recipe_id` —
-     * so the rule here is the mirror of it: if the sheet's own designation
-     * resolves to one of this kitchen's ingredients, that version produces it.
-     * Pesto Mix, Cordon Bleu Marination and Sour Cream come out of the real
-     * workbook this way, and nothing had to be enumerated for them to.
-     *
-     * The intermediates that have **no sheet** — Chicken Breast Marination,
-     * Mix Cheese Preparation, Butter Mix — reach here at all, because no
-     * version is named after them. They get a known-gaps entry instead. An
-     * output row pointing at a fabricated recipe is precisely the risk the
-     * outputs table was introduced to avoid.
+     * The rule lives beside this writer rather than in it because
+     * `kitchen:relink-recipe-lines` has to apply exactly the same one to the
+     * versions this writer skips as existing.
      */
     private function writeOutput(RecipeVersion $version, string $designation, string $organisationId, ImportReport $report): void
     {
-        $ingredientId = $this->resolver->resolve($designation);
+        $rule = RecipeOutputRule::for($this->resolver, $version, $designation, $organisationId);
 
-        if ($ingredientId === null) {
-            // The overwhelmingly common case: a sheet makes a dish, and a dish
-            // is not an ingredient of anything.
+        if ($rule->findingCode !== null) {
+            $report->finding($rule->findingCode, (string) $rule->findingDetail, (string) $version->source_ref);
+        }
+
+        if (! $rule->writesOutput()) {
             return;
         }
 
-        // **Tenant rows only.** An intermediate is something *this kitchen*
-        // makes and then uses — Pesto Mix goes into Pesto Mayo. A platform
-        // library row is a generic foodstuff the library defines for everybody,
-        // and claiming that one kitchen's version produces it would be a much
-        // larger statement than the sheet makes: several sheets share a name
-        // with a library entry without being the thing that defines it.
-        $owner = Ingredient::withoutTenancy()->whereKey($ingredientId)->value('organisation_id');
-
-        if ($owner !== $organisationId) {
-            return;
-        }
-
-        if ($version->yield_quantity === null) {
-            $report->finding(
-                'intermediate_output_not_written',
-                sprintf(
-                    '"%s" names one of this kitchen\'s own ingredients, so the sheet produces it — but the sheet '
-                    .'states no yield quantity, so there is no amount to record. No outputs row was written.',
-                    $designation,
-                ),
-                (string) $version->source_ref,
-            );
-
-            return;
-        }
-
-        $output = new RecipeVersionOutput;
-        $output->recipe_version_id = (string) $version->getKey();
-        $output->organisation_id = $organisationId;
-        $output->ingredient_id = $ingredientId;
-        $output->output_quantity = $version->yield_quantity;
-        $output->unit_id = $version->yield_unit_id ?? (string) UnitMap::idForCode('kg');
-        $output->is_primary = true;
-        $output->save();
+        $rule->write();
 
         $report->created('recipe_version_output');
     }
