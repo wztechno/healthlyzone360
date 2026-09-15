@@ -1245,6 +1245,103 @@ describe('creating and editing a product', () => {
         expect(availableChannels(stored.channelAvailability)).toContain('pos');
     });
 
+    it('publishes through the generic item endpoint, and the button waits for the gate', async () => {
+        /*
+         * The gap this closes: `POST /catalogue/items/{item}/publish` was never meal-specific, but
+         * only `publishMeal` called it, so 55 imported resale rows sat in draft with no in-app way
+         * out. What is asserted here is the two halves of that — the call reaches the contract with
+         * the record's lock version, and the control refuses before it while the record cannot pass
+         * the gate it draws.
+         */
+        let stored = product({ ordinal: 1, name: 'Pomegranate molasses' });
+
+        const { repositories } = await renderStubScreen(
+            <ProductEditScreen product={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        getProduct: async () => stored,
+                        listProducts: productListing(() => [stored]),
+                        listRecipes: async () => page(NO_RECIPES),
+                        publishProduct: async (_id, request) => {
+                            stored = {
+                                ...stored,
+                                meta: meta({
+                                    status: 'published',
+                                    lockVersion: request.lockVersion + 1,
+                                }),
+                            };
+                            return stored;
+                        },
+                    },
+                },
+            },
+        );
+        await untilVisible('kitchen-product-publish');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-publish'));
+        });
+        await untilVisible('kitchen-product-publish-dialog');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-publish-confirm'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.publishProduct).toHaveBeenCalledWith(stored.id, {
+                lockVersion: 1,
+            });
+        });
+        // The toast is what says the write *settled* — `toHaveBeenCalledWith` only says it started,
+        // and the stub answers behind a latency, so asserting the record here would read the draft.
+        await untilVisible('kitchen-product-published-toast');
+        expect(stored.meta.status).toBe('published');
+        // And it stops offering to do it again.
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-product-publish')).toBeNull();
+        });
+    });
+
+    it('refuses to publish while an edit is unsaved, because publish sends a lock version', async () => {
+        /*
+         * Publication publishes what the *server* holds. A screen that let somebody type a new name
+         * and press Publish would put the old one on the public page and say it had worked.
+         */
+        const stored = product({ ordinal: 1, name: 'Pomegranate molasses' });
+
+        const { repositories } = await renderStubScreen(
+            <ProductEditScreen product={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        getProduct: async () => stored,
+                        listProducts: productListing(() => [stored]),
+                        listRecipes: async () => page(NO_RECIPES),
+                    },
+                },
+            },
+        );
+        await untilVisible('kitchen-product-publish');
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-product-name-en-input'),
+                'Pomegranate molasses, thick',
+            );
+        });
+
+        // Asserted as behaviour rather than as a `disabled` prop: what matters is that the act
+        // cannot be started, not which attribute stops it.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-publish'));
+        });
+        expect(screen.queryByTestId('kitchen-product-publish-dialog')).toBeNull();
+        expect(repositories.kitchenAdmin.publishProduct).not.toHaveBeenCalled();
+    });
+
     it('archives behind a confirmation that says nothing is deleted', async () => {
         let stored = product({ ordinal: 1, name: 'Pomegranate molasses' });
 

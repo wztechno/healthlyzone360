@@ -102,6 +102,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'retireRecipe'
     | 'createProduct'
     | 'updateProduct'
+    | 'publishProduct'
     | 'archiveProduct'
     | 'setProductChannelAvailability'
     | 'setPriceListEntries'
@@ -1089,6 +1090,15 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 await replaceDietClassifications(id, lockVersion, request.dietClassifications);
             }
 
+            return reads.getProduct(productId);
+        },
+
+        async publishProduct(productId: ProductId, request: LockedRequest): Promise<ProductAdmin> {
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/items/${encodeURIComponent(String(productId))}/publish`,
+                headers: ifMatch(request.lockVersion),
+            });
             return reads.getProduct(productId);
         },
 

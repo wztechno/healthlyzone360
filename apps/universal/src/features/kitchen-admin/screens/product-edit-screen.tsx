@@ -36,6 +36,7 @@ import {
     useCreateProductMutation,
     useProductCategoriesQuery,
     useProductQuery,
+    usePublishProductMutation,
     useRecipesQuery,
     useSetProductChannelAvailabilityMutation,
     useUpdateProductMutation,
@@ -77,10 +78,6 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## What this screen deliberately does not offer
  *
- * - **Publication.** `KitchenAdminRepository` has `archiveProduct` and no `publishProduct`. The
- *   status is shown, archive is offered, and no control implies a transition with no endpoint behind
- *   it. A quarantined product renders its quarantine, because that state is real and is what a
- *   person has to go and resolve, but nothing here claims to be able to clear it.
  * - **An ingredient list.** The schema has `catalogue_item_ingredients`; the contract publishes no
  *   reader and no writer for it. The linkage this screen *can* show honestly is the recipe the
  *   product is produced from, which `UpdateProductRequest.recipeId` really does set.
@@ -95,7 +92,26 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * Working copies
  * ---------------------------------------------------------------------------------------------- */
 
-/** The "bought in rather than cooked" answer of the recipe picker. Never a real identifier. */
+/**
+ * The "bought in rather than cooked" answer of the recipe picker. Never a real identifier.
+ *
+ * ## Why this picker survives a cleanup that set out to delete it
+ *
+ * A resale product is bought in and sold on, so on the face of it a formulation is a contradiction
+ * and the control is dead weight. The data says otherwise, in two ways.
+ *
+ * `RSL-045 Burger Patty (beef)` is filed `production_mode: supplier` and carries a recipe link all
+ * the same — a kitchen that buys patties in *and* knows how to make them. One row is enough:
+ * removing the control would strand that link somewhere no screen could read or clear it, which is
+ * the failure this codebase avoids everywhere else.
+ *
+ * And the link is load-bearing rather than decorative. `ProductAdmin.dietClassifications` is
+ * answered from the linked recipe's published version, so clearing the picker silently empties a
+ * panel two sections down.
+ *
+ * The cooked kinds are a different question and have a different screen: a sauce or a dressing owns
+ * its recipe outright and is edited through `CookedItemEditScreen`, never here.
+ */
 const NO_RECIPE = '__none__';
 
 interface DetailsDraft {
@@ -221,6 +237,7 @@ function ProductEditor({
     const create = useCreateProductMutation();
     const update = useUpdateProductMutation();
     const setChannels = useSetProductChannelAvailabilityMutation();
+    const publish = usePublishProductMutation();
     const archive = useArchiveProductMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
@@ -234,6 +251,7 @@ function ProductEditor({
     const [channelsDirty, setChannelsDirty] = useState(false);
 
     const [nextPackOrdinal, setNextPackOrdinal] = useState(1);
+    const [showPublish, setShowPublish] = useState(false);
     const [showArchive, setShowArchive] = useState(false);
 
     const data = record.data;
@@ -335,15 +353,18 @@ function ProductEditor({
     const detailsBlocked = nameMissing || categoryMissing || packsBlocked;
 
     /**
-     * The rail's rows, and the save button's `disabled`, from one set of predicates.
+     * The rail's rows, the save button's `disabled`, and the publish gate, from one set of
+     * predicates.
      *
-     * "Before you can save" rather than "before you can publish": this catalogue has no publish
-     * action - a resale item is live once it is saved and routed - so the gate names the act it
-     * actually guards.
+     * The rail used to say "before you can save" because this family had no publish action. It has
+     * one now — `POST /catalogue/items/{item}/publish` was always generic over `item_type` and only
+     * the client method was missing — so the same four checks serve both acts, and `publishBlockers`
+     * below reads them rather than restating them.
      *
      * Channels are on the list and are the one row the save does not block on. The channels write
      * is a separate call against a separate lock, so refusing to save the record because a route is
-     * unticked would trap a valid record behind a second endpoint.
+     * unticked would trap a valid record behind a second endpoint. Publication *does* wait for it:
+     * an item routed to no channel is published where nobody can see it.
      */
     const gateChecks = [
         {
@@ -549,6 +570,25 @@ function ProductEditor({
     const saveFailure = toFailure(update.error ?? create.error);
     const channelFailure = toFailure(setChannels.error);
     const quarantined = data?.meta.status === 'review_required';
+    const isPublished = data?.meta.status === 'published';
+
+    /*
+     * The client-side half of the publish gate, read off the rail that is already on screen.
+     *
+     * Deliberately not a second list of predicates: the rail above already states the four things
+     * this record needs and already has translated copy for each, and two lists would drift the
+     * first time somebody added a fifth. What publication adds to saving is one further condition —
+     * an unsaved edit — because publish sends a lock version and publishes what the *server* holds,
+     * not what is on screen.
+     *
+     * `CatalogueItemReadiness` on the server is still the authority and refuses more than this: an
+     * item that cannot say what is in it, or whose linked recipe carries a quarantined version.
+     * These are only the ones a person can see and fix from this form.
+     */
+    const publishBlockers: readonly string[] = [
+        ...gateChecks.filter((check) => !check.passed).map((check) => check.note),
+        ...(detailsDirty || channelsDirty ? [t('kitchen:products.blockUnsaved')] : []),
+    ];
 
     return (
         <EditorFrame
@@ -625,14 +665,29 @@ function ProductEditor({
             }
             primaryAction={
                 isCreating || !canManage || data?.meta.status === 'retired' ? null : (
-                    <Button
-                        testID="kitchen-product-archive"
-                        variant="secondary"
-                        label={t('kitchen:list.archive')}
-                        onPress={() => {
-                            setShowArchive(true);
-                        }}
-                    />
+                    <Inline space="sm" align="center">
+                        <Button
+                            testID="kitchen-product-archive"
+                            variant="secondary"
+                            label={t('kitchen:list.archive')}
+                            onPress={() => {
+                                setShowArchive(true);
+                            }}
+                        />
+                        {isPublished ? null : (
+                            <Button
+                                testID="kitchen-product-publish"
+                                label={t('kitchen:publish.action')}
+                                // Visibly disabled while anything this screen can check fails, and
+                                // while the row is quarantined — the dialog's confirm keeps the
+                                // same guard, and the server keeps the real one.
+                                disabled={publishBlockers.length > 0 || quarantined}
+                                onPress={() => {
+                                    setShowPublish(true);
+                                }}
+                            />
+                        )}
+                    </Inline>
                 )
             }
             banner={
@@ -1030,6 +1085,63 @@ function ProductEditor({
                     </Stack>
                 </FormSection>
             </View>
+
+            {/* ── publish ──────────────────────────────────────────────────────────────────── */}
+            <Dialog
+                testID="kitchen-product-publish-dialog"
+                open={showPublish}
+                onClose={() => {
+                    setShowPublish(false);
+                }}
+                title={t('kitchen:products.publishTitle')}
+                description={t('kitchen:products.publishBody')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-product-publish-cancel"
+                            variant="quiet"
+                            label={t('kitchen:common.cancel')}
+                            onPress={() => {
+                                setShowPublish(false);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-product-publish-confirm"
+                            label={t('kitchen:publish.action')}
+                            loading={publish.isPending}
+                            // The same guard the button carries. A dialog left open across a save
+                            // that dirtied the form would otherwise publish what is on the server
+                            // rather than what the person is looking at.
+                            disabled={publishBlockers.length > 0 || quarantined}
+                            onPress={() => {
+                                if (data === undefined) return;
+                                publish.mutate(
+                                    {
+                                        productId: data.id,
+                                        request: { lockVersion: data.meta.lockVersion },
+                                    },
+                                    {
+                                        onSuccess: () => {
+                                            setShowPublish(false);
+                                            toast.show({
+                                                testID: 'kitchen-product-published-toast',
+                                                tone: 'success',
+                                                message: t('kitchen:products.publishedToast', {
+                                                    name: displayName(details.name, locale).value,
+                                                }),
+                                            });
+                                        },
+                                        onError: (error) => {
+                                            setShowPublish(false);
+                                            concurrency.capture(error);
+                                        },
+                                    },
+                                );
+                            }}
+                        />
+                    </>
+                }
+            />
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
             <Dialog

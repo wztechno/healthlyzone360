@@ -1717,6 +1717,15 @@ export interface KitchenAdminRepository {
     getProduct(productId: ProductId): Promise<ProductAdmin>;
     createProduct(request: CreateProductRequest): Promise<ProductAdmin>;
     updateProduct(productId: ProductId, request: UpdateProductRequest): Promise<ProductAdmin>;
+    /**
+     * Publish a product, sauce or dressing — the same one action every sellable kind takes.
+     *
+     * `POST /catalogue/items/{item}/publish` has always been generic over `item_type`; only the
+     * meal path had a client method, so the kitchen could publish a dish and not the jar beside it.
+     * The gate behind it is `catalogue.publish_organisation` and the readiness evaluator, both of
+     * which already knew about every kind.
+     */
+    publishProduct(productId: ProductId, request: LockedRequest): Promise<ProductAdmin>;
     archiveProduct(productId: ProductId, request: LockedRequest): Promise<ProductAdmin>;
     setProductChannelAvailability(
         productId: ProductId,

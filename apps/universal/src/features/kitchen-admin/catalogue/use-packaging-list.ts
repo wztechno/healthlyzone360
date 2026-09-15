@@ -43,9 +43,11 @@ import { useListPage } from '../use-list-page.ts';
  *
  * ## Archive is the only write
  *
- * The same one the ingredient list offers, because it is now literally the same endpoint. There is
- * still no editor route behind `/kitchen/packaging/{item}`; {@link PackagingListState.openEditor}
- * sends a reader to the ingredient editor, which can edit these rows because they are ingredients.
+ * The same one the ingredient list offers, because it is now literally the same endpoint.
+ * {@link PackagingListState.openEditor} routes to `/kitchen/packaging/{item}`, which is the
+ * ingredient editor handed the packaging series, the packaging category and this list to return to
+ * — see the note on `openEditor` below. `new` is a value of the same parameter, so the create
+ * button and a row's Edit reach one place.
  */
 
 export type PackagingSortKey = 'reference' | 'name' | 'category' | 'unit' | 'purchasePrice';

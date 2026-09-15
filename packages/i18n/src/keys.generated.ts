@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6748 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6835 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4458,6 +4458,7 @@ export interface NamespaceKeys {
     | 'products.blockChannels'
     | 'products.blockName'
     | 'products.blockPacks'
+    | 'products.blockUnsaved'
     | 'products.caption'
     | 'products.categoryFilterAll'
     | 'products.categoryFilterLabel'
@@ -4526,6 +4527,9 @@ export interface NamespaceKeys {
     | 'products.packsEmpty'
     | 'products.packsHint'
     | 'products.productCount'
+    | 'products.publishBody'
+    | 'products.publishTitle'
+    | 'products.publishedToast'
     | 'products.quarantineBody'
     | 'products.quarantineTitle'
     | 'products.recipeHint'
@@ -11307,6 +11311,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.blockChannels',
   'kitchen:products.blockName',
   'kitchen:products.blockPacks',
+  'kitchen:products.blockUnsaved',
   'kitchen:products.caption',
   'kitchen:products.categoryFilterAll',
   'kitchen:products.categoryFilterLabel',
@@ -11375,6 +11380,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.packsEmpty',
   'kitchen:products.packsHint',
   'kitchen:products.productCount',
+  'kitchen:products.publishBody',
+  'kitchen:products.publishTitle',
+  'kitchen:products.publishedToast',
   'kitchen:products.quarantineBody',
   'kitchen:products.quarantineTitle',
   'kitchen:products.recipeHint',

@@ -398,9 +398,19 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         match ($item->item_type) {
             CatalogueItemType::Meal => $this->resolveMeal($order, $line, $item, $branchId, $failures),
 
-            // A sauce or dressing consumes like a product — one draw from the
-            // shelf its `ingredient_id` names. Nothing explodes: the v6
-            // catalogue links no formulation lines for them.
+            // A sauce or dressing consumes like a product because it is made to
+            // *stock*, not to order: the batch was cooked earlier and its raw
+            // materials left the shelf then. Selling one bottle draws one unit
+            // off the shelf its `ingredient_id` names, and exploding it into
+            // mayonnaise here would take that mayonnaise a second time.
+            //
+            // (A meal is the other case — cooked when ordered, so it explodes.
+            // A sauce used *inside* a meal is already covered: the meal's own
+            // explosion draws it off this same shelf as one of its lines.)
+            //
+            // Not to be confused with the reason that used to stand here — that
+            // the v6 catalogue links no formulation lines for these rows. That
+            // is true today and is a data accident, not the argument.
             CatalogueItemType::Product,
             CatalogueItemType::Sauce,
             CatalogueItemType::Dressing => $this->resolveProduct($order, $line, $item, $branchId, $failures),

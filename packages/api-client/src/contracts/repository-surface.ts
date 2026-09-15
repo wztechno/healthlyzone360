@@ -223,6 +223,7 @@ export const REPOSITORY_SURFACE = {
         'publishMeal',
         'publishPlan',
         'publishPriceList',
+        'publishProduct',
         'publishRecipe',
         'replacePlanMenu',
         'retireMeal',

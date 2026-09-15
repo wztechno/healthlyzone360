@@ -816,6 +816,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     updateProduct(_productId: ProductId, _request: UpdateProductRequest): Promise<ProductAdmin> {
         return notImplemented(`PATCH ${BASE}/catalogue/items/{item}`);
     },
+    publishProduct(_productId: ProductId, _request: LockedRequest): Promise<ProductAdmin> {
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/publish`);
+    },
     archiveProduct(_productId: ProductId, _request: LockedRequest): Promise<ProductAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/items/{item}/retire`);
     },

@@ -81,12 +81,14 @@ import {
  * its own. That is worth stating because the recipe list's N+1 is written down as a limitation, and
  * a reader comparing the two files should see immediately that the difference is the contract's.
  *
- * ## There is no publish control here, and that is the contract's doing
+ * ## Publishing is the editor's, not the list's
  *
- * `ProductAdmin.meta` carries the full publication lifecycle, and `KitchenAdminRepository` publishes
- * `archiveProduct` and nothing else — no `publishProduct`, no `retireProduct`. So the row menu is
- * View · Edit · Archive; the status column renders whatever the record's state is; and no control
- * here implies a transition the server has no endpoint for.
+ * `publishProduct` exists now — the route always did, only the client method was missing — but it
+ * stays off the row menu. Publication has a gate (`CatalogueItemReadiness`) whose refusals are
+ * specific and fixable, and a row menu has nowhere to show them: pressing Publish on a row that
+ * cannot pass would be a toast saying no, with the four things to fix one screen away. The editor
+ * draws that gate as a rail and puts the button beside it. So the row menu stays
+ * View · Edit · Archive, and the status column renders whatever the record's state is.
  *
  * ## Where each control lives
  *

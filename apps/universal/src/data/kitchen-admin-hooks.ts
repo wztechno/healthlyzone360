@@ -152,12 +152,13 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *
  * ## Four more, on the product and meal half (K1.4)
  *
- * 6. **A product has no publication action.** `ProductAdmin.meta` carries the full
- *    `PublishableStatus`, and `KitchenAdminRepository` publishes `archiveProduct` and nothing else:
- *    no `publishProduct`, no `retireProduct`. So a product moves *out* of visibility from this
- *    workspace and never into it, and no hook here pretends otherwise. The screens render the status
- *    they are given and offer archive alone; when the publication actions land, they join this file
- *    beside {@link usePublishMealMutation} and the editor grows one button.
+ * 6. ~~A product has no publication action.~~ **Closed.** It never was a contract gap —
+ *    `POST /catalogue/items/{item}/publish` is generic over `item_type` and always was, and
+ *    `publishMeal` has been posting to it all along. Only the client method was missing, so a
+ *    kitchen could publish a dish and not the jar beside it, and 55 imported resale rows sat in
+ *    draft with no in-app way out. {@link usePublishProductMutation} is that method.
+ *    `retireProduct` still has no separate name because `archiveProduct` already posts to
+ *    `/retire` — one action wearing the archive label, which is the vocabulary this family uses.
  * 7. **A meal's channel availability is readable and not writable.** `MealAdmin.channelAvailability`
  *    is on the read shape, but `setProductChannelAvailability` is a *product* method and the contract
  *    has no meal counterpart. The meal editor therefore shows the channels as a fact and puts the
@@ -1347,27 +1348,50 @@ export function useUpdateProductMutation(): UseMutationResult<
     });
 }
 
-export interface ArchiveProductVariables {
+export interface ProductLifecycleVariables {
     readonly productId: ProductId;
     readonly request: LockedRequest;
 }
 
 /**
- * Archives the product.
+ * Publishes the product, sauce or dressing.
  *
- * The contract's only lifecycle action for this family (see the module note): it retires the row, and
- * nothing is deleted, because price-list entries and order history still point at it.
+ * The same `POST /catalogue/items/{item}/publish` a meal takes — the route was never meal-specific,
+ * only the client method was. Readiness is the server's verdict and is unchanged: a row that cannot
+ * say what is in it, or whose linked recipe carries a quarantined version, is refused here exactly
+ * as it is refused for a meal.
  */
-export function useArchiveProductMutation(): UseMutationResult<
+export function usePublishProductMutation(): UseMutationResult<
     ProductAdmin,
     unknown,
-    ArchiveProductVariables
+    ProductLifecycleVariables
 > {
     const repositories = useRepositories();
     const onWritten = useProductWriteEffects();
 
     return useMutation({
-        mutationFn: ({ productId, request }: ArchiveProductVariables) =>
+        mutationFn: ({ productId, request }: ProductLifecycleVariables) =>
+            repositories.kitchenAdmin.publishProduct(productId, request),
+        onSuccess: onWritten,
+    });
+}
+
+/**
+ * Archives the product.
+ *
+ * It retires the row, and nothing is deleted, because price-list entries and order history still
+ * point at it.
+ */
+export function useArchiveProductMutation(): UseMutationResult<
+    ProductAdmin,
+    unknown,
+    ProductLifecycleVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useProductWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productId, request }: ProductLifecycleVariables) =>
             repositories.kitchenAdmin.archiveProduct(productId, request),
         onSuccess: onWritten,
     });

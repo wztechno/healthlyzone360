@@ -2618,7 +2618,11 @@
         "dietsRailTitle": "Diet classifications",
         "dietsFromRecipe": "From recipe",
         "dietsRailEmpty": "Link a recipe to inherit its classifications.",
-        "packLabelPlaceholder": "Retail sleeve"
+        "packLabelPlaceholder": "Retail sleeve",
+        "blockUnsaved": "There are unsaved changes. Save them first — publishing publishes what the server holds, not what is on screen.",
+        "publishTitle": "Publish this item?",
+        "publishBody": "Publishing makes it visible outside this kitchen, on every channel it is routed to. Withdrawing it later is a separate, deliberate act.",
+        "publishedToast": "{{name}} is published, and customers can see it."
     },
     "meals": {
         "title": "Meals",
