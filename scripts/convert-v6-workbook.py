@@ -330,9 +330,14 @@ def convert_ingredients(ws, taxonomy: Taxonomy, slugs: SlugBook, repairs: list[s
     """Sheet '1. Ingredients' -> platform ingredient rows.
 
     `overlay` is the curated corrections document keyed by source_ref. Unlike the packaging
-    one it *overrides* rather than fills a gap: the sheet's Unit column is blank for eggs, so
-    the generator defaults the row to kg, and every technical sheet then states eggs in pieces
-    against a kilogram-stocked row. A human decided which of the two the platform believes.
+    one it *overrides* rather than fills a gap: a human decided which of the two the platform
+    believes.
+
+    It carries the owner's unit table, which states that every ING row stocks in KG or LTR — so a
+    line can always be weighed, because nutrition is only ever held per 100 g and a count has no
+    mass without a figure nobody has recorded. Both unit columns are overridden together: the
+    table's Type and Unit are the same value on every row, so a row bought by the gallon and
+    issued by the litre becomes litres throughout.
     """
     out = []
     overlay = overlay or {}
@@ -392,10 +397,20 @@ def convert_ingredients(ws, taxonomy: Taxonomy, slugs: SlugBook, repairs: list[s
         # not mention is exactly what the sheet described. A stated unit replaces the defaulted
         # one and takes its flag with it: "defaulted to kg" stops being true the moment
         # something else is written, and a stale flag is worse than none.
-        overlay_unit = overlay.get(rid, {}).get("default_unit_code")
-        if overlay_unit:
-            entry["default_unit_code"] = overlay_unit
+        overlay_row = overlay.get(rid, {})
+        overlay_default = overlay_row.get("default_unit_code")
+        overlay_purchase = overlay_row.get("purchase_unit_code")
+        if overlay_default or overlay_purchase:
+            if overlay_default:
+                entry["default_unit_code"] = overlay_default
+            if overlay_purchase:
+                entry["purchase_unit_code"] = overlay_purchase
             flags = [f for f in flags if f != "unit_defaulted_kg"] + ["unit_from_overlay"]
+
+        # The overlay bypasses `unit_code()`, which is the assert that keeps a typo out of every
+        # other column. This is the one that keeps it out of this one.
+        for stated in (overlay_default, overlay_purchase):
+            assert stated in (None, "kg", "l"), f"{rid}: overlay unit {stated!r} is neither kg nor l"
 
         if clean(composition):
             entry["composition"] = clean(composition)
@@ -850,18 +865,31 @@ def self_test():
     assert coconut["allergens"][0]["market_scope"] == "us_only"
     assert coconut["purchase_unit_code"] == "pack" and coconut["default_unit_code"] == "piece"
 
-    # The curated ingredient overlay: a stated unit replaces the defaulted one, takes the
-    # `unit_defaulted_kg` flag with it, and leaves the purchase unit — what the sheet says is
-    # bought — exactly as it was. A row the overlay does not name is untouched.
+    # The curated ingredient overlay. It overrides both unit columns together, because the owner's
+    # unit table states one value per row — a row bought by the gallon and issued by the litre
+    # becomes litres throughout. The `unit_defaulted_kg` flag goes with the correction: "defaulted
+    # to kg" stops being true the moment something else is written, and a stale flag is worse than
+    # none. A row the overlay does not name is untouched.
     assert vinegar["default_unit_code"] == "kg", "the un-overlaid row above is the control"
     overlaid = convert_ingredients(
         build_synthetic_workbook()["1. Ingredients"], Taxonomy(), SlugBook(), [],
-        {"ING-002": {"default_unit_code": "piece"}},
+        {"ING-002": {"default_unit_code": "l", "purchase_unit_code": "l"}},
     )
     corrected = by_ref(overlaid, "ING-002")
-    assert corrected["default_unit_code"] == "piece" and corrected["purchase_unit_code"] == "kg"
+    assert corrected["default_unit_code"] == "l" and corrected["purchase_unit_code"] == "l"
     assert corrected["flags"] == ["status_blank_inactive", "unit_from_overlay"], corrected["flags"]
     assert by_ref(overlaid, "ING-001")["default_unit_code"] == "kg"
+
+    # And the guard that keeps a typo out of the one column `unit_code()` never sees.
+    try:
+        convert_ingredients(
+            build_synthetic_workbook()["1. Ingredients"], Taxonomy(), SlugBook(), [],
+            {"ING-002": {"default_unit_code": "piece"}},
+        )
+    except AssertionError as refused:
+        assert "neither kg nor l" in str(refused), refused
+    else:  # pragma: no cover - the assert above is the behaviour under test
+        raise AssertionError("an overlay unit outside kg/l must be refused")
 
     # Packaging is an ingredient filed under its own branch — that category *is* the
     # discriminator, so it is the one thing here worth asserting outright.
