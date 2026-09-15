@@ -8,6 +8,7 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientCostEvent;
 use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Procurement\Exceptions\MixedIngredientCostCurrency;
+use Healthy360\Procurement\Exceptions\StrandedIngredientCostUnit;
 use Healthy360\ReferenceData\Exceptions\UnitConversionUnsupported;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\ReferenceData\Services\UnitConversionService;
@@ -65,6 +66,7 @@ final class IngredientCostService
      * @param  numeric-string  $unitPriceAmount  price per $purchaseUnit, major currency units
      *
      * @throws MixedIngredientCostCurrency when the purchase currency differs from the ingredient's held cost
+     * @throws StrandedIngredientCostUnit when the held balance's unit cannot be rebased onto the ingredient's current one
      * @throws UnitConversionUnsupported when the purchase unit cannot convert to the ingredient's default unit
      */
     public function recordPurchase(
@@ -121,6 +123,23 @@ final class IngredientCostService
             ? '0'
             : $this->numeric((string) $cost->moving_average_cost_amount);
 
+        /*
+         * The held balance and the incoming receipt must be in the same unit before either is
+         * blended into the other.
+         *
+         * `quantity_on_hand` and `moving_average_cost_amount` are denominated in `$cost->unit_id`,
+         * which is whatever the ingredient's default unit was when the row was last written. That
+         * unit can move underneath the balance — an operator re-denominating a row, or a migration
+         * normalising the library — and when it does, `$receivedQuantity` above is in the *new*
+         * unit while `$oldQuantity` is still in the old one.
+         *
+         * This used to be unchecked, and the failure was silent in the worst way: the two were
+         * summed, the average was weighted across both, and `$cost->unit_id` was then overwritten
+         * with the new unit at the end of the method — relabelling the evidence so no reader could
+         * afterwards tell that a count of pieces had been added to a weight in kilograms.
+         */
+        [$oldQuantity, $oldAverage] = $this->rebaseHeldBalance($cost, $ingredient, $ingredientUnit, $oldQuantity, $oldAverage);
+
         $newQuantity = bcadd($oldQuantity, $receivedQuantity, self::WORKING_SCALE);
 
         // (old_qty·old_avg + recv_qty·recv_cost) ÷ new_qty, using the *stored*
@@ -176,6 +195,74 @@ final class IngredientCostService
         $negative = str_starts_with($value, '-');
 
         return bcadd($value, $negative ? '-'.$half : $half, self::SCALE);
+    }
+
+    /**
+     * The held balance, expressed in the unit the ingredient stocks in today.
+     *
+     * Three outcomes, and the middle one is the whole point of the method:
+     *
+     * 1. **Same unit** — the overwhelmingly common case. Nothing to do.
+     * 2. **A convertible pair** (`kg` → `g`, `l` → `ml`) — rebased exactly.
+     *    The quantity converts; the average is a price *per unit* and so moves
+     *    the other way, which is why it is divided by the same factor rather
+     *    than converted. `oldQty·oldAvg` — the money on the shelf — is
+     *    unchanged by the rebase, which is the invariant worth holding onto.
+     * 3. **Anything else** — refused. See {@see StrandedIngredientCostUnit}.
+     *
+     * An empty shelf is the one case where a non-convertible move is harmless:
+     * there is no quantity to carry and no average to misapply, so the row
+     * simply adopts the new unit. That is not a guess — nothing is being
+     * converted — and it keeps a migration from stranding rows that had no
+     * balance to strand.
+     *
+     * @param  numeric-string  $oldQuantity
+     * @param  numeric-string  $oldAverage
+     * @return array{numeric-string, numeric-string}
+     */
+    private function rebaseHeldBalance(
+        IngredientStockCost $cost,
+        Ingredient $ingredient,
+        MeasurementUnit $ingredientUnit,
+        string $oldQuantity,
+        string $oldAverage,
+    ): array {
+        if ((string) $cost->unit_id === (string) $ingredientUnit->getKey()) {
+            return [$oldQuantity, $oldAverage];
+        }
+
+        /** @var MeasurementUnit|null $heldUnit */
+        $heldUnit = MeasurementUnit::query()->whereKey($cost->unit_id)->first();
+
+        if (! $heldUnit instanceof MeasurementUnit) {
+            throw new RuntimeException("Ingredient cost row references a measurement unit that does not exist [{$cost->unit_id}].");
+        }
+
+        if (bccomp($oldQuantity, '0', self::SCALE) === 0) {
+            return ['0', '0'];
+        }
+
+        if (! $this->conversion->canConvert($heldUnit, $ingredientUnit)) {
+            throw new StrandedIngredientCostUnit(
+                $heldUnit->code,
+                $ingredientUnit->code,
+                (string) $ingredient->getKey(),
+            );
+        }
+
+        $rebasedQuantity = $this->conversion->convert($oldQuantity, $heldUnit, $ingredientUnit);
+
+        // Guarded rather than assumed: a quantity small enough to round to zero
+        // in the new unit would make the division below a divide-by-zero, and
+        // the money it represented is better written off loudly than crashed on.
+        if (bccomp($rebasedQuantity, '0', self::SCALE) <= 0) {
+            return ['0', '0'];
+        }
+
+        $heldValue = bcmul($oldQuantity, $oldAverage, self::WORKING_SCALE);
+        $rebasedAverage = $this->round(bcdiv($heldValue, $rebasedQuantity, self::WORKING_SCALE));
+
+        return [$this->round($rebasedQuantity), $rebasedAverage];
     }
 
     /**
