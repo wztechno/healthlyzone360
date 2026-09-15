@@ -800,6 +800,28 @@ export interface RecipeAdminSummary {
     readonly recipeCategory: string | null;
     readonly currentVersionNumber: number;
     readonly versionCount: number;
+    /**
+     * The **current version's** state — the only field here that can say `review_required`.
+     *
+     * `meta.status` is derived from this. Both are on the shape because they answer different
+     * questions: `meta.status` is "what lifecycle state is this record in", which every publishable
+     * family has, and this is "which of a recipe's several versions did that come from".
+     *
+     * A recipe row itself only ever carries `active | archived`. Everything a kitchen thinks of as
+     * a recipe's state belongs to a version, so a list built from the identity alone could not
+     * render a quarantine at all: a recipe whose live version was under review read as `published`,
+     * the review queue never listed one, and the Review stat card was permanently zero.
+     */
+    readonly currentVersionStatus: PublishableStatus;
+    /**
+     * The allergen classes that version declares.
+     *
+     * On the summary because the list's Allergens column is read forty times a day and used to
+     * cost one `getRecipe` per visible row to fill — twenty-five extra requests a page for two
+     * cells. Empty is a real answer and means the version declares none; it does not mean the
+     * label is unknown.
+     */
+    readonly allergenCodes: readonly AllergenCode[];
 }
 
 export interface RecipeAdmin extends RecipeAdminSummary {

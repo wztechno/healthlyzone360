@@ -1,5 +1,5 @@
-import type { RecipeAdmin, RecipeAdminSummary } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Skeleton, Text } from '@healthy360/design-system';
+import type { RecipeAdminSummary } from '@healthy360/api-client/contracts';
+import { Badge, Inline, Text } from '@healthy360/design-system';
 import type { KitchenId } from '@healthy360/domain-types';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -47,16 +47,14 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * ask for. The version pair used to hold that slot; with it gone the 85 is simply unspent here,
  * which is a better answer than promoting a column to a rank it does not earn.
  *
- * ## Allergens is derived, and says so while it waits
+ * ## Allergens is derived, and arrives with the row
  *
- * It lives on `RecipeAdmin.currentVersion`, which the summary does not carry — the N+1
- * `useRecipeDetails` documents. It is fed a lookup rather than calling a query of its own: a column
- * spec is an array, and an array cannot call a hook.
- *
- * While a row's detail is in flight it renders a `Skeleton` at its own width rather than a dash.
- * A dash is a *fact* on this list — the Allergens column uses it to say "this version derived
- * none" — so spending it on "not known yet" would make the one column a kitchen reads for safety
- * ambiguous between "nothing to declare" and "nothing has loaded".
+ * It belongs to the current *version*, and the summary carries it: `current_version_allergen_codes`
+ * on the wire. It did not always — the column was fed a per-row `getRecipe`, twenty-five extra
+ * requests a page, and drew a skeleton while they were in flight because a dash is a *fact* on this
+ * list (it means "this version derived none") and spending it on "not known yet" would make the one
+ * column a kitchen reads for safety ambiguous. With the codes on the page there is no in-flight
+ * state left to disambiguate.
  *
  * ## The allergen cell is a comma run, not a row of chips
  *
@@ -76,11 +74,6 @@ export interface RecipeColumnDeps {
      * a lint error and a silent one is worse than a stated one.
      */
     readonly formatter: Formatter;
-    /**
-     * The detail behind one row, or `undefined` while it is in flight. Supplied by the list state,
-     * which owns the batched read — see `useRecipeDetails`.
-     */
-    readonly detailOf: (row: RecipeAdminSummary) => RecipeAdmin | undefined;
     /**
      * The kitchen's name for a `KitchenId`, which is that organisation's id. The screen resolves it
      * off the session's memberships; a kitchen the reader is not a member of falls back to the id,
@@ -108,17 +101,20 @@ function identifierFragment(identifier: string): string {
 export function recipeColumns({
     t,
     locale,
-    detailOf,
     kitchenName,
 }: RecipeColumnDeps): readonly CatalogueColumn<RecipeAdminSummary>[] {
-    const allergenLabel = (row: RecipeAdminSummary): string | undefined => {
-        const detail = detailOf(row);
-        if (detail === undefined) return undefined;
-        const declarations = detail.currentVersion.allergens;
-        return declarations.length === 0
+    /*
+     * Read off the row, which the listing already answered.
+     *
+     * This used to take a `detailOf` lookup fed by one `getRecipe` per visible row — twenty-five
+     * extra requests a page to fill this cell and the version badge — and it had to render a
+     * skeleton while they were in flight. `RecipeAdminSummary` carries the codes now, so there is
+     * no in-flight state to draw: the cell is as ready as the row it sits in.
+     */
+    const allergenLabel = (row: RecipeAdminSummary): string =>
+        row.allergenCodes.length === 0
             ? t('kitchen:recipes.noAllergens')
-            : declarations.map((declaration) => declaration.allergenCode).join(', ');
-    };
+            : row.allergenCodes.join(', ');
 
     return [
         {
@@ -207,20 +203,11 @@ export function recipeColumns({
             min: 132,
             priority: CATALOGUE_PRIORITY.allergens,
             role: 'meta',
-            value: (row) => allergenLabel(row) ?? '',
+            value: (row) => allergenLabel(row),
             render: (row) => {
                 const label = allergenLabel(row);
-                if (label === undefined) {
-                    return (
-                        <Skeleton
-                            testID={`${recipeRowTestId(String(row.id))}-allergens-loading`}
-                            heightClassName="h-4"
-                            widthClassName="w-24"
-                        />
-                    );
-                }
                 const testID = recipeRowTestId(String(row.id));
-                const derived = detailOf(row)?.currentVersion.allergens ?? [];
+                const derived = row.allergenCodes;
                 return (
                     <Text
                         // Two ids, because "this version declares nothing" and "this version

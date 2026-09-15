@@ -253,6 +253,164 @@ it('refuses a cursor it did not issue', function (): void {
         ->assertJsonPath('error.details.parameter', 'cursor');
 });
 
+/*
+|--------------------------------------------------------------------------
+| What the listing says about a recipe's current version
+|--------------------------------------------------------------------------
+|
+| A recipe row carries `active | archived`. Everything a kitchen thinks of as a
+| recipe's state — draft, under review, published — belongs to a version, so a
+| listing that returned only the identity could not describe a quarantine at
+| all. These four cover the fields that close that, and the filter built on
+| them.
+|
+*/
+
+it('states the current version, preferring an open draft over the published one', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'published',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 2,
+        'status' => 'draft',
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    // Both facts, and they differ on purpose: v1 is what a customer can see,
+    // v2 is what a chef is working on, and the list has to be able to say so.
+    $this->getJson('/api/v1/catalogue/recipes', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.0.published_version_number', 1)
+        ->assertJsonPath('data.0.current_version_status', 'draft');
+});
+
+it('states a quarantine, which the identity alone could never express', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'published',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 2,
+        'status' => 'review_required',
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    /*
+     * The regression this locks. A client deriving state from `status` plus
+     * `published_version_number` reported this recipe as `published` — so the
+     * Review card read zero, the review queue never listed it, and the one
+     * screen built to surface a quarantine could not see one.
+     */
+    $this->getJson('/api/v1/catalogue/recipes', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.0.current_version_status', 'review_required');
+});
+
+it('carries the current version’s allergen codes, so a list needs no read per row', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $published = RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'published',
+    ]);
+    $draft = RecipeVersion::factory()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 2,
+        'status' => 'draft',
+    ]);
+
+    foreach ([[$published, 'peanuts'], [$draft, 'sesame'], [$draft, 'gluten']] as [$version, $code]) {
+        // The class has to exist before a version can declare it — the column is a real foreign key
+        // into the regulated fourteen, which is the point of that table.
+        RecipeWorld::allergen($code);
+
+        RecipeVersionAllergen::factory()->create([
+            'recipe_version_id' => $version->getKey(),
+            'organisation_id' => $this->a->organisation->getKey(),
+            'allergen_code' => $code,
+            'containment' => AllergenContainment::Contains->value,
+            'derivation' => AllergenDerivation::Derived->value,
+        ]);
+    }
+
+    $this->actingAs($this->a->user);
+
+    // The draft's classes, not the published one's — the same version the
+    // status above names, and the same one the allergen filter selects on. A
+    // cell and a filter disagreeing about which version they describe is how a
+    // row gets hidden by a filter it visibly matches.
+    $this->getJson('/api/v1/catalogue/recipes', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.0.current_version_allergen_codes', ['gluten', 'sesame']);
+});
+
+it('narrows by a version state the recipe identity has no column for', function (): void {
+    $quarantined = Recipe::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Under review',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $quarantined->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'review_required',
+    ]);
+
+    $live = Recipe::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Perfectly fine',
+    ]);
+    RecipeVersion::factory()->create([
+        'recipe_id' => $live->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'version_number' => 1,
+        'status' => 'published',
+    ]);
+
+    $this->actingAs($this->a->user);
+
+    /*
+     * `review_required` used to be dropped on the client rather than sent,
+     * because the identity has no such state — so picking it in the Status
+     * column sent no filter and the page answered with everything, which reads
+     * as a filter that does not work.
+     */
+    $this->getJson('/api/v1/catalogue/recipes?status=review_required', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name_en', 'Under review');
+
+    $this->getJson('/api/v1/catalogue/recipes?status=published', RecipeWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name_en', 'Perfectly fine');
+
+    // And a word in neither vocabulary is still refused rather than becoming a
+    // filter that quietly matches nothing. `request.invalid` is a 400 here: a
+    // malformed query parameter, not a failed validation rule.
+    $this->getJson('/api/v1/catalogue/recipes?status=nonsense', RecipeWorld::headers($this->a))
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'status');
+});
+
 it('denies a member without the recipe permissions', function (): void {
     $stranger = User::factory()->create();
 

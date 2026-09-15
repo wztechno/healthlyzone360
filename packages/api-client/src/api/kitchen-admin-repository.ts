@@ -553,19 +553,28 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
+            /*
+             * The status filter, sent as the caller asked for it.
+             *
+             * This used to translate into the recipe identity's own vocabulary — `published` became
+             * `active`, `retired` became `archived` — and **silently dropped `draft` and
+             * `review_required`**, because the identity has no such states. Picking either in the
+             * list's Status column therefore sent no filter at all and the page answered with
+             * everything, which read as a filter that did not work.
+             *
+             * The endpoint now accepts all six and narrows the version ones against the *current*
+             * version, which is the one the row displays. Still one value: the column's menu is
+             * single-select, and a union is not a query this endpoint expresses.
+             */
             const status =
                 filter?.statuses !== undefined && filter.statuses.length === 1
-                    ? filter.statuses[0] === 'retired'
-                        ? 'archived'
-                        : filter.statuses[0] === 'published'
-                          ? 'active'
-                          : undefined
+                    ? filter.statuses[0]
                     : undefined;
 
             const envelope = await transport.requestEnvelope<AdminRecipe[]>({
                 method: 'GET',
                 path: `/catalogue/recipes${cursorQuery(pickCursorFilter(filter), {
-                    status: status === 'active' ? undefined : status,
+                    status,
                     stale_only: filter?.staleOnly === true ? '1' : undefined,
                     allergen: soleAllergen(filter?.allergenCodes),
                 })}`,

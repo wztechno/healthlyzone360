@@ -623,6 +623,8 @@ export const zAdminRecipe = z.object({
     status: zRecipeStatus,
     notes: z.string().nullish(),
     published_version_number: z.int().gte(1).nullable(),
+    current_version_status: zRecipeVersionStatus.nullable(),
+    current_version_allergen_codes: z.array(zAllergenCode),
     source_system: z.string().nullish(),
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),

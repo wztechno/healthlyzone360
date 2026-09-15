@@ -367,6 +367,10 @@ function recipe({ ordinal, name, currentVersion, overrides = {} }: RecipeSeed): 
         recipeCategory: null,
         currentVersionNumber: version.versionNumber,
         versionCount: version.versionNumber,
+        // Derived from the version rather than defaulted, so a fixture cannot claim a state its own
+        // version contradicts — which is the whole point of the two fields.
+        currentVersionStatus: version.status,
+        allergenCodes: version.allergens.map((declared) => declared.allergenCode),
         description: { en: 'A dish.', ar: 'طبق.' },
         currentVersion: version,
         versions: [versionSummary(version)],
@@ -386,6 +390,8 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
         recipeCategory: record.recipeCategory,
         currentVersionNumber: record.currentVersionNumber,
         versionCount: record.versionCount,
+        currentVersionStatus: record.currentVersionStatus,
+        allergenCodes: record.allergenCodes,
     };
 }
 

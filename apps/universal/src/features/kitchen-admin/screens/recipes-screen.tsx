@@ -21,6 +21,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { useRecipeQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { RECIPE_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -136,10 +137,20 @@ function RecipesList() {
         [memberships],
     );
 
-    const { detailOf } = list;
+    /*
+     * The one read this screen still makes per record, and it is per *opened* record rather than
+     * per row.
+     *
+     * The list's own cells — the allergen run, the version state, whether New draft is offered —
+     * come off `RecipeAdminSummary` now. The View panel wants one thing the summary deliberately
+     * does not carry: each declaration's `containment`, the contains / may-contain distinction it
+     * states in words. That is a detail of one record a reader has chosen to look at, so it is
+     * fetched when the panel opens and not twenty-five times a page on the chance somebody might.
+     */
+    const viewedDetail = useRecipeQuery(list.viewing?.id ?? null);
     const columns = useMemo(
-        () => recipeColumns({ t, locale, formatter, detailOf, kitchenName }),
-        [t, locale, formatter, detailOf, kitchenName],
+        () => recipeColumns({ t, locale, formatter, kitchenName }),
+        [t, locale, formatter, kitchenName],
     );
 
     const controls = useColumnControls<RecipeAdminSummary, CatalogueColumn<RecipeAdminSummary>>(
@@ -175,8 +186,7 @@ function RecipesList() {
     ];
 
     const viewed = list.viewing;
-    const viewedAllergens =
-        viewed === null ? [] : (detailOf(viewed)?.currentVersion.allergens ?? []);
+    const viewedAllergens = viewedDetail.data?.currentVersion.allergens ?? [];
 
     return (
         <Stack space="md" testID="kitchen-recipes-screen">
@@ -322,7 +332,7 @@ function RecipesList() {
                         />
                     )
                 }
-                fields={viewed === null ? [] : viewFields(viewed, list, t, formatter, kitchenName)}
+                fields={viewed === null ? [] : viewFields(viewed, t, formatter, kitchenName)}
                 {...(viewed === null || viewedAllergens.length === 0
                     ? {}
                     : {
@@ -550,13 +560,11 @@ function statCards(list: RecipeListState, t: TFunction): readonly CatalogueStatC
  */
 function viewFields(
     row: RecipeAdminSummary,
-    list: RecipeListState,
     t: TFunction,
     formatter: Formatter,
     kitchenName: KitchenName,
 ): readonly CatalogueViewField[] {
-    const dash = t('kitchen:list.noValue');
-    const versionStatus = list.detailOf(row)?.currentVersion.status;
+    const versionStatus = row.currentVersionStatus;
 
     return [
         {
@@ -579,7 +587,7 @@ function viewFields(
         {
             key: 'versionState',
             label: t('kitchen:recipes.columnVersionState'),
-            value: versionStatus === undefined ? dash : t(statusShortKey(versionStatus)),
+            value: t(statusShortKey(versionStatus)),
         },
         {
             key: 'versionCount',

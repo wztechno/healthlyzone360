@@ -473,13 +473,31 @@ export function mapDeliveryZonePublishableStatus(status: DeliveryZoneStatus): Pu
     return 'draft';
 }
 
+/**
+ * A recipe's state as a list renders it: the current version's, unless the identity is archived.
+ *
+ * The archive check comes first because it is the one fact the *identity* owns. `recipes.status` is
+ * `active | archived`; everything else belongs to a version, and an archived recipe is retired
+ * whatever its versions still say.
+ *
+ * This used to be derived from the identity plus `published_version_number` alone, which made
+ * `review_required` unreachable — there was no input that could produce it. A recipe carrying a
+ * quarantined version reported `published`, so the Review stat card sat at zero, `/kitchen/review`
+ * never listed a recipe, and a quarantine was invisible on the one screen built to surface it.
+ */
 export function mapRecipeIdentityPublishableStatus(
     recipeStatus: AdminRecipe['status'],
+    currentVersionStatus: RecipeVersionStatus | null,
     publishedVersionNumber: number | null,
 ): PublishableStatus {
     if (recipeStatus === 'archived') return 'retired';
-    if (publishedVersionNumber !== null) return 'published';
-    return 'draft';
+    if (currentVersionStatus !== null)
+        return mapRecipeVersionPublishableStatus(currentVersionStatus);
+
+    // A recipe with no versions at all. The create path makes it unreachable, but the shape allows
+    // it, and "published because something is published" is the honest fallback for a row that
+    // predates the column.
+    return publishedVersionNumber !== null ? 'published' : 'draft';
 }
 
 export function mapRecipeVersionPublishableStatus(status: RecipeVersionStatus): PublishableStatus {
@@ -738,7 +756,12 @@ export function mapPlanAdminFromItem(
 
 export function mapRecipeAdminSummary(
     wire: AdminRecipe,
-    options?: { readonly currentVersionNumber?: number; readonly versionCount?: number },
+    options?: {
+        readonly currentVersionNumber?: number;
+        readonly versionCount?: number;
+        readonly currentVersionStatus?: PublishableStatus;
+        readonly allergenCodes?: readonly AllergenCode[];
+    },
 ): RecipeAdminSummary {
     const currentVersionNumber =
         options?.currentVersionNumber ?? wire.published_version_number ?? 1;
@@ -747,7 +770,11 @@ export function mapRecipeAdminSummary(
         id: RecipeId.unsafe(wire.id),
         meta: {
             lockVersion: wire.lock_version,
-            status: mapRecipeIdentityPublishableStatus(wire.status, wire.published_version_number),
+            status: mapRecipeIdentityPublishableStatus(
+                wire.status,
+                wire.current_version_status,
+                wire.published_version_number,
+            ),
             updatedAt: wire.updated_at ?? UNKNOWN_ISO_DATE_TIME,
             updatedByName: null,
         },
@@ -762,6 +789,14 @@ export function mapRecipeAdminSummary(
         recipeCategory: wire.recipe_category ?? null,
         currentVersionNumber,
         versionCount: options?.versionCount ?? 1,
+        currentVersionStatus:
+            options?.currentVersionStatus ??
+            (wire.current_version_status === null
+                ? 'draft'
+                : mapRecipeVersionPublishableStatus(wire.current_version_status)),
+        allergenCodes:
+            options?.allergenCodes ??
+            wire.current_version_allergen_codes.map((code) => AllergenCode.unsafe(code)),
     };
 }
 
@@ -916,6 +951,15 @@ export function mapRecipeAdmin(
     const summary = mapRecipeAdminSummary(recipeWire, {
         currentVersionNumber: currentVersion.versionNumber,
         versionCount: versionsWire.length,
+        // Taken from the version this read already resolved rather than from the wire fields.
+        //
+        // Only the *listing* fills `current_version_status` and `current_version_allergen_codes`:
+        // the single-resource reads return the versions themselves, so the controller has nothing to
+        // compute and sends null. Left alone, a record would report `published` on its own page
+        // while the list it was opened from said `review_required` — the same recipe disagreeing
+        // with itself one click apart.
+        currentVersionStatus: currentVersion.status,
+        allergenCodes: currentVersion.allergens.map((declared) => declared.allergenCode),
     });
 
     const currentVersionId = currentVersion.id;

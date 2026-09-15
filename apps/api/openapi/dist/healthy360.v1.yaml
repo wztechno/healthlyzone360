@@ -22907,6 +22907,8 @@ components:
         - confidentiality
         - status
         - published_version_number
+        - current_version_status
+        - current_version_allergen_codes
         - lock_version
       description: |
         The administrative shape of a recipe identity. Carries **both** names
@@ -22962,6 +22964,33 @@ components:
             The live version, or null when nothing is published. Computed, not
             stored: there is no `current_version_id` column to fall out of
             step with the versions themselves.
+        current_version_status:
+          oneOf:
+            - $ref: '#/components/schemas/RecipeVersionStatus'
+            - type: 'null'
+          description: |
+            The *current* version's publishable state, and a different question
+            from `published_version_number`.
+
+            `status` above is the recipe identity's own `active | archived`.
+            Everything a reader thinks of as a recipe's state — draft, under
+            review, published — belongs to a version. A client holding only the
+            two fields above can therefore never render a quarantine: a recipe
+            whose live version is under review reads as `published`.
+
+            "Current" is an editable version first (`draft` or
+            `review_required`), then the published one, then the highest
+            numbered — the same precedence the `allergen` and `status` filters
+            select on. Null only on a recipe with no versions, which the create
+            path makes unreachable.
+        current_version_allergen_codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllergenCode'
+          description: |
+            The allergen classes that version declares, so a list can draw its
+            Allergens column from the page it already fetched rather than one
+            `GET /recipes/{recipe}` per visible row.
         source_system:
           type:
             - string

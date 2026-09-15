@@ -909,6 +909,31 @@ export type AdminRecipe = {
      *
      */
     published_version_number: number | null;
+    /**
+     * The *current* version's publishable state, and a different question
+     * from `published_version_number`.
+     *
+     * `status` above is the recipe identity's own `active | archived`.
+     * Everything a reader thinks of as a recipe's state — draft, under
+     * review, published — belongs to a version. A client holding only the
+     * two fields above can therefore never render a quarantine: a recipe
+     * whose live version is under review reads as `published`.
+     *
+     * "Current" is an editable version first (`draft` or
+     * `review_required`), then the published one, then the highest
+     * numbered — the same precedence the `allergen` and `status` filters
+     * select on. Null only on a recipe with no versions, which the create
+     * path makes unreachable.
+     *
+     */
+    current_version_status: RecipeVersionStatus | null;
+    /**
+     * The allergen classes that version declares, so a list can draw its
+     * Allergens column from the page it already fetched rather than one
+     * `GET /recipes/{recipe}` per visible row.
+     *
+     */
+    current_version_allergen_codes: Array<AllergenCode>;
     source_system?: string | null;
     source_ref?: string | null;
     /**

@@ -2,7 +2,6 @@ import type {
     AllergenClass,
     ApiFailure,
     PublishableStatus,
-    RecipeAdmin,
     RecipeAdminSummary,
 } from '@healthy360/api-client/contracts';
 import type { AllergenCode, KitchenId, RecipeId } from '@healthy360/domain-types';
@@ -16,7 +15,6 @@ import {
     pagesInResult,
     useAllergenClassesQuery,
     useOpenRecipeDraftMutation,
-    useRecipeDetails,
     useRecipeKitchensQuery,
     useRecipePageQuery,
     useRetireRecipeMutation,
@@ -50,13 +48,14 @@ import { useListPage } from '../use-list-page.ts';
  * the only set this screen has. That difference is why Shown reads "18 of 306" rather than claiming
  * the three beside it are catalogue-wide.
  *
- * ## The detail read is here, not in three cells
+ * ## Everything a row draws arrives with the row
  *
- * {@link useRecipeDetails} reads every row on the page so the version state, the derived allergen
- * label and the immutability that decides whether New draft is offered are all answerable
- * synchronously. That last one is why it has to be here: `rowActions` is a callback, not a
- * component, so it cannot call a query — and an action that appeared a beat after the row did would
- * be a control moving under the pointer.
+ * The version state, the derived allergen label and the immutability that decides whether New draft
+ * is offered are all fields on {@link RecipeAdminSummary}, so they are answerable synchronously.
+ * They used to cost one `getRecipe` per visible row — twenty-five extra requests a page — and that
+ * read had to live here rather than in the cells that wanted it, because `rowActions` is a callback
+ * and a callback cannot call a query. With the fields on the listing there is nothing left to
+ * hoist.
  */
 
 /**
@@ -77,7 +76,6 @@ export interface RecipeListState {
     readonly refetch: () => void;
 
     /** The detail behind one row, or `undefined` while it is in flight. */
-    readonly detailOf: (row: RecipeAdminSummary) => RecipeAdmin | undefined;
 
     readonly query: string;
     readonly setQuery: (query: string) => void;
@@ -126,9 +124,8 @@ export interface RecipeListState {
     /**
      * The record the read-only View panel is showing, or `null`.
      *
-     * The summary rather than its id, matching the ingredient list: the row already carries most of
-     * what the panel draws, and the two fields it does not — the version state and the derived
-     * label — are the ones {@link detailOf} already holds.
+     * The summary rather than its id, matching the ingredient list: the row carries everything the
+     * panel draws, the version state and the derived label included.
      */
     readonly viewing: RecipeAdminSummary | null;
     readonly openView: (row: RecipeAdminSummary) => void;
@@ -220,12 +217,6 @@ export function useRecipeList(): RecipeListState {
         });
     }, [rows, sortKey, sortDirection, locale]);
 
-    // Keyed off the sorted page, so the reads follow the rows actually on screen. The identity of
-    // this array is what `useQueries` re-subscribes on, hence the memo.
-    const recipeIds = useMemo(() => sorted.map((row) => row.id), [sorted]);
-    const details = useRecipeDetails(recipeIds);
-    const detailOf = (row: RecipeAdminSummary): RecipeAdmin | undefined => details[String(row.id)];
-
     const draftCount = sorted.filter((row) => row.meta.status === 'draft').length;
     const reviewCount = sorted.filter((row) => row.meta.status === 'review_required').length;
     const missingArabicCount = sorted.filter(
@@ -244,8 +235,6 @@ export function useRecipeList(): RecipeListState {
         refetch: () => {
             void recipes.refetch();
         },
-
-        detailOf,
 
         query,
         setQuery,
@@ -297,10 +286,8 @@ export function useRecipeList(): RecipeListState {
         // A published or retired version is frozen by the contract, so the only way to change it is
         // to open its successor. Offering New draft against a draft that is already open would
         // write a version bump that changed nothing.
-        isImmutable: (row) => {
-            const status = detailOf(row)?.currentVersion.status;
-            return status === 'published' || status === 'retired';
-        },
+        isImmutable: (row) =>
+            row.currentVersionStatus === 'published' || row.currentVersionStatus === 'retired',
         startDraft: (row, onOpened) => {
             setDraftOpeningFor(row.id);
             openDraft.mutate(

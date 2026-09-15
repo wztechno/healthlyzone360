@@ -9,6 +9,7 @@ use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Presenters\RecipeAdminPresenter;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
@@ -29,6 +30,24 @@ use Illuminate\Http\Request;
  */
 final class RecipeIndexController
 {
+    private const string STATUS_FILTER_MESSAGE = 'The status filter must be one of: active, archived, draft, review_required, published, retired.';
+
+    /**
+     * "Which version is this recipe currently showing?", as an ORDER BY fragment.
+     *
+     * Takes three bindings, in this order: draft, review_required, published. An editable version
+     * outranks the published one — a kitchen looking at its book wants the revision in progress —
+     * and version number breaks the remaining ties.
+     *
+     * One definition because there are four readers that must agree: the Allergens column, the
+     * Allergens *filter*, the Status filter, and the client's own `pickCurrentRecipeVersion`. When
+     * two of them disagreed, a row could be hidden by a filter its own visible cell said it matched.
+     *
+     * Written unqualified so a caller can prefix the columns for its own alias — see the three
+     * `str_replace` call sites, each of which needs a different one.
+     */
+    private const string CURRENT_VERSION_ORDER = 'case status when ? then 2 when ? then 2 when ? then 1 else 0 end desc, version_number desc';
+
     public function __construct(private readonly RecipeAdminPresenter $presenter) {}
 
     /**
@@ -81,18 +100,102 @@ final class RecipeIndexController
      */
     private function present(EloquentCollection $recipes, array $meta): JsonResponse
     {
+        /** @var list<string> $recipeIds */
+        $recipeIds = $recipes->map(static fn (Recipe $recipe): string => (string) $recipe->getKey())->values()->all();
+
         $published = RecipeVersion::query()
-            ->whereIn('recipe_id', $recipes->modelKeys())
+            ->whereIn('recipe_id', $recipeIds)
             ->where('status', RecipeVersionStatus::Published->value)
             ->pluck('version_number', 'recipe_id');
 
+        $current = $this->currentVersions($recipeIds);
+        $allergens = $this->allergenCodes($current);
+
         return ApiResponse::data(
-            $recipes->map(fn (Recipe $recipe): array => $this->presenter->recipe(
-                $recipe,
-                $published->has((string) $recipe->getKey()) ? (int) $published[(string) $recipe->getKey()] : null,
-            ))->all(),
+            $recipes->map(function (Recipe $recipe) use ($published, $current, $allergens): array {
+                $key = (string) $recipe->getKey();
+                $version = $current[$key] ?? null;
+
+                return $this->presenter->recipe(
+                    $recipe,
+                    $published->has($key) ? (int) $published[$key] : null,
+                    $version?->status->value,
+                    $version === null ? [] : ($allergens[(string) $version->getKey()] ?? []),
+                );
+            })->all(),
             $meta,
         );
+    }
+
+    /**
+     * The one version each recipe on this page is "currently" showing, keyed by recipe id.
+     *
+     * Same precedence as {@see applyAllergen()} selects on, and as the client applies when it opens
+     * a record: an editable version first (draft or review_required), then the published one, then
+     * the highest numbered. Those three had drifted apart once already — the column said one
+     * version's allergens while the filter narrowed by another's — so the ordering lives in
+     * {@see CURRENT_VERSION_ORDER} and both readers name it.
+     *
+     * `DISTINCT ON` rather than a window function or a correlated subquery: PostgreSQL will take
+     * the first row per `recipe_id` in one pass over the same ordering, which is exactly the
+     * question being asked.
+     *
+     * @param  list<string>  $recipeIds
+     * @return array<string, RecipeVersion>
+     */
+    private function currentVersions(array $recipeIds): array
+    {
+        if ($recipeIds === []) {
+            return [];
+        }
+
+        /** @var EloquentCollection<int, RecipeVersion> $versions */
+        $versions = RecipeVersion::query()
+            ->select('*')
+            ->distinct('recipe_id')
+            ->whereIn('recipe_id', $recipeIds)
+            ->orderByRaw('recipe_id, '.self::CURRENT_VERSION_ORDER, [
+                RecipeVersionStatus::Draft->value,
+                RecipeVersionStatus::ReviewRequired->value,
+                RecipeVersionStatus::Published->value,
+            ])
+            ->get();
+
+        $byRecipe = [];
+
+        foreach ($versions as $version) {
+            $byRecipe[(string) $version->recipe_id] ??= $version;
+        }
+
+        return $byRecipe;
+    }
+
+    /**
+     * The allergen codes each of those versions declares, keyed by version id.
+     *
+     * @param  array<string, RecipeVersion>  $current
+     * @return array<string, list<string>>
+     */
+    private function allergenCodes(array $current): array
+    {
+        if ($current === []) {
+            return [];
+        }
+
+        $versionIds = array_map(static fn (RecipeVersion $v): string => (string) $v->getKey(), array_values($current));
+
+        $codes = [];
+
+        foreach (
+            RecipeVersionAllergen::query()
+                ->whereIn('recipe_version_id', $versionIds)
+                ->orderBy('allergen_code')
+                ->get(['recipe_version_id', 'allergen_code']) as $row
+        ) {
+            $codes[(string) $row->recipe_version_id][] = (string) $row->allergen_code;
+        }
+
+        return $codes;
     }
 
     /**
@@ -113,15 +216,66 @@ final class RecipeIndexController
             return;
         }
 
-        if (! is_string($status) || RecipeStatus::tryFrom($status) === null) {
-            throw new ApiException(
-                ErrorCode::RequestInvalid,
-                'The status filter must be one of: active, archived.',
-                ['parameter' => 'status'],
-            );
+        if (! is_string($status)) {
+            throw new ApiException(ErrorCode::RequestInvalid, self::STATUS_FILTER_MESSAGE, ['parameter' => 'status']);
         }
 
-        $query->where('status', $status);
+        if (RecipeStatus::tryFrom($status) !== null) {
+            $query->where('status', $status);
+
+            return;
+        }
+
+        /*
+         * A version state, not a recipe state.
+         *
+         * The recipe row carries `active | archived`; everything a reader actually filters by —
+         * draft, review_required, published — lives on the version. The client used to translate
+         * as best it could (published → active, retired → archived) and **drop draft and
+         * review_required on the floor**, so picking either sent an unfiltered request and the list
+         * answered with everything. That was invisible before a quarantine existed and is not
+         * invisible now.
+         *
+         * Narrowed against the *current* version, for the same reason the Allergens filter is: the
+         * status the row displays and the status the filter matches have to be the same one.
+         */
+        $versionStatus = RecipeVersionStatus::tryFrom($status);
+
+        if ($versionStatus === null) {
+            throw new ApiException(ErrorCode::RequestInvalid, self::STATUS_FILTER_MESSAGE, ['parameter' => 'status']);
+        }
+
+        if ($versionStatus === RecipeVersionStatus::Retired) {
+            $query->where('status', RecipeStatus::Archived->value);
+
+            return;
+        }
+
+        $query->where('status', RecipeStatus::Active->value)
+            ->whereExists(function ($sub) use ($versionStatus): void {
+                $sub->selectRaw('1')
+                    ->from('recipe_versions as rv')
+                    ->whereColumn('rv.recipe_id', 'recipes.id')
+                    ->where('rv.status', $versionStatus->value)
+                    ->whereRaw(
+                        'rv.id = (
+                            select inner_rv.id
+                            from recipe_versions as inner_rv
+                            where inner_rv.recipe_id = recipes.id
+                            order by '.str_replace(
+                            ['status', 'version_number'],
+                            ['inner_rv.status', 'inner_rv.version_number'],
+                            self::CURRENT_VERSION_ORDER,
+                        ).'
+                            limit 1
+                        )',
+                        [
+                            RecipeVersionStatus::Draft->value,
+                            RecipeVersionStatus::ReviewRequired->value,
+                            RecipeVersionStatus::Published->value,
+                        ],
+                    );
+            });
     }
 
     /**
@@ -210,14 +364,11 @@ final class RecipeIndexController
                         select rv.id
                         from recipe_versions as rv
                         where rv.recipe_id = recipes.id
-                        order by
-                            case rv.status
-                                when ? then 2
-                                when ? then 2
-                                when ? then 1
-                                else 0
-                            end desc,
-                            rv.version_number desc
+                        order by '.str_replace(
+                        ['status', 'version_number'],
+                        ['rv.status', 'rv.version_number'],
+                        self::CURRENT_VERSION_ORDER,
+                    ).'
                         limit 1
                     )',
                     [

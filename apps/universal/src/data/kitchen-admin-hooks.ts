@@ -338,9 +338,10 @@ export function useIngredientsByIds(
                 return repositories.kitchenAdmin.getIngredient(ingredientId);
             },
         })),
-        // A plain record, for the reason `useRecipeDetails` gives: `combine` runs through the same
-        // structural sharing every other query result does, and its memoisation is what keeps the
-        // callers' `useMemo`s from rebuilding on every render.
+        // A plain record rather than a Map: `combine` runs through the same structural sharing
+        // every other query result does, so the value it returns has to be one that sharing
+        // understands, and its memoisation is what keeps the callers' `useMemo`s from rebuilding on
+        // every render.
         combine: (results): Readonly<Record<string, IngredientAdmin>> => {
             const byId: Record<string, IngredientAdmin> = {};
             for (const result of results) {
@@ -699,55 +700,6 @@ export function useRecipeQuery(recipeId: RecipeId | null): UseQueryResult<Recipe
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (recipeId === null) throw new Error('No recipe identifier.');
             return repositories.kitchenAdmin.getRecipe(recipeId);
-        },
-    });
-}
-
-/**
- * Every recipe on the page in hand, read one request at a time.
- *
- * `RecipeAdminSummary` carries a version *number* and a version *count*, and nothing about the
- * state that version is in or the allergens it derived — which are the two questions a kitchen
- * brings to a recipe index ("which of these still have a draft open?", "which declare sesame?").
- * Both live on `RecipeAdmin.currentVersion`, so the list reads the detail of every row it draws.
- *
- * It is an N+1 and it is written down rather than hidden. What changed when the list moved onto the
- * Catalogue shell is *where* it happens: three cell components each calling {@link useRecipeQuery}
- * became one call here, so the list holds the answers synchronously and its column spec stays a
- * plain array — a cell cannot call a hook, and the row-action callback that decides whether a
- * version is immutable is not a component at all.
- *
- * The cost buys something back, exactly as it did before: each entry filled is the one the editor
- * opens, so following a row costs no further request. A real `GET /kitchen/recipes` that returned
- * the derived label and the version state on the summary retires this hook and turns both columns
- * into plain fields.
- *
- * Keyed on {@link queryKeys}`.kitchenAdmin.recipe`, the same key {@link useRecipeQuery} uses, so the
- * two share one cache entry per recipe and neither refetches what the other has.
- */
-export function useRecipeDetails(
-    recipeIds: readonly RecipeId[],
-): Readonly<Record<string, RecipeAdmin>> {
-    const { repositories } = useRepositoryContext();
-
-    return useQueries({
-        queries: recipeIds.map((recipeId) => ({
-            queryKey: queryKeys.kitchenAdmin.recipe(recipeId),
-            enabled: repositories !== null,
-            queryFn: () => {
-                if (repositories === null) throw new Error('Repositories are not ready.');
-                return repositories.kitchenAdmin.getRecipe(recipeId);
-            },
-        })),
-        // A plain record rather than a Map: `combine` runs through the same structural sharing every
-        // other query result does, so the value it returns has to be one that sharing understands.
-        // Its memoisation is what keeps the column spec's `useMemo` from rebuilding every render.
-        combine: (results): Readonly<Record<string, RecipeAdmin>> => {
-            const byId: Record<string, RecipeAdmin> = {};
-            for (const result of results) {
-                if (result.data !== undefined) byId[String(result.data.id)] = result.data;
-            }
-            return byId;
         },
     });
 }
