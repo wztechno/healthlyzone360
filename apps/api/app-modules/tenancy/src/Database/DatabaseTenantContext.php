@@ -94,8 +94,9 @@ final class DatabaseTenantContext
      * organisation.
      *
      * Needed wherever a row is written on behalf of somebody who is not (yet)
-     * the authenticated principal of the request — registration recording
-     * consent is the foundation's one such path.
+     * the authenticated principal of the request. Registration is where they
+     * all live: it records the consent grants and opens the customer account
+     * for a person who has no session yet.
      *
      * @template TReturn
      *
