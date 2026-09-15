@@ -13,6 +13,7 @@ use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
+use Healthy360\Catalogues\Services\DerivedNutritionService;
 use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
 use Healthy360\ReferenceData\Models\DietClassification;
@@ -75,6 +76,7 @@ final readonly class MarketplaceMeals
     public function __construct(
         private PriceResolver $prices,
         private DerivedAllergenService $allergens,
+        private DerivedNutritionService $nutrition,
         private DatabaseTenantContext $tenantContext,
     ) {}
 
@@ -294,21 +296,71 @@ final readonly class MarketplaceMeals
      * cannot reach this method anyway, because the readiness gate refuses to
      * publish a meal that can say nothing about what is in it.
      *
+     * **Inside the kitchen's tenant context, for {@see nutritionOf()}'s reason
+     * and with the same consequence.** `DerivedAllergenService` prefers the
+     * published recipe version's frozen label and falls back to the item's own
+     * linked ingredients. `recipe_versions` is a tenant row whose row-level
+     * policy fails closed for a request with no organisation, so an anonymous
+     * marketplace read could not see the frozen label at all: it silently took
+     * the weaker basis, and a label frozen at publication is precisely the one
+     * an allergy sufferer is entitled to. The test suite cannot catch this
+     * because it runs as the schema owner, which the policies do not apply to —
+     * which is why the wrap is here rather than waiting for a red test.
+     *
      * @return list<string>
      */
     public function allergenCodesOf(CatalogueItem $meal): array
     {
-        $derived = $this->allergens->forItem($meal);
+        /** @var list<string> $codes */
+        $codes = $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal): array {
+            $derived = $this->allergens->forItem($meal);
 
-        $codes = array_map(
-            static fn (array $row): string => $row['allergen_code'],
-            $derived['allergens'],
-        );
+            return array_map(
+                static fn (array $row): string => $row['allergen_code'],
+                $derived['allergens'],
+            );
+        });
 
         $unique = array_values(array_unique($codes));
         sort($unique);
 
         return $unique;
+    }
+
+    /**
+     * The meal's nutrition facts, as a customer's panel reads them.
+     *
+     * A thin pass-through to {@see DerivedNutritionService}, which holds the
+     * authority order — the kitchen's own recorded payload, else the published
+     * recipe version's snapshot divided down to one sold unit, else null.
+     *
+     * **One more `publishedVersion()` lookup per listed item**, on top of the
+     * one {@see allergenCodesOf()} already does. Accepted rather than memoised,
+     * for the reason that precedent gives: it is a primary-key-shaped read of
+     * one row, a page of items is at most a page of them, and a shared memo on
+     * the projector would be a cache with a lifetime to reason about in
+     * exchange for a query PostgreSQL answers out of the buffer pool. When a
+     * listing page's query count becomes the problem, both lookups move
+     * together into one eager load — not one of them into a special case.
+     *
+     * **Inside the kitchen's tenant context, like the price.** The published
+     * item is readable by anyone — that is what "published" means to the
+     * row-level policy on `catalogue_items` — but the recipe version behind it
+     * is the kitchen's own row, and the policy on `recipe_versions` fails
+     * closed for a request with no organisation. An anonymous marketplace read
+     * would therefore find no version, derive nothing, and answer `null` for a
+     * dish whose snapshot is sitting right there; the test suite cannot see
+     * this because it runs as the schema owner, which the policies do not
+     * apply to. `priceOf()` restores the kitchen's context for the same reason
+     * (tariffs are tenant rows), and the projection borrows the same door.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function nutritionOf(CatalogueItem $meal): ?array
+    {
+        return $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal): ?array {
+            return $this->nutrition->forItem($meal);
+        });
     }
 
     /**

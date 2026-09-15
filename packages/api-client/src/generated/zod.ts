@@ -419,7 +419,11 @@ export const zAdminIngredient = z.object({
     purchase_unit_code: z.string().nullish(),
     composition: z.string().nullish(),
     items_per_unit: z.string().nullish(),
+    grams_per_unit: z.string().nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
+    nutrition_derived_from_version_id: zUuid.nullish(),
+    nutrition_estimated: z.boolean().nullish(),
+    nutrition_note: z.string().max(300).nullish(),
     b2b_price_amount: z.string().nullish(),
     b2c_price_amount: z.string().nullish(),
     unit_price_amount: z.string().nullish(),
@@ -461,7 +465,10 @@ export const zCreateIngredientRequest = z.object({
     purchase_unit_id: zUuid.nullish(),
     composition: z.string().max(2000).nullish(),
     items_per_unit: z.number().gt(0).nullish(),
+    grams_per_unit: z.number().gte(0.0001).lte(99999999.9999).nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
+    nutrition_estimated: z.boolean().nullish(),
+    nutrition_note: z.string().max(300).nullish(),
     b2b_price_amount: z.number().gte(0).nullish(),
     b2c_price_amount: z.number().gte(0).nullish(),
     unit_price_amount: z.number().gte(0).nullish(),
@@ -487,7 +494,10 @@ export const zUpdateIngredientRequest = z.object({
     purchase_unit_id: zUuid.nullish(),
     composition: z.string().max(2000).nullish(),
     items_per_unit: z.number().gt(0).nullish(),
+    grams_per_unit: z.number().gte(0.0001).lte(99999999.9999).nullish(),
     nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
+    nutrition_estimated: z.boolean().nullish(),
+    nutrition_note: z.string().max(300).nullish(),
     b2b_price_amount: z.number().gte(0).nullish(),
     b2c_price_amount: z.number().gte(0).nullish(),
     unit_price_amount: z.number().gte(0).nullish(),
@@ -1152,6 +1162,7 @@ export const zAdminCatalogueItem = z.object({
     kitchen_subcategory: z.string().nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
     recipe_id: zUuid.nullish(),
+    portion_factor: z.string(),
     ingredient_id: zUuid.nullish(),
     purchasing_unit_id: zUuid.nullish(),
     usage_unit_id: zUuid.nullish(),
@@ -1297,6 +1308,7 @@ export const zCreateCatalogueItemRequest = z.object({
     product_category_id: zUuid.nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
     recipe_id: zUuid.nullish(),
+    portion_factor: z.number().gte(0.001).lte(999.999).optional(),
     ingredient_id: zUuid.nullish(),
     purchasing_unit_id: zUuid.nullish(),
     usage_unit_id: zUuid.nullish(),
@@ -1324,6 +1336,7 @@ export const zUpdateCatalogueItemRequest = z.object({
     product_category_id: zUuid.nullish(),
     production_mode: zCatalogueProductionMode.nullish(),
     recipe_id: zUuid.nullish(),
+    portion_factor: z.number().gte(0.001).lte(999.999).optional(),
     ingredient_id: zUuid.nullish(),
     purchasing_unit_id: zUuid.nullish(),
     usage_unit_id: zUuid.nullish(),
@@ -2352,7 +2365,7 @@ export const zMarketplaceNutritionCalculation = z.object({
 });
 
 /**
- * Per-serving nutrition facts with their source and calculation method.
+ * Nutrition facts on the basis `basis` names, with their source and calculation method.
  */
 export const zMarketplaceNutritionFacts = z.object({
     basis: z.enum([
@@ -6388,8 +6401,9 @@ export const zOrganisationInvitation = z.object({
 export const zRecipeRollupWarning = z.object({
     code: z.enum([
         'rollup.unknown_ingredient',
-        'nutrition_unavailable',
         'rollup.missing_facts',
+        'rollup.missing_nutrition',
+        'rollup.unconvertible_unit',
         'rollup.mixed_cost_currency',
         'rollup.missing_cost'
     ]),
@@ -6412,15 +6426,16 @@ export const zRecipeRollupAllergenSource = z.object({
  * What a draft formulation would declare, computed and thrown away.
  */
 export const zRecipeRollupPreview = z.object({
-    per_recipe: z.null(),
-    per_serving: z.null(),
-    per_100g: z.null(),
+    per_recipe: zMarketplaceNutritionFacts.nullable(),
+    per_serving: zMarketplaceNutritionFacts.nullable(),
+    per_100g: zMarketplaceNutritionFacts.nullable(),
     allergen_sources: z.array(zRecipeRollupAllergenSource),
     estimated_cost: z.object({
         amount: z.string(),
         currency: z.string().length(3)
     }).nullable(),
-    warnings: z.array(zRecipeRollupWarning).min(1)
+    computed_cost: z.record(z.string(), z.unknown()).nullable(),
+    warnings: z.array(zRecipeRollupWarning)
 });
 
 export const zPreviewRecipeRollupLine = z.object({
@@ -6431,11 +6446,22 @@ export const zPreviewRecipeRollupLine = z.object({
     cost_currency_code: z.string().length(3).nullish()
 });
 
+export const zPreviewRecipeRollupPackagingLine = z.object({
+    ingredient_id: zUuid,
+    basis: zPackagingBasis,
+    quantity: z.number().gt(0).lte(99999999.9999).nullish()
+});
+
 export const zPreviewRecipeRollupRequest = z.object({
     recipe_id: zUuid.nullish(),
-    servings: z.number().gt(0).lte(9999),
+    servings: z.number().gt(0).lte(9999).nullish(),
     waste_percent: z.number().gte(0).lte(100).nullish(),
-    lines: z.array(zPreviewRecipeRollupLine).max(200)
+    lines: z.array(zPreviewRecipeRollupLine).max(200),
+    yield_quantity: z.number().gt(0).lte(99999999.9999).nullish(),
+    yield_unit_id: zUuid.nullish(),
+    yield_piece_count: z.int().gte(1).lte(100000).nullish(),
+    packaging_waste_percent: z.number().gte(0).lte(100).nullish(),
+    packaging: z.array(zPreviewRecipeRollupPackagingLine).max(50).optional()
 });
 
 export const zCatalogueItemAvailabilityDay = z.object({
@@ -9451,7 +9477,8 @@ export const zListRecipesQuery = z.object({
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zRecipeStatus.optional(),
-    category: z.string().max(40).optional()
+    category: z.string().max(40).optional(),
+    allergen: z.string().max(20).optional()
 });
 
 /**
@@ -10056,7 +10083,8 @@ export const zListCatalogueItemsQuery = z.object({
     query: z.string().max(160).optional(),
     status: zCatalogueItemStatus.optional(),
     item_type: zCatalogueItemType.optional(),
-    product_category_id: zUuid.optional()
+    product_category_id: zUuid.optional(),
+    allergen: z.string().max(20).optional()
 });
 
 /**

@@ -81,6 +81,7 @@ import {
     marginPercent,
     parseAmount,
     parseQuantity,
+    rollupWarningKey,
     statusKey,
     statusShortKey,
     statusTone,
@@ -625,17 +626,38 @@ function RecipeEditor({
     const wastePercent = parseQuantity(details.wastePercent) ?? 0;
     const lineInputs = useMemo(() => lineInputsFrom(lines), [lines]);
 
+    /*
+     * The two yield fields, read honestly rather than through `servings`.
+     *
+     * `servings` above defaults a blank yield to `1` because six other places on this screen divide
+     * by it and a division by nothing is worse than a division by one. The roll-up cannot afford
+     * that default: a `1` sent as the yield mass would make `per_100g` divide by one gram, and a `1`
+     * sent as the portion count would label a twelve-portion batch as a single serving. So both are
+     * parsed again here, and a blank one is sent as *absent* — the server's own refusal to invent a
+     * figure is only useful if the client stops inventing one first.
+     *
+     * The piece count is what `servings` means on the wire: one sold unit is one yield piece.
+     */
+    const yieldMass = parseQuantity(details.yieldQuantity);
+    const yieldPieces = parseQuantity(details.yieldPieces);
+
     const rollupDraft: RecipeRollupDraft | null = useMemo(
         () =>
             lineInputs.length === 0
                 ? null
                 : {
                       recipeId: data?.id ?? null,
-                      servings: servings > 0 ? servings : 1,
+                      servings: yieldPieces !== null && yieldPieces > 0 ? yieldPieces : null,
                       wastePercent,
                       lines: lineInputs,
+                      ...(yieldMass !== null && yieldMass > 0
+                          ? { yieldQuantity: yieldMass, yieldUnit: details.yieldUnit }
+                          : {}),
+                      ...(yieldPieces !== null && yieldPieces > 0
+                          ? { yieldPieceCount: yieldPieces }
+                          : {}),
                   },
-        [data?.id, servings, wastePercent, lineInputs],
+        [data?.id, yieldMass, yieldPieces, details.yieldUnit, wastePercent, lineInputs],
     );
 
     // Debounced, so a quantity being typed is one request rather than four — the policy is on
@@ -764,6 +786,35 @@ function RecipeEditor({
 
     // Derived rather than read off the record, so the Technical sheet tab answers from the draft.
     const allergenSources = rollup.data?.allergenSources ?? [];
+    const rollupWarnings = rollup.data?.warnings ?? [];
+
+    /**
+     * Each warning as one sentence, with the ingredients it is about named.
+     *
+     * The whole reason the server sends `ingredientIds` beside the code. "Some ingredients carry no
+     * reference facts" sends somebody down a list of forty lines; "no reference facts for Sumac"
+     * sends them to one row. An id nobody can resolve prints as itself rather than disappearing —
+     * the line is still the one at fault — and a code this screen has no copy for falls back to the
+     * server's own sentence, which is the order `rollupWarningKey` exists to express.
+     */
+    const warningNotices = rollupWarnings.map((warning) => {
+        const key = rollupWarningKey(warning.code);
+        const names = warning.ingredientIds
+            .map((id) => {
+                const entry = libraryEntries.find(
+                    (candidate) => String(candidate.id) === String(id),
+                );
+                return entry === undefined ? String(id) : displayName(entry.name, locale).value;
+            })
+            .join(t('kitchen:common.listSeparator'));
+
+        return { code: warning.code, text: key === null ? warning.message : t(key, { names }) };
+    });
+
+    /** Every ingredient any warning names, so the rows at fault carry a mark of their own. */
+    const flaggedIngredientIds = rollupWarnings.flatMap((warning) =>
+        warning.ingredientIds.map(String),
+    );
 
     /* ── the two list prices, and the margin they make against the cascade ───────────────────── */
 
@@ -1683,6 +1734,7 @@ function RecipeEditor({
                             testID="kitchen-recipe-lines-table"
                             rows={lines}
                             ingredients={libraryEntries}
+                            flaggedIngredientIds={flaggedIngredientIds}
                             canManage={editable}
                             nextKey={nextKey}
                             pickerPlaceholder={t('kitchen:recipes.addIngredientPlaceholder')}
@@ -2005,6 +2057,26 @@ function RecipeEditor({
                             figures={nutrientFigures(rollup.data?.per100g ?? null, t, formatter)}
                             emptyValue={t('kitchen:list.noValue')}
                         />
+
+                        {/*
+                         * Why the tiles are dashes, in the reader's language and naming the row.
+                         * The panel above withholds every figure the moment one line cannot be
+                         * resolved, and a panel of dashes with no reason beside it is the version
+                         * of this screen a kitchen files a bug against.
+                         */}
+                        {warningNotices.length === 0 ? null : (
+                            <Stack space="sm" testID="kitchen-recipe-composition-warnings">
+                                {warningNotices.map((notice) => (
+                                    <Callout
+                                        key={notice.code}
+                                        testID={`kitchen-recipe-composition-warnings-warning-${notice.code}`}
+                                        tone="warning"
+                                        role="status"
+                                        title={notice.text}
+                                    />
+                                ))}
+                            </Stack>
+                        )}
                     </FormSection>
 
                     {/*

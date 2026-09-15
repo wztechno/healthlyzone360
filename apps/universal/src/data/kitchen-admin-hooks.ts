@@ -2191,6 +2191,12 @@ export function recipeRollupHash(draft: RecipeRollupDraft): string {
         draft.servings,
         draft.wastePercent ?? null,
         draft.serving?.unit ?? null,
+        // The yield is an input to the figures, not decoration: the mass decides what `per100g`
+        // divides by and the piece count decides whether there is a per-serving figure at all. A
+        // hash that ignored them would leave the panel showing the previous batch's numbers.
+        draft.yieldQuantity ?? null,
+        draft.yieldUnit ?? null,
+        draft.yieldPieceCount ?? null,
         draft.lines.map((line) => [
             String(line.ingredientId),
             line.quantity,

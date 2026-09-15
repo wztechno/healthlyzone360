@@ -62,6 +62,7 @@ import type {
 } from '../contracts/kitchen-admin.ts';
 import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
+import { mapNutritionFacts } from './marketplace-mappers.ts';
 import type {
     AdminCatalogueItem,
     AdminCatalogueItemVariant,
@@ -91,6 +92,7 @@ import type {
     PriceListChannelAssignment,
     PriceListStatus,
     RecipeLine as WireRecipeLine,
+    RecipeRollupPreview as WireRecipeRollupPreview,
     RecipeOutput as WireRecipeOutput,
     RecipeStep as WireRecipeStep,
     RecipeVersionAllergen,
@@ -311,6 +313,7 @@ export function mapIngredientAdmin(
             wire.purchase_unit_code == null ? null : mapMeasureUnit(wire.purchase_unit_code),
         composition: wire.composition ?? null,
         itemsPerUnit: wire.items_per_unit == null ? null : parseDecimal(wire.items_per_unit),
+        gramsPerUnit: wire.grams_per_unit == null ? null : parseDecimal(wire.grams_per_unit),
         /*
          * Packaging's three figures, null on food.
          *
@@ -339,6 +342,17 @@ export function mapIngredientAdmin(
         isSellable: wire.is_sellable ?? false,
         costPer100g: null,
         per100g: mapIngredientPer100g(wire),
+        // Set only on a sub-recipe's output, where the facts beside it are derived from the
+        // formulation rather than entered — which is what makes them read-only.
+        nutritionDerivedFromVersionId:
+            wire.nutrition_derived_from_version_id == null
+                ? null
+                : RecipeVersionId.unsafe(wire.nutrition_derived_from_version_id),
+        // `?? null`, never `?? false`: the column has three states and "nobody has said" is one of
+        // them. Reading an absent flag as "declared" would badge 306 seeded rows as somebody's
+        // statement about the thing in the store cupboard.
+        nutritionEstimated: wire.nutrition_estimated ?? null,
+        nutritionNote: wire.nutrition_note ?? null,
         // Both the collection and the single resource carry the mappings, so the list's allergen
         // column and its View panel state the real declaration rather than "none declared" on every
         // row — which is what they did while this could only be filled from the dedicated
@@ -367,12 +381,31 @@ export function mapIngredientAdmin(
  * envelope the screens render. Provenance is honest about what it is: a
  * professional entry recorded on the ingredient, not a laboratory analysis and
  * not a derivation — those arrive with the recipe-rollup phase.
+ *
+ * ## An estimated row says so in the provenance line, not only on a badge
+ *
+ * `nutrition_estimated` is what the reference document flags on 56 of its 306
+ * rows: a figure true of the *category* rather than measured of this
+ * ingredient. Every reader of these facts renders `source.label` and
+ * `calculation.notes` — that is what the "how was this worked out?" panel is —
+ * so the flag belongs there as well as on the editor's badge. A badge only one
+ * screen draws is provenance that travels no further than that screen.
+ *
+ * **`source.kind` stays `professional_entry`.** The union has no member for
+ * "representative figure": its options describe *who* recorded a value, and an
+ * estimate flag describes *how good* it is. `estimated` is a `NutritionValueKind`
+ * rather than a source kind, but the amounts are still points and not ranges —
+ * they carry no tolerance — so restating them as estimates would claim a
+ * precision contract the envelope cannot honour. The honest answer is the true
+ * source kind with the caveat stated in words beside it.
  */
 function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
     const payload = wire.nutrition_per_100g;
     if (payload == null) return null;
 
     const recordedAt = wire.updated_at ?? UNKNOWN_ISO_DATE_TIME;
+    const estimated = wire.nutrition_estimated === true;
+    const note = wire.nutrition_note ?? null;
 
     return {
         basis: 'per_100g',
@@ -387,8 +420,11 @@ function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
             tolerance: null,
         })),
         source: {
+            // See the note above on why an estimate does not move this.
             kind: 'professional_entry',
-            label: 'Kitchen-recorded reference facts',
+            label: estimated
+                ? 'Estimated reference facts — representative of the category, not measured'
+                : 'Kitchen-recorded reference facts',
             version: 'ingredient-record',
             calculatedAt: recordedAt,
         },
@@ -398,7 +434,7 @@ function mapIngredientPer100g(wire: AdminIngredient): NutritionFacts | null {
             calculatedAt: recordedAt,
             prototype: false,
             rounding: 'as_entered',
-            notes: [],
+            notes: note === null ? [] : [note],
         },
     };
 }
@@ -596,7 +632,11 @@ export function mapMealAdminFromItem(
         kitchenId: mapKitchenId(wire.organisation_id),
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         recipeVersionId: null,
-        portionFactor: 1,
+        // The `== null` fallback is for a payload predating the column, not for
+        // a server that omits it: the field is required on `AdminCatalogueItem`
+        // and NOT NULL in the database, and one piece per sold unit is exactly
+        // what a row without the column meant.
+        portionFactor: wire.portion_factor == null ? 1 : Number(wire.portion_factor),
         mealTypes: [],
         dietClassifications: options?.dietClassifications ?? [],
         allergens: options?.allergens ?? [],
@@ -624,53 +664,15 @@ export function mapMealAvailabilityDays(
 }
 
 /**
- * Empty facts used when the server has not computed nutrition yet (N1). The
- * roll-up warning list carries the honest reason; inventing numbers would lie.
+ * The roll-up preview, as the editor's Technical sheet reads it.
+ *
+ * The three nutrition fields are `null` or they are facts, and the `null` is
+ * load-bearing: the server withholds all three the moment one line cannot be
+ * resolved, and `warnings` names the ingredients responsible. Nothing is
+ * substituted for them here — an empty envelope would render as a panel of
+ * zeroes, which is a claim about the dish rather than a gap in the data.
  */
-function unavailableNutritionFacts(
-    basis: NutritionFacts['basis'],
-    calculatedAt: string,
-): NutritionFacts {
-    return {
-        basis,
-        kind: 'planned',
-        serving: null,
-        totalGrams: null,
-        amounts: [],
-        source: {
-            kind: 'ingredient_derived',
-            label: 'Unavailable until N1 nutrition authority',
-            version: '0',
-            calculatedAt,
-        },
-        calculation: {
-            method: 'rollup.preview.unavailable',
-            basis,
-            calculatedAt,
-            prototype: false,
-            rounding: 'none',
-            notes: ['Nutrition figures are not computed on the server yet.'],
-        },
-    };
-}
-
-export function mapRecipeRollupPreview(wire: {
-    readonly per_recipe: unknown;
-    readonly per_serving: unknown;
-    readonly per_100g: unknown;
-    readonly allergen_sources: ReadonlyArray<{
-        readonly allergen_code: string;
-        readonly containment: string;
-        readonly ingredient_ids: readonly string[];
-    }>;
-    readonly estimated_cost: { readonly amount: string; readonly currency: string } | null;
-    readonly warnings: ReadonlyArray<{
-        readonly code: string;
-        readonly message: string;
-        readonly ingredient_ids?: readonly string[];
-    }>;
-}): RecipeRollupPreview {
-    const calculatedAt = UNKNOWN_ISO_DATE_TIME;
+export function mapRecipeRollupPreview(wire: WireRecipeRollupPreview): RecipeRollupPreview {
     const estimated =
         wire.estimated_cost !== null && isCurrencyCode(wire.estimated_cost.currency)
             ? {
@@ -686,10 +688,9 @@ export function mapRecipeRollupPreview(wire: {
     }));
 
     return {
-        perRecipe: unavailableNutritionFacts('per_recipe', calculatedAt),
-        perServing: unavailableNutritionFacts('per_serving', calculatedAt),
-        per100g:
-            wire.per_100g === null ? null : unavailableNutritionFacts('per_100g', calculatedAt),
+        perRecipe: wire.per_recipe === null ? null : mapNutritionFacts(wire.per_recipe),
+        perServing: wire.per_serving === null ? null : mapNutritionFacts(wire.per_serving),
+        per100g: wire.per_100g === null ? null : mapNutritionFacts(wire.per_100g),
         allergenSources: wire.allergen_sources.flatMap((source) => {
             if (!ALLERGEN_CONTAINMENTS.includes(source.containment as AllergenContainment)) {
                 return [];

@@ -50,6 +50,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $published_at
  * @property string|null $published_by
  * @property string|null $review_reason
+ * @property array<string, mixed>|null $nutrition_facts
  * @property string|null $notes
  * @property string|null $source_system
  * @property string|null $source_ref
@@ -71,7 +72,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * consumer projection have to argue its way past its own model, which is the
  * wrong shape of argument to have to make. `ingredients` classifies neither of
  * its two price columns for the same reason.
+ *
+ * `nutrition_facts` is Public on the same argument, carried one step further.
+ * Everything in the Confidential declaration is an input to what the kitchen
+ * paid or a note on how the dish is made — read backwards, it tells a
+ * competitor how to make the recipe and what it costs. The nutrition snapshot
+ * is the opposite: it is the figure a customer reads off the menu, and in
+ * several markets the figure a regulator requires be printed there. B5 projects
+ * it onto the marketplace meal page unredacted, and a column classified
+ * Confidential would make that projection argue its way past its own model to
+ * publish something that was always meant to be published. It is also not a
+ * back door onto the formulation — a total is not a line list, and the amounts
+ * here cannot be run backwards into quantities. `catalogue_items.nutrition_facts`,
+ * which holds the same envelope one hop downstream, is declared Public for
+ * exactly this reason; declaring the source of that projection differently from
+ * its destination is how two halves of one payload end up under two rules.
  */
+#[Classified(DataClassification::Public, 'nutrition_facts')]
 #[Classified(DataClassification::Confidential, 'notes', 'review_reason', 'yield_quantity', 'input_quantity_total', 'waste_coefficient_percent', 'packaging_waste_percent')]
 class RecipeVersion extends BaseModel implements OrganisationScoped
 {
@@ -97,6 +114,7 @@ class RecipeVersion extends BaseModel implements OrganisationScoped
             'packaging_waste_percent' => 'decimal:2',
             'b2b_price_amount' => 'decimal:6',
             'b2c_price_amount' => 'decimal:6',
+            'nutrition_facts' => 'array',
             'derived_at' => 'immutable_datetime',
             'published_at' => 'immutable_datetime',
             'seeded_at' => 'immutable_datetime',

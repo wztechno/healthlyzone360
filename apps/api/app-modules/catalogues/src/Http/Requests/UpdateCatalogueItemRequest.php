@@ -43,6 +43,13 @@ class UpdateCatalogueItemRequest extends FormRequest
             'product_category_id' => ['sometimes', 'nullable', 'uuid'],
             'production_mode' => ['sometimes', 'nullable', new Enum(ProductionMode::class)],
             'recipe_id' => ['sometimes', 'nullable', 'uuid'],
+
+            // Not `nullable`: the column is NOT NULL and defaults to one, so an
+            // explicit null is a client saying something it cannot mean and is
+            // told so. `min` is the column's own three-place precision, so a
+            // value that would round to `0.000` is a named 422 here rather than
+            // a 500 from the `portion_factor > 0` CHECK.
+            'portion_factor' => ['sometimes', 'numeric', 'min:0.001', 'max:999.999'],
             'ingredient_id' => ['sometimes', 'nullable', 'uuid'],
             'purchasing_unit_id' => ['sometimes', 'nullable', 'uuid'],
             'usage_unit_id' => ['sometimes', 'nullable', 'uuid'],

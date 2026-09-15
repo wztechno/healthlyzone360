@@ -24,12 +24,23 @@ use RuntimeException;
  * that owns designation resolution, even though the importer that reads it
  * lives here. Moving it would put a food-safety dictionary in the module that
  * happens to run the command rather than the one that owns the concept.
+ *
+ * A `tenant_ingredients` entry may carry two optional keys, both written onto
+ * the minted row by {@see IngredientWriter} and both omitted rather than
+ * guessed: `nutrition_per_100g`, the slim envelope `ingredients
+ * .nutrition_per_100g` holds (basis `per_100g` plus a flat `amounts` list in
+ * the canonical units), and `grams_per_unit`, the mass in grams of one
+ * `default_unit`. The envelope's shape is checked here rather than at the
+ * write: a malformed one is a broken *document*, and the document is refused
+ * before a single row is created.
+ *
+ * @phpstan-type TenantIngredient array{name_en: string, slug: string, category_code: string|null, subcategory_code: string|null, default_unit: string, note: string|null, intermediate: bool, sheet_missing: bool, nutrition_per_100g: array<string, mixed>|null, grams_per_unit: numeric-string|null}
  */
 final readonly class DesignationDictionary
 {
     /**
      * @param  array<string, string>  $aliases  normalised designation → canonical `name_en`
-     * @param  list<array{name_en: string, slug: string, category_code: string|null, subcategory_code: string|null, default_unit: string, note: string|null, intermediate: bool, sheet_missing: bool}>  $tenantIngredients
+     * @param  list<TenantIngredient>  $tenantIngredients
      * @param  array<string, string>  $recipeLinks  normalised product name → technical-sheet designation
      * @param  list<array{product: string, candidate: string, reason: string}>  $declinedLinks
      * @param  list<array{names: list<string>, reason: string}>  $neverMerge
@@ -78,6 +89,8 @@ final readonly class DesignationDictionary
                 'note' => self::nullableStringOf($entry, 'note'),
                 'intermediate' => (bool) ($entry['intermediate'] ?? false),
                 'sheet_missing' => (bool) ($entry['sheet_missing'] ?? false),
+                'nutrition_per_100g' => self::envelopeOf($entry),
+                'grams_per_unit' => self::numericOf($entry, 'grams_per_unit'),
             ];
         }
 
@@ -132,7 +145,7 @@ final readonly class DesignationDictionary
     }
 
     /**
-     * @return list<array{name_en: string, slug: string, category_code: string|null, subcategory_code: string|null, default_unit: string, note: string|null, intermediate: bool, sheet_missing: bool}>
+     * @return list<TenantIngredient>
      */
     public function tenantIngredients(): array
     {
@@ -145,7 +158,7 @@ final readonly class DesignationDictionary
      * resolves; **no recipe is fabricated for them** (master plan v2 §4.2), and
      * the known-gaps report names every one.
      *
-     * @return list<array{name_en: string, slug: string, category_code: string|null, subcategory_code: string|null, default_unit: string, note: string|null, intermediate: bool, sheet_missing: bool}>
+     * @return list<TenantIngredient>
      */
     public function intermediatesWithoutSheets(): array
     {
@@ -205,5 +218,63 @@ final readonly class DesignationDictionary
         $value = $entry[$key] ?? null;
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /**
+     * A declared per-100 g envelope, checked only for the two things the
+     * database cannot check for itself: the basis it claims and the fact that
+     * `amounts` is a list. The nutrient ids and units are deliberately not
+     * validated here — `StoreIngredientRequest::nutritionRules()` owns that
+     * vocabulary on the write path, and duplicating it would give the platform
+     * two answers to the same question.
+     *
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>|null
+     *
+     * @throws RuntimeException
+     */
+    private static function envelopeOf(array $entry): ?array
+    {
+        $value = $entry['nutrition_per_100g'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        $name = is_string($entry['name_en'] ?? null) ? $entry['name_en'] : '(unnamed)';
+
+        $amounts = is_array($value) ? ($value['amounts'] ?? null) : null;
+
+        if (! is_array($value) || ($value['basis'] ?? null) !== 'per_100g' || ! is_array($amounts) || ! array_is_list($amounts)) {
+            throw new RuntimeException(
+                "The designation dictionary declares nutrition for [{$name}] that is not a per_100g envelope with a list of amounts."
+            );
+        }
+
+        /** @var array<string, mixed> $value */
+        return $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $entry
+     * @return numeric-string|null
+     *
+     * @throws RuntimeException
+     */
+    private static function numericOf(array $entry, string $key): ?string
+    {
+        $value = $entry[$key] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_numeric($value)) {
+            $name = is_string($entry['name_en'] ?? null) ? $entry['name_en'] : '(unnamed)';
+
+            throw new RuntimeException("The designation dictionary gives [{$name}] a non-numeric '{$key}'.");
+        }
+
+        return (string) $value;
     }
 }

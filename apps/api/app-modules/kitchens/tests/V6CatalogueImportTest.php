@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 use Database\Seeders\KitchenReferenceSeeder;
+use Healthy360\Cart\Services\CartService;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
+use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\CatalogueItemReadiness;
+use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Kitchens\Import\Runtime\ImportOptions;
@@ -84,7 +88,8 @@ it('imports every family with its ingredient rows, allergens and prices', functi
     expect($report->countOf('catalogue_item', 'created'))->toBe(7)
         ->and($report->countOf('ingredient', 'created'))->toBe(5)
         ->and($report->countOf('ingredient_allergen', 'created'))->toBe(5)
-        ->and($report->countOf('catalogue_item_variant', 'created'))->toBe(9)
+        // Six packs, none of them on the two meals: a meal is priced at item level.
+        ->and($report->countOf('catalogue_item_variant', 'created'))->toBe(6)
         ->and($report->countOf('price_list_item', 'created'))->toBe(5)
         ->and($report->countOf('channel_catalogue_item', 'created'))->toBe(5);
 
@@ -140,6 +145,18 @@ it('imports every family with its ingredient rows, allergens and prices', functi
 
     expect($b2c->unit_amount_minor)->toBe(300)
         ->and($b2c->price_status->value)->toBe('confirmed');
+
+    // The sauce's price sits on its B2C pack. The meal's sits on the item
+    // itself — the row the marketplace, the cart and the B2B browse all ask a
+    // meal for — and the meal carries no pack at all.
+    $mealB2c = PriceListItem::withoutTenancy()
+        ->where('organisation_id', $org->getKey())
+        ->where('source_ref', 'PRD-901/b2c')
+        ->sole();
+
+    expect($b2c->catalogue_item_variant_id)->not->toBeNull()
+        ->and($mealB2c->catalogue_item_variant_id)->toBeNull()
+        ->and(CatalogueItemVariant::withoutTenancy()->where('catalogue_item_id', $items['PRD-901']->getKey())->count())->toBe(0);
 });
 
 it('changes nothing on a second run', function (): void {
@@ -218,7 +235,7 @@ it('keeps unpriced items away from customers even once published', function (): 
 
     CatalogueItem::withoutTenancy()
         ->where('organisation_id', $org->getKey())
-        ->whereIn('source_ref', ['SAC-901', 'SAC-902', 'DRS-901'])
+        ->whereIn('source_ref', ['SAC-901', 'SAC-902', 'DRS-901', 'PRD-901'])
         ->update(['status' => CatalogueItemStatus::Published->value]);
 
     $meals = app(MarketplaceMeals::class);
@@ -230,5 +247,48 @@ it('keeps unpriced items away from customers even once published', function (): 
     $channels = $meals->listingChannelsOf((string) $org->getKey());
 
     expect($meals->priceOf($items['SAC-901'], $channels))->not->toBeNull()
-        ->and($meals->priceOf($items['SAC-902'], $channels))->toBeNull();
+        ->and($meals->priceOf($items['SAC-902'], $channels))->toBeNull()
+        // A priced meal lists too: its price is read at item level, where the importer put it.
+        ->and($meals->priceOf($items['PRD-901'], $channels))->not->toBeNull();
+});
+
+it('lets a customer add a pack-priced sauce without naming its pack', function (): void {
+    runV6Import();
+
+    $org = v6Org();
+
+    $this->artisan('kitchen:activate-imported-tariffs', ['--org' => 'test-v6-kitchen'])->assertExitCode(0);
+
+    $sauce = CatalogueItem::withoutTenancy()
+        ->where('organisation_id', $org->getKey())
+        ->where('source_ref', 'SAC-901')
+        ->sole();
+    $sauce->status = CatalogueItemStatus::Published;
+    $sauce->save();
+
+    $channel = SalesChannel::withoutTenancy()
+        ->where('organisation_id', $org->getKey())
+        ->where('channel_kind', SalesChannelKind::B2cWeb->value)
+        ->sole();
+
+    $carts = app(CartService::class);
+    $cart = $carts->getOrCreate(CustomerAccount::factory()->active()->create(), $channel);
+
+    // The app names the article, never the pack — the marketplace showed one
+    // price, and that price sits on the retail pack. The basket must land on
+    // that pack rather than refuse the article as unpriced at item level.
+    $line = $carts->addItem($cart, (string) $sauce->getKey());
+
+    $retailPack = CatalogueItemVariant::withoutTenancy()
+        ->where('catalogue_item_id', $sauce->getKey())
+        ->where('code', 'b2c')
+        ->sole();
+
+    expect($line->catalogue_item_variant_id)->toBe((string) $retailPack->getKey());
+
+    // A repeat add merges into that line instead of opening a second one.
+    $again = $carts->addItem($cart, (string) $sauce->getKey());
+
+    expect($again->getKey())->toBe($line->getKey())
+        ->and((float) $again->quantity)->toBe(2.0);
 });

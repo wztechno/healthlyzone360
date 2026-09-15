@@ -75,6 +75,18 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Where the log mailer writes when mail is not delivered (MAIL_MAILER=log on
+        // the test instances). Laravel's log transport logs at debug, which the
+        // instance-wide LOG_LEVEL=info dropped: "verification links are written to
+        // the application log" was never true there. A channel of its own keeps
+        // the level independent and the messages out of the error log.
+        'mail' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/mail.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'tap' => [RedactSensitiveLogs::class],

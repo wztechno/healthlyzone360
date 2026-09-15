@@ -304,6 +304,20 @@ export interface IngredientAdmin {
     /** Pieces per purchase pack, when the source knows it. */
     readonly itemsPerUnit: number | null;
     /**
+     * What one {@link measurementUnit} weighs, in grams — 1080 for a litre of soya sauce. The
+     * density a recipe roll-up needs to turn a volume or a piece into a mass.
+     *
+     * Recorded only against a non-mass unit. A kilogram already weighs what it weighs, and storing
+     * 1000 beside it would be a second answer to a question the unit table settles.
+     *
+     * Same refusal as {@link capacity}: a missing figure is `null` rather than an assumed density,
+     * because a plausible wrong number is worse than a named gap. The roll-up withholds the whole
+     * envelope and says which line it could not weigh.
+     *
+     * Cleared by the server when {@link measurementUnit} changes without a new mass beside it.
+     */
+    readonly gramsPerUnit: number | null;
+    /**
      * CONFIDENTIAL — what the kitchen pays for one **purchase pack**, not one issued unit.
      *
      * Per {@link purchaseUnit}: a sleeve at $6.50, never a bag at $0.065. Deliberately a different
@@ -362,6 +376,42 @@ export interface IngredientAdmin {
     readonly isSellable: boolean;
     /** Per-100 g reference facts, when the ingredient has any. Never fabricated to fill the field. */
     readonly per100g: NutritionFacts | null;
+    /**
+     * The published recipe version {@link per100g} was derived from, or `null` when the facts were
+     * entered rather than derived.
+     *
+     * Set on an ingredient some version *produces* — a pesto mix a pesto mayonnaise is built on.
+     * There is no reference figure for such a thing; its nutrition is whatever the formulation that
+     * makes it works out to, per 100 g of finished mass, recomputed at every publication.
+     *
+     * While it is set, {@link per100g} and {@link gramsPerUnit} are read-only and the server
+     * refuses a write to either. Render the panel accordingly: a control that always 422s is worse
+     * than no control. Retiring the version clears both the facts and this link.
+     */
+    readonly nutritionDerivedFromVersionId: RecipeVersionId | null;
+    /**
+     * How good {@link per100g} is. Three states, and the `null` is a third answer rather than a
+     * missing `false`.
+     *
+     * - `true` — a representative figure. True of the *category* rather than measured of this
+     *   ingredient: recipe-, brand-, salt- or preparation-dependent. The platform library flags 56
+     *   of its 306 rows this way, and the instruction that comes with them is to replace one with
+     *   a supplier's label before it reaches a printed panel. Badge it; do not hide it.
+     * - `false` — a declared figure. Somebody stated it about this ingredient.
+     * - `null` — nobody has said.
+     *
+     * A save that sends {@link per100g} without this flag is recorded as `false`: a typed figure is
+     * a declaration unless the writer says otherwise.
+     */
+    readonly nutritionEstimated: boolean | null;
+    /**
+     * One sentence about the figures — their basis, a caveat, the brand they were read off.
+     *
+     * Not {@link notes}, which is the kitchen's free text about the *ingredient*. This one is about
+     * the *numbers*, which is why replacing them clears it: a note left standing over a
+     * replacement describes a figure that is no longer there.
+     */
+    readonly nutritionNote: string | null;
     readonly allergens: readonly IngredientAllergenMapping[];
     readonly dietClassifications: readonly DietClassification[];
     /** Alternative designations seen on delivery notes and technical sheets. */
@@ -491,6 +541,18 @@ export interface CreateIngredientRequest {
     readonly purchaseUnit?: MeasureUnit | undefined;
     readonly composition?: string | undefined;
     readonly itemsPerUnit?: number | undefined;
+    /** Mass of one `measurementUnit` in grams; omit on a mass unit, which needs none. */
+    readonly gramsPerUnit?: number | undefined;
+    /**
+     * Per-100 g reference facts, when the form collected a complete set. Only `amounts` is sent —
+     * the server stores a slim envelope and dates it itself, so the provenance this type carries
+     * is the reader's, not the writer's.
+     */
+    readonly per100g?: NutritionFacts | undefined;
+    /** `true` marks the facts representative rather than declared. Omitted beside facts means `false`. */
+    readonly nutritionEstimated?: boolean | undefined;
+    /** One sentence about the figures, up to 300 characters. */
+    readonly nutritionNote?: string | undefined;
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
     readonly unitPrice?: CostAmount | undefined;
@@ -511,6 +573,11 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly purchaseUnit?: MeasureUnit | null | undefined;
     readonly composition?: string | null | undefined;
     readonly itemsPerUnit?: number | null | undefined;
+    /**
+     * `null` clears the mass. The server clears it anyway when `measurementUnit` moves and no new
+     * figure comes with it — a mass measured against a unit that no longer applies.
+     */
+    readonly gramsPerUnit?: number | null | undefined;
     /** `null` clears the price. Both prices share one currency. */
     readonly b2bPrice?: CostAmount | null | undefined;
     /** `null` clears the price. Both prices share one currency. */
@@ -521,6 +588,15 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly isSellable?: boolean | undefined;
     /** Per-100 g reference facts; `null` clears them. */
     readonly per100g?: NutritionFacts | null | undefined;
+    /**
+     * `true` marks the facts representative rather than declared; `null` says nobody has.
+     *
+     * Sending {@link per100g} without this resets it to `false`, and clearing the facts resets it
+     * to `null` — the provenance belongs to the figures, so a replacement replaces it.
+     */
+    readonly nutritionEstimated?: boolean | null | undefined;
+    /** One sentence about the figures; `null` clears it, and so does sending {@link per100g} alone. */
+    readonly nutritionNote?: string | null | undefined;
     readonly reference?: string | null | undefined;
     readonly costPer100g?: CostAmount | null | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
@@ -893,10 +969,17 @@ export interface SetRecipeOutputsRequest extends LockedRequest {
  */
 export interface RecipeRollupDraft {
     readonly recipeId: RecipeId | null;
-    readonly servings: number;
+    /** How many sold units the batch makes. `null` when the draft has not said — never defaulted to 1. */
+    readonly servings: number | null;
     readonly serving?: Serving | undefined;
     readonly wastePercent?: number | undefined;
     readonly lines: readonly RecipeLineInput[];
+    /** What the batch makes. Becomes the `per100g` basis when `yieldUnit` is a mass. */
+    readonly yieldQuantity?: number | undefined;
+    /** The unit `yieldQuantity` is stated in. Sent only alongside it. */
+    readonly yieldUnit?: MeasureUnit | undefined;
+    /** How many pieces the yield divides into — the cost block's divisor. */
+    readonly yieldPieceCount?: number | undefined;
 }
 
 /** One allergen the draft would declare, and the lines that put it there. */
@@ -917,8 +1000,13 @@ export interface RollupWarning {
 }
 
 export interface RecipeRollupPreview {
-    readonly perRecipe: NutritionFacts;
-    readonly perServing: NutritionFacts;
+    /**
+     * `null` when the server withheld the figures — one line it could not weigh, or one ingredient
+     * with no usable reference facts. `warnings` names them. Never a partial total.
+     */
+    readonly perRecipe: NutritionFacts | null;
+    /** `null` for `perRecipe`'s reasons, and when the draft never said how many servings it makes. */
+    readonly perServing: NutritionFacts | null;
     /** `null` when the total mass is unknown, so a per-100 g comparison would be a guess. */
     readonly per100g: NutritionFacts | null;
     readonly allergenSources: readonly AllergenSource[];
