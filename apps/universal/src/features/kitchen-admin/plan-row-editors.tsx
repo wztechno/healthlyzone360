@@ -5,29 +5,26 @@ import {
     Button,
     Callout,
     Checkbox,
+    Icon,
+    IconButton,
     Inline,
     NumberStepper,
     SegmentedControl,
+    Select,
     Stack,
-    Table,
     Text,
     TextInputField,
+    spanWidth,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BilingualField } from './bilingual-field.tsx';
 import { durationKindKey, moveInList } from './format.ts';
-import { cellVariants, withDurationKind } from './plan-matrix.ts';
-import type {
-    CombinationDraft,
-    DurationDraft,
-    MatrixBand,
-    MatrixRow,
-    VariantDraft,
-} from './plan-matrix.ts';
+import { withDurationKind } from './plan-matrix.ts';
+import type { CombinationDraft, DurationDraft, VariantDraft } from './plan-matrix.ts';
 import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
 
 /**
@@ -59,137 +56,6 @@ import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
  */
 
 /* ------------------------------------------------------------------------------------------------
- * The matrix
- * ---------------------------------------------------------------------------------------------- */
-
-export interface PlanVariantMatrixProps {
-    readonly rows: readonly MatrixRow[];
-    readonly bands: readonly MatrixBand[];
-    readonly variants: readonly VariantDraft[];
-    /** Called with the cell that was pressed. The caller applies `toggleCell`. */
-    readonly onToggle: (row: MatrixRow, band: MatrixBand) => void;
-    readonly canManage: boolean;
-    readonly testID: string;
-}
-
-export function PlanVariantMatrix({
-    rows,
-    bands,
-    variants,
-    onToggle,
-    canManage,
-    testID,
-}: PlanVariantMatrixProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    const bandLabel = (band: MatrixBand): string =>
-        t('kitchen:plans.bandRange', {
-            min: formatter.formatNumber(band.min),
-            max: formatter.formatNumber(band.max),
-        });
-
-    const rowLabel = (row: MatrixRow): string =>
-        t('kitchen:plans.servingsSummary', {
-            meals: row.mealsPerDay,
-            snacks: row.snacksPerDay,
-        });
-
-    const columns: readonly TableColumn<MatrixRow>[] = [
-        {
-            key: 'combination',
-            header: t('kitchen:plans.matrixRowHeader'),
-            rowHeader: true,
-            flex: 2,
-            render: (row) => (
-                <Stack space="none" testID={`${testID}-row-${row.key}`}>
-                    <Text variant="bodyStrong">
-                        {row.combination === null
-                            ? rowLabel(row)
-                            : row.combination.label.en.trim() === ''
-                              ? row.combination.code
-                              : row.combination.label.en}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {rowLabel(row)}
-                    </Text>
-                    {row.combination === null ? (
-                        <Badge
-                            testID={`${testID}-row-${row.key}-undeclared`}
-                            tone="warning"
-                            icon="warning"
-                            label={t('kitchen:plans.rowUndeclared')}
-                        />
-                    ) : row.combination.isAvailable ? null : (
-                        <Badge
-                            testID={`${testID}-row-${row.key}-unavailable`}
-                            tone="neutral"
-                            label={t('kitchen:plans.combinationUnavailable')}
-                        />
-                    )}
-                </Stack>
-            ),
-        },
-        ...bands.map<TableColumn<MatrixRow>>((band) => ({
-            key: band.key,
-            header: bandLabel(band),
-            render: (row) => {
-                const occupants = cellVariants(variants, row, band);
-                const cellId = `${testID}-cell-${row.key}-${band.key}`;
-                const label = t('kitchen:plans.cellLabel', {
-                    combination: rowLabel(row),
-                    band: bandLabel(band),
-                });
-
-                return (
-                    <Checkbox
-                        testID={cellId}
-                        id={cellId}
-                        checked={occupants.length > 0}
-                        disabled={!canManage}
-                        label={label}
-                        onChange={() => {
-                            onToggle(row, band);
-                        }}
-                        labelSlot={
-                            <Stack space="none">
-                                <Text variant="caption">
-                                    {occupants.length > 0
-                                        ? t('kitchen:plans.cellSold')
-                                        : t('kitchen:plans.cellNotSold')}
-                                </Text>
-                                {occupants.length > 1 ? (
-                                    <Text
-                                        testID={`${cellId}-count`}
-                                        variant="caption"
-                                        tone="secondary"
-                                    >
-                                        {t('kitchen:plans.cellVariantCount', {
-                                            count: occupants.length,
-                                        })}
-                                    </Text>
-                                ) : null}
-                            </Stack>
-                        }
-                    />
-                );
-            },
-        })),
-    ];
-
-    return (
-        <Table<MatrixRow>
-            testID={testID}
-            caption={t('kitchen:plans.matrixCaption')}
-            columns={columns}
-            rows={rows}
-            rowKey={(row) => row.key}
-            emptyLabel={t('kitchen:plans.matrixEmpty')}
-        />
-    );
-}
-
-/* ------------------------------------------------------------------------------------------------
  * Variant detail rows
  * ---------------------------------------------------------------------------------------------- */
 
@@ -202,12 +68,18 @@ export interface PlanVariantRowsProps {
 }
 
 /**
- * Every variant as a card, with the fields the contract carries and nothing else.
+ * Every configuration in full (Commercial §2.2 `PlanVariantCard`, §3.3 Configurations tab).
  *
- * The meals/snacks and energy fields are the variant's **coordinates**: changing one moves the
- * configuration to a different cell of the matrix above, and the hint says so rather than leaving
- * somebody to discover it. That is the honest reading of a contract in which a variant carries its
- * own `mealsPerDay` and `energyBand` and no reference to a combination at all.
+ * ```
+ * CONFIGURATION 1  [ACTIVE]                                                    ▲ ▼ ✕
+ * Configuration name (span 2)                 Offer this configuration [Active ▾]
+ * Meals a day [3]      Snacks a day [1]      Energy from [1500]  Energy to [1800]
+ * ```
+ *
+ * One hairline row per configuration, the fields on the no-stretch 280px track. Meals, snacks and
+ * the band are the configuration's **coordinates**: changing one moves it to another cell of the
+ * matrix, and the hint under Meals says so. `Inactive` is chosen from a select, not a checkbox,
+ * because it is one of two named states and neither is a deletion.
  */
 export function PlanVariantRows({
     rows,
@@ -224,7 +96,7 @@ export function PlanVariantRows({
         row.name.en.trim() === '' ? t('kitchen:plans.unnamedVariant') : row.name.en;
 
     return (
-        <Stack space="md" testID={testID}>
+        <View testID={testID} className="flex-col">
             {rows.length === 0 ? (
                 <Text testID={`${testID}-empty`} tone="secondary">
                     {t('kitchen:plans.variantsEmpty')}
@@ -241,135 +113,148 @@ export function PlanVariantRows({
                             ),
                         );
                     };
+                    const move = (to: number) => {
+                        const next = moveInList(rows, index, to);
+                        if (next === rows) return;
+                        onChange(next);
+                        setAnnouncement(
+                            t('kitchen:rows.movedAnnouncement', {
+                                name: nameOf(row),
+                                position: to + 1,
+                                total: rows.length,
+                            }),
+                        );
+                    };
 
                     return (
-                        <RowShell
+                        <View
                             key={row.key}
                             testID={rowTestId}
-                            title={t('kitchen:plans.variantNumber', { number: position })}
-                            position={position}
-                            total={rows.length}
-                            canManage={canManage}
-                            badge={
-                                <Badge
-                                    testID={`${rowTestId}-badge`}
-                                    tone={row.isActive ? 'success' : 'neutral'}
-                                    label={
-                                        row.isActive
-                                            ? t('kitchen:plans.variantActive')
-                                            : t('kitchen:plans.variantInactive')
-                                    }
-                                />
-                            }
-                            onMove={(to) => {
-                                const next = moveInList(rows, index, to);
-                                if (next === rows) return;
-                                onChange(next);
-                                setAnnouncement(
-                                    t('kitchen:rows.movedAnnouncement', {
-                                        name: nameOf(row),
-                                        position: to + 1,
-                                        total: rows.length,
-                                    }),
-                                );
-                            }}
-                            onRemove={() => {
-                                setRemoved({ row, index });
-                                onChange(rows.filter((entry) => entry.key !== row.key));
-                            }}
+                            className="z-auto flex-col gap-2.5 border-b border-stroke-subtle py-snug"
                         >
-                            <Stack space="sm">
-                                <BilingualField
-                                    testID={`${rowTestId}-name`}
-                                    fieldLabel={t('kitchen:plans.variantNameLabel')}
-                                    value={row.name}
-                                    requiredEnglish
-                                    onChange={(next) => {
-                                        patch({ name: next });
-                                    }}
-                                />
+                            <RowHeading
+                                testID={rowTestId}
+                                title={t('kitchen:plans.variantNumber', { number: position })}
+                                badge={
+                                    <Badge
+                                        testID={`${rowTestId}-badge`}
+                                        tone={row.isActive ? 'success' : 'neutral'}
+                                        label={
+                                            row.isActive
+                                                ? t('kitchen:plans.variantActive')
+                                                : t('kitchen:plans.variantInactive')
+                                        }
+                                    />
+                                }
+                                canManage={canManage}
+                                position={position}
+                                total={rows.length}
+                                onMove={move}
+                                onRemove={() => {
+                                    setRemoved({ row, index });
+                                    onChange(rows.filter((entry) => entry.key !== row.key));
+                                }}
+                            />
 
-                                <Inline space="sm" wrap>
-                                    <NumberStepper
+                            <View className="z-auto flex-row flex-wrap items-start gap-x-base gap-y-snug">
+                                <View style={{ width: spanWidth(2) }}>
+                                    <BilingualField
+                                        testID={`${rowTestId}-name`}
+                                        fieldLabel={t('kitchen:plans.variantNameLabel')}
+                                        value={row.name}
+                                        requiredEnglish
+                                        onChange={(next) => {
+                                            patch({ name: next });
+                                        }}
+                                    />
+                                </View>
+                                <View style={{ width: spanWidth(1) }} className="z-auto">
+                                    <Select<'active' | 'inactive'>
+                                        testID={`${rowTestId}-active`}
+                                        id={`${rowTestId}-active`}
+                                        label={t('kitchen:plans.variantActiveLabel')}
+                                        hint={t('kitchen:plans.variantActiveHint')}
+                                        disabled={!canManage}
+                                        value={row.isActive ? 'active' : 'inactive'}
+                                        options={[
+                                            {
+                                                value: 'active',
+                                                label: t('kitchen:plans.variantActive'),
+                                            },
+                                            {
+                                                value: 'inactive',
+                                                label: t('kitchen:plans.variantInactive'),
+                                            },
+                                        ]}
+                                        onChange={(next) => {
+                                            patch({ isActive: next === 'active' });
+                                        }}
+                                    />
+                                </View>
+                                <View style={{ width: spanWidth(1) }}>
+                                    <CountField
                                         testID={`${rowTestId}-meals`}
-                                        id={`${rowTestId}-meals`}
                                         label={t('kitchen:plans.mealsPerDayLabel')}
                                         hint={t('kitchen:plans.coordinateHint')}
-                                        min={0}
-                                        max={12}
-                                        disabled={!canManage}
                                         value={row.mealsPerDay}
+                                        disabled={!canManage}
                                         onChange={(next) => {
                                             patch({ mealsPerDay: next });
                                         }}
                                     />
-                                    <NumberStepper
+                                </View>
+                                <View style={{ width: spanWidth(1) }}>
+                                    <CountField
                                         testID={`${rowTestId}-snacks`}
-                                        id={`${rowTestId}-snacks`}
                                         label={t('kitchen:plans.snacksPerDayLabel')}
-                                        min={0}
-                                        max={12}
-                                        disabled={!canManage}
                                         value={row.snacksPerDay}
+                                        disabled={!canManage}
                                         onChange={(next) => {
                                             patch({ snacksPerDay: next });
                                         }}
                                     />
-                                </Inline>
+                                </View>
+                                {/* The band is one field of two halves: a range, not two facts. */}
+                                <View
+                                    style={{ width: spanWidth(1) }}
+                                    className="flex-row gap-tight"
+                                >
+                                    <View className="min-w-0 flex-1">
+                                        <CountField
+                                            testID={`${rowTestId}-energy-min`}
+                                            label={t('kitchen:plans.energyMinLabel')}
+                                            value={row.energyMin}
+                                            disabled={!canManage}
+                                            onChange={(next) => {
+                                                patch({ energyMin: next });
+                                            }}
+                                        />
+                                    </View>
+                                    <View className="min-w-0 flex-1">
+                                        <CountField
+                                            testID={`${rowTestId}-energy-max`}
+                                            label={t('kitchen:plans.energyMaxLabel')}
+                                            value={row.energyMax}
+                                            disabled={!canManage}
+                                            onChange={(next) => {
+                                                patch({ energyMax: next });
+                                            }}
+                                        />
+                                    </View>
+                                </View>
+                            </View>
 
-                                <Inline space="sm" wrap>
-                                    <NumberStepper
-                                        testID={`${rowTestId}-energy-min`}
-                                        id={`${rowTestId}-energy-min`}
-                                        label={t('kitchen:plans.energyMinLabel')}
-                                        unit={t('kitchen:plans.energyUnit')}
-                                        min={0}
-                                        step={50}
-                                        disabled={!canManage}
-                                        value={row.energyMin}
-                                        onChange={(next) => {
-                                            patch({ energyMin: next });
-                                        }}
-                                    />
-                                    <NumberStepper
-                                        testID={`${rowTestId}-energy-max`}
-                                        id={`${rowTestId}-energy-max`}
-                                        label={t('kitchen:plans.energyMaxLabel')}
-                                        unit={t('kitchen:plans.energyUnit')}
-                                        min={0}
-                                        step={50}
-                                        disabled={!canManage}
-                                        value={row.energyMax}
-                                        onChange={(next) => {
-                                            patch({ energyMax: next });
-                                        }}
-                                    />
-                                </Inline>
-
-                                <Checkbox
-                                    testID={`${rowTestId}-active`}
-                                    id={`${rowTestId}-active`}
-                                    checked={row.isActive}
-                                    disabled={!canManage}
-                                    label={t('kitchen:plans.variantActiveLabel')}
-                                    description={t('kitchen:plans.variantActiveHint')}
-                                    onChange={(next) => {
-                                        patch({ isActive: next });
-                                    }}
-                                />
-
-                                {error === undefined ? null : (
-                                    <Text
-                                        testID={`${rowTestId}-error`}
-                                        role="alert"
-                                        tone="danger"
-                                        variant="caption"
-                                    >
-                                        {error}
-                                    </Text>
-                                )}
-                            </Stack>
-                        </RowShell>
+                            {error === undefined ? null : (
+                                <Text
+                                    testID={`${rowTestId}-error`}
+                                    role="alert"
+                                    tone="danger"
+                                    variant="caption"
+                                >
+                                    {error}
+                                </Text>
+                            )}
+                        </View>
                     );
                 })
             )}
@@ -388,7 +273,154 @@ export function PlanVariantRows({
             )}
 
             <RowAnnouncer testID={`${testID}-announcer`} message={announcement} />
-        </Stack>
+        </View>
+    );
+}
+
+/**
+ * A row's opening: the micro number, its badge, and the reorder and remove controls at the inline
+ * end. `RowShell`'s behaviour — the move buttons, the remove, the ids a suite presses — drawn on a
+ * hairline row instead of a card, because the design stacks these rows as a list, not as panels.
+ */
+function RowHeading({
+    testID,
+    title,
+    badge,
+    canManage,
+    position,
+    total,
+    onMove,
+    onRemove,
+}: {
+    readonly testID: string;
+    readonly title: string;
+    readonly badge?: ReactNode | undefined;
+    readonly canManage: boolean;
+    readonly position: number;
+    readonly total: number;
+    readonly onMove: (to: number) => void;
+    readonly onRemove: () => void;
+}) {
+    const { t } = useTranslation();
+    return (
+        <View className="flex-row items-center gap-tight">
+            <Text variant="micro" tone="secondary" testID={`${testID}-position`}>
+                {title}
+            </Text>
+            {badge}
+            <View className="flex-1" />
+            {canManage ? (
+                <RowControls
+                    testID={testID}
+                    position={position}
+                    total={total}
+                    onMove={onMove}
+                    onRemove={onRemove}
+                    label={t('kitchen:rows.remove')}
+                />
+            ) : null}
+        </View>
+    );
+}
+
+function RowControls({
+    testID,
+    position,
+    total,
+    onMove,
+    onRemove,
+    label,
+}: {
+    readonly testID: string;
+    readonly position: number;
+    readonly total: number;
+    readonly onMove: (to: number) => void;
+    readonly onRemove: () => void;
+    readonly label: string;
+}) {
+    const { t } = useTranslation();
+    return (
+        <View className="flex-row items-center gap-hair">
+            <IconButton
+                testID={`${testID}-move-up`}
+                variant="ghost"
+                size="sm"
+                label={t('kitchen:rows.moveUp')}
+                icon={<Icon name="chevronUp" size="sm" />}
+                disabled={position <= 1}
+                onPress={() => {
+                    onMove(position - 2);
+                }}
+            />
+            <IconButton
+                testID={`${testID}-move-down`}
+                variant="ghost"
+                size="sm"
+                label={t('kitchen:rows.moveDown')}
+                icon={<Icon name="chevronDown" size="sm" />}
+                disabled={position >= total}
+                onPress={() => {
+                    onMove(position);
+                }}
+            />
+            <IconButton
+                testID={`${testID}-remove`}
+                variant="secondary"
+                size="sm"
+                tone="danger"
+                label={label}
+                icon={<Icon name="close" size="sm" />}
+                onPress={onRemove}
+            />
+        </View>
+    );
+}
+
+/**
+ * A whole-number field whose empty state is `null`, never `0` — the reason these editors used
+ * `NumberStepper`. Drawn as the design's plain mono input: a desk surface types the number rather
+ * than stepping to it.
+ */
+function CountField({
+    testID,
+    label,
+    labelHidden,
+    hint,
+    value,
+    disabled,
+    placeholder,
+    error,
+    onChange,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly labelHidden?: boolean | undefined;
+    readonly hint?: string | undefined;
+    readonly value: number | null;
+    readonly disabled: boolean;
+    readonly placeholder?: string | undefined;
+    readonly error?: string | undefined;
+    readonly onChange: (next: number | null) => void;
+}) {
+    return (
+        <TextInputField
+            testID={testID}
+            id={testID}
+            label={label}
+            labelHidden={labelHidden}
+            hint={hint}
+            error={error}
+            placeholder={placeholder}
+            size="sm"
+            inputMode="numeric"
+            autoCorrect={false}
+            disabled={disabled}
+            value={value === null ? '' : String(value)}
+            onChangeText={(text) => {
+                const digits = text.replace(/[^0-9]/g, '');
+                onChange(digits === '' ? null : Number.parseInt(digits, 10));
+            }}
+        />
     );
 }
 
@@ -565,28 +597,28 @@ export interface PlanDurationRowsProps {
 }
 
 /**
- * How long a plan runs, one row per option.
+ * How long a plan runs — one line per option (Commercial §2.2 `PlanDurationRow`, §3.3 Durations).
+ *
+ * ```
+ * KIND                        DAYS      DISCOUNT    WHAT THAT MEANS                      ▲ ▼ ✕
+ * [ One-off | Fixed days ]    None      [Not set]   A one-off is a single delivery …
+ * [ One-off | Fixed days ]    [ 20 ]    [ 5 ]       This duration takes 5% off.
+ * ```
  *
  * ## The `CHECK`, enforced while it is being typed
  *
- * `plan_durations` carries it: **a one-off duration has no day count, and a fixed-days duration has
- * a positive one**. The contract states it once as `isPlanDurationConsistent`, the store refuses a
- * write that breaks it, and this editor makes it unreachable through the controls — switching a row
- * to `one_off` clears the count *and takes the field away* in the same gesture, and switching back
- * leaves the row incomplete until a positive number is typed.
+ * **A one-off duration has no day count, and a fixed-days duration has a positive one**
+ * (`isPlanDurationConsistent`). Switching a row to `one_off` clears the count and the Days cell reads
+ * `None` — not zero, none — and switching back leaves it empty until a number is typed.
  *
- * The field is **removed rather than disabled**, exactly as the price editor's amount is, and for
- * the same two reasons: a greyed box invites the reading "you cannot type here *yet*", when the
- * truth is that this row has no day count and cannot acquire one without changing what kind of
- * duration it is — and a `readOnly` input at the disabled opacity fails the contrast ratio axe holds
- * every active control to.
+ * ## The discount is `null` until somebody decides
  *
- * ## The discount is `null` until somebody decides, and never `0` to mean that
+ * An empty field is `null` on the wire; a typed `0` is the decision that the commitment earns
+ * nothing. The sentence in the last column says which of the two the row holds — the component *is*
+ * the three-state distinction (`DiscountExplainer`).
  *
- * "Not set" and "no discount" are different facts, and the row keeps them apart: an empty field is
- * `null` on the wire, and a typed `0` is a decision that this commitment earns nothing — which is
- * exactly what a one-week commitment earns in the seeded catalogue. The row says which of the two it
- * is holding rather than leaving a blank box to be read either way.
+ * The kind stays a segmented control rather than the design's select: both values have to be visible
+ * at once, because "why has this row no days?" is answered by seeing that `One-off` is the one chosen.
  */
 export function PlanDurationRows({
     rows,
@@ -607,156 +639,168 @@ export function PlanDurationRows({
               : t('kitchen:plans.dayCount', { count: row.days });
 
     return (
-        <Stack space="md" testID={testID}>
+        <View testID={testID} className="flex-col">
             {rows.length === 0 ? (
                 <Text testID={`${testID}-empty`} tone="secondary">
                     {t('kitchen:plans.durationsEmpty')}
                 </Text>
             ) : (
-                rows.map((row, index) => {
-                    const rowTestId = `${testID}-row-${row.key}`;
-                    const position = index + 1;
-                    const error = errors.get(row.key);
-                    const carriesDays = row.kind === 'fixed_days';
-                    const patch = (next: Partial<DurationDraft>) => {
-                        onChange(
-                            rows.map((entry) =>
-                                entry.key === row.key ? { ...entry, ...next } : entry,
-                            ),
-                        );
-                    };
+                <>
+                    <View className="h-6 flex-row items-center gap-snug border-b border-stroke px-tight">
+                        <View style={{ width: KIND_TRACK }}>
+                            <Text variant="micro" tone="secondary">
+                                {t('kitchen:plans.kindLabel')}
+                            </Text>
+                        </View>
+                        <View style={{ width: DAYS_TRACK }}>
+                            <Text variant="micro" tone="secondary" align="end">
+                                {t('kitchen:plans.daysLabel')}
+                            </Text>
+                        </View>
+                        <View style={{ width: DISCOUNT_TRACK }}>
+                            <Text variant="micro" tone="secondary" align="end">
+                                {t('kitchen:plans.discountLabel')}
+                            </Text>
+                        </View>
+                        <View className="min-w-0 flex-1">
+                            <Text variant="micro" tone="secondary">
+                                {t('kitchen:plans.durationMeaning')}
+                            </Text>
+                        </View>
+                    </View>
 
-                    return (
-                        <RowShell
-                            key={row.key}
-                            testID={rowTestId}
-                            title={t('kitchen:plans.durationNumber', { number: position })}
-                            position={position}
-                            total={rows.length}
-                            canManage={canManage}
-                            badge={
-                                <Badge
-                                    testID={`${rowTestId}-badge`}
-                                    tone={row.discountPercent === null ? 'neutral' : 'info'}
-                                    label={
-                                        row.discountPercent === null
-                                            ? t('kitchen:plans.discountNotSet')
-                                            : t('kitchen:plans.discountValue', {
-                                                  percent: row.discountPercent,
-                                              })
-                                    }
-                                />
-                            }
-                            onMove={(to) => {
-                                const next = moveInList(rows, index, to);
-                                if (next === rows) return;
-                                onChange(next);
-                                setAnnouncement(
-                                    t('kitchen:rows.movedAnnouncement', {
-                                        name: nameOf(row),
-                                        position: to + 1,
-                                        total: rows.length,
-                                    }),
-                                );
-                            }}
-                            onRemove={() => {
-                                setRemoved({ row, index });
-                                onChange(rows.filter((entry) => entry.key !== row.key));
-                            }}
-                        >
-                            <Stack space="sm">
-                                {/*
-                                 * A segmented control rather than a select: two mutually exclusive
-                                 * values, both of which have to be *visible* at once, because "why
-                                 * does this row have no day count?" is answered by seeing that
-                                 * `one_off` exists and is the one that is chosen.
-                                 */}
-                                <Stack space="xs">
-                                    <Text variant="label" testID={`${rowTestId}-kind-label`}>
-                                        {t('kitchen:plans.kindLabel')}
-                                    </Text>
-                                    <SegmentedControl<PlanDurationKind>
-                                        testID={`${rowTestId}-kind`}
-                                        label={t('kitchen:plans.kindLabel')}
-                                        block
-                                        value={row.kind}
-                                        onChange={(next) => {
-                                            onChange(
-                                                rows.map((entry) =>
-                                                    entry.key === row.key
-                                                        ? withDurationKind(entry, next)
-                                                        : entry,
-                                                ),
-                                            );
-                                        }}
-                                        items={PLAN_DURATION_KINDS.map((kind) => ({
-                                            value: kind,
-                                            label: t(durationKindKey(kind)),
-                                            disabled: !canManage,
-                                            testID: `${rowTestId}-kind-${kind}`,
-                                        }))}
-                                    />
-                                </Stack>
+                    {rows.map((row, index) => {
+                        const rowTestId = `${testID}-row-${row.key}`;
+                        const position = index + 1;
+                        const error = errors.get(row.key);
+                        const carriesDays = row.kind === 'fixed_days';
+                        const patch = (next: Partial<DurationDraft>) => {
+                            onChange(
+                                rows.map((entry) =>
+                                    entry.key === row.key ? { ...entry, ...next } : entry,
+                                ),
+                            );
+                        };
 
-                                {carriesDays ? (
-                                    <NumberStepper
-                                        testID={`${rowTestId}-days`}
-                                        id={`${rowTestId}-days`}
-                                        label={t('kitchen:plans.daysLabel')}
-                                        hint={t('kitchen:plans.daysHint')}
-                                        unit={t('kitchen:plans.daysUnit')}
-                                        min={1}
-                                        required
-                                        disabled={!canManage}
-                                        value={row.days}
-                                        {...(error === undefined ? {} : { error })}
-                                        onChange={(next) => {
-                                            patch({ days: next });
-                                        }}
-                                    />
-                                ) : (
-                                    <Stack space="none" testID={`${rowTestId}-days-absent`}>
-                                        <Text variant="label">{t('kitchen:plans.daysLabel')}</Text>
-                                        <Text tone="secondary" variant="caption">
-                                            {t('kitchen:plans.daysAbsentHint')}
+                        return (
+                            <View
+                                key={row.key}
+                                testID={rowTestId}
+                                className="flex-col gap-hair border-b border-stroke-subtle px-tight py-1.5"
+                            >
+                                <View className="min-h-control-sm flex-row items-center gap-snug">
+                                    <View style={{ width: KIND_TRACK }}>
+                                        <SegmentedControl<PlanDurationKind>
+                                            testID={`${rowTestId}-kind`}
+                                            label={t('kitchen:plans.kindLabel')}
+                                            value={row.kind}
+                                            onChange={(next) => {
+                                                onChange(
+                                                    rows.map((entry) =>
+                                                        entry.key === row.key
+                                                            ? withDurationKind(entry, next)
+                                                            : entry,
+                                                    ),
+                                                );
+                                            }}
+                                            items={PLAN_DURATION_KINDS.map((kind) => ({
+                                                value: kind,
+                                                label: t(durationKindKey(kind)),
+                                                disabled: !canManage,
+                                                testID: `${rowTestId}-kind-${kind}`,
+                                            }))}
+                                        />
+                                    </View>
+
+                                    <View style={{ width: DAYS_TRACK }}>
+                                        {carriesDays ? (
+                                            <CountField
+                                                testID={`${rowTestId}-days`}
+                                                label={t('kitchen:plans.daysLabel')}
+                                                labelHidden
+                                                placeholder="0"
+                                                value={row.days}
+                                                disabled={!canManage}
+                                                error={error}
+                                                onChange={(next) => {
+                                                    patch({ days: next });
+                                                }}
+                                            />
+                                        ) : (
+                                            // "Not zero, none": the one-off's Days cell reads None on
+                                            // the read-only fill, and carries the reason as its name.
+                                            <View
+                                                testID={`${rowTestId}-days-absent`}
+                                                accessibilityLabel={t(
+                                                    'kitchen:plans.daysAbsentHint',
+                                                )}
+                                                className="h-control-sm justify-center rounded-sm border border-stroke-subtle bg-surface-sunken px-control-sm"
+                                            >
+                                                <Text tone="secondary" align="end">
+                                                    {t('kitchen:plans.daysNone')}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    <View style={{ width: DISCOUNT_TRACK }}>
+                                        <CountField
+                                            testID={`${rowTestId}-discount`}
+                                            label={t('kitchen:plans.discountLabel')}
+                                            labelHidden
+                                            placeholder={t('kitchen:plans.discountNotSet')}
+                                            value={row.discountPercent}
+                                            disabled={!canManage}
+                                            onChange={(next) => {
+                                                patch({ discountPercent: next });
+                                            }}
+                                        />
+                                    </View>
+
+                                    <View className="min-w-0 flex-1">
+                                        <Text
+                                            testID={`${rowTestId}-discount-state`}
+                                            variant="caption"
+                                            tone="secondary"
+                                        >
+                                            {row.discountPercent === null
+                                                ? t('kitchen:plans.discountNotSetExplainer')
+                                                : row.discountPercent === 0
+                                                  ? t('kitchen:plans.discountZeroExplainer')
+                                                  : t('kitchen:plans.discountSetExplainer', {
+                                                        percent: row.discountPercent,
+                                                    })}
                                         </Text>
-                                    </Stack>
-                                )}
+                                    </View>
 
-                                <NumberStepper
-                                    testID={`${rowTestId}-discount`}
-                                    id={`${rowTestId}-discount`}
-                                    label={t('kitchen:plans.discountLabel')}
-                                    hint={t('kitchen:plans.discountHint')}
-                                    unit={t('kitchen:plans.discountUnit')}
-                                    min={0}
-                                    max={100}
-                                    disabled={!canManage}
-                                    value={row.discountPercent}
-                                    onChange={(next) => {
-                                        patch({ discountPercent: next });
-                                    }}
-                                />
+                                    {canManage ? (
+                                        <RowControls
+                                            testID={rowTestId}
+                                            position={position}
+                                            total={rows.length}
+                                            label={t('kitchen:rows.remove')}
+                                            onMove={(to) => {
+                                                const next = moveInList(rows, index, to);
+                                                if (next === rows) return;
+                                                onChange(next);
+                                                setAnnouncement(
+                                                    t('kitchen:rows.movedAnnouncement', {
+                                                        name: nameOf(row),
+                                                        position: to + 1,
+                                                        total: rows.length,
+                                                    }),
+                                                );
+                                            }}
+                                            onRemove={() => {
+                                                setRemoved({ row, index });
+                                                onChange(
+                                                    rows.filter((entry) => entry.key !== row.key),
+                                                );
+                                            }}
+                                        />
+                                    ) : null}
+                                </View>
 
-                                <Text
-                                    testID={`${rowTestId}-discount-state`}
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {row.discountPercent === null
-                                        ? t('kitchen:plans.discountNotSetExplainer')
-                                        : row.discountPercent === 0
-                                          ? t('kitchen:plans.discountZeroExplainer')
-                                          : t('kitchen:plans.discountSetExplainer', {
-                                                percent: row.discountPercent,
-                                            })}
-                                </Text>
-
-                                {/*
-                                 * A row can be wrong for a reason the day field cannot carry — a
-                                 * duplicate option, or a one-off row that is a second one-off — and
-                                 * a one-off row has no day field to hang the message on at all.
-                                 */}
                                 {error === undefined || carriesDays ? null : (
                                     <Text
                                         testID={`${rowTestId}-error`}
@@ -767,10 +811,10 @@ export function PlanDurationRows({
                                         {error}
                                     </Text>
                                 )}
-                            </Stack>
-                        </RowShell>
-                    );
-                })
+                            </View>
+                        );
+                    })}
+                </>
             )}
 
             {removed === null ? null : (
@@ -787,9 +831,14 @@ export function PlanDurationRows({
             )}
 
             <RowAnnouncer testID={`${testID}-announcer`} message={announcement} />
-        </Stack>
+        </View>
     );
 }
+
+/** The design's duration tracks. The kind is wider than its 150px: two named values, both shown. */
+const KIND_TRACK = 240;
+const DAYS_TRACK = 110;
+const DISCOUNT_TRACK = 130;
 
 /* ------------------------------------------------------------------------------------------------
  * Adding a column

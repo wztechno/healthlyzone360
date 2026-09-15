@@ -3,11 +3,11 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
+    FormSection,
     Dialog,
     ErrorState,
-    Heading,
     Inline,
+    RecordWindowFieldGrid,
     Skeleton,
     Stack,
     Text,
@@ -33,6 +33,7 @@ import {
     usePublishPriceListMutation,
     useSetPriceListEntriesMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { PublishGate } from '../commercial/publish-gate.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
@@ -429,18 +430,6 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
             onBack={() => {
                 router.push('/kitchen/price-lists' as never);
             }}
-            primaryAction={
-                !canManage || isPublished ? null : (
-                    <Button
-                        testID="kitchen-price-list-publish"
-                        variant="secondary"
-                        label={t('kitchen:publish.action')}
-                        onPress={() => {
-                            setShowPublish(true);
-                        }}
-                    />
-                )
-            }
             banner={
                 <Stack space="sm">
                     {quarantined ? (
@@ -475,88 +464,60 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                 </Stack>
             }
         >
-            {/* ── the facts the contract makes read-only ───────────────────────────────────── */}
-            <Card testID="kitchen-price-list-facts" padding="md">
-                <Stack space="sm">
-                    <Heading level={2}>{t('kitchen:priceLists.factsTitle')}</Heading>
+            {/* ── the facts the contract makes read-only, on the sunken fill ─────────────────── */}
+            <FormSection
+                first
+                testID="kitchen-price-list-facts"
+                title={t('kitchen:priceLists.factsTitle')}
+                description={t('kitchen:priceLists.readOnlyNote')}
+            >
+                <View className="rounded border border-stroke-subtle bg-surface-sunken px-snug py-2.5">
+                    <RecordWindowFieldGrid
+                        testID="kitchen-price-list-fact"
+                        fields={[
+                            {
+                                key: 'name',
+                                label: t('kitchen:priceLists.columnName'),
+                                value: displayName(data.name, locale).value,
+                            },
+                            {
+                                key: 'currency',
+                                label: t('kitchen:priceLists.currencyLabel'),
+                                value: data.currency,
+                                mono: true,
+                            },
+                            {
+                                key: 'channels',
+                                label: t('kitchen:priceLists.channelsLabel'),
+                                value:
+                                    data.channels.length === 0
+                                        ? t('kitchen:priceLists.noChannels')
+                                        : data.channels
+                                              .map((channel) => t(channelKey(channel)))
+                                              .join(', '),
+                            },
+                        ]}
+                    />
+                </View>
+            </FormSection>
 
-                    <Inline space="sm" wrap testID="kitchen-price-list-currency">
-                        <Text variant="label">{t('kitchen:priceLists.currencyLabel')}</Text>
-                        <Badge tone="neutral" label={data.currency} />
-                    </Inline>
-
-                    <Stack space="xs">
-                        <Text variant="label">{t('kitchen:priceLists.channelsLabel')}</Text>
-                        {data.channels.length === 0 ? (
-                            <Text
-                                testID="kitchen-price-list-channels-none"
-                                tone="secondary"
-                                variant="caption"
-                            >
-                                {t('kitchen:priceLists.noChannels')}
-                            </Text>
-                        ) : (
-                            <Inline space="xs" wrap testID="kitchen-price-list-channels">
-                                {data.channels.map((channel) => (
-                                    <Badge
-                                        key={channel}
-                                        testID={`kitchen-price-list-channel-${channel}`}
-                                        tone="info"
-                                        label={t(channelKey(channel))}
-                                    />
-                                ))}
-                            </Inline>
-                        )}
-                    </Stack>
-
-                    <Text
-                        testID="kitchen-price-list-readonly-note"
-                        variant="caption"
-                        tone="secondary"
-                    >
-                        {t('kitchen:priceLists.readOnlyNote')}
-                    </Text>
-                </Stack>
-            </Card>
-
-            {/*
-             * Confidential treatment: a raised card and a note, on the list whose prices are
-             * negotiated inside one buyer relationship. It sits above the entries rather than beside
-             * the name, because the thing that must not leak is the *numbers* below it.
-             */}
             {confidential ? (
-                <View
+                <Callout
                     testID="kitchen-price-list-confidential"
                     role="note"
-                    className="rounded-lg border border-stroke-subtle bg-surface-raised p-3"
-                >
-                    <Stack space="xs">
-                        <Inline space="xs" align="center" wrap>
-                            <Badge
-                                testID="kitchen-price-list-agreement"
-                                tone="warning"
-                                icon="eye"
-                                label={t('kitchen:priceLists.agreementBadge')}
-                            />
-                            <Text variant="label">{t('kitchen:priceLists.confidentialTitle')}</Text>
-                        </Inline>
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:priceLists.confidentialBody')}
-                        </Text>
-                    </Stack>
-                </View>
+                    tone="warning"
+                    title={t('kitchen:priceLists.confidentialTitle')}
+                    body={t('kitchen:priceLists.confidentialBody')}
+                />
             ) : null}
 
             {/* ── entries ──────────────────────────────────────────────────────────────────── */}
-            <Card testID="kitchen-price-list-entries-card" padding="md">
+            <FormSection
+                testID="kitchen-price-list-entries-card"
+                title={t('kitchen:priceLists.entriesTitle')}
+                description={t('kitchen:priceLists.entriesHelp')}
+            >
                 <Stack space="md">
-                    <Stack space="xs">
-                        <Heading level={2}>{t('kitchen:priceLists.entriesTitle')}</Heading>
-                        <Text tone="secondary" variant="caption">
-                            {t('kitchen:priceLists.entriesHelp')}
-                        </Text>
-                    </Stack>
-
                     <Inline space="xs" wrap testID="kitchen-price-list-draft-summary">
                         <Badge
                             testID="kitchen-price-list-draft-confirmed"
@@ -611,7 +572,27 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                         </Inline>
                     ) : null}
                 </Stack>
-            </Card>
+            </FormSection>
+
+            <PublishGate
+                testID="kitchen-price-list-publish"
+                title={t('kitchen:priceLists.publicationTitle')}
+                canManage={canManage}
+                blockers={
+                    quarantined
+                        ? [t('kitchen:publish.quarantineTitle'), ...publishBlockers]
+                        : publishBlockers
+                }
+                blockedTitle={t('kitchen:priceLists.publishBlockedTitle')}
+                excluded={t('kitchen:priceLists.publishExcludedBody', {
+                    placeholders: savedSummary?.placeholder ?? 0,
+                    market: savedSummary?.marketPriced ?? 0,
+                })}
+                published={isPublished ? t('kitchen:priceLists.publishedBody') : undefined}
+                onPublish={() => {
+                    setShowPublish(true);
+                }}
+            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog

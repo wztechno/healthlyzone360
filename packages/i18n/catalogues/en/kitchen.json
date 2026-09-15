@@ -216,7 +216,12 @@
                 "accepted": "Accepted",
                 "declined": "Declined",
                 "expired": "Expired"
-            }
+            },
+            "statLoadedCaption": "every request received",
+            "statAwaitingCaption": "waiting on your prices",
+            "statQuotedCaption": "sent, awaiting the buyer",
+            "viewKind": "Quotation",
+            "sendRule": "Every line needs a price. Zero is accepted; empty is not."
         },
         "stock": {
             "title": "Stock",
@@ -2813,7 +2818,13 @@
         "publishRefusedEntries": "The server refused this publish: at least one entry disagrees with its price status. A confirmed price needs an amount, and nothing else may carry one.",
         "publishedTitle": "Published",
         "publishedBody": "The confirmed prices on this list are the ones a customer is charged. Pending and daily-priced entries are still excluded.",
-        "publishedToast": "{{name}} is published."
+        "publishedToast": "{{name}} is published.",
+        "viewKind": "Price list",
+        "viewPending": "Not yet a price",
+        "statNothingPriced": "Nothing priced",
+        "statNothingPricedCaption": "no confirmed entry",
+        "statAgreementCaption": "negotiated rates inside",
+        "publicationTitle": "Publication"
     },
     "plans": {
         "title": "Plans",
@@ -3063,7 +3074,20 @@
         "retireConsequence": "The plan stops being offered and stops appearing in search. Its configurations, durations and history stay, and an existing subscription still points at them.",
         "retiredTitle": "Withdrawn",
         "retiredBody": "This plan is not offered anywhere. Nothing was deleted.",
-        "retiredToast": "{{name}} was withdrawn."
+        "retiredToast": "{{name}} was withdrawn.",
+        "statNoVariantsCaption": "no cell sold yet",
+        "statNothingPricedCaption": "no confirmed price on any list",
+        "viewKind": "Plan",
+        "viewCombinations": "Combinations",
+        "tabsLabel": "Plan sections",
+        "tabMatrix": "Matrix",
+        "tabVariants": "Configurations",
+        "matrixTitle": "The matrix",
+        "daysNone": "None",
+        "durationMeaning": "What that means",
+        "statPlansUnit": "plans",
+        "statPublishedCaption": "on sale",
+        "statDraftCaption": "half-built"
     },
     "time": {
         "formatHint": "24-hour clock, HH:mm — for example 08:00 or 18:30.",
@@ -3152,7 +3176,16 @@
         "archiveWindowCount_other": "{{count}} delivery windows go with it.",
         "archivedToast": "{{name}} was archived.",
         "archivedTitle": "This zone is archived",
-        "archivedBody": "It is off every branch that served it. The record stays for the orders that already used it."
+        "archivedBody": "It is off every branch that served it. The record stays for the orders that already used it.",
+        "coveredDayCount_one": "{{count}} day covered",
+        "coveredDayCount_other": "{{count}} days covered",
+        "statNoAreasCaption": "reaches nobody yet",
+        "statNoWindowsCaption": "no active delivery time",
+        "viewKind": "Delivery zone",
+        "viewFee": "Delivery fee",
+        "viewMinimum": "Minimum order",
+        "viewWeekdays": "Days covered",
+        "tabsLabel": "Zone sections"
     },
     "areas": {
         "selectedLabel": "Chosen areas",
@@ -3246,7 +3279,23 @@
         "savedToast_other": "Saved. The branch trades {{count}} days a week.",
         "loadErrorTitle": "Those opening hours could not be loaded",
         "noBranchTitle": "No branch is in context",
-        "noBranchBody": "Opening hours belong to a branch. Choose one from the workspace switcher and come back."
+        "noBranchBody": "Opening hours belong to a branch. Choose one from the workspace switcher and come back.",
+        "chip": "One record per branch",
+        "dayOpenNote": "Open {{opens}}–{{closes}}, last same-day order {{cutOff}}.",
+        "copyShort": "Copy to every open day",
+        "tradingLabel": "{{day}} — trading",
+        "tradingOpen": "Open",
+        "columnDay": "Day",
+        "columnTrading": "Trading",
+        "columnSays": "What that day says",
+        "cardTrading": "Trading",
+        "cardTradingUnit_one": "day a week",
+        "cardTradingUnit_other": "days a week",
+        "cardDayUnit_one": "day",
+        "cardDayUnit_other": "days",
+        "cardClosedCaption": "answered, not left blank",
+        "cardCutOff": "Order cut-off",
+        "cardCutOffCaption": "last same-day order set"
     },
     "sauces": {
         "title": "Sauces & marinations",

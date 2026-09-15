@@ -49,6 +49,17 @@ import type { PriceEntryDraft } from './price-row-editors.tsx';
 import { PriceListEditScreen } from './screens/price-list-edit-screen.tsx';
 import { PriceListsScreen } from './screens/price-lists-screen.tsx';
 
+
+/*
+ * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
+ * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
+ * suites render at the width the screens are built for.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 /**
  * The pricing half of the kitchen workspace, against a world this file declares (K1.5).
  *
@@ -523,14 +534,9 @@ describe('the price-list list', () => {
         const base = `kitchen-price-list-${String(CONFIRMED_LIST.id)}`;
         expect(screen.getByTestId(`${base}-name`)).toBeTruthy();
         expect(screen.getByTestId(`${base}-currency`)).toHaveTextContent(CONFIRMED_LIST.currency);
-        expect(screen.getByTestId(`${base}-channels`)).toBeTruthy();
-        // Two entries, both confirmed: the split is the arithmetic on what this file authored.
-        expect(screen.getByTestId(`${base}-entries-total`)).toHaveTextContent(/2/);
-        expect(screen.getByTestId(`${base}-entries-confirmed`)).toHaveTextContent(/2/);
-        expect(screen.getByTestId(`${base}-entries-placeholder`)).toHaveTextContent(/0/);
-        expect(screen.getByTestId(`${base}-entries-market`)).toHaveTextContent(/0/);
+        // Two entries, both confirmed: "2 entries · 2 confirmed", the two facts the cell carries.
+        expect(screen.getByTestId(`${base}-entries`)).toHaveTextContent(/2 entries · 2 confirmed/);
         expect(screen.getByTestId(`${base}-status`)).toBeTruthy();
-        expect(screen.getByTestId(`${base}-updated`)).toBeTruthy();
     });
 
     it('states the split for a list with nothing confirmed in it, rather than only a total', async () => {
@@ -548,8 +554,7 @@ describe('the price-list list', () => {
         const summary = summarisePriceEntries(UNPRICED_LIST.entries);
         expect(summary.confirmed).toBe(0);
         // The zero is rendered rather than hidden — it is the most important thing on the row.
-        expect(screen.getByTestId(`${base}-entries-confirmed`)).toHaveTextContent(/0/);
-        expect(screen.getByTestId(`${base}-entries-total`)).toHaveTextContent(/2/);
+        expect(screen.getByTestId(`${base}-entries`)).toHaveTextContent(/2 entries · 0 confirmed/);
     });
 
     it('offers no create control and no row publish, because neither is this screen’s to offer', async () => {
@@ -672,10 +677,12 @@ describe('editing a price list', () => {
         });
         await untilVisible('kitchen-price-list-facts');
 
-        expect(screen.getByTestId('kitchen-price-list-currency')).toHaveTextContent(
+        expect(screen.getByTestId('kitchen-price-list-fact-currency-value')).toHaveTextContent(
             new RegExp(CONFIRMED_LIST.currency),
         );
-        expect(screen.getByTestId('kitchen-price-list-readonly-note')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-price-list-facts')).toHaveTextContent(
+            /cannot be changed here/,
+        );
         expect(screen.queryByTestId('kitchen-price-list-currency-trigger')).toBeNull();
     });
 
@@ -1057,15 +1064,10 @@ describe('publishing a price list', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-price-list-add-entry'));
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-price-list-publish'));
-        });
-        await untilVisible('kitchen-price-list-publish-dialog');
-
-        expect(screen.getByTestId('kitchen-price-list-publish-blocked')).toBeTruthy();
+        // The gate says why under the entries, and its Publish cannot be pressed.
+        await untilVisible('kitchen-price-list-publish-gate-blocked');
         expect(
-            screen.getByTestId('kitchen-price-list-publish-confirm').props.accessibilityState
-                ?.disabled,
+            screen.getByTestId('kitchen-price-list-publish').props.accessibilityState?.disabled,
         ).toBe(true);
     });
 

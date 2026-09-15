@@ -3,15 +3,15 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
+    FormSection,
     Dialog,
     ErrorState,
-    Heading,
     Inline,
     NumberStepper,
     Select,
     Skeleton,
     Stack,
+    Tabs,
     Text,
     TextInputField,
     useToast,
@@ -136,6 +136,8 @@ export interface DeliveryZoneEditScreenProps {
     readonly zone: string | undefined;
 }
 
+type ZoneTab = 'zone' | 'areas' | 'windows';
+
 export function DeliveryZoneEditScreen({ zone }: DeliveryZoneEditScreenProps) {
     return (
         <Gate
@@ -195,6 +197,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
+    const [tab, setTab] = useState<ZoneTab>('zone');
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
     const [detailsDirty, setDetailsDirty] = useState(false);
@@ -554,190 +557,236 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 </Stack>
             }
         >
+            {/*
+             * Three tabs — The zone · Areas covered · Delivery windows (Commercial §3.4). Areas and
+             * windows are written against a zone that exists, so on a new zone their tabs are drawn
+             * and say so (`createFirst`) rather than vanishing.
+             */}
+            <Tabs<ZoneTab>
+                testID="kitchen-zone-tabs"
+                label={t('kitchen:zones.tabsLabel')}
+                value={tab}
+                onChange={setTab}
+                items={[
+                    {
+                        value: 'zone',
+                        label: t('kitchen:zones.sectionDetails'),
+                        testID: 'kitchen-zone-tab-zone',
+                    },
+                    {
+                        value: 'areas',
+                        label: t('kitchen:zones.sectionAreas'),
+                        testID: 'kitchen-zone-tab-areas',
+                    },
+                    {
+                        value: 'windows',
+                        label: t('kitchen:zones.sectionWindows'),
+                        testID: 'kitchen-zone-tab-windows',
+                    },
+                ]}
+            />
+
             {/* ── the record ───────────────────────────────────────────────────────────────── */}
-            <Card testID="kitchen-zone-details" padding="md">
-                <Stack space="md">
-                    <Heading level={2}>{t('kitchen:zones.sectionDetails')}</Heading>
-
-                    <BilingualField
-                        testID="kitchen-zone-name"
-                        fieldLabel={t('kitchen:fields.name')}
-                        value={details.name}
-                        requiredEnglish
-                        {...(nameMissing ? { englishError: t('kitchen:zones.nameRequired') } : {})}
-                        onChange={(next) => {
-                            markDirty(() => {
-                                setDetails({ ...details, name: next });
-                                setDetailsDirty(true);
-                            });
-                        }}
-                    />
-
-                    {isCreating ? (
-                        <Select
-                            testID="kitchen-zone-currency-select"
-                            id="kitchen-zone-currency-select"
-                            label={t('kitchen:zones.currencyLabel')}
-                            hint={t('kitchen:zones.currencyCreateHint')}
-                            searchable
-                            required
-                            value={currency}
-                            options={CURRENCY_CODES.map((code) => ({ value: code, label: code }))}
+            {tab !== 'zone' ? null : (
+                <FormSection
+                    first
+                    testID="kitchen-zone-details"
+                    title={t('kitchen:zones.sectionDetails')}
+                >
+                    <Stack space="md">
+                        <BilingualField
+                            testID="kitchen-zone-name"
+                            fieldLabel={t('kitchen:fields.name')}
+                            value={details.name}
+                            requiredEnglish
+                            {...(nameMissing
+                                ? { englishError: t('kitchen:zones.nameRequired') }
+                                : {})}
                             onChange={(next) => {
                                 markDirty(() => {
-                                    setChosenCurrency(next);
+                                    setDetails({ ...details, name: next });
                                     setDetailsDirty(true);
                                 });
                             }}
                         />
-                    ) : (
-                        <Stack space="none" testID="kitchen-zone-currency">
-                            <Text variant="label">{t('kitchen:zones.currencyLabel')}</Text>
-                            <Text testID="kitchen-zone-currency-value" variant="bodyStrong">
-                                {currency ?? t('kitchen:common.notRecorded')}
-                            </Text>
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:zones.currencyFixedHint')}
+
+                        {isCreating ? (
+                            <Select
+                                testID="kitchen-zone-currency-select"
+                                id="kitchen-zone-currency-select"
+                                label={t('kitchen:zones.currencyLabel')}
+                                hint={t('kitchen:zones.currencyCreateHint')}
+                                searchable
+                                required
+                                value={currency}
+                                options={CURRENCY_CODES.map((code) => ({
+                                    value: code,
+                                    label: code,
+                                }))}
+                                onChange={(next) => {
+                                    markDirty(() => {
+                                        setChosenCurrency(next);
+                                        setDetailsDirty(true);
+                                    });
+                                }}
+                            />
+                        ) : (
+                            <Stack space="none" testID="kitchen-zone-currency">
+                                <Text variant="label">{t('kitchen:zones.currencyLabel')}</Text>
+                                <Text testID="kitchen-zone-currency-value" variant="bodyStrong">
+                                    {currency ?? t('kitchen:common.notRecorded')}
+                                </Text>
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:zones.currencyFixedHint')}
+                                </Text>
+                            </Stack>
+                        )}
+
+                        <Stack space="xs">
+                            <TextInputField
+                                testID="kitchen-zone-fee"
+                                id="kitchen-zone-fee"
+                                label={t('kitchen:zones.feeLabel', {
+                                    currency: currency ?? t('kitchen:common.notRecorded'),
+                                })}
+                                hint={t('kitchen:zones.feeHint')}
+                                value={details.deliveryFee}
+                                inputMode="decimal"
+                                autoCorrect={false}
+                                disabled={!canManage}
+                                {...(feeState === 'invalid'
+                                    ? { error: t('kitchen:zones.amountInvalid') }
+                                    : {})}
+                                onChangeText={(next) => {
+                                    markDirty(() => {
+                                        setDetails({ ...details, deliveryFee: next });
+                                        setDetailsDirty(true);
+                                    });
+                                }}
+                            />
+                            <Text
+                                testID="kitchen-zone-fee-state"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {feeState === 'unset'
+                                    ? t('kitchen:zones.feeStateUnset')
+                                    : feeState === 'zero'
+                                      ? t('kitchen:zones.feeStateZero')
+                                      : feeState === 'invalid'
+                                        ? t('kitchen:zones.amountInvalid')
+                                        : t('kitchen:zones.feeStateAmount')}
                             </Text>
                         </Stack>
-                    )}
 
-                    <Stack space="xs">
-                        <TextInputField
-                            testID="kitchen-zone-fee"
-                            id="kitchen-zone-fee"
-                            label={t('kitchen:zones.feeLabel', {
-                                currency: currency ?? t('kitchen:common.notRecorded'),
-                            })}
-                            hint={t('kitchen:zones.feeHint')}
-                            value={details.deliveryFee}
-                            inputMode="decimal"
-                            autoCorrect={false}
-                            disabled={!canManage}
-                            {...(feeState === 'invalid'
-                                ? { error: t('kitchen:zones.amountInvalid') }
-                                : {})}
-                            onChangeText={(next) => {
-                                markDirty(() => {
-                                    setDetails({ ...details, deliveryFee: next });
-                                    setDetailsDirty(true);
-                                });
-                            }}
-                        />
-                        <Text testID="kitchen-zone-fee-state" variant="caption" tone="secondary">
-                            {feeState === 'unset'
-                                ? t('kitchen:zones.feeStateUnset')
-                                : feeState === 'zero'
-                                  ? t('kitchen:zones.feeStateZero')
-                                  : feeState === 'invalid'
-                                    ? t('kitchen:zones.amountInvalid')
-                                    : t('kitchen:zones.feeStateAmount')}
-                        </Text>
-                    </Stack>
-
-                    <Stack space="xs">
-                        <TextInputField
-                            testID="kitchen-zone-minimum"
-                            id="kitchen-zone-minimum"
-                            label={t('kitchen:zones.minimumLabel', {
-                                currency: currency ?? t('kitchen:common.notRecorded'),
-                            })}
-                            hint={t('kitchen:zones.minimumHint')}
-                            value={details.minimumOrder}
-                            inputMode="decimal"
-                            autoCorrect={false}
-                            disabled={!canManage}
-                            {...(minimumState === 'invalid'
-                                ? { error: t('kitchen:zones.amountInvalid') }
-                                : {})}
-                            onChangeText={(next) => {
-                                markDirty(() => {
-                                    setDetails({ ...details, minimumOrder: next });
-                                    setDetailsDirty(true);
-                                });
-                            }}
-                        />
-                        <Text
-                            testID="kitchen-zone-minimum-state"
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {minimumState === 'unset'
-                                ? t('kitchen:zones.minimumStateUnset')
-                                : minimumState === 'zero'
-                                  ? t('kitchen:zones.minimumStateZero')
-                                  : minimumState === 'invalid'
-                                    ? t('kitchen:zones.amountInvalid')
-                                    : t('kitchen:zones.minimumStateAmount')}
-                        </Text>
-                    </Stack>
-
-                    <NumberStepper
-                        testID="kitchen-zone-estimated"
-                        id="kitchen-zone-estimated"
-                        label={t('kitchen:zones.estimatedLabel')}
-                        hint={t('kitchen:zones.estimatedHint')}
-                        unit={t('kitchen:zones.estimatedUnit')}
-                        min={0}
-                        max={1440}
-                        step={5}
-                        disabled={!canManage}
-                        value={details.estimatedMinutes}
-                        onChange={(next) => {
-                            markDirty(() => {
-                                setDetails({ ...details, estimatedMinutes: next });
-                                setDetailsDirty(true);
-                            });
-                        }}
-                    />
-
-                    {details.estimatedMinutes === null ? (
-                        <Text
-                            testID="kitchen-zone-estimated-state"
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {t('kitchen:zones.estimatedNone')}
-                        </Text>
-                    ) : null}
-
-                    {data === undefined ? null : (
-                        <Stack space="none" testID="kitchen-zone-branches">
-                            <Text variant="label">{t('kitchen:zones.branchesLabel')}</Text>
-                            <Text testID="kitchen-zone-branch-count">
-                                {t('kitchen:zones.branchCount', { count: data.branchIds.length })}
-                            </Text>
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:zones.branchesReadOnly')}
+                        <Stack space="xs">
+                            <TextInputField
+                                testID="kitchen-zone-minimum"
+                                id="kitchen-zone-minimum"
+                                label={t('kitchen:zones.minimumLabel', {
+                                    currency: currency ?? t('kitchen:common.notRecorded'),
+                                })}
+                                hint={t('kitchen:zones.minimumHint')}
+                                value={details.minimumOrder}
+                                inputMode="decimal"
+                                autoCorrect={false}
+                                disabled={!canManage}
+                                {...(minimumState === 'invalid'
+                                    ? { error: t('kitchen:zones.amountInvalid') }
+                                    : {})}
+                                onChangeText={(next) => {
+                                    markDirty(() => {
+                                        setDetails({ ...details, minimumOrder: next });
+                                        setDetailsDirty(true);
+                                    });
+                                }}
+                            />
+                            <Text
+                                testID="kitchen-zone-minimum-state"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {minimumState === 'unset'
+                                    ? t('kitchen:zones.minimumStateUnset')
+                                    : minimumState === 'zero'
+                                      ? t('kitchen:zones.minimumStateZero')
+                                      : minimumState === 'invalid'
+                                        ? t('kitchen:zones.amountInvalid')
+                                        : t('kitchen:zones.minimumStateAmount')}
                             </Text>
                         </Stack>
-                    )}
-                </Stack>
-            </Card>
+
+                        <NumberStepper
+                            testID="kitchen-zone-estimated"
+                            id="kitchen-zone-estimated"
+                            label={t('kitchen:zones.estimatedLabel')}
+                            hint={t('kitchen:zones.estimatedHint')}
+                            unit={t('kitchen:zones.estimatedUnit')}
+                            min={0}
+                            max={1440}
+                            step={5}
+                            disabled={!canManage}
+                            value={details.estimatedMinutes}
+                            onChange={(next) => {
+                                markDirty(() => {
+                                    setDetails({ ...details, estimatedMinutes: next });
+                                    setDetailsDirty(true);
+                                });
+                            }}
+                        />
+
+                        {details.estimatedMinutes === null ? (
+                            <Text
+                                testID="kitchen-zone-estimated-state"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {t('kitchen:zones.estimatedNone')}
+                            </Text>
+                        ) : null}
+
+                        {data === undefined ? null : (
+                            <Stack space="none" testID="kitchen-zone-branches">
+                                <Text variant="label">{t('kitchen:zones.branchesLabel')}</Text>
+                                <Text testID="kitchen-zone-branch-count">
+                                    {t('kitchen:zones.branchCount', {
+                                        count: data.branchIds.length,
+                                    })}
+                                </Text>
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:zones.branchesReadOnly')}
+                                </Text>
+                            </Stack>
+                        )}
+                    </Stack>
+                </FormSection>
+            )}
 
             {/* ── areas ────────────────────────────────────────────────────────────────────── */}
-            {isCreating ? (
-                <Card testID="kitchen-zone-areas-unavailable" padding="md">
-                    <Stack space="sm">
-                        <Heading level={2}>{t('kitchen:zones.sectionAreas')}</Heading>
-                        <Text tone="secondary">{t('kitchen:zones.createFirst')}</Text>
-                    </Stack>
-                </Card>
+            {tab !== 'areas' ? null : isCreating ? (
+                <FormSection
+                    first
+                    testID="kitchen-zone-areas-unavailable"
+                    title={t('kitchen:zones.sectionAreas')}
+                    description={t('kitchen:zones.createFirst')}
+                >
+                    {null}
+                </FormSection>
             ) : (
-                <Card testID="kitchen-zone-areas" padding="md">
+                <FormSection
+                    first
+                    testID="kitchen-zone-areas"
+                    title={t('kitchen:zones.sectionAreas')}
+                    description={t('kitchen:zones.areasIntro')}
+                    aside={
+                        <Badge
+                            testID="kitchen-zone-areas-count"
+                            tone="neutral"
+                            label={t('kitchen:zones.areaCount', { count: areas.length })}
+                        />
+                    }
+                >
                     <Stack space="md">
-                        <Inline space="sm" align="center" justify="between" wrap>
-                            <Heading level={2}>{t('kitchen:zones.sectionAreas')}</Heading>
-                            <Badge
-                                testID="kitchen-zone-areas-count"
-                                tone="neutral"
-                                icon="dot"
-                                label={t('kitchen:zones.areaCount', { count: areas.length })}
-                            />
-                        </Inline>
-
-                        <Text tone="secondary">{t('kitchen:zones.areasIntro')}</Text>
-
                         {gazetteer.isPending ? (
                             <Skeleton testID="kitchen-zone-areas-loading" heightClassName="h-24" />
                         ) : gazetteerFailure !== null ? (
@@ -788,46 +837,49 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             </Inline>
                         ) : null}
                     </Stack>
-                </Card>
+                </FormSection>
             )}
 
             {/* ── delivery windows ─────────────────────────────────────────────────────────── */}
-            {isCreating ? (
-                <Card testID="kitchen-zone-windows-unavailable" padding="md">
-                    <Stack space="sm">
-                        <Heading level={2}>{t('kitchen:zones.sectionWindows')}</Heading>
-                        <Text tone="secondary">{t('kitchen:zones.createFirst')}</Text>
-                    </Stack>
-                </Card>
+            {tab !== 'windows' ? null : isCreating ? (
+                <FormSection
+                    first
+                    testID="kitchen-zone-windows-unavailable"
+                    title={t('kitchen:zones.sectionWindows')}
+                    description={t('kitchen:zones.createFirst')}
+                >
+                    {null}
+                </FormSection>
             ) : (
-                <Card testID="kitchen-zone-windows" padding="md">
-                    <Stack space="md">
-                        <Inline space="sm" align="center" justify="between" wrap>
-                            <Heading level={2}>{t('kitchen:zones.sectionWindows')}</Heading>
-                            <Inline space="xs" wrap>
-                                <Badge
-                                    testID="kitchen-zone-windows-count"
-                                    tone="neutral"
-                                    icon="dot"
-                                    label={t('kitchen:windows.count', {
-                                        count: draftCoverage.total,
-                                    })}
-                                />
-                                <Badge
-                                    testID="kitchen-zone-windows-coverage"
-                                    tone={draftCoverage.weekdays.length === 0 ? 'warning' : 'info'}
-                                    {...(draftCoverage.weekdays.length === 0
-                                        ? { icon: 'warning' as const }
-                                        : {})}
-                                    label={t('kitchen:windows.coveredDayCount', {
-                                        count: draftCoverage.weekdays.length,
-                                    })}
-                                />
-                            </Inline>
+                <FormSection
+                    first
+                    testID="kitchen-zone-windows"
+                    title={t('kitchen:zones.sectionWindows')}
+                    description={t('kitchen:zones.windowsIntro')}
+                    aside={
+                        <Inline space="xs" wrap>
+                            <Badge
+                                testID="kitchen-zone-windows-count"
+                                tone="neutral"
+                                icon="dot"
+                                label={t('kitchen:windows.count', {
+                                    count: draftCoverage.total,
+                                })}
+                            />
+                            <Badge
+                                testID="kitchen-zone-windows-coverage"
+                                tone={draftCoverage.weekdays.length === 0 ? 'warning' : 'info'}
+                                {...(draftCoverage.weekdays.length === 0
+                                    ? { icon: 'warning' as const }
+                                    : {})}
+                                label={t('kitchen:windows.coveredDayCount', {
+                                    count: draftCoverage.weekdays.length,
+                                })}
+                            />
                         </Inline>
-
-                        <Text tone="secondary">{t('kitchen:zones.windowsIntro')}</Text>
-
+                    }
+                >
+                    <Stack space="md">
                         <DeliveryWindowRows
                             testID="kitchen-zone-window-rows"
                             rows={windows}
@@ -873,7 +925,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             </Inline>
                         ) : null}
                     </Stack>
-                </Card>
+                </FormSection>
             )}
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}

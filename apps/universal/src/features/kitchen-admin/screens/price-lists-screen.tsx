@@ -1,20 +1,18 @@
 import type { PriceListAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
-    Card,
+    Callout,
     EmptyState,
     ErrorState,
-    Inline,
-    Pagination,
+    RecordWindow,
     Skeleton,
     Stack,
-    Table,
     Text,
 } from '@healthy360/design-system';
-import type { TableColumn, TableSortDirection } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
+import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -22,61 +20,59 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { pagesInResult, usePriceListPageQuery } from '../../../data/kitchen-admin-hooks.ts';
+import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
-    PRICE_LIST_STATUS_FILTERS,
     channelKey,
     displayName,
     isAgreementPriced,
     priceListRowTestId,
-    statusKey,
+    statusShortKey,
     statusTone,
     summarisePriceEntries,
 } from '../format.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
-import { ListToolbar } from '../list-toolbar.tsx';
 import { useListPage } from '../use-list-page.ts';
 
 /**
- * `/kitchen/price-lists` — what this kitchen charges, and how much of it is actually decided.
+ * `/kitchen/price-lists` — what this kitchen charges, and how much of it is actually decided
+ * (Commercial handoff §3.1).
+ *
+ * ```
+ * ┌ SHOWN ┐ ┌ NOTHING PRICED ┐ ┌ AGREEMENT ┐
+ * [ ⌕ search ]  [ All | Live | Draft | Review ]
+ * ◉ Negotiated prices are on this screen …
+ * PRICE LIST          CURRENCY  CHANNELS      ENTRIES                     STATUS  UPDATED   ◉ ✎
+ * Showing 1–25 of 40                                                          [ ‹ 1 2 › ]
+ * ```
+ *
+ * The Catalogue list's five parts, with nothing rebuilt: `CatalogueStatCards`, `CatalogueToolbar`,
+ * `CatalogueList` with a column spec, `CataloguePager`, and the `RecordWindow` behind View.
+ *
+ * ## No create, no archive
+ *
+ * `KitchenAdminRepository` has no `createPriceList` and no `retirePriceList`, so the page has no
+ * primary and no row offers Archive (§6.1). Publish lives in the editor, where the entries being
+ * decided about are on screen.
  *
  * ## The entry split is the column this screen exists for
  *
- * Every other admin list answers "how many are there?". This one answers "how many of them are
- * *real*?", because the programme's binding rule is that a fabricated price never reaches a public
- * surface (plan §2.4): a placeholder entry carries `amountMinor: null` and is excluded from every
- * consumer projection, and a market-priced entry carries none for a different reason. A list of
- * forty rows of which three are confirmed is not a price list with forty prices, and a column
- * showing only the total would say that it was.
+ * "12 entries · 10 confirmed", and a list pricing nothing reads `Nothing priced yet`, never `0` —
+ * a price list of forty rows of which three are confirmed is not forty prices.
  *
- * ## No create, no publish, no archive — and that is the contract's doing
+ * ## The confidential banner
  *
- * `KitchenAdminRepository` publishes `listPriceLists`, `getPriceList`, `setPriceListEntries` and
- * `publishPriceList`. There is no `createPriceList`, so the toolbar has no create button; there is
- * no `retirePriceList`, so no row offers one. Publishing *is* offered by the contract — and is
- * deliberately **not** offered from a row here: publishing a price list makes a set of numbers
- * chargeable, the dialog that asks about it has to state how many entries that is and which of them
- * will silently not reach a customer, and a row-level confirm cannot carry that. Publish therefore
- * lives in the editor, one screen away, where the entries the person is deciding about are visible.
- *
- * ## Confidential lists are marked, and marked before they are opened
- *
- * A list whose channels include a contract-private one (`hasPrivatePricing` —
- * `@healthy360/domain-types`) is negotiated paperwork inside one buyer relationship. Its row wears
- * a raised card and an `agreement` badge, and the note under the table says what that means, so that
- * a screen shared in a meeting does not put a negotiated rate in front of the wrong person without
- * anybody noticing what they were looking at. The contract publishes no `customerScope` field to
- * read this from — the channel set is what exists, and the module note in
- * `data/kitchen-admin-hooks.ts` records the gap.
- *
- * ## Sorting is client-side, and stated
- *
- * Same limitation the other four lists document: `PriceListAdminFilter` publishes no sort parameter,
- * so the table sorts what has been loaded.
+ * Any list on a contract-private channel is negotiated paperwork inside one buyer relationship, so
+ * the banner sits above the list whenever one is on the page, and the row carries `Agreement`.
  */
-
-type SortKey = 'name' | 'currency' | 'status' | 'updatedAt';
-
 export function PriceListsScreen() {
     return (
         <Gate
@@ -89,86 +85,8 @@ export function PriceListsScreen() {
     );
 }
 
-/**
- * How the list's entries break down — confirmed, pending, priced daily.
- *
- * The three counts are always rendered, including at zero, because "no confirmed prices" is the
- * single most important thing this screen can say about a list and hiding it at zero would hide it
- * exactly when it matters. The inconsistency count is the opposite: it is hidden at zero, because a
- * badge permanently reading "none inconsistent" is furniture.
- */
-function EntriesCell({ row }: { readonly row: PriceListAdmin }) {
-    const { t } = useTranslation();
-    const testID = priceListRowTestId(String(row.id));
-    const summary = summarisePriceEntries(row.entries);
-
-    if (summary.total === 0) {
-        return (
-            <Text testID={`${testID}-entries-none`} tone="secondary">
-                {t('kitchen:priceLists.noEntries')}
-            </Text>
-        );
-    }
-
-    return (
-        <Stack space="xs" testID={`${testID}-entries`}>
-            <Text variant="bodyStrong" testID={`${testID}-entries-total`}>
-                {t('kitchen:priceLists.entryCount', { count: summary.total })}
-            </Text>
-            <Inline space="xs" wrap>
-                <Badge
-                    testID={`${testID}-entries-confirmed`}
-                    tone={summary.confirmed === 0 ? 'neutral' : 'success'}
-                    label={t('kitchen:priceLists.confirmedCount', { count: summary.confirmed })}
-                />
-                <Badge
-                    testID={`${testID}-entries-placeholder`}
-                    tone={summary.placeholder === 0 ? 'neutral' : 'warning'}
-                    label={t('kitchen:priceLists.placeholderCount', {
-                        count: summary.placeholder,
-                    })}
-                />
-                <Badge
-                    testID={`${testID}-entries-market`}
-                    tone="info"
-                    label={t('kitchen:priceLists.marketCount', { count: summary.marketPriced })}
-                />
-                {summary.inconsistent === 0 ? null : (
-                    <Badge
-                        testID={`${testID}-entries-inconsistent`}
-                        tone="danger"
-                        icon="warning"
-                        label={t('kitchen:priceLists.inconsistentCount', {
-                            count: summary.inconsistent,
-                        })}
-                    />
-                )}
-            </Inline>
-        </Stack>
-    );
-}
-
-/** Which routes to market the list applies to. Never an invented default. */
-function ChannelsCell({ row }: { readonly row: PriceListAdmin }) {
-    const { t } = useTranslation();
-    const testID = priceListRowTestId(String(row.id));
-
-    if (row.channels.length === 0) {
-        return (
-            <Text testID={`${testID}-channels-none`} tone="secondary">
-                {t('kitchen:priceLists.noChannels')}
-            </Text>
-        );
-    }
-
-    return (
-        <Inline space="xs" wrap testID={`${testID}-channels`}>
-            {row.channels.map((channel) => (
-                <Badge key={channel} tone="info" label={t(channelKey(channel))} />
-            ))}
-        </Inline>
-    );
-}
+const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
+type StatusSegmentValue = PublishableStatus | 'all';
 
 function PriceListsList() {
     const { t } = useTranslation();
@@ -177,186 +95,205 @@ function PriceListsList() {
     const { locale } = useLocale();
 
     const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
-    const [sortKey, setSortKey] = useState<SortKey>('name');
-    const [sortDirection, setSortDirection] = useState<TableSortDirection>('asc');
+    const [status, setStatus] = useState<StatusSegmentValue>('all');
+    const [viewing, setViewing] = useState<PriceListAdmin | null>(null);
 
     const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             ...(trimmed === '' ? {} : { query: trimmed }),
-            ...(statuses.length === 0 ? {} : { statuses }),
+            ...(status === 'all' ? {} : { statuses: [status] }),
         }),
-        [trimmed, statuses],
+        [trimmed, status],
     );
-
     const [page, setPage] = useListPage(filter);
     const priceLists = usePriceListPageQuery(filter, page);
-
-    // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on
-    // every render, which would re-run anything memoised over it whether or not it changed.
-    const rows = priceLists.data?.items;
+    const rows = useMemo(() => priceLists.data?.items ?? [], [priceLists.data]);
     const total = priceLists.data?.totalCount ?? null;
     const totalPages = pagesInResult(priceLists.data) ?? 0;
 
-    const sorted = useMemo(() => {
-        const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...(rows ?? [])].sort((left, right) => {
-            if (sortKey === 'currency') return factor * left.currency.localeCompare(right.currency);
-            if (sortKey === 'status') {
-                return factor * left.meta.status.localeCompare(right.meta.status);
-            }
-            if (sortKey === 'updatedAt') {
-                return factor * left.meta.updatedAt.localeCompare(right.meta.updatedAt);
-            }
-            return (
-                factor *
-                displayName(left.name, locale).value.localeCompare(
-                    displayName(right.name, locale).value,
-                    locale,
-                )
-            );
-        });
-    }, [rows, sortKey, sortDirection, locale]);
+    const openEditor = (row: PriceListAdmin) => {
+        setViewing(null);
+        router.push(`/kitchen/price-lists/${String(row.id)}` as never);
+    };
 
-    const anyConfidential = sorted.some((row) => isAgreementPriced(row.channels));
-
-    const columns: readonly TableColumn<PriceListAdmin>[] = [
+    const columns: readonly ControlledColumn<PriceListAdmin, CatalogueColumn<PriceListAdmin>>[] = [
         {
             key: 'name',
-            header: t('kitchen:priceLists.columnName'),
-            rowHeader: true,
-            sortable: true,
-            flex: 2,
+            role: 'title',
+            label: t('kitchen:priceLists.columnName'),
+            width: 220,
+            priority: 100,
+            value: (row) => displayName(row.name, locale).value,
+            sort: (left, right, direction) =>
+                compareText(
+                    displayName(left.name, locale).value,
+                    displayName(right.name, locale).value,
+                    direction,
+                ),
             render: (row) => {
-                const name = displayName(row.name, locale);
                 const testID = priceListRowTestId(String(row.id));
-                const confidential = isAgreementPriced(row.channels);
+                const name = displayName(row.name, locale);
                 return (
-                    <Stack space="none">
-                        <Text variant="bodyStrong" testID={`${testID}-name`}>
+                    <View
+                        testID={testID}
+                        className="min-w-0 flex-row flex-wrap items-center gap-1.5"
+                    >
+                        <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                             {name.value}
                         </Text>
                         {name.isFallback ? (
                             <Badge
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
-                                icon="warning"
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
-                        {confidential ? (
+                        {isAgreementPriced(row.channels) ? (
                             <Badge
                                 testID={`${testID}-agreement`}
                                 tone="warning"
-                                icon="eye"
                                 label={t('kitchen:priceLists.agreementBadge')}
                             />
                         ) : null}
-                    </Stack>
+                    </View>
                 );
             },
         },
         {
             key: 'currency',
-            header: t('kitchen:priceLists.columnCurrency'),
-            sortable: true,
+            role: 'meta',
+            label: t('kitchen:priceLists.columnCurrency'),
+            width: 80,
+            priority: 70,
+            value: (row) => row.currency,
+            sort: (left, right, direction) => compareText(left.currency, right.currency, direction),
             render: (row) => (
-                <Text testID={`${priceListRowTestId(String(row.id))}-currency`}>
+                <Text variant="mono" testID={`${priceListRowTestId(String(row.id))}-currency`}>
                     {row.currency}
                 </Text>
             ),
         },
         {
             key: 'channels',
-            header: t('kitchen:priceLists.columnChannels'),
-            flex: 2,
-            render: (row) => <ChannelsCell row={row} />,
+            label: t('kitchen:priceLists.columnChannels'),
+            width: 160,
+            priority: 60,
+            value: (row) => channelsText(row, t),
+            render: (row) => (
+                <Text tone="secondary" numberOfLines={2}>
+                    {channelsText(row, t)}
+                </Text>
+            ),
         },
         {
             key: 'entries',
-            header: t('kitchen:priceLists.columnEntries'),
-            flex: 2,
-            render: (row) => <EntriesCell row={row} />,
+            role: 'metric',
+            label: t('kitchen:priceLists.columnEntries'),
+            width: 180,
+            priority: 85,
+            value: (row) => entriesText(row, t),
+            render: (row) => {
+                const testID = priceListRowTestId(String(row.id));
+                const summary = summarisePriceEntries(row.entries);
+                return summary.total === 0 ? (
+                    <Text tone="secondary" testID={`${testID}-entries-none`}>
+                        {t('kitchen:priceLists.noEntries')}
+                    </Text>
+                ) : (
+                    <View className="flex-row flex-wrap items-center gap-1.5">
+                        <Text testID={`${testID}-entries`}>{entriesText(row, t)}</Text>
+                        {summary.inconsistent === 0 ? null : (
+                            <Badge
+                                testID={`${testID}-entries-inconsistent`}
+                                tone="danger"
+                                label={t('kitchen:priceLists.inconsistentCount', {
+                                    count: summary.inconsistent,
+                                })}
+                            />
+                        )}
+                    </View>
+                );
+            },
         },
         {
             key: 'status',
-            header: t('kitchen:list.columnStatus'),
-            sortable: true,
+            role: 'status',
+            label: t('kitchen:list.columnStatus'),
+            width: 96,
+            priority: 80,
+            value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
                 <Badge
                     testID={`${priceListRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
-                    label={t(statusKey(row.meta.status))}
+                    label={t(statusShortKey(row.meta.status))}
                 />
             ),
         },
         {
             key: 'updatedAt',
-            header: t('kitchen:list.columnUpdated'),
-            sortable: true,
+            label: t('kitchen:list.columnUpdated'),
+            width: 110,
+            priority: 20,
+            value: (row) => formatter.formatRelativeTime(row.meta.updatedAt),
+            sort: (left, right, direction) =>
+                compareText(left.meta.updatedAt, right.meta.updatedAt, direction),
             render: (row) => (
-                <Stack space="none">
-                    <Text
-                        testID={`${priceListRowTestId(String(row.id))}-updated`}
-                        variant="caption"
-                    >
-                        {formatter.formatRelativeTime(row.meta.updatedAt)}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {row.meta.updatedByName === null
-                            ? t('kitchen:list.updatedBySeed')
-                            : t('kitchen:list.updatedBy', { name: row.meta.updatedByName })}
-                    </Text>
-                </Stack>
+                <Text variant="caption" tone="secondary" numberOfLines={1}>
+                    {formatter.formatRelativeTime(row.meta.updatedAt)}
+                </Text>
             ),
         },
     ];
 
+    const controls = useColumnControls(rows, columns, 'kitchen-price-lists');
     const failure = toFailure(priceLists.error);
-    const unfiltered = trimmed === '' && statuses.length === 0;
+    const unfiltered = trimmed === '' && status === 'all';
+    const anyConfidential = controls.rows.some((row) => isAgreementPriced(row.channels));
+
+    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
+        { value: 'all', label: t('kitchen:toolbar.statusAll') },
+        ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
+    ];
 
     return (
-        <Stack space="lg" testID="kitchen-price-lists-screen">
-            {/* No create action: the contract has no `createPriceList`, so the title row's
-                primary slot stays empty rather than promoting something else into it. */}
-            <KitchenPageHeader
-                testID="kitchen-price-lists-header"
-                title={t('kitchen:priceLists.title')}
-                subtitle={t('kitchen:priceLists.subtitle')}
-                titleTestID="kitchen-price-lists-title"
-                subtitleTestID="kitchen-price-lists-subtitle"
-            />
+        <Stack space="md" testID="kitchen-price-lists-screen">
+            {priceLists.isPending || failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-price-lists-stats"
+                    cards={statCards(controls.rows, total, unfiltered, t, () => {
+                        setQuery('');
+                        setStatus('all');
+                    })}
+                />
+            )}
 
-            <ListToolbar
+            <CatalogueToolbar<StatusSegmentValue>
                 testID="kitchen-price-lists-toolbar"
-                query={query}
-                onQueryChange={setQuery}
-                statuses={statuses}
-                onStatusesChange={setStatuses}
-                statusOptions={PRICE_LIST_STATUS_FILTERS}
-                {...(priceLists.isPending || total === null
-                    ? {}
-                    : {
-                          resultSummary: t('kitchen:toolbar.showing', {
-                              shown: sorted.length,
-                              total,
-                          }),
-                      })}
+                search={query}
+                onSearchChange={(next) => {
+                    setQuery(next);
+                    setViewing(null);
+                }}
+                searchLabel={t('kitchen:toolbar.searchLabel')}
+                statusLabel={t('kitchen:toolbar.statusLabel')}
+                statusSegments={statusSegments}
+                status={status}
+                onStatusChange={(next) => {
+                    setStatus(next);
+                    setViewing(null);
+                }}
             />
 
             {priceLists.isPending ? (
-                <Stack space="sm" testID="kitchen-price-lists-loading">
-                    {Array.from({ length: 4 }, (_, index) => (
-                        <Card key={index} padding="md">
-                            <Stack space="xs">
-                                <Skeleton
-                                    testID={`kitchen-price-lists-skeleton-${String(index + 1)}`}
-                                    heightClassName="h-5"
-                                />
-                                <Skeleton heightClassName="h-4" widthClassName="w-1/2" />
-                            </Stack>
-                        </Card>
+                <Stack space="xs" testID="kitchen-price-lists-loading">
+                    {Array.from({ length: 5 }, (_, index) => (
+                        <Skeleton
+                            key={index}
+                            testID={`kitchen-price-lists-skeleton-${String(index + 1)}`}
+                            heightClassName="h-row-sm"
+                        />
                     ))}
                 </Stack>
             ) : failure !== null ? (
@@ -368,7 +305,7 @@ function PriceListsList() {
                     }}
                     retrying={priceLists.isFetching}
                 />
-            ) : sorted.length === 0 ? (
+            ) : controls.rows.length === 0 ? (
                 <EmptyState
                     testID="kitchen-price-lists-empty"
                     title={
@@ -385,74 +322,189 @@ function PriceListsList() {
             ) : (
                 <Stack space="sm">
                     {anyConfidential ? (
-                        // A raised strip above the table rather than a per-row one: the table's own
-                        // rows cannot carry a surface treatment, so the marker that a negotiated rate
-                        // is on screen has to sit where the whole table is read from.
-                        <View
+                        <Callout
                             testID="kitchen-price-lists-confidential"
                             role="note"
-                            className="rounded-lg border border-stroke-subtle bg-surface-raised p-3"
-                        >
-                            <Stack space="xs">
-                                <Inline space="xs" align="center" wrap>
-                                    <Badge
-                                        tone="warning"
-                                        icon="eye"
-                                        label={t('kitchen:priceLists.agreementBadge')}
-                                    />
-                                    <Text variant="label">
-                                        {t('kitchen:priceLists.confidentialTitle')}
-                                    </Text>
-                                </Inline>
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:priceLists.confidentialBody')}
-                                </Text>
-                            </Stack>
-                        </View>
+                            tone="warning"
+                            title={t('kitchen:priceLists.confidentialTitle')}
+                            body={t('kitchen:priceLists.confidentialBody')}
+                        />
                     ) : null}
 
-                    <Table<PriceListAdmin>
+                    <CatalogueList<PriceListAdmin>
                         testID="kitchen-price-lists-table"
-                        caption={t('kitchen:priceLists.caption')}
-                        captionHidden
-                        columns={columns}
-                        rows={sorted}
+                        label={t('kitchen:priceLists.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
                         rowKey={(row) => String(row.id)}
-                        sortKey={sortKey}
-                        sortDirection={sortDirection}
-                        onSortChange={(key, direction) => {
-                            setSortKey(key as SortKey);
-                            setSortDirection(direction);
-                        }}
-                        rowAction={{
-                            header: t('kitchen:list.actionHeader'),
-                            render: (row) => (
-                                <Inline space="xs" wrap justify="end">
-                                    <Button
-                                        testID={`${priceListRowTestId(String(row.id))}-open`}
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:list.open')}
-                                        onPress={() => {
-                                            router.push(
-                                                `/kitchen/price-lists/${String(row.id)}` as never,
-                                            );
-                                        }}
-                                    />
-                                </Inline>
-                            ),
-                        }}
+                        density="sm"
+                        onRowPress={openEditor}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // View and Edit. No Archive: the contract publishes no retire (§6.1).
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${priceListRowTestId(String(row.id))}-view`,
+                                onSelect: () => {
+                                    setViewing(row);
+                                },
+                            },
+                            {
+                                key: 'edit',
+                                label: t('kitchen:list.open'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `${priceListRowTestId(String(row.id))}-open`,
+                                onSelect: () => {
+                                    openEditor(row);
+                                },
+                            },
+                        ]}
                     />
 
-                    <Pagination
+                    <CataloguePager
                         testID="kitchen-price-lists-pagination"
+                        range={t('kitchen:toolbar.showing', {
+                            shown: controls.rows.length,
+                            total: total ?? controls.rows.length,
+                        })}
                         page={page}
                         totalPages={totalPages}
-                        onPageChange={setPage}
-                        disabled={priceLists.isFetching}
+                        onPageChange={(next) => {
+                            setPage(next);
+                            setViewing(null);
+                        }}
+                        label={t('kitchen:catalogue.pagerLabel')}
                     />
                 </Stack>
             )}
+
+            {viewing === null ? null : (
+                <RecordWindow
+                    testID="kitchen-price-lists-view"
+                    open
+                    onClose={() => {
+                        setViewing(null);
+                    }}
+                    title={displayName(viewing.name, locale).value}
+                    kind={t('kitchen:priceLists.viewKind')}
+                    status={{
+                        label: t(statusShortKey(viewing.meta.status)),
+                        tone: statusTone(viewing.meta.status),
+                    }}
+                    {...(isAgreementPriced(viewing.channels)
+                        ? { note: t('kitchen:priceLists.confidentialBody') }
+                        : {})}
+                    fields={viewFields(viewing, t, formatter)}
+                    primaryAction={{
+                        label: t('kitchen:catalogue.edit'),
+                        onPress: () => {
+                            openEditor(viewing);
+                        },
+                    }}
+                />
+            )}
         </Stack>
     );
+}
+
+function channelsText(row: PriceListAdmin, t: TFunction): string {
+    return row.channels.length === 0
+        ? t('kitchen:priceLists.noChannels')
+        : row.channels.map((channel) => t(channelKey(channel))).join(', ');
+}
+
+/** "12 entries · 10 confirmed" — the two facts, or the words for none. */
+function entriesText(row: PriceListAdmin, t: TFunction): string {
+    const summary = summarisePriceEntries(row.entries);
+    if (summary.total === 0) return t('kitchen:priceLists.noEntries');
+    return `${t('kitchen:priceLists.entryCount', { count: summary.total })} · ${t(
+        'kitchen:priceLists.confirmedCount',
+        { count: summary.confirmed },
+    )}`;
+}
+
+function viewFields(row: PriceListAdmin, t: TFunction, formatter: ReturnType<typeof useFormatter>) {
+    const summary = summarisePriceEntries(row.entries);
+    return [
+        {
+            key: 'currency',
+            label: t('kitchen:priceLists.columnCurrency'),
+            value: row.currency,
+            mono: true,
+        },
+        {
+            key: 'channels',
+            label: t('kitchen:priceLists.columnChannels'),
+            value: channelsText(row, t),
+        },
+        {
+            key: 'entries',
+            label: t('kitchen:priceLists.columnEntries'),
+            value: entriesText(row, t),
+        },
+        {
+            key: 'pending',
+            label: t('kitchen:priceLists.viewPending'),
+            value: `${t('kitchen:priceLists.placeholderCount', { count: summary.placeholder })} · ${t(
+                'kitchen:priceLists.marketCount',
+                { count: summary.marketPriced },
+            )}`,
+        },
+        {
+            key: 'updated',
+            label: t('kitchen:list.columnUpdated'),
+            value:
+                row.meta.updatedByName === null
+                    ? `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBySeed')}`
+                    : `${formatter.formatRelativeTime(row.meta.updatedAt)} ${t('kitchen:list.updatedBy', { name: row.meta.updatedByName })}`,
+        },
+    ];
+}
+
+/** Counted over the page in hand (§3z): shown, lists that price nothing, lists under an agreement. */
+function statCards(
+    rows: readonly PriceListAdmin[],
+    total: number | null,
+    unfiltered: boolean,
+    t: TFunction,
+    clear: () => void,
+): readonly CatalogueStatCard[] {
+    const nothingPriced = rows.filter(
+        (row) => summarisePriceEntries(row.entries).confirmed === 0,
+    ).length;
+    const agreement = rows.filter((row) => isAgreementPriced(row.channels)).length;
+    return [
+        {
+            key: 'shown',
+            label: t('kitchen:list.statShown'),
+            value: String(rows.length),
+            unit: t('kitchen:list.statShownUnit', { total: total ?? rows.length }),
+            caption: unfiltered
+                ? t('kitchen:list.statShownUnfiltered')
+                : t('kitchen:list.statShownFiltered'),
+            mark: 'calendar',
+            tone: 'brand',
+            onPress: clear,
+            accessibilityLabel: t('kitchen:list.statShownAction'),
+        },
+        {
+            key: 'nothingPriced',
+            label: t('kitchen:priceLists.statNothingPriced'),
+            value: String(nothingPriced),
+            unit: t('kitchen:list.statRecords'),
+            caption: t('kitchen:priceLists.statNothingPricedCaption'),
+            mark: 'warning',
+            tone: nothingPriced === 0 ? 'default' : 'warning',
+        },
+        {
+            key: 'agreement',
+            label: t('kitchen:priceLists.agreementBadge'),
+            value: String(agreement),
+            unit: t('kitchen:list.statRecords'),
+            caption: t('kitchen:priceLists.statAgreementCaption'),
+            mark: 'lock',
+        },
+    ];
 }

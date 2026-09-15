@@ -57,6 +57,16 @@ import { DeliveryZoneEditScreen } from './screens/delivery-zone-edit-screen.tsx'
 import { DeliveryZonesScreen } from './screens/delivery-zones-screen.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 
+/*
+ * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
+ * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
+ * suites render at the width the screens are built for.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 /**
  * The delivery half of the kitchen workspace, against a world this file declares (K1.7).
  *
@@ -121,6 +131,28 @@ beforeEach(() => {
     routerMock.__push.mockClear();
     routerMock.__replace.mockClear();
 });
+
+/**
+ * Sets one day's Trading select (Commercial §3.5): the design chooses Open or Closed from a select,
+ * where the week used to carry a Closed checkbox.
+ */
+async function setTrading(row: string, value: 'open' | 'closed') {
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`${row}-trading-trigger`));
+    });
+    await untilVisible(`${row}-trading-option-${value}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`${row}-trading-option-${value}`));
+    });
+}
+
+/** Opens one of the zone editor's tabs (Commercial §3.4), as a person would. */
+async function openZoneTab(tab: 'zone' | 'areas' | 'windows') {
+    await untilVisible(`kitchen-zone-tab-${tab}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`kitchen-zone-tab-${tab}`));
+    });
+}
 
 /** Waits for an element, with the same contention headroom the other kitchen suites document. */
 function untilVisible(testID: string) {
@@ -950,6 +982,7 @@ describe('the delivery-zone editor', () => {
                 },
             },
         });
+        await openZoneTab('areas');
         await untilVisible('kitchen-zone-area-picker-search');
 
         const target = GAZETTEER.find(
@@ -1006,6 +1039,7 @@ describe('the delivery-zone editor', () => {
                 },
             },
         });
+        await openZoneTab('areas');
         await untilVisible('kitchen-zone-area-picker-search');
 
         expect(listServiceAreas).toHaveBeenCalledWith(
@@ -1042,6 +1076,7 @@ describe('the delivery-zone editor', () => {
                 },
             },
         });
+        await openZoneTab('windows');
         await untilVisible('kitchen-zone-window-rows');
 
         const firstWindow = SEEDED_ZONE.deliveryWindows[0]!;
@@ -1098,6 +1133,7 @@ describe('the delivery-zone editor', () => {
             session: kitchenSession(),
             repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
         });
+        await openZoneTab('windows');
         await untilVisible('kitchen-zone-window-rows');
 
         const firstWindow = SEEDED_ZONE.deliveryWindows[0]!;
@@ -1225,10 +1261,12 @@ describe('the delivery-zone editor', () => {
         });
         await untilVisible('kitchen-zone-editor-screen');
 
-        expect(screen.getByTestId('kitchen-zone-areas-unavailable')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-zone-windows-unavailable')).toBeTruthy();
         // The currency is chosen on the create form and stated afterwards.
         expect(screen.getByTestId('kitchen-zone-currency-select')).toBeTruthy();
+        await openZoneTab('areas');
+        expect(screen.getByTestId('kitchen-zone-areas-unavailable')).toBeTruthy();
+        await openZoneTab('windows');
+        expect(screen.getByTestId('kitchen-zone-windows-unavailable')).toBeTruthy();
     });
 
     it('renders the designed not-found state for a hand-typed identifier', async () => {
@@ -1348,7 +1386,7 @@ describe('the branch operating week', () => {
         );
     });
 
-    it('removes the time fields when a day is closed, and restores them empty', async () => {
+    it('clears and disables the time fields when a day is closed, and restores them empty', async () => {
         await renderStubScreen(<BranchOperatingScreen />, {
             session: kitchenSession(),
             repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
@@ -1361,20 +1399,18 @@ describe('the branch operating week', () => {
 
         expect(screen.getByTestId(`${row}-opens-input`)).toBeTruthy();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${row}-closed-control`));
-        });
+        await setTrading(row, 'closed');
 
-        // Removed, not disabled: a disabled field still holding `08:00` would show a time that is
-        // not being saved.
-        expect(screen.queryByTestId(`${row}-opens-input`)).toBeNull();
-        expect(screen.queryByTestId(`${row}-cut-off-input`)).toBeNull();
+        // Cleared in the same action, and drawn disabled: the column stays where it is with nothing
+        // in it, so no field still holding `08:00` shows a time that is not being saved.
+        expect(screen.getByTestId(`${row}-opens-input`).props.value).toBe('');
+        expect(screen.getByTestId(`${row}-cut-off-input`).props.value).toBe('');
+        expect(screen.getByTestId(`${row}-opens-input`).props.editable).toBe(false);
         expect(screen.getByTestId(`${row}-closed-note`)).toBeTruthy();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${row}-closed-control`));
-        });
+        await setTrading(row, 'open');
         expect(screen.getByTestId(`${row}-opens-input`).props.value).toBe('');
+        expect(screen.getByTestId(`${row}-opens-input`).props.editable).not.toBe(false);
     });
 
     it('marks the offending day when a rule is broken, and blocks the save', async () => {
@@ -1500,19 +1536,12 @@ describe('the branch operating week', () => {
         await untilVisible('kitchen-branch-hours-screen');
 
         for (const weekday of [1, 2, 3, 4, 5, 6, 7]) {
-            const control = screen.queryByTestId(
-                `kitchen-branch-hours-rows-day-${String(weekday)}-closed-control`,
-            );
-            const alreadyClosed =
-                screen.queryByTestId(
-                    `kitchen-branch-hours-rows-day-${String(weekday)}-closed-note`,
-                ) !== null;
-            if (control !== null && !alreadyClosed) {
-                // Sequential on purpose: each press is applied against the state the previous one
+            const row = `kitchen-branch-hours-rows-day-${String(weekday)}`;
+            const alreadyClosed = screen.queryByTestId(`${row}-closed-note`) !== null;
+            if (!alreadyClosed) {
+                // Sequential on purpose: each choice is applied against the state the previous one
                 // produced, and firing all seven at once would make the last write win.
-                await act(async () => {
-                    fireEvent.press(control);
-                });
+                await setTrading(row, 'closed');
             }
         }
 

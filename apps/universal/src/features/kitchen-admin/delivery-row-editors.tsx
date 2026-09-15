@@ -3,12 +3,12 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     Checkbox,
     Chip,
     FilterChip,
     Icon,
     Inline,
+    PickerField,
     Stack,
     Text,
     TextInputField,
@@ -16,18 +16,14 @@ import {
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { weekdayKey } from '../marketplace/format.ts';
 import { BilingualField } from './bilingual-field.tsx';
-import {
-    areaMatches,
-    groupServiceAreas,
-    normaliseWeekdays,
-    toggleArea,
-    withDayClosed,
-} from './delivery-model.ts';
+import { areaMatches, groupServiceAreas, normaliseWeekdays, toggleArea } from './delivery-model.ts';
 import type { DeliveryWindowDraft, OperatingDayDraft } from './delivery-model.ts';
 import { ISO_WEEKDAYS, displayName } from './format.ts';
+import { TRADING_TRACKS, TradingDayRow } from './commercial/trading-day-row.tsx';
 import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
 
 /**
@@ -57,6 +53,9 @@ import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
  * array, because reversing it would produce a left-to-right week inside a right-to-left interface
  * exactly once, on the day somebody "fixed" the order.
  */
+
+/** The capacity field's track — a count, not a sentence. There is no width token for it. */
+const CAPACITY_TRACK = 120;
 
 /* ------------------------------------------------------------------------------------------------
  * Delivery windows
@@ -179,66 +178,58 @@ export function DeliveryWindowRows({
                                 </Inline>
                             </Stack>
 
-                            <Inline space="sm" wrap>
-                                <Stack space="none" grow>
+                            {/*
+                             * Starts · ends · capacity on one line (Commercial §2.2
+                             * `DeliveryWindowRow`). The times are `PickerField`s — the drawn clock is
+                             * the OS picker's trigger on the web — and still `HH:mm` underneath.
+                             */}
+                            <Inline space="sm" wrap align="end">
+                                <PickerField
+                                    kind="time"
+                                    testID={`${rowTestId}-starts`}
+                                    label={t('kitchen:windows.startsLabel')}
+                                    value={row.startsAt}
+                                    disabled={!canManage}
+                                    onChange={(next) => {
+                                        patch(index, { startsAt: next });
+                                    }}
+                                />
+                                <PickerField
+                                    kind="time"
+                                    testID={`${rowTestId}-ends`}
+                                    label={t('kitchen:windows.endsLabel')}
+                                    value={row.endsAt}
+                                    disabled={!canManage}
+                                    onChange={(next) => {
+                                        patch(index, { endsAt: next });
+                                    }}
+                                />
+                                <View style={{ width: CAPACITY_TRACK }}>
                                     <TextInputField
-                                        testID={`${rowTestId}-starts`}
-                                        id={`${rowTestId}-starts`}
-                                        label={t('kitchen:windows.startsLabel')}
-                                        hint={t('kitchen:time.formatHint')}
-                                        placeholder={t('kitchen:time.placeholder')}
-                                        value={row.startsAt}
+                                        testID={`${rowTestId}-capacity`}
+                                        id={`${rowTestId}-capacity`}
+                                        label={t('kitchen:windows.capacityLabel')}
+                                        value={row.capacity}
                                         inputMode="numeric"
                                         autoCorrect={false}
-                                        required
                                         disabled={!canManage}
                                         onChangeText={(next) => {
-                                            patch(index, { startsAt: next });
+                                            patch(index, { capacity: next });
                                         }}
                                     />
-                                </Stack>
-                                <Stack space="none" grow>
-                                    <TextInputField
-                                        testID={`${rowTestId}-ends`}
-                                        id={`${rowTestId}-ends`}
-                                        label={t('kitchen:windows.endsLabel')}
-                                        hint={t('kitchen:time.formatHint')}
-                                        placeholder={t('kitchen:time.placeholder')}
-                                        value={row.endsAt}
-                                        inputMode="numeric"
-                                        autoCorrect={false}
-                                        required
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch(index, { endsAt: next });
-                                        }}
-                                    />
-                                </Stack>
+                                </View>
                             </Inline>
 
-                            <TextInputField
-                                testID={`${rowTestId}-capacity`}
-                                id={`${rowTestId}-capacity`}
-                                label={t('kitchen:windows.capacityLabel')}
-                                hint={t('kitchen:windows.capacityHint')}
-                                value={row.capacity}
-                                inputMode="numeric"
-                                autoCorrect={false}
-                                disabled={!canManage}
-                                onChangeText={(next) => {
-                                    patch(index, { capacity: next });
-                                }}
-                            />
-
-                            {row.capacity.trim() === '' ? (
-                                <Text
-                                    testID={`${rowTestId}-capacity-state`}
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:windows.capacityUncapped')}
-                                </Text>
-                            ) : null}
+                            <Text
+                                testID={`${rowTestId}-capacity-state`}
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {/* Uncapped is empty-with-a-sentence, never `0`. */}
+                                {row.capacity.trim() === ''
+                                    ? t('kitchen:windows.capacityUncapped')
+                                    : t('kitchen:windows.capacityHint')}
+                            </Text>
 
                             <Checkbox
                                 testID={`${rowTestId}-active`}
@@ -333,150 +324,51 @@ export function OperatingWeekRows({
     testID,
 }: OperatingWeekRowsProps) {
     const { t } = useTranslation();
-
-    const patch = (weekday: number, next: Partial<OperatingDayDraft>) => {
-        onChange(rows.map((row) => (row.weekday === weekday ? { ...row, ...next } : row)));
-    };
+    const head = (label: string, width?: number) =>
+        width === undefined ? (
+            <View className="min-w-0 flex-1">
+                <Text variant="micro" tone="secondary">
+                    {label}
+                </Text>
+            </View>
+        ) : (
+            <View style={{ width }}>
+                <Text variant="micro" tone="secondary">
+                    {label}
+                </Text>
+            </View>
+        );
 
     return (
-        <Stack space="sm" testID={testID}>
-            {rows.map((row) => {
-                const rowTestId = `${testID}-day-${String(row.weekday)}`;
-                const error = errors.get(row.weekday);
-
-                return (
-                    <Card key={row.weekday} testID={rowTestId} padding="sm">
-                        <Stack space="sm">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Inline space="sm" align="center" wrap>
-                                    <Text variant="label" testID={`${rowTestId}-name`}>
-                                        {t(weekdayKey(row.weekday))}
-                                    </Text>
-                                    {row.isClosed ? (
-                                        <Badge
-                                            testID={`${rowTestId}-closed-badge`}
-                                            tone="neutral"
-                                            icon="dot"
-                                            label={t('kitchen:branchHours.closedBadge')}
-                                        />
-                                    ) : null}
-                                </Inline>
-
-                                <Checkbox
-                                    testID={`${rowTestId}-closed`}
-                                    id={`${rowTestId}-closed`}
-                                    label={t('kitchen:branchHours.closedLabel')}
-                                    checked={row.isClosed}
-                                    disabled={!canManage}
-                                    onChange={(checked) => {
-                                        onChange(
-                                            rows.map((candidate) =>
-                                                candidate.weekday === row.weekday
-                                                    ? withDayClosed(candidate, checked)
-                                                    : candidate,
-                                            ),
-                                        );
-                                    }}
-                                />
-                            </Inline>
-
-                            {row.isClosed ? (
-                                <Text
-                                    testID={`${rowTestId}-closed-note`}
-                                    tone="secondary"
-                                    variant="caption"
-                                >
-                                    {t('kitchen:branchHours.closedNote')}
-                                </Text>
-                            ) : (
-                                <Stack space="sm">
-                                    <Inline space="sm" wrap>
-                                        <Stack space="none" grow>
-                                            <TextInputField
-                                                testID={`${rowTestId}-opens`}
-                                                id={`${rowTestId}-opens`}
-                                                label={t('kitchen:branchHours.opensLabel')}
-                                                hint={t('kitchen:time.formatHint')}
-                                                placeholder={t('kitchen:time.placeholder')}
-                                                value={row.opensAt}
-                                                inputMode="numeric"
-                                                autoCorrect={false}
-                                                required
-                                                disabled={!canManage}
-                                                onChangeText={(next) => {
-                                                    patch(row.weekday, { opensAt: next });
-                                                }}
-                                            />
-                                        </Stack>
-                                        <Stack space="none" grow>
-                                            <TextInputField
-                                                testID={`${rowTestId}-closes`}
-                                                id={`${rowTestId}-closes`}
-                                                label={t('kitchen:branchHours.closesLabel')}
-                                                hint={t('kitchen:time.formatHint')}
-                                                placeholder={t('kitchen:time.placeholder')}
-                                                value={row.closesAt}
-                                                inputMode="numeric"
-                                                autoCorrect={false}
-                                                required
-                                                disabled={!canManage}
-                                                onChangeText={(next) => {
-                                                    patch(row.weekday, { closesAt: next });
-                                                }}
-                                            />
-                                        </Stack>
-                                    </Inline>
-
-                                    <TextInputField
-                                        testID={`${rowTestId}-cut-off`}
-                                        id={`${rowTestId}-cut-off`}
-                                        label={t('kitchen:branchHours.cutOffLabel')}
-                                        hint={t('kitchen:branchHours.cutOffHint')}
-                                        placeholder={t('kitchen:time.placeholder')}
-                                        value={row.orderCutOffAt}
-                                        inputMode="numeric"
-                                        autoCorrect={false}
-                                        disabled={!canManage}
-                                        onChangeText={(next) => {
-                                            patch(row.weekday, { orderCutOffAt: next });
-                                        }}
-                                    />
-
-                                    {row.orderCutOffAt.trim() === '' ? (
-                                        <Text
-                                            testID={`${rowTestId}-cut-off-state`}
-                                            variant="caption"
-                                            tone="secondary"
-                                        >
-                                            {t('kitchen:branchHours.cutOffNone')}
-                                        </Text>
-                                    ) : null}
-
-                                    {canManage ? (
-                                        <Inline space="sm" wrap>
-                                            <Button
-                                                testID={`${rowTestId}-copy`}
-                                                size="sm"
-                                                variant="ghost"
-                                                label={t('kitchen:branchHours.copyToOpenDays')}
-                                                onPress={() => {
-                                                    onCopyToOpenDays(row.weekday);
-                                                }}
-                                            />
-                                        </Inline>
-                                    ) : null}
-                                </Stack>
-                            )}
-
-                            {error === undefined ? null : (
-                                <Text testID={`${rowTestId}-error`} tone="danger" variant="caption">
-                                    {error}
-                                </Text>
-                            )}
-                        </Stack>
-                    </Card>
-                );
-            })}
+        <Stack space="none" testID={testID}>
+            {/* The column labels, on the same tracks as every day below them. */}
+            <View className="h-6 flex-row items-center gap-3.5 border-b border-stroke px-tight">
+                {head(t('kitchen:branchHours.columnDay'), TRADING_TRACKS.day)}
+                {head(t('kitchen:branchHours.columnTrading'), TRADING_TRACKS.trading)}
+                {head(t('kitchen:branchHours.opensLabel'), TRADING_TRACKS.opens)}
+                {head(t('kitchen:branchHours.closesLabel'), TRADING_TRACKS.closes)}
+                {head(t('kitchen:branchHours.cutOffLabel'), TRADING_TRACKS.cutOff)}
+                {head(t('kitchen:branchHours.columnSays'))}
+            </View>
+            {rows.map((row) => (
+                <TradingDayRow
+                    key={row.weekday}
+                    testID={`${testID}-day-${String(row.weekday)}`}
+                    day={row}
+                    canManage={canManage}
+                    error={errors.get(row.weekday)}
+                    onChange={(next) => {
+                        onChange(
+                            rows.map((candidate) =>
+                                candidate.weekday === row.weekday ? next : candidate,
+                            ),
+                        );
+                    }}
+                    onCopyToOpenDays={() => {
+                        onCopyToOpenDays(row.weekday);
+                    }}
+                />
+            ))}
 
             <RowAnnouncer testID={`${testID}-announcer`} message={announcement} />
         </Stack>

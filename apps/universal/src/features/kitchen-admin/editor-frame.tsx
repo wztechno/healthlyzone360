@@ -13,20 +13,35 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import type { BadgeTone } from '@healthy360/design-system';
+
 import { statusKey, statusTone } from './format.ts';
-import { KitchenPageHeader } from './kitchen-page-header.tsx';
+import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
+import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
 /**
  * The chrome every record editor in this workspace shares.
  *
- * Moodboard Option 02 surfaces: soft white header band, status pills, sticky-feeling action bar
- * with brand-tinted border. Still owns no form state — screens pass data and callbacks.
+ * Drawn as the Catalogue editor draws its opening — `CataloguePageHeader` with Cancel and Save, the
+ * record-facts line, the form on the page. Still owns no form state — screens pass data and
+ * callbacks.
  */
 
 export interface EditorFrameProps {
     readonly title: string;
+    /**
+     * The one upper chip beside the title (§3y) — the kind of surface this is, never a count.
+     * "One record per branch" on the opening hours.
+     */
+    readonly titleChip?: { readonly label: string; readonly tone: BadgeTone } | undefined;
+    /**
+     * The header's summary slot, under the title (§3y): the count cards on a single-record editor
+     * whose facts are counts. When given, it replaces the record-facts line — a record with no
+     * lifecycle has no status to state, and the cards already say what the line would.
+     */
+    readonly summary?: ReactNode | undefined;
     /**
      * The record's meta, or `null` for one that has never been saved.
      *
@@ -86,6 +101,8 @@ export interface EditorFrameProps {
 
 export function EditorFrame({
     title,
+    titleChip,
+    summary,
     meta,
     guard,
     concurrency,
@@ -106,7 +123,6 @@ export function EditorFrame({
 }: EditorFrameProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const inHeader = actionsPlacement === 'header';
 
     const updatedLine = (): string => {
         // An unknown timestamp reads the same as no record at all. `/kitchen/branch-operating` is the
@@ -118,53 +134,68 @@ export function EditorFrame({
         return t('kitchen:editor.lastUpdatedBy', { when, name: meta.updatedByName });
     };
 
-    /*
-     * One definition each, rendered in whichever slot `actionsPlacement` names. The test ids do not
-     * move with them: a suite that presses `-save` presses the same control in both treatments.
-     */
-    const backButton = (
-        <Button
-            testID={`${testID}-back`}
-            variant={inHeader ? 'secondary' : 'ghost'}
-            {...(inHeader ? {} : { size: 'sm' as const })}
-            label={backLabel}
-            onPress={() => {
-                guard.intercept(onBack);
-            }}
-        />
-    );
+    useKitchenTrailLeaf(title);
 
-    const saveButton = hideSave ? null : (
-        <Button
-            testID={`${testID}-save`}
-            label={saveLabel}
-            loading={saving}
-            disabled={saveDisabled || saving}
-            onPress={onSaveDraft}
-        />
-    );
+    /*
+     * The Catalogue editor's opening (Commercial handoff §2.3): the title with Cancel and Save at its
+     * inline end, then one record-facts line — status, unsaved, last changed. No band, no subtitle
+     * (§3y), no footer bar: an editor's Cancel and Save are one decision at one height, drawn where
+     * the ingredient editor draws them. The test ids did not move, and `actionsPlacement` /
+     * `headerVariant` are accepted and ignored, because there is now one treatment.
+     */
+    void actionsPlacement;
+    void headerVariant;
 
     return (
         <PageTransition testID={testID} transitionKey={testID}>
-            <Stack space="lg">
-                <KitchenPageHeader
-                    testID={`${testID}-header`}
-                    variant={headerVariant}
-                    title={title}
-                    titleTestID={`${testID}-title`}
-                    back={inHeader ? undefined : <View className="flex-row">{backButton}</View>}
-                    actions={
-                        inHeader ? (
-                            <Inline space="xs" align="center" wrap justify="end">
-                                {backButton}
+            <Stack space="md">
+                <Stack space="xs">
+                    <CataloguePageHeader
+                        testID={`${testID}-header`}
+                        titleTestID={`${testID}-title`}
+                        title={title}
+                        titleAside={
+                            titleChip === undefined ? undefined : (
+                                <Badge
+                                    testID={`${testID}-chip`}
+                                    tone={titleChip.tone}
+                                    label={titleChip.label}
+                                />
+                            )
+                        }
+                        primaryAction={
+                            <Inline
+                                space="xs"
+                                align="center"
+                                wrap
+                                justify="end"
+                                testID={`${testID}-actions`}
+                            >
+                                <Button
+                                    testID={`${testID}-back`}
+                                    variant="secondary"
+                                    label={backLabel}
+                                    onPress={() => {
+                                        guard.intercept(onBack);
+                                    }}
+                                />
                                 {primaryAction}
-                                {saveButton}
+                                {hideSave ? null : (
+                                    <Button
+                                        testID={`${testID}-save`}
+                                        label={saveLabel}
+                                        loading={saving}
+                                        disabled={saveDisabled || saving}
+                                        onPress={onSaveDraft}
+                                    />
+                                )}
                             </Inline>
-                        ) : undefined
-                    }
-                    meta={
-                        <Inline space="sm" align="center" wrap testID={`${testID}-meta`}>
-                            {meta === null ? (
+                        }
+                    />
+                    {summary === undefined ? null : summary}
+                    {summary !== undefined && !guard.isDirty ? null : (
+                        <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
+                            {summary !== undefined ? null : meta === null ? (
                                 <Badge
                                     testID={`${testID}-status`}
                                     tone="neutral"
@@ -190,39 +221,24 @@ export function EditorFrame({
                                 {updatedLine()}
                             </Text>
                         </Inline>
-                    }
-                />
+                    )}
+                </Stack>
 
                 {banner}
 
+                {/*
+                 * The form sits on the page, not in a panel: sections carry their own hairlines
+                 * (`FormSection`), and a card around them was a second border saying the same thing.
+                 */}
                 {rail === undefined ? (
-                    <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
-                        {children}
-                    </View>
+                    <View className="flex-col">{children}</View>
                 ) : (
-                    <View className="flex-col gap-4 lg:flex-row lg:items-start">
-                        <View className="min-w-0 flex-1 rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
-                            {children}
-                        </View>
+                    <View className="flex-col gap-base lg:flex-row lg:items-start">
+                        {}
+                        <View className="min-w-0 flex-1 flex-col">{children}</View>
                         <View testID={`${testID}-rail`} className="lg:w-[330px] lg:shrink-0">
                             {rail}
                         </View>
-                    </View>
-                )}
-
-                {/*
-                 * The bar is a normal block at the end of the flow rather than a fixed overlay: a
-                 * position-fixed footer covers the last field of a form on a short screen, and on the
-                 * web it also fights the software keyboard. Brand-tinted border keeps it reachable
-                 * visually without stealing viewport height.
-                 */}
-                {inHeader ? null : (
-                    <View
-                        testID={`${testID}-actions`}
-                        className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
-                    >
-                        {primaryAction}
-                        {saveButton}
                     </View>
                 )}
 

@@ -236,7 +236,12 @@
                 "accepted": "مقبول",
                 "declined": "مرفوض",
                 "expired": "منتهي الصلاحية"
-            }
+            },
+            "statLoadedCaption": "كل طلب وصل",
+            "statAwaitingCaption": "بانتظار أسعارك",
+            "statQuotedCaption": "أُرسلت، بانتظار المشتري",
+            "viewKind": "عرض سعر",
+            "sendRule": "كل بند يحتاج سعرًا. الصفر مقبول؛ الفراغ غير مقبول."
         },
         "stock": {
             "title": "المخزون",
@@ -3173,7 +3178,13 @@
         "publishRefusedEntries": "رفض الخادم هذا النشر: بند واحد على الأقل يخالف حالة سعره. السعر المؤكَّد يحتاج مبلغًا، وما عداه لا يجوز أن يحمل مبلغًا.",
         "publishedTitle": "منشورة",
         "publishedBody": "الأسعار المؤكَّدة في هذه القائمة هي ما يُحاسَب عليه العميل. أمّا البنود المعلّقة والمسعَّرة يوميًا فما زالت مستبعَدة.",
-        "publishedToast": "نُشِرت {{name}}."
+        "publishedToast": "نُشِرت {{name}}.",
+        "viewKind": "قائمة أسعار",
+        "viewPending": "ليس سعرًا بعد",
+        "statNothingPriced": "بلا تسعير",
+        "statNothingPricedCaption": "لا بند مؤكد",
+        "statAgreementCaption": "أسعار متفاوض عليها",
+        "publicationTitle": "النشر"
     },
     "plans": {
         "title": "الخطط",
@@ -3503,7 +3514,20 @@
         "retireConsequence": "تتوقّف الخطة عن العرض وعن الظهور في البحث. وتبقى تكويناتها ومددها وسجلّها، والاشتراك القائم ما زال يشير إليها.",
         "retiredTitle": "مسحوبة",
         "retiredBody": "هذه الخطة غير معروضة في أي مكان. ولم يُحذف شيء.",
-        "retiredToast": "سُحبت {{name}}."
+        "retiredToast": "سُحبت {{name}}.",
+        "statNoVariantsCaption": "لم تُبع أي خلية بعد",
+        "statNothingPricedCaption": "لا سعر مؤكد في أي قائمة",
+        "viewKind": "خطة",
+        "viewCombinations": "التركيبات",
+        "tabsLabel": "أقسام الخطة",
+        "tabMatrix": "المصفوفة",
+        "tabVariants": "التكوينات",
+        "matrixTitle": "المصفوفة",
+        "daysNone": "لا شيء",
+        "durationMeaning": "ما يعنيه ذلك",
+        "statPlansUnit": "خطط",
+        "statPublishedCaption": "معروضة للبيع",
+        "statDraftCaption": "غير مكتملة"
     },
     "time": {
         "formatHint": "نظام 24 ساعة، بصيغة HH:mm — مثل 08:00 أو 18:30.",
@@ -3628,7 +3652,20 @@
         "archiveWindowCount_other": "{{count}} نافذة توصيل تذهب معها.",
         "archivedToast": "أُرشفت {{name}}.",
         "archivedTitle": "هذه المنطقة مؤرشفة",
-        "archivedBody": "رُفعت عن كل فرع كان يخدمها. يبقى السجل من أجل الطلبات التي استخدمتها."
+        "archivedBody": "رُفعت عن كل فرع كان يخدمها. يبقى السجل من أجل الطلبات التي استخدمتها.",
+        "coveredDayCount_zero": "لا أيام مغطاة",
+        "coveredDayCount_one": "يوم واحد مغطى",
+        "coveredDayCount_two": "يومان مغطيان",
+        "coveredDayCount_few": "{{count}} أيام مغطاة",
+        "coveredDayCount_many": "{{count}} يومًا مغطى",
+        "coveredDayCount_other": "{{count}} يوم مغطى",
+        "statNoAreasCaption": "لا تصل إلى أحد بعد",
+        "statNoWindowsCaption": "لا وقت توصيل نشط",
+        "viewKind": "منطقة توصيل",
+        "viewFee": "رسوم التوصيل",
+        "viewMinimum": "الحد الأدنى للطلب",
+        "viewWeekdays": "الأيام المغطاة",
+        "tabsLabel": "أقسام المنطقة"
     },
     "areas": {
         "selectedLabel": "النواحي المختارة",
@@ -3762,7 +3799,31 @@
         "savedToast_other": "حُفظ. يعمل الفرع {{count}} يوم في الأسبوع.",
         "loadErrorTitle": "تعذّر تحميل أوقات العمل هذه",
         "noBranchTitle": "لا يوجد فرع في السياق",
-        "noBranchBody": "أوقات العمل تخصّ فرعًا. اختر فرعًا من مبدّل مساحة العمل ثم عُد."
+        "noBranchBody": "أوقات العمل تخصّ فرعًا. اختر فرعًا من مبدّل مساحة العمل ثم عُد.",
+        "chip": "سجل واحد لكل فرع",
+        "dayOpenNote": "مفتوح {{opens}}–{{closes}}، آخر طلب لليوم نفسه {{cutOff}}.",
+        "copyShort": "نسخ إلى كل يوم مفتوح",
+        "tradingLabel": "{{day}} — العمل",
+        "tradingOpen": "مفتوح",
+        "columnDay": "اليوم",
+        "columnTrading": "العمل",
+        "columnSays": "ما يقوله اليوم",
+        "cardTrading": "أيام العمل",
+        "cardTradingUnit_zero": "أيام في الأسبوع",
+        "cardTradingUnit_one": "يوم في الأسبوع",
+        "cardTradingUnit_two": "يومان في الأسبوع",
+        "cardTradingUnit_few": "أيام في الأسبوع",
+        "cardTradingUnit_many": "يومًا في الأسبوع",
+        "cardTradingUnit_other": "يوم في الأسبوع",
+        "cardDayUnit_zero": "أيام",
+        "cardDayUnit_one": "يوم",
+        "cardDayUnit_two": "يومان",
+        "cardDayUnit_few": "أيام",
+        "cardDayUnit_many": "يومًا",
+        "cardDayUnit_other": "يوم",
+        "cardClosedCaption": "أُجيب عنه، لم يُترك فارغًا",
+        "cardCutOff": "موعد آخر طلب",
+        "cardCutOffCaption": "حُدد آخر طلب لليوم نفسه"
     },
     "sauces": {
         "title": "الصلصات والتتبيلات",

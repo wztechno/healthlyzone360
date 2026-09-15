@@ -28,6 +28,7 @@ design_handoff_wellness_green/
 desing_handoff_admin_components/
 design_handoff_order_desk/
 design_handoff_workbench/
+design_handoff_commercial/
 # Claude Design canvas exports and the runtime they need beside them — vendored, not authored.
 /*.dc.html
 /support.js
