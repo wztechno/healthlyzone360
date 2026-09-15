@@ -774,6 +774,28 @@ const CONTACT_201: Scripted = {
     body: { data: { contact: CONTACT_ROW }, meta: { correlation_id: 'c-contact' } },
 };
 
+/** `GET /verification/challenges/{id}` — the status projection: no cooldown seconds, no channels. */
+const CHALLENGE_STATUS_200: Scripted = {
+    status: 200,
+    body: {
+        data: {
+            challenge: {
+                challenge_id: 'challenge-11',
+                purpose: 'contact_verification',
+                channel: 'sms',
+                destination_masked: '+961•••1234',
+                status: 'pending',
+                is_live: true,
+                attempts_remaining: 2,
+                resends_remaining: 1,
+                expires_at: '2026-08-03T09:05:00Z',
+                resend_available_at: null,
+            },
+        },
+        meta: { correlation_id: 'c-status' },
+    },
+};
+
 describe('the challenge and contact envelopes (J1)', () => {
     it('issues a challenge and reads it from under data.challenge', async () => {
         const { repositories, calls } = harness([CHALLENGE_202], createMemoryTokenStore('token'));
@@ -793,28 +815,7 @@ describe('the challenge and contact envelopes (J1)', () => {
 
     it('re-reads a challenge from under data.challenge', async () => {
         const { repositories, calls } = harness(
-            [
-                {
-                    status: 200,
-                    body: {
-                        data: {
-                            challenge: {
-                                challenge_id: 'challenge-11',
-                                purpose: 'contact_verification',
-                                channel: 'sms',
-                                destination_masked: '+961•••1234',
-                                status: 'pending',
-                                is_live: true,
-                                attempts_remaining: 2,
-                                resends_remaining: 1,
-                                expires_at: '2026-08-03T09:05:00Z',
-                                resend_available_at: null,
-                            },
-                        },
-                        meta: { correlation_id: 'c-status' },
-                    },
-                },
-            ],
+            [CHALLENGE_STATUS_200],
             createMemoryTokenStore('token'),
         );
 
@@ -888,6 +889,118 @@ describe('the challenge and contact envelopes (J1)', () => {
         expect(calls[0]!.url).toBe('https://api.example/api/v1/me/contacts/contact-4/primary');
         expect(contact.id).toBe('contact-4');
         expect(contact.isPrimary).toBe(true);
+    });
+});
+
+/* ── G1: the guest challenge envelopes ───────────────────────────────────────────────────── */
+
+/**
+ * The guest half of the same surface, and the same trap: `POST /guest/contacts` nests its
+ * challenge under `data.challenge` (`GuestOtpChallengeEnvelope`), and the two re-read routes are
+ * the account family's own, reached with the guest token. The re-read answers the status
+ * projection, which carries no channel list — a guest lockout screen must see that as "the server
+ * did not say", exactly as the account one does.
+ */
+const GUEST_CHALLENGE_202: Scripted = {
+    status: 202,
+    body: {
+        data: {
+            challenge: {
+                ...ISSUED_CHALLENGE,
+                purpose: 'guest_order',
+                channel: 'email',
+                destination_masked: 's***@example.com',
+            },
+        },
+        meta: { correlation_id: 'c-guest-challenge' },
+    },
+};
+
+describe('the guest challenge envelopes (G1)', () => {
+    it('gives the contact and reads its challenge from under data.challenge', async () => {
+        const { repositories, calls } = harness([GUEST_CHALLENGE_202]);
+
+        const result = await repositories.guest.updateContact({
+            fullName: 'Sam Ali',
+            email: 'sam@example.com',
+        });
+
+        expect(calls[0]!.url).toBe('https://api.example/api/v1/guest/contacts');
+        expect(calls[0]!.body).toEqual({ channel: 'email', value: 'sam@example.com' });
+        expect(result.challenge?.id).toBe('challenge-11');
+        expect(result.challenge?.simulatedChannels).toEqual(['sms']);
+        // The contact is keyed by the challenge and masked by the server, never by a client mask.
+        expect(result.contact.id).toBe('challenge-11');
+        expect(result.contact.maskedDestination).toBe('s***@example.com');
+    });
+
+    it('re-reads a guest challenge as the status projection', async () => {
+        const { repositories, calls } = harness([CHALLENGE_STATUS_200]);
+
+        const challenge = await repositories.guest.getChallenge({ challengeId: 'challenge-11' });
+
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/verification/challenges/challenge-11',
+        );
+        expect(challenge.id).toBe('challenge-11');
+        expect(challenge.attemptsRemaining).toBe(2);
+        expect(challenge.availableChannels).toEqual([]);
+    });
+
+    it('resends a guest challenge and reads the fresh one from under data.challenge', async () => {
+        const { repositories, calls } = harness([CHALLENGE_202]);
+
+        const challenge = await repositories.guest.resendChallenge({
+            challengeId: 'challenge-11',
+            channel: 'sms',
+        });
+
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/verification/challenges/challenge-11/resend',
+        );
+        expect(calls[0]!.body).toEqual({ delivery_channel: 'sms' });
+        expect(challenge.id).toBe('challenge-11');
+        expect(challenge.resendCooldownSeconds).toBe(45);
+    });
+    it('converts the guest and reads the account under data.customer_account', async () => {
+        const { repositories, calls } = harness([
+            GUEST_CHALLENGE_202,
+            {
+                status: 201,
+                body: {
+                    data: {
+                        customer_account: {
+                            id: 'account-9',
+                            account_type: 'b2c',
+                            status: 'active',
+                            origin: 'guest',
+                            preferred_language_code: 'ar',
+                            country_code: 'LB',
+                            guest_expires_at: null,
+                            converted_at: '2026-08-03T09:10:00Z',
+                        },
+                    },
+                    meta: { correlation_id: 'c-convert', guest_token_revoked: true },
+                },
+            },
+        ]);
+        // Conversion sends the address the guest gave, so the contact has to be on record first.
+        await repositories.guest.updateContact({ fullName: 'Sam Ali', email: 'sam@example.com' });
+
+        const result = await repositories.guest.convert({
+            fullName: 'Sam Ali',
+            password: 'correct horse battery staple',
+            marketingOptIn: false,
+        });
+
+        expect(calls[1]!.url).toBe('https://api.example/api/v1/guest/convert');
+        expect(calls[1]!.body).toMatchObject({
+            email: 'sam@example.com',
+            given_name: 'Sam',
+            family_name: 'Ali',
+        });
+        expect(result.accountId).toBe('account-9');
+        expect(result.convertedAt).toBe('2026-08-03T09:10:00Z');
     });
 });
 

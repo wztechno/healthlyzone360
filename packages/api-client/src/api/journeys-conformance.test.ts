@@ -463,7 +463,11 @@ describe('the guest transport', () => {
     it('attaches the guest token to a guest call', async () => {
         const calls: Call[] = [];
         await createApiGuestRepository(
-            transportReturning({ data: RECORDED_GUEST_CHALLENGE, meta: {} }, calls, 'gst_live'),
+            transportReturning(
+                { data: { challenge: RECORDED_GUEST_CHALLENGE }, meta: {} },
+                calls,
+                'gst_live',
+            ),
         ).updateContact({ fullName: 'Sam Ali', email: 'sam@example.com' });
 
         expect(calls[0]?.headers['X-Guest-Token']).toBe('gst_live');

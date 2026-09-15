@@ -26,15 +26,23 @@ import type {
 } from '../contracts/guest.ts';
 import type { OtpChallenge, OtpChannel } from '../contracts/verification.ts';
 import type {
+    GuestConversionEnvelope,
     GuestCustomerAccount as WireGuestAccount,
     GuestOrder as WireGuestOrder,
     GuestOrderLine as WireGuestOrderLine,
     GuestOtpChallenge as WireGuestChallenge,
+    GuestOtpChallengeEnvelope,
     GuestSession as WireGuestSession,
+    OtpChallengeEnvelope,
     StartedGuestSession as WireStartedSession,
+    VerificationChallengeEnvelope,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
-import { PASSCODE_LENGTH } from './verification-repository.ts';
+import {
+    PASSCODE_LENGTH,
+    mapChallengeStatus,
+    mapIssuedChallenge,
+} from './verification-repository.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -304,7 +312,7 @@ export function createApiGuestRepository(transport: Transport): GuestRepository 
                 );
             }
 
-            const wire = await transport.request<WireGuestChallenge>({
+            const wire = await transport.request<GuestOtpChallengeEnvelope['data']>({
                 method: 'POST',
                 path: '/guest/contacts',
                 guest: true,
@@ -317,9 +325,9 @@ export function createApiGuestRepository(transport: Transport): GuestRepository 
                 },
             });
 
-            const challenge = mapGuestChallenge(wire);
+            const challenge = mapGuestChallenge(wire.challenge);
             contact = {
-                id: wire.challenge_id,
+                id: challenge.id,
                 email,
                 mobile,
                 maskedDestination: challenge.maskedDestination,
@@ -447,7 +455,7 @@ export function createApiGuestRepository(transport: Transport): GuestRepository 
             const givenName = parts.length > 1 ? parts.slice(0, -1).join(' ') : (parts[0] ?? '');
             const references = [...orderIds.keys()];
 
-            const account = await transport.request<WireGuestAccount>({
+            const wire = await transport.request<GuestConversionEnvelope['data']>({
                 method: 'POST',
                 path: '/guest/convert',
                 guest: true,
@@ -467,10 +475,10 @@ export function createApiGuestRepository(transport: Transport): GuestRepository 
             orderIds.clear();
 
             return {
-                accountId: account.id,
+                accountId: wire.customer_account.id,
                 sessionToken: '',
                 orderReferences: references,
-                convertedAt: account.converted_at ?? new Date().toISOString(),
+                convertedAt: wire.customer_account.converted_at ?? new Date().toISOString(),
             };
         },
 
@@ -547,27 +555,30 @@ export function createApiGuestRepository(transport: Transport): GuestRepository 
          * `GET /verification/challenges/{challenge}` is the only endpoint that reads one back, and
          * it is reached here with the guest token: a guest challenge belongs to a guest session,
          * not to an account contact point.
+         *
+         * It answers the status projection — no cooldown seconds, no channel list — so it goes
+         * through the account family's status mapper; the guest mapper expects a freshly-sent code.
          */
         async getChallenge(request: { readonly challengeId: string }): Promise<OtpChallenge> {
-            const wire = await transport.request<WireGuestChallenge>({
+            const wire = await transport.request<VerificationChallengeEnvelope['data']>({
                 method: 'GET',
                 path: `/verification/challenges/${encodeURIComponent(request.challengeId)}`,
                 guest: true,
             });
-            return mapGuestChallenge(wire);
+            return mapChallengeStatus(wire.challenge);
         },
 
         async resendChallenge(request: {
             readonly challengeId: string;
             readonly channel?: OtpChannel | undefined;
         }): Promise<OtpChallenge> {
-            const wire = await transport.request<WireGuestChallenge>({
+            const wire = await transport.request<OtpChallengeEnvelope['data']>({
                 method: 'POST',
                 path: `/verification/challenges/${encodeURIComponent(request.challengeId)}/resend`,
                 guest: true,
                 body: request.channel === undefined ? {} : { delivery_channel: request.channel },
             });
-            return mapGuestChallenge(wire);
+            return mapIssuedChallenge(wire.challenge);
         },
     };
 }
