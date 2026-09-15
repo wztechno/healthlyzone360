@@ -196,6 +196,48 @@ it('refuses to convert across dimensions, and leaves the line uncosted', functio
         ->and($line->cost_currency_code)->toBeNull();
 });
 
+it('refuses two units of the same non-convertible dimension, rather than treating them as equal', function (): void {
+    /*
+     * The regression this locks: `bunch`, `can`, `bag`, `bottle` and `pack` all sit in the
+     * `package` dimension and all carry `base_ratio` 1. A check that compared dimensions alone
+     * therefore passed a price-per-pack against a line-in-bags and converted it one-for-one — a
+     * number that looks right, is wrong by whatever a pack and a bag actually hold, and reaches a
+     * cost column with nothing marking it as a guess.
+     *
+     * `UnitConversionService::canConvert()` is the predicate that knows a ratio only means
+     * something within `mass` and `volume`, and this asserts the pricing path asks it.
+     */
+    $ingredient = RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Couscous', 'egg');
+    $ingredient->default_unit_id = RecipeWorld::unit('bag');
+    $ingredient->purchase_unit_id = RecipeWorld::unit('pack');
+    $ingredient->purchase_price_amount = '12.00';
+    $ingredient->purchase_price_currency = 'USD';
+    $ingredient->save();
+
+    $recipeId = $this->postJson('/api/v1/catalogue/recipes', ['name_en' => 'Packs Into Bags'], $this->headers)
+        ->assertCreated()
+        ->json('data.recipe.id');
+
+    $this->patchJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1", [
+        'yield_quantity' => '1', 'yield_unit_id' => $this->kilograms,
+    ], $this->headers + ['If-Match' => '"0"'])->assertOk();
+
+    $this->putJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1/lines", [
+        'lines' => [[
+            'ingredient_id' => (string) $ingredient->getKey(),
+            'quantity' => '2',
+            'unit_id' => RecipeWorld::unit('bag'),
+        ]],
+    ], $this->headers + ['If-Match' => '"1"'])->assertOk();
+
+    // Not 12.00 a bag, and not 24.00 for the line. Uncosted, and visibly so.
+    $line = RecipeVersionLine::withoutTenancy()->sole();
+
+    expect($line->unit_cost_amount)->toBeNull()
+        ->and($line->line_cost_amount)->toBeNull()
+        ->and($line->cost_currency_code)->toBeNull();
+});
+
 it('does not overwrite a cost the caller stated', function (): void {
     $ingredient = RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Salt', 'egg');
     $ingredient->default_unit_id = $this->kilograms;

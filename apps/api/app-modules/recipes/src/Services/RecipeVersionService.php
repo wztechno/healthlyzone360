@@ -28,6 +28,7 @@ use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Recipes\Models\RecipeVersionStep;
 use Healthy360\ReferenceData\Models\Currency;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\ReferenceData\Services\UnitConversionService;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
@@ -70,6 +71,7 @@ final readonly class RecipeVersionService
         private RecipeLabelWriter $labels,
         private RecipeNutritionService $nutrition,
         private RecipeOutputNutritionWriter $outputNutrition,
+        private UnitConversionService $conversion,
     ) {}
 
     /**
@@ -1230,9 +1232,10 @@ final readonly class RecipeVersionService
      * `g`. So a price per kilogram becomes a price per gram by dividing by the ratio between them,
      * and 7.88 per kg is 0.00788 per g exactly.
      *
-     * Null when the two units are not comparable: a different dimension, an unknown unit, or a
-     * ratio of zero. Every one of those is "this system cannot know", and the caller turns it into
-     * an uncosted line rather than a figure.
+     * Null when the two units are not comparable: an unknown unit, a ratio of zero, or a pair
+     * {@see UnitConversionService::canConvert()} refuses — a different dimension, or the same
+     * non-convertible one (two `package` units, two `count` units). Every one of those is "this
+     * system cannot know", and the caller turns it into an uncosted line rather than a figure.
      *
      * Six decimal places, the scale every cost column stores. A price per gram of a cheap bulk
      * ingredient can round to zero at that scale, and that is the honest floor of what these
@@ -1252,7 +1255,19 @@ final readonly class RecipeVersionService
             return null;
         }
 
-        if ($from->dimension !== $to->dimension) {
+        /*
+         * The same predicate {@see UnitConversionService::convert()} applies, asked rather than
+         * re-implemented.
+         *
+         * Comparing dimensions alone was not enough, and the gap was silent. `bunch`, `can`, `bag`,
+         * `bottle` and `pack` all share the `package` dimension and all carry `base_ratio` 1, so a
+         * price quoted per pack against a line measured in bags passed the old check and converted
+         * one-for-one — a plausible number, wrong by whatever a pack and a bag actually differ by,
+         * landing in a cost column with nothing to mark it. `CONVERTIBLE_DIMENSIONS` is exactly the
+         * set where a ratio means something (`mass`, `volume`), and `canConvert()` is the public,
+         * non-throwing form of that question.
+         */
+        if (! $this->conversion->canConvert($from, $to)) {
             return null;
         }
 
