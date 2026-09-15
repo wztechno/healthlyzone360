@@ -666,6 +666,231 @@ describe('confirmPassword', () => {
     });
 });
 
+describe('the login address’s own passcode (D-036)', () => {
+    it('asks for a code with no body and reads the challenge out of its envelope', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 202,
+                    body: {
+                        data: {
+                            challenge: {
+                                challenge_id: 'challenge-9',
+                                purpose: 'contact_verification',
+                                channel: 'email',
+                                destination_masked: 'n***@example.com',
+                                expires_at: '2026-08-03T09:05:00Z',
+                                resend_available_at: '2026-08-03T09:00:45Z',
+                                resend_cooldown_seconds: 45,
+                                attempts_remaining: 3,
+                                resends_remaining: 3,
+                                available_channels: [{ channel: 'email', simulated: false }],
+                                simulated: false,
+                            },
+                        },
+                        meta: { correlation_id: 'c-passcode' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const challenge = await repositories.verification.sendEmailPasscode();
+
+        expect(calls[0]!.url).toBe('https://api.example/api/v1/verification/email/challenges');
+        expect(calls[0]!.method).toBe('POST');
+        expect(challenge.id).toBe('challenge-9');
+        // The cooldown a screen counts down comes from the server, never from a client constant.
+        expect(challenge.resendCooldownSeconds).toBe(45);
+    });
+
+    /** No challenge identifier in either direction: the server holds the only live one. */
+    it('spends the code against the account rather than against a challenge', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: { verified: true, contact: { id: 'contact-1' } },
+                        meta: { correlation_id: 'c-verified' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        await repositories.verification.verifyEmailPasscode({ code: '123456' });
+
+        expect(calls[0]!.url).toBe('https://api.example/api/v1/verification/email/verify');
+        expect(calls[0]!.body).toEqual({ code: '123456' });
+    });
+});
+
+/* ── J1: the challenge and contact envelopes ─────────────────────────────────────────────── */
+
+/**
+ * Every challenge route nests its payload under `data.challenge`, and both contact writes under
+ * `data.contact` — `OtpChallengeEnvelope`, `VerificationChallengeEnvelope` and
+ * `CustomerContactEnvelope` in the generated types. Reading one level too high threw inside the
+ * challenge mapper and silently mapped an all-`undefined` contact, and nothing above the transport
+ * caught either, because every screen stubs the repository. These cases script the raw envelope so
+ * the shape is pinned at the one layer that reads it.
+ */
+const ISSUED_CHALLENGE = {
+    challenge_id: 'challenge-11',
+    purpose: 'contact_verification',
+    channel: 'sms',
+    destination_masked: '+961•••1234',
+    expires_at: '2026-08-03T09:05:00Z',
+    resend_available_at: '2026-08-03T09:00:45Z',
+    resend_cooldown_seconds: 45,
+    attempts_remaining: 5,
+    resends_remaining: 3,
+    available_channels: [
+        { channel: 'email', simulated: false },
+        { channel: 'sms', simulated: true },
+    ],
+    simulated: true,
+};
+
+const CONTACT_ROW = {
+    id: 'contact-4',
+    channel: 'phone',
+    value: '+96170123456',
+    is_verified: false,
+    verified_at: null,
+    is_primary: false,
+    is_login_identity: false,
+    created_at: '2026-08-03T09:00:00Z',
+};
+
+const CHALLENGE_202: Scripted = {
+    status: 202,
+    body: { data: { challenge: ISSUED_CHALLENGE }, meta: { correlation_id: 'c-challenge' } },
+};
+
+const CONTACT_201: Scripted = {
+    status: 201,
+    body: { data: { contact: CONTACT_ROW }, meta: { correlation_id: 'c-contact' } },
+};
+
+describe('the challenge and contact envelopes (J1)', () => {
+    it('issues a challenge and reads it from under data.challenge', async () => {
+        const { repositories, calls } = harness([CHALLENGE_202], createMemoryTokenStore('token'));
+
+        const challenge = await repositories.verification.issueChallenge({
+            purpose: 'contact_verification',
+            contactPointId: 'contact-4',
+            channel: 'sms',
+        });
+
+        expect(calls[0]!.url).toBe('https://api.example/api/v1/verification/email/challenges');
+        expect(calls[0]!.body).toEqual({ contact_id: 'contact-4', delivery_channel: 'sms' });
+        expect(challenge.id).toBe('challenge-11');
+        expect(challenge.availableChannels).toEqual(['email', 'sms']);
+        expect(challenge.simulatedChannels).toEqual(['sms']);
+    });
+
+    it('re-reads a challenge from under data.challenge', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            challenge: {
+                                challenge_id: 'challenge-11',
+                                purpose: 'contact_verification',
+                                channel: 'sms',
+                                destination_masked: '+961•••1234',
+                                status: 'pending',
+                                is_live: true,
+                                attempts_remaining: 2,
+                                resends_remaining: 1,
+                                expires_at: '2026-08-03T09:05:00Z',
+                                resend_available_at: null,
+                            },
+                        },
+                        meta: { correlation_id: 'c-status' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const challenge = await repositories.verification.getChallenge({
+            challengeId: 'challenge-11',
+        });
+
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/verification/challenges/challenge-11',
+        );
+        expect(challenge.id).toBe('challenge-11');
+        expect(challenge.attemptsRemaining).toBe(2);
+        // The status projection carries no channel list, and the mapper must not invent one.
+        expect(challenge.availableChannels).toEqual([]);
+    });
+
+    it('resends a challenge and reads the fresh one from under data.challenge', async () => {
+        const { repositories, calls } = harness([CHALLENGE_202], createMemoryTokenStore('token'));
+
+        const challenge = await repositories.verification.resendChallenge({
+            challengeId: 'challenge-11',
+            channel: 'sms',
+        });
+
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/verification/challenges/challenge-11/resend',
+        );
+        expect(calls[0]!.body).toEqual({ delivery_channel: 'sms' });
+        expect(challenge.id).toBe('challenge-11');
+        expect(challenge.resendCooldownSeconds).toBe(45);
+    });
+
+    it('adds a contact from under data.contact and challenges the id it was given', async () => {
+        const { repositories, calls } = harness(
+            [CONTACT_201, CHALLENGE_202],
+            createMemoryTokenStore('token'),
+        );
+
+        const added = await repositories.verification.addContactPoint({
+            kind: 'phone',
+            value: '+96170123456',
+            verifyNow: true,
+        });
+
+        expect(calls[0]!.url).toBe('https://api.example/api/v1/me/contacts');
+        expect(added.contact.id).toBe('contact-4');
+        expect(added.contact.maskedValue).toBe('+961•••3456');
+        // The second call is keyed by the contact the first one created, never by `undefined`.
+        expect(calls[1]!.body).toEqual({ contact_id: 'contact-4' });
+        expect(added.challenge?.id).toBe('challenge-11');
+    });
+
+    it('promotes a contact and reads it from under data.contact', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: { contact: { ...CONTACT_ROW, is_primary: true } },
+                        meta: { correlation_id: 'c-primary' },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const contact = await repositories.verification.setPrimaryContactPoint({
+            contactPointId: 'contact-4',
+        });
+
+        expect(calls[0]!.url).toBe('https://api.example/api/v1/me/contacts/contact-4/primary');
+        expect(contact.id).toBe('contact-4');
+        expect(contact.isPrimary).toBe(true);
+    });
+});
+
 /* ── J2: closure ─────────────────────────────────────────────────────────────────────────────── */
 
 const CLOSURE_BLOCKERS_MIXED = [

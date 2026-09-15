@@ -344,6 +344,30 @@ export function useIssueChallengeMutation(): UseMutationResult<
     });
 }
 
+/**
+ * The login address's own passcode — the pair `/verify-email` uses (D-036).
+ *
+ * Neither writes the challenge cache. There is no identifier to key it by on the way out and none
+ * to read it back with on the way in, which is the endpoints' whole design; the screen counts the
+ * cooldown down from the answer it is holding and re-reads `/me` once the code lands.
+ */
+export function useSendEmailPasscodeMutation(): UseMutationResult<OtpChallenge, unknown, void> {
+    const repositories = useRepositories();
+    return useMutation({ mutationFn: () => repositories.verification.sendEmailPasscode() });
+}
+
+export function useVerifyEmailPasscodeMutation(): UseMutationResult<
+    void,
+    unknown,
+    { readonly code: string }
+> {
+    const repositories = useRepositories();
+    return useMutation({
+        mutationFn: (request: { readonly code: string }) =>
+            repositories.verification.verifyEmailPasscode(request),
+    });
+}
+
 export interface ResendChallengeVariables {
     readonly challengeId: string;
     readonly channel?: string | undefined;

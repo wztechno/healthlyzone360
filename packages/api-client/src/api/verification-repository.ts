@@ -15,8 +15,11 @@ import { OTP_CHANNELS } from '../contracts/verification.ts';
 import type {
     AddCustomerContactRequest,
     CustomerContact as WireContact,
+    CustomerContactEnvelope,
+    OtpChallengeEnvelope,
     OtpChallengeResult as WireChallengeResult,
     VerificationChallenge as WireChallenge,
+    VerificationChallengeEnvelope,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
 
@@ -240,22 +243,22 @@ export function createApiVerificationRepository(transport: Transport): Verificat
                 value: request.value,
             };
 
-            const wire = await transport.request<WireContact>({
+            const wire = await transport.request<CustomerContactEnvelope['data']>({
                 method: 'POST',
                 path: '/me/contacts',
                 body,
             });
 
-            const contact = mapContactPoint(wire);
+            const contact = mapContactPoint(wire.contact);
             if (request.verifyNow !== true) return { contact, challenge: null };
 
             try {
-                const challenge = await transport.request<WireChallengeResult>({
+                const challenge = await transport.request<OtpChallengeEnvelope['data']>({
                     method: 'POST',
                     path: '/verification/email/challenges',
-                    body: { contact_id: wire.id },
+                    body: { contact_id: contact.id },
                 });
-                return { contact, challenge: mapIssuedChallenge(challenge) };
+                return { contact, challenge: mapIssuedChallenge(challenge.challenge) };
             } catch {
                 return { contact, challenge: null };
             }
@@ -271,18 +274,41 @@ export function createApiVerificationRepository(transport: Transport): Verificat
         async setPrimaryContactPoint(request: {
             readonly contactPointId: string;
         }): Promise<ContactPoint> {
-            const wire = await transport.request<WireContact>({
+            const wire = await transport.request<CustomerContactEnvelope['data']>({
                 method: 'POST',
                 path: `/me/contacts/${encodeURIComponent(request.contactPointId)}/primary`,
             });
-            return mapContactPoint(wire);
+            return mapContactPoint(wire.contact);
+        },
+
+        /**
+         * The inline half of the verification mail (D-036).
+         *
+         * No body and no contact identifier on the way out, no challenge identifier on the way
+         * back in: the endpoints read both off the account. `data` wraps the challenge under its
+         * own key here, which is the envelope shape the API serves on every challenge route.
+         */
+        async sendEmailPasscode(): Promise<OtpChallenge> {
+            const wire = await transport.request<{ challenge: WireChallengeResult }>({
+                method: 'POST',
+                path: '/verification/email/challenges',
+            });
+            return mapIssuedChallenge(wire.challenge);
+        },
+
+        async verifyEmailPasscode(request: { readonly code: string }): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/verification/email/verify',
+                body: { code: request.code },
+            });
         },
 
         async issueChallenge(request: IssueOtpRequest): Promise<OtpChallenge> {
             const route = routeForPurpose(request.purpose);
             if (route === null) throw unreachablePurpose(request.purpose);
 
-            const wire = await transport.request<WireChallengeResult>({
+            const wire = await transport.request<OtpChallengeEnvelope['data']>({
                 method: 'POST',
                 path: route,
                 body:
@@ -298,24 +324,24 @@ export function createApiVerificationRepository(transport: Transport): Verificat
                         : { purpose: request.purpose },
             });
 
-            return mapIssuedChallenge(wire);
+            return mapIssuedChallenge(wire.challenge);
         },
 
         async getChallenge(request: { readonly challengeId: string }): Promise<OtpChallenge> {
-            const wire = await transport.request<WireChallenge>({
+            const wire = await transport.request<VerificationChallengeEnvelope['data']>({
                 method: 'GET',
                 path: `/verification/challenges/${encodeURIComponent(request.challengeId)}`,
             });
-            return mapChallengeStatus(wire);
+            return mapChallengeStatus(wire.challenge);
         },
 
         async resendChallenge(request: ResendOtpRequest): Promise<OtpChallenge> {
-            const wire = await transport.request<WireChallengeResult>({
+            const wire = await transport.request<OtpChallengeEnvelope['data']>({
                 method: 'POST',
                 path: `/verification/challenges/${encodeURIComponent(request.challengeId)}/resend`,
                 body: request.channel === undefined ? {} : { delivery_channel: request.channel },
             });
-            return mapIssuedChallenge(wire);
+            return mapIssuedChallenge(wire.challenge);
         },
 
         /**

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6750 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6749 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -445,11 +445,8 @@ export interface NamespaceKeys {
     | 'verifyEmail.body'
     | 'verifyEmail.checkAgain'
     | 'verifyEmail.continue'
-    | 'verifyEmail.cooldown'
     | 'verifyEmail.pendingBody'
     | 'verifyEmail.pendingTitle'
-    | 'verifyEmail.resend'
-    | 'verifyEmail.resent'
     | 'verifyEmail.title'
     | 'verifyEmail.verifiedBody'
     | 'verifyEmail.verifiedTitle'
@@ -1415,6 +1412,7 @@ export interface NamespaceKeys {
     | 'checkout.edit'
     | 'checkout.emptyBody'
     | 'checkout.emptyTitle'
+    | 'checkout.finishSetup'
     | 'checkout.noAddressBody'
     | 'checkout.noAddressTitle'
     | 'checkout.paymentNoticeBody'
@@ -1705,6 +1703,7 @@ export interface NamespaceKeys {
     | 'validation.countryCode'
     | 'validation.required'
     | 'validation.tooLong'
+    | 'warnings.checkout_address_missing'
     | 'warnings.checkout_empty_cart'
     | 'warnings.planner_allergen_conflict'
     | 'warnings.subscription_delivery_day_unavailable'
@@ -7223,11 +7222,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:verifyEmail.body',
   'auth:verifyEmail.checkAgain',
   'auth:verifyEmail.continue',
-  'auth:verifyEmail.cooldown',
   'auth:verifyEmail.pendingBody',
   'auth:verifyEmail.pendingTitle',
-  'auth:verifyEmail.resend',
-  'auth:verifyEmail.resent',
   'auth:verifyEmail.title',
   'auth:verifyEmail.verifiedBody',
   'auth:verifyEmail.verifiedTitle',
@@ -8189,6 +8185,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.edit',
   'commerce:checkout.emptyBody',
   'commerce:checkout.emptyTitle',
+  'commerce:checkout.finishSetup',
   'commerce:checkout.noAddressBody',
   'commerce:checkout.noAddressTitle',
   'commerce:checkout.paymentNoticeBody',
@@ -8479,6 +8476,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:validation.countryCode',
   'commerce:validation.required',
   'commerce:validation.tooLong',
+  'commerce:warnings.checkout_address_missing',
   'commerce:warnings.checkout_empty_cart',
   'commerce:warnings.planner_allergen_conflict',
   'commerce:warnings.subscription_delivery_day_unavailable',
