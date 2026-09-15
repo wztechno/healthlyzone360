@@ -576,6 +576,10 @@ function rollupPreview(overrides: Partial<RecipeRollupPreview> = {}): RecipeRoll
             },
         ],
         estimatedCost: { amount: 12, currency: 'AED' },
+        // Null by default, which is what the server answers for a draft that states no yield to
+        // divide by — the state most of these fixtures are in. A test that wants the cascade
+        // overrides it.
+        computedCost: null,
         warnings: [],
         ...overrides,
     };

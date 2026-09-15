@@ -724,6 +724,7 @@ export function mapRecipeRollupPreview(wire: WireRecipeRollupPreview): RecipeRol
             ];
         }),
         estimatedCost: estimated,
+        computedCost: mapComputedCost(wire.computed_cost),
         warnings,
     };
 }

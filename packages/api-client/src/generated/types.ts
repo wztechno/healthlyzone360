@@ -9325,9 +9325,7 @@ export type RecipeRollupPreview = {
      * hold `recipe.view_costs_organisation`.
      *
      */
-    computed_cost: {
-        [key: string]: unknown;
-    } | null;
+    computed_cost: ComputedCost | null;
     /**
      * May be empty — a draft whose every line resolves warns about nothing.
      */

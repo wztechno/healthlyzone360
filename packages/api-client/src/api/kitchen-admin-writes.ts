@@ -1823,7 +1823,30 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(draft.yieldPieceCount === undefined
                         ? {}
                         : { yield_piece_count: draft.yieldPieceCount }),
+                    ...(draft.packagingWastePercent === undefined
+                        ? {}
+                        : { packaging_waste_percent: draft.packagingWastePercent }),
                     lines,
+                    /*
+                     * No unit resolution here, unlike the lines above.
+                     *
+                     * A packaging line's unit is the item's own `default_unit_id` and the server
+                     * reads it off the record; the request carries a basis and, for `per_batch`
+                     * alone, a typed quantity. The other two bases are computed from the yield and
+                     * the item's capacity — by the same `preparePackaging()` a save runs, which is
+                     * what makes a preview and a save agree about how many bottles a batch fills.
+                     */
+                    ...(draft.packaging === undefined
+                        ? {}
+                        : {
+                              packaging: draft.packaging.map((line) => ({
+                                  ingredient_id: String(line.ingredientId),
+                                  basis: line.basis,
+                                  ...(line.quantity === undefined
+                                      ? {}
+                                      : { quantity: line.quantity }),
+                              })),
+                          }),
                 },
             });
 

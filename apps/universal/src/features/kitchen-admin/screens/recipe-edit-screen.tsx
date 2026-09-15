@@ -644,6 +644,7 @@ function RecipeEditor({
      */
     const yieldMass = parseQuantity(details.yieldQuantity);
     const yieldPieces = parseQuantity(details.yieldPieces);
+    const packagingWasteValue = parseQuantity(packagingWaste);
 
     const rollupDraft: RecipeRollupDraft | null = useMemo(
         () =>
@@ -660,8 +661,28 @@ function RecipeEditor({
                       ...(yieldPieces !== null && yieldPieces > 0
                           ? { yieldPieceCount: yieldPieces }
                           : {}),
+                      /*
+                       * The same rows the Packaging tab holds, sent with the draft.
+                       *
+                       * Without them the preview costed a batch that ships in nothing, while the
+                       * tab one click away listed three consumables. `withoutPackaging` routes
+                       * (sauces, dressings) hold no rows, so the array is simply empty for them.
+                       */
+                      ...(packagingInputs.length === 0 ? {} : { packaging: packagingInputs }),
+                      ...(packagingWasteValue === null
+                          ? {}
+                          : { packagingWastePercent: packagingWasteValue }),
                   },
-        [data?.id, yieldMass, yieldPieces, details.yieldUnit, wastePercent, lineInputs],
+        [
+            data?.id,
+            yieldMass,
+            yieldPieces,
+            details.yieldUnit,
+            wastePercent,
+            lineInputs,
+            packagingInputs,
+            packagingWasteValue,
+        ],
     );
 
     // Debounced, so a quantity being typed is one request rather than four — the policy is on

@@ -1048,6 +1048,20 @@ export interface RecipeRollupDraft {
     readonly yieldUnit?: MeasureUnit | undefined;
     /** How many pieces the yield divides into — the cost block's divisor. */
     readonly yieldPieceCount?: number | undefined;
+    /**
+     * The consumables one batch eats, priced the same way a saved version's are.
+     *
+     * The endpoint has always accepted these; the client simply never sent them, so the preview's
+     * cost block described a batch with no packaging in it while the editor's own Packaging tab sat
+     * one click away with three rows on it.
+     *
+     * `fills_yield` and `per_container` quantities are computed server-side from the yield and the
+     * item's capacity, exactly as a save computes them — which is why a draft may state a basis
+     * without stating a number.
+     */
+    readonly packaging?: readonly RecipePackagingLineInput[] | undefined;
+    /** Applied to the packaging half alone. The production coefficient is `wastePercent`. */
+    readonly packagingWastePercent?: number | undefined;
 }
 
 /** One allergen the draft would declare, and the lines that put it there. */
@@ -1080,6 +1094,19 @@ export interface RecipeRollupPreview {
     readonly allergenSources: readonly AllergenSource[];
     /** CONFIDENTIAL — summed line costs. `null` when any line has no recorded cost. */
     readonly estimatedCost: CostAmount | null;
+    /**
+     * CONFIDENTIAL — the full cost cascade over this draft, in the technical sheet's exact shape.
+     *
+     * The same service computes both, so a figure here and the same figure on a saved version's
+     * sheet agree by construction rather than by two implementations being kept in step. That is
+     * the point: the editor used to run its own cascade in JavaScript floats, priced from the
+     * ingredient's *list* price where the server prices from the purchase price, and the two
+     * quietly disagreed.
+     *
+     * `null` when the draft states no yield to divide by, or when the caller lacks
+     * `recipe.view_costs_organisation`.
+     */
+    readonly computedCost: RecipeComputedCost | null;
     readonly warnings: readonly RollupWarning[];
 }
 

@@ -37567,8 +37567,7 @@ components:
             naming which.
         computed_cost:
           oneOf:
-            - type: object
-              additionalProperties: true
+            - $ref: '#/components/schemas/ComputedCost'
             - type: 'null'
           description: |
             The technical sheet's `computed` block over this draft — the same

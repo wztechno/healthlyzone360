@@ -6471,7 +6471,7 @@ export const zRecipeRollupPreview = z.object({
         amount: z.string(),
         currency: z.string().length(3)
     }).nullable(),
-    computed_cost: z.record(z.string(), z.unknown()).nullable(),
+    computed_cost: zComputedCost.nullable(),
     warnings: z.array(zRecipeRollupWarning)
 });
 
