@@ -69,7 +69,7 @@ import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
-import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { RECIPE_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     amountToInput,
     costPerPackage,
@@ -121,24 +121,25 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * What the right-hand roll-up pane used to say lives on **Technical sheet** now: the derived
  * nutrients, the inherited allergen classes and the print view, in one place instead of two.
  *
- * ## The design draws six fields this contract cannot store
+ * ## Four of the design's fields this contract cannot store, and two it now can
  *
- * Category, Shelf life and Storage on Description, and the Selling price, Packaging waste and
- * packaging lines on Costing, exist in the prototype's own state and nowhere on
- * `KitchenAdminRepository`. `UpdateRecipeRequest` is name, description, yield, yield unit, yield
- * pieces and waste percent — that is the whole writable surface of a recipe.
- *
- * They are handled two different ways, on purpose:
+ * Category, Shelf life and Storage on Description, and Packaging waste on Costing, exist in the
+ * prototype's own state and nowhere on `KitchenAdminRepository`.
  *
  * - **Category, Shelf life and Storage are simply not drawn.** A `Select` that wrote nowhere is a
  *   control that lies twice — once when you set it, again when it comes back empty. The ingredient
  *   editor made the same call about the four fields the design dropped from it.
- * - **Packaging and its two coefficients *are* drawn, and say plainly that they do not persist.**
- *   They are not a field on a record, they are a whole costing model the kitchen's own sheets are
- *   built on (`Recipes Instructions.xlsx` gives packaging its own table, its own total and its own
- *   waste coefficient), and half a cost cascade is not worth drawing. So the tab is real, the
- *   arithmetic is the design's, and a banner states that the figures live in this session only
- *   until the endpoint exists.
+ * - **Packaging waste *is* drawn and is session-only.** `recipe_versions.packaging_waste_percent`
+ *   exists in the schema, but no contract field carries it, so the figure below feeds the cost
+ *   arithmetic on this screen and is gone on reload. Two consequences worth knowing before reading
+ *   the Costing tab: the default here is `5`, the column's default is `0.00`, so this screen's
+ *   packaging cost runs about five per cent above what the server would compute over the same
+ *   lines — and that gap closes, downwards, when the cascade moves server-side.
+ *
+ * **The packaging lines themselves do persist**, and so do the two list prices. `setRecipePackaging`
+ * is a real endpoint (`PUT …/versions/{version}/packaging`) and the save below calls it on create
+ * and on update alike; `RecipeVersionAdmin` carries `b2bPrice` and `b2cPrice`, so those live in
+ * `DetailsDraft` with everything else the save reads. Only the waste coefficient is stranded.
  *
  * ## There is no Method section
  *
@@ -445,7 +446,7 @@ export function RecipeEditScreen({ recipe, ...rest }: RecipeEditScreenProps) {
     return (
         <Gate
             area="kitchen"
-            requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
+            requirement={{ allOf: [RECIPE_VIEW_PERMISSION] }}
             testID="kitchen-recipe-editor"
         >
             <RecipeEditor recipe={recipe} {...rest} />
@@ -466,7 +467,7 @@ function RecipeEditor({
     const { locale } = useLocale();
     const formatter = useFormatter();
     const toast = useToast();
-    const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const canManage = useCan(RECIPE_MANAGE_PERMISSION);
 
     const isCreating = recipe === undefined || recipe === 'new';
     const parsed = isCreating ? null : RecipeId.safeParse(recipe);
@@ -499,9 +500,12 @@ function RecipeEditor({
     const [lines, setLinesDraft] = useState<readonly LineDraft[]>([]);
 
     /*
-     * Session-only, because the contract has no home for either — see the docblock. Held here
-     * rather than in `DetailsDraft` so nothing can accidentally post them: `DetailsDraft` is what
-     * the save reads, and these two are not in it.
+     * Outside `DetailsDraft` because neither is written by `updateRecipe`, but for opposite reasons.
+     *
+     * `packaging` has an endpoint of its own — `setRecipePackaging`, keyed on the *version* rather
+     * than the recipe — so it is drafted here and posted separately once the lines have settled the
+     * lock version. `packagingWaste` has no contract field at all and is genuinely session-only;
+     * see the docblock for what that costs the Costing tab.
      *
      * The list prices used to sit here as a third. They no longer do: `RecipeVersionAdmin` carries
      * `b2bPrice` and `b2cPrice`, so they belong in the draft the save reads.

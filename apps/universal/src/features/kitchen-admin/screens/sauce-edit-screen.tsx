@@ -23,7 +23,12 @@ import {
     useProductQuery,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    CATALOGUE_MANAGE_PERMISSION,
+    CATALOGUE_VIEW_PERMISSION,
+    RECIPE_MANAGE_PERMISSION,
+    RECIPE_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
 
@@ -117,9 +122,18 @@ export interface CookedItemEditScreenProps {
 
 export function CookedItemEditScreen({ product, itemType, routeBase }: CookedItemEditScreenProps) {
     return (
+        /*
+         * Both codes, because this screen writes both records.
+         *
+         * A sauce is a catalogue item *and* a recipe, and the two halves are gated separately on
+         * the server: `GET/POST /catalogue/recipes` wants `recipe.*`, the item wants `catalogue.*`.
+         * Asking for only one of them let somebody through a form whose save was always going to
+         * 403 on the half they lacked — and it 403s after the recipe has already been written,
+         * which is the worst place to discover it.
+         */
         <Gate
             area="kitchen"
-            requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
+            requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION] }}
             testID="kitchen-sauce-editor"
         >
             <CookedItemEditor product={product} itemType={itemType} routeBase={routeBase} />
@@ -132,7 +146,9 @@ function CookedItemEditor({ product, itemType, routeBase }: CookedItemEditScreen
     const router = useRouter();
     const { locale } = useLocale();
     const toast = useToast();
-    const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    // Both halves again — see the gate above. The recipe is written first, so a member holding
+    // only `catalogue.manage` must not be offered a save at all.
+    const canManage = useCan(CATALOGUE_MANAGE_PERMISSION) && useCan(RECIPE_MANAGE_PERMISSION);
 
     const isCreating = product === undefined || product === 'new';
     const parsed = isCreating ? null : ProductId.safeParse(product);

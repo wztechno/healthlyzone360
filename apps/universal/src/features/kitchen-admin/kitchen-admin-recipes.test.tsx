@@ -887,7 +887,7 @@ describe('the recipe list', () => {
         await untilVisible('kitchen-recipes-error');
     });
 
-    it('refuses a role with no catalogue permission', async () => {
+    it('refuses a role with no recipe permission', async () => {
         // No repository overrides at all: the gate refuses before the table can ask for anything, so
         // a screen that fetched here would fail loudly with StubNotConfiguredError.
         await renderStubScreen(<RecipesScreen />, { session: organisationOwnerSession() });

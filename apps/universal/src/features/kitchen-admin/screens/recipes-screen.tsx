@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
-import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { RECIPE_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
@@ -91,7 +91,7 @@ export function RecipesScreen() {
     return (
         <Gate
             area="kitchen"
-            requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
+            requirement={{ allOf: [RECIPE_VIEW_PERMISSION] }}
             testID="kitchen-recipes"
         >
             <RecipesList />
@@ -118,7 +118,7 @@ function RecipesList() {
     const formatter = useFormatter();
     const { locale } = useLocale();
     const toast = useToast();
-    const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const canManage = useCan(RECIPE_MANAGE_PERMISSION);
     const list = useRecipeList();
 
     /*
