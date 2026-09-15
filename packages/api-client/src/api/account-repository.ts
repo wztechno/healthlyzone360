@@ -468,7 +468,13 @@ export function createApiAccountRepository(
     }
 
     async function readAccount(): Promise<WireAccount> {
-        return transport.request<WireAccount>({ method: 'GET', path: '/customer-account' });
+        // The envelope nests the account under `account` (`CustomerAccountEnvelope`); mapping the
+        // wrapper read `checklist` off the wrong object and the account screen never showed it.
+        const wire = await transport.request<{ account: WireAccount }>({
+            method: 'GET',
+            path: '/customer-account',
+        });
+        return wire.account;
     }
 
     return {
