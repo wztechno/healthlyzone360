@@ -14,10 +14,9 @@ import { View } from 'react-native';
  * └──────────────────┘ └──────────────────┘ └──────────────────┘ └──────────────────┘
  * ```
  *
- * These are the same four figures {@link CatalogueSummaryBar} states as one 11px line, and the two
- * are alternatives rather than companions: a page draws one or the other. This screen draws the
- * cards, so the line is gone — stating "2 draft" twice, sixteen pixels apart, is not orientation,
- * it is noise.
+ * There was a one-line variant of these same four figures for a while. Nothing ever rendered it —
+ * a page that drew both would state "2 draft" twice, sixteen pixels apart, which is not
+ * orientation — so the cards are the only form now.
  *
  * ## A card is worth the vertical space only when the figure is a destination
  *

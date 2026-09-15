@@ -74,3 +74,28 @@ export function columnForRole<Row>(
 ): CatalogueColumn<Row> | undefined {
     return columns.find((column) => column.role === role);
 }
+
+/**
+ * Orders two possibly-absent values, always sinking the absent ones.
+ *
+ * The nulls do **not** flip with the direction. A reader sorting by price wants the cheapest first
+ * or the dearest first; in neither case do they want the rows that have no price at all — which is
+ * the set the Uncosted card is separately pointing at. Sinking them in both directions keeps the top
+ * of the list answering the question that was asked.
+ *
+ * Lived twice, once per list hook, written two different ways for the same behaviour. One sort rule
+ * shared by the specs that need it, beside the rest of the column vocabulary.
+ */
+export function missingLast<T>(
+    left: T | null,
+    right: T | null,
+    compare: (a: T, b: T) => number,
+): number {
+    if (left === null || right === null) {
+        if (left === right) return 0;
+
+        return left === null ? 1 : -1;
+    }
+
+    return compare(left, right);
+}

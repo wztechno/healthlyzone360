@@ -16,6 +16,7 @@ import {
     usePackagingPageQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
+import { missingLast } from './catalogue-column-spec.ts';
 import { useListPage } from '../use-list-page.ts';
 
 /**
@@ -134,14 +135,6 @@ export interface PackagingListState {
     readonly confirmArchive: (onArchived: (name: string) => void) => void;
     readonly isArchivePending: boolean;
     readonly archiveFailure: ApiFailure | null;
-}
-
-/** `null` sorts to the end in both directions rather than clustering at one. */
-function missingLast<T>(left: T | null, right: T | null, compare: (a: T, b: T) => number): number {
-    if (left === null && right === null) return 0;
-    if (left === null) return 1;
-    if (right === null) return -1;
-    return compare(left, right);
 }
 
 export function usePackagingList(): PackagingListState {

@@ -26,6 +26,7 @@ import {
     useIngredientPageQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
+import { missingLast } from './catalogue-column-spec.ts';
 import { useListPage } from '../use-list-page.ts';
 
 /**
@@ -380,20 +381,4 @@ export function useIngredientList(): IngredientListState {
         isArchivePending: archive.isPending,
         archiveFailure: toFailure(archive.error),
     };
-}
-
-/**
- * Orders two possibly-absent values, always sinking the absent ones.
- *
- * The nulls do **not** flip with the direction. A reader sorting by price wants the cheapest first
- * or the dearest first; in neither case do they want the rows that have no price at all — which is
- * the set the Uncosted card is separately pointing at. Sinking them in both directions keeps the
- * top of the list answering the question that was asked.
- */
-function missingLast<T>(left: T | null, right: T | null, compare: (a: T, b: T) => number): number {
-    if (left === null || right === null) {
-        if (left === right) return 0;
-        return left === null ? 1 : -1;
-    }
-    return compare(left, right);
 }

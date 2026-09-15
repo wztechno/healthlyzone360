@@ -148,7 +148,13 @@ function CookedItemEditor({ product, itemType, routeBase }: CookedItemEditScreen
     const toast = useToast();
     // Both halves again — see the gate above. The recipe is written first, so a member holding
     // only `catalogue.manage` must not be offered a save at all.
-    const canManage = useCan(CATALOGUE_MANAGE_PERMISSION) && useCan(RECIPE_MANAGE_PERMISSION);
+    //
+    // Two statements rather than one `&&`: the short-circuit would skip the second hook on a render
+    // where the first came back false, and a hook that is sometimes called is a hook order that
+    // sometimes changes.
+    const canManageItem = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const canManageRecipe = useCan(RECIPE_MANAGE_PERMISSION);
+    const canManage = canManageItem && canManageRecipe;
 
     const isCreating = product === undefined || product === 'new';
     const parsed = isCreating ? null : ProductId.safeParse(product);

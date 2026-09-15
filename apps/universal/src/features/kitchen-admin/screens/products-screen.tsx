@@ -116,11 +116,8 @@ export interface GoodsFamily {
     readonly itemType: ProductItemType;
     readonly routeBase: '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings';
     readonly gateTestID: string;
-    readonly title: string;
-    readonly subtitle: string;
     readonly create: string;
     readonly caption: string;
-    readonly resultCount: string;
     readonly emptyTitle: string;
     readonly emptyBody: string;
     /** The eyebrow over the View drawer — "Product", "Sauce", "Dressing". */
@@ -132,11 +129,8 @@ export const PRODUCTS_FAMILY: GoodsFamily = {
     itemType: 'product',
     routeBase: '/kitchen/products',
     gateTestID: 'kitchen-products',
-    title: 'kitchen:products.title',
-    subtitle: 'kitchen:products.subtitle',
     create: 'kitchen:products.create',
     caption: 'kitchen:products.caption',
-    resultCount: 'kitchen:products.resultCount',
     emptyTitle: 'kitchen:products.emptyTitle',
     emptyBody: 'kitchen:products.emptyBody',
     viewKind: 'kitchen:products.viewKind',
@@ -147,11 +141,8 @@ export const SAUCES_FAMILY: GoodsFamily = {
     itemType: 'sauce',
     routeBase: '/kitchen/sauces',
     gateTestID: 'kitchen-sauces',
-    title: 'kitchen:sauces.title',
-    subtitle: 'kitchen:sauces.subtitle',
     create: 'kitchen:sauces.create',
     caption: 'kitchen:sauces.caption',
-    resultCount: 'kitchen:sauces.resultCount',
     emptyTitle: 'kitchen:sauces.emptyTitle',
     emptyBody: 'kitchen:sauces.emptyBody',
     viewKind: 'kitchen:sauces.viewKind',
@@ -162,11 +153,8 @@ export const DRESSINGS_FAMILY: GoodsFamily = {
     itemType: 'dressing',
     routeBase: '/kitchen/dressings',
     gateTestID: 'kitchen-dressings',
-    title: 'kitchen:dressings.title',
-    subtitle: 'kitchen:dressings.subtitle',
     create: 'kitchen:dressings.create',
     caption: 'kitchen:dressings.caption',
-    resultCount: 'kitchen:dressings.resultCount',
     emptyTitle: 'kitchen:dressings.emptyTitle',
     emptyBody: 'kitchen:dressings.emptyBody',
     viewKind: 'kitchen:dressings.viewKind',

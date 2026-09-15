@@ -2501,8 +2501,6 @@
         "rowCaption": "One row per calendar date. Leave Remaining empty for unlimited portions."
     },
     "products": {
-        "title": "Resale",
-        "subtitle": "What this kitchen buys in and sells on by the pack, rather than as a dish on a menu.",
         "caption": "Resale items",
         "columnName": "Production item",
         "columnCategory": "Category",
@@ -3257,7 +3255,6 @@
     },
     "sauces": {
         "title": "Sauces & marinations",
-        "subtitle": "Kitchen-made sauces sold as packaged goods — same packs and channels as products.",
         "create": "New sauce",
         "caption": "Sauces and marinations, their packs, channels and status",
         "resultCount_one": "{{count}} sauce",
@@ -3273,7 +3270,6 @@
     },
     "dressings": {
         "title": "Dressings",
-        "subtitle": "Kitchen-made salad dressings sold as packaged goods.",
         "create": "New dressing",
         "caption": "Dressings, their packs, channels and status",
         "resultCount_one": "{{count}} dressing",

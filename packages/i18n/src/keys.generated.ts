@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6835 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6831 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2744,7 +2744,6 @@ export interface NamespaceKeys {
     | 'dressings.emptyTitle'
     | 'dressings.resultCount'
     | 'dressings.searchPlaceholder'
-    | 'dressings.subtitle'
     | 'dressings.title'
     | 'dressings.viewKind'
     | 'driver.assignedAt'
@@ -4549,8 +4548,6 @@ export interface NamespaceKeys {
     | 'products.sectionRecipe'
     | 'products.statNoPack'
     | 'products.statNoPackCaption'
-    | 'products.subtitle'
-    | 'products.title'
     | 'products.unitsPerPackHint'
     | 'products.unitsPerPackInvalid'
     | 'products.unitsPerPackLabel'
@@ -4901,7 +4898,6 @@ export interface NamespaceKeys {
     | 'sauces.kindMarinadePrep'
     | 'sauces.resultCount'
     | 'sauces.searchPlaceholder'
-    | 'sauces.subtitle'
     | 'sauces.title'
     | 'sauces.viewKind'
     | 'status.all'
@@ -9597,7 +9593,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:dressings.emptyTitle',
   'kitchen:dressings.resultCount',
   'kitchen:dressings.searchPlaceholder',
-  'kitchen:dressings.subtitle',
   'kitchen:dressings.title',
   'kitchen:dressings.viewKind',
   'kitchen:driver.assignedAt',
@@ -11402,8 +11397,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.sectionRecipe',
   'kitchen:products.statNoPack',
   'kitchen:products.statNoPackCaption',
-  'kitchen:products.subtitle',
-  'kitchen:products.title',
   'kitchen:products.unitsPerPackHint',
   'kitchen:products.unitsPerPackInvalid',
   'kitchen:products.unitsPerPackLabel',
@@ -11754,7 +11747,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:sauces.kindMarinadePrep',
   'kitchen:sauces.resultCount',
   'kitchen:sauces.searchPlaceholder',
-  'kitchen:sauces.subtitle',
   'kitchen:sauces.title',
   'kitchen:sauces.viewKind',
   'kitchen:status.all',
