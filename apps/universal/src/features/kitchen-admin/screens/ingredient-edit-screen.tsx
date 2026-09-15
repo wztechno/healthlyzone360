@@ -1448,7 +1448,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         testID="kitchen-ingredient-subcategory"
                         id="kitchen-ingredient-subcategory"
                         label={t('kitchen:fields.subcategory')}
-                        hint={t('kitchen:fields.subcategoryHint')}
                         placeholder={t('kitchen:fields.subcategoryPlaceholder')}
                         searchable
                         disabled={!editable || details.categoryCode === ''}
