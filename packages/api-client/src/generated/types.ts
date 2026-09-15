@@ -1308,6 +1308,65 @@ export type TechnicalSheet = {
         recalculated: CostSnapshot | null;
         as_recorded: CostSnapshot | null;
     };
+    /**
+     * This system's arithmetic over the lines **as they stand right now**,
+     * rather than a snapshot of when somebody last asked.
+     *
+     * A snapshot is written at publication and by an explicit request, so
+     * a version that has never been published has neither, and a recipe
+     * typed in by hand had no cost block at all until this was read. Null
+     * only when the formulation carries more than one currency, which is
+     * the one case the live computation refuses outright.
+     *
+     */
+    computed: ComputedCost | null;
+};
+
+/**
+ * The live cost of one version's lines, in two halves that are summed but
+ * never blended.
+ *
+ * The formulation's currency wins where the two disagree and the packaging
+ * half reports itself uncosted rather than being converted: there is no
+ * exchange rate anywhere in this system, and this is not the place to
+ * invent one.
+ *
+ */
+export type ComputedCost = {
+    currency_code: string | null;
+    production: {
+        total_input_cost_amount: string | null;
+        cost_per_yield_unit_amount: string | null;
+        cost_per_yield_unit_with_waste_amount: string | null;
+        cost_per_piece_amount: string | null;
+        cost_per_piece_with_waste_amount: string | null;
+        waste_percent: string;
+        uncosted_line_numbers: Array<number>;
+        is_complete: boolean;
+    };
+    /**
+     * No per-piece figure, deliberately. Packaging is divided by the
+     * recipe's own yield rather than by its container count, and a "cost
+     * per piece of packaging" would be a number with no question behind
+     * it.
+     *
+     */
+    packaging: {
+        total_packaging_cost_amount: string | null;
+        cost_per_yield_unit_amount: string | null;
+        cost_per_yield_unit_with_waste_amount: string | null;
+        waste_percent: string;
+        uncosted_line_numbers: Array<number>;
+        is_complete: boolean;
+    };
+    /**
+     * Production-with-waste plus packaging-with-waste. Null unless both
+     * halves are complete — a total missing one of them reads exactly like
+     * a total that had nothing to add.
+     *
+     */
+    total_cost_per_yield_unit_amount: string | null;
+    yield_unit_id: string | null;
 };
 
 export type CreateRecipeRequest = {

@@ -49,6 +49,7 @@ import type {
     RecipeAdmin,
     RecipeAdminSummary,
     RecipeCostFigures,
+    RecipeComputedCost,
     RecipeAllergenDeclaration,
     RecipeLine,
     RecipeOutput,
@@ -74,6 +75,7 @@ import type {
     AdminRecipe,
     AdminRecipeVersion,
     AdminSalesChannel,
+    ComputedCost as WireComputedCost,
     CostSnapshot as WireCostSnapshot,
     DeliveryWindow as WireDeliveryWindow,
     DeliveryZone,
@@ -998,6 +1000,44 @@ function mapCostAmount(
         : null;
 }
 
+/**
+ * The live cost block, wire → contract.
+ *
+ * `currency_code` is the block's, not each figure's: every amount inside one computation shares it
+ * by construction, because a formulation carrying two currencies is refused rather than blended.
+ */
+function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeComputedCost | null {
+    if (wire === null || wire === undefined) return null;
+
+    const currency = wire.currency_code;
+    const amount = (value: string | null): CostAmount | null => mapCostAmount(value, currency);
+
+    return {
+        currency: isCurrencyCode(currency) ? currency : null,
+        production: {
+            total: amount(wire.production.total_input_cost_amount),
+            costPerYieldUnit: amount(wire.production.cost_per_yield_unit_amount),
+            costPerYieldUnitWithWaste: amount(
+                wire.production.cost_per_yield_unit_with_waste_amount,
+            ),
+            costPerPiece: amount(wire.production.cost_per_piece_amount),
+            costPerPieceWithWaste: amount(wire.production.cost_per_piece_with_waste_amount),
+            wastePercent: Number(wire.production.waste_percent),
+            uncostedLineNumbers: wire.production.uncosted_line_numbers,
+            isComplete: wire.production.is_complete,
+        },
+        packaging: {
+            total: amount(wire.packaging.total_packaging_cost_amount),
+            costPerYieldUnit: amount(wire.packaging.cost_per_yield_unit_amount),
+            costPerYieldUnitWithWaste: amount(wire.packaging.cost_per_yield_unit_with_waste_amount),
+            wastePercent: Number(wire.packaging.waste_percent),
+            uncostedLineNumbers: wire.packaging.uncosted_line_numbers,
+            isComplete: wire.packaging.is_complete,
+        },
+        totalCostPerYieldUnit: amount(wire.total_cost_per_yield_unit_amount),
+    };
+}
+
 function mapCostFigures(wire: WireCostSnapshot | null): RecipeCostFigures | null {
     if (wire === null) return null;
 
@@ -1037,6 +1077,7 @@ export function mapTechnicalSheetAdmin(wire: WireTechnicalSheet): TechnicalSheet
         uncostedLineNumbers: wire.uncosted_line_numbers,
         asRecorded: mapCostFigures(wire.snapshots.as_recorded),
         recalculated: mapCostFigures(wire.snapshots.recalculated),
+        computed: mapComputedCost(wire.computed),
     };
 }
 

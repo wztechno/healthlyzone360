@@ -802,6 +802,40 @@ export const zCostSnapshot = z.object({
     created_at: z.iso.datetime({ offset: true }).nullish()
 });
 
+/**
+ * The live cost of one version's lines, in two halves that are summed but
+ * never blended.
+ *
+ * The formulation's currency wins where the two disagree and the packaging
+ * half reports itself uncosted rather than being converted: there is no
+ * exchange rate anywhere in this system, and this is not the place to
+ * invent one.
+ *
+ */
+export const zComputedCost = z.object({
+    currency_code: z.string().length(3).nullable(),
+    production: z.object({
+        total_input_cost_amount: z.string().nullable(),
+        cost_per_yield_unit_amount: z.string().nullable(),
+        cost_per_yield_unit_with_waste_amount: z.string().nullable(),
+        cost_per_piece_amount: z.string().nullable(),
+        cost_per_piece_with_waste_amount: z.string().nullable(),
+        waste_percent: z.string(),
+        uncosted_line_numbers: z.array(z.int().gte(1)),
+        is_complete: z.boolean()
+    }),
+    packaging: z.object({
+        total_packaging_cost_amount: z.string().nullable(),
+        cost_per_yield_unit_amount: z.string().nullable(),
+        cost_per_yield_unit_with_waste_amount: z.string().nullable(),
+        waste_percent: z.string(),
+        uncosted_line_numbers: z.array(z.int().gte(1)),
+        is_complete: z.boolean()
+    }),
+    total_cost_per_yield_unit_amount: z.string().nullable(),
+    yield_unit_id: z.uuid().nullable()
+});
+
 export const zCreateRecipeRequest = z.object({
     name_en: z.string().max(255),
     name_ar: z.string().max(255).nullish(),
@@ -1460,7 +1494,8 @@ export const zTechnicalSheet = z.object({
     snapshots: z.object({
         recalculated: zCostSnapshot.nullable(),
         as_recorded: zCostSnapshot.nullable()
-    })
+    }),
+    computed: zComputedCost.nullable()
 });
 
 /**

@@ -879,6 +879,39 @@ export interface RecipeCostFigures {
     readonly calculatedAt: IsoDateTime;
 }
 
+/** CONFIDENTIAL — one half of a live cost computation. */
+export interface RecipeCostHalf {
+    readonly total: CostAmount | null;
+    readonly costPerYieldUnit: CostAmount | null;
+    readonly costPerYieldUnitWithWaste: CostAmount | null;
+    readonly wastePercent: number;
+    /** Lines that contributed nothing, in line order. Non-empty means the half is incomplete. */
+    readonly uncostedLineNumbers: readonly number[];
+    readonly isComplete: boolean;
+}
+
+/**
+ * CONFIDENTIAL — this system's arithmetic over a version's lines as they stand.
+ *
+ * Two halves that are summed but never blended: the formulation's currency wins where they
+ * disagree, and packaging reports itself uncosted rather than being converted, because there is no
+ * exchange rate anywhere in this system.
+ *
+ * Packaging carries no per-piece figure, deliberately — it is divided by the recipe's own yield
+ * rather than by its container count, so a "cost per piece of packaging" would be a number with no
+ * question behind it.
+ */
+export interface RecipeComputedCost {
+    readonly currency: CurrencyCode | null;
+    readonly production: RecipeCostHalf & {
+        readonly costPerPiece: CostAmount | null;
+        readonly costPerPieceWithWaste: CostAmount | null;
+    };
+    readonly packaging: RecipeCostHalf;
+    /** Production-with-waste plus packaging-with-waste; null unless both halves are complete. */
+    readonly totalCostPerYieldUnit: CostAmount | null;
+}
+
 /**
  * CONFIDENTIAL — the technical sheet of one recipe version: the costed lines
  * and the latest snapshot per basis. `null` from the repository means the
@@ -893,8 +926,21 @@ export interface TechnicalSheetAdmin {
     readonly uncostedLineNumbers: readonly number[];
     /** The sheet's own figures, verbatim (`as_recorded`). */
     readonly asRecorded: RecipeCostFigures | null;
-    /** This system's arithmetic over the same lines (`recalculated`). */
+    /** This system's arithmetic over the same lines, as at the last snapshot (`recalculated`). */
     readonly recalculated: RecipeCostFigures | null;
+    /**
+     * The same arithmetic over the lines **as they stand now**, and the figure a sheet should lead
+     * with.
+     *
+     * Both fields above are snapshots, and a snapshot is only written at publication or on an
+     * explicit request. A version that has never been published has neither, and `as_recorded` is
+     * written by the v6 importer alone — so a recipe a kitchen typed in by hand had no cost block at
+     * all while the panel read `asRecorded` and nothing else.
+     *
+     * Null only on a formulation carrying more than one currency, which is the one case the live
+     * computation refuses outright rather than blending at a rate this system does not have.
+     */
+    readonly computed: RecipeComputedCost | null;
 }
 
 /**

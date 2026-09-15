@@ -6,6 +6,7 @@ import {
 } from '@healthy360/api-client/contracts';
 import type {
     AdminEntityMeta,
+    CostAmount,
     CursorPage,
     IngredientAdmin,
     IngredientAdminFilter,
@@ -19,6 +20,7 @@ import type {
     RecipeRollupPreview,
     RecipeVersionAdmin,
     RecipeVersionSummary,
+    TechnicalSheetAdmin,
 } from '@healthy360/api-client/contracts';
 import { AllergenCode, IngredientId, KitchenId, RecipeId, RoleId } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
@@ -2518,5 +2520,149 @@ describe('safety', () => {
         await waitFor(() => {
             expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/recipes');
         });
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The technical sheet's cost block
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('the technical sheet', () => {
+    /**
+     * A sheet with no snapshots at all — the state every hand-created recipe is in.
+     *
+     * `as_recorded` is written by the v6 importer and nothing else; `recalculated` is written at
+     * publication. A recipe somebody typed in and has not published yet has neither, which is why
+     * the panel reading `asRecorded` alone showed an empty cost block for all of them.
+     */
+    function liveOnlySheet(version: RecipeVersionAdmin): TechnicalSheetAdmin {
+        const money = (amount: number): CostAmount => ({ amount, currency: 'USD' });
+
+        return {
+            versionId: version.id,
+            currency: 'USD',
+            currencyConflict: false,
+            lines: [],
+            uncostedLineNumbers: [],
+            asRecorded: null,
+            recalculated: null,
+            computed: {
+                currency: 'USD',
+                production: {
+                    total: money(12),
+                    costPerYieldUnit: money(6),
+                    costPerYieldUnitWithWaste: money(6.18),
+                    costPerPiece: money(3),
+                    costPerPieceWithWaste: money(3.09),
+                    wastePercent: 3,
+                    uncostedLineNumbers: [],
+                    isComplete: true,
+                },
+                packaging: {
+                    total: money(2),
+                    costPerYieldUnit: money(1),
+                    costPerYieldUnitWithWaste: money(1.02),
+                    wastePercent: 2,
+                    uncostedLineNumbers: [],
+                    isComplete: true,
+                },
+                totalCostPerYieldUnit: money(7.2),
+            },
+        };
+    }
+
+    it('costs a recipe nobody has published, from the live block rather than a snapshot', async () => {
+        const version = recipeVersion({ recipeOrdinal: 1 });
+        const record = recipe({ ordinal: 1, name: 'Hand-typed dressing', currentVersion: version });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getRecipe: async () => record,
+                    listIngredients: ingredientListing(() => LIBRARY),
+                    getRecipeTechnicalSheet: async () => liveOnlySheet(version),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await openTab('sheet');
+
+        // The regression: this block did not render at all for a recipe with no
+        // snapshots, which is every recipe the v6 import did not create.
+        await untilVisible('kitchen-recipe-technical-sheet-cost');
+        expect(screen.queryByTestId('kitchen-recipe-technical-sheet-cost-absent')).toBeNull();
+    });
+
+    it('draws the packaging half and the all-in total, which no snapshot carries', async () => {
+        const version = recipeVersion({ recipeOrdinal: 1 });
+        const record = recipe({ ordinal: 1, name: 'Bottled sauce', currentVersion: version });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getRecipe: async () => record,
+                    listIngredients: ingredientListing(() => LIBRARY),
+                    getRecipeTechnicalSheet: async () => liveOnlySheet(version),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await openTab('sheet');
+
+        // What the source workbook runs as a second table down the same page:
+        // packaging at its own waste rate, then the two halves together. A
+        // snapshot carries neither, so both are live-block only.
+        await untilVisible('kitchen-recipe-technical-sheet-packaging-per-unit');
+        expect(
+            screen.getByTestId('kitchen-recipe-technical-sheet-packaging-per-unit-waste'),
+        ).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipe-technical-sheet-cost-all-in')).toBeTruthy();
+    });
+
+    it('falls back to the published snapshot when there is no live block to read', async () => {
+        const version = recipeVersion({ recipeOrdinal: 1 });
+        const record = recipe({ ordinal: 1, name: 'Imported sauce', currentVersion: version });
+
+        // A formulation carrying two currencies is the one case the live
+        // computation refuses outright. The frozen figures still stand.
+        const sheet: TechnicalSheetAdmin = {
+            ...liveOnlySheet(version),
+            computed: null,
+            recalculated: {
+                totalInputCost: { amount: 9, currency: 'USD' },
+                costPerYieldUnit: { amount: 4.5, currency: 'USD' },
+                costPerYieldUnitWithWaste: { amount: 4.64, currency: 'USD' },
+                costPerPiece: null,
+                costPerPieceWithWaste: null,
+                wastePercent: 3,
+                basisMismatch: false,
+                calculatedAt: '2026-08-01T09:00:00.000Z',
+            },
+        };
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getRecipe: async () => record,
+                    listIngredients: ingredientListing(() => LIBRARY),
+                    getRecipeTechnicalSheet: async () => sheet,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await openTab('sheet');
+
+        await untilVisible('kitchen-recipe-technical-sheet-cost');
+        // No live block, so no packaging rows to draw — not a dash, absent.
+        expect(
+            screen.queryByTestId('kitchen-recipe-technical-sheet-packaging-per-unit'),
+        ).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-technical-sheet-cost-all-in')).toBeNull();
     });
 });

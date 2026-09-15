@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6831 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6833 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4729,6 +4729,7 @@ export interface NamespaceKeys {
     | 'recipes.sheetColUnitPrice'
     | 'recipes.sheetConfidential'
     | 'recipes.sheetCostAbsent'
+    | 'recipes.sheetCostAllIn'
     | 'recipes.sheetCostHidden'
     | 'recipes.sheetCostPerPiece'
     | 'recipes.sheetCostPerUnit'
@@ -4739,6 +4740,7 @@ export interface NamespaceKeys {
     | 'recipes.sheetKind'
     | 'recipes.sheetKindUnstated'
     | 'recipes.sheetNoLines'
+    | 'recipes.sheetPackagingPerUnit'
     | 'recipes.sheetPrintHint'
     | 'recipes.sheetQuantityProduced'
     | 'recipes.sheetQuantityWithPieces'
@@ -11578,6 +11580,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetColUnitPrice',
   'kitchen:recipes.sheetConfidential',
   'kitchen:recipes.sheetCostAbsent',
+  'kitchen:recipes.sheetCostAllIn',
   'kitchen:recipes.sheetCostHidden',
   'kitchen:recipes.sheetCostPerPiece',
   'kitchen:recipes.sheetCostPerUnit',
@@ -11588,6 +11591,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetKind',
   'kitchen:recipes.sheetKindUnstated',
   'kitchen:recipes.sheetNoLines',
+  'kitchen:recipes.sheetPackagingPerUnit',
   'kitchen:recipes.sheetPrintHint',
   'kitchen:recipes.sheetQuantityProduced',
   'kitchen:recipes.sheetQuantityWithPieces',

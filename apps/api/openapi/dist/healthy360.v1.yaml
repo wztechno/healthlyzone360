@@ -23556,6 +23556,7 @@ components:
         - lines
         - uncosted_line_numbers
         - snapshots
+        - computed
       description: The confidential cost projection of one recipe version.
       properties:
         version:
@@ -23608,6 +23609,135 @@ components:
                 - $ref: '#/components/schemas/CostSnapshot'
                 - type: 'null'
           additionalProperties: false
+        computed:
+          oneOf:
+            - $ref: '#/components/schemas/ComputedCost'
+            - type: 'null'
+          description: |
+            This system's arithmetic over the lines **as they stand right now**,
+            rather than a snapshot of when somebody last asked.
+
+            A snapshot is written at publication and by an explicit request, so
+            a version that has never been published has neither, and a recipe
+            typed in by hand had no cost block at all until this was read. Null
+            only when the formulation carries more than one currency, which is
+            the one case the live computation refuses outright.
+      additionalProperties: false
+    ComputedCost:
+      type: object
+      required:
+        - currency_code
+        - production
+        - packaging
+        - total_cost_per_yield_unit_amount
+        - yield_unit_id
+      description: |
+        The live cost of one version's lines, in two halves that are summed but
+        never blended.
+
+        The formulation's currency wins where the two disagree and the packaging
+        half reports itself uncosted rather than being converted: there is no
+        exchange rate anywhere in this system, and this is not the place to
+        invent one.
+      properties:
+        currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+        production:
+          type: object
+          required:
+            - total_input_cost_amount
+            - cost_per_yield_unit_amount
+            - cost_per_yield_unit_with_waste_amount
+            - cost_per_piece_amount
+            - cost_per_piece_with_waste_amount
+            - waste_percent
+            - uncosted_line_numbers
+            - is_complete
+          properties:
+            total_input_cost_amount:
+              type:
+                - string
+                - 'null'
+            cost_per_yield_unit_amount:
+              type:
+                - string
+                - 'null'
+            cost_per_yield_unit_with_waste_amount:
+              type:
+                - string
+                - 'null'
+            cost_per_piece_amount:
+              type:
+                - string
+                - 'null'
+            cost_per_piece_with_waste_amount:
+              type:
+                - string
+                - 'null'
+            waste_percent:
+              type: string
+            uncosted_line_numbers:
+              type: array
+              items:
+                type: integer
+                minimum: 1
+            is_complete:
+              type: boolean
+          additionalProperties: false
+        packaging:
+          type: object
+          required:
+            - total_packaging_cost_amount
+            - cost_per_yield_unit_amount
+            - cost_per_yield_unit_with_waste_amount
+            - waste_percent
+            - uncosted_line_numbers
+            - is_complete
+          description: |
+            No per-piece figure, deliberately. Packaging is divided by the
+            recipe's own yield rather than by its container count, and a "cost
+            per piece of packaging" would be a number with no question behind
+            it.
+          properties:
+            total_packaging_cost_amount:
+              type:
+                - string
+                - 'null'
+            cost_per_yield_unit_amount:
+              type:
+                - string
+                - 'null'
+            cost_per_yield_unit_with_waste_amount:
+              type:
+                - string
+                - 'null'
+            waste_percent:
+              type: string
+            uncosted_line_numbers:
+              type: array
+              items:
+                type: integer
+                minimum: 1
+            is_complete:
+              type: boolean
+          additionalProperties: false
+        total_cost_per_yield_unit_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            Production-with-waste plus packaging-with-waste. Null unless both
+            halves are complete — a total missing one of them reads exactly like
+            a total that had nothing to add.
+        yield_unit_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
       additionalProperties: false
     CreateRecipeRequest:
       type: object
