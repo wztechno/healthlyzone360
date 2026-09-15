@@ -185,7 +185,16 @@ const UNIT_DIMENSION: Readonly<Record<MeasureUnit, UnitDimension>> = {
     bag: 'package',
     can: 'package',
     bottle: 'package',
-    gallon: 'package',
+    /*
+     * Volume, matching the server.
+     *
+     * `measurement_units` has gallon at `dimension: volume` with a real `base_ratio` (3785.411784
+     * millilitres), so it converts to and from litres exactly. Filed here under `package` it read
+     * as a container — which meant this client would never offer to convert a gallon while the
+     * server happily would, and the two disagreed about whether a mustard bought by the gallon and
+     * measured by the litre could be costed at all.
+     */
+    gallon: 'volume',
 };
 
 export function unitDimension(unit: MeasureUnit): UnitDimension {

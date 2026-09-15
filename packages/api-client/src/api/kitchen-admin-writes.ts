@@ -207,6 +207,32 @@ class MeasurementUnitLookup {
 
         return this.#codeToId.get(unit) ?? null;
     }
+
+    /**
+     * The same lookup, for a caller that cannot carry on without an answer.
+     *
+     * Every write that resolves a unit does `if (unitId !== null) body.x = unitId` — so a code with
+     * no `measurement_units` row was silently omitted from the request, the save succeeded, and the
+     * field came back unchanged. Picking "Slices" in the ingredient editor did exactly that:
+     * reported success, saved nothing.
+     *
+     * Dropping a field the user chose is worse than failing, because only one of the two is
+     * visible. The pickers no longer offer a code this cannot resolve; this is what makes the next
+     * one that slips through say so.
+     */
+    async require(transport: Transport, unit: MeasureUnit): Promise<string> {
+        const id = await this.resolve(transport, unit);
+
+        if (id === null) {
+            throw new Error(
+                `No measurement unit is registered for the code "${unit}", so a write naming it ` +
+                    'would silently drop the field. This is a client/reference-data mismatch ' +
+                    'rather than anything a user did.',
+            );
+        }
+
+        return id;
+    }
 }
 
 function wireAllergenVerification(
@@ -577,7 +603,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 request.subcategoryCode === undefined
                     ? undefined
                     : lookup.codeToId.get(request.subcategoryCode);
-            const unitId = await units.resolve(transport, request.measurementUnit);
+            // `require`, not `resolve`: a stock unit is the one field on this form that decides
+            // whether every recipe line naming the row can be weighed, and dropping it quietly is
+            // how a row ends up in a unit nobody chose.
+            const unitId = await units.require(transport, request.measurementUnit);
 
             const envelope = await transport.requestEnvelope<{
                 readonly ingredient: AdminIngredient;
@@ -591,7 +620,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(subcategoryId === undefined
                         ? {}
                         : { ingredient_subcategory_id: subcategoryId }),
-                    ...(unitId === null ? {} : { default_unit_id: unitId }),
+                    default_unit_id: unitId,
                     // `items_per_unit` was on the contract and never sent — a gap, not a decision:
                     // a create that stated the pack size silently dropped it and the first save
                     // after had to state it again.
@@ -660,8 +689,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 }
             }
             if (request.measurementUnit !== undefined) {
-                const unitId = await units.resolve(transport, request.measurementUnit);
-                if (unitId !== null) body.default_unit_id = unitId;
+                body.default_unit_id = await units.require(transport, request.measurementUnit);
             }
             if (request.purchaseUnit !== undefined) {
                 if (request.purchaseUnit === null) {

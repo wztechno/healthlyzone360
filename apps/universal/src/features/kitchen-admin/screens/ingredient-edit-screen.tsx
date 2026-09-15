@@ -539,6 +539,15 @@ export interface IngredientEditFamily {
     readonly food: boolean;
 }
 
+/**
+ * What a raw material may be stocked in.
+ *
+ * Two, and the list is the whole rule: `RecipeNutritionService` weighs a mass line directly and
+ * bridges a volume one through `grams_per_unit`, and there is no third branch. Anything else makes
+ * a line that cannot be weighed, which withholds the label of every recipe that names it.
+ */
+const STOCK_UNITS: readonly MeasureUnit[] = ['kg', 'l'];
+
 export const INGREDIENT_FAMILY: IngredientEditFamily = {
     series: 'ING-',
     listRoute: '/kitchen/ingredients',
@@ -715,17 +724,39 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * choice the schema constraint exists to prevent. `Select` has no option-group API, so the
      * dimension travels in the option description and the list is ordered by it, which reads the
      * same way and needs no new design-system component.
+     *
+     * ## Food stocks in kilograms or litres, and the picker says so
+     *
+     * The owner's unit table: nutrition is only ever held per 100 g, so a raw material has to be
+     * weighable, and a count has no mass without a per-piece figure nobody records. Offering
+     * `piece` here is offering the state the library was just normalised out of — and it would
+     * come back one ingredient at a time, which is how it arrived in the first place.
+     *
+     * Packaging keeps the full list. A cap is counted, a roll of film is a roll, and none of it
+     * carries nutrition for a gram to matter to.
+     *
+     * `slice` and `portion` are gone from both. They have no `measurement_units` row, so
+     * `MeasurementUnitLookup` could not resolve either and the write layer dropped the field
+     * without a word — picking "Slices" saved nothing and reported success. They stay in
+     * `MEASURE_UNITS` because they are the *serving* vocabulary the marketplace uses; they were
+     * never stock units.
      */
     const unitOptions: readonly SelectOption[] = useMemo(
         () =>
             UNIT_DIMENSIONS.flatMap((dimension) =>
-                MEASURE_UNITS.filter((unit) => unitDimension(unit) === dimension).map((unit) => ({
+                MEASURE_UNITS.filter(
+                    (unit) =>
+                        unitDimension(unit) === dimension &&
+                        (family.food
+                            ? STOCK_UNITS.includes(unit)
+                            : unit !== 'slice' && unit !== 'portion'),
+                ).map((unit) => ({
                     value: unit,
                     label: t(unitKey(unit)),
                     description: t(unitDimensionKey(dimension)),
                 })),
             ),
-        [t],
+        [t, family.food],
     );
 
     /**
