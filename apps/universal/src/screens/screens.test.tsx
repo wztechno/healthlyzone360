@@ -1,4 +1,5 @@
 import { ApiError, apiFailure, rateLimitFailure, validationFailure } from '@healthy360/api-client';
+import { otpInvalidFailure } from '@healthy360/api-client/contracts';
 import type { LoginResult, MeResponse, PendingConsent } from '@healthy360/api-client';
 import type {
     ActiveContext,
@@ -635,7 +636,7 @@ describe('VerifyEmailScreen', () => {
             repositories: {
                 verification: {
                     verifyEmailPasscode: () =>
-                        Promise.reject(new ApiError(apiFailure('otp.invalid'))),
+                        Promise.reject(new ApiError(otpInvalidFailure(2))),
                 },
             },
         });

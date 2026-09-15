@@ -2006,7 +2006,6 @@
         "composition": "Composition (made from)",
         "compositionHint": "The source sheet's own wording — a coarse ingredient list, not a formulation.",
         "subcategory": "Sub-category",
-        "subcategoryHint": "Options follow the selected category.",
         "subcategoryPlaceholder": "Choose a sub-category",
         "subcategoryNone": "Filed at the top level",
         "unitPrice": "Unit price",
