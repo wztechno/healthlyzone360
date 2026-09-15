@@ -13,9 +13,11 @@ use Healthy360\Inventory\Services\MealExplosion;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
+use Healthy360\Recipes\Enums\PackagingBasis;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
+use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Tenancy\TenantContext;
@@ -54,6 +56,7 @@ beforeEach(function (): void {
     $this->kg = MeasurementUnit::query()->where('code', 'kg')->sole();
     $this->g = MeasurementUnit::query()->where('code', 'g')->sole();
     $this->litre = MeasurementUnit::query()->where('code', 'l')->sole();
+    $this->piece = MeasurementUnit::query()->where('code', 'piece')->sole();
 
     $this->explosion = app(MealExplosion::class);
 });
@@ -256,4 +259,167 @@ it('surfaces the reason instead of a quantity when a recipe unit will not conver
         ->and($result->failures)->toHaveCount(1)
         ->and($result->failures[0]['reason_code'])->toBe('unit_conversion_unsupported')
         ->and($result->failures[0]['catalogue_item_id'])->toBe((string) $meal->getKey());
+});
+
+/*
+|--------------------------------------------------------------------------
+| Packaging
+|--------------------------------------------------------------------------
+|
+| A box is an ingredient filed under `packaging-disposables`, so it already has
+| a shelf and that shelf is already in the row's own unit. What was missing was
+| anybody taking anything off it: nothing in this module read
+| `recipe_version_packaging` at all, so a kitchen could sell four hundred
+| bottles of sauce and its bottle count never moved.
+|
+*/
+
+/**
+ * Attaches packaging lines to the meal's published version.
+ *
+ * `quantity` is per *batch* and already carries its `ceil` — `preparePackaging()` computed six
+ * bottles for a 1.7 kg yield before the row was stored — so these fixtures state batch figures,
+ * exactly as the table does.
+ *
+ * @param  list<array{0: Ingredient, 1: string, 2: MeasurementUnit}>  $lines
+ */
+function packagedWith(object $test, CatalogueItem $meal, string $packagingWastePercent, array $lines): void
+{
+    $version = RecipeVersion::withoutTenancy()
+        ->where('recipe_id', (string) $meal->recipe_id)
+        ->sole();
+
+    $version->packaging_waste_percent = $packagingWastePercent;
+    $version->saveQuietly();
+
+    $lineNumber = 1;
+    foreach ($lines as [$item, $quantity, $unit]) {
+        RecipeVersionPackaging::factory()->create([
+            'recipe_version_id' => $version->getKey(),
+            'organisation_id' => $test->organisationId,
+            'line_number' => $lineNumber++,
+            'ingredient_id' => (string) $item->getKey(),
+            'basis' => PackagingBasis::FillsYield,
+            'quantity' => $quantity,
+            'unit_id' => (string) $unit->getKey(),
+        ]);
+    }
+}
+
+it('takes the packaging off the shelf alongside the formulation', function (): void {
+    [$flour, $flourShelves] = explodableShelves($this, $this->kg, ['sku-flour']);
+    [$box, $boxShelves] = explodableShelves($this, $this->piece, ['sku-box']);
+
+    $meal = explodableMeal($this, yieldPieceCount: 12, wastePercent: '0.00', lines: [
+        [$flour, '6', $this->kg],
+    ]);
+
+    // Twelve boxes for a batch of twelve portions — what `fills_yield` computes
+    // when one box holds one portion.
+    packagedWith($this, $meal, '0.00', [[$box, '12', $this->piece]]);
+
+    $result = $this->explosion->explode($this->organisationId, $meal, '2', (string) $this->branch->getKey());
+
+    $byShelf = collect($result->rows)->keyBy('stock_item_id');
+
+    expect($result->failures)->toBe([])
+        ->and($result->rows)->toHaveCount(2)
+        // 6 kg over 12 pieces, times 2 ordered.
+        ->and($byShelf->get((string) $flourShelves[0]->getKey())['quantity'])->toBe('1.000000')
+        // 12 boxes over 12 pieces, times 2 ordered. One box per portion, which
+        // is the figure a person would reach for without any arithmetic at all.
+        ->and($byShelf->get((string) $boxShelves[0]->getKey())['quantity'])->toBe('2.000000');
+});
+
+it('deducts a fraction of a container when a batch fills fewer than it yields', function (): void {
+    [$sauce] = explodableShelves($this, $this->kg, ['sku-sauce']);
+    [$bottle, $bottleShelves] = explodableShelves($this, $this->piece, ['sku-bottle']);
+
+    $meal = explodableMeal($this, yieldPieceCount: 12, wastePercent: '0.00', lines: [
+        [$sauce, '1.8', $this->kg],
+    ]);
+
+    packagedWith($this, $meal, '0.00', [[$bottle, '6', $this->piece]]);
+
+    /*
+     * Six bottles across twelve portions is half a bottle a portion, and that is
+     * the honest figure rather than a rounding artefact: `stock_levels.quantity`
+     * is decimal(14,4), selling the whole batch sums to exactly six, and
+     * rounding each sale up to a whole bottle would consume twelve.
+     */
+    $one = $this->explosion->explode($this->organisationId, $meal, '1', (string) $this->branch->getKey());
+    $whole = $this->explosion->explode($this->organisationId, $meal, '12', (string) $this->branch->getKey());
+
+    $bottleOf = fn (object $result): string => collect($result->rows)
+        ->firstWhere('stock_item_id', (string) $bottleShelves[0]->getKey())['quantity'];
+
+    expect($bottleOf($one))->toBe('0.500000')
+        ->and($bottleOf($whole))->toBe('6.000000');
+});
+
+it('applies the packaging waste coefficient, not the production one', function (): void {
+    [$flour, $flourShelves] = explodableShelves($this, $this->kg, ['sku-flour']);
+    [$label, $labelShelves] = explodableShelves($this, $this->piece, ['sku-label']);
+
+    // Ten per cent process loss, two per cent mis-fed labels. Two columns
+    // because they measure different things: sauce left in the pot is not split
+    // film, and reusing one coefficient for both would make correcting either
+    // silently rewrite the other.
+    $meal = explodableMeal($this, yieldPieceCount: 10, wastePercent: '10.00', lines: [
+        [$flour, '10', $this->kg],
+    ]);
+
+    packagedWith($this, $meal, '2.00', [[$label, '10', $this->piece]]);
+
+    $result = $this->explosion->explode($this->organisationId, $meal, '1', (string) $this->branch->getKey());
+
+    $byShelf = collect($result->rows)->keyBy('stock_item_id');
+
+    // 10 over 10, times 1.10.
+    expect($byShelf->get((string) $flourShelves[0]->getKey())['quantity'])->toBe('1.100000')
+        // 10 over 10, times 1.02 — the label's own rate, not the flour's.
+        ->and($byShelf->get((string) $labelShelves[0]->getKey())['quantity'])->toBe('1.020000');
+});
+
+it('explodes exactly as it did before when a version packages nothing', function (): void {
+    // The guard on every existing figure in OrderConsumptionTest and
+    // RequirementForecastTest: a version with no packaging rows must produce the
+    // rows it always produced.
+    [$flour, $shelves] = explodableShelves($this, $this->kg, ['sku-flour']);
+
+    $meal = explodableMeal($this, yieldPieceCount: 4, wastePercent: '3.00', lines: [
+        [$flour, '2', $this->kg],
+    ]);
+
+    $result = $this->explosion->explode($this->organisationId, $meal, '1', (string) $this->branch->getKey());
+
+    expect($result->failures)->toBe([])
+        ->and($result->rows)->toHaveCount(1)
+        ->and($result->rows[0]['stock_item_id'])->toBe((string) $shelves[0]->getKey())
+        ->and($result->rows[0]['quantity'])->toBe('0.515000');
+});
+
+it('records a refusal for packaging with no shelf, without abandoning the formulation', function (): void {
+    [$flour, $shelves] = explodableShelves($this, $this->kg, ['sku-flour']);
+
+    // A packaging ingredient whose derived shelf has been removed — the state a
+    // kitchen reaches by archiving a stock item a live version still names.
+    [$box] = explodableShelves($this, $this->piece, []);
+
+    $meal = explodableMeal($this, yieldPieceCount: 2, wastePercent: '0.00', lines: [
+        [$flour, '2', $this->kg],
+    ]);
+
+    packagedWith($this, $meal, '0.00', [[$box, '2', $this->piece]]);
+
+    $result = $this->explosion->explode($this->organisationId, $meal, '1', (string) $this->branch->getKey());
+
+    // Rows and failures are disjoint per ingredient by construction, so the
+    // flour still deducts. A missing box is not a reason to stop taking the
+    // flour off the shelf — and `no_stock_item` is blocking, so the order still
+    // carries an exception a manager can see and retry.
+    expect($result->rows)->toHaveCount(1)
+        ->and($result->rows[0]['stock_item_id'])->toBe((string) $shelves[0]->getKey())
+        ->and($result->failures)->toHaveCount(1)
+        ->and($result->failures[0]['reason_code'])->toBe('no_stock_item');
 });
