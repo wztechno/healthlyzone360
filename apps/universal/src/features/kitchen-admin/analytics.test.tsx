@@ -40,21 +40,21 @@ describe('kitchen analytics', () => {
             expect(screen.getByTestId('kitchen-analytics-panel')).toBeTruthy();
         });
 
-        expect(screen.getByTestId('kitchen-analytics-kpi-produced')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-analytics-line')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-analytics-bar')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-analytics-donut')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-analytics-kpis-produced')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-analytics-trend')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-analytics-channels')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-analytics-mix')).toBeTruthy();
         expect(screen.getByTestId('kitchen-analytics-table')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-analytics-theme-toggle')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-analytics-theme-toggle')).toBeNull();
 
-        const producedBefore = screen.getByTestId('kitchen-analytics-kpi-produced-value').props
+        const producedBefore = screen.getByTestId('kitchen-analytics-kpis-produced-value').props
             .children;
 
         fireEvent.press(screen.getByTestId('kitchen-analytics-range-7d'));
 
         await waitFor(() => {
             expect(
-                screen.getByTestId('kitchen-analytics-kpi-produced-value').props.children,
+                screen.getByTestId('kitchen-analytics-kpis-produced-value').props.children,
             ).not.toEqual(producedBefore);
         });
     });

@@ -21,7 +21,23 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { KDS_LATE_MINUTES, KDS_WARNING_MINUTES } from '../kds/kds-board.ts';
 import { minutesPastDue, orderDeskDeliveryState, orderDeskDueTone } from './ops-format.ts';
 import { OrderDeskScreen } from './screens/order-desk-screen.tsx';
+import { Dimensions } from 'react-native';
 
+/**
+ * These screens draw their tables through `CatalogueList`, which only lays out columns at `md` and
+ * above; React Native's Jest window is 750px. Desk width for the whole file, restored afterwards.
+ */
+const narrowWindow = Dimensions.get('window');
+const narrowScreen = Dimensions.get('screen');
+beforeAll(() => {
+    Dimensions.set({
+        window: { ...narrowWindow, width: 1440, height: 900 },
+        screen: { ...narrowScreen, width: 1440, height: 900 },
+    });
+});
+afterAll(() => {
+    Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+});
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -584,7 +600,7 @@ describe('order desk queue — the delivery column', () => {
         expect(orderDeskDeliveryState(at(4))).toBe('assigned');
     });
 
-    it('renders an em dash for an order nothing is driven for, and no tracking line', async () => {
+    it('carries no delivery column — the run is read in the drawer', async () => {
         await renderDesk(async () => queue(deliveryStateQueue()));
 
         await waitFor(
@@ -594,58 +610,10 @@ describe('order desk queue — the delivery column', () => {
             { timeout: 5000 },
         );
 
-        expect(screen.getByTestId(rowTestId(1, 'delivery'))).toHaveTextContent('—');
-        // No badge and no tracking line: there is no run to have either.
-        expect(screen.queryByTestId(rowTestId(1, 'delivery-state'))).toBeNull();
-        expect(screen.queryByTestId(rowTestId(1, 'delivery-tracking'))).toBeNull();
-    });
-
-    it('names the two job-less states apart, and neither one carries a tracking line', async () => {
-        await renderDesk(async () => queue(deliveryStateQueue()));
-
-        await waitFor(
-            () => {
-                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
-            },
-            { timeout: 5000 },
-        );
-
-        const awaiting = screen.getByTestId(rowTestId(2, 'delivery-state'));
-        const noRun = screen.getByTestId(rowTestId(3, 'delivery-state'));
-        // Different words for different facts — the assertion is that they are not one cell.
-        expect(awaiting).toHaveTextContent('On confirmation');
-        expect(noRun).toHaveTextContent('No run recorded');
-
-        expect(screen.queryByTestId(rowTestId(2, 'delivery-tracking'))).toBeNull();
-        expect(screen.queryByTestId(rowTestId(3, 'delivery-tracking'))).toBeNull();
-    });
-
-    it('shows a run nobody has taken loudly, and one with a driver quietly, both with tracking', async () => {
-        await renderDesk(async () => queue(deliveryStateQueue()));
-
-        await waitFor(
-            () => {
-                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
-            },
-            { timeout: 5000 },
-        );
-
-        // `Badge` pairs every non-neutral tone with its own glyph, so "needs a driver" survives
-        // greyscale. The glyph is `aria-hidden`, hence `includeHiddenElements` on the assertion.
-        const hidden = { includeHiddenElements: true } as const;
-        // Matched loosely: a warning `Badge` renders its glyph inside the same node as its label.
-        expect(screen.getByTestId(rowTestId(4, 'delivery-state'))).toHaveTextContent(
-            /Needs a driver/,
-        );
-        expect(screen.getByTestId(`${rowTestId(4, 'delivery-state')}-icon`, hidden)).toBeTruthy();
-
-        expect(screen.getByTestId(rowTestId(5, 'delivery-state'))).toHaveTextContent(
-            /With a driver/,
-        );
-
-        // The cell is the label alone. The tracking axis lives in the drawer, beside Fulfil.
-        expect(screen.queryByTestId(rowTestId(4, 'delivery-tracking'))).toBeNull();
-        expect(screen.queryByTestId(rowTestId(5, 'delivery-tracking'))).toBeNull();
+        for (const ordinal of [1, 2, 3, 4, 5]) {
+            expect(screen.queryByTestId(rowTestId(ordinal, 'delivery'))).toBeNull();
+            expect(screen.queryByTestId(rowTestId(ordinal, 'delivery-state'))).toBeNull();
+        }
     });
 
     /**
@@ -709,19 +677,15 @@ describe('order desk queue — the payment cell', () => {
             'WISH transfer',
         );
 
-        // Nothing received: the whole total is outstanding.
-        expect(screen.getByTestId(rowTestId(1, 'payment-outstanding'))).toHaveTextContent(
-            'AED 160.00 outstanding',
+        expect(screen.getByTestId(rowTestId(3, 'payment-method'))).toHaveTextContent(
+            'Cash at the counter',
         );
-        // Part paid: the balance, not the total and not the receipt.
-        expect(screen.getByTestId(rowTestId(2, 'payment-outstanding'))).toHaveTextContent(
-            'AED 60.00 outstanding',
-        );
-        expect(screen.queryByTestId(rowTestId(2, 'payment-state'))).toBeNull();
 
-        // Settled says so as a badge, and carries no outstanding line beside it.
-        expect(screen.getByTestId(rowTestId(3, 'payment-state'))).toHaveTextContent(/Settled/);
-        expect(screen.queryByTestId(rowTestId(3, 'payment-outstanding'))).toBeNull();
+        // The cell is the method alone: no outstanding figure and no settled state beside it.
+        for (const ordinal of [1, 2, 3]) {
+            expect(screen.queryByTestId(rowTestId(ordinal, 'payment-outstanding'))).toBeNull();
+            expect(screen.queryByTestId(rowTestId(ordinal, 'payment-state'))).toBeNull();
+        }
     });
 });
 

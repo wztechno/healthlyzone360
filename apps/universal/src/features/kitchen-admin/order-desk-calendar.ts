@@ -127,6 +127,18 @@ export interface CalendarSlotDescriptor {
  * An empty result is a real answer — a week with nothing on any book — and the screen renders the
  * day columns without slot rows rather than inventing a row to put dashes in.
  */
+/** Slot codes in the order a day runs, not the alphabet's. */
+const DAY_ORDER: readonly string[] = [
+    'morning',
+    'breakfast',
+    'midday',
+    'lunch',
+    'afternoon',
+    'snack',
+    'evening',
+    'dinner',
+];
+
 export function calendarSlots(
     days: readonly OrderDeskCalendarDay[],
 ): readonly CalendarSlotDescriptor[] {
@@ -140,11 +152,18 @@ export function calendarSlots(
         }
     }
 
-    // Code-unit order, which is what the server's own alphabetical sort produces for the ASCII
-    // codes a slot vocabulary uses — and a slot named `12` stays the string `12` rather than
-    // becoming a number that would sort before `2`.
+    // Snack always has its row once the week is answered, so the kitchen sees the sitting even on
+    // a week nobody booked one — its squares then read a true `0`. `afternoon` already is Snack.
+    if ((named.size > 0 || unslotted) && !named.has('afternoon')) named.add('snack');
+
+    // The day's own order — morning, midday, evening — then any other code in code-unit order,
+    // so a slot named `12` stays the string `12` rather than a number sorting before `2`.
+    const rank = (code: string): number => {
+        const index = DAY_ORDER.indexOf(code);
+        return index === -1 ? DAY_ORDER.length : index;
+    };
     const rows: CalendarSlotDescriptor[] = [...named]
-        .sort()
+        .sort((a, b) => rank(a) - rank(b) || (a < b ? -1 : a > b ? 1 : 0))
         .map((code) => ({ key: `slot-${code}`, code }));
 
     if (unslotted) rows.push({ key: UNSLOTTED_SLOT_KEY, code: null });

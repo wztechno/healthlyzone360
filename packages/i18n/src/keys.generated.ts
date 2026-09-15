@@ -1784,6 +1784,8 @@ export interface NamespaceKeys {
     | 'dateField.day'
     | 'dateField.month'
     | 'dateField.year'
+    | 'datePicker.nextMonth'
+    | 'datePicker.previousMonth'
     | 'emptyState.prototypeBadge'
     | 'emptyState.prototypeBody'
     | 'fileUpload.choose'
@@ -2208,8 +2210,10 @@ export interface NamespaceKeys {
     | 'analytics.charts.channels.staff'
     | 'analytics.charts.channels.subscription'
     | 'analytics.charts.productionTrend'
+    | 'analytics.charts.productionTrendUnit'
     | 'analytics.charts.statusCenter'
     | 'analytics.charts.statusMix'
+    | 'analytics.charts.trendBarTitle'
     | 'analytics.filters.dateRange'
     | 'analytics.filters.segment'
     | 'analytics.kpi.onTime'
@@ -2236,6 +2240,7 @@ export interface NamespaceKeys {
     | 'analytics.table.completion'
     | 'analytics.table.empty'
     | 'analytics.table.name'
+    | 'analytics.table.sampleNote'
     | 'analytics.table.search'
     | 'analytics.table.searchPlaceholder'
     | 'analytics.table.segment'
@@ -2251,6 +2256,12 @@ export interface NamespaceKeys {
     | 'analytics.trend.down'
     | 'analytics.trend.flat'
     | 'analytics.trend.up'
+    | 'analytics.units.count'
+    | 'analytics.units.minutes'
+    | 'analytics.units.percent'
+    | 'analytics.window.fieldAvgMinutes'
+    | 'analytics.window.kind'
+    | 'analytics.window.note'
     | 'areas.groupLabel'
     | 'areas.inactive'
     | 'areas.matchCount'
@@ -2356,6 +2367,7 @@ export interface NamespaceKeys {
     | 'calendar.basis.projected'
     | 'calendar.basis.scheduled'
     | 'calendar.dayCount'
+    | 'calendar.dayTotal'
     | 'calendar.emptyBody'
     | 'calendar.emptyTitle'
     | 'calendar.gridLabel'
@@ -2366,6 +2378,10 @@ export interface NamespaceKeys {
     | 'calendar.noteZero'
     | 'calendar.previousWeek'
     | 'calendar.range'
+    | 'calendar.slot.breakfast'
+    | 'calendar.slot.dinner'
+    | 'calendar.slot.lunch'
+    | 'calendar.slot.snack'
     | 'calendar.subtitle'
     | 'calendar.thisWeek'
     | 'calendar.title'
@@ -3208,6 +3224,12 @@ export interface NamespaceKeys {
     | 'ops.cashReport.dateLabel'
     | 'ops.cashReport.emptyBody'
     | 'ops.cashReport.emptyTitle'
+    | 'ops.cashReport.kpiCurrencies'
+    | 'ops.cashReport.kpiCurrenciesCaption'
+    | 'ops.cashReport.kpiReceipts'
+    | 'ops.cashReport.kpiReceiptsCaption'
+    | 'ops.cashReport.kpiRows'
+    | 'ops.cashReport.kpiRowsCaption'
     | 'ops.cashReport.loadErrorTitle'
     | 'ops.cashReport.measuredOn'
     | 'ops.cashReport.scopeBody'
@@ -3221,8 +3243,11 @@ export interface NamespaceKeys {
     | 'ops.costReport.caption'
     | 'ops.costReport.chartCogs'
     | 'ops.costReport.chartCogsMix'
+    | 'ops.costReport.chartRevenueCogs'
     | 'ops.costReport.chartRevenueMix'
+    | 'ops.costReport.chartRevenueMixTitle'
     | 'ops.costReport.chartRevenueTrend'
+    | 'ops.costReport.chip'
     | 'ops.costReport.cogsMixCenter'
     | 'ops.costReport.columnCogs'
     | 'ops.costReport.columnMargin'
@@ -3246,6 +3271,8 @@ export interface NamespaceKeys {
     | 'ops.costReport.mixMeal'
     | 'ops.costReport.mixOther'
     | 'ops.costReport.mixProduct'
+    | 'ops.costReport.monthInvalid'
+    | 'ops.costReport.openExceptions'
     | 'ops.costReport.spendIncomplete'
     | 'ops.costReport.spendIncompleteBody'
     | 'ops.costReport.spendIncompleteTitle'
@@ -3255,6 +3282,11 @@ export interface NamespaceKeys {
     | 'ops.costReport.tileRevenue'
     | 'ops.costReport.tileSpend'
     | 'ops.costReport.title'
+    | 'ops.costReport.window.currencyValue'
+    | 'ops.costReport.window.flaggedNote'
+    | 'ops.costReport.window.kind'
+    | 'ops.costReport.window.openLedger'
+    | 'ops.exceptions.chip'
     | 'ops.exceptions.clearBadge'
     | 'ops.exceptions.columnBranch'
     | 'ops.exceptions.columnOrder'
@@ -3268,6 +3300,7 @@ export interface NamespaceKeys {
     | 'ops.exceptions.filterResolved'
     | 'ops.exceptions.filterStatus'
     | 'ops.exceptions.filterUnresolved'
+    | 'ops.exceptions.fromInvalid'
     | 'ops.exceptions.nextPage'
     | 'ops.exceptions.openBadge'
     | 'ops.exceptions.reasons.insufficient_stock'
@@ -3282,13 +3315,31 @@ export interface NamespaceKeys {
     | 'ops.exceptions.reasons.unit_conversion_unsupported'
     | 'ops.exceptions.reasons.unquantified_recipe_line'
     | 'ops.exceptions.resolve'
+    | 'ops.exceptions.resolveBody'
+    | 'ops.exceptions.resolveConfirm'
+    | 'ops.exceptions.resolveTitle'
     | 'ops.exceptions.resolvedBadge'
+    | 'ops.exceptions.resolvedToast'
     | 'ops.exceptions.retry'
+    | 'ops.exceptions.showingCount'
+    | 'ops.exceptions.statResolvedCaption'
+    | 'ops.exceptions.statShownCaption'
+    | 'ops.exceptions.statUnit'
+    | 'ops.exceptions.statUnresolvedCaption'
     | 'ops.exceptions.subtitle'
     | 'ops.exceptions.title'
     | 'ops.exceptions.unknownItem'
     | 'ops.exceptions.unknownOrder'
     | 'ops.exceptions.unresolvedCount'
+    | 'ops.exceptions.window.fieldDetail'
+    | 'ops.exceptions.window.fieldItem'
+    | 'ops.exceptions.window.fieldMoney'
+    | 'ops.exceptions.window.fieldResolutionNote'
+    | 'ops.exceptions.window.kind'
+    | 'ops.exceptions.window.moneyValue'
+    | 'ops.exceptions.window.openNote'
+    | 'ops.exceptions.window.retry'
+    | 'ops.exceptions.window.title'
     | 'ops.ledger.allItems'
     | 'ops.ledger.allSuppliers'
     | 'ops.ledger.chargeDelivery'
@@ -3645,6 +3696,12 @@ export interface NamespaceKeys {
     | 'ops.requirements.filterFrom'
     | 'ops.requirements.filterTo'
     | 'ops.requirements.footnote'
+    | 'ops.requirements.kpiIngredients'
+    | 'ops.requirements.kpiIngredientsCaption'
+    | 'ops.requirements.kpiNotComputable'
+    | 'ops.requirements.kpiNotComputableNone'
+    | 'ops.requirements.kpiShort'
+    | 'ops.requirements.kpiShortCaption'
     | 'ops.requirements.metrics.ingredients'
     | 'ops.requirements.metrics.notComputable'
     | 'ops.requirements.metrics.short'
@@ -4736,20 +4793,38 @@ export interface NamespaceKeys {
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
     | 'review.blockedCount'
+    | 'review.chip'
     | 'review.clearBadge'
     | 'review.clearBody'
     | 'review.clearTitle'
+    | 'review.columnDesignation'
+    | 'review.columnUpdated'
+    | 'review.columnWhy'
     | 'review.errorTitle'
+    | 'review.filteredEmptyBody'
+    | 'review.filteredEmptyTitle'
+    | 'review.loadingCaption'
     | 'review.notChecked'
     | 'review.open'
     | 'review.reasonDataQuality'
     | 'review.reasonDerivationStale'
+    | 'review.reasonDraft'
     | 'review.reasonInconsistentPrices'
     | 'review.reasonMissingTranslation'
     | 'review.reasonQuarantined'
     | 'review.reasonUnverifiedAllergens'
     | 'review.scope'
+    | 'review.scopeAll'
+    | 'review.scopeBlocked'
+    | 'review.scopeLabel'
+    | 'review.scopeUnblocked'
+    | 'review.searchLabel'
+    | 'review.searchPlaceholder'
     | 'review.sectionCount'
+    | 'review.statBlockedCaption'
+    | 'review.statShown'
+    | 'review.statShownCaption'
+    | 'review.statToFinishCaption'
     | 'review.subtitle'
     | 'review.summaryBlocked'
     | 'review.summaryTitle'
@@ -4759,7 +4834,15 @@ export interface NamespaceKeys {
     | 'review.truncatedTitle'
     | 'review.updatedBy'
     | 'review.updatedBySeed'
+    | 'review.view'
     | 'review.waitingCount'
+    | 'review.window.chipsCaption'
+    | 'review.window.fieldFamily'
+    | 'review.window.fieldPublication'
+    | 'review.window.fieldStatus'
+    | 'review.window.note'
+    | 'review.window.publicationBlocked'
+    | 'review.window.publicationUnblocked'
     | 'rollup.allergenFrom'
     | 'rollup.allergenNoSources'
     | 'rollup.allergenProvenanceHint'
@@ -8556,6 +8639,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:dateField.day',
   'designSystem:dateField.month',
   'designSystem:dateField.year',
+  'designSystem:datePicker.nextMonth',
+  'designSystem:datePicker.previousMonth',
   'designSystem:emptyState.prototypeBadge',
   'designSystem:emptyState.prototypeBody',
   'designSystem:fileUpload.choose',
@@ -8976,8 +9061,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.charts.channels.staff',
   'kitchen:analytics.charts.channels.subscription',
   'kitchen:analytics.charts.productionTrend',
+  'kitchen:analytics.charts.productionTrendUnit',
   'kitchen:analytics.charts.statusCenter',
   'kitchen:analytics.charts.statusMix',
+  'kitchen:analytics.charts.trendBarTitle',
   'kitchen:analytics.filters.dateRange',
   'kitchen:analytics.filters.segment',
   'kitchen:analytics.kpi.onTime',
@@ -9004,6 +9091,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.table.completion',
   'kitchen:analytics.table.empty',
   'kitchen:analytics.table.name',
+  'kitchen:analytics.table.sampleNote',
   'kitchen:analytics.table.search',
   'kitchen:analytics.table.searchPlaceholder',
   'kitchen:analytics.table.segment',
@@ -9019,6 +9107,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.trend.down',
   'kitchen:analytics.trend.flat',
   'kitchen:analytics.trend.up',
+  'kitchen:analytics.units.count',
+  'kitchen:analytics.units.minutes',
+  'kitchen:analytics.units.percent',
+  'kitchen:analytics.window.fieldAvgMinutes',
+  'kitchen:analytics.window.kind',
+  'kitchen:analytics.window.note',
   'kitchen:areas.groupLabel',
   'kitchen:areas.inactive',
   'kitchen:areas.matchCount',
@@ -9124,6 +9218,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:calendar.basis.projected',
   'kitchen:calendar.basis.scheduled',
   'kitchen:calendar.dayCount',
+  'kitchen:calendar.dayTotal',
   'kitchen:calendar.emptyBody',
   'kitchen:calendar.emptyTitle',
   'kitchen:calendar.gridLabel',
@@ -9134,6 +9229,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:calendar.noteZero',
   'kitchen:calendar.previousWeek',
   'kitchen:calendar.range',
+  'kitchen:calendar.slot.breakfast',
+  'kitchen:calendar.slot.dinner',
+  'kitchen:calendar.slot.lunch',
+  'kitchen:calendar.slot.snack',
   'kitchen:calendar.subtitle',
   'kitchen:calendar.thisWeek',
   'kitchen:calendar.title',
@@ -9976,6 +10075,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.dateLabel',
   'kitchen:ops.cashReport.emptyBody',
   'kitchen:ops.cashReport.emptyTitle',
+  'kitchen:ops.cashReport.kpiCurrencies',
+  'kitchen:ops.cashReport.kpiCurrenciesCaption',
+  'kitchen:ops.cashReport.kpiReceipts',
+  'kitchen:ops.cashReport.kpiReceiptsCaption',
+  'kitchen:ops.cashReport.kpiRows',
+  'kitchen:ops.cashReport.kpiRowsCaption',
   'kitchen:ops.cashReport.loadErrorTitle',
   'kitchen:ops.cashReport.measuredOn',
   'kitchen:ops.cashReport.scopeBody',
@@ -9989,8 +10094,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.caption',
   'kitchen:ops.costReport.chartCogs',
   'kitchen:ops.costReport.chartCogsMix',
+  'kitchen:ops.costReport.chartRevenueCogs',
   'kitchen:ops.costReport.chartRevenueMix',
+  'kitchen:ops.costReport.chartRevenueMixTitle',
   'kitchen:ops.costReport.chartRevenueTrend',
+  'kitchen:ops.costReport.chip',
   'kitchen:ops.costReport.cogsMixCenter',
   'kitchen:ops.costReport.columnCogs',
   'kitchen:ops.costReport.columnMargin',
@@ -10014,6 +10122,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.mixMeal',
   'kitchen:ops.costReport.mixOther',
   'kitchen:ops.costReport.mixProduct',
+  'kitchen:ops.costReport.monthInvalid',
+  'kitchen:ops.costReport.openExceptions',
   'kitchen:ops.costReport.spendIncomplete',
   'kitchen:ops.costReport.spendIncompleteBody',
   'kitchen:ops.costReport.spendIncompleteTitle',
@@ -10023,6 +10133,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.tileRevenue',
   'kitchen:ops.costReport.tileSpend',
   'kitchen:ops.costReport.title',
+  'kitchen:ops.costReport.window.currencyValue',
+  'kitchen:ops.costReport.window.flaggedNote',
+  'kitchen:ops.costReport.window.kind',
+  'kitchen:ops.costReport.window.openLedger',
+  'kitchen:ops.exceptions.chip',
   'kitchen:ops.exceptions.clearBadge',
   'kitchen:ops.exceptions.columnBranch',
   'kitchen:ops.exceptions.columnOrder',
@@ -10036,6 +10151,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.filterResolved',
   'kitchen:ops.exceptions.filterStatus',
   'kitchen:ops.exceptions.filterUnresolved',
+  'kitchen:ops.exceptions.fromInvalid',
   'kitchen:ops.exceptions.nextPage',
   'kitchen:ops.exceptions.openBadge',
   'kitchen:ops.exceptions.reasons.insufficient_stock',
@@ -10050,13 +10166,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.reasons.unit_conversion_unsupported',
   'kitchen:ops.exceptions.reasons.unquantified_recipe_line',
   'kitchen:ops.exceptions.resolve',
+  'kitchen:ops.exceptions.resolveBody',
+  'kitchen:ops.exceptions.resolveConfirm',
+  'kitchen:ops.exceptions.resolveTitle',
   'kitchen:ops.exceptions.resolvedBadge',
+  'kitchen:ops.exceptions.resolvedToast',
   'kitchen:ops.exceptions.retry',
+  'kitchen:ops.exceptions.showingCount',
+  'kitchen:ops.exceptions.statResolvedCaption',
+  'kitchen:ops.exceptions.statShownCaption',
+  'kitchen:ops.exceptions.statUnit',
+  'kitchen:ops.exceptions.statUnresolvedCaption',
   'kitchen:ops.exceptions.subtitle',
   'kitchen:ops.exceptions.title',
   'kitchen:ops.exceptions.unknownItem',
   'kitchen:ops.exceptions.unknownOrder',
   'kitchen:ops.exceptions.unresolvedCount',
+  'kitchen:ops.exceptions.window.fieldDetail',
+  'kitchen:ops.exceptions.window.fieldItem',
+  'kitchen:ops.exceptions.window.fieldMoney',
+  'kitchen:ops.exceptions.window.fieldResolutionNote',
+  'kitchen:ops.exceptions.window.kind',
+  'kitchen:ops.exceptions.window.moneyValue',
+  'kitchen:ops.exceptions.window.openNote',
+  'kitchen:ops.exceptions.window.retry',
+  'kitchen:ops.exceptions.window.title',
   'kitchen:ops.ledger.allItems',
   'kitchen:ops.ledger.allSuppliers',
   'kitchen:ops.ledger.chargeDelivery',
@@ -10413,6 +10547,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.filterFrom',
   'kitchen:ops.requirements.filterTo',
   'kitchen:ops.requirements.footnote',
+  'kitchen:ops.requirements.kpiIngredients',
+  'kitchen:ops.requirements.kpiIngredientsCaption',
+  'kitchen:ops.requirements.kpiNotComputable',
+  'kitchen:ops.requirements.kpiNotComputableNone',
+  'kitchen:ops.requirements.kpiShort',
+  'kitchen:ops.requirements.kpiShortCaption',
   'kitchen:ops.requirements.metrics.ingredients',
   'kitchen:ops.requirements.metrics.notComputable',
   'kitchen:ops.requirements.metrics.short',
@@ -11504,20 +11644,38 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
   'kitchen:review.blockedCount',
+  'kitchen:review.chip',
   'kitchen:review.clearBadge',
   'kitchen:review.clearBody',
   'kitchen:review.clearTitle',
+  'kitchen:review.columnDesignation',
+  'kitchen:review.columnUpdated',
+  'kitchen:review.columnWhy',
   'kitchen:review.errorTitle',
+  'kitchen:review.filteredEmptyBody',
+  'kitchen:review.filteredEmptyTitle',
+  'kitchen:review.loadingCaption',
   'kitchen:review.notChecked',
   'kitchen:review.open',
   'kitchen:review.reasonDataQuality',
   'kitchen:review.reasonDerivationStale',
+  'kitchen:review.reasonDraft',
   'kitchen:review.reasonInconsistentPrices',
   'kitchen:review.reasonMissingTranslation',
   'kitchen:review.reasonQuarantined',
   'kitchen:review.reasonUnverifiedAllergens',
   'kitchen:review.scope',
+  'kitchen:review.scopeAll',
+  'kitchen:review.scopeBlocked',
+  'kitchen:review.scopeLabel',
+  'kitchen:review.scopeUnblocked',
+  'kitchen:review.searchLabel',
+  'kitchen:review.searchPlaceholder',
   'kitchen:review.sectionCount',
+  'kitchen:review.statBlockedCaption',
+  'kitchen:review.statShown',
+  'kitchen:review.statShownCaption',
+  'kitchen:review.statToFinishCaption',
   'kitchen:review.subtitle',
   'kitchen:review.summaryBlocked',
   'kitchen:review.summaryTitle',
@@ -11527,7 +11685,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:review.truncatedTitle',
   'kitchen:review.updatedBy',
   'kitchen:review.updatedBySeed',
+  'kitchen:review.view',
   'kitchen:review.waitingCount',
+  'kitchen:review.window.chipsCaption',
+  'kitchen:review.window.fieldFamily',
+  'kitchen:review.window.fieldPublication',
+  'kitchen:review.window.fieldStatus',
+  'kitchen:review.window.note',
+  'kitchen:review.window.publicationBlocked',
+  'kitchen:review.window.publicationUnblocked',
   'kitchen:rollup.allergenFrom',
   'kitchen:rollup.allergenNoSources',
   'kitchen:rollup.allergenProvenanceHint',

@@ -2667,7 +2667,8 @@ export function useReviewQueueQuery(enabled = true): UseQueryResult<ReviewQueueS
         queryFn: async (): Promise<ReviewQueueSources> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             const limit = REVIEW_PAGE_SIZE;
-            const quarantine = { limit, statuses: ['review_required'] as const };
+            // Drafts too: an unpublished record is something to finish before it can go out.
+            const quarantine = { limit, statuses: ['review_required', 'draft'] as const };
 
             const [
                 ingredients,

@@ -2,21 +2,22 @@ import type { ConsumptionException } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
+    DatePickerButton,
+    Dialog,
     EmptyState,
     ErrorState,
-    Inline,
-    Select,
+    RecordWindow,
+    SegmentedControl,
     Skeleton,
     Stack,
-    Table,
     Text,
-    TextInputField,
+    useToast,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -26,20 +27,45 @@ import {
     useRetryConsumptionExceptionMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
+import { ExceptionRowActions } from '../consumption-exceptions/exception-row-actions.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
-import { OpsPanel } from '../ops-panel.tsx';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 
 /**
- * `/kitchen/consumption-exceptions` — the consumption-exception review surface (INV1.5).
+ * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
+ * `Workbench.dc.html` draws it (§3.5).
  *
- * Every thing a confirmed order could not deduct honestly (INV1.2), so the kitchen can see which
- * sales left the stock figures incomplete and act: **resolve** one it has looked at and accepted, or
- * **retry** one whose cause it has fixed (published the recipe, created the stock item, received
- * stock). The retry re-runs the same deduction a confirm uses, guarded so nothing is deducted twice.
+ * ```
+ * Consumption exceptions  [ RETRY WRITES STOCK ]
+ * ┌ SHOWN ┐ ┌ UNRESOLVED ┐ ┌ RESOLVED ┐
+ * STATUS [ Unresolved | Resolved | All ]   RAISED FROM [ 2026-08-01 ▦ ]
+ * ORDER              BRANCH         REASON                   RAISED       STATUS
+ * 0148               Beirut Central Not enough stock         2026-08-28   [OPEN] Retry Resolve
+ * Grilled chicken …
+ * ```
  *
- * Behind `inventory.view_organisation` — reading the queue is a plain ops read; the resolve and retry
- * controls are shown only to a holder of `inventory.manage_organisation`. Nothing confidential shows:
- * an order number, the sold item, the branch, the reason and its detail — never a recipe or a cost.
+ * Behind `inventory.view_organisation`; Retry and Resolve only for `inventory.manage_organisation`.
+ * Nothing confidential shows — an order number, the sold item, the branch, the reason. Never a cost.
+ *
+ * ## The order cell carries the item underneath
+ *
+ * Because `unknownOrder` ("Order gone") and `unknownItem` ("Item gone") are different facts and a
+ * row can have either. Reasons render the full `exceptions.reasons.*` string — no abbreviation.
+ *
+ * ## Resolve is confirmed
+ *
+ * Resolving accepts a permanent stock gap, so it goes through a dialog that says so (the handoff's
+ * open question §6.3, answered). Retry is not confirmed: it re-runs the same guarded deduction a
+ * confirm uses and cannot deduct twice.
+ *
+ * ## The cards count the page in hand
+ *
+ * The list is cursor-paged and the server returns no total, so Shown counts this page and says so
+ * in its caption. Unresolved takes the danger ink only while it is non-zero.
  */
 export function ConsumptionExceptionsScreen() {
     return (
@@ -58,253 +84,451 @@ type StatusFilter = 'unresolved' | 'resolved' | 'all';
 function ConsumptionExceptions() {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const toast = useToast();
     const state = useAccessState();
     const canManage = can(state, INVENTORY_MANAGE_PERMISSION);
 
     const [status, setStatus] = useState<StatusFilter>('unresolved');
     const [from, setFrom] = useState('');
     const [cursor, setCursor] = useState<string | undefined>(undefined);
+    const [viewing, setViewing] = useState<ConsumptionException | null>(null);
+    const [resolving, setResolving] = useState<ConsumptionException | null>(null);
 
+    const fromIsValid = from === '' || /^\d{4}-\d{2}-\d{2}$/.test(from);
     const filter = useMemo(
         () => ({
             ...(status === 'all' ? {} : { resolved: status === 'resolved' }),
-            ...(from.trim() === '' ? {} : { from: from.trim() }),
+            ...(from === '' || !fromIsValid ? {} : { from }),
             ...(cursor === undefined ? {} : { cursor }),
         }),
-        [status, from, cursor],
+        [status, from, fromIsValid, cursor],
     );
     const exceptions = useConsumptionExceptionsQuery(filter);
 
     const resolve = useResolveConsumptionExceptionMutation();
     const retry = useRetryConsumptionExceptionMutation();
-    // The one row a write is in flight for, so only its buttons show the spinner.
     const [pendingId, setPendingId] = useState<string | null>(null);
-
-    function resetCursor() {
-        setCursor(undefined);
-    }
 
     const rows = exceptions.data?.items ?? [];
     const nextCursor = exceptions.data?.nextCursor ?? null;
     const hasMore = (exceptions.data?.hasMore ?? false) && nextCursor !== null;
+    const unresolved = rows.filter((row) => !row.resolved).length;
 
-    const statusOptions = [
-        { value: 'unresolved', label: t('kitchen:ops.exceptions.filterUnresolved') },
-        { value: 'resolved', label: t('kitchen:ops.exceptions.filterResolved') },
-        { value: 'all', label: t('kitchen:ops.exceptions.filterAll') },
-    ];
+    /** A filter change is a navigation: the page, and any record held in the window, go with it. */
+    const refilter = () => {
+        setCursor(undefined);
+        setViewing(null);
+    };
 
-    const reasonLabel = (row: ConsumptionException): string =>
-        t(`kitchen:ops.exceptions.reasons.${row.reasonCode}`);
+    const runRetry = (row: ConsumptionException) => {
+        setPendingId(row.id);
+        retry.mutate(row.id, {
+            onSettled: () => {
+                setPendingId(null);
+            },
+        });
+    };
 
-    const columns: readonly TableColumn<ConsumptionException>[] = [
+    const confirmResolve = () => {
+        if (resolving === null) return;
+        const row = resolving;
+        setPendingId(row.id);
+        resolve.mutate(
+            { exceptionId: row.id },
+            {
+                onSuccess: () => {
+                    setResolving(null);
+                    setViewing(null);
+                    toast.show({
+                        testID: 'kitchen-exception-resolved-toast',
+                        tone: 'success',
+                        message: t('kitchen:ops.exceptions.resolvedToast', {
+                            order: row.orderNumber ?? t('kitchen:ops.exceptions.unknownOrder'),
+                        }),
+                    });
+                },
+                onSettled: () => {
+                    setPendingId(null);
+                },
+            },
+        );
+    };
+
+    const orderLabel = (row: ConsumptionException) =>
+        row.orderNumber ?? t('kitchen:ops.exceptions.unknownOrder');
+    const itemLabel = (row: ConsumptionException) =>
+        row.itemNameEn ?? t('kitchen:ops.exceptions.unknownItem');
+    const raisedLabel = (row: ConsumptionException) =>
+        row.createdAt === null
+            ? t('kitchen:list.noValue')
+            : formatter.formatDate(row.createdAt, { dateStyle: 'medium' });
+
+    const columns: readonly ControlledColumn<
+        ConsumptionException,
+        CatalogueColumn<ConsumptionException>
+    >[] = [
         {
             key: 'order',
-            header: t('kitchen:ops.exceptions.columnOrder'),
-            rowHeader: true,
+            role: 'title',
+            value: (row) => orderLabel(row),
+            label: t('kitchen:ops.exceptions.columnOrder'),
+            width: 180,
+            priority: 100,
+            sort: (left, right, direction) =>
+                compareText(orderLabel(left), orderLabel(right), direction),
             render: (row) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" testID={`kitchen-exception-${row.id}-order`}>
-                        {row.orderNumber ?? t('kitchen:ops.exceptions.unknownOrder')}
+                <View className="min-w-0 flex-col py-1">
+                    <Text
+                        variant="mono"
+                        className="font-medium"
+                        testID={`kitchen-exception-${row.id}-order`}
+                    >
+                        {orderLabel(row)}
                     </Text>
-                    <Text variant="caption" tone="secondary">
-                        {row.itemNameEn ?? t('kitchen:ops.exceptions.unknownItem')}
+                    <Text variant="caption" tone="secondary" numberOfLines={1}>
+                        {itemLabel(row)}
                     </Text>
-                </Stack>
+                </View>
             ),
         },
         {
             key: 'branch',
-            header: t('kitchen:ops.exceptions.columnBranch'),
+            label: t('kitchen:ops.exceptions.columnBranch'),
+            width: 130,
+            priority: 60,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.branchName ?? ''))]
+                        .filter((name) => name !== '')
+                        .map((name) => ({ key: name, label: name })),
+                match: (row, value) => row.branchName === value,
+            },
             render: (row) => (
-                <Text variant="caption" tone="secondary">
-                    {row.branchName ?? '—'}
+                <Text tone="secondary" numberOfLines={1}>
+                    {row.branchName ?? t('kitchen:list.noValue')}
                 </Text>
             ),
         },
         {
             key: 'reason',
-            header: t('kitchen:ops.exceptions.columnReason'),
-            flex: 2,
+            role: 'meta',
+            label: t('kitchen:ops.exceptions.columnReason'),
+            width: 220,
+            priority: 90,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.reasonCode))].map((code) => ({
+                        key: code,
+                        label: t(`kitchen:ops.exceptions.reasons.${code}`),
+                    })),
+                match: (row, value) => row.reasonCode === value,
+            },
             render: (row) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" testID={`kitchen-exception-${row.id}-reason`}>
-                        {reasonLabel(row)}
-                    </Text>
-                    {row.detail === null ? null : (
-                        <Text variant="caption" tone="secondary" numberOfLines={2}>
-                            {row.detail}
-                        </Text>
-                    )}
-                </Stack>
+                <Text testID={`kitchen-exception-${row.id}-reason`}>
+                    {t(`kitchen:ops.exceptions.reasons.${row.reasonCode}`)}
+                </Text>
             ),
         },
         {
             key: 'raised',
-            header: t('kitchen:ops.exceptions.columnRaised'),
+            label: t('kitchen:ops.exceptions.columnRaised'),
+            width: 120,
+            priority: 40,
+            sort: (left, right, direction) =>
+                compareText(left.createdAt ?? '', right.createdAt ?? '', direction),
             render: (row) => (
-                <Text variant="caption" tone="secondary">
-                    {row.createdAt === null
-                        ? '—'
-                        : formatter.formatDate(row.createdAt, { dateStyle: 'medium' })}
+                <Text variant="mono" tone="secondary">
+                    {raisedLabel(row)}
                 </Text>
             ),
         },
         {
             key: 'status',
-            header: t('kitchen:ops.exceptions.columnStatus'),
-            flex: 2,
-            render: (row) =>
-                row.resolved ? (
-                    <Stack space="none">
+            role: 'status',
+            label: t('kitchen:ops.exceptions.columnStatus'),
+            width: 190,
+            priority: 95,
+            render: (row) => (
+                <View className="flex-row flex-wrap items-center gap-1.5">
+                    {row.resolved ? (
                         <Badge
                             testID={`kitchen-exception-${row.id}-resolved`}
                             tone="success"
-                            icon="check"
                             label={t('kitchen:ops.exceptions.resolvedBadge')}
                         />
-                        {row.resolutionNote === null ? null : (
-                            <Text variant="caption" tone="secondary" numberOfLines={2}>
-                                {row.resolutionNote}
-                            </Text>
-                        )}
-                    </Stack>
-                ) : canManage ? (
-                    <Inline space="xs" wrap>
-                        <Button
-                            testID={`kitchen-exception-${row.id}-retry`}
-                            // The row's primary (KITCHEN.md 7i): retrying is the fix — resolving
-                            // without one is the concession, and stays quiet beside it.
-                            size="sm"
-                            label={t('kitchen:ops.exceptions.retry')}
-                            loading={pendingId === row.id && retry.isPending}
-                            disabled={pendingId !== null}
-                            onPress={() => {
-                                setPendingId(row.id);
-                                retry.mutate(row.id, {
-                                    onSettled: () => {
-                                        setPendingId(null);
-                                    },
-                                });
-                            }}
+                    ) : (
+                        <Badge
+                            testID={`kitchen-exception-${row.id}-open`}
+                            tone="danger"
+                            label={t('kitchen:ops.exceptions.openBadge')}
                         />
-                        <Button
-                            testID={`kitchen-exception-${row.id}-resolve`}
-                            variant="quiet"
-                            size="sm"
-                            label={t('kitchen:ops.exceptions.resolve')}
-                            loading={pendingId === row.id && resolve.isPending}
-                            disabled={pendingId !== null}
-                            onPress={() => {
-                                setPendingId(row.id);
-                                resolve.mutate(
-                                    { exceptionId: row.id },
-                                    {
-                                        onSettled: () => {
-                                            setPendingId(null);
-                                        },
-                                    },
-                                );
-                            }}
+                    )}
+                    {canManage ? (
+                        <ExceptionRowActions
+                            row={row}
+                            pendingId={pendingId}
+                            onRetry={runRetry}
+                            onResolve={setResolving}
                         />
-                    </Inline>
-                ) : (
-                    <Badge
-                        testID={`kitchen-exception-${row.id}-open`}
-                        tone="warning"
-                        icon="warning"
-                        label={t('kitchen:ops.exceptions.openBadge')}
-                    />
-                ),
+                    ) : null}
+                </View>
+            ),
         },
     ];
 
+    const controls = useColumnControls(rows, columns, 'kitchen-consumption-exceptions-table');
     const failure = toFailure(exceptions.error);
+    const hasData = !exceptions.isPending && failure === null;
 
     return (
-        <Stack space="lg" testID="kitchen-consumption-exceptions-screen">
-            <OpsPanel
-                testID="kitchen-consumption-exceptions-panel"
-                titleKey="kitchen:ops.exceptions.title"
-                subtitleKey="kitchen:ops.exceptions.subtitle"
-                metrics={[]}
-                emptyTitleKey="kitchen:ops.exceptions.emptyTitle"
-                emptyBodyKey="kitchen:ops.exceptions.emptyBody"
+        <Stack space="md" testID="kitchen-consumption-exceptions-screen">
+            {!hasData ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-consumption-exceptions-summary"
+                    cards={[
+                        {
+                            key: 'shown',
+                            label: t('kitchen:review.statShown'),
+                            value: formatter.formatNumber(rows.length),
+                            unit: t('kitchen:ops.exceptions.statUnit'),
+                            caption: t('kitchen:ops.exceptions.statShownCaption'),
+                            mark: 'calendar',
+                            tone: 'brand',
+                            onPress: () => {
+                                setStatus('all');
+                                refilter();
+                            },
+                            accessibilityLabel: t('kitchen:ops.exceptions.filterAll'),
+                        },
+                        {
+                            key: 'unresolved',
+                            label: t('kitchen:ops.exceptions.filterUnresolved'),
+                            value: formatter.formatNumber(unresolved),
+                            unit: t('kitchen:ops.exceptions.statUnit'),
+                            caption: t('kitchen:ops.exceptions.statUnresolvedCaption'),
+                            mark: 'warning',
+                            tone: unresolved === 0 ? 'default' : 'danger',
+                            onPress: () => {
+                                setStatus('unresolved');
+                                refilter();
+                            },
+                            accessibilityLabel: t('kitchen:ops.exceptions.filterUnresolved'),
+                        },
+                        {
+                            key: 'resolved',
+                            label: t('kitchen:ops.exceptions.filterResolved'),
+                            value: formatter.formatNumber(rows.length - unresolved),
+                            unit: t('kitchen:ops.exceptions.statUnit'),
+                            caption: t('kitchen:ops.exceptions.statResolvedCaption'),
+                            mark: 'check',
+                            tone: 'default',
+                            onPress: () => {
+                                setStatus('resolved');
+                                refilter();
+                            },
+                            accessibilityLabel: t('kitchen:ops.exceptions.filterResolved'),
+                        },
+                    ]}
+                />
+            )}
+            <View
+                testID="kitchen-consumption-exceptions-toolbar"
+                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-snug"
             >
-                <Stack space="md" testID="kitchen-consumption-exceptions-content">
-                    <Inline space="sm" align="end" wrap>
-                        <Select
-                            testID="kitchen-exceptions-filter-status"
-                            label={t('kitchen:ops.exceptions.filterStatus')}
-                            options={statusOptions}
-                            value={status}
-                            onChange={(value) => {
-                                setStatus(value as StatusFilter);
-                                resetCursor();
-                            }}
-                            className="min-w-[180px]"
-                        />
-                        <TextInputField
-                            testID="kitchen-exceptions-filter-from"
-                            label={t('kitchen:ops.exceptions.filterFrom')}
-                            value={from}
-                            onChangeText={(value) => {
-                                setFrom(value);
-                                resetCursor();
-                            }}
-                            placeholder="YYYY-MM-DD"
-                            className="w-40"
-                        />
-                    </Inline>
+                <SegmentedControl<StatusFilter>
+                    testID="kitchen-exceptions-filter-status"
+                    label={t('kitchen:ops.exceptions.filterStatus')}
+                    value={status}
+                    onChange={(next) => {
+                        setStatus(next);
+                        refilter();
+                    }}
+                    items={(
+                        [
+                            ['all', 'kitchen:ops.exceptions.filterAll'],
+                            ['unresolved', 'kitchen:ops.exceptions.filterUnresolved'],
+                            ['resolved', 'kitchen:ops.exceptions.filterResolved'],
+                        ] as const
+                    ).map(([value, labelKey]) => ({
+                        value,
+                        label: t(labelKey),
+                        testID: `kitchen-exceptions-filter-status-${value}`,
+                    }))}
+                />
+                <DatePickerButton
+                    testID="kitchen-exceptions-filter-from"
+                    label={t('kitchen:ops.exceptions.filterFrom')}
+                    value={from}
+                    onChange={(next) => {
+                        setFrom(next);
+                        refilter();
+                    }}
+                />
+            </View>
 
-                    {exceptions.isPending ? (
-                        <Stack space="sm" testID="kitchen-consumption-exceptions-loading">
-                            {Array.from({ length: 4 }, (_, index) => (
-                                <Skeleton key={index} heightClassName="h-12" />
-                            ))}
-                        </Stack>
-                    ) : failure !== null ? (
-                        <ErrorState
-                            testID="kitchen-consumption-exceptions-error"
-                            failure={failure}
-                            onRetry={() => {
-                                void exceptions.refetch();
-                            }}
-                            retrying={exceptions.isFetching}
-                        />
-                    ) : rows.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-consumption-exceptions-empty"
-                            title={t('kitchen:ops.exceptions.emptyTitle')}
-                            body={t('kitchen:ops.exceptions.emptyBody')}
-                        />
-                    ) : (
-                        <Stack space="sm">
-                            <Table<ConsumptionException>
-                                testID="kitchen-consumption-exceptions-table"
-                                caption={t('kitchen:ops.exceptions.title')}
-                                captionHidden
-                                columns={columns}
-                                rows={rows}
-                                rowKey={(row) => row.id}
+            {exceptions.isPending ? (
+                <View testID="kitchen-consumption-exceptions-loading" className="flex-col">
+                    {Array.from({ length: 8 }, (_, index) => (
+                        <View
+                            key={index}
+                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
+                        >
+                            <Skeleton heightClassName="h-2" />
+                        </View>
+                    ))}
+                </View>
+            ) : failure !== null ? (
+                <ErrorState
+                    testID="kitchen-consumption-exceptions-error"
+                    failure={failure}
+                    onRetry={() => {
+                        void exceptions.refetch();
+                    }}
+                    retrying={exceptions.isFetching}
+                />
+            ) : rows.length === 0 ? (
+                <EmptyState
+                    testID="kitchen-consumption-exceptions-empty"
+                    title={t('kitchen:ops.exceptions.emptyTitle')}
+                    body={t('kitchen:ops.exceptions.emptyBody')}
+                />
+            ) : (
+                <View className="flex-col gap-2.5">
+                    <CatalogueList<ConsumptionException>
+                        testID="kitchen-consumption-exceptions-table"
+                        label={t('kitchen:ops.exceptions.title')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => row.id}
+                        onRowPress={setViewing}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                    />
+                    <View className="flex-row flex-wrap items-center justify-between gap-snug">
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:ops.exceptions.showingCount', { count: rows.length })}
+                        </Text>
+                        {hasMore ? (
+                            <Button
+                                testID="kitchen-consumption-exceptions-next"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.exceptions.nextPage')}
+                                onPress={() => {
+                                    setCursor(nextCursor ?? undefined);
+                                    setViewing(null);
+                                }}
                             />
-                            {hasMore ? (
-                                <Inline space="sm" justify="end">
-                                    <Button
-                                        testID="kitchen-consumption-exceptions-next"
-                                        variant="secondary"
-                                        size="sm"
-                                        label={t('kitchen:ops.exceptions.nextPage')}
-                                        onPress={() => {
-                                            setCursor(nextCursor ?? undefined);
-                                        }}
-                                    />
-                                </Inline>
-                            ) : null}
-                        </Stack>
-                    )}
-                </Stack>
-            </OpsPanel>
+                        ) : null}
+                    </View>
+                </View>
+            )}
+
+            {viewing === null ? null : (
+                <RecordWindow
+                    testID="kitchen-consumption-exceptions-window"
+                    open
+                    onClose={() => {
+                        setViewing(null);
+                    }}
+                    title={t('kitchen:ops.exceptions.window.title', { order: orderLabel(viewing) })}
+                    kind={t('kitchen:ops.exceptions.window.kind')}
+                    status={
+                        viewing.resolved
+                            ? { label: t('kitchen:ops.exceptions.resolvedBadge'), tone: 'success' }
+                            : { label: t('kitchen:ops.exceptions.openBadge'), tone: 'danger' }
+                    }
+                    {...(viewing.resolved
+                        ? {}
+                        : { note: t('kitchen:ops.exceptions.window.openNote') })}
+                    fields={[
+                        {
+                            key: 'item',
+                            label: t('kitchen:ops.exceptions.window.fieldItem'),
+                            value: itemLabel(viewing),
+                        },
+                        {
+                            key: 'branch',
+                            label: t('kitchen:ops.exceptions.columnBranch'),
+                            value: viewing.branchName ?? t('kitchen:list.noValue'),
+                        },
+                        {
+                            key: 'reason',
+                            label: t('kitchen:ops.exceptions.columnReason'),
+                            value: t(`kitchen:ops.exceptions.reasons.${viewing.reasonCode}`),
+                        },
+                        {
+                            key: 'raised',
+                            label: t('kitchen:ops.exceptions.columnRaised'),
+                            value: raisedLabel(viewing),
+                            mono: true,
+                        },
+                        ...(viewing.detail === null
+                            ? []
+                            : [
+                                  {
+                                      key: 'detail',
+                                      label: t('kitchen:ops.exceptions.window.fieldDetail'),
+                                      value: viewing.detail,
+                                  },
+                              ]),
+                        ...(viewing.resolutionNote === null
+                            ? []
+                            : [
+                                  {
+                                      key: 'resolutionNote',
+                                      label: t('kitchen:ops.exceptions.window.fieldResolutionNote'),
+                                      value: viewing.resolutionNote,
+                                  },
+                              ]),
+                        {
+                            key: 'money',
+                            label: t('kitchen:ops.exceptions.window.fieldMoney'),
+                            value: t('kitchen:ops.exceptions.window.moneyValue'),
+                        },
+                    ]}
+                    primaryAction={
+                        viewing.resolved || !canManage
+                            ? undefined
+                            : {
+                                  label: t('kitchen:ops.exceptions.window.retry'),
+                                  onPress: () => {
+                                      const row = viewing;
+                                      setViewing(null);
+                                      runRetry(row);
+                                  },
+                              }
+                    }
+                />
+            )}
+
+            <Dialog
+                testID="kitchen-exception-resolve-dialog"
+                open={resolving !== null}
+                onClose={() => {
+                    setResolving(null);
+                }}
+                title={t('kitchen:ops.exceptions.resolveTitle')}
+                description={t('kitchen:ops.exceptions.resolveBody')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-exception-resolve-cancel"
+                            variant="quiet"
+                            label={t('kitchen:common.cancel')}
+                            onPress={() => {
+                                setResolving(null);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-exception-resolve-confirm"
+                            variant="danger"
+                            label={t('kitchen:ops.exceptions.resolveConfirm')}
+                            loading={resolve.isPending}
+                            onPress={confirmResolve}
+                        />
+                    </>
+                }
+            />
         </Stack>
     );
 }

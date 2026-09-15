@@ -1,16 +1,13 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Callout,
-    DataList,
+    DatePickerButton,
     EmptyState,
     ErrorState,
     Skeleton,
     Stack,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
-import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,9 +18,16 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskRequirementsQuery } from '../../../data/order-desk-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { addDays, todayIso } from '../../commerce/dates.ts';
-import { CataloguePageHeader, CatalogueSummaryBar } from '../catalogue/index.ts';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueStatCards } from '../catalogue/index.ts';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
-import { DeskFootnote } from '../order-desk/desk-parts.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -68,7 +72,7 @@ import { DeskFootnote } from '../order-desk/desk-parts.tsx';
  *
  * **What is emphatically not a zero is `not_computable`.** A dish with no recipe, a plan whose menu
  * was never written, a unit that will not convert — those days produce no quantity *and no row*, and
- * the panel above the table reports them separately, by count of days and by reason. "Buy nothing
+ * a card above the table reports them separately, by count of days and by reason. "Buy nothing
  * for that" and "we could not work out what to buy for that" are opposite statements, and the whole
  * layout exists so a buyer can tell which one they are reading.
  *
@@ -127,49 +131,22 @@ function OrderDeskRequirements() {
 
     const shortCount = (requirements.data?.requirements ?? []).filter((row) => isShort(row)).length;
 
-    /**
-     * The summary line: how much there is to buy, how much of it is short, and how much of the
-     * window nobody could answer.
-     *
-     * Absent while nothing has answered — a zero here would claim an answer the screen does not have
-     * yet — and each figure is a segment only when it has something to say, so a window with nothing
-     * short does not announce "0 short".
-     */
-    const summary: readonly string[] =
-        requirements.data === undefined
-            ? [t('kitchen:ops.requirements.subtitle')]
-            : [
-                  t('kitchen:ops.requirements.summaryIngredients', {
-                      count: requirements.data.requirements.length,
-                  }),
-                  ...(shortCount === 0
-                      ? []
-                      : [t('kitchen:ops.requirements.summaryShort', { count: shortCount })]),
-                  ...(notComputable === null || notComputable.days === 0
-                      ? []
-                      : [
-                            t('kitchen:ops.requirements.notComputableTitle', {
-                                count: notComputable.days,
-                            }),
-                        ]),
-                  t('kitchen:ops.requirements.summaryReadOnly'),
-              ];
-
-    const columns: readonly DataListColumn<OrderDeskRequirement>[] = [
+    const columns: readonly ControlledColumn<
+        OrderDeskRequirement,
+        CatalogueColumn<OrderDeskRequirement>
+    >[] = [
         {
             key: 'ingredient',
+            role: 'title',
+            value: (row) => row.nameEn,
             label: t('kitchen:ops.requirements.columnIngredient'),
             width: 220,
             priority: 100,
+            sort: (left, right, direction) => compareText(left.nameEn, right.nameEn, direction),
             render: (row) => (
-                <View className="flex-row flex-wrap items-baseline gap-tight">
-                    <Text variant="strong" testID={`${rowTestId(row)}-name`}>
-                        {row.nameEn}
-                    </Text>
-                    <Text variant="mono" tone="secondary">
-                        {row.code}
-                    </Text>
-                </View>
+                <Text variant="strong" testID={`${rowTestId(row)}-name`}>
+                    {row.nameEn}
+                </Text>
             ),
         },
         {
@@ -177,7 +154,9 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnRequired'),
             width: 100,
             priority: 95,
-            align: 'end',
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.required), Number(right.required), direction),
             render: (row) => (
                 <Text variant="mono" testID={`${rowTestId(row)}-required`}>
                     {quantity(row.required)}
@@ -189,7 +168,9 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnAvailable'),
             width: 100,
             priority: 80,
-            align: 'end',
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.available), Number(right.available), direction),
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-available`}>
                     {quantity(row.available)}
@@ -198,10 +179,13 @@ function OrderDeskRequirements() {
         },
         {
             key: 'short',
+            role: 'metric',
             label: t('kitchen:ops.requirements.columnShort'),
             width: 100,
             priority: 90,
-            align: 'end',
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.short), Number(right.short), direction),
             render: (row) => (
                 <Text
                     variant="mono"
@@ -217,7 +201,9 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnSuggestedBuy'),
             width: 110,
             priority: 70,
-            align: 'end',
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.suggestedBuy), Number(right.suggestedBuy), direction),
             render: (row) => (
                 <Text variant="mono" testID={`${rowTestId(row)}-suggested-buy`}>
                     {quantity(row.suggestedBuy)}
@@ -229,6 +215,15 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnUnit'),
             width: 70,
             priority: 60,
+            align: 'center',
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.unitCode ?? EM_DASH))].map((unit) => ({
+                        key: unit,
+                        label: unit,
+                    })),
+                match: (row, value) => (row.unitCode ?? EM_DASH) === value,
+            },
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-unit`}>
                     {/* The one genuine unknown on this row. A shelf with no resolved unit still has
@@ -236,31 +231,6 @@ function OrderDeskRequirements() {
                     {row.unitCode ?? EM_DASH}
                 </Text>
             ),
-        },
-        {
-            key: 'position',
-            label: t('kitchen:ops.requirements.columnPosition'),
-            width: 96,
-            priority: 85,
-            align: 'end',
-            // A word, never a dot: the platform's standing rule that colour does not carry a
-            // meaning alone. Short and Covered read the same in greyscale.
-            render: (row) =>
-                isShort(row) ? (
-                    <Badge
-                        testID={`${rowTestId(row)}-short-badge`}
-                        tone="danger"
-                        icon="warning"
-                        label={t('kitchen:ops.requirements.shortBadge')}
-                    />
-                ) : (
-                    <Badge
-                        testID={`${rowTestId(row)}-covered-badge`}
-                        tone="success"
-                        icon={null}
-                        label={t('kitchen:ops.requirements.coveredBadge')}
-                    />
-                ),
         },
     ];
 
@@ -291,54 +261,81 @@ function OrderDeskRequirements() {
 
     const failure = toFailure(requirements.error);
     const rows = requirements.data?.requirements ?? [];
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-requirements-table');
 
     return (
         <Stack space="md" testID="kitchen-order-desk-requirements-screen">
-            <CataloguePageHeader
-                testID="kitchen-order-desk-requirements-header"
-                title={t('kitchen:ops.requirements.title')}
-                titleTestID="kitchen-order-desk-requirements-title"
-            />
-
-            <CatalogueSummaryBar
-                testID="kitchen-order-desk-requirements-summary"
-                segments={summary}
-            />
-
             {/* One 28px row: the window. The branch is the workspace's — see the file header. */}
             <View
                 testID="kitchen-order-desk-requirements-content"
-                className="min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
             >
-                <Text variant="micro" tone="secondary">
-                    {t('kitchen:ops.requirements.windowLabel')}
-                </Text>
-                <View style={{ width: DATE_WIDTH }}>
-                    <TextInputField
-                        testID="kitchen-order-desk-requirements-from"
-                        label={t('kitchen:ops.requirements.filterFrom')}
-                        labelHidden
-                        size="sm"
-                        value={from}
-                        onChangeText={setFrom}
-                        placeholder="YYYY-MM-DD"
-                    />
-                </View>
+                <DatePickerButton
+                    testID="kitchen-order-desk-requirements-from"
+                    label={t('kitchen:ops.requirements.filterFrom')}
+                    value={from}
+                    onChange={setFrom}
+                    max={to}
+                />
                 <Text variant="caption" tone="secondary" aria-hidden>
                     {t('kitchen:ops.requirements.windowTo')}
                 </Text>
-                <View style={{ width: DATE_WIDTH }}>
-                    <TextInputField
-                        testID="kitchen-order-desk-requirements-to"
-                        label={t('kitchen:ops.requirements.filterTo')}
-                        labelHidden
-                        size="sm"
-                        value={to}
-                        onChangeText={setTo}
-                        placeholder="YYYY-MM-DD"
-                    />
-                </View>
+                <DatePickerButton
+                    testID="kitchen-order-desk-requirements-to"
+                    label={t('kitchen:ops.requirements.filterTo')}
+                    value={to}
+                    onChange={setTo}
+                    min={from}
+                />
             </View>
+
+            {/*
+             * The figures as cards. Absent until something has answered — a zero here would claim
+             * an answer the screen does not have yet.
+             */}
+            {branchId === null || filters === null || failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-order-desk-requirements-figures"
+                    cards={[
+                        {
+                            key: 'ingredients',
+                            label: t('kitchen:ops.requirements.kpiIngredients'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(rows.length),
+                            caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
+                            mark: 'basket',
+                            tone: 'brand',
+                        },
+                        {
+                            key: 'short',
+                            label: t('kitchen:ops.requirements.kpiShort'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(shortCount),
+                            caption: t('kitchen:ops.requirements.kpiShortCaption'),
+                            mark: 'warning',
+                            tone: shortCount > 0 ? 'danger' : 'default',
+                        },
+                        {
+                            key: 'notComputable',
+                            label: t('kitchen:ops.requirements.kpiNotComputable'),
+                            value: requirements.isPending
+                                ? EM_DASH
+                                : formatter.formatNumber(notComputable?.days ?? 0),
+                            caption:
+                                notComputable !== null && notComputable.days > 0
+                                    ? reasonSummary(notComputable.reasons)
+                                    : t('kitchen:ops.requirements.kpiNotComputableNone'),
+                            mark: 'calendar',
+                            tone:
+                                notComputable !== null && notComputable.days > 0
+                                    ? 'warning'
+                                    : 'default',
+                        },
+                    ]}
+                />
+            )}
 
             {branchId === null ? (
                 // Friendly rather than an error: the reader did nothing wrong, the list simply
@@ -377,18 +374,6 @@ function OrderDeskRequirements() {
                 />
             ) : (
                 <View className="flex-col gap-snug">
-                    {notComputable !== null && notComputable.days > 0 ? (
-                        <Callout
-                            testID="kitchen-order-desk-requirements-not-computable"
-                            tone="warning"
-                            role="status"
-                            title={t('kitchen:ops.requirements.notComputableTitle', {
-                                count: notComputable.days,
-                            })}
-                            body={reasonSummary(notComputable.reasons)}
-                        />
-                    ) : null}
-
                     {rows.length === 0 ? (
                         <EmptyState
                             testID="kitchen-order-desk-requirements-empty"
@@ -396,27 +381,20 @@ function OrderDeskRequirements() {
                             body={t('kitchen:ops.requirements.noRowsBody')}
                         />
                     ) : (
-                        <>
-                            <DataList<OrderDeskRequirement>
-                                testID="kitchen-order-desk-requirements-table"
-                                label={t('kitchen:ops.requirements.title')}
-                                columns={columns}
-                                rows={rows}
-                                rowKey={(row) => row.stockItemId}
-                            />
-                            <DeskFootnote testID="kitchen-order-desk-requirements-footnote">
-                                {t('kitchen:ops.requirements.footnote')}
-                            </DeskFootnote>
-                        </>
+                        <CatalogueList<OrderDeskRequirement>
+                            testID="kitchen-order-desk-requirements-table"
+                            label={t('kitchen:ops.requirements.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.stockItemId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
                     )}
                 </View>
             )}
         </Stack>
     );
 }
-
-/** The date fields' width — wide enough for `YYYY-MM-DD`. A style: there is no token for it. */
-const DATE_WIDTH = 140;
 
 /** Whether the shelf cannot cover this row. A decimal-string comparison against a true zero. */
 function isShort(row: OrderDeskRequirement): boolean {

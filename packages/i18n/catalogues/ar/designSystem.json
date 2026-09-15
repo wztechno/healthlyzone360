@@ -96,6 +96,10 @@
         "month": "الشهر",
         "year": "السنة"
     },
+    "datePicker": {
+        "previousMonth": "الشهر السابق",
+        "nextMonth": "الشهر التالي"
+    },
     "rating": {
         "summary": "{{value}} من {{max}}",
         "count_zero": "لا توجد تقييمات",

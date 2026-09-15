@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Wellness Green token roles, light theme — packages/design-tokens/src/colour.ts (themeLight + semanticLight). */
+  :root {
+    --sBase:#f7fcf9; --sRaised:#ffffff; --sSunken:#edf6f0;
+    --tPri:#1f2937; --tSec:#5b6673; --tDis:#646e7c; --tOnBrand:#ffffff;
+    --bSub:#cceeda; --bDef:#aaddc0;
+    --brand:#157043; --brandHover:#11532e; --brandSub:#dcfce7; --onBrandSub:#14532d;
+    --okSub:#dcfce7; --okOn:#14532d;
+    --warnSub:#fdf2d6; --warnOn:#79480a; --warnBd:#f0dca8;
+    --badSub:#fde5e3; --badOn:#8f1f1a; --badBd:#d16a64;
+    --infoSub:#e2f1fb; --infoOn:#0b4a6f; --infoBd:#cde3f2;
+    --neuSub:#f1f5f9; --neuOn:#4b5563;
+    --overlay:#14231ccc; --ph:#94a3b8;
+    --pop:0 6px 20px -4px rgba(16,42,30,.24);
+    --skelA:#e4f0e9; --skelB:#eef6f1;
+  }
+  /* themeDark + semanticDark, same file. Nothing invented. */
+  [data-theme="dark"] {
+    --sBase:#0e1712; --sRaised:#16241b; --sSunken:#0a110b;
+    --tPri:#eef4ee; --tSec:#bcc7be; --tDis:#8b968c; --tOnBrand:#06160c;
+    --bSub:#26352b; --bDef:#3a4b3f;
+    --brand:#86efac; --brandHover:#b7e2c6; --brandSub:#153a26; --onBrandSub:#b6e8c2;
+    --okSub:#16301f; --okOn:#9fd6b3;
+    --warnSub:#33240a; --warnOn:#e8c073; --warnBd:#8a6a2a;
+    --badSub:#3a1512; --badOn:#efa19a; --badBd:#a85049;
+    --infoSub:#0e2636; --infoOn:#9fcdec; --infoBd:#3f80ad;
+    --neuSub:#1b2620; --neuOn:#bcc7be;
+    --overlay:#000000b3; --ph:#8b968c;
+    --pop:0 6px 20px -4px rgba(0,0,0,.55);
+    --skelA:#1e2d23; --skelB:#182219;
+  }
+  html, body { margin:0; padding:0; background:var(--sBase); }
+  * { box-sizing: border-box; }
+  body { font-family:'Schibsted Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  input, select, textarea, button { font-family: inherit; color: inherit; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { color: var(--brandHover); text-decoration: underline; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  ::placeholder { color: var(--ph); }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background: var(--bSub); border-radius:6px; }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes wbshimmer { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes wbfade { from{opacity:0} to{opacity:1} }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes wbpop { from{opacity:0; transform:translateY(6px) scale(.985)} to{opacity:1; transform:none} }
+</style>
+</helmet>
+
+<div dir="{{ dir }}" data-theme="{{ theme }}" style="display:flex; height:100vh; min-height:700px; background:var(--sBase); color:var(--tPri)">
+
+  <nav style="width: {{ navWidth }}; flex: 0 0 {{ navWidth }}; overflow:hidden; background:var(--sSunken); border-inline-end:1px solid var(--bSub); display:flex; flex-direction:column; padding:12px 0; transition: width 160ms ease, flex-basis 160ms ease">
+    <div style="flex:0 0 auto; display:flex; align-items:center; justify-content: {{ navJustify }}; gap:8px; padding:0 {{ navPad }} 12px">
+      <div style="flex:0 0 auto; width:22px; height:22px; border-radius:5px; background:var(--brand); color:var(--tOnBrand); display:grid; place-items:center; font-size:11px; font-weight:700">H</div>
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <span style="font-size:13px; font-weight:600; letter-spacing:-0.01em; white-space:nowrap">Kitchen ops</span>
+      </sc-if>
+    </div>
+
+    <div style="flex:1 1 auto; min-height:0; overflow:hidden auto; display:flex; flex-direction:column; gap:2px; padding:0 {{ navRailPad }}">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="5">
+        <div style="display:flex; flex-direction:column; gap:1px; padding-top:6px">
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:0 8px 3px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap">{{ group.label }}</div>
+          </sc-if>
+          <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+            <div role="button" tabindex="0" onClick="{{ expandNav }}" title="{{ group.label }}" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:5px; cursor:pointer" style-hover="background: var(--brandSub)">
+              <span aria-hidden="true" style="font-size:15px; line-height:1; color:var(--tSec)">{{ group.glyph }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="4">
+              <sc-if value="{{ item.active }}" hint-placeholder-val="{{ false }}">
+                <div role="button" tabindex="0" onClick="{{ item.go }}" title="{{ item.label }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; cursor:pointer; font-size:12px; font-weight:600; color:var(--onBrandSub); background:var(--brandSub)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--onBrandSub)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ item.here }}" hint-placeholder-val="{{ false }}">
+                <div role="button" tabindex="0" onClick="{{ item.go }}" title="{{ item.label }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; cursor:pointer; font-size:12px; color:var(--tPri)" style-hover="background: var(--brandSub)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tSec)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ item.away }}" hint-placeholder-val="{{ true }}">
+                <div title="{{ item.awayTitle }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; font-size:12px; color:var(--tDis)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tDis)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex:0 0 auto; margin-top:8px; padding:10px {{ navPad }} 0; border-top:1px solid var(--bSub); font-size:10px; line-height:15px; color:var(--tSec); text-align: {{ navFootAlign }}">
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="font-weight:600; color:var(--tPri); white-space:nowrap">Beirut Central</div>
+        <div style="white-space:nowrap">Workbench · UTC clock</div>
+      </sc-if>
+      <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+        <div title="Beirut Central · Workbench" style="font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--tPri)">BC</div>
+      </sc-if>
+    </div>
+  </nav>
+
+  <main style="flex:1 1 auto; min-width:0; display:flex; flex-direction:column; overflow:hidden; position:relative">
+
+    <header style="flex:0 0 auto; padding:14px 20px 0">
+      <div style="display:flex; align-items:center; gap:8px; height:20px">
+        <span role="button" tabindex="0" onClick="{{ toggleNav }}" title="{{ navToggleTitle }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; margin-inline-start:-4px; border-radius:4px; font-size:14px; color:var(--tSec); cursor:pointer; flex:0 0 auto" style-hover="background: var(--sSunken); color: var(--tPri)">☰</span>
+        <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--tSec)">
+          <span>Kitchen</span><span style="color:var(--bDef)">/</span>
+          <span style="color:var(--brand)">Workbench</span>
+          <span style="color:var(--bDef)">/</span><span style="color:var(--tPri)">{{ crumbLeaf }}</span>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:4px">
+        <div style="min-width:0">
+          <div style="display:flex; align-items:center; gap:8px">
+            <h1 style="margin:0; font-size:16px; line-height:22px; font-weight:600; letter-spacing:-0.01em">{{ pageTitle }}</h1>
+            <sc-if value="{{ showPageChip }}" hint-placeholder-val="{{ true }}">
+              <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background: {{ pageChipBg }}; color: {{ pageChipFg }}">{{ pageChip }}</span>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ showSummaryCards }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(148px, 1fr)); gap:8px; margin-top:10px; max-width:920px">
+          <sc-for list="{{ summaryCards }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex; flex-direction:column; gap:1px; padding:7px 10px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised)">
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.label }}</span>
+              <div style="display:flex; align-items:baseline; gap:4px; min-width:0">
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:18px; line-height:24px; font-weight:600; color: {{ c.fg }}">{{ c.value }}</span>
+                <span style="font-size:10px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.unit }}</span>
+              </div>
+              <span style="font-size:10px; line-height:14px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.caption }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showSummaryLine }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:var(--tSec)">
+          <span>{{ summaryLine }}</span>
+        </div>
+      </sc-if>
+    </header>
+
+    <!-- ══════════════════ NEEDS REVIEW ══════════════════ -->
+    <sc-if value="{{ isReview }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 20px; flex-wrap:wrap">
+        <div style="position:relative; width:240px; flex:0 0 240px">
+          <span style="position:absolute; inset-inline-start:8px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--tSec); pointer-events:none">⌕</span>
+          <input value="{{ q }}" onChange="{{ setQ }}" placeholder="Designation or reference" style="width:100%; height:28px; padding-inline:22px 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+        </div>
+        <div style="display:inline-flex; align-items:center; gap:6px">
+          <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Show</span>
+          <div style="display:inline-flex; height:28px; padding:2px; gap:2px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised)">
+            <sc-for list="{{ reviewScopes }}" as="s" hint-placeholder-count="3">
+              <button type="button" onClick="{{ s.go }}" style="{{ s.style }}">{{ s.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="flex:1 1 auto"></div>
+      </div>
+
+      <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:0 20px 16px">
+        <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; border:1px solid var(--warnBd); border-radius:6px; background:var(--warnSub)">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--warnOn)">◌</span>
+            <div style="font-size:11px; line-height:16px; color:var(--warnOn); text-wrap:pretty">
+              <span style="font-weight:600">You are offline.</span> The queue stopped refreshing itself at 14:32 — what you see is the last copy that arrived. Nothing has been lost.
+              <span role="button" tabindex="0" onClick="{{ retry }}" style="margin-inline-start:4px; font-weight:600; color:var(--brand); cursor:pointer">Try again</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ truncatedOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+            <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">
+              <span style="font-weight:600">More records match than are shown.</span> At least one family filled the page this queue reads. Open that family and filter it by status to see the rest.
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top:1px solid var(--bDef)">
+            <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="9">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 230px 150px 96px; align-items:center; column-gap:14px; height:32px; padding:0 8px; border-bottom:1px solid var(--bSub)">
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelB); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div></div>
+              </div>
+            </sc-for>
+            <div style="padding:10px 8px 0; font-size:11px; color:var(--tSec)">Checking every family that can hold something back…</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ errored }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--badSub); color:var(--badOn)">Not loaded</span>
+            <div style="font-size:13px; font-weight:600; margin-top:2px">The review queue could not be loaded</div>
+            <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:46ch; text-wrap:pretty">No record was changed by this. Every family is still exactly where it was.</div>
+            <button type="button" onClick="{{ retry }}" style="margin-top:4px; height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ reviewClear }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--okSub); color:var(--okOn)">All clear</span>
+            <div style="font-size:13px; font-weight:600; margin-top:2px">Nothing is waiting for review</div>
+            <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:52ch; text-wrap:pretty">No record in this kitchen is quarantined, out of date, or missing something that would stop it being published.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ reviewTable }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ reviewSections }}" as="sec" hint-placeholder-count="4">
+            <section style="margin-bottom:18px">
+              <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-top:1px solid var(--bSub); padding-top:12px">
+                <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">{{ sec.family }}</h2>
+                <span style="font-size:11px; color:var(--tSec)">{{ sec.count }}</span>
+                <sc-if value="{{ sec.anyBlocked }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--badSub); color:var(--badOn)">{{ sec.blocked }}</span>
+                </sc-if>
+              </div>
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 230px 150px 96px; align-items:center; column-gap:14px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Designation</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Why it is here</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Last changed</span>
+                <span></span>
+              </div>
+              <sc-for list="{{ sec.rows }}" as="row" hint-placeholder-count="3">
+                <div role="button" tabindex="0" onClick="{{ row.view }}" style="display:grid; grid-template-columns:minmax(0,1fr) 230px 150px 96px; align-items:center; column-gap:14px; min-height:32px; padding:6px 8px; border-bottom:1px solid var(--bSub); cursor:pointer" style-hover="background: var(--sSunken)">
+                  <span style="min-width:0">
+                    <span style="display:block; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.name }}</span>
+                    <span style="display:block; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tSec)">{{ row.reference }}</span>
+                  </span>
+                  <span style="min-width:0; display:flex; flex-direction:column; gap:2px">
+                    <sc-for list="{{ row.reasons }}" as="r" hint-placeholder-count="1">
+                      <span style="{{ r.style }}">{{ r.label }}</span>
+                    </sc-for>
+                  </span>
+                  <span style="font-size:11px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.updated }}</span>
+                  <span style="display:flex; justify-content:flex-end; gap:4px">
+                    <span role="button" tabindex="0" onClick="{{ row.view }}" title="View" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.2 7C2.6 4.7 4.6 3.5 7 3.5s4.4 1.2 5.8 3.5c-1.4 2.3-3.4 3.5-5.8 3.5S2.6 9.3 1.2 7Z"></path><circle cx="7" cy="7" r="1.6"></circle></svg></span>
+                    <span role="button" tabindex="0" onClick="{{ row.edit }}" title="Open the record" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 2.1l2.3 2.3-6.5 6.5-3 .7.7-3 6.5-6.5Z"></path><path d="M8.4 3.3l2.3 2.3"></path></svg></span>
+                  </span>
+                </div>
+              </sc-for>
+            </section>
+          </sc-for>
+
+          <div style="border-top:1px solid var(--bSub); padding-top:10px; display:flex; flex-direction:column; gap:4px; max-width:110ch">
+            <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty"><span style="font-weight:600; color:var(--tPri)">Checked:</span> allergen quarantines, out-of-date recipe figures, price entries that break the amount rule, unverified allergen mappings, unresolved import findings, and names missing a language.</span>
+            <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty"><span style="font-weight:600; color:var(--tPri)">Not checked here:</span> delivery zones and opening hours, which have no publication state to hold anything back, and the allergen classes, which the platform owns.</span>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════════════════ ANALYTICS ══════════════════ -->
+    <sc-if value="{{ isAnalytics }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 20px; flex-wrap:wrap">
+        <div style="display:inline-flex; align-items:center; gap:6px">
+          <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Range</span>
+          <div style="display:inline-flex; height:28px; padding:2px; gap:2px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised)">
+            <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="4">
+              <button type="button" onClick="{{ r.go }}" style="{{ r.style }}">{{ r.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <select value="{{ segment }}" onChange="{{ setSegment }}" style="height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer">
+          <option value="all">All</option><option value="meals">Meals</option><option value="recipes">Recipes</option><option value="delivery">Delivery</option><option value="stock">Stock</option>
+        </select>
+        <div style="flex:1 1 auto"></div>
+        <button type="button" onClick="{{ toggleTheme }}" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">{{ themeLabel }}</button>
+      </div>
+
+      <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:0 20px 20px">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(148px, 1fr)); gap:10px; max-width:780px">
+          <sc-for list="{{ analyticsKpis }}" as="k" hint-placeholder-count="4">
+            <div style="display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised)">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ k.label }}</span>
+                <span style="{{ k.trendStyle }}">{{ k.trend }}</span>
+              </div>
+              <div style="display:flex; align-items:baseline; gap:5px">
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:22px; line-height:26px; font-weight:600">{{ k.value }}</span>
+                <span style="font-size:11px; color:var(--tSec)">{{ k.unit }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:18px; margin-top:18px">
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Production trend</h2>
+              <span style="font-size:11px; color:var(--tSec)">units a day</span>
+            </div>
+            <div style="display:flex; align-items:flex-end; gap:6px; height:120px">
+              <sc-for list="{{ trendBars }}" as="b" hint-placeholder-count="14">
+                <div title="{{ b.title }}" style="flex:1 1 0; min-width:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:stretch; gap:4px; height:100%">
+                  <div style="height: {{ b.h }}; border-radius:3px 3px 0 0; background:var(--brand)"></div>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:9px; color:var(--tSec); text-align:center">{{ b.tick }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Volume by channel</h2>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <sc-for list="{{ channelBars }}" as="c" hint-placeholder-count="5">
+                <div style="display:grid; grid-template-columns:110px minmax(0,1fr) 56px; align-items:center; column-gap:10px">
+                  <span style="font-size:12px; color:var(--tPri); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.label }}</span>
+                  <span style="display:block; height:8px; border-radius:4px; background:var(--sSunken)">
+                    <span style="display:block; width: {{ c.w }}; height:8px; border-radius:4px; background:var(--brand)"></span>
+                  </span>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--tPri); text-align:end">{{ c.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+
+        <section style="margin-top:18px">
+          <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:10px">
+            <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Status mix</h2>
+            </div>
+          <div style="display:flex; height:14px; border-radius:4px; overflow:hidden; max-width:560px">
+            <sc-for list="{{ statusMix }}" as="m" hint-placeholder-count="3">
+              <span title="{{ m.title }}" style="{{ m.style }}"></span>
+            </sc-for>
+          </div>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:8px">
+            <sc-for list="{{ statusMix }}" as="m" hint-placeholder-count="3">
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--tSec)">
+                <span aria-hidden="true" style="{{ m.dotStyle }}"></span>{{ m.label }} · <span style="font-family:'IBM Plex Mono', monospace; color:var(--tPri)">{{ m.pct }}</span>
+              </span>
+            </sc-for>
+          </div>
+        </section>
+
+        <section style="margin-top:18px">
+          <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:0">
+            <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Line items</h2>
+            <span style="font-size:11px; color:var(--tSec)">sample figures until live reporting lands</span>
+          </div>
+          <div style="overflow-x:auto">
+            <div style="display:grid; grid-template-columns:minmax(0,1fr) 110px 96px 80px 64px 76px 110px; align-items:center; column-gap:14px; min-width:820px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Name</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Segment</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Status</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Volume</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Done</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Avg min</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Updated</span>
+            </div>
+            <sc-for list="{{ analyticsRows }}" as="row" hint-placeholder-count="8">
+              <div role="button" tabindex="0" onClick="{{ row.view }}" style="display:grid; grid-template-columns:minmax(0,1fr) 110px 96px 80px 64px 76px 110px; align-items:center; column-gap:14px; min-width:820px; height:32px; padding:0 8px; border-bottom:1px solid var(--bSub); cursor:pointer" style-hover="background: var(--sSunken)">
+                <span style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.name }}</span>
+                <span style="font-size:12px; color:var(--tSec)">{{ row.segment }}</span>
+                <span style="{{ row.statusStyle }}">{{ row.status }}</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ row.volume }}</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ row.done }}</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ row.avg }}</span>
+                <span style="font-size:11px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.updated }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+
+    <!-- ══════════════════ COST REPORT ══════════════════ -->
+    <sc-if value="{{ isCost }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:0 0 auto; display:flex; align-items:flex-end; gap:12px; padding:10px 20px; flex-wrap:wrap">
+        <label style="display:flex; flex-direction:column; gap:4px">
+          <span style="font-size:12px; font-weight:500">From month</span>
+          <span style="position:relative; display:inline-flex; align-items:center; width:168px">
+                      <input type="month" value="2026-03" style="width:100%; height:28px; padding-inline:8px 26px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.1 3.5h9.8v8.4H2.1z"></path><path d="M2.1 6.1h9.8"></path><path d="M4.7 2.1v2.2"></path><path d="M9.3 2.1v2.2"></path></svg></span>
+                    </span>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px">
+          <span style="font-size:12px; font-weight:500">To month</span>
+          <span style="position:relative; display:inline-flex; align-items:center; width:168px">
+                      <input type="month" value="2026-08" style="width:100%; height:28px; padding-inline:8px 26px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.1 3.5h9.8v8.4H2.1z"></path><path d="M2.1 6.1h9.8"></path><path d="M4.7 2.1v2.2"></path><path d="M9.3 2.1v2.2"></path></svg></span>
+                    </span>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px">
+          <span style="font-size:12px; font-weight:500">Currency</span>
+          <select style="width:96px; height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer">
+            <option>USD</option><option>LBP</option>
+          </select>
+        </label>
+        </div>
+
+      <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:0 20px 20px">
+        <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:12px; border:1px solid var(--warnBd); border-radius:6px; background:var(--warnSub)">
+          <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--warnOn)">!</span>
+          <div style="font-size:11px; line-height:16px; color:var(--warnOn); text-wrap:pretty">
+            <span style="font-weight:600">Two months' COGS may be understated.</span> They have unresolved consumption exceptions, so what confirmed orders consumed is short by whatever those lines were.
+            <span role="button" tabindex="0" onClick="{{ goExceptions }}" style="margin-inline-start:4px; font-weight:600; color:var(--brand); cursor:pointer">Open consumption exceptions</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:14px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+          <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+          <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">
+            <span style="font-weight:600">Some purchases are still waiting on their prices.</span> 4 receipt lines in June and July have no usable price yet, so those months' purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; max-width:820px">
+          <sc-for list="{{ costTiles }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised)">
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ t.label }}</span>
+              <div style="display:flex; align-items:baseline; gap:5px">
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:22px; line-height:26px; font-weight:600; color: {{ t.fg }}">{{ t.value }}</span>
+                <span style="font-size:11px; color:var(--tSec)">USD</span>
+              </div>
+              <span style="font-size:10px; line-height:14px; color:var(--tSec)">{{ t.hint }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:18px; margin-top:18px">
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Revenue and COGS by month</h2>
+            </div>
+            <div style="display:flex; align-items:flex-end; gap:10px; height:130px">
+              <sc-for list="{{ costBars }}" as="b" hint-placeholder-count="6">
+                <div style="flex:1 1 0; min-width:0; display:flex; flex-direction:column; justify-content:flex-end; gap:4px; height:100%">
+                  <div style="display:flex; align-items:flex-end; gap:3px; height:100%">
+                    <div title="{{ b.revTitle }}" style="flex:1 1 0; height: {{ b.revH }}; border-radius:3px 3px 0 0; background:var(--brand)"></div>
+                    <div title="{{ b.cogsTitle }}" style="flex:1 1 0; height: {{ b.cogsH }}; border-radius:3px 3px 0 0; background:var(--bDef)"></div>
+                  </div>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:9px; color:var(--tSec); text-align:center">{{ b.tick }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex; gap:14px; margin-top:8px">
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--tSec)"><span aria-hidden="true" style="width:8px; height:8px; border-radius:2px; background:var(--brand)"></span>Revenue</span>
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--tSec)"><span aria-hidden="true" style="width:8px; height:8px; border-radius:2px; background:var(--bDef)"></span>COGS</span>
+            </div>
+          </section>
+
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Revenue by line of business</h2>
+              <span style="font-size:11px; color:var(--tSec)">August</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <sc-for list="{{ mixBars }}" as="m" hint-placeholder-count="3">
+                <div style="display:grid; grid-template-columns:88px minmax(0,1fr) 84px; align-items:center; column-gap:10px">
+                  <span style="font-size:12px">{{ m.label }}</span>
+                  <span style="display:block; height:8px; border-radius:4px; background:var(--sSunken)">
+                    <span style="display:block; width: {{ m.w }}; height:8px; border-radius:4px; background:var(--brand)"></span>
+                  </span>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:11px; text-align:end">{{ m.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+
+        <section style="margin-top:18px">
+          <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub)">
+            <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Monthly cost report</h2>
+          </div>
+          <div style="overflow-x:auto">
+            <div style="display:grid; grid-template-columns:minmax(0,1.2fr) 110px 110px 110px 110px 90px; align-items:center; column-gap:14px; min-width:740px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Month</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Spend</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">COGS</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Revenue</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Margin</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Margin %</span>
+            </div>
+            <sc-for list="{{ costRows }}" as="row" hint-placeholder-count="6">
+              <div role="button" tabindex="0" onClick="{{ row.view }}" style="display:grid; grid-template-columns:minmax(0,1.2fr) 110px 110px 110px 110px 90px; align-items:center; column-gap:14px; min-width:740px; min-height:32px; padding:4px 8px; border-bottom:1px solid var(--bSub); cursor:pointer" style-hover="background: var(--sSunken)">
+                <span style="display:flex; align-items:center; gap:6px; min-width:0">
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:500">{{ row.month }}</span>
+                  <sc-if value="{{ row.flagged }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--warnSub); color:var(--warnOn); white-space:nowrap">Understated</span>
+                  </sc-if>
+                </span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ row.spend }}</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ row.cogs }}</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ row.revenue }}</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:500; text-align:end; color: {{ row.marginFg }}">{{ row.margin }}</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end; color:var(--tSec)">{{ row.marginPct }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+
+    <!-- ══════════════════ CONSUMPTION EXCEPTIONS ══════════════════ -->
+    <sc-if value="{{ isExceptions }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 20px; flex-wrap:wrap">
+        <div style="display:inline-flex; align-items:center; gap:6px">
+          <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Status</span>
+          <div style="display:inline-flex; height:28px; padding:2px; gap:2px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised)">
+            <sc-for list="{{ excFilters }}" as="f" hint-placeholder-count="3">
+              <button type="button" onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <label style="display:inline-flex; align-items:center; gap:6px">
+          <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Raised from</span>
+          <span style="position:relative; display:inline-flex; align-items:center; width:148px">
+                      <input type="date" value="2026-08-01" style="width:100%; height:28px; padding-inline:8px 26px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.1 3.5h9.8v8.4H2.1z"></path><path d="M2.1 6.1h9.8"></path><path d="M4.7 2.1v2.2"></path><path d="M9.3 2.1v2.2"></path></svg></span>
+                    </span>
+        </label>
+        <div style="flex:1 1 auto"></div>
+      </div>
+
+      <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:0 20px 16px">
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top:1px solid var(--bDef)">
+            <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="8">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 130px 220px 120px 150px; align-items:center; column-gap:14px; height:32px; padding:0 8px; border-bottom:1px solid var(--bSub)">
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelB); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelB); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ errored }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--badSub); color:var(--badOn)">Not loaded</span>
+            <div style="font-size:13px; font-weight:600; margin-top:2px">The exceptions could not be loaded</div>
+            <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:46ch; text-wrap:pretty">Nothing was retried or resolved by this. Every exception is still open.</div>
+            <button type="button" onClick="{{ retry }}" style="margin-top:4px; height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ excEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--okSub); color:var(--okOn)">All clear</span>
+            <div style="font-size:13px; font-weight:600; margin-top:2px">Nothing to review</div>
+            <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:56ch; text-wrap:pretty">When a confirmed order cannot deduct a line — no recipe, no stock item, not enough stock — it appears here instead of guessing a quantity.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ excTable }}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x:auto">
+            <div style="display:grid; grid-template-columns:minmax(0,1fr) 130px 220px 120px 150px; align-items:center; column-gap:14px; min-width:900px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef); position:sticky; top:0; background:var(--sBase); z-index:2">
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Order</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Branch</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Reason</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Raised</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Status</span>
+            </div>
+            <sc-for list="{{ excRows }}" as="row" hint-placeholder-count="7">
+              <div role="button" tabindex="0" onClick="{{ row.view }}" style="display:grid; grid-template-columns:minmax(0,1fr) 130px 220px 120px 150px; align-items:center; column-gap:14px; min-width:900px; min-height:32px; padding:5px 8px; border-bottom:1px solid var(--bSub); cursor:pointer" style-hover="background: var(--sSunken)">
+                <span style="min-width:0">
+                  <span style="display:block; font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:500">{{ row.order }}</span>
+                  <span style="display:block; font-size:11px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.item }}</span>
+                </span>
+                <span style="font-size:12px; color:var(--tSec)">{{ row.branch }}</span>
+                <span style="font-size:12px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.reason }}</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--tSec)">{{ row.raised }}</span>
+                <span style="display:flex; align-items:center; gap:6px">
+                  <sc-if value="{{ row.resolved }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--okSub); color:var(--okOn)">Resolved</span>
+                  </sc-if>
+                  <sc-if value="{{ row.open }}" hint-placeholder-val="{{ true }}">
+                    <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--badSub); color:var(--badOn)">Open</span>
+                    <span role="button" tabindex="0" onClick="{{ row.retry }}" style="display:inline-flex; align-items:center; height:22px; padding:0 7px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); font-size:11px; font-weight:500; color:var(--brand); cursor:pointer" style-hover="background: var(--sSunken)">Retry</span>
+                    <span role="button" tabindex="0" onClick="{{ row.resolve }}" style="display:inline-flex; align-items:center; height:22px; padding:0 7px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); font-size:11px; font-weight:500; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)">Resolve</span>
+                  </sc-if>
+                </span>
+              </div>
+            </sc-for>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:900px; padding:10px 8px 0">
+              <span style="font-size:11px; color:var(--tSec)">Showing 1–7 of 7</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════════════════ VIEW WINDOW (replaces the side drawer) ══════════════════ -->
+    <sc-if value="{{ windowOpen }}" hint-placeholder-val="{{ false }}">
+      <div role="presentation" onClick="{{ closeWindow }}" style="position:absolute; inset:0; z-index:40; display:grid; place-items:center; padding:32px; background:var(--overlay); animation: wbfade 120ms ease">
+        <div role="dialog" aria-modal="true" onClick="{{ swallow }}" onPointerDown="{{ swallow }}" style="display:flex; flex-direction:column; width:min(720px, 100%); max-height:100%; border:1px solid var(--bDef); border-radius:8px; background:var(--sRaised); box-shadow:var(--pop); overflow:hidden; animation: wbpop 160ms cubic-bezier(.2,.7,.3,1)">
+          <div style="flex:0 0 auto; display:flex; align-items:center; gap:10px; height:44px; padding-inline:16px 10px; border-bottom:1px solid var(--bSub)">
+            <span style="font-size:13px; line-height:18px; font-weight:600; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ windowTitle }}</span>
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--sSunken); color:var(--tSec); white-space:nowrap">{{ windowKind }}</span>
+            <div style="flex:1 1 auto"></div>
+            <span role="button" tabindex="0" onClick="{{ closeWindow }}" title="Close" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:4px; font-size:12px; color:var(--tSec); cursor:pointer; flex:0 0 auto" style-hover="background: var(--sSunken); color: var(--tPri)">✕</span>
+          </div>
+
+          <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:14px 16px 16px">
+            <sc-if value="{{ windowNote }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:14px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+                <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+                <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">{{ windowNoteText }}</div>
+              </div>
+            </sc-if>
+
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <sc-for list="{{ windowFields }}" as="f" hint-placeholder-count="8">
+                <div style="display:flex; flex-direction:column; gap:3px; min-width:0">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ f.label }}</span>
+                  <span style="{{ f.style }}">{{ f.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ windowHasChips }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:16px; padding:10px 12px; border:1px solid var(--bSub); border-radius:8px; background:var(--sSunken)">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ windowChipsLabel }}</span>
+                  <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--infoSub); color:var(--infoOn)">From database</span>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px">
+                  <sc-for list="{{ windowChips }}" as="c" hint-placeholder-count="3">
+                    <span style="display:inline-flex; align-items:center; height:19px; padding:0 7px; border-radius:9px; font-size:11px; background:var(--sRaised); border:1px solid var(--bSub); color:var(--tPri)">{{ c.label }}</span>
+                  </sc-for>
+                </div>
+                <div style="margin-top:8px; font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">{{ windowChipsCaption }}</div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="flex:0 0 auto; display:flex; align-items:center; justify-content:flex-end; gap:6px; height:48px; padding-inline:16px; border-top:1px solid var(--bSub); background:var(--sRaised)">
+            <button type="button" onClick="{{ closeWindow }}" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Close</button>
+            <button type="button" onClick="{{ closeWindow }}" style="height:28px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">{{ windowAction }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:860},&quot;dataState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;error&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;truncated&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ltr&quot;,&quot;rtl&quot;],&quot;default&quot;:&quot;ltr&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const NAV = [
+  { key: 'orderDesk', label: 'Order desk', glyph: '▤', items: [
+    { key: 'queue', label: 'Order desk', count: '8' },
+    { key: 'calendar', label: 'Order calendar' },
+    { key: 'requirements', label: 'Requirements', count: '4' },
+    { key: 'cash', label: 'Cash taken' },
+  ]},
+  { key: 'workbench', label: 'Workbench', glyph: '⌕', here: true, items: [
+    { key: 'review', label: 'Needs review', count: '6' },
+    { key: 'analytics', label: 'Analytics' },
+    { key: 'cost', label: 'Cost report' },
+    { key: 'exceptions', label: 'Consumption exceptions', count: '3' },
+  ]},
+  { key: 'catalogue', label: 'Catalogue', glyph: '◉', items: [
+    { key: 'ingredients', label: 'Ingredients' },
+    { key: 'packaging', label: 'Packaging' },
+    { key: 'recipes', label: 'Recipes' },
+    { key: 'products', label: 'Resale' },
+    { key: 'sauces', label: 'Sauces & marinations' },
+    { key: 'dressings', label: 'Dressings' },
+    { key: 'meals', label: 'Meals' },
+    { key: 'allergens', label: 'Allergen classes' },
+  ]},
+  { key: 'commercial', label: 'Commercial', glyph: '☰', items: [
+    { key: 'prices', label: 'Price lists' },
+    { key: 'quotations', label: 'Quotations' },
+    { key: 'plans', label: 'Plans' },
+    { key: 'zones', label: 'Delivery zones' },
+    { key: 'operating', label: 'Opening hours' },
+  ]},
+  { key: 'operations', label: 'Operations', glyph: '▣', items: [
+    { key: 'orders', label: 'Orders' },
+    { key: 'stock', label: 'Stock' },
+    { key: 'supply', label: 'Supply orders' },
+    { key: 'suppliers', label: 'Suppliers' },
+    { key: 'procurement', label: 'Procurement' },
+    { key: 'purchases', label: 'Purchases ledger' },
+    { key: 'batch', label: 'Batch planner' },
+    { key: 'production', label: 'Production' },
+    { key: 'qc', label: 'Quality control' },
+  ]},
+];
+
+const SCREENS = {
+  review: {
+    crumb: 'Needs review', title: 'Needs review',
+    chip: 'Read only', chipTone: 'neutral',
+    note: 'Every fix happens in the family’s own editor',
+    summary: '6 records need review · 2 of them cannot be published at all until the reasons are resolved.',
+  },
+  analytics: {
+    crumb: 'Analytics', title: 'Kitchen analytics',
+    chip: 'Sample data', chipTone: 'info',
+    note: 'No figure here is written anywhere',
+    summary: '8 line items · 30 days · every segment',
+  },
+  cost: {
+    crumb: 'Cost report', title: 'Monthly cost report',
+    chip: 'Costs', chipTone: 'brand',
+    note: 'Gated on inventory.view_costs_organisation',
+    summary: '6 months in range · 2 months understated · 4 receipt lines unpriced',
+  },
+  exceptions: {
+    crumb: 'Consumption exceptions', title: 'Consumption exceptions',
+    chip: 'Retry writes stock', chipTone: 'bad',
+    note: 'Retry and resolve write to stock',
+    summary: '7 exceptions raised since 2026-08-01 · 3 unresolved',
+  },
+};
+
+const REVIEW = [
+  { family: 'Ingredients', rows: [
+    { name: 'Zaatar blend, house', reference: 'ING-0412', updated: '2 days ago by Rana Khalil',
+      reasons: [{ label: 'Quarantined — publication refused', tone: 'bad' }, { label: '2 allergen mappings are unverified', tone: 'warn' }] },
+    { name: 'Tahini, dark roast', reference: 'ING-0187', updated: '4 days ago by the import',
+      reasons: [{ label: 'One language of the name is still empty', tone: 'warn' }] },
+    { name: 'Sumac, coarse', reference: 'ING-0533', updated: '6 days ago by the import',
+      reasons: [{ label: '3 import findings are unresolved', tone: 'info' }] },
+  ]},
+  { family: 'Recipes', rows: [
+    { name: 'Grilled chicken quinoa bowl', reference: 'RCP-0031 · v4', updated: 'yesterday by Omar Fares',
+      reasons: [{ label: 'Figures out of date since the last change', tone: 'warn' }] },
+    { name: 'Baked salmon & greens', reference: 'RCP-0044 · v2', updated: '3 days ago by Rana Khalil',
+      reasons: [{ label: 'Quarantined — publication refused', tone: 'bad' }] },
+  ]},
+  { family: 'Price lists', rows: [
+    { name: 'Retail · USD', reference: 'PL-0003', updated: '5 days ago by Sara Nassar',
+      reasons: [{ label: '2 price entries break the amount rule', tone: 'warn' }] },
+  ]},
+];
+
+const ANALYTICS_ROWS = [
+  { name: 'Grilled chicken quinoa bowl', segment: 'Meals', status: 'On track', volume: '1 284', done: '96%', avg: '11.4', updated: '2 hours ago' },
+  { name: 'Baked salmon & greens', segment: 'Meals', status: 'Watch', volume: '842', done: '88%', avg: '14.8', updated: '3 hours ago' },
+  { name: 'Falafel power wrap', segment: 'Meals', status: 'On track', volume: '766', done: '97%', avg: '7.2', updated: '4 hours ago' },
+  { name: 'Lentil & spinach soup', segment: 'Recipes', status: 'On track', volume: '611', done: '94%', avg: '22.5', updated: 'yesterday' },
+  { name: 'Green detox juice 330 ml', segment: 'Recipes', status: 'Blocked', volume: '498', done: '61%', avg: '4.1', updated: 'yesterday' },
+  { name: 'Achrafieh run', segment: 'Delivery', status: 'Watch', volume: '412', done: '83%', avg: '31.0', updated: '2 days ago' },
+  { name: 'Halloumi breakfast plate', segment: 'Meals', status: 'On track', volume: '355', done: '99%', avg: '9.6', updated: '2 days ago' },
+  { name: 'Almond protein bar', segment: 'Stock', status: 'On track', volume: '288', done: '100%', avg: '1.2', updated: '3 days ago' },
+];
+
+const COST_ROWS = [
+  { month: '2026-03', spend: '38 420.00', cogs: '29 118.40', revenue: '61 940.00', margin: '32 821.60', marginPct: '53.0%', flagged: false },
+  { month: '2026-04', spend: '41 006.50', cogs: '31 442.10', revenue: '66 480.00', margin: '35 037.90', marginPct: '52.7%', flagged: false },
+  { month: '2026-05', spend: '39 884.00', cogs: '30 901.75', revenue: '64 120.00', margin: '33 218.25', marginPct: '51.8%', flagged: false },
+  { month: '2026-06', spend: '44 512.25', cogs: '33 780.00', revenue: '71 350.00', margin: '37 570.00', marginPct: '52.7%', flagged: true },
+  { month: '2026-07', spend: '46 100.80', cogs: '35 214.60', revenue: '73 880.00', margin: '38 665.40', marginPct: '52.3%', flagged: true },
+  { month: '2026-08', spend: '47 930.00', cogs: '36 902.15', revenue: '78 240.00', margin: '41 337.85', marginPct: '52.8%', flagged: false },
+];
+
+const EXCEPTIONS = [
+  { order: '0148', item: 'Grilled chicken quinoa bowl', branch: 'Beirut Central', reason: 'Not enough stock', raised: '2026-08-28', resolved: false },
+  { order: '0151', item: 'Baked salmon & greens', branch: 'Beirut Central', reason: 'No published recipe version', raised: '2026-08-27', resolved: false },
+  { order: '0144', item: 'Green detox juice 330 ml', branch: 'Achrafieh', reason: 'Units cannot be converted', raised: '2026-08-26', resolved: false },
+  { order: '0139', item: 'Almond protein bar', branch: 'Beirut Central', reason: 'Product links no ingredient', raised: '2026-08-24', resolved: true },
+  { order: '0133', item: 'Item gone', branch: 'Achrafieh', reason: 'Catalogue item missing', raised: '2026-08-22', resolved: true },
+  { order: '0128', item: 'Falafel power wrap', branch: 'Beirut Central', reason: 'Recipe has no yield count', raised: '2026-08-20', resolved: true },
+  { order: '0121', item: 'Lentil & spinach soup', branch: 'Hamra', reason: 'No stock item at the branch', raised: '2026-08-18', resolved: true },
+];
+
+const TREND = [42, 55, 48, 61, 58, 72, 66, 74, 69, 81, 77, 88, 84, 92];
+const CHANNELS = [
+  { label: 'Subscription', value: 2410 }, { label: 'À la carte', value: 1688 },
+  { label: 'B2B', value: 942 }, { label: 'POS', value: 611 }, { label: 'Staff meals', value: 188 },
+];
+const MIX = [
+  { label: 'On track', pct: 62, tone: 'ok' }, { label: 'Watch', pct: 26, tone: 'warn' }, { label: 'Blocked', pct: 12, tone: 'bad' },
+];
+
+const TONE_BG = { ok: 'var(--okSub)', warn: 'var(--warnSub)', bad: 'var(--badSub)', info: 'var(--infoSub)', neutral: 'var(--neuSub)', brand: 'var(--brandSub)' };
+const TONE_FG = { ok: 'var(--okOn)', warn: 'var(--warnOn)', bad: 'var(--badOn)', info: 'var(--infoOn)', neutral: 'var(--neuOn)', brand: 'var(--onBrandSub)' };
+const TONE_SOLID = { ok: 'var(--brand)', warn: 'var(--bDef)', bad: 'var(--badBd)' };
+
+const badge = (tone) => 'display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; background:' + TONE_BG[tone] + '; color:' + TONE_FG[tone];
+const reasonChip = (tone) => 'display:inline-flex; align-items:center; align-self:flex-start; max-width:100%; height:18px; padding:0 7px; border-radius:9px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:' + TONE_BG[tone] + '; color:' + TONE_FG[tone];
+
+const seg = (on) => 'display:inline-flex; align-items:center; height:22px; padding:0 9px; border:0; border-radius:3px; font-size:11px; font-weight:500; cursor:pointer; white-space:nowrap; background:' + (on ? 'var(--brandSub)' : 'transparent') + '; color:' + (on ? 'var(--onBrandSub)' : 'var(--tSec)');
+
+/** The header summary, as cards. Analytics and Cost report are deliberately absent: their own
+ *  KPI tiles and cost tiles below are the summary, and a second strip would say it twice. */
+const CARD_FG = { ok:'var(--okOn)', warn:'var(--warnOn)', bad:'var(--badOn)', info:'var(--infoOn)' };
+const toCards = (list) => (list ?? []).map((c) => ({
+  label: c.label, value: c.value, unit: c.unit ?? '', caption: c.caption ?? '',
+  fg: c.tone ? CARD_FG[c.tone] : 'var(--tPri)',
+}));
+
+
+class Component extends DCLogic {
+  state = {
+    screen: 'review', navOpen: true, q: '',
+    reviewScope: 'all', excFilter: 'unresolved', range: '30d', segment: 'all',
+    themeOverride: null, view: null,
+  };
+
+  componentDidMount() {
+    this.onKey = (e) => { if (e.key === 'Escape' && this.state.view) this.setState({ view: null }); };
+    document.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { document.removeEventListener('keydown', this.onKey); }
+
+  go(screen) { this.setState({ screen, view: null, q: '' }); }
+
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const dataState = p.dataState ?? 'normal';
+    const screen = s.screen;
+    const meta = SCREENS[screen];
+    const v = {};
+
+    v.dir = (p.direction ?? 'ltr');
+    v.theme = s.themeOverride ?? (p.theme ?? 'light');
+    v.themeLabel = v.theme === 'dark' ? 'Light mode' : 'Dark mode';
+    v.toggleTheme = () => this.setState({ themeOverride: v.theme === 'dark' ? 'light' : 'dark' });
+
+    v.navOpen = s.navOpen;
+    v.navClosed = !s.navOpen;
+    v.navWidth = s.navOpen ? '208px' : '52px';
+    v.navPad = s.navOpen ? '14px' : '0';
+    v.navRailPad = s.navOpen ? '8px' : '10px';
+    v.navJustify = s.navOpen ? 'flex-start' : 'center';
+    v.navFootAlign = s.navOpen ? 'start' : 'center';
+    v.navToggleTitle = 'Show or hide the navigation';
+    v.toggleNav = () => this.setState({ navOpen: !s.navOpen });
+    v.expandNav = () => this.setState({ navOpen: true });
+    v.navGroups = NAV.map((g) => ({
+      label: g.label, glyph: g.glyph,
+      items: g.items.map((it) => ({
+        label: it.label, count: it.count ?? '', showCount: !!it.count,
+        active: !!g.here && it.key === screen,
+        here: !!g.here && it.key !== screen,
+        away: !g.here,
+        awayTitle: it.label + ' — designed in the ' + g.label + ' file',
+        go: g.here ? () => this.go(it.key) : () => {},
+      })),
+    }));
+
+    v.crumbLeaf = meta.crumb;
+    v.pageTitle = meta.title;
+    v.showPageChip = true;
+    v.pageChip = meta.chip;
+    v.pageChipBg = TONE_BG[meta.chipTone];
+    v.pageChipFg = TONE_FG[meta.chipTone];
+    v.summaryCards = [];
+    v.showSummaryCards = false;
+    v.showSummaryLine = false;
+
+    v.isReview = screen === 'review';
+    v.isAnalytics = screen === 'analytics';
+    v.isCost = screen === 'cost';
+    v.isExceptions = screen === 'exceptions';
+
+    v.loading = dataState === 'loading';
+    v.errored = dataState === 'error';
+    v.isOffline = dataState === 'offline';
+    v.truncatedOn = !!p.truncated;
+    v.retry = () => {};
+    v.skeletonRows = [1,2,3,4,5,6,7,8,9];
+
+    v.q = s.q;
+    v.setQ = (e) => this.setState({ q: e.target.value });
+
+    // ── Needs review
+    v.reviewScopes = [['all','All'],['blocked','Blocked'],['unblocked','To finish']].map(([k, label]) => ({
+      label, style: seg(s.reviewScope === k), go: () => this.setState({ reviewScope: k }),
+    }));
+    const matches = (r) => {
+      const q = s.q.trim().toLowerCase();
+      if (q && !(r.name.toLowerCase().includes(q) || r.reference.toLowerCase().includes(q))) return false;
+      const blocked = r.reasons.some((x) => x.tone === 'bad');
+      if (s.reviewScope === 'blocked') return blocked;
+      if (s.reviewScope === 'unblocked') return !blocked;
+      return true;
+    };
+    const sections = REVIEW.map((sec) => {
+      const rows = sec.rows.filter(matches);
+      const blocked = rows.filter((r) => r.reasons.some((x) => x.tone === 'bad')).length;
+      return {
+        family: sec.family,
+        count: rows.length === 1 ? '1 record' : rows.length + ' records',
+        anyBlocked: blocked > 0,
+        blocked: blocked + ' blocked',
+        rows: rows.map((r) => ({
+          name: r.name, reference: r.reference, updated: r.updated,
+          reasons: r.reasons.map((x) => ({ label: x.label, style: reasonChip(x.tone) })),
+          view: () => this.setState({ view: { kind: 'review', row: r, family: sec.family } }),
+          edit: () => {},
+        })),
+      };
+    }).filter((sec) => sec.rows.length > 0);
+    v.reviewSections = sections;
+    v.reviewClear = v.isReview && dataState !== 'loading' && dataState !== 'error' && (dataState === 'empty' || sections.length === 0);
+    if (v.isReview) {
+      const all = sections.reduce((n, sec) => n + sec.rows.length, 0);
+      const blocked = sections.reduce((n, sec) => n + sec.rows.filter((r) => r.reasons.some((x) => x.style.includes('badSub'))).length, 0);
+      v.summaryCards = [
+        { label: 'Shown', value: String(all), unit: 'records', caption: sections.length + (sections.length === 1 ? ' family' : ' families'), fg: 'var(--tPri)' },
+        { label: 'Blocked', value: String(blocked), unit: 'records', caption: 'publication refused', fg: blocked > 0 ? CARD_FG.bad : 'var(--tPri)' },
+        { label: 'To finish', value: String(all - blocked), unit: 'records', caption: 'not blocked outright', fg: 'var(--tPri)' },
+      ];
+      v.showSummaryCards = true;
+    }
+    v.reviewTable = v.isReview && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty' && sections.length > 0;
+
+    // ── Analytics
+    v.ranges = [['7d','7 days'],['30d','30 days'],['90d','90 days'],['ytd','Year to date']].map(([k, label]) => ({
+      label, style: seg(s.range === k), go: () => this.setState({ range: k }),
+    }));
+    v.segment = s.segment;
+    v.setSegment = (e) => this.setState({ segment: e.target.value });
+    v.analyticsKpis = [
+      { label: 'Units produced', value: '18 402', unit: 'units', trend: '↑ 6.4%', tone: 'ok' },
+      { label: 'On-time rate', value: '94.1', unit: '%', trend: '↑ 1.2%', tone: 'ok' },
+      { label: 'Review backlog', value: '6', unit: 'records', trend: '↓ 2', tone: 'warn' },
+      { label: 'Avg prep time', value: '12.8', unit: 'min', trend: 'No change', tone: 'neutral' },
+    ].map((k) => ({ ...k, trendStyle: 'flex:0 0 auto; font-family:\'IBM Plex Mono\', monospace; font-size:10px; color:' + TONE_FG[k.tone] }));
+    const maxT = Math.max(...TREND);
+    v.trendBars = TREND.map((n, i) => ({ h: Math.round((n / maxT) * 100) + '%', tick: i % 2 === 0 ? String(i + 1) : '', title: 'Day ' + (i + 1) + ' · ' + n + ' units' }));
+    const maxC = Math.max(...CHANNELS.map((c) => c.value));
+    v.channelBars = CHANNELS.map((c) => ({ label: c.label, w: Math.round((c.value / maxC) * 100) + '%', value: c.value.toLocaleString('en-US') }));
+    v.statusMix = MIX.map((m) => ({
+      label: m.label, pct: m.pct + '%', title: m.label + ' · ' + m.pct + '%',
+      style: 'display:block; width:' + m.pct + '%; background:' + TONE_SOLID[m.tone],
+      dotStyle: 'width:8px; height:8px; border-radius:2px; background:' + TONE_SOLID[m.tone],
+    }));
+    const segFilter = (r) => s.segment === 'all' || r.segment.toLowerCase() === s.segment;
+    v.analyticsRows = ANALYTICS_ROWS.filter(segFilter).map((r) => ({
+      ...r,
+      statusStyle: badge(r.status === 'On track' ? 'ok' : r.status === 'Watch' ? 'warn' : 'bad'),
+      view: () => this.setState({ view: { kind: 'analytics', row: r } }),
+    }));
+
+    // ── Cost report
+    v.goExceptions = () => this.go('exceptions');
+    v.costTiles = [
+      { label: 'Spend · August', value: '47 930', hint: 'what arrived this month', fg: 'var(--tPri)' },
+      { label: 'COGS · August', value: '36 902', hint: 'what confirmed orders consumed', fg: 'var(--tPri)' },
+      { label: 'Revenue · August', value: '78 240', hint: 'sold across every book', fg: 'var(--tPri)' },
+      { label: 'Margin · August', value: '41 338', hint: 'after cost of goods', fg: 'var(--brand)' },
+    ];
+    const maxRev = Math.max(...COST_ROWS.map((r) => parseFloat(r.revenue.replace(/\s/g, ''))));
+    v.costBars = COST_ROWS.map((r) => {
+      const rev = parseFloat(r.revenue.replace(/\s/g, ''));
+      const cogs = parseFloat(r.cogs.replace(/\s/g, ''));
+      return {
+        tick: r.month.slice(5), revH: Math.round((rev / maxRev) * 100) + '%', cogsH: Math.round((cogs / maxRev) * 100) + '%',
+        revTitle: r.month + ' revenue ' + r.revenue, cogsTitle: r.month + ' COGS ' + r.cogs,
+      };
+    });
+    v.mixBars = [
+      { label: 'Meals', value: '51 440.00', w: '66%' },
+      { label: 'Products', value: '19 880.00', w: '25%' },
+      { label: 'Other', value: '6 920.00', w: '9%' },
+    ];
+    v.costRows = COST_ROWS.map((r) => ({
+      ...r, marginFg: 'var(--brand)',
+      view: () => this.setState({ view: { kind: 'cost', row: r } }),
+    }));
+
+    // ── Exceptions
+    v.excFilters = [['unresolved','Unresolved'],['resolved','Resolved'],['all','All']].map(([k, label]) => ({
+      label, style: seg(s.excFilter === k), go: () => this.setState({ excFilter: k }),
+    }));
+    const excRows = EXCEPTIONS.filter((r) =>
+      s.excFilter === 'all' ? true : s.excFilter === 'resolved' ? r.resolved : !r.resolved);
+    v.excRows = excRows.map((r) => ({
+      ...r, open: !r.resolved,
+      view: () => this.setState({ view: { kind: 'exception', row: r } }),
+      retry: () => {}, resolve: () => {},
+    }));
+    if (v.isExceptions) {
+      const unresolved = excRows.filter((r) => !r.resolved).length;
+      v.summaryCards = [
+        { label: 'Shown', value: String(excRows.length), unit: 'of ' + EXCEPTIONS.length, caption: 'raised since 2026-08-01', fg: 'var(--tPri)' },
+        { label: 'Unresolved', value: String(unresolved), unit: 'exceptions', caption: 'nothing deducted', fg: unresolved > 0 ? CARD_FG.bad : 'var(--tPri)' },
+        { label: 'Resolved', value: String(excRows.length - unresolved), unit: 'exceptions', caption: 'the gap was accepted', fg: CARD_FG.ok },
+      ];
+      v.showSummaryCards = true;
+    }
+    v.excEmpty = v.isExceptions && (dataState === 'empty' || excRows.length === 0) && dataState !== 'loading' && dataState !== 'error';
+    v.excTable = v.isExceptions && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty' && excRows.length > 0;
+
+    // ── View window
+    const mono = 'font-family:\'IBM Plex Mono\', monospace; font-size:12px; color:var(--tPri)';
+    const plain = 'font-size:12px; line-height:18px; color:var(--tPri); text-wrap:pretty';
+    const view = s.view;
+    v.windowOpen = !!view;
+    v.closeWindow = () => this.setState({ view: null });
+    v.swallow = (e) => { e.stopPropagation(); };
+    v.windowHasChips = false;
+    v.windowNote = false;
+    v.windowFields = [];
+    v.windowChips = [];
+    v.windowChipsLabel = '';
+    v.windowChipsCaption = '';
+    v.windowNoteText = '';
+    v.windowTitle = '';
+    v.windowKind = '';
+    v.windowAction = 'Edit';
+
+    if (view && view.kind === 'review') {
+      const r = view.row;
+      v.windowTitle = r.name;
+      v.windowKind = view.family.replace(/s$/, '');
+      v.windowAction = 'Open the record';
+      v.windowNote = true;
+      v.windowNoteText = 'Nothing is resolved from this window. Opening the record takes you to the family’s own editor, which holds the lock version, the unsaved guard and the publish confirmation.';
+      v.windowFields = [
+        { label: 'Reference', value: r.reference, style: mono },
+        { label: 'Family', value: view.family, style: plain },
+        { label: 'Last changed', value: r.updated, style: plain },
+        { label: 'Publication', value: r.reasons.some((x) => x.tone === 'bad') ? 'Blocked — publication refused' : 'Not blocked — work to finish', style: plain },
+      ];
+      v.windowHasChips = true;
+      v.windowChipsLabel = 'Why it is here';
+      v.windowChips = r.reasons.map((x) => ({ label: x.label }));
+      v.windowChipsCaption = 'Resolved by the review queue’s own checks. A reason clears when the record itself is corrected.';
+    } else if (view && view.kind === 'analytics') {
+      const r = view.row;
+      v.windowTitle = r.name;
+      v.windowKind = 'Line item';
+      v.windowAction = 'Open the record';
+      v.windowNote = true;
+      v.windowNoteText = 'These are sample figures until live reporting lands. Nothing on this screen is read from the order book.';
+      v.windowFields = [
+        { label: 'Segment', value: r.segment, style: plain },
+        { label: 'Status', value: r.status, style: plain },
+        { label: 'Volume', value: r.volume, style: mono },
+        { label: 'Done', value: r.done, style: mono },
+        { label: 'Average minutes', value: r.avg, style: mono },
+        { label: 'Updated', value: r.updated, style: plain },
+      ];
+    } else if (view && view.kind === 'cost') {
+      const r = view.row;
+      v.windowTitle = r.month;
+      v.windowKind = 'Month';
+      v.windowAction = 'Open the purchases ledger';
+      v.windowNote = r.flagged;
+      v.windowNoteText = 'This month has unresolved consumption exceptions, so its cost of goods sold is understated by whatever those lines were. The margin below inherits the same understatement.';
+      v.windowFields = [
+        { label: 'Spend', value: r.spend + ' USD', style: mono },
+        { label: 'COGS', value: r.cogs + ' USD', style: mono },
+        { label: 'Revenue', value: r.revenue + ' USD', style: mono },
+        { label: 'Margin', value: r.margin + ' USD', style: mono },
+        { label: 'Margin %', value: r.marginPct, style: mono },
+        { label: 'Currency', value: 'USD — one currency at a time, never mixed', style: plain },
+      ];
+    } else if (view && view.kind === 'exception') {
+      const r = view.row;
+      v.windowTitle = 'Order ' + r.order;
+      v.windowKind = 'Exception';
+      v.windowAction = r.resolved ? 'Open the order' : 'Retry the deduction';
+      v.windowNote = !r.resolved;
+      v.windowNoteText = 'Nothing was deducted for this line. Retrying re-runs the deduction against stock as it stands now; resolving accepts the gap and leaves stock alone.';
+      v.windowFields = [
+        { label: 'Item', value: r.item, style: plain },
+        { label: 'Branch', value: r.branch, style: plain },
+        { label: 'Reason', value: r.reason, style: plain },
+        { label: 'Raised', value: r.raised, style: mono },
+        { label: 'Status', value: r.resolved ? 'Resolved' : 'Open', style: plain },
+        { label: 'Money', value: 'None — an exception names a sale and a stock gap, not a valuation', style: plain },
+      ];
+    }
+
+    return v;
+  }
+}
+
+</script>
+</body>
+</html>

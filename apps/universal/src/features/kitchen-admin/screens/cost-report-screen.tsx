@@ -1,47 +1,70 @@
 import type { MonthlyCostReportRow } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    Button,
+    Callout,
+    DatePickerButton,
     EmptyState,
     ErrorState,
-    Inline,
-    Select,
+    RecordWindow,
     Skeleton,
     Stack,
-    Table,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
-
 import { Gate } from '../../../access/gate.tsx';
+import { addDays, todayIso } from '../../commerce/dates.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import { useCostReportQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { BarChart, ChartFrame, DonutChart, LineChart } from '../analytics-charts.tsx';
+import { PairedBars } from '../analytics/paired-bars.tsx';
+import { RatioBars } from '../analytics/ratio-bars.tsx';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
-import { KpiTile } from '../kpi-tile.tsx';
-
+import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 /**
- * `/kitchen/cost-report` — the monthly cost report (INV1.4).
+ * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
- * Purchasing spend and cost of goods sold set beside the month's selling revenue, so a manager
- * reads the margin at a glance — real repository figures, not the sample data the analytics
- * dashboard runs on. Behind `inventory.view_costs_organisation`: the report *is* the valuation and
- * the margin reconstructable from it, so a person without the cost permission never reaches it.
+ * ```
+ * Monthly cost report  [ COSTS ]
+ * From month [ 2026-03 ▦ ]  To month [ 2026-08 ▦ ]  Currency [ USD ▾ ]
+ * ⚠ Two months' COGS may be understated. …  Open consumption exceptions
+ * ⓘ Some purchases are still waiting on their prices. …
+ * ┌ SPEND ┐ ┌ COGS ┐ ┌ REVENUE ┐ ┌ MARGIN ┐
+ * REVENUE AND COGS BY MONTH            REVENUE BY LINE OF BUSINESS  2026-08
+ * MONTHLY COST REPORT
+ * MONTH              SPEND       COGS      REVENUE     MARGIN   MARGIN %
+ * ```
  *
- * Figures are never summed across currencies (there is no exchange rate — §4.4), so the screen picks
- * one currency at a time; every amount is a major-unit decimal.
+ * Real repository figures, behind `inventory.view_costs_organisation`: the report *is* the valuation.
  *
- * **Two honesty notes, because two different figures can be short.** A month whose COGS is
- * understated by unresolved consumption exceptions is flagged rather than shown as complete
- * (INV1.2); and since SUP6 a month whose *spend* is understated — a delivery whose invoice has not
- * been entered, or a price that could not be valued in the ingredient's currency (§3.6) — says so on
- * its own note. Merging them would leave a manager unable to tell which number to distrust. The
- * purchases ledger's weekly and monthly summary is where the affected deliveries are found.
+ * ## Two banners, because two different figures can be short
+ *
+ * `dataQuality` (warning) when a month in range has unresolved consumption exceptions — COGS is
+ * understated, and the banner links to the exceptions queue because that is where the fix is.
+ * `spendIncomplete` (info) when a receipt line has no usable price — spend is understated. Merging
+ * them would leave a manager unable to tell which number to distrust. The `Understated` badge on a
+ * month row is the warning's row-level echo, and both are derived from the same rows.
+ *
+ * ## One currency at a time
+ *
+ * Currency is a filter, never a mix: there is no exchange rate, so there is no grand total across
+ * currencies and no component on this screen with a slot that could add one.
+ *
+ * ## No summary strip
+ *
+ * The four cost tiles are the summary (§3z). Margin is the one tile in brand ink.
  */
 export function CostReportScreen() {
     return (
@@ -54,62 +77,43 @@ export function CostReportScreen() {
         </Gate>
     );
 }
-
-function StatTile({
-    testID,
-    label,
-    value,
-    hint,
-}: {
-    readonly testID: string;
-    readonly label: string;
-    readonly value: string;
-    /** The 7h meaning line — one sentence saying what the figure is. */
-    readonly hint?: string | undefined;
-}) {
-    return <KpiTile testID={testID} size="lg" label={label} value={value} hint={hint} />;
+/** `YYYY-MM`, or empty for an open bound. Anything else is not sent. */
+function isMonthOrEmpty(value: string): boolean {
+    return value === '' || /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
-
 function CostReport() {
     const { t } = useTranslation();
     const formatter = useFormatter();
-
-    const [from, setFrom] = useState('');
-    const [to, setTo] = useState('');
-
+    const router = useRouter();
+    // Today to a week out by default, as the order desk's pickers open.
+    const [fromDate, setFromDate] = useState(() => todayIso());
+    const [toDate, setToDate] = useState(() => addDays(todayIso(), 7) ?? todayIso());
+    const from = fromDate.slice(0, 7);
+    const to = toDate.slice(0, 7);
+    const [viewing, setViewing] = useState<MonthlyCostReportRow | null>(null);
     const filter = useMemo(
         () => ({
-            ...(from.trim() === '' ? {} : { from: from.trim() }),
-            ...(to.trim() === '' ? {} : { to: to.trim() }),
+            ...(from === '' || !isMonthOrEmpty(from) ? {} : { from }),
+            ...(to === '' || !isMonthOrEmpty(to) ? {} : { to }),
         }),
         [from, to],
     );
     const report = useCostReportQuery(filter);
     const rows = useMemo(() => report.data ?? [], [report.data]);
-
-    // Figures are never summed across currencies, so the screen shows one at a time. Default to the
-    // currency of the newest row; a second currency (rare — GreenLife is USD) offers a selector.
     const currencies = useMemo(() => [...new Set(rows.map((row) => row.currencyCode))], [rows]);
-    const [currency, setCurrency] = useState<string | null>(null);
-    const activeCurrency = currency ?? currencies[0] ?? null;
-
+    // No currency picker: the report shows the first currency the answer carries.
+    const activeCurrency = currencies[0] ?? null;
     const currencyRows = useMemo(
         () => rows.filter((row) => row.currencyCode === activeCurrency),
         [rows, activeCurrency],
     );
-
-    // Charts read a trend, so oldest → newest; the table and tiles read newest first.
     const chronological = useMemo(
         () => [...currencyRows].sort((left, right) => left.month.localeCompare(right.month)),
         [currencyRows],
     );
     const latest = currencyRows[0] ?? null;
     const flaggedCount = currencyRows.filter((row) => row.hasDataQualityFlag).length;
-
-    // The spend side's own completeness (SUP6, §3.6), read separately from the COGS flag above
-    // because the two undermine different figures. The lines are counted once per month rather than
-    // once per row: they are a month fact repeated across a month's currencies, so summing the rows
-    // would double-count a month that traded in two currencies.
+    // Counted once per month, not per row: the lines are a month fact repeated across currencies.
     const incompleteSpend = useMemo(() => {
         const byMonth = new Map<string, number>();
         for (const row of currencyRows) {
@@ -122,201 +126,180 @@ function CostReport() {
             lineCount: [...byMonth.values()].reduce((sum, count) => sum + count, 0),
         };
     }, [currencyRows]);
-
-    const money = (amount: string | null): string => {
-        if (amount === null || activeCurrency === null) return '—';
-        return `${formatter.formatNumber(Number(amount), {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        })} ${activeCurrency}`;
-    };
-
+    /** A major-unit decimal, two places, without the code — the code is the column's or tile's unit. */
+    const amount = (value: string | null): string =>
+        value === null
+            ? t('kitchen:list.noValue')
+            : formatter.formatNumber(Number(value), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+              });
     const percent = (value: string | null): string =>
-        value === null ? '—' : `${formatter.formatNumber(Number(value))}%`;
-
-    // The line-of-business donut is a mix, so amounts become percentages of their own total; the
-    // absolute figures live in the table. Values are integers summing to ~100, which is the donut's
-    // own shape (it appends a '%').
-    const mixSlices = useMemo(() => {
-        if (latest === null) return [];
-        const meal = Number(latest.mealRevenueAmount);
-        const product = Number(latest.productRevenueAmount);
-        const other = Number(latest.otherRevenueAmount);
-        const total = meal + product + other;
-        if (total <= 0) return [];
-        const pct = (value: number) => Math.round((value / total) * 100);
-        return [
-            {
-                key: 'meal',
-                labelKey: 'kitchen:ops.costReport.mixMeal',
-                value: pct(meal),
-                colorClass: 'bg-brand-500',
-                colorToken: '#16a34a',
-            },
-            {
-                key: 'product',
-                labelKey: 'kitchen:ops.costReport.mixProduct',
-                value: pct(product),
-                colorClass: 'bg-info',
-                colorToken: '#0ea5e9',
-            },
-            {
-                key: 'other',
-                labelKey: 'kitchen:ops.costReport.mixOther',
-                value: pct(other),
-                colorClass: 'bg-warning',
-                colorToken: '#f59e0b',
-            },
-        ].filter((slice) => slice.value > 0);
-    }, [latest]);
-
-    // The COGS mix (INV1.5), the mirror of the revenue mix — meal-versus-product cost of goods sold,
-    // shown beside it so a manager reads where the month's cost fell as well as where its revenue did.
-    const cogsMixSlices = useMemo(() => {
-        if (latest === null) return [];
-        const meal = Number(latest.mealCogsAmount);
-        const product = Number(latest.productCogsAmount);
-        const other = Number(latest.otherCogsAmount);
-        const total = meal + product + other;
-        if (total <= 0) return [];
-        const pct = (value: number) => Math.round((value / total) * 100);
-        return [
-            {
-                key: 'meal',
-                labelKey: 'kitchen:ops.costReport.mixMeal',
-                value: pct(meal),
-                colorClass: 'bg-brand-500',
-                colorToken: '#16a34a',
-            },
-            {
-                key: 'product',
-                labelKey: 'kitchen:ops.costReport.mixProduct',
-                value: pct(product),
-                colorClass: 'bg-info',
-                colorToken: '#0ea5e9',
-            },
-            {
-                key: 'other',
-                labelKey: 'kitchen:ops.costReport.mixOther',
-                value: pct(other),
-                colorClass: 'bg-warning',
-                colorToken: '#f59e0b',
-            },
-        ].filter((slice) => slice.value > 0);
-    }, [latest]);
-
-    const columns: readonly TableColumn<MonthlyCostReportRow>[] = [
+        value === null
+            ? t('kitchen:list.noValue')
+            : formatter.formatNumber(Number(value) / 100, {
+                  style: 'percent',
+                  maximumFractionDigits: 1,
+              });
+    const withCode = (value: string | null): string =>
+        value === null || activeCurrency === null
+            ? t('kitchen:list.noValue')
+            : `${amount(value)} ${activeCurrency}`;
+    const columns: readonly ControlledColumn<
+        MonthlyCostReportRow,
+        CatalogueColumn<MonthlyCostReportRow>
+    >[] = [
         {
             key: 'month',
-            header: t('kitchen:ops.costReport.columnMonth'),
-            rowHeader: true,
+            role: 'title',
+            value: (row) => row.month,
+            label: t('kitchen:ops.costReport.columnMonth'),
+            width: 180,
+            priority: 100,
+            sort: (left, right, direction) => compareText(left.month, right.month, direction),
             render: (row) => (
-                <Inline space="xs" className="items-center">
-                    <Text testID={`kitchen-cost-report-${row.month}-month`} variant="bodyStrong">
+                <View className="flex-row flex-wrap items-center gap-1.5">
+                    <Text variant="mono" testID={`kitchen-cost-report-${row.month}-month`}>
                         {row.month}
                     </Text>
                     {row.hasDataQualityFlag ? (
                         <Badge
                             testID={`kitchen-cost-report-${row.month}-flag`}
                             tone="warning"
-                            icon="warning"
                             label={t('kitchen:ops.costReport.flagged')}
                         />
                     ) : null}
-                </Inline>
+                </View>
             ),
         },
-        {
-            key: 'spend',
-            header: t('kitchen:ops.costReport.columnSpend'),
-            numeric: true,
-            render: (row) => <Text>{money(row.spendAmount)}</Text>,
-        },
-        {
-            key: 'cogs',
-            header: t('kitchen:ops.costReport.columnCogs'),
-            numeric: true,
-            render: (row) => <Text>{money(row.cogsAmount)}</Text>,
-        },
-        {
-            key: 'revenue',
-            header: t('kitchen:ops.costReport.columnRevenue'),
-            numeric: true,
-            render: (row) => <Text>{money(row.revenueAmount)}</Text>,
-        },
+        ...(
+            [
+                ['spend', 'columnSpend', (row: MonthlyCostReportRow) => row.spendAmount, 70],
+                ['cogs', 'columnCogs', (row: MonthlyCostReportRow) => row.cogsAmount, 80],
+                ['revenue', 'columnRevenue', (row: MonthlyCostReportRow) => row.revenueAmount, 75],
+            ] as const
+        ).map(
+            ([key, labelKey, read, priority]): ControlledColumn<
+                MonthlyCostReportRow,
+                CatalogueColumn<MonthlyCostReportRow>
+            > => ({
+                key,
+                label: t(`kitchen:ops.costReport.${labelKey}`),
+                width: 110,
+                priority,
+                align: 'end',
+                sort: (left, right, direction) =>
+                    compareNumber(Number(read(left) ?? 0), Number(read(right) ?? 0), direction),
+                render: (row) => <Text variant="mono">{amount(read(row))}</Text>,
+            }),
+        ),
         {
             key: 'margin',
-            header: t('kitchen:ops.costReport.columnMargin'),
-            numeric: true,
-            primary: true,
+            role: 'metric',
+            label: t('kitchen:ops.costReport.columnMargin'),
+            width: 110,
+            priority: 90,
+            align: 'end',
+            sort: (left, right, direction) =>
+                compareNumber(
+                    Number(left.grossMarginAmount ?? 0),
+                    Number(right.grossMarginAmount ?? 0),
+                    direction,
+                ),
             render: (row) => (
-                <Text variant="bodyStrong" testID={`kitchen-cost-report-${row.month}-margin`}>
-                    {money(row.grossMarginAmount)}
+                <Text
+                    variant="mono"
+                    tone="brand"
+                    className="font-medium"
+                    testID={`kitchen-cost-report-${row.month}-margin`}
+                >
+                    {amount(row.grossMarginAmount)}
                 </Text>
             ),
         },
         {
             key: 'marginPercent',
-            header: t('kitchen:ops.costReport.columnMarginPercent'),
-            numeric: true,
-            render: (row) => <Text tone="secondary">{percent(row.grossMarginPercent)}</Text>,
+            label: t('kitchen:ops.costReport.columnMarginPercent'),
+            width: 90,
+            priority: 50,
+            align: 'end',
+            sort: (left, right, direction) =>
+                compareNumber(
+                    Number(left.grossMarginPercent ?? 0),
+                    Number(right.grossMarginPercent ?? 0),
+                    direction,
+                ),
+            render: (row) => (
+                <Text variant="mono" tone="secondary">
+                    {percent(row.grossMarginPercent)}
+                </Text>
+            ),
         },
     ];
-
+    const controls = useColumnControls(currencyRows, columns, 'kitchen-cost-report-table');
     const failure = toFailure(report.error);
-
+    const mixRows = (() => {
+        if (latest === null) return [];
+        const parts = [
+            ['meal', 'mixMeal', Number(latest.mealRevenueAmount)],
+            ['product', 'mixProduct', Number(latest.productRevenueAmount)],
+            ['other', 'mixOther', Number(latest.otherRevenueAmount)],
+        ] as const;
+        const total = parts.reduce((sum, [, , value]) => sum + Math.max(0, value), 0);
+        if (total <= 0) return [];
+        return parts.map(([key, labelKey, value]) => ({
+            key,
+            label: t(`kitchen:ops.costReport.${labelKey}`),
+            value: formatter.formatNumber(value, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }),
+            share: Math.max(0, value) / total,
+        }));
+    })();
     return (
-        <Stack space="lg" testID="kitchen-cost-report-screen">
-            <KitchenPageHeader
-                testID="kitchen-cost-report-header"
-                title={t('kitchen:ops.costReport.title')}
-                subtitle={t('kitchen:ops.costReport.subtitle')}
-                titleTestID="kitchen-cost-report-title"
-                subtitleTestID="kitchen-cost-report-subtitle"
-            />
-
+        <Stack space="md" testID="kitchen-cost-report-screen">
             <View
                 testID="kitchen-cost-report-filters"
-                className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
             >
-                <Inline space="sm" align="end" wrap>
-                    <TextInputField
-                        testID="kitchen-cost-report-filter-from"
-                        label={t('kitchen:ops.costReport.filterFrom')}
-                        value={from}
-                        onChangeText={setFrom}
-                        placeholder="YYYY-MM"
-                        className="w-40"
-                    />
-                    <TextInputField
-                        testID="kitchen-cost-report-filter-to"
-                        label={t('kitchen:ops.costReport.filterTo')}
-                        value={to}
-                        onChangeText={setTo}
-                        placeholder="YYYY-MM"
-                        className="w-40"
-                    />
-                    {currencies.length > 1 ? (
-                        <Select
-                            testID="kitchen-cost-report-filter-currency"
-                            label={t('kitchen:ops.costReport.currencyLabel')}
-                            options={currencies.map((code) => ({ value: code, label: code }))}
-                            value={activeCurrency ?? ''}
-                            onChange={(value) => {
-                                setCurrency(value);
-                            }}
-                            className="min-w-[140px]"
-                        />
-                    ) : null}
-                </Inline>
+                {/* The order desk's date picker. The report is monthly, so a picked day stands for
+                    its month — the query sends `YYYY-MM`. */}
+                <DatePickerButton
+                    testID="kitchen-cost-report-filter-from"
+                    label={t('kitchen:ops.costReport.filterFrom')}
+                    value={fromDate}
+                    max={toDate === '' ? undefined : toDate}
+                    onChange={(next) => {
+                        setFromDate(next);
+                        setViewing(null);
+                    }}
+                />
+                <Text variant="caption" tone="secondary" aria-hidden>
+                    {t('kitchen:ops.requirements.windowTo')}
+                </Text>
+                <DatePickerButton
+                    testID="kitchen-cost-report-filter-to"
+                    label={t('kitchen:ops.costReport.filterTo')}
+                    value={toDate}
+                    min={fromDate === '' ? undefined : fromDate}
+                    onChange={(next) => {
+                        setToDate(next);
+                        setViewing(null);
+                    }}
+                />
             </View>
-
             {report.isPending ? (
-                <Stack space="sm" testID="kitchen-cost-report-loading">
-                    {Array.from({ length: 4 }, (_, index) => (
-                        <Skeleton key={index} heightClassName="h-16" />
+                <View testID="kitchen-cost-report-loading" className="flex-col">
+                    {Array.from({ length: 6 }, (_, index) => (
+                        <View
+                            key={index}
+                            className="h-row-md flex-row items-center border-b border-stroke-subtle"
+                        >
+                            <Skeleton heightClassName="h-2" />
+                        </View>
                     ))}
-                </Stack>
+                </View>
             ) : failure !== null ? (
                 <ErrorState
                     testID="kitchen-cost-report-error"
@@ -326,177 +309,190 @@ function CostReport() {
                     }}
                     retrying={report.isFetching}
                 />
-            ) : currencyRows.length === 0 ? (
+            ) : currencyRows.length === 0 || latest === null ? (
                 <EmptyState
                     testID="kitchen-cost-report-empty"
                     title={t('kitchen:ops.costReport.emptyTitle')}
                     body={t('kitchen:ops.costReport.emptyBody')}
                 />
             ) : (
-                <Stack space="lg">
+                <Stack space="md">
                     {flaggedCount > 0 ? (
-                        <View
+                        <Callout
                             testID="kitchen-cost-report-data-quality"
-                            className="flex-row items-start gap-3 rounded-panel border border-warning/40 bg-warning/10 p-4"
-                        >
-                            <Badge
-                                tone="warning"
-                                icon="warning"
-                                label={t('kitchen:ops.costReport.flagged')}
-                            />
-                            <Stack space="none" className="min-w-0 flex-1">
-                                <Text variant="bodyStrong">
-                                    {t('kitchen:ops.costReport.dataQualityTitle')}
-                                </Text>
-                                <Text tone="secondary" variant="caption">
-                                    {t('kitchen:ops.costReport.dataQualityBody', {
-                                        count: flaggedCount,
-                                    })}
-                                </Text>
-                            </Stack>
-                        </View>
-                    ) : null}
-
-                    {incompleteSpend.months.length > 0 ? (
-                        <View
-                            testID="kitchen-cost-report-spend-quality"
-                            className="flex-row items-start gap-3 rounded-panel border border-warning/40 bg-warning/10 p-4"
-                        >
-                            <Badge
-                                tone="warning"
-                                icon="warning"
-                                label={t('kitchen:ops.costReport.spendIncomplete')}
-                            />
-                            <Stack space="none" className="min-w-0 flex-1">
-                                <Text variant="bodyStrong">
-                                    {t('kitchen:ops.costReport.spendIncompleteTitle')}
-                                </Text>
-                                <Text tone="secondary" variant="caption">
-                                    {t('kitchen:ops.costReport.spendIncompleteBody', {
-                                        count: incompleteSpend.lineCount,
-                                        months: incompleteSpend.months.join(', '),
-                                    })}
-                                </Text>
-                            </Stack>
-                        </View>
-                    ) : null}
-
-                    {latest !== null ? (
-                        <View
-                            testID="kitchen-cost-report-tiles"
-                            className="flex-row flex-wrap gap-3"
-                        >
-                            <StatTile
-                                testID="kitchen-cost-report-tile-spend"
-                                label={t('kitchen:ops.costReport.tileSpend', {
-                                    month: latest.month,
-                                })}
-                                hint={t('kitchen:ops.costReport.hintSpend')}
-                                value={money(latest.spendAmount)}
-                            />
-                            <StatTile
-                                testID="kitchen-cost-report-tile-cogs"
-                                label={t('kitchen:ops.costReport.tileCogs', {
-                                    month: latest.month,
-                                })}
-                                hint={t('kitchen:ops.costReport.hintCogs')}
-                                value={money(latest.cogsAmount)}
-                            />
-                            <StatTile
-                                testID="kitchen-cost-report-tile-revenue"
-                                label={t('kitchen:ops.costReport.tileRevenue', {
-                                    month: latest.month,
-                                })}
-                                hint={t('kitchen:ops.costReport.hintRevenue')}
-                                value={money(latest.revenueAmount)}
-                            />
-                            <StatTile
-                                testID="kitchen-cost-report-tile-margin"
-                                label={t('kitchen:ops.costReport.tileMargin', {
-                                    month: latest.month,
-                                })}
-                                hint={t('kitchen:ops.costReport.hintMargin')}
-                                value={money(latest.grossMarginAmount)}
-                            />
-                        </View>
-                    ) : null}
-
-                    <View className="flex-col gap-3 lg:flex-row">
-                        <ChartFrame
-                            testID="kitchen-cost-report-chart-revenue"
-                            title={t('kitchen:ops.costReport.chartRevenueTrend')}
-                        >
-                            <LineChart
-                                testID="kitchen-cost-report-revenue-line"
-                                points={chronological.map((row) => ({
-                                    label: row.month,
-                                    value: Math.round(Number(row.revenueAmount)),
-                                }))}
-                            />
-                        </ChartFrame>
-                        <ChartFrame
-                            testID="kitchen-cost-report-chart-cogs"
-                            title={t('kitchen:ops.costReport.chartCogs')}
-                        >
-                            <BarChart
-                                testID="kitchen-cost-report-cogs-bar"
-                                points={chronological.map((row) => ({
-                                    label: row.month,
-                                    value: Math.round(Number(row.cogsAmount)),
-                                }))}
-                            />
-                        </ChartFrame>
-                    </View>
-
-                    {mixSlices.length > 0 || cogsMixSlices.length > 0 ? (
-                        <View className="flex-col gap-3 lg:flex-row">
-                            {mixSlices.length > 0 ? (
-                                <ChartFrame
-                                    testID="kitchen-cost-report-chart-mix"
-                                    title={t('kitchen:ops.costReport.chartRevenueMix', {
-                                        month: latest?.month ?? '',
-                                    })}
-                                >
-                                    <DonutChart
-                                        testID="kitchen-cost-report-mix-donut"
-                                        slices={mixSlices}
-                                        centerLabel={t('kitchen:ops.costReport.mixCenter')}
-                                        sliceLabel={(slice) => t(slice.labelKey)}
-                                    />
-                                </ChartFrame>
-                            ) : null}
-                            {cogsMixSlices.length > 0 ? (
-                                <ChartFrame
-                                    testID="kitchen-cost-report-chart-cogs-mix"
-                                    title={t('kitchen:ops.costReport.chartCogsMix', {
-                                        month: latest?.month ?? '',
-                                    })}
-                                >
-                                    <DonutChart
-                                        testID="kitchen-cost-report-cogs-mix-donut"
-                                        slices={cogsMixSlices}
-                                        centerLabel={t('kitchen:ops.costReport.cogsMixCenter')}
-                                        sliceLabel={(slice) => t(slice.labelKey)}
-                                    />
-                                </ChartFrame>
-                            ) : null}
-                        </View>
-                    ) : null}
-
-                    <View
-                        testID="kitchen-cost-report-table-panel"
-                        className="gap-4 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
-                    >
-                        <Table<MonthlyCostReportRow>
-                            testID="kitchen-cost-report-table"
-                            caption={t('kitchen:ops.costReport.caption')}
-                            captionHidden
-                            columns={columns}
-                            rows={currencyRows}
-                            rowKey={(row) => `${row.month}-${row.currencyCode}`}
+                            role="alert"
+                            tone="warning"
+                            title={t('kitchen:ops.costReport.dataQualityTitle', {
+                                count: flaggedCount,
+                            })}
+                            body={t('kitchen:ops.costReport.dataQualityBody', {
+                                count: flaggedCount,
+                            })}
+                            actions={
+                                <Button
+                                    testID="kitchen-cost-report-open-exceptions"
+                                    variant="ghost"
+                                    size="sm"
+                                    label={t('kitchen:ops.costReport.openExceptions')}
+                                    onPress={() => {
+                                        router.push('/kitchen/consumption-exceptions' as never);
+                                    }}
+                                />
+                            }
                         />
+                    ) : null}
+                    {incompleteSpend.months.length > 0 ? (
+                        <Callout
+                            testID="kitchen-cost-report-spend-quality"
+                            role="note"
+                            tone="info"
+                            title={t('kitchen:ops.costReport.spendIncompleteTitle')}
+                            body={t('kitchen:ops.costReport.spendIncompleteBody', {
+                                count: incompleteSpend.lineCount,
+                                months: incompleteSpend.months.join(', '),
+                            })}
+                        />
+                    ) : null}
+                    <CatalogueStatCards
+                        testID="kitchen-cost-report-tile"
+                        cards={(
+                            [
+                                ['spend', 'tileSpend', latest.spendAmount, 'hintSpend', 'basket'],
+                                ['cogs', 'tileCogs', latest.cogsAmount, 'hintCogs', 'warning'],
+                                [
+                                    'revenue',
+                                    'tileRevenue',
+                                    latest.revenueAmount,
+                                    'hintRevenue',
+                                    'calendar',
+                                ],
+                                [
+                                    'margin',
+                                    'tileMargin',
+                                    latest.grossMarginAmount,
+                                    'hintMargin',
+                                    'check',
+                                ],
+                            ] as const
+                        ).map(([key, labelKey, value, hintKey, mark]) => ({
+                            key,
+                            label: t(`kitchen:ops.costReport.${labelKey}`, { month: latest.month }),
+                            value: amount(value),
+                            ...(activeCurrency === null ? {} : { unit: activeCurrency }),
+                            caption: t(`kitchen:ops.costReport.${hintKey}`),
+                            mark,
+                            tone: key === 'margin' ? ('brand' as const) : ('default' as const),
+                        }))}
+                    />
+                    <View className="flex-row flex-wrap gap-4">
+                        <View className="min-w-[300px] flex-1 flex-col gap-snug">
+                            <WorkbenchSectionHeading
+                                title={t('kitchen:ops.costReport.chartRevenueCogs')}
+                            />
+                            <PairedBars
+                                testID="kitchen-cost-report-chart-revenue-cogs"
+                                aLabel={t('kitchen:ops.costReport.columnRevenue')}
+                                bLabel={t('kitchen:ops.costReport.columnCogs')}
+                                series={chronological.map((row) => ({
+                                    tick: row.month.slice(5),
+                                    a: Number(row.revenueAmount),
+                                    b: Number(row.cogsAmount),
+                                    aTitle: `${row.month} · ${t('kitchen:ops.costReport.columnRevenue')} ${withCode(row.revenueAmount)}`,
+                                    bTitle: `${row.month} · ${t('kitchen:ops.costReport.columnCogs')} ${withCode(row.cogsAmount)}`,
+                                }))}
+                            />
+                        </View>
+                        {mixRows.length === 0 ? null : (
+                            <View className="min-w-[300px] flex-1 flex-col gap-snug">
+                                <WorkbenchSectionHeading
+                                    title={t('kitchen:ops.costReport.chartRevenueMixTitle')}
+                                    aside={latest.month}
+                                />
+                                <RatioBars
+                                    testID="kitchen-cost-report-chart-mix"
+                                    labelWidth={88}
+                                    valueWidth={84}
+                                    rows={mixRows}
+                                />
+                            </View>
+                        )}
                     </View>
+                    <CatalogueList<MonthlyCostReportRow>
+                        testID="kitchen-cost-report-table"
+                        label={t('kitchen:ops.costReport.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => `${row.month}-${row.currencyCode}`}
+                        onRowPress={setViewing}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                    />
                 </Stack>
+            )}
+            {viewing === null ? null : (
+                <RecordWindow
+                    testID="kitchen-cost-report-window"
+                    open
+                    onClose={() => {
+                        setViewing(null);
+                    }}
+                    title={viewing.month}
+                    kind={t('kitchen:ops.costReport.window.kind')}
+                    {...(viewing.hasDataQualityFlag
+                        ? {
+                              status: {
+                                  label: t('kitchen:ops.costReport.flagged'),
+                                  tone: 'warning' as const,
+                              },
+                              note: t('kitchen:ops.costReport.window.flaggedNote'),
+                          }
+                        : {})}
+                    fields={[
+                        {
+                            key: 'spend',
+                            label: t('kitchen:ops.costReport.columnSpend'),
+                            value: withCode(viewing.spendAmount),
+                            mono: true,
+                        },
+                        {
+                            key: 'cogs',
+                            label: t('kitchen:ops.costReport.columnCogs'),
+                            value: withCode(viewing.cogsAmount),
+                            mono: true,
+                        },
+                        {
+                            key: 'revenue',
+                            label: t('kitchen:ops.costReport.columnRevenue'),
+                            value: withCode(viewing.revenueAmount),
+                            mono: true,
+                        },
+                        {
+                            key: 'margin',
+                            label: t('kitchen:ops.costReport.columnMargin'),
+                            value: withCode(viewing.grossMarginAmount),
+                            mono: true,
+                        },
+                        {
+                            key: 'marginPercent',
+                            label: t('kitchen:ops.costReport.columnMarginPercent'),
+                            value: percent(viewing.grossMarginPercent),
+                            mono: true,
+                        },
+                        {
+                            key: 'currency',
+                            label: t('kitchen:ops.costReport.currencyLabel'),
+                            value: t('kitchen:ops.costReport.window.currencyValue', {
+                                currency: viewing.currencyCode,
+                            }),
+                        },
+                    ]}
+                    primaryAction={{
+                        label: t('kitchen:ops.costReport.window.openLedger'),
+                        onPress: () => {
+                            setViewing(null);
+                            router.push('/kitchen/purchases-ledger' as never);
+                        },
+                    }}
+                />
             )}
         </Stack>
     );

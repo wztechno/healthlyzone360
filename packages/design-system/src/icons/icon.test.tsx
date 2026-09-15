@@ -124,6 +124,7 @@ describe('glyph repertoire', () => {
         sparkle: 'WHITE FOUR POINTED STAR',
         sun: 'BLACK SUN WITH RAYS',
         moon: 'LAST QUARTER MOON',
+        clock: 'WHITE CIRCLE WITH UPPER RIGHT QUADRANT',
     };
 
     it('has a reviewed entry for every glyph, and no entry without one', () => {
@@ -213,4 +214,5 @@ const CODEPOINT_BY_UNICODE_NAME: Readonly<Record<string, number>> = {
     'WHITE FOUR POINTED STAR': 0x2727,
     'BLACK SUN WITH RAYS': 0x2600,
     'LAST QUARTER MOON': 0x263e,
+    'WHITE CIRCLE WITH UPPER RIGHT QUADRANT': 0x25f7,
 };

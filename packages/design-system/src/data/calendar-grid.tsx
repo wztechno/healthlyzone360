@@ -35,6 +35,8 @@ export interface CalendarGridProps {
     readonly days: readonly CalendarDay[];
     /** Rows within each day column — meal slots, time bands. Omit for a single-row grid. */
     readonly slots?: readonly CalendarSlot[] | undefined;
+    /** The row of slot names above the grid. Off when every cell already names its own slot. */
+    readonly showSlotLegend?: boolean | undefined;
     readonly renderCell: (cell: CalendarCell) => ReactNode;
     readonly renderDayHeader?: ((day: CalendarDay) => ReactNode) | undefined;
     readonly className?: string | undefined;
@@ -66,6 +68,7 @@ export function CalendarGrid({
     label,
     days,
     slots,
+    showSlotLegend = true,
     renderCell,
     renderDayHeader,
     className,
@@ -80,7 +83,7 @@ export function CalendarGrid({
             accessibilityLabel={label}
             className={cx('flex-col gap-2', className)}
         >
-            {slots === undefined ? null : (
+            {slots === undefined || !showSlotLegend ? null : (
                 <View
                     testID={testID === undefined ? undefined : `${testID}-slot-legend`}
                     aria-hidden

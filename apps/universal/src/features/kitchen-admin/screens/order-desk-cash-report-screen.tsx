@@ -4,15 +4,13 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Callout,
-    DataList,
+    DatePickerButton,
     EmptyState,
     ErrorState,
     Skeleton,
     Stack,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
-import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,8 +21,16 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CataloguePageHeader, CatalogueSummaryBar } from '../catalogue/index.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
+import { CatalogueStatCards } from '../catalogue/index.ts';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 
 /**
@@ -130,12 +136,19 @@ function OrderDeskCashReport() {
     const totals = report.data?.totals ?? [];
     const meta = report.data?.meta ?? null;
 
-    const columns: readonly DataListColumn<OrderDeskCashReportRow>[] = [
+    const columns: readonly ControlledColumn<
+        OrderDeskCashReportRow,
+        CatalogueColumn<OrderDeskCashReportRow>
+    >[] = [
         {
             key: 'agent',
+            role: 'title',
+            value: (row) => row.displayName ?? EM_DASH,
             label: t('kitchen:ops.cashReport.columnAgent'),
             width: 180,
             priority: 100,
+            sort: (left, right, direction) =>
+                compareText(left.displayName, right.displayName, direction),
             render: (row) => (
                 <Text
                     variant="strong"
@@ -153,9 +166,18 @@ function OrderDeskCashReport() {
         },
         {
             key: 'method',
+            role: 'meta',
             label: t('kitchen:ops.cashReport.columnMethod'),
             width: 160,
             priority: 90,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.method))].map((method) => ({
+                        key: method,
+                        label: t(kitchenOrderPaymentMethodKey(method)),
+                    })),
+                match: (row, value) => row.method === value,
+            },
             render: (row) => (
                 <Text tone="secondary" testID={`${rowTestId(row)}-method`}>
                     {t(kitchenOrderPaymentMethodKey(row.method))}
@@ -167,6 +189,14 @@ function OrderDeskCashReport() {
             label: t('kitchen:ops.cashReport.columnCurrency'),
             width: 80,
             priority: 70,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.currencyCode))].map((code) => ({
+                        key: code,
+                        label: code,
+                    })),
+                match: (row, value) => row.currencyCode === value,
+            },
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-currency`}>
                     {row.currencyCode}
@@ -179,6 +209,8 @@ function OrderDeskCashReport() {
             width: 80,
             priority: 60,
             align: 'end',
+            sort: (left, right, direction) =>
+                compareNumber(left.receiptCount, right.receiptCount, direction),
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-count`}>
                     {formatter.formatNumber(row.receiptCount)}
@@ -187,10 +219,13 @@ function OrderDeskCashReport() {
         },
         {
             key: 'amount',
+            role: 'metric',
             label: t('kitchen:ops.cashReport.columnAmount'),
             width: 140,
             priority: 95,
             align: 'end',
+            sort: (left, right, direction) =>
+                compareNumber(left.amountMinorSum, right.amountMinorSum, direction),
             render: (row) => (
                 <Text variant="mono" testID={`${rowTestId(row)}-amount`}>
                     {formatMoney(formatter, {
@@ -201,79 +236,27 @@ function OrderDeskCashReport() {
             ),
         },
     ];
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-cash-report-table');
 
     return (
         <Stack space="md" testID="kitchen-order-desk-cash-report-screen">
-            <CataloguePageHeader
-                testID="kitchen-order-desk-cash-report-header"
-                title={t('kitchen:ops.cashReport.title')}
-                titleTestID="kitchen-order-desk-cash-report-title"
-            />
-
-            <CatalogueSummaryBar
-                testID="kitchen-order-desk-cash-report-subtitle"
-                segments={[
-                    t('kitchen:ops.cashReport.subtitle'),
-                    ...(rows.length === 0
-                        ? []
-                        : [
-                              t('kitchen:ops.cashReport.summaryRows', { count: rows.length }),
-                              t('kitchen:ops.cashReport.summaryCurrencies', {
-                                  count: new Set(totals.map((total) => total.currencyCode)).size,
-                              }),
-                          ]),
-                ]}
-            />
-
             {/* One 28px row: the day, and the clock it was cut on. */}
             <View
                 testID="kitchen-order-desk-cash-report-toolbar"
-                className="min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
             >
-                <View style={{ width: DATE_WIDTH }}>
-                    <TextInputField
-                        testID="kitchen-order-desk-cash-report-date"
-                        id="kitchen-order-desk-cash-report-date"
-                        label={t('kitchen:ops.cashReport.dateLabel')}
-                        labelHidden
-                        size="sm"
-                        value={date}
-                        onChangeText={setDate}
-                        placeholder="YYYY-MM-DD"
-                    />
-                </View>
+                <DatePickerButton
+                    testID="kitchen-order-desk-cash-report-date"
+                    label={t('kitchen:ops.cashReport.dateLabel')}
+                    value={date}
+                    onChange={setDate}
+                />
                 {meta === null ? (
                     <Text variant="caption" tone="secondary">
                         {t('kitchen:ops.cashReport.dateHint')}
                     </Text>
-                ) : (
-                    // The day and the clock the server cut on. Printed rather than assumed — see
-                    // the file header.
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        testID="kitchen-order-desk-cash-report-measured-on"
-                    >
-                        {t('kitchen:ops.cashReport.measuredOn', {
-                            date: formatter.formatDate(meta.date, { dateStyle: 'medium' }),
-                            timezone: meta.timezone,
-                        })}
-                    </Text>
-                )}
+                ) : null}
             </View>
-
-            {/*
-             * Stated once, at the top, and not as a warning tone: nothing here is wrong. It is the
-             * limit of what the figures below mean, and a manager who took this table for a drawer
-             * reconciliation would be trusting it further than it goes.
-             */}
-            <Callout
-                testID="kitchen-order-desk-cash-report-scope"
-                tone="info"
-                role="status"
-                title={t('kitchen:ops.cashReport.scopeTitle')}
-                body={t('kitchen:ops.cashReport.scopeBody')}
-            />
 
             {filters === null ? (
                 <Callout
@@ -311,12 +294,45 @@ function OrderDeskCashReport() {
                 />
             ) : (
                 <View className="flex-col gap-loose">
-                    <DataList<OrderDeskCashReportRow>
+                    <CatalogueStatCards
+                        testID="kitchen-order-desk-cash-report-figures"
+                        cards={[
+                            {
+                                key: 'receipts',
+                                label: t('kitchen:ops.cashReport.kpiReceipts'),
+                                value: formatter.formatNumber(
+                                    rows.reduce((sum, row) => sum + row.receiptCount, 0),
+                                ),
+                                caption: t('kitchen:ops.cashReport.kpiReceiptsCaption'),
+                                mark: 'basket',
+                                tone: 'brand',
+                            },
+                            {
+                                key: 'rows',
+                                label: t('kitchen:ops.cashReport.kpiRows'),
+                                value: formatter.formatNumber(rows.length),
+                                caption: t('kitchen:ops.cashReport.kpiRowsCaption'),
+                                mark: 'user',
+                            },
+                            {
+                                key: 'currencies',
+                                label: t('kitchen:ops.cashReport.kpiCurrencies'),
+                                value: formatter.formatNumber(
+                                    new Set(totals.map((total) => total.currencyCode)).size,
+                                ),
+                                caption: t('kitchen:ops.cashReport.kpiCurrenciesCaption'),
+                                mark: 'calendar',
+                            },
+                        ]}
+                    />
+
+                    <CatalogueList<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
                         label={t('kitchen:ops.cashReport.caption')}
-                        columns={columns}
-                        rows={rows}
+                        columns={controls.columns}
+                        rows={controls.rows}
                         rowKey={rowTestId}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
                     />
 
                     {/*
@@ -379,9 +395,6 @@ function OrderDeskCashReport() {
         </Stack>
     );
 }
-
-/** The date field's width — wide enough for `YYYY-MM-DD`. A style: there is no token for it. */
-const DATE_WIDTH = 140;
 
 /** How wide the totals panel may grow. It is a short list of pairs, not a second table. */
 const TOTALS_MAX_WIDTH = 620;

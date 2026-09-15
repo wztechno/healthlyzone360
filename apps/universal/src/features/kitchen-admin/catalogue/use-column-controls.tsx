@@ -185,7 +185,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                         sections={
                             items.length === 0
                                 ? []
-                                : [{ label: t('kitchen:catalogue.filter'), items }]
+                                : [{ items }]
                         }
                         filtered={current !== null}
                         testID={testID}

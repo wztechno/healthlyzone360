@@ -19,7 +19,6 @@ import {
     Badge,
     Button,
     Callout,
-    DataList,
     Dialog,
     Drawer,
     EmptyState,
@@ -58,8 +57,10 @@ import {
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueStatCards } from '../catalogue/index.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     compareNumber,
@@ -85,7 +86,7 @@ import {
     orderDeskRowTestId,
 } from '../ops-format.ts';
 import { DeskAmount, DeskFact, DeskSectionHeading } from '../order-desk/desk-parts.tsx';
-import { DeliveryStateCell, DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
+import { DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
 
 /**
  * `/kitchen/order-desk` — the open order book in the order somebody at a desk has to work it.
@@ -1061,9 +1062,14 @@ function OrderDeskQueueList() {
         },
     ];
 
-    const columns: readonly ControlledColumn<OrderDeskQueueRow>[] = [
+    const columns: readonly ControlledColumn<
+        OrderDeskQueueRow,
+        CatalogueColumn<OrderDeskQueueRow>
+    >[] = [
         {
             key: 'number',
+            role: 'title',
+            value: (row) => row.orderNumber,
             label: t('kitchen:desk.columnNumber'),
             width: 120,
             priority: 100,
@@ -1169,37 +1175,23 @@ function OrderDeskQueueList() {
             ),
         },
         {
-            key: 'delivery',
-            label: t('kitchen:desk.columnDelivery'),
-            width: 150,
-            priority: 80,
-            filter: {
-                // Only states a loaded row is in: one nobody is in would always empty the list.
-                values: (loaded) =>
-                    [...new Set(loaded.map((row) => orderDeskDeliveryState(row)))].map((state) => ({
-                        key: state,
-                        label: t(orderDeskDeliveryStateKey(state)),
-                    })),
-                match: (row, value) => orderDeskDeliveryState(row) === value,
-            },
-            render: (row) => <DeliveryStateCell row={row} />,
-        },
-        {
             key: 'payment',
             label: t('kitchen:desk.columnPayment'),
-            width: 190,
+            width: 150,
             priority: 75,
             filter: {
-                values: () => [
-                    { key: 'receipted', label: t('kitchen:desk.payment.receipted') },
-                    { key: 'outstanding', label: t('kitchen:desk.payment.notReceipted') },
-                ],
-                match: (row, value) => (value === 'receipted') === row.payment.receipted,
+                values: () =>
+                    KITCHEN_ORDER_PAYMENT_METHODS.map((candidate) => ({
+                        key: candidate,
+                        label: t(kitchenOrderPaymentMethodKey(candidate)),
+                    })),
+                match: (row, value) => row.payment.method === value,
             },
             render: (row) => <PaymentCell row={row} />,
         },
         {
             key: 'total',
+            role: 'metric',
             label: t('kitchen:desk.columnTotal'),
             width: 100,
             priority: 85,
@@ -1319,9 +1311,6 @@ function OrderDeskQueueList() {
                     aria-label={t('kitchen:desk.statusLabel')}
                     className="flex-row items-center gap-hair"
                 >
-                    <Text variant="micro" tone="secondary" testID="kitchen-order-desk-status-label">
-                        {t('kitchen:desk.statusLabel')}
-                    </Text>
                     {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
                         <FilterChip
                             key={candidate}
@@ -1471,7 +1460,7 @@ function OrderDeskQueueList() {
                      * Opens on the server's due-time order. Order, Customer, Telephone, Due and
                      * Total sort on a press; Kind, Delivery and Payment filter from their menus.
                      */}
-                    <DataList<OrderDeskQueueRow>
+                    <CatalogueList<OrderDeskQueueRow>
                         testID="kitchen-order-desk-table"
                         label={t('kitchen:desk.caption')}
                         columns={controls.columns}
@@ -1479,6 +1468,7 @@ function OrderDeskQueueList() {
                         rowKey={(row) => String(row.id)}
                         density="sm"
                         onRowPress={openDetail}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
                     />
 
                     <CataloguePager
