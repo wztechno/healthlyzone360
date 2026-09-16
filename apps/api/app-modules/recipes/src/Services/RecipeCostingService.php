@@ -320,6 +320,37 @@ final readonly class RecipeCostingService
     }
 
     /**
+     * Each line's unit cost and line cost, in line order, for a table to draw beside its rows.
+     *
+     * The recipe editor's line tables — raw materials on one tab, packaging on the next — draw a
+     * unit price and a line total on every row. They used to compute both in JavaScript from the
+     * ingredient's *list* price, while the cost cascade two tabs over is priced from the *purchase*
+     * price. Two bases on one record is exactly the kind of disagreement that reads as a bug to the
+     * person looking at it, so the rows take their figures from the same place the totals do.
+     *
+     * Read straight off the prepared rows, which carry what `prepareLines()` / `preparePackaging()`
+     * resolved — the same resolution a save performs. A row nothing could price comes back with
+     * nulls rather than zeroes: a zero is a measurement, and an unpriced line is not one.
+     *
+     * @param  Collection<int, RecipeVersionLine>|Collection<int, RecipeVersionPackaging>  $rows
+     * @return list<array{line_number: int, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>
+     */
+    public function lineCostsOf(Collection $rows): array
+    {
+        $out = [];
+
+        foreach ($rows->sortBy('line_number') as $row) {
+            $out[] = [
+                'line_number' => (int) $row->line_number,
+                'unit_cost_amount' => $row->unit_cost_amount === null ? null : $this->numeric((string) $row->unit_cost_amount),
+                'line_cost_amount' => $row->line_cost_amount === null ? null : $this->numeric((string) $row->line_cost_amount),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * What one filled package costs, for each packaging line whose item states what it holds.
      *
      * The third figure a kitchen asks of a sauce, after per kilogram and per piece: *what does the

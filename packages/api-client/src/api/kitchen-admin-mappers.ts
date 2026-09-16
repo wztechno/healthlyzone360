@@ -1012,6 +1012,15 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
 
     const currency = wire.currency_code;
     const amount = (value: string | null): CostAmount | null => mapCostAmount(value, currency);
+    const lineCostOf = (line: {
+        readonly line_number: number;
+        readonly unit_cost_amount: string | null;
+        readonly line_cost_amount: string | null;
+    }) => ({
+        lineNumber: line.line_number,
+        unitCost: amount(line.unit_cost_amount),
+        lineCost: amount(line.line_cost_amount),
+    });
 
     return {
         currency: isCurrencyCode(currency) ? currency : null,
@@ -1026,6 +1035,7 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
             wastePercent: Number(wire.production.waste_percent),
             uncostedLineNumbers: wire.production.uncosted_line_numbers,
             isComplete: wire.production.is_complete,
+            lines: wire.production.lines.map(lineCostOf),
         },
         packaging: {
             total: amount(wire.packaging.total_packaging_cost_amount),
@@ -1034,6 +1044,7 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
             wastePercent: Number(wire.packaging.waste_percent),
             uncostedLineNumbers: wire.packaging.uncosted_line_numbers,
             isComplete: wire.packaging.is_complete,
+            lines: wire.packaging.lines.map(lineCostOf),
         },
         totalCostPerYieldUnit: amount(wire.total_cost_per_yield_unit_amount),
         packages: wire.packages.map((line) => ({

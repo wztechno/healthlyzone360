@@ -888,6 +888,21 @@ export interface RecipeCostHalf {
     /** Lines that contributed nothing, in line order. Non-empty means the half is incomplete. */
     readonly uncostedLineNumbers: readonly number[];
     readonly isComplete: boolean;
+    /**
+     * Each line's unit cost and line cost, in line order.
+     *
+     * What a line table draws beside its rows, priced on the same basis as the totals, so a row
+     * and the total under it cannot disagree about what an ingredient costs.
+     */
+    readonly lines: readonly RecipeLineCost[];
+}
+
+/** CONFIDENTIAL: one line's figures, keyed by the line number the server assigned. */
+export interface RecipeLineCost {
+    readonly lineNumber: number;
+    /** Null is an unpriced line. Never a zero: a zero is a measurement. */
+    readonly unitCost: CostAmount | null;
+    readonly lineCost: CostAmount | null;
 }
 
 /**

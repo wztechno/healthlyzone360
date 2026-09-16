@@ -1343,6 +1343,17 @@ export type ComputedCost = {
         waste_percent: string;
         uncosted_line_numbers: Array<number>;
         is_complete: boolean;
+        /**
+         * Each line's unit cost and line cost, in line order: what a table draws
+         * beside its rows, on the same basis as the totals above. Null amounts are
+         * an unpriced line, never a zero.
+         *
+         */
+        lines: Array<{
+            line_number: number;
+            unit_cost_amount: string | null;
+            line_cost_amount: string | null;
+        }>;
     };
     /**
      * No per-piece figure, deliberately. Packaging is divided by the
@@ -1358,6 +1369,17 @@ export type ComputedCost = {
         waste_percent: string;
         uncosted_line_numbers: Array<number>;
         is_complete: boolean;
+        /**
+         * Each line's unit cost and line cost, in line order: what a table draws
+         * beside its rows, on the same basis as the totals above. Null amounts are
+         * an unpriced line, never a zero.
+         *
+         */
+        lines: Array<{
+            line_number: number;
+            unit_cost_amount: string | null;
+            line_cost_amount: string | null;
+        }>;
     };
     /**
      * Production-with-waste plus packaging-with-waste. Null unless both

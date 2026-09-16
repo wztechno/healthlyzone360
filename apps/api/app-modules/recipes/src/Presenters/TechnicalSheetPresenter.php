@@ -126,6 +126,8 @@ final class TechnicalSheetPresenter
      *
      *
      * @param  list<array{line_number: int, ingredient_id: string, cost_per_package_amount: string|null}>  $packages
+     * @param  list<array{line_number: int, unit_cost_amount: string|null, line_cost_amount: string|null}>  $productionLines
+     * @param  list<array{line_number: int, unit_cost_amount: string|null, line_cost_amount: string|null}>  $packagingLines
      * @return array{
      *     currency_code: string|null,
      *     production: array{
@@ -136,7 +138,8 @@ final class TechnicalSheetPresenter
      *         cost_per_piece_with_waste_amount: string|null,
      *         waste_percent: string,
      *         uncosted_line_numbers: list<int>,
-     *         is_complete: bool
+     *         is_complete: bool,
+     *         lines: list<array{line_number: int, unit_cost_amount: string|null, line_cost_amount: string|null}>
      *     },
      *     packaging: array{
      *         total_packaging_cost_amount: string,
@@ -144,7 +147,8 @@ final class TechnicalSheetPresenter
      *         cost_per_yield_unit_with_waste_amount: string|null,
      *         waste_percent: string,
      *         uncosted_line_numbers: list<int>,
-     *         is_complete: bool
+     *         is_complete: bool,
+     *         lines: list<array{line_number: int, unit_cost_amount: string|null, line_cost_amount: string|null}>
      *     },
      *     total_cost_per_yield_unit_amount: string|null,
      *     yield_unit_id: string|null,
@@ -156,6 +160,8 @@ final class TechnicalSheetPresenter
         PackagingCostComputation $packaging,
         ?string $totalPerYieldUnit,
         array $packages = [],
+        array $productionLines = [],
+        array $packagingLines = [],
     ): array {
         return [
             /*
@@ -174,6 +180,7 @@ final class TechnicalSheetPresenter
                 'waste_percent' => $production->wasteCoefficientPercent,
                 'uncosted_line_numbers' => $production->uncostedLineNumbers,
                 'is_complete' => $production->isComplete(),
+                'lines' => $productionLines,
             ],
             'packaging' => [
                 'total_packaging_cost_amount' => $packaging->totalPackagingCostAmount,
@@ -182,6 +189,7 @@ final class TechnicalSheetPresenter
                 'waste_percent' => $packaging->wastePercent,
                 'uncosted_line_numbers' => $packaging->uncostedLineNumbers,
                 'is_complete' => $packaging->isComplete(),
+                'lines' => $packagingLines,
             ],
             'total_cost_per_yield_unit_amount' => $totalPerYieldUnit,
             'yield_unit_id' => $production->yieldUnitId ?? $packaging->yieldUnitId,

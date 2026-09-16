@@ -2561,6 +2561,7 @@ describe('the technical sheet', () => {
                     wastePercent: 3,
                     uncostedLineNumbers: [],
                     isComplete: true,
+                    lines: [],
                 },
                 packaging: {
                     total: money(2),
@@ -2569,6 +2570,7 @@ describe('the technical sheet', () => {
                     wastePercent: 2,
                     uncostedLineNumbers: [],
                     isComplete: true,
+                    lines: [],
                 },
                 totalCostPerYieldUnit: money(7.2),
                 packages: [],

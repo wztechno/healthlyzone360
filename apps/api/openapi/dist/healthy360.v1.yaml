@@ -23658,6 +23658,7 @@ components:
             - waste_percent
             - uncosted_line_numbers
             - is_complete
+            - lines
           properties:
             total_input_cost_amount:
               type:
@@ -23688,6 +23689,31 @@ components:
                 minimum: 1
             is_complete:
               type: boolean
+            lines:
+              type: array
+              description: |
+                Each line's unit cost and line cost, in line order: what a table draws
+                beside its rows, on the same basis as the totals above. Null amounts are
+                an unpriced line, never a zero.
+              items:
+                type: object
+                required:
+                  - line_number
+                  - unit_cost_amount
+                  - line_cost_amount
+                properties:
+                  line_number:
+                    type: integer
+                    minimum: 1
+                  unit_cost_amount:
+                    type:
+                      - string
+                      - 'null'
+                  line_cost_amount:
+                    type:
+                      - string
+                      - 'null'
+                additionalProperties: false
           additionalProperties: false
         packaging:
           type: object
@@ -23698,6 +23724,7 @@ components:
             - waste_percent
             - uncosted_line_numbers
             - is_complete
+            - lines
           description: |
             No per-piece figure, deliberately. Packaging is divided by the
             recipe's own yield rather than by its container count, and a "cost
@@ -23725,6 +23752,31 @@ components:
                 minimum: 1
             is_complete:
               type: boolean
+            lines:
+              type: array
+              description: |
+                Each line's unit cost and line cost, in line order: what a table draws
+                beside its rows, on the same basis as the totals above. Null amounts are
+                an unpriced line, never a zero.
+              items:
+                type: object
+                required:
+                  - line_number
+                  - unit_cost_amount
+                  - line_cost_amount
+                properties:
+                  line_number:
+                    type: integer
+                    minimum: 1
+                  unit_cost_amount:
+                    type:
+                      - string
+                      - 'null'
+                  line_cost_amount:
+                    type:
+                      - string
+                      - 'null'
+                additionalProperties: false
           additionalProperties: false
         total_cost_per_yield_unit_amount:
           type:

@@ -822,7 +822,12 @@ export const zComputedCost = z.object({
         cost_per_piece_with_waste_amount: z.string().nullable(),
         waste_percent: z.string(),
         uncosted_line_numbers: z.array(z.int().gte(1)),
-        is_complete: z.boolean()
+        is_complete: z.boolean(),
+        lines: z.array(z.object({
+            line_number: z.int().gte(1),
+            unit_cost_amount: z.string().nullable(),
+            line_cost_amount: z.string().nullable()
+        }))
     }),
     packaging: z.object({
         total_packaging_cost_amount: z.string().nullable(),
@@ -830,7 +835,12 @@ export const zComputedCost = z.object({
         cost_per_yield_unit_with_waste_amount: z.string().nullable(),
         waste_percent: z.string(),
         uncosted_line_numbers: z.array(z.int().gte(1)),
-        is_complete: z.boolean()
+        is_complete: z.boolean(),
+        lines: z.array(z.object({
+            line_number: z.int().gte(1),
+            unit_cost_amount: z.string().nullable(),
+            line_cost_amount: z.string().nullable()
+        }))
     }),
     total_cost_per_yield_unit_amount: z.string().nullable(),
     yield_unit_id: z.uuid().nullable(),

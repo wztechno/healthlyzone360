@@ -636,3 +636,37 @@ it('states a package cost per line on the technical sheet, and keeps the lines i
         ->and($packages[1]['line_number'])->toBe(2)
         ->and($packages[1]['cost_per_package_amount'])->toBeNull();
 });
+
+it('states each line on the same basis as the totals under it', function (): void {
+    /*
+     * The recipe editor's line tables drew a unit price and a line total on every row from the
+     * ingredient's *list* price, while the cost cascade two tabs over is priced from the *purchase*
+     * price. Two bases on one record reads as a bug to the person looking at it. These are the
+     * figures the rows now take, and the assertion that matters is that they sum to the total.
+     */
+    [$recipeId, $lock] = thousandIslands($this->kitchen, $this->headers, $this->kilograms);
+
+    $bottle = RecipeWorld::packagingItem($this->kitchen->organisation, 'Bottle 300', '0.25');
+
+    test()->putJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1/packaging", [
+        'packaging' => [
+            ['ingredient_id' => (string) $bottle->getKey(), 'basis' => 'per_batch', 'quantity' => 2],
+        ],
+    ], $this->headers + ['If-Match' => '"'.$lock.'"'])->assertOk();
+
+    $computed = $this->getJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1/technical-sheet", $this->headers)
+        ->assertOk()
+        ->json('data.computed');
+
+    // One formulation line at 7.186, and the production total is that line.
+    expect($computed['production']['lines'])->toHaveCount(1)
+        ->and($computed['production']['lines'][0]['line_number'])->toBe(1)
+        ->and($computed['production']['lines'][0]['line_cost_amount'])->toBe('7.186000')
+        ->and($computed['production']['total_input_cost_amount'])->toBe('7.186000');
+
+    // Two bottles at 0.25 is 0.50, and the packaging total is that line.
+    expect($computed['packaging']['lines'])->toHaveCount(1)
+        ->and($computed['packaging']['lines'][0]['unit_cost_amount'])->toBe('0.250000')
+        ->and($computed['packaging']['lines'][0]['line_cost_amount'])->toBe('0.500000')
+        ->and($computed['packaging']['total_packaging_cost_amount'])->toBe('0.500000');
+});

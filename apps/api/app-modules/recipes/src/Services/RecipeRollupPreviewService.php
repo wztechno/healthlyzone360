@@ -225,7 +225,14 @@ final class RecipeRollupPreviewService
             return null;
         }
 
-        return $this->sheet->computed($costed['production'], $costed['packaging'], $costed['total'], $costed['packages']);
+        return $this->sheet->computed(
+            $costed['production'],
+            $costed['packaging'],
+            $costed['total'],
+            $costed['packages'],
+            $costed['production_lines'],
+            $costed['packaging_lines'],
+        );
     }
 
     /**
