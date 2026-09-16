@@ -3,11 +3,8 @@ import {
     Badge,
     Button,
     Dialog,
-    EmptyState,
-    ErrorState,
     Icon,
     Inline,
-    Skeleton,
     Stack,
     Text,
     useToast,
@@ -23,9 +20,9 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
@@ -255,122 +252,71 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                 ) : undefined}
             </CatalogueToolbar>
 
-            {list.isPending ? (
-                <Stack space="xs" testID="kitchen-products-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-products-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
-            ) : list.failure !== null ? (
-                <ErrorState
-                    testID="kitchen-products-error"
-                    failure={list.failure}
-                    onRetry={list.refetch}
-                    retrying={list.isFetching}
-                />
-            ) : list.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-products-empty"
-                    title={
-                        list.isUnfiltered
-                            ? t(family.emptyTitle)
-                            : t('kitchen:products.filteredEmptyTitle')
-                    }
-                    body={
-                        list.isUnfiltered
-                            ? t(family.emptyBody)
-                            : t('kitchen:products.filteredEmptyBody')
-                    }
-                    actions={
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID="kitchen-products-clear"
-                                variant="secondary"
-                                label={t('kitchen:toolbar.clearFilters')}
-                                onPress={list.clearFilters}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-products-empty-create"
-                                    label={t(family.create)}
-                                    onPress={list.createNew}
-                                />
-                            ) : null}
-                        </Inline>
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList
-                        testID="kitchen-products-table"
-                        label={t(family.caption)}
-                        columns={controls.columns}
-                        rows={list.rows}
-                        rowKey={(row) => String(row.id)}
-                        // Fixed, not switchable: the S/M/L control is gone.
-                        density="sm"
-                        onRowPress={(row) => {
-                            list.openEditor(String(row.id));
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        // View, Edit, Archive, in the design's order. Above `md` these are flat
-                        // icon buttons on the row; below it the same array becomes the overflow
-                        // menu, because a narrow row has space for exactly one control.
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${productRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    list.openView(row);
-                                },
+            <CatalogueListBody
+                testID="kitchen-products"
+                list={list}
+                empty={{ title: t(family.emptyTitle), body: t(family.emptyBody) }}
+                filteredEmpty={{
+                    title: t('kitchen:products.filteredEmptyTitle'),
+                    body: t('kitchen:products.filteredEmptyBody'),
+                }}
+                create={
+                    canManage ? { label: t(family.create), onPress: list.createNew } : undefined
+                }
+            >
+                <CatalogueList
+                    testID="kitchen-products-table"
+                    label={t(family.caption)}
+                    columns={controls.columns}
+                    rows={list.rows}
+                    rowKey={(row) => String(row.id)}
+                    // Fixed, not switchable: the S/M/L control is gone.
+                    density="sm"
+                    onRowPress={(row) => {
+                        list.openEditor(String(row.id));
+                    }}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                    // View, Edit, Archive, in the design's order. Above `md` these are flat
+                    // icon buttons on the row; below it the same array becomes the overflow
+                    // menu, because a narrow row has space for exactly one control.
+                    rowActions={(row): readonly MenuItem[] => [
+                        {
+                            key: 'view',
+                            label: t('kitchen:list.view'),
+                            icon: CATALOGUE_ROW_ICONS.view,
+                            testID: `${productRowTestId(String(row.id))}-view`,
+                            onSelect: () => {
+                                list.openView(row);
                             },
-                            {
-                                key: 'edit',
-                                label: t('kitchen:list.open'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${productRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    list.openEditor(String(row.id));
-                                },
+                        },
+                        {
+                            key: 'edit',
+                            label: t('kitchen:list.open'),
+                            icon: CATALOGUE_ROW_ICONS.edit,
+                            testID: `${productRowTestId(String(row.id))}-open`,
+                            onSelect: () => {
+                                list.openEditor(String(row.id));
                             },
-                            // Archive is offered only where it would be accepted: the permission,
-                            // and a row that is not already archived.
-                            ...(canManage && row.meta.status !== 'retired'
-                                ? [
-                                      {
-                                          key: 'archive',
-                                          label: t('kitchen:list.archive'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
-                                          tone: 'danger' as const,
-                                          testID: `${productRowTestId(String(row.id))}-archive`,
-                                          onSelect: () => {
-                                              list.askToArchive(row);
-                                          },
+                        },
+                        // Archive is offered only where it would be accepted: the permission,
+                        // and a row that is not already archived.
+                        ...(canManage && row.meta.status !== 'retired'
+                            ? [
+                                  {
+                                      key: 'archive',
+                                      label: t('kitchen:list.archive'),
+                                      icon: CATALOGUE_ROW_ICONS.archive,
+                                      tone: 'danger' as const,
+                                      testID: `${productRowTestId(String(row.id))}-archive`,
+                                      onSelect: () => {
+                                          list.askToArchive(row);
                                       },
-                                  ]
-                                : []),
-                        ]}
-                    />
-
-                    <CataloguePager
-                        testID="kitchen-products-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: list.shown,
-                            total: list.total ?? list.shown,
-                        })}
-                        page={list.page}
-                        totalPages={list.totalPages}
-                        onPageChange={list.setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
+            </CatalogueListBody>
 
             <CatalogueViewDrawer
                 testID="kitchen-products-view"

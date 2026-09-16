@@ -2,11 +2,8 @@ import {
     Badge,
     Button,
     Dialog,
-    EmptyState,
-    ErrorState,
     Icon,
     Inline,
-    Skeleton,
     Stack,
     Text,
     useToast,
@@ -26,9 +23,9 @@ import { useSession } from '../../../session/session-provider.tsx';
 import { RECIPE_MANAGE_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
@@ -205,84 +202,38 @@ function RecipesList() {
                 ) : undefined}
             </CatalogueToolbar>
 
-            {list.isPending ? (
-                <Stack space="xs" testID="kitchen-recipes-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-recipes-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
-            ) : list.failure !== null ? (
-                <ErrorState
-                    testID="kitchen-recipes-error"
-                    failure={list.failure}
-                    onRetry={list.refetch}
-                    retrying={list.isFetching}
+            <CatalogueListBody
+                testID="kitchen-recipes"
+                list={list}
+                empty={{
+                    title: t('kitchen:recipes.emptyTitle'),
+                    body: t('kitchen:recipes.emptyBody'),
+                }}
+                filteredEmpty={{
+                    title: t('kitchen:recipes.filteredEmptyTitle'),
+                    body: t('kitchen:recipes.filteredEmptyBody'),
+                }}
+                create={
+                    canManage
+                        ? { label: t('kitchen:toolbar.createRecipe'), onPress: list.createNew }
+                        : undefined
+                }
+            >
+                <CatalogueList
+                    testID="kitchen-recipes-table"
+                    label={t('kitchen:recipes.caption')}
+                    columns={controls.columns}
+                    rows={list.rows}
+                    rowKey={(row) => String(row.id)}
+                    // Fixed, not switchable: the S/M/L control is gone.
+                    density="sm"
+                    onRowPress={(row) => {
+                        list.openEditor(String(row.id));
+                    }}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                    rowActions={(row) => rowActions(row, list, t, toast, canManage)}
                 />
-            ) : list.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-recipes-empty"
-                    title={
-                        list.isUnfiltered
-                            ? t('kitchen:recipes.emptyTitle')
-                            : t('kitchen:recipes.filteredEmptyTitle')
-                    }
-                    body={
-                        list.isUnfiltered
-                            ? t('kitchen:recipes.emptyBody')
-                            : t('kitchen:recipes.filteredEmptyBody')
-                    }
-                    actions={
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID="kitchen-recipes-clear"
-                                variant="secondary"
-                                label={t('kitchen:toolbar.clearFilters')}
-                                onPress={list.clearFilters}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-recipes-empty-create"
-                                    label={t('kitchen:toolbar.createRecipe')}
-                                    onPress={list.createNew}
-                                />
-                            ) : null}
-                        </Inline>
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList
-                        testID="kitchen-recipes-table"
-                        label={t('kitchen:recipes.caption')}
-                        columns={controls.columns}
-                        rows={list.rows}
-                        rowKey={(row) => String(row.id)}
-                        // Fixed, not switchable: the S/M/L control is gone.
-                        density="sm"
-                        onRowPress={(row) => {
-                            list.openEditor(String(row.id));
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row) => rowActions(row, list, t, toast, canManage)}
-                    />
-
-                    <CataloguePager
-                        testID="kitchen-recipes-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: list.shown,
-                            total: list.total ?? list.shown,
-                        })}
-                        page={list.page}
-                        totalPages={list.totalPages}
-                        onPageChange={list.setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
+            </CatalogueListBody>
 
             <CatalogueViewDrawer
                 testID="kitchen-recipes-view"

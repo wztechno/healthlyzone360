@@ -3,11 +3,8 @@ import {
     Badge,
     Button,
     Dialog,
-    EmptyState,
-    ErrorState,
     Icon,
     Inline,
-    Skeleton,
     Stack,
     Text,
     useToast,
@@ -24,9 +21,9 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
@@ -167,132 +164,82 @@ function MealsList() {
                 ) : undefined}
             </CatalogueToolbar>
 
-            {list.isPending ? (
-                <Stack space="xs" testID="kitchen-meals-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-meals-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
-            ) : list.failure !== null ? (
-                <ErrorState
-                    testID="kitchen-meals-error"
-                    failure={list.failure}
-                    onRetry={list.refetch}
-                    retrying={list.isFetching}
-                />
-            ) : list.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-meals-empty"
-                    title={
-                        list.isUnfiltered
-                            ? t('kitchen:meals.emptyTitle')
-                            : t('kitchen:meals.filteredEmptyTitle')
-                    }
-                    body={
-                        list.isUnfiltered
-                            ? t('kitchen:meals.emptyBody')
-                            : t('kitchen:meals.filteredEmptyBody')
-                    }
-                    actions={
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID="kitchen-meals-clear"
-                                variant="secondary"
-                                label={t('kitchen:toolbar.clearFilters')}
-                                onPress={list.clearFilters}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-meals-empty-create"
-                                    label={t('kitchen:meals.create')}
-                                    onPress={list.createNew}
-                                />
-                            ) : null}
-                        </Inline>
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList
-                        testID="kitchen-meals-table"
-                        label={t('kitchen:meals.caption')}
-                        columns={controls.columns}
-                        rows={list.rows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        onRowPress={(row) => {
-                            list.openEditor(String(row.id));
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${mealRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    list.openView(row);
-                                },
+            <CatalogueListBody
+                testID="kitchen-meals"
+                list={list}
+                empty={{ title: t('kitchen:meals.emptyTitle'), body: t('kitchen:meals.emptyBody') }}
+                filteredEmpty={{
+                    title: t('kitchen:meals.filteredEmptyTitle'),
+                    body: t('kitchen:meals.filteredEmptyBody'),
+                }}
+                create={
+                    canManage
+                        ? { label: t('kitchen:meals.create'), onPress: list.createNew }
+                        : undefined
+                }
+            >
+                <CatalogueList
+                    testID="kitchen-meals-table"
+                    label={t('kitchen:meals.caption')}
+                    columns={controls.columns}
+                    rows={list.rows}
+                    rowKey={(row) => String(row.id)}
+                    density="sm"
+                    onRowPress={(row) => {
+                        list.openEditor(String(row.id));
+                    }}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                    rowActions={(row): readonly MenuItem[] => [
+                        {
+                            key: 'view',
+                            label: t('kitchen:list.view'),
+                            icon: CATALOGUE_ROW_ICONS.view,
+                            testID: `${mealRowTestId(String(row.id))}-view`,
+                            onSelect: () => {
+                                list.openView(row);
                             },
-                            {
-                                key: 'edit',
-                                label: t('kitchen:list.open'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${mealRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    list.openEditor(String(row.id));
-                                },
+                        },
+                        {
+                            key: 'edit',
+                            label: t('kitchen:list.open'),
+                            icon: CATALOGUE_ROW_ICONS.edit,
+                            testID: `${mealRowTestId(String(row.id))}-open`,
+                            onSelect: () => {
+                                list.openEditor(String(row.id));
                             },
-                            /*
-                             * Withdraw sits in the Archive slot, because withdrawing *is* the
-                             * archive for a meal — and it is offered only on a row the server would
-                             * accept it for: a draft has nothing to withdraw from, and an already
-                             * withdrawn meal would 409.
-                             */
-                            ...(canManage &&
-                            (row.meta.status === 'published' ||
-                                row.meta.status === 'review_required')
-                                ? [
-                                      {
-                                          key: 'retire',
-                                          label: t('kitchen:meals.retire'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
-                                          tone: 'danger' as const,
-                                          testID: `${mealRowTestId(String(row.id))}-retire`,
-                                          onSelect: () => {
-                                              list.askToRetire(row);
-                                          },
+                        },
+                        /*
+                         * Withdraw sits in the Archive slot, because withdrawing *is* the
+                         * archive for a meal — and it is offered only on a row the server would
+                         * accept it for: a draft has nothing to withdraw from, and an already
+                         * withdrawn meal would 409.
+                         */
+                        ...(canManage &&
+                        (row.meta.status === 'published' || row.meta.status === 'review_required')
+                            ? [
+                                  {
+                                      key: 'retire',
+                                      label: t('kitchen:meals.retire'),
+                                      icon: CATALOGUE_ROW_ICONS.archive,
+                                      tone: 'danger' as const,
+                                      testID: `${mealRowTestId(String(row.id))}-retire`,
+                                      onSelect: () => {
+                                          list.askToRetire(row);
                                       },
-                                  ]
-                                : []),
-                        ]}
-                    />
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
 
-                    {/*
-                     * 7a's provenance footer, verbatim from the frame: the numbers on a card are
-                     * the recipe version's, and this is where a reader learns that.
-                     */}
-                    <Text variant="caption" tone="secondary" testID="kitchen-meals-provenance">
-                        {t('kitchen:meals.tableProvenance')}
-                    </Text>
-
-                    <CataloguePager
-                        testID="kitchen-meals-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: list.shown,
-                            total: list.total ?? list.shown,
-                        })}
-                        page={list.page}
-                        totalPages={list.totalPages}
-                        onPageChange={list.setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
+                {/*
+                 * 7a's provenance footer, verbatim from the frame: the numbers on a card are
+                 * the recipe version's, and this is where a reader learns that.
+                 */}
+                <Text variant="caption" tone="secondary" testID="kitchen-meals-provenance">
+                    {t('kitchen:meals.tableProvenance')}
+                </Text>
+            </CatalogueListBody>
 
             <CatalogueViewDrawer
                 testID="kitchen-meals-view"

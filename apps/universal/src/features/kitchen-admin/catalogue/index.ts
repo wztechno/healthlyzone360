@@ -43,6 +43,9 @@ export type { CatalogueViewDrawerProps, CatalogueViewField } from './catalogue-v
 export { CataloguePager } from './catalogue-pager.tsx';
 export type { CataloguePagerProps } from './catalogue-pager.tsx';
 
+export { CatalogueListBody } from './catalogue-list-body.tsx';
+export type { CatalogueListBodyProps, CatalogueListBodyState } from './catalogue-list-body.tsx';
+
 export {
     CATALOGUE_COLUMN_ROLES,
     CATALOGUE_PRIORITY,

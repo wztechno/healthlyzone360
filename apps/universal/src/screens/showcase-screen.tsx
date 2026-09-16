@@ -105,6 +105,8 @@ import type { PublishableStatus } from '@healthy360/api-client/contracts';
 import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
+import { CatalogueListBody } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
+import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
@@ -345,6 +347,21 @@ function SwitchStory({ prefix }: { readonly prefix: string }) {
         </Stack>
     );
 }
+
+const LIST_BODY_BASE: CatalogueListBodyState = {
+    isPending: false,
+    isFetching: false,
+    failure: null,
+    refetch: () => undefined,
+    rows: [],
+    isUnfiltered: false,
+    clearFilters: () => undefined,
+    shown: 0,
+    total: 0,
+    page: 1,
+    totalPages: 1,
+    setPage: () => undefined,
+};
 
 function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [search, setSearch] = useState('zaatar');
@@ -1528,6 +1545,41 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     status={toolbarStatus}
                     onStatusChange={setToolbarStatus}
                 />
+            </Stack>
+
+            {/*
+             * What every list draws under that toolbar: loading, a filter that matched nothing (with
+             * the create action a manager gets), a failed listing, and the table with its pager.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Catalogue list body
+                </Text>
+                {(
+                    [
+                        ['loading', { isPending: true }],
+                        ['filtered', {}],
+                        [
+                            'failed',
+                            { failure: apiFailure('network', { correlationId: 'showcase-0002' }) },
+                        ],
+                        ['rows', { rows: [1], shown: 25, total: 306, totalPages: 13 }],
+                    ] as const
+                ).map(([state, over]) => (
+                    <CatalogueListBody
+                        key={state}
+                        testID={id(`list-body-${state}`)}
+                        list={{ ...LIST_BODY_BASE, ...over }}
+                        empty={{ title: 'No ingredients yet', body: 'Add the first one.' }}
+                        filteredEmpty={{
+                            title: 'Nothing matches',
+                            body: 'Clear the filters to see every record.',
+                        }}
+                        create={{ label: 'New ingredient', onPress: () => undefined }}
+                    >
+                        <Text tone="secondary">The table goes here.</Text>
+                    </CatalogueListBody>
+                ))}
             </Stack>
 
             {/*

@@ -3,11 +3,8 @@ import {
     Badge,
     Button,
     Dialog,
-    EmptyState,
-    ErrorState,
     Icon,
     Inline,
-    Skeleton,
     Stack,
     Text,
     useToast,
@@ -23,9 +20,9 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
@@ -207,124 +204,78 @@ function PackagingList() {
                 ) : undefined}
             </CatalogueToolbar>
 
-            {list.isPending ? (
-                <Stack space="xs" testID="kitchen-packaging-loading">
-                    {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton
-                            key={index}
-                            testID={`kitchen-packaging-skeleton-${String(index + 1)}`}
-                            heightClassName="h-row-sm"
-                        />
-                    ))}
-                </Stack>
-            ) : list.failure !== null ? (
-                <ErrorState
-                    testID="kitchen-packaging-error"
-                    failure={list.failure}
-                    onRetry={list.refetch}
-                    retrying={list.isFetching}
-                />
-            ) : list.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-packaging-empty"
-                    title={
-                        list.isUnfiltered
-                            ? t('kitchen:packaging.emptyTitle')
-                            : t('kitchen:list.filteredEmptyTitle')
-                    }
-                    body={
-                        list.isUnfiltered
-                            ? t('kitchen:packaging.emptyBody')
-                            : t('kitchen:list.filteredEmptyBody')
-                    }
-                    actions={
-                        list.isUnfiltered ? undefined : (
-                            <Inline space="sm" wrap>
-                                <Button
-                                    testID="kitchen-packaging-clear"
-                                    variant="secondary"
-                                    label={t('kitchen:toolbar.clearFilters')}
-                                    onPress={list.clearFilters}
-                                />
-                            </Inline>
-                        )
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList
-                        testID="kitchen-packaging-table"
-                        label={t('kitchen:packaging.caption')}
-                        columns={controls.columns}
-                        rows={list.rows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        // The row body opens the panel, not the editor. Reading is what this page
-                        // is for — what a box costs and how many a batch needs — so the cheap
-                        // answer is the one a click lands on, and Edit is one control away.
-                        onRowPress={(row) => {
-                            list.openView(row);
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        // View, Edit, Archive, the order every other Catalogue list draws them in.
-                        // Above `md` they are flat icon buttons on the row; below it the same array
-                        // becomes the overflow menu, because a narrow row fits one control.
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${packagingRowTestId(row.id)}-view`,
-                                onSelect: () => {
-                                    list.openView(row);
-                                },
+            <CatalogueListBody
+                testID="kitchen-packaging"
+                list={list}
+                empty={{
+                    title: t('kitchen:packaging.emptyTitle'),
+                    body: t('kitchen:packaging.emptyBody'),
+                }}
+                filteredEmpty={{
+                    title: t('kitchen:list.filteredEmptyTitle'),
+                    body: t('kitchen:list.filteredEmptyBody'),
+                }}
+            >
+                <CatalogueList
+                    testID="kitchen-packaging-table"
+                    label={t('kitchen:packaging.caption')}
+                    columns={controls.columns}
+                    rows={list.rows}
+                    rowKey={(row) => String(row.id)}
+                    density="sm"
+                    // The row body opens the panel, not the editor. Reading is what this page
+                    // is for — what a box costs and how many a batch needs — so the cheap
+                    // answer is the one a click lands on, and Edit is one control away.
+                    onRowPress={(row) => {
+                        list.openView(row);
+                    }}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                    // View, Edit, Archive, the order every other Catalogue list draws them in.
+                    // Above `md` they are flat icon buttons on the row; below it the same array
+                    // becomes the overflow menu, because a narrow row fits one control.
+                    rowActions={(row): readonly MenuItem[] => [
+                        {
+                            key: 'view',
+                            label: t('kitchen:list.view'),
+                            icon: CATALOGUE_ROW_ICONS.view,
+                            testID: `${packagingRowTestId(row.id)}-view`,
+                            onSelect: () => {
+                                list.openView(row);
                             },
-                            // Edit opens `/kitchen/packaging/{item}` — the ingredient form, which
-                            // can edit these rows because they are ingredients, wearing this
-                            // family's series, category and back-link.
-                            {
-                                key: 'edit',
-                                label: t('kitchen:list.open'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${packagingRowTestId(row.id)}-open`,
-                                onSelect: () => {
-                                    list.openEditor(String(row.id));
-                                },
+                        },
+                        // Edit opens `/kitchen/packaging/{item}` — the ingredient form, which
+                        // can edit these rows because they are ingredients, wearing this
+                        // family's series, category and back-link.
+                        {
+                            key: 'edit',
+                            label: t('kitchen:list.open'),
+                            icon: CATALOGUE_ROW_ICONS.edit,
+                            testID: `${packagingRowTestId(row.id)}-open`,
+                            onSelect: () => {
+                                list.openEditor(String(row.id));
                             },
-                            // Archive is offered only where it would be accepted: the permission,
-                            // the server's own answer for this row, and a row that is not already
-                            // archived. A kitchen browsing the shared library would otherwise be
-                            // offered Archive on every platform row and get a 403 on each.
-                            ...(canManage && row.isEditable && row.meta.status !== 'retired'
-                                ? [
-                                      {
-                                          key: 'archive',
-                                          label: t('kitchen:list.archive'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
-                                          tone: 'danger' as const,
-                                          testID: `${packagingRowTestId(row.id)}-archive`,
-                                          onSelect: () => {
-                                              list.askToArchive(row);
-                                          },
+                        },
+                        // Archive is offered only where it would be accepted: the permission,
+                        // the server's own answer for this row, and a row that is not already
+                        // archived. A kitchen browsing the shared library would otherwise be
+                        // offered Archive on every platform row and get a 403 on each.
+                        ...(canManage && row.isEditable && row.meta.status !== 'retired'
+                            ? [
+                                  {
+                                      key: 'archive',
+                                      label: t('kitchen:list.archive'),
+                                      icon: CATALOGUE_ROW_ICONS.archive,
+                                      tone: 'danger' as const,
+                                      testID: `${packagingRowTestId(row.id)}-archive`,
+                                      onSelect: () => {
+                                          list.askToArchive(row);
                                       },
-                                  ]
-                                : []),
-                        ]}
-                    />
-
-                    <CataloguePager
-                        testID="kitchen-packaging-pagination"
-                        range={t('kitchen:toolbar.showing', {
-                            shown: list.shown,
-                            total: list.total ?? list.shown,
-                        })}
-                        page={list.page}
-                        totalPages={list.totalPages}
-                        onPageChange={list.setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
+            </CatalogueListBody>
 
             <CatalogueViewDrawer
                 testID="kitchen-packaging-view"
