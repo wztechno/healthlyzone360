@@ -7,8 +7,10 @@ use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Recipes\Enums\PackagingBasis;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionPackaging;
+use Healthy360\Recipes\Services\RecipeCostingService;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\ReferenceData\Models\MeasurementUnit;
 
 /*
 |--------------------------------------------------------------------------
@@ -556,4 +558,81 @@ it('carries the packaging over when a new draft is opened from a published versi
     expect($rows)->toHaveCount(2)
         ->and($rows->pluck('quantity')->map(static fn ($value): string => (string) $value)->unique()->all())
         ->toBe(['6.0000']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Cost per package
+|--------------------------------------------------------------------------
+|
+| The figure an operator sets a retail price against — what the 300 cc bottle
+| costs to put on the shelf — used to exist only in the recipe editor's own
+| JavaScript, in floats. These are the exact cases that client function was
+| tested on, run against the server method that replaces it, so deleting the
+| client half is provably arithmetic-neutral.
+|
+*/
+
+it('costs one filled package the way the editor did, to the digit', function (): void {
+    $costing = app(RecipeCostingService::class);
+    $kg = MeasurementUnit::query()->where('code', 'kg')->sole();
+    $g = MeasurementUnit::query()->where('code', 'g')->sole();
+
+    // 0.3 kg of product at 20/kg, plus a 0.50 box at 5 % waste: 6.00 + 0.525. The coefficient
+    // applies to the box alone — a carton is crushed in the stack, the sauce inside it is not.
+    expect($costing->packageCost('20', '0.3', $kg, $kg, '0.50', '5'))->toBe('6.525000');
+
+    // The same package with its capacity written in grams. Converted, not misread as 300 kg.
+    expect($costing->packageCost('20', '300', $g, $kg, '0.50', '5'))->toBe('6.525000');
+});
+
+it('refuses a capacity that is a count rather than a quantity', function (): void {
+    $costing = app(RecipeCostingService::class);
+
+    // "Holds one piece" says nothing about how much sauce is in it. Null, never a guessed zero.
+    expect($costing->packageCost(
+        '20',
+        '1',
+        MeasurementUnit::query()->where('code', 'piece')->sole(),
+        MeasurementUnit::query()->where('code', 'kg')->sole(),
+        '0.50',
+        '5',
+    ))->toBeNull();
+});
+
+it('still costs the contents when the container is unpriced', function (): void {
+    $kg = MeasurementUnit::query()->where('code', 'kg')->sole();
+
+    // The sauce is a real cost whether or not anyone has priced the bottle yet, and the packaging
+    // half's uncosted lines are already what says the bottle is missing.
+    expect(app(RecipeCostingService::class)->packageCost('20', '0.3', $kg, $kg, null, '5'))
+        ->toBe('6.000000');
+});
+
+it('states a package cost per line on the technical sheet, and keeps the lines it cannot answer', function (): void {
+    [$recipeId, $lock] = thousandIslands($this->kitchen, $this->headers, $this->kilograms);
+
+    // A bottle that holds 0.3 kg, and a cap that holds nothing — two lines, one package.
+    $bottle = RecipeWorld::packagingItem($this->kitchen->organisation, 'Bottle 300', '0.25', '0.3', 'kg');
+
+    $cap = RecipeWorld::packagingItem($this->kitchen->organisation, 'Cap', '0.10');
+
+    test()->putJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1/packaging", [
+        'packaging' => [
+            ['ingredient_id' => (string) $bottle->getKey(), 'basis' => 'per_batch', 'quantity' => 1],
+            ['ingredient_id' => (string) $cap->getKey(), 'basis' => 'per_batch', 'quantity' => 1],
+        ],
+    ], $this->headers + ['If-Match' => '"'.$lock.'"'])->assertOk();
+
+    $packages = $this->getJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1/technical-sheet", $this->headers)
+        ->assertOk()
+        ->json('data.computed.packages');
+
+    // Both lines, in order. The cap is kept with a null rather than dropped, so a client can say
+    // which item it could not cost instead of silently showing one package where two were drawn.
+    expect($packages)->toHaveCount(2)
+        ->and($packages[0]['line_number'])->toBe(1)
+        ->and($packages[0]['cost_per_package_amount'])->not->toBeNull()
+        ->and($packages[1]['line_number'])->toBe(2)
+        ->and($packages[1]['cost_per_package_amount'])->toBeNull();
 });

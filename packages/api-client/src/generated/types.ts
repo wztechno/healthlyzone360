@@ -1367,6 +1367,24 @@ export type ComputedCost = {
      */
     total_cost_per_yield_unit_amount: string | null;
     yield_unit_id: string | null;
+    /**
+     * What one filled package costs, one entry per packaging line in line
+     * order: the contents at the production cost per yield unit (with
+     * waste), plus the container at the packaging waste rate.
+     *
+     * Every line is present, including the ones that are not packages. A
+     * line whose item records no capacity — a cap holds nothing — or whose
+     * capacity cannot be expressed in the yield unit carries a null
+     * amount rather than being dropped, so a client can name which item it
+     * could not cost. All amounts are null until the production half is
+     * complete.
+     *
+     */
+    packages: Array<{
+        line_number: number;
+        ingredient_id: string;
+        cost_per_package_amount: string | null;
+    }>;
 };
 
 export type CreateRecipeRequest = {

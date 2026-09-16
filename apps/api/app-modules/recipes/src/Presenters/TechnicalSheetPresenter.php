@@ -124,6 +124,8 @@ final class TechnicalSheetPresenter
      * because "we cannot total this" is only useful next to "and here is which
      * line is missing a price".
      *
+     *
+     * @param  list<array{line_number: int, ingredient_id: string, cost_per_package_amount: string|null}>  $packages
      * @return array{
      *     currency_code: string|null,
      *     production: array{
@@ -145,13 +147,15 @@ final class TechnicalSheetPresenter
      *         is_complete: bool
      *     },
      *     total_cost_per_yield_unit_amount: string|null,
-     *     yield_unit_id: string|null
+     *     yield_unit_id: string|null,
+     *     packages: list<array{line_number: int, ingredient_id: string, cost_per_package_amount: string|null}>
      * }
      */
     public function computed(
         CostComputation $production,
         PackagingCostComputation $packaging,
         ?string $totalPerYieldUnit,
+        array $packages = [],
     ): array {
         return [
             /*
@@ -181,6 +185,10 @@ final class TechnicalSheetPresenter
             ],
             'total_cost_per_yield_unit_amount' => $totalPerYieldUnit,
             'yield_unit_id' => $production->yieldUnitId ?? $packaging->yieldUnitId,
+
+            // One entry per packaging line, answerable or not — see
+            // `RecipeCostingService::costPerPackage()` for why a null is kept rather than dropped.
+            'packages' => $packages,
         ];
     }
 

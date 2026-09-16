@@ -1036,6 +1036,11 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
             isComplete: wire.packaging.is_complete,
         },
         totalCostPerYieldUnit: amount(wire.total_cost_per_yield_unit_amount),
+        packages: wire.packages.map((line) => ({
+            lineNumber: line.line_number,
+            ingredientId: IngredientId.unsafe(line.ingredient_id),
+            cost: amount(line.cost_per_package_amount),
+        })),
     };
 }
 

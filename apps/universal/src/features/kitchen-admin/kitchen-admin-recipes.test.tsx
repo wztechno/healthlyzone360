@@ -2571,6 +2571,7 @@ describe('the technical sheet', () => {
                     isComplete: true,
                 },
                 totalCostPerYieldUnit: money(7.2),
+                packages: [],
             },
         };
     }

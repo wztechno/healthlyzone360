@@ -910,6 +910,22 @@ export interface RecipeComputedCost {
     readonly packaging: RecipeCostHalf;
     /** Production-with-waste plus packaging-with-waste; null unless both halves are complete. */
     readonly totalCostPerYieldUnit: CostAmount | null;
+    /**
+     * What one filled package costs, one entry per packaging line.
+     *
+     * The figure an operator sets a retail price against. Every line is here, including a cap that
+     * holds nothing: its `cost` is null rather than the entry being dropped, so a screen can say
+     * which item it could not cost instead of showing one package where two were drawn.
+     */
+    readonly packages: readonly RecipePackageCost[];
+}
+
+/** CONFIDENTIAL — one packaging line's cost per filled package. */
+export interface RecipePackageCost {
+    readonly lineNumber: number;
+    readonly ingredientId: IngredientId;
+    /** Null for an item with no capacity, a capacity the yield unit cannot express, or an incomplete formulation. */
+    readonly cost: CostAmount | null;
 }
 
 /**

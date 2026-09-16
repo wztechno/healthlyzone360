@@ -64,7 +64,7 @@ final readonly class DraftCostService
      *
      * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>  $lines
      * @param  list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>  $packaging
-     * @return array{production: CostComputation, packaging: PackagingCostComputation, total: numeric-string|null}|null
+     * @return array{production: CostComputation, packaging: PackagingCostComputation, total: numeric-string|null, packages: list<array{line_number: int, ingredient_id: string, cost_per_package_amount: numeric-string|null}>}|null
      *
      * @throws ApiException
      */
@@ -116,6 +116,7 @@ final readonly class DraftCostService
             'production' => $production,
             'packaging' => $packagingCost,
             'total' => $this->costing->totalCostPerYieldUnit($production, $packagingCost),
+            'packages' => $this->costing->costPerPackage($version, $production, $packagingCost, $packagingRows),
         ];
     }
 

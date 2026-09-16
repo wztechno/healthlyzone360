@@ -112,6 +112,7 @@ final class RecipeTechnicalSheetController
                 $production,
                 $packagingCost,
                 $this->costing->totalCostPerYieldUnit($production, $packagingCost),
+                $this->costing->costPerPackage($record, $production, $packagingCost, $packaging),
             );
         } catch (MixedCostCurrency) {
             $computed = null;

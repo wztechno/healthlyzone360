@@ -833,7 +833,12 @@ export const zComputedCost = z.object({
         is_complete: z.boolean()
     }),
     total_cost_per_yield_unit_amount: z.string().nullable(),
-    yield_unit_id: z.uuid().nullable()
+    yield_unit_id: z.uuid().nullable(),
+    packages: z.array(z.object({
+        line_number: z.int().gte(1),
+        ingredient_id: z.uuid(),
+        cost_per_package_amount: z.string().nullable()
+    }))
 });
 
 export const zCreateRecipeRequest = z.object({

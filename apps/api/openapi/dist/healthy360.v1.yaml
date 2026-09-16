@@ -23631,6 +23631,7 @@ components:
         - packaging
         - total_cost_per_yield_unit_amount
         - yield_unit_id
+        - packages
       description: |
         The live cost of one version's lines, in two halves that are summed but
         never blended.
@@ -23738,6 +23739,37 @@ components:
             - string
             - 'null'
           format: uuid
+        packages:
+          type: array
+          description: |
+            What one filled package costs, one entry per packaging line in line
+            order: the contents at the production cost per yield unit (with
+            waste), plus the container at the packaging waste rate.
+
+            Every line is present, including the ones that are not packages. A
+            line whose item records no capacity — a cap holds nothing — or whose
+            capacity cannot be expressed in the yield unit carries a null
+            amount rather than being dropped, so a client can name which item it
+            could not cost. All amounts are null until the production half is
+            complete.
+          items:
+            type: object
+            required:
+              - line_number
+              - ingredient_id
+              - cost_per_package_amount
+            properties:
+              line_number:
+                type: integer
+                minimum: 1
+              ingredient_id:
+                type: string
+                format: uuid
+              cost_per_package_amount:
+                type:
+                  - string
+                  - 'null'
+            additionalProperties: false
       additionalProperties: false
     CreateRecipeRequest:
       type: object
