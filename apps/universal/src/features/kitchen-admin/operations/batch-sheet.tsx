@@ -42,6 +42,9 @@ const BASIS_KEYS: Readonly<Record<PackagingBasis, string>> = {
     per_batch: 'kitchen:ops.batch.basis.per_batch',
 };
 
+/** Below this a packaging figure was not rounded — it is floating-point noise, not a whole box. */
+const ROUNDED_TOLERANCE = 1e-6;
+
 /** On hand for an ingredient in a given unit, or `null` when that cannot be said. */
 export type ShelfAvailability = (ingredientId: IngredientId, unit: MeasureUnit) => number | null;
 
@@ -96,7 +99,12 @@ export interface BatchSheetProps {
     readonly version: RecipeVersionAdmin;
     readonly factor: number;
     readonly ingredients: Readonly<Record<string, IngredientAdmin>>;
-    readonly availability: ShelfAvailability;
+    /**
+     * This branch's shelves. Given, the sheet is the production editor's: Required / Available /
+     * Short / Position. Omitted, it is the batch planner's read-only sheet (Batch Planner handoff):
+     * Quantity / Unit / As written, and no shelf is asked about at all.
+     */
+    readonly availability?: ShelfAvailability | undefined;
     readonly first?: boolean | undefined;
 }
 
@@ -109,8 +117,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
     const formatter = useFormatter();
 
     const dash = t('kitchen:list.noValue');
-    const number = (value: number): string =>
-        formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
+    const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
 
     const nameOf = (ingredientId: IngredientId): string => {
         const found = ingredients[String(ingredientId)];
@@ -118,13 +125,29 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
     };
 
     const shortOf = (line: RecipeLine): { available: number | null; short: number | null } => {
+        if (availability === undefined) return { available: null, short: null };
         const available = availability(line.ingredientId, line.unit);
         if (available === null) return { available: null, short: null };
         const required = scaleLine(line.quantity, factor);
         return { available, short: Math.max(0, required - available) };
     };
 
-    const lineColumns: readonly TableColumn<RecipeLine>[] = [
+    const noteColumn: TableColumn<RecipeLine> = {
+        key: 'note',
+        header: t('kitchen:ops.batch.columnNote'),
+        // The designation verbatim from the kitchen's own sheet — evidence, so never translated.
+        render: (line) => (
+            <Text
+                tone="secondary"
+                numberOfLines={1}
+                testID={`kitchen-batch-row-${String(line.ingredientId)}-note`}
+            >
+                {line.sourceDesignation ?? dash}
+            </Text>
+        ),
+    };
+
+    const shelfLineColumns: readonly TableColumn<RecipeLine>[] = [
         {
             key: 'item',
             header: t('kitchen:ops.batch.columnItem'),
@@ -151,7 +174,10 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'quantity',
-            header: t('kitchen:ops.batch.columnRequired'),
+            header:
+                availability === undefined
+                    ? t('kitchen:ops.batch.columnQuantity')
+                    : t('kitchen:ops.batch.columnRequired'),
             numeric: true,
             primary: true,
             render: (line) => (
@@ -238,6 +264,12 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
     ];
 
+    // Item, quantity and unit are common to both sheets; the planner swaps the shelf for the sheet.
+    const lineColumns =
+        availability === undefined
+            ? [...shelfLineColumns.slice(0, 3), noteColumn]
+            : shelfLineColumns;
+
     const packagingColumns: readonly TableColumn<RecipePackagingLine>[] = [
         {
             key: 'item',
@@ -258,17 +290,31 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
             header: t('kitchen:ops.batch.columnQuantity'),
             numeric: true,
             primary: true,
-            render: (row) => (
-                <Text
-                    variant="mono"
-                    testID={`kitchen-batch-row-${String(row.ingredientId)}-quantity`}
-                >
-                    {number(
-                        displayQuantity(scalePackaging(row.quantity, factor, row.unit), row.unit)
-                            .quantity,
-                    )}
-                </Text>
-            ),
+            render: (row) => {
+                const applied = scalePackaging(row.quantity, factor, row.unit);
+                const exact = scaleLine(row.quantity, factor);
+                return (
+                    <Inline space="xs" align="center" wrap>
+                        <Text
+                            variant="mono"
+                            testID={`kitchen-batch-row-${String(row.ingredientId)}-quantity`}
+                        >
+                            {number(displayQuantity(applied, row.unit).quantity)}
+                        </Text>
+                        {Math.abs(applied - exact) > ROUNDED_TOLERANCE ? (
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID={`kitchen-batch-row-${String(row.ingredientId)}-exact`}
+                            >
+                                {t('kitchen:ops.batch.roundedFrom', {
+                                    exact: number(displayQuantity(exact, row.unit).quantity),
+                                })}
+                            </Text>
+                        ) : null}
+                    </Inline>
+                );
+            },
         },
         {
             key: 'unit',
@@ -307,14 +353,26 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
             <FormSection
                 first={first}
                 testID="kitchen-batch-consume"
-                title={t('kitchen:ops.batch.consumeHeading')}
-                description={t('kitchen:ops.batch.consumeBody')}
+                title={
+                    availability === undefined
+                        ? t('kitchen:ops.batch.ingredientsHeading')
+                        : t('kitchen:ops.batch.consumeHeading')
+                }
+                description={
+                    availability === undefined ? undefined : t('kitchen:ops.batch.consumeBody')
+                }
                 aside={
-                    <Badge
-                        tone="info"
-                        icon={null}
-                        label={t('kitchen:ops.batch.fromDatabase')}
-                    />
+                    availability === undefined ? (
+                        <Text variant="caption" tone="secondary" testID="kitchen-batch-line-count">
+                            {t('kitchen:ops.batch.lineCount', { count: version.lines.length })}
+                        </Text>
+                    ) : (
+                        <Badge
+                            tone="info"
+                            icon={null}
+                            label={t('kitchen:ops.batch.fromDatabase')}
+                        />
+                    )
                 }
             >
                 {/*
@@ -330,11 +388,25 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                     rowKey={(line) => String(line.ingredientId)}
                     rowSize="sm"
                 />
+                {availability === undefined ? (
+                    <Text variant="caption" tone="secondary">
+                        {t('kitchen:ops.batch.exactFoot')}
+                    </Text>
+                ) : null}
             </FormSection>
 
             <FormSection
                 testID="kitchen-batch-packaging-section"
                 title={t('kitchen:ops.batch.packagingHeading')}
+                aside={
+                    <Text variant="caption" tone="secondary">
+                        {version.packaging.length === 0
+                            ? t('kitchen:ops.batch.noneRecorded')
+                            : t('kitchen:ops.batch.lineCount', {
+                                  count: version.packaging.length,
+                              })}
+                    </Text>
+                }
             >
                 {version.packaging.length === 0 ? (
                     <Text testID="kitchen-batch-packaging-empty" variant="caption" tone="secondary">
@@ -350,6 +422,11 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                         rowKey={(row) => String(row.ingredientId)}
                         rowSize="sm"
                     />
+                )}
+                {version.packaging.length === 0 ? null : (
+                    <Text variant="caption" tone="secondary">
+                        {t('kitchen:ops.batch.roundingFoot')}
+                    </Text>
                 )}
             </FormSection>
         </>

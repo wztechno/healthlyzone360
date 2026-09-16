@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Wellness Green token roles, light theme — packages/design-tokens/src/colour.ts (themeLight + semanticLight). */
+  :root {
+    --sBase:#f7fcf9; --sRaised:#ffffff; --sSunken:#edf6f0;
+    --tPri:#1f2937; --tSec:#5b6673; --tDis:#646e7c; --tOnBrand:#ffffff;
+    --bSub:#cceeda; --bDef:#aaddc0;
+    --brand:#157043; --brandHover:#11532e; --brandSub:#dcfce7; --onBrandSub:#14532d;
+    --okSub:#dcfce7; --okOn:#14532d;
+    --warnSub:#fdf2d6; --warnOn:#79480a; --warnBd:#f0dca8;
+    --badSub:#fde5e3; --badOn:#8f1f1a; --badBd:#d16a64;
+    --infoSub:#e2f1fb; --infoOn:#0b4a6f; --infoBd:#cde3f2;
+    --neuSub:#f1f5f9; --neuOn:#4b5563;
+    --overlay:#14231ccc; --ph:#94a3b8;
+    --pop:0 6px 20px -4px rgba(16,42,30,.24);
+    --skelA:#e4f0e9; --skelB:#eef6f1;
+  }
+  [data-theme="dark"] {
+    --sBase:#0e1712; --sRaised:#16241b; --sSunken:#0a110b;
+    --tPri:#eef4ee; --tSec:#bcc7be; --tDis:#8b968c; --tOnBrand:#06160c;
+    --bSub:#26352b; --bDef:#3a4b3f;
+    --brand:#86efac; --brandHover:#b7e2c6; --brandSub:#153a26; --onBrandSub:#b6e8c2;
+    --okSub:#16301f; --okOn:#9fd6b3;
+    --warnSub:#33240a; --warnOn:#e8c073; --warnBd:#8a6a2a;
+    --badSub:#3a1512; --badOn:#efa19a; --badBd:#a85049;
+    --infoSub:#0e2636; --infoOn:#9fcdec; --infoBd:#3f80ad;
+    --neuSub:#1b2620; --neuOn:#bcc7be;
+    --overlay:#000000b3; --ph:#8b968c;
+    --pop:0 6px 20px -4px rgba(0,0,0,.55);
+    --skelA:#1e2d23; --skelB:#182219;
+  }
+  html, body { margin:0; padding:0; background:var(--sBase); }
+  * { box-sizing: border-box; }
+  body { font-family:'Schibsted Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  input, select, textarea, button { font-family: inherit; color: inherit; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { color: var(--brandHover); text-decoration: underline; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  ::placeholder { color: var(--ph); }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background: var(--bSub); border-radius:6px; }
+  @keyframes wbshimmer { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }
+  @keyframes wbpop { from{opacity:0; transform:translateY(-4px) scale(.99)} to{opacity:1; transform:none} }
+</style>
+</helmet>
+
+<div dir="{{ dir }}" data-theme="{{ theme }}" style="display:flex; height:100vh; min-height:700px; background:var(--sBase); color:var(--tPri)">
+
+  <nav style="width: {{ navWidth }}; flex: 0 0 {{ navWidth }}; overflow:hidden; background:var(--sSunken); border-inline-end:1px solid var(--bSub); display:flex; flex-direction:column; padding:12px 0; transition: width 160ms ease, flex-basis 160ms ease">
+    <div style="flex:0 0 auto; display:flex; align-items:center; justify-content: {{ navJustify }}; gap:8px; padding:0 {{ navPad }} 12px">
+      <div style="flex:0 0 auto; width:22px; height:22px; border-radius:5px; background:var(--brand); color:var(--tOnBrand); display:grid; place-items:center; font-size:11px; font-weight:700">H</div>
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <span style="font-size:13px; font-weight:600; letter-spacing:-0.01em; white-space:nowrap">Kitchen ops</span>
+      </sc-if>
+    </div>
+
+    <div style="flex:1 1 auto; min-height:0; overflow:hidden auto; display:flex; flex-direction:column; gap:2px; padding:0 {{ navRailPad }}">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="5">
+        <div style="display:flex; flex-direction:column; gap:1px; padding-top:6px">
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:0 8px 3px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap">{{ group.label }}</div>
+          </sc-if>
+          <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+            <div role="button" tabindex="0" onClick="{{ expandNav }}" title="{{ group.label }}" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:5px; cursor:pointer" style-hover="background: var(--brandSub)">
+              <span aria-hidden="true" style="font-size:15px; line-height:1; color:var(--tSec)">{{ group.glyph }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="4">
+              <sc-if value="{{ item.active }}" hint-placeholder-val="{{ false }}">
+                <div title="{{ item.label }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; font-size:12px; font-weight:600; color:var(--onBrandSub); background:var(--brandSub)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ item.away }}" hint-placeholder-val="{{ true }}">
+                <div title="{{ item.awayTitle }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; font-size:12px; color:var(--tDis)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tDis)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex:0 0 auto; margin-top:8px; padding:10px {{ navPad }} 0; border-top:1px solid var(--bSub); font-size:10px; line-height:15px; color:var(--tSec); text-align: {{ navFootAlign }}">
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="font-weight:600; color:var(--tPri); white-space:nowrap">Beirut Central</div>
+        <div style="white-space:nowrap">Workbench · UTC clock</div>
+      </sc-if>
+      <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+        <div title="Beirut Central · Workbench" style="font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--tPri)">BC</div>
+      </sc-if>
+    </div>
+  </nav>
+
+  <main style="flex:1 1 auto; min-width:0; display:flex; flex-direction:column; overflow:hidden; position:relative">
+
+    <header style="flex:0 0 auto; padding:14px 20px 0">
+      <div style="display:flex; align-items:center; gap:8px; height:20px">
+        <span role="button" tabindex="0" onClick="{{ toggleNav }}" title="Show or hide the navigation" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; margin-inline-start:-4px; border-radius:4px; font-size:14px; color:var(--tSec); cursor:pointer; flex:0 0 auto" style-hover="background: var(--sSunken); color: var(--tPri)">☰</span>
+        <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--tSec)">
+          <span>Kitchen</span><span style="color:var(--bDef)">/</span>
+          <span style="color:var(--brand)">Operations</span>
+          <span style="color:var(--bDef)">/</span><span style="color:var(--tPri)">Batch planner</span>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:4px">
+        <div style="min-width:0">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+            <h1 style="margin:0; font-size:16px; line-height:22px; font-weight:600; letter-spacing:-0.01em">Batch planner</h1>
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--neuSub); color:var(--neuOn)">Read only</span>
+            <span style="font-size:11px; color:var(--tSec)">Nothing here is ordered or booked</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(148px, 1fr)); gap:8px; margin-top:10px; max-width:780px">
+        <sc-for list="{{ versionFacts }}" as="c" hint-placeholder-count="4">
+          <div style="display:flex; flex-direction:column; gap:1px; padding:7px 10px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised)">
+            <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.label }}</span>
+            <div style="display:flex; align-items:baseline; gap:4px; min-width:0">
+              <span style="font-family:'IBM Plex Mono', monospace; font-size:18px; line-height:24px; font-weight:600; color: {{ c.fg }}">{{ c.value }}</span>
+              <span style="font-size:10px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.unit }}</span>
+            </div>
+            <span style="font-size:10px; line-height:14px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.caption }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </header>
+
+    <!-- ══════════════════ CONTROLS ══════════════════
+         Raised above the sheet: the recipe list opens downward over the tables drawn after it. -->
+    <div style="position:relative; z-index:20; flex:0 0 auto; margin:12px 20px 0; padding:12px 14px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised); box-shadow:0 1px 2px rgba(16,42,30,.05)">
+      <div style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap">
+
+        <div style="position:relative; width:300px; flex:0 0 300px">
+          <label style="display:block; margin-bottom:4px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Recipe</label>
+          <div role="button" tabindex="0" onClick="{{ toggleSelect }}" style="display:flex; align-items:center; gap:8px; height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); cursor:pointer" style-hover="border-color: var(--brand)">
+            <span style="flex:1 1 auto; min-width:0; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: {{ selectValueFg }}">{{ selectValueText }}</span>
+            <span aria-hidden="true" style="flex:0 0 auto; font-size:9px; color:var(--tSec)">▾</span>
+          </div>
+
+          <sc-if value="{{ selectOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; top:calc(100% + 4px); inset-inline-start:0; width:340px; max-width:calc(100vw - 60px); z-index:30; padding:6px; border:1px solid var(--bDef); border-radius:7px; background:var(--sRaised); box-shadow:var(--pop); animation: wbpop 110ms ease">
+              <div style="position:relative">
+                <span aria-hidden="true" style="position:absolute; inset-inline-start:8px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--tSec); pointer-events:none">⌕</span>
+                <input value="{{ selectQuery }}" onChange="{{ setSelectQuery }}" placeholder="Search the recipe book" style="width:100%; height:28px; padding-inline:22px 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+              </div>
+              <div style="max-height:224px; overflow:auto; margin-top:6px; display:flex; flex-direction:column; gap:1px">
+                <sc-for list="{{ recipeOptions }}" as="o" hint-placeholder-count="5">
+                  <div role="button" tabindex="0" onClick="{{ o.pick }}" style="{{ o.style }}" style-hover="background: var(--sSunken)">
+                    <span style="display:block; font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ o.label }}</span>
+                    <span style="display:block; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tSec)">{{ o.description }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noRecipeMatch }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:10px 8px; font-size:11px; color:var(--tSec)">No recipe in the book matches that.</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div>
+          <span style="display:block; margin-bottom:4px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Plan by</span>
+          <div role="group" aria-label="Plan by" style="display:inline-flex; height:28px; padding:2px; gap:2px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised)">
+            <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2">
+              <button type="button" onClick="{{ m.go }}" disabled="{{ m.disabled }}" title="{{ m.title }}" style="{{ m.style }}">{{ m.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block; margin-bottom:4px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Make</label>
+          <div style="position:relative; width:148px">
+            <input value="{{ target }}" onChange="{{ setTarget }}" inputmode="decimal" placeholder="0" style="width:100%; height:28px; padding-inline:8px 44px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+            <span style="position:absolute; inset-inline-end:8px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--tSec); pointer-events:none">{{ targetUnit }}</span>
+          </div>
+        </div>
+
+        <div style="flex:1 1 auto"></div>
+      </div>
+
+      <sc-if value="{{ noPiecesHint }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:8px; font-size:11px; line-height:16px; color:var(--tSec)">This recipe does not count in pieces, so it can only be planned by weight.</div>
+      </sc-if>
+      <sc-if value="{{ upliftOn }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:8px; display:flex; align-items:flex-start; gap:8px; padding:7px 10px; border:1px solid var(--warnBd); border-radius:6px; background:var(--warnSub)">
+          <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--warnOn)">△</span>
+          <div style="font-size:11px; line-height:16px; color:var(--warnOn); text-wrap:pretty"><span style="font-weight:600">Inputs carry the process loss.</span> Every ingredient below is over-weighed by {{ wasteText }} so the batch lands on its stated yield. Packaging is not: it fills the yield, not the inputs.</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ══════════════════ RESULTS ══════════════════ -->
+    <div style="flex:0 0 auto; margin:10px 20px 0; padding:10px 14px; border:1px solid var(--bSub); border-radius:8px; background:var(--sSunken); display:flex; align-items:center; gap:28px; flex-wrap:wrap">
+      <sc-for list="{{ results }}" as="r" hint-placeholder-count="3">
+        <div style="display:flex; flex-direction:column; gap:1px; min-width:120px">
+          <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap">{{ r.label }}</span>
+          <div style="display:flex; align-items:baseline; gap:4px">
+            <span style="font-family:'IBM Plex Mono', monospace; font-size:20px; line-height:26px; font-weight:600; color: {{ r.fg }}">{{ r.value }}</span>
+            <span style="font-size:11px; color:var(--tSec)">{{ r.unit }}</span>
+          </div>
+          <span style="font-size:10px; line-height:14px; color:var(--tSec); white-space:nowrap">{{ r.caption }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ══════════════════ THE SHEET ══════════════════ -->
+    <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:14px 20px 20px">
+
+      <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:12px; border:1px solid var(--warnBd); border-radius:6px; background:var(--warnSub)">
+          <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--warnOn)">◌</span>
+          <div style="font-size:11px; line-height:16px; color:var(--warnOn); text-wrap:pretty">
+            <span style="font-weight:600">You are offline.</span> This is the copy of the version that arrived at 14:32. The arithmetic below is still exact — it only reads what is on screen.
+            <span role="button" tabindex="0" onClick="{{ retry }}" style="margin-inline-start:4px; font-weight:600; color:var(--brand); cursor:pointer">Try again</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ recipesErrored }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+          <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--badSub); color:var(--badOn)">Not loaded</span>
+          <div style="font-size:13px; font-weight:600; margin-top:2px">The recipe book could not be read</div>
+          <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:48ch; text-wrap:pretty">Without it there is nothing to choose from. Nothing was changed by this.</div>
+          <button type="button" onClick="{{ retry }}" style="margin-top:4px; height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Try again</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ pickRecipe }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:flex-start; gap:8px; max-width:74ch; padding:10px 12px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+          <span aria-hidden="true" style="font-size:11px; line-height:17px; color:var(--infoOn)">i</span>
+          <div style="color:var(--infoOn)">
+            <div style="font-size:12px; font-weight:600; line-height:17px">Choose a recipe</div>
+            <div style="font-size:11px; line-height:16px; text-wrap:pretty">Every figure on this page comes from one recipe version. Pick one to start.</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+        <div style="max-width:620px">
+          <div style="height:11px; width:120px; border-radius:4px; background:var(--skelA); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+          <div style="margin-top:12px; border-top:1px solid var(--bDef)">
+            <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="6">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 120px 72px; align-items:center; column-gap:14px; height:32px; padding:0 8px; border-bottom:1px solid var(--bSub)">
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelB); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; width:24px; border-radius:4px; background:var(--skelB); animation: wbshimmer 1.3s ease-in-out infinite"></div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:10px 8px 0; font-size:11px; color:var(--tSec)">Reading the version and the catalogue names behind it…</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ errored }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+          <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--badSub); color:var(--badOn)">Not loaded</span>
+          <div style="font-size:13px; font-weight:600; margin-top:2px">This recipe could not be read</div>
+          <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:48ch; text-wrap:pretty">The recipe book loaded, this version did not. Choose another recipe or try again.</div>
+          <button type="button" onClick="{{ retry }}" style="margin-top:4px; height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Try again</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ needTarget }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:flex-start; gap:8px; max-width:74ch; padding:10px 12px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+          <span aria-hidden="true" style="font-size:11px; line-height:17px; color:var(--infoOn)">i</span>
+          <div style="color:var(--infoOn)">
+            <div style="font-size:12px; font-weight:600; line-height:17px">Say how much to make</div>
+            <div style="font-size:11px; line-height:16px; text-wrap:pretty">A quantity greater than zero. Nothing is scaled until there is one.</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showSheet }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(440px, 1fr)); gap:20px 28px; align-items:start">
+
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:2px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Ingredients</h2>
+              <span style="font-size:11px; color:var(--tSec)">{{ lineCount }}</span>
+            </div>
+            <div style="overflow-x:auto">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 120px 64px 176px; align-items:center; column-gap:14px; min-width:520px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Item</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Quantity</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Unit</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">As written</span>
+              </div>
+              <sc-for list="{{ lines }}" as="l" hint-placeholder-count="6">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 120px 64px 176px; align-items:center; column-gap:14px; min-width:520px; height:32px; padding:0 8px; border-bottom:1px solid var(--bSub)">
+                  <span style="min-width:0; display:flex; align-items:center; gap:6px">
+                    <span style="font-size:13px; font-weight:600; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ l.name }}</span>
+                    <sc-if value="{{ l.optional }}" hint-placeholder-val="{{ false }}">
+                      <span style="flex:0 0 auto; display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--neuSub); color:var(--neuOn)">Optional</span>
+                    </sc-if>
+                  </span>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; text-align:end">{{ l.quantity }}</span>
+                  <span style="font-size:11px; color:var(--tSec)">{{ l.unit }}</span>
+                  <span style="font-size:11px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ l.note }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <p style="margin:8px 0 0; font-size:11px; line-height:16px; color:var(--tSec); max-width:70ch; text-wrap:pretty">Exact, never rounded. Four tenths of an egg is a real instruction — rounding it would change the recipe's proportions, which is the one thing this page exists to preserve.</p>
+          </section>
+
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:2px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Packaging</h2>
+              <span style="font-size:11px; color:var(--tSec)">{{ packagingCount }}</span>
+            </div>
+
+            <sc-if value="{{ noPackaging }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:20px 8px; font-size:11px; color:var(--tSec)">This recipe records no packaging.</div>
+            </sc-if>
+
+            <sc-if value="{{ hasPackaging }}" hint-placeholder-val="{{ true }}">
+              <div style="overflow-x:auto">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 120px 64px 150px; align-items:center; column-gap:14px; min-width:500px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Item</span>
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Quantity</span>
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Unit</span>
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Basis</span>
+                </div>
+                <sc-for list="{{ packaging }}" as="p" hint-placeholder-count="4">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) 120px 64px 150px; align-items:center; column-gap:14px; min-width:500px; min-height:32px; padding:5px 8px; border-bottom:1px solid var(--bSub)">
+                    <span style="font-size:13px; font-weight:600; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ p.name }}</span>
+                    <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0">
+                      <span style="font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500">{{ p.quantity }}</span>
+                      <sc-if value="{{ p.rounded }}" hint-placeholder-val="{{ false }}">
+                        <span title="{{ p.roundedTitle }}" style="font-size:9px; line-height:11px; color:var(--tSec); white-space:nowrap">from {{ p.exact }}</span>
+                      </sc-if>
+                    </span>
+                    <span style="font-size:11px; color:var(--tSec)">{{ p.unit }}</span>
+                    <span style="min-width:0">
+                      <span style="display:block; font-size:11px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ p.basis }}</span>
+                      <sc-if value="{{ p.hasComment }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:block; font-size:10px; line-height:14px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ p.comment }}</span>
+                      </sc-if>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+              <p style="margin:8px 0 0; font-size:11px; line-height:16px; color:var(--tSec); max-width:70ch; text-wrap:pretty">{{ packagingFoot }}</p>
+            </sc-if>
+          </section>
+        </div>
+
+        <div style="margin-top:20px; padding-top:10px; border-top:1px solid var(--bSub); display:flex; flex-direction:column; gap:4px; max-width:104ch">
+          <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty"><span style="font-weight:600; color:var(--tPri)">Units are never converted on the way to a figure.</span> A line written in grams is scaled in grams. Below a kilogram the result is read as grams, and below a litre as millilitres, because a cook weighs 526 g and not 0.526 kg.</span>
+          <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty"><span style="font-weight:600; color:var(--tPri)">Nothing is written from this sheet.</span> A production order belongs to Production, a buy list to Requirements, and cost does not appear on this page at all.</span>
+        </div>
+      </sc-if>
+    </div>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:860},&quot;dataState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;loading&quot;,&quot;error&quot;,&quot;recipesError&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;wasteUplift&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Arithmetic&quot;},&quot;packagingRounding&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ceil&quot;,&quot;exact&quot;],&quot;default&quot;:&quot;ceil&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Arithmetic&quot;},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ltr&quot;,&quot;rtl&quot;],&quot;default&quot;:&quot;ltr&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+/* ── The arithmetic, as in apps/universal/src/features/kitchen-admin/batch-scaling.ts ───────── */
+
+const WHOLE_NUMBER_TOLERANCE = 1e-9;
+const SMALLER_UNIT = { kg: 'g', l: 'ml' };
+const DIMENSION = { kg: 'mass', g: 'mass', l: 'volume', ml: 'volume', piece: 'count', pack: 'package' };
+/** `kitchen:unitsShort` verbatim — packages/i18n/catalogues/en/kitchen.json. Not a second table. */
+const UNIT_LABEL = { g: 'G', kg: 'Kg', ml: 'Ml', l: 'L', piece: 'Pc', pack: 'Pack' };
+const TO_SMALLER = { kg: 1000, l: 1000 };
+
+const batchFactor = (version, mode, target) => {
+  const base = mode === 'pieces' ? version.yieldPieces : version.yieldQuantity;
+  if (base === null || !Number.isFinite(base) || base <= 0) return null;
+  if (target === null || !Number.isFinite(target) || target <= 0) return null;
+  return target / base;
+};
+const scaleLine = (quantity, factor) => quantity * factor;
+const scalePackaging = (quantity, factor, unit) => {
+  const scaled = quantity * factor;
+  const dim = DIMENSION[unit];
+  if (dim !== 'count' && dim !== 'package') return scaled;
+  return Math.ceil(scaled - WHOLE_NUMBER_TOLERANCE);
+};
+const displayQuantity = (quantity, unit) => {
+  const smaller = SMALLER_UNIT[unit];
+  if (smaller === undefined || quantity <= 0 || quantity >= 1) return { quantity, unit };
+  return { quantity: quantity * TO_SMALLER[unit], unit: smaller };
+};
+
+const parseQuantity = (raw) => {
+  const trimmed = String(raw ?? '').trim();
+  if (trimmed === '') return null;
+  const n = Number(trimmed.replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+};
+
+const NF = new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 });
+const NF1 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+
+/* ── The recipe book ────────────────────────────────────────────────────────────────────────── */
+
+const BASIS = { fills_yield: 'Fills the yield', per_container: 'Per container', per_batch: 'Per batch' };
+
+const RECIPES = [
+  {
+    id: 'r1', name: 'Grilled chicken quinoa bowl', reference: 'RCP-0031', version: 4,
+    status: 'Published', tone: 'ok',
+    yieldQuantity: 1.7, yieldUnit: 'kg', yieldPieces: 6, wastePercent: 4.5,
+    lines: [
+      { name: 'Chicken breast, fresh', quantity: 0.72, unit: 'kg', note: 'Poulet blanc', optional: false },
+      { name: 'Quinoa, white', quantity: 0.36, unit: 'kg', note: null, optional: false },
+      { name: 'Cherry tomato', quantity: 0.24, unit: 'kg', note: null, optional: false },
+      { name: 'Cucumber', quantity: 0.18, unit: 'kg', note: null, optional: false },
+      { name: 'Tahini dressing, house', quantity: 0.15, unit: 'l', note: 'Sauce tahini', optional: false },
+      { name: 'Zaatar blend, house', quantity: 0.014, unit: 'kg', note: null, optional: false },
+      { name: 'Pomegranate molasses', quantity: 0.03, unit: 'l', note: null, optional: true },
+    ],
+    packaging: [
+      { name: 'Bowl, 750 ml', quantity: 6, unit: 'piece', basis: 'fills_yield', comment: null },
+      { name: 'Lid, bowl 750 ml', quantity: 6, unit: 'piece', basis: 'per_container', comment: null },
+      { name: 'Sauce cup, 30 ml', quantity: 6, unit: 'piece', basis: 'per_container', comment: 'Dressing travels separately' },
+      { name: 'Label, meal', quantity: 6, unit: 'piece', basis: 'per_container', comment: null },
+    ],
+  },
+  {
+    id: 'r2', name: 'Tabbouleh base', reference: 'RC-0001', version: 7,
+    status: 'Published', tone: 'ok',
+    yieldQuantity: 4, yieldUnit: 'kg', yieldPieces: null, wastePercent: 3,
+    lines: [
+      { name: 'Parsley, flat-leaf', quantity: 1.6, unit: 'kg', note: 'Persil plat', optional: false },
+      { name: 'Tomato, plum', quantity: 1.1, unit: 'kg', note: 'Tomates grappe', optional: false },
+      { name: 'Burghul, fine', quantity: 0.9, unit: 'kg', note: null, optional: false },
+      { name: 'Onion, white', quantity: 0.25, unit: 'kg', note: null, optional: false },
+      { name: 'Lemon juice, fresh', quantity: 0.18, unit: 'l', note: null, optional: false },
+      { name: 'Olive oil, extra virgin', quantity: 0.12, unit: 'l', note: 'Huile d\u2019olive', optional: false },
+      { name: 'Mint, fresh', quantity: 0.08, unit: 'kg', note: null, optional: true },
+      { name: 'Salt, fine', quantity: 0.012, unit: 'kg', note: null, optional: false },
+    ],
+    packaging: [
+      { name: 'Gastronorm tray, 1/1', quantity: 3, unit: 'piece', basis: 'fills_yield', comment: null },
+      { name: 'Lid, GN 1/1', quantity: 3, unit: 'piece', basis: 'per_container', comment: null },
+      { name: 'Cling film, 450 mm roll', quantity: 0.4, unit: 'pack', basis: 'per_batch', comment: 'Cut at the bench' },
+      { name: 'Label, ingredient', quantity: 1, unit: 'piece', basis: 'per_batch', comment: 'Printed at the weigh station' },
+    ],
+  },
+  {
+    id: 'r3', name: 'Baked salmon & greens', reference: 'RCP-0044', version: 2,
+    status: 'Draft', tone: 'warn',
+    yieldQuantity: 2.4, yieldUnit: 'kg', yieldPieces: 8, wastePercent: 2,
+    lines: [
+      { name: 'Salmon fillet, fresh', quantity: 1.28, unit: 'kg', note: 'Saumon frais', optional: false },
+      { name: 'Mixed greens', quantity: 0.52, unit: 'kg', note: null, optional: false },
+      { name: 'Sweet potato', quantity: 0.44, unit: 'kg', note: null, optional: false },
+      { name: 'Lemon, whole', quantity: 0.16, unit: 'kg', note: null, optional: false },
+      { name: 'Dill, fresh', quantity: 0.03, unit: 'kg', note: null, optional: true },
+    ],
+    packaging: [
+      { name: 'Tray, 2-compartment', quantity: 8, unit: 'piece', basis: 'fills_yield', comment: null },
+      { name: 'Film lid, sealed', quantity: 8, unit: 'piece', basis: 'per_container', comment: null },
+    ],
+  },
+  {
+    id: 'r4', name: 'Green detox juice, 330 ml', reference: 'RCP-0102', version: 1,
+    status: 'Published', tone: 'ok',
+    yieldQuantity: 6, yieldUnit: 'l', yieldPieces: 18, wastePercent: 1.5,
+    lines: [
+      { name: 'Cucumber', quantity: 2.7, unit: 'kg', note: null, optional: false },
+      { name: 'Green apple', quantity: 1.8, unit: 'kg', note: 'Pommes vertes', optional: false },
+      { name: 'Spinach, baby', quantity: 0.54, unit: 'kg', note: null, optional: false },
+      { name: 'Lemon juice, fresh', quantity: 0.45, unit: 'l', note: null, optional: false },
+      { name: 'Ginger, fresh', quantity: 0.09, unit: 'kg', note: null, optional: false },
+    ],
+    packaging: [
+      { name: 'Bottle, 330 ml PET', quantity: 18, unit: 'piece', basis: 'fills_yield', comment: null },
+      { name: 'Cap, 38 mm', quantity: 18, unit: 'piece', basis: 'per_container', comment: null },
+      { name: 'Shrink sleeve', quantity: 18, unit: 'piece', basis: 'per_container', comment: null },
+    ],
+  },
+  {
+    id: 'r5', name: 'Lentil & spinach soup', reference: 'RCP-0067', version: 3,
+    status: 'Published', tone: 'ok',
+    yieldQuantity: 8, yieldUnit: 'l', yieldPieces: null, wastePercent: 2.5,
+    lines: [
+      { name: 'Red lentils', quantity: 1.6, unit: 'kg', note: null, optional: false },
+      { name: 'Spinach, baby', quantity: 0.8, unit: 'kg', note: null, optional: false },
+      { name: 'Onion, white', quantity: 0.6, unit: 'kg', note: null, optional: false },
+      { name: 'Vegetable stock', quantity: 6.4, unit: 'l', note: 'Fond de l\u00e9gumes', optional: false },
+      { name: 'Cumin, ground', quantity: 0.018, unit: 'kg', note: null, optional: false },
+    ],
+    packaging: [],
+  },
+];
+
+const NAV = [
+  { key: 'orderDesk', label: 'Order desk', glyph: '▤', items: [
+    { key: 'queue', label: 'Order desk', count: '8' },
+    { key: 'calendar', label: 'Order calendar' },
+    { key: 'requirements', label: 'Requirements', count: '4' },
+    { key: 'cash', label: 'Cash taken' },
+  ]},
+  { key: 'workbench', label: 'Workbench', glyph: '⌕', items: [
+    { key: 'review', label: 'Needs review', count: '6' },
+    { key: 'analytics', label: 'Analytics' },
+    { key: 'cost', label: 'Cost report' },
+    { key: 'exceptions', label: 'Consumption exceptions', count: '3' },
+  ]},
+  { key: 'catalogue', label: 'Catalogue', glyph: '◉', items: [
+    { key: 'ingredients', label: 'Ingredients' },
+    { key: 'packaging', label: 'Packaging' },
+    { key: 'recipes', label: 'Recipes' },
+    { key: 'products', label: 'Resale' },
+    { key: 'sauces', label: 'Sauces & marinations' },
+    { key: 'dressings', label: 'Dressings' },
+    { key: 'meals', label: 'Meals' },
+    { key: 'allergens', label: 'Allergen classes' },
+  ]},
+  { key: 'commercial', label: 'Commercial', glyph: '☰', items: [
+    { key: 'prices', label: 'Price lists' },
+    { key: 'quotations', label: 'Quotations' },
+    { key: 'plans', label: 'Plans' },
+    { key: 'zones', label: 'Delivery zones' },
+    { key: 'operating', label: 'Opening hours' },
+  ]},
+  { key: 'operations', label: 'Operations', glyph: '▣', here: true, items: [
+    { key: 'orders', label: 'Orders' },
+    { key: 'stock', label: 'Stock' },
+    { key: 'supply', label: 'Supply orders' },
+    { key: 'suppliers', label: 'Suppliers' },
+    { key: 'procurement', label: 'Procurement', count: '2' },
+    { key: 'purchases', label: 'Purchases ledger' },
+    { key: 'batch', label: 'Batch planner' },
+    { key: 'production', label: 'Production' },
+    { key: 'qc', label: 'Quality control', count: '1' },
+  ]},
+];
+
+const TONE_BG = { ok: 'var(--okSub)', warn: 'var(--warnSub)', bad: 'var(--badSub)', info: 'var(--infoSub)', neutral: 'var(--neuSub)' };
+const TONE_FG = { ok: 'var(--okOn)', warn: 'var(--warnOn)', bad: 'var(--badOn)', info: 'var(--infoOn)', neutral: 'var(--neuOn)' };
+const DASH = '—';
+
+const seg = (on, disabled) => 'display:inline-flex; align-items:center; height:22px; padding:0 10px; border:0; border-radius:3px; font-size:11px; font-weight:500; white-space:nowrap; cursor:' +
+  (disabled ? 'not-allowed' : 'pointer') + '; background:' + (on ? 'var(--brandSub)' : 'transparent') +
+  '; color:' + (disabled ? 'var(--tDis)' : on ? 'var(--onBrandSub)' : 'var(--tSec)');
+
+const option = (on) => 'padding:5px 8px; border-radius:5px; cursor:pointer; background:' + (on ? 'var(--brandSub)' : 'transparent');
+
+class Component extends DCLogic {
+  state = { navOpen: true, recipeId: 'r1', mode: 'yield', target: '10', selectOpen: false, selectQuery: '' };
+
+  componentDidMount() {
+    this.onKey = (e) => { if (e.key === 'Escape' && this.state.selectOpen) this.setState({ selectOpen: false }); };
+    document.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { document.removeEventListener('keydown', this.onKey); }
+
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const v = {};
+    const dataState = p.dataState ?? 'normal';
+    const uplift = p.wasteUplift === true;
+    const ceilPackaging = (p.packagingRounding ?? 'ceil') === 'ceil';
+
+    v.dir = p.direction === 'rtl' ? 'rtl' : 'ltr';
+    v.theme = p.theme === 'dark' ? 'dark' : 'light';
+
+    /* ── rail */
+    v.navOpen = s.navOpen;
+    v.navClosed = !s.navOpen;
+    v.navWidth = s.navOpen ? '208px' : '52px';
+    v.navPad = s.navOpen ? '14px' : '0';
+    v.navRailPad = s.navOpen ? '8px' : '10px';
+    v.navJustify = s.navOpen ? 'flex-start' : 'center';
+    v.navFootAlign = s.navOpen ? 'start' : 'center';
+    v.toggleNav = () => this.setState({ navOpen: !s.navOpen });
+    v.expandNav = () => this.setState({ navOpen: true });
+    v.navGroups = NAV.map((g) => ({
+      label: g.label, glyph: g.glyph,
+      items: g.items.map((it) => ({
+        label: it.label, count: it.count ?? '', showCount: !!it.count,
+        active: !!g.here && it.key === 'batch',
+        away: !(g.here && it.key === 'batch'),
+        awayTitle: it.label + ' — designed in the ' + g.label + ' file',
+      })),
+    }));
+
+    /* ── the version in hand */
+    const recipe = RECIPES.find((r) => r.id === s.recipeId) ?? null;
+    const readable = recipe !== null && dataState !== 'loading' && dataState !== 'error' && dataState !== 'recipesError';
+    const version = readable ? recipe : null;
+
+    const mode = version === null || version.yieldPieces === null ? 'yield' : s.mode;
+    const yieldUnitLabel = UNIT_LABEL[version === null ? 'kg' : version.yieldUnit];
+    const factor = version === null ? null : batchFactor(version, mode, parseQuantity(s.target));
+
+    /* ── controls */
+    v.selectOpen = s.selectOpen;
+    v.selectQuery = s.selectQuery;
+    v.setSelectQuery = (e) => this.setState({ selectQuery: e.target.value });
+    v.toggleSelect = () => this.setState({ selectOpen: !s.selectOpen, selectQuery: '' });
+    v.selectValueText = recipe === null ? 'Search the recipe book' : recipe.name;
+    v.selectValueFg = recipe === null ? 'var(--ph)' : 'var(--tPri)';
+
+    const needle = s.selectQuery.trim().toLowerCase();
+    const matches = RECIPES.filter((r) => needle === '' ||
+      r.name.toLowerCase().includes(needle) || r.reference.toLowerCase().includes(needle));
+    v.recipeOptions = matches.map((r) => ({
+      label: r.name,
+      description: r.reference + ' · v' + r.version + ' · ' + r.status,
+      style: option(r.id === s.recipeId),
+      pick: () => this.setState({ recipeId: r.id, selectOpen: false, selectQuery: '' }),
+    }));
+    v.noRecipeMatch = matches.length === 0;
+
+    const piecesDisabled = version === null || version.yieldPieces === null;
+    v.modes = [
+      { label: 'By ' + yieldUnitLabel, style: seg(mode === 'yield', false), disabled: false,
+        title: 'Plan by weight or volume', go: () => this.setState({ mode: 'yield' }) },
+      { label: 'By pieces', style: seg(mode === 'pieces', piecesDisabled), disabled: piecesDisabled,
+        title: piecesDisabled ? 'This recipe does not count in pieces' : 'Plan by piece count',
+        go: () => { if (!piecesDisabled) this.setState({ mode: 'pieces' }); } },
+    ];
+    v.target = s.target;
+    v.setTarget = (e) => this.setState({ target: e.target.value });
+    v.targetUnit = mode === 'pieces' ? 'pieces' : yieldUnitLabel;
+    v.noPiecesHint = version !== null && version.yieldPieces === null;
+
+    v.upliftOn = uplift && factor !== null && version !== null && version.wastePercent > 0;
+    v.wasteText = version === null ? DASH : NF1.format(version.wastePercent) + '%';
+
+    /* ── header facts: what the version states, before anything is scaled */
+    v.versionFacts = [
+      { label: 'Current version', value: version === null ? DASH : 'v' + version.version,
+        unit: '', caption: version === null ? 'No recipe chosen' : version.status,
+        fg: version === null ? 'var(--tSec)' : version.tone === 'warn' ? 'var(--warnOn)' : 'var(--tPri)' },
+      { label: 'Yield', value: version === null ? DASH : NF.format(version.yieldQuantity),
+        unit: version === null ? '' : yieldUnitLabel, caption: 'one batch makes', fg: 'var(--tPri)' },
+      { label: 'Pieces a batch', value: version === null || version.yieldPieces === null ? DASH : NF.format(version.yieldPieces),
+        unit: '', caption: version !== null && version.yieldPieces === null ? 'not counted in pieces' : 'portions out',
+        fg: 'var(--tPri)' },
+      { label: 'Production waste', value: version === null ? DASH : NF1.format(version.wastePercent),
+        unit: version === null ? '' : '%', caption: uplift ? 'carried into the inputs' : 'stated on the output', fg: 'var(--tPri)' },
+    ];
+
+    /* ── results band */
+    const resultQuantity = factor === null || version === null ? null : factor * version.yieldQuantity;
+    const resultPieces = factor === null || version === null || version.yieldPieces === null ? null : factor * version.yieldPieces;
+    /* Two figures, not three: in yield mode "resulting quantity" is the number typed into Make
+     * (target ÷ yield × yield), so the only derived figure is the other axis. The band states the
+     * factor and whichever axis the cook did not type. */
+    const otherAxis = mode === 'pieces'
+      ? { label: 'Resulting quantity', value: resultQuantity === null ? DASH : NF.format(resultQuantity),
+          unit: resultQuantity === null ? '' : yieldUnitLabel, caption: 'what those pieces weigh out to',
+          fg: resultQuantity === null ? 'var(--tSec)' : 'var(--tPri)' }
+      : { label: 'Resulting pieces', value: resultPieces === null ? DASH : NF.format(resultPieces), unit: '',
+          caption: version !== null && version.yieldPieces === null ? 'this recipe does not count them' : 'portions out of this batch',
+          fg: resultPieces === null ? 'var(--tSec)' : 'var(--tPri)' };
+    v.results = [
+      { label: 'Batches', value: factor === null ? DASH : NF.format(factor), unit: '× the recipe',
+        caption: 'target ÷ what one batch makes', fg: factor === null ? 'var(--tSec)' : 'var(--brand)' },
+      otherAxis,
+    ];
+
+    /* ── page state */
+    v.isOffline = dataState === 'offline';
+    v.recipesErrored = dataState === 'recipesError';
+    v.loading = dataState === 'loading' && recipe !== null;
+    v.errored = dataState === 'error' && recipe !== null;
+    v.pickRecipe = recipe === null && dataState !== 'recipesError';
+    v.needTarget = readable && factor === null;
+    v.showSheet = readable && factor !== null;
+    v.retry = () => {};
+    v.skeletonRows = [0, 1, 2, 3, 4, 5];
+
+    /* ── the sheet */
+    const lineFactor = factor === null ? 0 : uplift && version !== null ? factor * (1 + version.wastePercent / 100) : factor;
+    const lines = version === null ? [] : version.lines;
+    v.lineCount = lines.length === 1 ? '1 line' : lines.length + ' lines';
+    v.lines = lines.map((l) => {
+      const shown = displayQuantity(scaleLine(l.quantity, lineFactor), l.unit);
+      return {
+        name: l.name, optional: l.optional === true, note: l.note ?? DASH,
+        quantity: NF.format(shown.quantity), unit: UNIT_LABEL[shown.unit],
+      };
+    });
+
+    const packs = version === null ? [] : version.packaging;
+    v.hasPackaging = packs.length > 0;
+    v.noPackaging = packs.length === 0;
+    v.packagingCount = packs.length === 0 ? 'none recorded' : packs.length === 1 ? '1 line' : packs.length + ' lines';
+    v.packaging = packs.map((row) => {
+      const exact = scaleLine(row.quantity, factor === null ? 0 : factor);
+      const applied = ceilPackaging ? scalePackaging(row.quantity, factor === null ? 0 : factor, row.unit) : exact;
+      const shown = displayQuantity(applied, row.unit);
+      const wasRounded = ceilPackaging && Math.abs(applied - exact) > 1e-6;
+      return {
+        name: row.name, unit: UNIT_LABEL[shown.unit], quantity: NF.format(shown.quantity),
+        rounded: wasRounded, exact: NF.format(exact),
+        roundedTitle: 'Rounded up from ' + NF.format(exact) + ' — half a box is not something anybody can take off a shelf',
+        basis: BASIS[row.basis], comment: row.comment ?? '', hasComment: row.comment !== null,
+      };
+    });
+    v.packagingFoot = ceilPackaging
+      ? 'Anything counted or packed rounds up — half a box is not something anybody can take off a shelf. A packaging line recorded by mass or volume stays exact, because those genuinely divide.'
+      : 'Rounding is off: counted lines are shown exactly as the arithmetic gives them. A cook sent for 2.4 boxes takes two and runs out — which is why the shipped screen rounds up.';
+
+    return v;
+  }
+}
+
+</script>
+</body>
+</html>

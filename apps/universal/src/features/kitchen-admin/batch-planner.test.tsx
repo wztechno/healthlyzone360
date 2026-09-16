@@ -36,8 +36,8 @@ import { BatchPlannerScreen } from './screens/batch-planner-screen.tsx';
  * 2. **Packaging rounds up and ingredients do not.** 0.4 of an egg is an instruction; 0.4 of a box
  *    is not something anybody can take off a shelf. Both appear in one run below, because the
  *    difference is invisible in either case alone.
- * 3. **Short is stated against the shelf, in the line's own unit.** A branch holding 0.2 kg of a
- *    line that needs 0.5 kg is 0.3 kg short, and the row says so.
+ * 3. **A rounded figure shows what it was rounded from.** 7.5 trays reads 8, with "from 7.5" beside
+ *    it, so the cook can see the rounding rather than trust it.
  */
 
 jest.mock('expo-router', () => ({
@@ -310,22 +310,27 @@ describe('the batch planner', () => {
         });
 
         await untilVisible('kitchen-batch-planner-screen');
-        // Nothing is scaled on the list: it is the recipe book, and a sheet is opened from a row.
-        // The narrow row layout (the test viewport) draws the row's title, not the column cell.
-        await untilVisible(`kitchen-batch-planner-table-row-${String(RECIPE_ID)}-title`);
+        // Nothing is scaled before a recipe is picked.
+        await untilVisible('kitchen-batch-planner-pick-recipe');
         expect(screen.queryByTestId('kitchen-batch-ingredients')).toBeNull();
 
         await act(async () => {
-            fireEvent.press(
-                screen.getByTestId(
-                    `kitchen-batch-planner-table-row-${String(RECIPE_ID)}-actions-trigger`,
-                ),
-            );
+            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
         });
-        await untilVisible(`kitchen-batch-recipe-${String(RECIPE_ID)}-open`);
+        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-${String(RECIPE_ID)}-open`));
+            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
         });
+
+        // The version's own facts are on the page before anything is scaled.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-batch-facts-yield-value')).toHaveTextContent(
+                    '4',
+                );
+            },
+            { timeout: 10_000 },
+        );
 
         // A recipe with no target is still not a batch.
         await untilVisible('kitchen-batch-planner-target-needed');
@@ -337,7 +342,7 @@ describe('the batch planner', () => {
         await untilVisible('kitchen-batch-ingredients');
 
         // 10 kg of a 4 kg recipe is two and a half batches.
-        expect(screen.getByTestId('kitchen-batch-metric-batches-value')).toHaveTextContent('2.5');
+        expect(screen.getByTestId('kitchen-batch-results-batches-value')).toHaveTextContent('2.5');
 
         // The name can only have come from the ingredient record: the line carries none.
         await waitFor(
@@ -353,23 +358,16 @@ describe('the batch planner', () => {
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
         ).toHaveTextContent('500');
 
-        // The branch holds 0.2 kg of the 0.5 kg the batch needs.
-        await waitFor(
-            () => {
-                expect(
-                    screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-position`),
-                ).toHaveTextContent(/Short/);
-            },
-            { timeout: 10_000 },
-        );
-        expect(
-            screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-short`),
-        ).toHaveTextContent(/0\.3/);
+        // The planner is a sheet, not a stock check: no shelf column is drawn.
+        expect(screen.queryByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-short`)).toBeNull();
 
         // 3 trays × 2.5 is 7.5, and half a tray is not a thing anybody can take off a shelf.
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-quantity`),
         ).toHaveTextContent('8');
+        expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-exact`)).toHaveTextContent(
+            /from 7.5/,
+        );
         expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-name`)).toHaveTextContent(
             'Gastronorm tray',
         );

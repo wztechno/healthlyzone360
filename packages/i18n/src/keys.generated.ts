@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6975 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6983 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3195,34 +3195,36 @@ export interface NamespaceKeys {
     | 'nutritionFacts.unitGrams'
     | 'nutritionFacts.unitKcal'
     | 'nutritionFacts.unitMilligrams'
-    | 'ops.batch.backToList'
     | 'ops.batch.basis.fills_yield'
     | 'ops.batch.basis.per_batch'
     | 'ops.batch.basis.per_container'
-    | 'ops.batch.caption'
+    | 'ops.batch.batchesCaption'
+    | 'ops.batch.batchesUnit'
     | 'ops.batch.columnAvailable'
     | 'ops.batch.columnBasis'
-    | 'ops.batch.columnChanged'
     | 'ops.batch.columnItem'
     | 'ops.batch.columnNote'
     | 'ops.batch.columnPosition'
     | 'ops.batch.columnQuantity'
-    | 'ops.batch.columnRecipe'
     | 'ops.batch.columnRequired'
     | 'ops.batch.columnShort'
     | 'ops.batch.columnUnit'
     | 'ops.batch.columnVersion'
     | 'ops.batch.consumeBody'
     | 'ops.batch.consumeHeading'
-    | 'ops.batch.emptyBody'
-    | 'ops.batch.emptyTitle'
-    | 'ops.batch.fieldReference'
-    | 'ops.batch.filteredEmptyBody'
-    | 'ops.batch.filteredEmptyTitle'
+    | 'ops.batch.exactFoot'
+    | 'ops.batch.factPieces'
+    | 'ops.batch.factPiecesCaption'
+    | 'ops.batch.factPiecesNone'
+    | 'ops.batch.factWasteCaption'
+    | 'ops.batch.factYield'
+    | 'ops.batch.factYieldCaption'
     | 'ops.batch.footNote'
     | 'ops.batch.fromDatabase'
     | 'ops.batch.ingredientsHeading'
+    | 'ops.batch.lineCount'
     | 'ops.batch.loadErrorTitle'
+    | 'ops.batch.loadingCaption'
     | 'ops.batch.metrics.batches'
     | 'ops.batch.metrics.pieces'
     | 'ops.batch.metrics.quantity'
@@ -3232,25 +3234,31 @@ export interface NamespaceKeys {
     | 'ops.batch.modeYield'
     | 'ops.batch.noPackaging'
     | 'ops.batch.noPiecesHint'
-    | 'ops.batch.openProduction'
-    | 'ops.batch.openSheet'
+    | 'ops.batch.noRecipeCaption'
+    | 'ops.batch.noneRecorded'
+    | 'ops.batch.nothingBookedChip'
+    | 'ops.batch.nothingWrittenNote'
     | 'ops.batch.optionalBadge'
     | 'ops.batch.packagingHeading'
+    | 'ops.batch.pickRecipeBody'
+    | 'ops.batch.pickRecipeTitle'
+    | 'ops.batch.piecesCaption'
     | 'ops.batch.piecesUnit'
     | 'ops.batch.positionCovered'
     | 'ops.batch.positionShort'
+    | 'ops.batch.quantityCaption'
     | 'ops.batch.readOnlyChip'
+    | 'ops.batch.recipeLabel'
+    | 'ops.batch.recipePlaceholder'
     | 'ops.batch.recipesErrorTitle'
-    | 'ops.batch.searchPlaceholder'
-    | 'ops.batch.sheetHeading'
-    | 'ops.batch.statDraftCaption'
-    | 'ops.batch.statPublishedCaption'
+    | 'ops.batch.roundedFrom'
+    | 'ops.batch.roundingFoot'
     | 'ops.batch.targetLabel'
     | 'ops.batch.targetNeededBody'
     | 'ops.batch.targetNeededTitle'
     | 'ops.batch.title'
+    | 'ops.batch.unitsNote'
     | 'ops.batch.versionCell'
-    | 'ops.batch.viewKind'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.caption'
     | 'ops.cashReport.columnAgent'
@@ -10188,34 +10196,36 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionFacts.unitGrams',
   'kitchen:nutritionFacts.unitKcal',
   'kitchen:nutritionFacts.unitMilligrams',
-  'kitchen:ops.batch.backToList',
   'kitchen:ops.batch.basis.fills_yield',
   'kitchen:ops.batch.basis.per_batch',
   'kitchen:ops.batch.basis.per_container',
-  'kitchen:ops.batch.caption',
+  'kitchen:ops.batch.batchesCaption',
+  'kitchen:ops.batch.batchesUnit',
   'kitchen:ops.batch.columnAvailable',
   'kitchen:ops.batch.columnBasis',
-  'kitchen:ops.batch.columnChanged',
   'kitchen:ops.batch.columnItem',
   'kitchen:ops.batch.columnNote',
   'kitchen:ops.batch.columnPosition',
   'kitchen:ops.batch.columnQuantity',
-  'kitchen:ops.batch.columnRecipe',
   'kitchen:ops.batch.columnRequired',
   'kitchen:ops.batch.columnShort',
   'kitchen:ops.batch.columnUnit',
   'kitchen:ops.batch.columnVersion',
   'kitchen:ops.batch.consumeBody',
   'kitchen:ops.batch.consumeHeading',
-  'kitchen:ops.batch.emptyBody',
-  'kitchen:ops.batch.emptyTitle',
-  'kitchen:ops.batch.fieldReference',
-  'kitchen:ops.batch.filteredEmptyBody',
-  'kitchen:ops.batch.filteredEmptyTitle',
+  'kitchen:ops.batch.exactFoot',
+  'kitchen:ops.batch.factPieces',
+  'kitchen:ops.batch.factPiecesCaption',
+  'kitchen:ops.batch.factPiecesNone',
+  'kitchen:ops.batch.factWasteCaption',
+  'kitchen:ops.batch.factYield',
+  'kitchen:ops.batch.factYieldCaption',
   'kitchen:ops.batch.footNote',
   'kitchen:ops.batch.fromDatabase',
   'kitchen:ops.batch.ingredientsHeading',
+  'kitchen:ops.batch.lineCount',
   'kitchen:ops.batch.loadErrorTitle',
+  'kitchen:ops.batch.loadingCaption',
   'kitchen:ops.batch.metrics.batches',
   'kitchen:ops.batch.metrics.pieces',
   'kitchen:ops.batch.metrics.quantity',
@@ -10225,25 +10235,31 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.modeYield',
   'kitchen:ops.batch.noPackaging',
   'kitchen:ops.batch.noPiecesHint',
-  'kitchen:ops.batch.openProduction',
-  'kitchen:ops.batch.openSheet',
+  'kitchen:ops.batch.noRecipeCaption',
+  'kitchen:ops.batch.noneRecorded',
+  'kitchen:ops.batch.nothingBookedChip',
+  'kitchen:ops.batch.nothingWrittenNote',
   'kitchen:ops.batch.optionalBadge',
   'kitchen:ops.batch.packagingHeading',
+  'kitchen:ops.batch.pickRecipeBody',
+  'kitchen:ops.batch.pickRecipeTitle',
+  'kitchen:ops.batch.piecesCaption',
   'kitchen:ops.batch.piecesUnit',
   'kitchen:ops.batch.positionCovered',
   'kitchen:ops.batch.positionShort',
+  'kitchen:ops.batch.quantityCaption',
   'kitchen:ops.batch.readOnlyChip',
+  'kitchen:ops.batch.recipeLabel',
+  'kitchen:ops.batch.recipePlaceholder',
   'kitchen:ops.batch.recipesErrorTitle',
-  'kitchen:ops.batch.searchPlaceholder',
-  'kitchen:ops.batch.sheetHeading',
-  'kitchen:ops.batch.statDraftCaption',
-  'kitchen:ops.batch.statPublishedCaption',
+  'kitchen:ops.batch.roundedFrom',
+  'kitchen:ops.batch.roundingFoot',
   'kitchen:ops.batch.targetLabel',
   'kitchen:ops.batch.targetNeededBody',
   'kitchen:ops.batch.targetNeededTitle',
   'kitchen:ops.batch.title',
+  'kitchen:ops.batch.unitsNote',
   'kitchen:ops.batch.versionCell',
-  'kitchen:ops.batch.viewKind',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.caption',
   'kitchen:ops.cashReport.columnAgent',
