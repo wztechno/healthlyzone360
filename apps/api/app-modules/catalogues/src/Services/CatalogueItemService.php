@@ -16,6 +16,8 @@ use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Services\IngredientCatalogueService;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
@@ -25,6 +27,7 @@ use Healthy360\Support\Api\Exceptions\StaleLockVersion;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * Every write to a catalogue item — the identity a kitchen sells.
@@ -79,6 +82,7 @@ final readonly class CatalogueItemService
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
+        private IngredientCatalogueService $ingredients,
     ) {}
 
     /**
@@ -158,6 +162,9 @@ final readonly class CatalogueItemService
             if ($prefix !== null) {
                 $item->source_ref = $this->nextReferenceFor($organisationId, $prefix);
             }
+            if ($item->ingredient_id === null && in_array($type, [CatalogueItemType::Sauce, CatalogueItemType::Dressing], true)) {
+                $item->ingredient_id = (string) $this->twinOf($item)->getKey();
+            }
             $item->created_by = $this->context->userId();
             $item->updated_by = $this->context->userId();
             $item->save();
@@ -176,6 +183,50 @@ final readonly class CatalogueItemService
 
             return $item;
         });
+    }
+
+    /**
+     * The ingredient a cooked item is used as inside other recipes — its twin.
+     *
+     * A sauce is sold *and* spooned into meals, and a meal's lines name ingredients, not catalogue
+     * items. Every sauce and dressing the v6 import wrote has one, carrying the item's own handle so
+     * a cook can quote it from either side. One created here gets the same, or it could be sold but
+     * never cooked with, and a batch of it would have no shelf to land on — derivation gives the
+     * twin its shelf the moment it exists.
+     *
+     * Created once, with the item. Renaming or retiring the item does not reach it: from then on it
+     * is the kitchen's ingredient, used by recipes the item knows nothing about.
+     *
+     * No allergen mapping is copied onto it. Unassessed is the honest state of a row nobody has
+     * looked at, and the publish gate refuses any recipe built on it until someone does; a copy of the
+     * sauce's allergens taken today would go stale with the next edit to its recipe, silently.
+     *
+     * @throws ApiException
+     */
+    private function twinOf(CatalogueItem $item): Ingredient
+    {
+        $category = IngredientCategory::withoutTenancy()
+            ->whereNull('organisation_id')
+            ->where('code', $item->item_type === CatalogueItemType::Sauce ? 'sauce' : 'dressings')
+            ->value('id');
+
+        // Kilograms whatever the item is sold in: every sauce and dressing is weighed, and a twin
+        // that followed the item's usage unit would hand a meal's line a bottle to convert.
+        $unitId = MeasurementUnit::query()->where('code', 'kg')->value('id');
+
+        if (! is_string($unitId)) {
+            throw new RuntimeException('The kilogram measurement unit is not seeded; seed reference data first.');
+        }
+
+        return $this->ingredients->create([
+            'name_en' => $item->name_en,
+            'name_ar' => $item->name_ar,
+            'slug' => $item->slug,
+            'ingredient_category_id' => is_string($category) ? $category : null,
+            'default_unit_id' => $unitId,
+            'composition' => $item->composition,
+            'source_ref' => $item->source_ref,
+        ]);
     }
 
     /**

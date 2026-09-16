@@ -4270,6 +4270,15 @@ paths:
         `catalogue_id` may be omitted; the organisation's `default` catalogue
         is created on demand.
 
+        A `sauce` or `dressing` created without an `ingredient_id` is given an
+        ingredient twin in the same transaction: an organisation ingredient
+        with the item's names, its `SAC-`/`DRS-` handle and the `sauce` or
+        `dressings` category, weighed in kilograms whatever the item is sold
+        in, with no allergen mapping yet. It is what a meal's recipe
+        lines name when they use the sauce, and the shelf a batch of it lands
+        on. It is created once; renaming or retiring the item does not reach
+        it.
+
         Variants, ingredients, diet tags and channels are each their own
         set-replace endpoint and are not accepted here.
 

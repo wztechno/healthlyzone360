@@ -8,6 +8,8 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
+use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Ingredients\Models\IngredientCategory;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
@@ -55,6 +57,65 @@ it('creates a draft item and derives its slug', function (): void {
     expect(CatalogueItem::withoutTenancy()->whereKey($response->json('data.item.id'))->value('organisation_id'))
         ->toBe((string) $this->a->organisation->getKey())
         ->and(AuditLog::query()->where('action', 'catalogue.item_created')->count())->toBe(1);
+});
+
+it('gives a sauce and a dressing an ingredient twin that carries the item’s own handle', function (): void {
+    // A sauce is sold and also spooned into meals, whose lines name ingredients. Every imported
+    // sauce has a twin; one created here must too, or it can be sold but never cooked with.
+    $this->actingAs($this->a->user);
+    $sauceCategory = IngredientCategory::factory()->platform()->create(['code' => 'sauce']);
+    $dressingCategory = IngredientCategory::factory()->platform()->create(['code' => 'dressings']);
+
+    $sauce = $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'sauce',
+        'name_en' => 'Garlic Sauce',
+        'catalogue_id' => (string) $this->a->catalogue->getKey(),
+    ], CatalogueWorld::headers($this->a))->assertCreated()->json('data.item');
+
+    $dressing = $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'dressing',
+        'name_en' => 'Lemon Dressing',
+        'catalogue_id' => (string) $this->a->catalogue->getKey(),
+    ], CatalogueWorld::headers($this->a))->assertCreated()->json('data.item');
+
+    $sauceTwin = Ingredient::withoutTenancy()->whereKey($sauce['ingredient_id'])->sole();
+    $dressingTwin = Ingredient::withoutTenancy()->whereKey($dressing['ingredient_id'])->sole();
+
+    expect($sauceTwin->organisation_id)->toBe((string) $this->a->organisation->getKey())
+        ->and($sauceTwin->name_en)->toBe('Garlic Sauce')
+        // The same handle on both records, so a cook can quote it from either side.
+        ->and($sauceTwin->source_ref)->toBe(CatalogueItem::withoutTenancy()->whereKey($sauce['id'])->value('source_ref'))
+        ->and($sauceTwin->source_ref)->toStartWith('SAC-')
+        ->and($sauceTwin->ingredient_category_id)->toBe((string) $sauceCategory->getKey())
+        ->and($dressingTwin->source_ref)->toStartWith('DRS-')
+        ->and($dressingTwin->ingredient_category_id)->toBe((string) $dressingCategory->getKey())
+        // Weighed in kilograms, which is what every cooked item's recipe yields in.
+        ->and($sauceTwin->defaultUnit()->value('code'))->toBe('kg');
+});
+
+it('makes no twin for a product, nor for a sauce that already names its ingredient', function (): void {
+    $this->actingAs($this->a->user);
+    $existing = Ingredient::factory()->create(['organisation_id' => (string) $this->a->organisation->getKey()]);
+    $before = Ingredient::withoutTenancy()->count();
+
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'product',
+        'name_en' => 'Harissa Paste 250g',
+        'catalogue_id' => (string) $this->a->catalogue->getKey(),
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.item.ingredient_id', null);
+
+    $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'sauce',
+        'name_en' => 'House Mayonnaise',
+        'catalogue_id' => (string) $this->a->catalogue->getKey(),
+        'ingredient_id' => (string) $existing->getKey(),
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        ->assertJsonPath('data.item.ingredient_id', (string) $existing->getKey());
+
+    expect(Ingredient::withoutTenancy()->count())->toBe($before);
 });
 
 it('records an untranslated Arabic name as empty rather than as the English one', function (): void {

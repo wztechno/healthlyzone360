@@ -75,6 +75,10 @@ import { RecipeEditScreen } from './recipe-edit-screen.tsx';
  * other way: the recipe is what the form fills in, so it is written first, and `onCreated` writes
  * the item that sells it — same name, category `sauce` or `dressing`, linked — then routes to it,
  * so a sauce created here is in the list it was created from.
+ *
+ * The server writes a third record with the item: the sauce's ingredient twin, carrying the same
+ * `SAC-` handle, which is what a meal's lines name when they use the sauce and the shelf a batch of
+ * it lands on. Nothing here asks for it, because there is nothing to decide.
  */
 
 /** The catalogue-item category each route files into. `ProductCategorySeeder`'s own codes. */
