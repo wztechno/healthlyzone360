@@ -362,7 +362,7 @@ it('writes every nutrition envelope on the per-100 g basis with the seven canoni
     expect($offenders)->toBe([]);
 });
 
-it('seeds a density for twenty rows: nineteen by volume, one by the piece', function (): void {
+it('seeds a density for each of the thirteen litre rows and for nothing stocked by mass', function (): void {
     $withDensity = Ingredient::withoutTenancy()
         ->whereNull('organisation_id')
         ->whereNotNull('grams_per_unit')
@@ -375,20 +375,19 @@ it('seeds a density for twenty rows: nineteen by volume, one by the piece', func
         ->sortKeys()
         ->all();
 
-    // Eggs are the one row that is counted rather than poured: every technical
-    // sheet states them in pieces, so the library stocks them that way and the
-    // density is the mass of one egg rather than of one litre.
-    expect($withDensity)->toHaveCount(20)
-        ->and($byUnit)->toBe(['l' => 19, 'piece' => 1])
-        ->and($withDensity->firstWhere('source_ref', 'ING-026')?->grams_per_unit)->toBe('1080.0000')
-        ->and($withDensity->firstWhere('source_ref', 'ING-207')?->grams_per_unit)->toBe('50.0000');
+    // The owner's unit table stocks thirteen rows by the litre and every other
+    // one by the kilogram, so a density is only ever a litre's weight.
+    expect($withDensity)->toHaveCount(13)
+        ->and($byUnit)->toBe(['l' => 13])
+        ->and($withDensity->firstWhere('source_ref', 'ING-026')?->grams_per_unit)->toBe('1080.0000');
 
     // A mass unit converts arithmetically, so a density on one would be a
-    // second, redundant and silently disagreeing source of truth. The other 14
-    // piece rows are left for a kitchen to weigh.
-    $piece = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
+    // second, redundant and silently disagreeing source of truth. Eggs moved to
+    // kilograms with the table; their 50 g lives on only in the migration that
+    // restates old `piece` lines.
+    $eggs = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-207')->sole();
 
-    expect($piece->grams_per_unit)->toBeNull();
+    expect($eggs->grams_per_unit)->toBeNull();
 });
 
 it('stamps every seeded row with a fingerprint of the figures it wrote', function (): void {
@@ -1515,9 +1514,9 @@ it('leaves a curated platform ingredient alone on a re-run', function (): void {
 
 it('leaves curated ingredient nutrition and densities alone on a re-run', function (): void {
     // Fill-empty, per column, independently (risk R8). A kitchen that has
-    // replaced a generic figure with its supplier's label, or weighed one of
-    // the piece rows the document has no mass for, must not lose it to the
-    // next deployment.
+    // replaced a generic figure with its supplier's label, or recorded a
+    // density the document does not carry, must not lose it to the next
+    // deployment.
     $curated = ['basis' => 'per_100g', 'amounts' => [['nutrient_id' => 'energy', 'unit' => 'kcal', 'value' => 1]]];
 
     $baking = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-001')->sole();
@@ -1528,7 +1527,7 @@ it('leaves curated ingredient nutrition and densities alone on a re-run', functi
     $soySauce->grams_per_unit = '999';
     $soySauce->save();
 
-    // A piece row the document has no density for: the kitchen put it there.
+    // A row the document has no density for: the kitchen put it there.
     $croutons = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
     $croutons->grams_per_unit = '42';
     $croutons->save();
