@@ -35,7 +35,8 @@ import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
 import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
+import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { recipeColumns } from '../catalogue/recipe-columns.tsx';
 import type { RecipeListState, RecipeSortKey } from '../catalogue/use-recipe-list.ts';
@@ -100,17 +101,6 @@ export function RecipesScreen() {
     );
 }
 
-/**
- * The status segments: All · Live · Draft · Review.
- *
- * Four, not five — Archived is reachable from the Status column's own filter, and spending a fifth
- * of a primary control on the one state a catalogue is almost never browsed in is the trade the
- * ingredient toolbar already refused. `retired` is still a first-class filter, just not a segment.
- */
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
-
-type StatusSegmentValue = PublishableStatus | 'all';
-
 /** The kitchen a recipe belongs to, by name. See `RecipeColumnDeps.kitchenName`. */
 type KitchenName = (kitchenId: KitchenId) => string;
 
@@ -171,19 +161,7 @@ function RecipesList() {
         },
     );
 
-    // A status the segments do not name — Archived, reached from the Status column's own filter —
-    // leaves the set on "all" rather than lighting a segment that is not on the row.
-    const active = list.statuses[0];
-    const segmentValue: StatusSegmentValue =
-        active !== undefined && SEGMENT_STATUSES.includes(active) ? active : 'all';
-
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((status) => ({
-            value: status,
-            label: t(statusShortKey(status)),
-        })),
-    ];
+    const segments = statusSegments(list.statuses, list.setStatuses, t);
 
     const viewed = list.viewing;
     const viewedAllergens = viewedDetail.data?.currentVersion.allergens ?? [];
@@ -210,12 +188,9 @@ function RecipesList() {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                // Single-select, so "all" is the absence of a status rather than a status of its own.
-                status={segmentValue}
-                onStatusChange={(status) => {
-                    list.setStatuses(status === 'all' ? [] : [status]);
-                }}
+                statusSegments={segments.segments}
+                status={segments.value}
+                onStatusChange={segments.onChange}
             >
                 {canManage ? (
                     <Inline space="xs" align="center">

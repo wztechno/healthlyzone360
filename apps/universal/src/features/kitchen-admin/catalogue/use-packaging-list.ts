@@ -18,6 +18,7 @@ import {
 import { displayName } from '../format.ts';
 import { missingLast } from './catalogue-column-spec.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
 
 /**
  * The state behind `/kitchen/packaging`.
@@ -141,8 +142,15 @@ export function usePackagingList(): PackagingListState {
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [category, setCategory] = useState<string | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
@@ -151,8 +159,6 @@ export function usePackagingList(): PackagingListState {
     const [sortDirection, setSortDirection] = useState<PackagingSortDirection>('asc');
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
     const [archiving, setArchiving] = useState<IngredientAdmin | null>(null);
-
-    const trimmed = query.trim();
 
     const filter = useMemo(
         () => ({
@@ -227,10 +233,9 @@ export function usePackagingList(): PackagingListState {
         setStatuses,
         category,
         setCategory,
-        isUnfiltered: trimmed === '' && statuses.length === 0 && category === null,
+        isUnfiltered: searchAndStatusUnset && category === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setCategory(null);
         },
         categories: (categories.data ?? []).filter((entry) => entry.parentCode !== null),

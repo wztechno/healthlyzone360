@@ -31,7 +31,8 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
+import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
 import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -107,17 +108,6 @@ export function MealsScreen() {
     );
 }
 
-/**
- * All · Live · Draft · Review.
- *
- * Four, not five: Archived — `retired`, which for a meal means withdrawn — is reachable from the
- * Status column's own filter, and putting it on the toolbar would spend a fifth of a primary
- * control on the one state a menu is almost never browsed in.
- */
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
-
-type StatusSegmentValue = PublishableStatus | 'all';
-
 function MealsList() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -143,17 +133,7 @@ function MealsList() {
         },
     );
 
-    const active = list.statuses[0];
-    const segmentValue: StatusSegmentValue =
-        active !== undefined && SEGMENT_STATUSES.includes(active) ? active : 'all';
-
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((status) => ({
-            value: status,
-            label: t(statusShortKey(status)),
-        })),
-    ];
+    const segments = statusSegments(list.statuses, list.setStatuses, t);
 
     return (
         <Stack space="md" testID="kitchen-meals-screen">
@@ -170,11 +150,9 @@ function MealsList() {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:meals.searchPlaceholder')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                status={segmentValue}
-                onStatusChange={(status) => {
-                    list.setStatuses(status === 'all' ? [] : [status]);
-                }}
+                statusSegments={segments.segments}
+                status={segments.value}
+                onStatusChange={segments.onChange}
             >
                 {canManage ? (
                     <Inline space="xs" align="center">

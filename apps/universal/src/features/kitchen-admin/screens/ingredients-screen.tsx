@@ -27,7 +27,8 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { IngredientDetail } from '../catalogue/ingredient-detail.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
+import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ingredientColumns } from '../catalogue/ingredient-columns.tsx';
 import type { IngredientListState, IngredientSortKey } from '../catalogue/use-ingredient-list.ts';
@@ -100,17 +101,6 @@ export function IngredientsScreen() {
     );
 }
 
-/**
- * The status segments, as the design draws them: All · Live · Draft · Review.
- *
- * Four, not five. Archived is reachable from the Status column's own filter, and putting it on the
- * toolbar would spend a fifth of a primary control on the one state a catalogue is almost never
- * browsed in. `retired` is still a first-class filter — it is just not a first-class *segment*.
- */
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
-
-type StatusSegmentValue = PublishableStatus | 'all';
-
 function IngredientsList() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -155,19 +145,7 @@ function IngredientsList() {
         },
     );
 
-    // A status the segments do not name — Archived, reached from the Status column's own filter —
-    // leaves the set on "all" rather than lighting a segment that is not on the row.
-    const active = list.statuses[0];
-    const segmentValue: StatusSegmentValue =
-        active !== undefined && SEGMENT_STATUSES.includes(active) ? active : 'all';
-
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((status) => ({
-            value: status,
-            label: t(statusShortKey(status)),
-        })),
-    ];
+    const segments = statusSegments(list.statuses, list.setStatuses, t);
 
     /*
      * View takes the whole page rather than a 400px drawer beside it.
@@ -222,12 +200,9 @@ function IngredientsList() {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:toolbar.searchIngredients')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                // Single-select, so "all" is the absence of a status rather than a status of its own.
-                status={segmentValue}
-                onStatusChange={(status) => {
-                    list.setStatuses(status === 'all' ? [] : [status]);
-                }}
+                statusSegments={segments.segments}
+                status={segments.value}
+                onStatusChange={segments.onChange}
             >
                 <Inline space="xs" align="center">
                     {canManage ? (

@@ -30,7 +30,8 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
+import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
 import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
 import {
@@ -117,18 +118,6 @@ export function PackagingScreen() {
     );
 }
 
-/**
- * All · Active · Inactive.
- *
- * Archived stays out, which is the call the ingredient list makes about `retired`: a segment for
- * the one state a catalogue is almost never browsed in would spend a share of a primary control on
- * nothing. Review is in, by request — it is a state these rows can hold, and the segments are where
- * a reader looks for the list's states before they think to open a column.
- */
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
-
-type StatusSegmentValue = PublishableStatus | 'all';
-
 function PackagingList() {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -172,17 +161,7 @@ function PackagingList() {
         },
     );
 
-    const active = list.statuses[0];
-    const segmentValue: StatusSegmentValue =
-        active !== undefined && SEGMENT_STATUSES.includes(active) ? active : 'all';
-
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((status) => ({
-            value: status,
-            label: t(packagingStatusKey(status)),
-        })),
-    ];
+    const segments = statusSegments(list.statuses, list.setStatuses, t, packagingStatusKey);
 
     return (
         <Stack space="md" testID="kitchen-packaging-screen">
@@ -202,11 +181,9 @@ function PackagingList() {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:packaging.searchPlaceholder')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                status={segmentValue}
-                onStatusChange={(status) => {
-                    list.setStatuses(status === 'all' ? [] : [status]);
-                }}
+                statusSegments={segments.segments}
+                status={segments.value}
+                onStatusChange={segments.onChange}
             >
                 {canManage ? (
                     <Inline space="xs" align="center">

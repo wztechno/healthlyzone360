@@ -13,6 +13,7 @@ import {
 import type { ProductCategory } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
 
 /**
  * Everything `/kitchen/products` — and `/kitchen/sauces`, and `/kitchen/dressings` — knows that is
@@ -121,8 +122,15 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [category, setCategory] = useState<string | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
@@ -131,8 +139,6 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
     const [sortDirection, setSortDirection] = useState<ProductSortDirection>('asc');
     const [viewing, setViewing] = useState<ProductAdmin | null>(null);
     const [archiving, setArchiving] = useState<ProductAdmin | null>(null);
-
-    const trimmed = query.trim();
 
     /*
      * The vocabulary is read before the filter is built, because the filter needs its ids.
@@ -210,10 +216,9 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         setStatuses,
         category,
         setCategory,
-        isUnfiltered: trimmed === '' && statuses.length === 0 && category === null,
+        isUnfiltered: searchAndStatusUnset && category === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setCategory(null);
         },
         categories: categories.data ?? [],

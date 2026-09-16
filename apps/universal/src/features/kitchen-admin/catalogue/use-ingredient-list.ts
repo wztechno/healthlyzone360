@@ -28,6 +28,7 @@ import {
 import { displayName } from '../format.ts';
 import { missingLast } from './catalogue-column-spec.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
 
 /**
  * Everything `/kitchen/ingredients` knows that is not a pixel — handoff §4.6.
@@ -179,8 +180,15 @@ export function useIngredientList(): IngredientListState {
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [category, setCategory] = useState<string | null>(null);
     const [allergen, setAllergen] = useState<AllergenCode | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
@@ -191,7 +199,6 @@ export function useIngredientList(): IngredientListState {
     const [archiving, setArchiving] = useState<IngredientAdmin | null>(null);
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
 
-    const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             /*
@@ -313,11 +320,9 @@ export function useIngredientList(): IngredientListState {
         allergen,
         setAllergen,
         allergenClasses: allergenClasses.data ?? [],
-        isUnfiltered:
-            trimmed === '' && statuses.length === 0 && category === null && allergen === null,
+        isUnfiltered: searchAndStatusUnset && category === null && allergen === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setCategory(null);
             setAllergen(null);
         },

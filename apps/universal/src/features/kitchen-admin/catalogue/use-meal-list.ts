@@ -18,6 +18,7 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
 
 /**
  * Everything `/kitchen/meals` knows that is not a pixel.
@@ -119,8 +120,15 @@ export function useMealList(): MealListState {
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [mealType, setMealType] = useState<MealType | null>(null);
     const [allergen, setAllergen] = useState<AllergenCode | null>(null);
     const [sortKey, setSortKey] = useState<MealSortKey>('name');
@@ -128,7 +136,6 @@ export function useMealList(): MealListState {
     const [viewing, setViewing] = useState<MealAdmin | null>(null);
     const [retiring, setRetiring] = useState<MealAdmin | null>(null);
 
-    const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             ...(trimmed === '' ? {} : { query: trimmed }),
@@ -191,11 +198,9 @@ export function useMealList(): MealListState {
         allergen,
         setAllergen,
         allergenClasses: allergenClasses.data ?? [],
-        isUnfiltered:
-            trimmed === '' && statuses.length === 0 && mealType === null && allergen === null,
+        isUnfiltered: searchAndStatusUnset && mealType === null && allergen === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setMealType(null);
             setAllergen(null);
         },

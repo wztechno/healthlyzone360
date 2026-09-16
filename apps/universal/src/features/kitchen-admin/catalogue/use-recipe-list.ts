@@ -21,6 +21,7 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { useCatalogueFilters } from './use-catalogue-filters.ts';
 
 /**
  * Everything `/kitchen/recipes` knows that is not a pixel — the recipe half of handoff §4.6.
@@ -153,8 +154,15 @@ export function useRecipeList(): RecipeListState {
     const router = useRouter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [statuses, setStatuses] = useState<readonly PublishableStatus[]>([]);
+    const {
+        query,
+        setQuery,
+        trimmed,
+        statuses,
+        setStatuses,
+        isUnfiltered: searchAndStatusUnset,
+        clear: clearSearchAndStatus,
+    } = useCatalogueFilters();
     const [kitchen, setKitchen] = useState<string | null>(null);
     const [allergen, setAllergen] = useState<AllergenCode | null>(null);
     // Reference ascending, which is the order the codes were issued in and so the order a
@@ -166,7 +174,6 @@ export function useRecipeList(): RecipeListState {
     const [viewing, setViewing] = useState<RecipeAdminSummary | null>(null);
     const [draftOpeningFor, setDraftOpeningFor] = useState<RecipeId | null>(null);
 
-    const trimmed = query.trim();
     const filter = useMemo(
         () => ({
             ...(trimmed === '' ? {} : { query: trimmed }),
@@ -246,11 +253,9 @@ export function useRecipeList(): RecipeListState {
         allergen,
         setAllergen,
         allergenClasses: allergenClasses.data ?? [],
-        isUnfiltered:
-            trimmed === '' && statuses.length === 0 && kitchen === null && allergen === null,
+        isUnfiltered: searchAndStatusUnset && kitchen === null && allergen === null,
         clearFilters: () => {
-            setQuery('');
-            setStatuses([]);
+            clearSearchAndStatus();
             setKitchen(null);
             setAllergen(null);
         },
