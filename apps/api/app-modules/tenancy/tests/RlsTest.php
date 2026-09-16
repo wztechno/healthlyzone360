@@ -909,13 +909,19 @@ it('revokes write-back privileges on exactly the three append-only ledgers', fun
     $writable = DB::table('information_schema.table_privileges')
         ->where('grantee', 'healthy360_app')
         ->whereIn('privilege_type', ['UPDATE', 'DELETE'])
-        ->whereIn('table_name', ['audit_logs', 'price_list_items', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines', 'stock_movements'])
+        ->whereIn('table_name', ['audit_logs', 'ingredient_weekly_prices', 'price_list_items', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines', 'stock_movements', 'weekly_price_publications'])
         ->orderBy('table_name')
         ->pluck('table_name')
         ->unique()
         ->values()
         ->all();
 
+    // PROD1 adds the two weekly-price tables to the same set. A published price
+    // is what a completed production batch pins its estimate to, and what the
+    // finance report reads last month's estimated margin off; a price that could
+    // be edited would make both of those claims about a number that is no longer
+    // there, with nothing on either surface to show it had moved.
+    //
     // `price_list_items` is in the comparison set precisely because it is a
     // near-miss: it is the most confidential table in the schema and it is
     // still not a ledger. Naming it here proves the K1.5 decision rather than

@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $country_code
  * @property string $default_currency_code
  * @property string $default_language_code
+ * @property string|null $timezone IANA identifier; null resolves from the branches (OrganisationTimezone)
  * @property OrganisationStatus $status
  * @property CarbonImmutable|null $suspended_at
  * @property string|null $suspension_reason
