@@ -59,6 +59,7 @@ import type {
     RecipeVersionSummary,
     RollupWarning,
     ServiceArea,
+    RecipeWeeklyCost,
     TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
 import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
@@ -105,6 +106,7 @@ import type {
     DeliveryZoneStatus,
     PriceStatus,
     TechnicalSheet as WireTechnicalSheet,
+    WeeklyCost as WireWeeklyCost,
 } from '../generated/types.ts';
 
 /**
@@ -1039,6 +1041,59 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
     };
 }
 
+/**
+ * The weekly-priced block.
+ *
+ * Not nullable, unlike `computed`: a formulation nothing could be priced brings back an empty cost
+ * block with its line sources intact, because "which ingredient has no price" is the whole answer in
+ * that case and a null would throw it away.
+ */
+function mapWeeklyCost(wire: WireWeeklyCost): RecipeWeeklyCost {
+    const base = mapComputedCost(wire);
+
+    return {
+        ...(base ?? {
+            currency: null,
+            production: {
+                total: null,
+                costPerYieldUnit: null,
+                costPerYieldUnitWithWaste: null,
+                costPerPiece: null,
+                costPerPieceWithWaste: null,
+                wastePercent: 0,
+                uncostedLineNumbers: [],
+                isComplete: false,
+            },
+            packaging: {
+                total: null,
+                costPerYieldUnit: null,
+                costPerYieldUnitWithWaste: null,
+                wastePercent: 0,
+                uncostedLineNumbers: [],
+                isComplete: false,
+            },
+            totalCostPerYieldUnit: null,
+        }),
+        weeklyPricePublicationId: wire.weekly_price_publication_id ?? null,
+        hasCarriedForwardPrices: wire.has_carried_forward_prices,
+        ingredientsNeedingInitialPrice: wire.ingredients_needing_initial_price.map((id) =>
+            IngredientId.unsafe(id),
+        ),
+        lineSources: wire.line_sources.map((source) => ({
+            lineNumber: source.line_number,
+            ingredientId: IngredientId.unsafe(source.ingredient_id),
+            source: source.cost_source,
+            unitCost: mapCostAmount(source.unit_cost_amount, source.cost_currency_code),
+            effectiveFrom: source.effective_from ?? null,
+            sourceRecipeVersionId:
+                source.source_recipe_version_id === null || source.source_recipe_version_id === undefined
+                    ? null
+                    : RecipeVersionId.unsafe(source.source_recipe_version_id),
+            carriedForward: source.carried_forward,
+        })),
+    };
+}
+
 function mapCostFigures(wire: WireCostSnapshot | null): RecipeCostFigures | null {
     if (wire === null) return null;
 
@@ -1079,6 +1134,7 @@ export function mapTechnicalSheetAdmin(wire: WireTechnicalSheet): TechnicalSheet
         asRecorded: mapCostFigures(wire.snapshots.as_recorded),
         recalculated: mapCostFigures(wire.snapshots.recalculated),
         computed: mapComputedCost(wire.computed),
+        weekly: mapWeeklyCost(wire.weekly),
     };
 }
 

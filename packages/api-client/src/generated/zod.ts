@@ -805,6 +805,85 @@ export const zCostSnapshot = z.object({
 });
 
 /**
+ * Where one line's estimating figure came from. On the wire beside the
+ * amount rather than inferred from it, because the four sources are not
+ * interchangeable and a reader has to be able to tell them apart.
+ *
+ */
+export const zWeeklyCostLineSource = z.object({
+    line_number: z.int().gte(1),
+    ingredient_id: z.uuid(),
+    cost_source: z.enum([
+        'weekly',
+        'component_recipe',
+        'ingredient_fallback',
+        'none'
+    ]),
+    unit_cost_amount: z.string().nullable(),
+    cost_currency_code: z.string().length(3).nullable(),
+    effective_from: z.iso.date().nullable(),
+    source_recipe_version_id: z.uuid().nullable(),
+    carried_forward: z.boolean()
+});
+
+export const zComputedCostProduction = z.object({
+    total_input_cost_amount: z.string().nullable(),
+    cost_per_yield_unit_amount: z.string().nullable(),
+    cost_per_yield_unit_with_waste_amount: z.string().nullable(),
+    cost_per_piece_amount: z.string().nullable(),
+    cost_per_piece_with_waste_amount: z.string().nullable(),
+    waste_percent: z.string(),
+    uncosted_line_numbers: z.array(z.int().gte(1)),
+    is_complete: z.boolean()
+});
+
+/**
+ * No per-piece figure, deliberately. Packaging is divided by the
+ * recipe's own yield rather than by its container count, and a "cost
+ * per piece of packaging" would be a number with no question behind
+ * it.
+ *
+ */
+export const zComputedCostPackaging = z.object({
+    total_packaging_cost_amount: z.string().nullable(),
+    cost_per_yield_unit_amount: z.string().nullable(),
+    cost_per_yield_unit_with_waste_amount: z.string().nullable(),
+    waste_percent: z.string(),
+    uncosted_line_numbers: z.array(z.int().gte(1)),
+    is_complete: z.boolean()
+});
+
+/**
+ * What the version costs at the **published weekly average of what was
+ * really paid**, beside `computed`, which costs it at the prices frozen on
+ * its own lines.
+ *
+ * Two questions, two answers, and deliberately both on the response: *what
+ * did we say this cost when we costed it* and *what does it cost at what we
+ * are actually paying now*. Collapsing them would make one of the two a
+ * lie — a sheet costed in March that silently updated, or a live estimate
+ * that never moved.
+ *
+ * Stated as a whole object rather than composed onto `ComputedCost` with
+ * `allOf`: that schema closes itself with `additionalProperties: false`, so
+ * an `allOf` branch would reject the four properties below and the response
+ * would validate against nothing. The two halves it shares are named
+ * schemas instead, which is the reuse without the trap.
+ *
+ */
+export const zWeeklyCost = z.object({
+    currency_code: z.string().length(3).nullable(),
+    production: zComputedCostProduction,
+    packaging: zComputedCostPackaging,
+    total_cost_per_yield_unit_amount: z.string().nullable(),
+    yield_unit_id: z.uuid().nullable(),
+    weekly_price_publication_id: z.uuid().nullable(),
+    has_carried_forward_prices: z.boolean(),
+    ingredients_needing_initial_price: z.array(z.uuid()),
+    line_sources: z.array(zWeeklyCostLineSource)
+});
+
+/**
  * The live cost of one version's lines, in two halves that are summed but
  * never blended.
  *
@@ -816,24 +895,8 @@ export const zCostSnapshot = z.object({
  */
 export const zComputedCost = z.object({
     currency_code: z.string().length(3).nullable(),
-    production: z.object({
-        total_input_cost_amount: z.string().nullable(),
-        cost_per_yield_unit_amount: z.string().nullable(),
-        cost_per_yield_unit_with_waste_amount: z.string().nullable(),
-        cost_per_piece_amount: z.string().nullable(),
-        cost_per_piece_with_waste_amount: z.string().nullable(),
-        waste_percent: z.string(),
-        uncosted_line_numbers: z.array(z.int().gte(1)),
-        is_complete: z.boolean()
-    }),
-    packaging: z.object({
-        total_packaging_cost_amount: z.string().nullable(),
-        cost_per_yield_unit_amount: z.string().nullable(),
-        cost_per_yield_unit_with_waste_amount: z.string().nullable(),
-        waste_percent: z.string(),
-        uncosted_line_numbers: z.array(z.int().gte(1)),
-        is_complete: z.boolean()
-    }),
+    production: zComputedCostProduction,
+    packaging: zComputedCostPackaging,
     total_cost_per_yield_unit_amount: z.string().nullable(),
     yield_unit_id: z.uuid().nullable()
 });
@@ -1497,7 +1560,8 @@ export const zTechnicalSheet = z.object({
         recalculated: zCostSnapshot.nullable(),
         as_recorded: zCostSnapshot.nullable()
     }),
-    computed: zComputedCost.nullable()
+    computed: zComputedCost.nullable(),
+    weekly: zWeeklyCost
 });
 
 /**

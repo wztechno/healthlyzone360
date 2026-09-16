@@ -912,6 +912,49 @@ export interface RecipeComputedCost {
     readonly totalCostPerYieldUnit: CostAmount | null;
 }
 
+/** Where one formulation line's weekly estimate came from. */
+export type WeeklyCostSource = 'weekly' | 'component_recipe' | 'ingredient_fallback' | 'none';
+
+/**
+ * CONFIDENTIAL — the provenance of one line's weekly estimate.
+ *
+ * The four sources are not interchangeable and a reader has to be able to tell them apart.
+ * `component_recipe` is the one that matters most: the line names something the kitchen makes, so
+ * the figure is that recipe's own cost per unit of what it produces — which is what stops a
+ * dressing's olive oil being counted inside the dressing and again inside the salad.
+ *
+ * `none` means the line is uncosted and the total is withheld. It is never a zero: a free
+ * ingredient and an unpriced one must not cost a recipe the same thing.
+ */
+export interface WeeklyCostLineSource {
+    readonly lineNumber: number;
+    readonly ingredientId: IngredientId;
+    readonly source: WeeklyCostSource;
+    readonly unitCost: CostAmount | null;
+    /** The Monday this price took effect, `YYYY-MM-DD`; null on a typed or missing price. */
+    readonly effectiveFrom: string | null;
+    readonly sourceRecipeVersionId: RecipeVersionId | null;
+    /** Whether the figure is an older week's, carried because this one could not be averaged. */
+    readonly carriedForward: boolean;
+}
+
+/**
+ * CONFIDENTIAL — what the version costs at the published weekly average of what was really paid.
+ *
+ * Beside {@link RecipeComputedCost}, never instead of it. One answers "what did we say this cost
+ * when we costed it" and this answers "what does it cost at what we are actually paying now"; a
+ * screen showing only one of the two has quietly told the reader that it is the cost.
+ */
+export interface RecipeWeeklyCost extends RecipeComputedCost {
+    /** The publication these figures were read from; null means the standing prices. */
+    readonly weeklyPricePublicationId: string | null;
+    readonly hasCarriedForwardPrices: boolean;
+    /** Ingredients with no published price behind them — the initial-price-entry list. */
+    readonly ingredientsNeedingInitialPrice: readonly IngredientId[];
+    /** Every line, including the ones that could not be costed. */
+    readonly lineSources: readonly WeeklyCostLineSource[];
+}
+
 /**
  * CONFIDENTIAL — the technical sheet of one recipe version: the costed lines
  * and the latest snapshot per basis. `null` from the repository means the
@@ -941,6 +984,14 @@ export interface TechnicalSheetAdmin {
      * computation refuses outright rather than blending at a rate this system does not have.
      */
     readonly computed: RecipeComputedCost | null;
+    /**
+     * The same formulation at this week's **published** prices — what the kitchen is actually
+     * paying, rather than what the lines were frozen at.
+     *
+     * Always present, even when nothing could be costed: `lineSources` names the lines that have no
+     * price, and `ingredientsNeedingInitialPrice` is what an "enter a price for these" prompt reads.
+     */
+    readonly weekly: RecipeWeeklyCost;
 }
 
 /**

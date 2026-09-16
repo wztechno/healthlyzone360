@@ -15,6 +15,7 @@ use Healthy360\Recipes\Presenters\RecipeVersionPresenter;
 use Healthy360\Recipes\Presenters\TechnicalSheetPresenter;
 use Healthy360\Recipes\Services\RecipeCostingService;
 use Healthy360\Recipes\Services\RecipeLocator;
+use Healthy360\Recipes\Services\WeeklyRecipeCostingService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Enums\DataClassification;
@@ -72,6 +73,7 @@ final class RecipeTechnicalSheetController
         private readonly RecipeVersionPresenter $versions,
         private readonly TechnicalSheetPresenter $presenter,
         private readonly RecipeCostingService $costing,
+        private readonly WeeklyRecipeCostingService $weeklyCosting,
         private readonly AuditRecorder $audit,
         private readonly TenantContext $context,
     ) {}
@@ -116,6 +118,18 @@ final class RecipeTechnicalSheetController
         } catch (MixedCostCurrency) {
             $computed = null;
         }
+
+        /*
+         * The weekly block (PROD1) — what the version costs at what the kitchen
+         * is actually paying, beside what its own lines were frozen at. It never
+         * throws: the service reports a two-currency formulation as "nothing is
+         * costed" rather than refusing, because this is a page somebody is
+         * looking at and the lines below are what they need in order to see the
+         * problem.
+         */
+        $weekly = $this->presenter->weekly(
+            $this->weeklyCosting->cost($this->context->organisationId(), $record, $lines, $packaging),
+        );
 
         $snapshots = [];
 
@@ -168,6 +182,12 @@ final class RecipeTechnicalSheetController
             // `currency_conflict` flag above already reports. A client renders
             // the snapshots and the conflict in that case.
             'computed' => $computed,
+
+            // Beside `computed`, never instead of it. One says what the sheet
+            // was costed at and the other what the same formulation costs at
+            // this week's published prices; a reader comparing them is the whole
+            // point, and a single merged figure would answer neither question.
+            'weekly' => $weekly,
         ]);
     }
 }

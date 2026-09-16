@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7051 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7056 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4952,8 +4952,10 @@ export interface NamespaceKeys {
     | 'recipes.sheetCostHidden'
     | 'recipes.sheetCostPerPiece'
     | 'recipes.sheetCostPerUnit'
+    | 'recipes.sheetCostSaved'
     | 'recipes.sheetCostTitle'
     | 'recipes.sheetCostTotal'
+    | 'recipes.sheetCostWeekly'
     | 'recipes.sheetCostWithWaste'
     | 'recipes.sheetDesignation'
     | 'recipes.sheetKind'
@@ -4966,6 +4968,9 @@ export interface NamespaceKeys {
     | 'recipes.sheetRawMaterial'
     | 'recipes.sheetTitle'
     | 'recipes.sheetTotalRow'
+    | 'recipes.sheetWeeklyCarried'
+    | 'recipes.sheetWeeklyEffective'
+    | 'recipes.sheetWeeklyNeedsPrice'
     | 'recipes.sourceKindLabel'
     | 'recipes.statReview'
     | 'recipes.statReviewAction'
@@ -12021,8 +12026,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetCostHidden',
   'kitchen:recipes.sheetCostPerPiece',
   'kitchen:recipes.sheetCostPerUnit',
+  'kitchen:recipes.sheetCostSaved',
   'kitchen:recipes.sheetCostTitle',
   'kitchen:recipes.sheetCostTotal',
+  'kitchen:recipes.sheetCostWeekly',
   'kitchen:recipes.sheetCostWithWaste',
   'kitchen:recipes.sheetDesignation',
   'kitchen:recipes.sheetKind',
@@ -12035,6 +12042,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetRawMaterial',
   'kitchen:recipes.sheetTitle',
   'kitchen:recipes.sheetTotalRow',
+  'kitchen:recipes.sheetWeeklyCarried',
+  'kitchen:recipes.sheetWeeklyEffective',
+  'kitchen:recipes.sheetWeeklyNeedsPrice',
   'kitchen:recipes.sourceKindLabel',
   'kitchen:recipes.statReview',
   'kitchen:recipes.statReviewAction',

@@ -1337,6 +1337,129 @@ export type TechnicalSheet = {
      *
      */
     computed: ComputedCost | null;
+    weekly: WeeklyCost;
+};
+
+/**
+ * Where one line's estimating figure came from. On the wire beside the
+ * amount rather than inferred from it, because the four sources are not
+ * interchangeable and a reader has to be able to tell them apart.
+ *
+ */
+export type WeeklyCostLineSource = {
+    line_number: number;
+    ingredient_id: string;
+    /**
+     * `weekly` is the published average of what was actually paid.
+     * `component_recipe` means the line names something the kitchen makes,
+     * so the figure is that recipe's own cost per unit of what it produces
+     * — the rule that stops a dressing's oil being counted inside the
+     * dressing and again inside the salad. `ingredient_fallback` is the
+     * operator's typed price, standing in because nothing has been bought
+     * at a recorded price. `none` means no usable figure: the line stays
+     * uncosted and the total is withheld, never zeroed.
+     *
+     */
+    cost_source: 'weekly' | 'component_recipe' | 'ingredient_fallback' | 'none';
+    /**
+     * Major currency units, per the line's own unit. Null when `cost_source` is `none`.
+     */
+    unit_cost_amount: string | null;
+    cost_currency_code: string | null;
+    /**
+     * The Monday this price took effect. Null on a typed or missing price:
+     * a list price has no week and a missing one has no date at all.
+     *
+     */
+    effective_from: string | null;
+    /**
+     * Set only when `cost_source` is `component_recipe`.
+     */
+    source_recipe_version_id: string | null;
+    /**
+     * Whether this week's figure is last week's, carried because the week
+     * could not be averaged. The estimate is usable and its age is not
+     * hidden.
+     *
+     */
+    carried_forward: boolean;
+};
+
+/**
+ * What the version costs at the **published weekly average of what was
+ * really paid**, beside `computed`, which costs it at the prices frozen on
+ * its own lines.
+ *
+ * Two questions, two answers, and deliberately both on the response: *what
+ * did we say this cost when we costed it* and *what does it cost at what we
+ * are actually paying now*. Collapsing them would make one of the two a
+ * lie — a sheet costed in March that silently updated, or a live estimate
+ * that never moved.
+ *
+ * Stated as a whole object rather than composed onto `ComputedCost` with
+ * `allOf`: that schema closes itself with `additionalProperties: false`, so
+ * an `allOf` branch would reject the four properties below and the response
+ * would validate against nothing. The two halves it shares are named
+ * schemas instead, which is the reuse without the trap.
+ *
+ */
+export type WeeklyCost = {
+    currency_code: string | null;
+    production: ComputedCostProduction;
+    packaging: ComputedCostPackaging;
+    total_cost_per_yield_unit_amount: string | null;
+    yield_unit_id: string | null;
+    /**
+     * The publication these figures were read from, when one was pinned.
+     * Null means the standing prices were used.
+     *
+     */
+    weekly_price_publication_id: string | null;
+    has_carried_forward_prices: boolean;
+    /**
+     * Ingredients on this version with no published price behind them — the
+     * requirement's initial-price-entry flag, read off the line sources
+     * rather than recomputed by a client that might disagree about what
+     * counts. A typed fallback is named here too: it is somebody's
+     * expectation of what they expect to pay, and the whole point of the
+     * weekly average is that it is not that.
+     *
+     */
+    ingredients_needing_initial_price: Array<string>;
+    /**
+     * Every line, including the ones that could not be costed — "which
+     * ingredient has no price" is the first thing somebody asks when the
+     * total is withheld.
+     *
+     */
+    line_sources: Array<WeeklyCostLineSource>;
+};
+
+export type ComputedCostProduction = {
+    total_input_cost_amount: string | null;
+    cost_per_yield_unit_amount: string | null;
+    cost_per_yield_unit_with_waste_amount: string | null;
+    cost_per_piece_amount: string | null;
+    cost_per_piece_with_waste_amount: string | null;
+    waste_percent: string;
+    uncosted_line_numbers: Array<number>;
+    is_complete: boolean;
+};
+
+/**
+ * No per-piece figure, deliberately. Packaging is divided by the
+ * recipe's own yield rather than by its container count, and a "cost
+ * per piece of packaging" would be a number with no question behind
+ * it.
+ *
+ */
+export type ComputedCostPackaging = {
+    total_packaging_cost_amount: string | null;
+    cost_per_yield_unit_amount: string | null;
+    cost_per_yield_unit_with_waste_amount: string | null;
+    waste_percent: string;
+    uncosted_line_numbers: Array<number>;
+    is_complete: boolean;
 };
 
 /**
@@ -1351,31 +1474,8 @@ export type TechnicalSheet = {
  */
 export type ComputedCost = {
     currency_code: string | null;
-    production: {
-        total_input_cost_amount: string | null;
-        cost_per_yield_unit_amount: string | null;
-        cost_per_yield_unit_with_waste_amount: string | null;
-        cost_per_piece_amount: string | null;
-        cost_per_piece_with_waste_amount: string | null;
-        waste_percent: string;
-        uncosted_line_numbers: Array<number>;
-        is_complete: boolean;
-    };
-    /**
-     * No per-piece figure, deliberately. Packaging is divided by the
-     * recipe's own yield rather than by its container count, and a "cost
-     * per piece of packaging" would be a number with no question behind
-     * it.
-     *
-     */
-    packaging: {
-        total_packaging_cost_amount: string | null;
-        cost_per_yield_unit_amount: string | null;
-        cost_per_yield_unit_with_waste_amount: string | null;
-        waste_percent: string;
-        uncosted_line_numbers: Array<number>;
-        is_complete: boolean;
-    };
+    production: ComputedCostProduction;
+    packaging: ComputedCostPackaging;
     /**
      * Production-with-waste plus packaging-with-waste. Null unless both
      * halves are complete — a total missing one of them reads exactly like

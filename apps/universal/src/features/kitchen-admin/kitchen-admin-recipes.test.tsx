@@ -2579,6 +2579,39 @@ describe('the technical sheet', () => {
                 },
                 totalCostPerYieldUnit: money(7.2),
             },
+
+            /*
+             * The weekly block, empty. This fixture is about the *live* block being
+             * read when no snapshot exists, so the estimating figures are deliberately
+             * absent rather than invented — a stub that quietly priced everything would
+             * make the assertions below pass for the wrong reason.
+             */
+            weekly: {
+                currency: null,
+                production: {
+                    total: null,
+                    costPerYieldUnit: null,
+                    costPerYieldUnitWithWaste: null,
+                    costPerPiece: null,
+                    costPerPieceWithWaste: null,
+                    wastePercent: 3,
+                    uncostedLineNumbers: [],
+                    isComplete: false,
+                },
+                packaging: {
+                    total: null,
+                    costPerYieldUnit: null,
+                    costPerYieldUnitWithWaste: null,
+                    wastePercent: 2,
+                    uncostedLineNumbers: [],
+                    isComplete: false,
+                },
+                totalCostPerYieldUnit: null,
+                weeklyPricePublicationId: null,
+                hasCarriedForwardPrices: false,
+                ingredientsNeedingInitialPrice: [],
+                lineSources: [],
+            },
         };
     }
 
