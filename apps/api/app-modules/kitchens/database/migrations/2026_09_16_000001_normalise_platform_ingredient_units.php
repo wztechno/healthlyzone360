@@ -67,12 +67,19 @@ return new class extends Migration
 
     private const int WORKING_SCALE = 12;
 
-    /** @var Collection<string, object{id: string, code: string, dimension: string, base_ratio: string}> */
-    private Collection $units;
+    /** @var array<string, array{id: string, code: string, dimension: string, base_ratio: numeric-string}> */
+    private array $units = [];
 
     public function up(): void
     {
-        $this->units = DB::table('measurement_units')->get(['id', 'code', 'dimension', 'base_ratio'])->keyBy('id');
+        foreach (DB::table('measurement_units')->get(['id', 'code', 'dimension', 'base_ratio']) as $unit) {
+            $this->units[(string) $unit->id] = [
+                'id' => (string) $unit->id,
+                'code' => (string) $unit->code,
+                'dimension' => (string) $unit->dimension,
+                'base_ratio' => $this->numeric($unit->base_ratio),
+            ];
+        }
 
         $moving = $this->movingIngredients();
 
@@ -92,7 +99,7 @@ return new class extends Migration
             DB::table('ingredients')->where('id', $id)->update([
                 'default_unit_id' => $ingredient['to'],
                 'purchase_unit_id' => $ingredient['to'],
-                'grams_per_unit' => $this->unit($ingredient['to'])->dimension === 'mass' ? null : $ingredient['grams'],
+                'grams_per_unit' => $this->unit($ingredient['to'])['dimension'] === 'mass' ? null : $ingredient['grams'],
                 'lock_version' => DB::raw('lock_version + 1'),
                 'updated_at' => now(),
             ]);
@@ -107,7 +114,7 @@ return new class extends Migration
     /**
      * The platform rows whose stock or purchase unit differs from the owner's table, keyed by id.
      *
-     * @return array<string, array{ref: string, from: string|null, to: string, grams: string|null}>
+     * @return array<string, array{ref: string, from: string|null, to: string, grams: numeric-string|null}>
      */
     private function movingIngredients(): array
     {
@@ -128,7 +135,7 @@ return new class extends Migration
             flags: JSON_THROW_ON_ERROR,
         );
         $targets = array_column($document['ingredients'], 'default_unit_code', 'source_ref');
-        $unitIds = $this->units->pluck('id', 'code');
+        $unitIds = array_column($this->units, 'id', 'code');
         $moving = [];
 
         foreach ($ingredients as $ingredient) {
@@ -147,9 +154,9 @@ return new class extends Migration
 
             $moving[(string) $ingredient->id] = [
                 'ref' => (string) $ingredient->source_ref,
-                'from' => $ingredient->default_unit_id,
+                'from' => $ingredient->default_unit_id === null ? null : (string) $ingredient->default_unit_id,
                 'to' => $to,
-                'grams' => $ingredient->grams_per_unit === null ? null : (string) $ingredient->grams_per_unit,
+                'grams' => $ingredient->grams_per_unit === null ? null : $this->numeric($ingredient->grams_per_unit),
             ];
         }
 
@@ -159,7 +166,7 @@ return new class extends Migration
     /**
      * Stop before anything changes if a held quantity would be stranded.
      *
-     * @param  array<string, array{ref: string, from: string|null, to: string, grams: string|null}>  $restating
+     * @param  array<string, array{ref: string, from: string|null, to: string, grams: numeric-string|null}>  $restating
      */
     private function refuseWhatCannotBeRestated(array $restating): void
     {
@@ -174,7 +181,7 @@ return new class extends Migration
             $ingredient = $restating[$cost->ingredient_id];
 
             if ($this->factor($cost->unit_id, $ingredient) === null) {
-                $stranded[] = sprintf('%s: a cost balance of %s %s', $ingredient['ref'], $cost->quantity_on_hand, $this->unit($cost->unit_id)->code);
+                $stranded[] = sprintf('%s: a cost balance of %s %s', $ingredient['ref'], $cost->quantity_on_hand, $this->unit($cost->unit_id)['code']);
             }
         }
 
@@ -202,7 +209,7 @@ return new class extends Migration
     }
 
     /**
-     * @param  array<string, array{ref: string, from: string|null, to: string, grams: string|null}>  $restating
+     * @param  array<string, array{ref: string, from: string|null, to: string, grams: numeric-string|null}>  $restating
      */
     private function restateCostBalances(array $restating): void
     {
@@ -226,7 +233,7 @@ return new class extends Migration
 
             DB::table('ingredient_stock_costs')->where('id', $cost->id)->update([
                 'unit_id' => $ingredient['to'],
-                'quantity_on_hand' => $this->times((string) $cost->quantity_on_hand, $factor, self::COST_SCALE),
+                'quantity_on_hand' => $this->times($this->numeric($cost->quantity_on_hand), $factor, self::COST_SCALE),
                 'moving_average_cost_amount' => $this->per($cost->moving_average_cost_amount, $factor),
                 'last_purchase_cost_amount' => $this->per($cost->last_purchase_cost_amount, $factor),
                 'updated_at' => now(),
@@ -235,7 +242,7 @@ return new class extends Migration
     }
 
     /**
-     * @param  array<string, array{ref: string, from: string|null, to: string, grams: string|null}>  $restating
+     * @param  array<string, array{ref: string, from: string|null, to: string, grams: numeric-string|null}>  $restating
      */
     private function restateShelves(array $restating): void
     {
@@ -253,23 +260,23 @@ return new class extends Migration
                     // Refused above unless empty, so there is no quantity to carry — only thresholds nobody can restate.
                     ? ['reorder_threshold' => null, 'par_level' => null, 'updated_at' => now()]
                     : [
-                        'quantity' => $this->times((string) $level->quantity, $factor, self::QUANTITY_SCALE),
-                        'reorder_threshold' => $level->reorder_threshold === null ? null : $this->times((string) $level->reorder_threshold, $factor, self::QUANTITY_SCALE),
-                        'par_level' => $level->par_level === null ? null : $this->times((string) $level->par_level, $factor, self::QUANTITY_SCALE),
+                        'quantity' => $this->times($this->numeric($level->quantity), $factor, self::QUANTITY_SCALE),
+                        'reorder_threshold' => $level->reorder_threshold === null ? null : $this->times($this->numeric($level->reorder_threshold), $factor, self::QUANTITY_SCALE),
+                        'par_level' => $level->par_level === null ? null : $this->times($this->numeric($level->par_level), $factor, self::QUANTITY_SCALE),
                         'updated_at' => now(),
                     ]);
             }
 
             DB::table('stock_items')->where('id', $shelf->id)->update([
                 'unit_id' => $ingredient['to'],
-                'unit_code' => $this->unit($ingredient['to'])->code,
+                'unit_code' => $this->unit($ingredient['to'])['code'],
                 'updated_at' => now(),
             ]);
         }
     }
 
     /**
-     * @param  array<string, array{ref: string, from: string|null, to: string, grams: string|null}>  $restating
+     * @param  array<string, array{ref: string, from: string|null, to: string, grams: numeric-string|null}>  $restating
      */
     private function restateRecipeLines(array $restating): void
     {
@@ -303,7 +310,7 @@ return new class extends Migration
             $factor = $this->factor($line->unit_id, $ingredient);
             $quantity = $factor === null || $line->quantity === null
                 ? null
-                : $this->times((string) $line->quantity, $factor, self::QUANTITY_SCALE);
+                : $this->times($this->numeric($line->quantity), $factor, self::QUANTITY_SCALE);
 
             // A quantity too small to state in the new unit is as unweighable as no weight at all.
             if ($factor === null || ($quantity !== null && bccomp($quantity, '0', self::QUANTITY_SCALE) <= 0)) {
@@ -348,18 +355,18 @@ return new class extends Migration
      * The shelves derivation keeps for these ingredients, with their unit resolved. A resold product's
      * shelf measures itself in what the product is bought in, so it is not the ingredient's to move.
      *
-     * @param  array<string, array{ref: string, from: string|null, to: string, grams: string|null}>  $restating
-     * @return Collection<int, object{id: string, code: string, ingredient_id: string, unit_id: string|null}>
+     * @param  array<string, array{ref: string, from: string|null, to: string, grams: numeric-string|null}>  $restating
+     * @return Collection<int, stdClass>
      */
     private function shelves(array $restating): Collection
     {
-        $unitIds = $this->units->pluck('id', 'code');
+        $unitIds = array_column($this->units, 'id', 'code');
 
         return DB::table('stock_items')
             ->whereIn('ingredient_id', array_keys($restating))
             ->whereNull('catalogue_item_id')
             ->get(['id', 'code', 'ingredient_id', 'unit_id', 'unit_code'])
-            ->map(static function (object $shelf) use ($unitIds): object {
+            ->map(static function (stdClass $shelf) use ($unitIds): stdClass {
                 $shelf->unit_id ??= $unitIds[$shelf->unit_code] ?? null;
 
                 return $shelf;
@@ -375,7 +382,7 @@ return new class extends Migration
     /**
      * How many of the ingredient's new unit one `$unitId` is, or null when nothing recorded proves it.
      *
-     * @param  array{ref: string, from: string|null, to: string, grams: string|null}  $ingredient
+     * @param  array{ref: string, from: string|null, to: string, grams: numeric-string|null}  $ingredient
      * @return numeric-string|null
      */
     private function factor(string $unitId, array $ingredient): ?string
@@ -383,45 +390,65 @@ return new class extends Migration
         $from = $this->unit($unitId);
         $to = $this->unit($ingredient['to']);
 
-        if ($from->id === $to->id) {
+        if ($from['id'] === $to['id']) {
             return '1';
         }
 
         if ($this->convertible($from, $to)) {
-            return bcdiv((string) $from->base_ratio, (string) $to->base_ratio, self::WORKING_SCALE);
+            return bcdiv($from['base_ratio'], $to['base_ratio'], self::WORKING_SCALE);
         }
 
-        $default = $ingredient['from'] === null ? null : $this->units->get($ingredient['from']);
+        $default = $ingredient['from'] === null ? null : ($this->units[$ingredient['from']] ?? null);
+        $grams = $ingredient['grams'];
 
-        if ($ingredient['grams'] === null || bccomp($ingredient['grams'], '0', self::WORKING_SCALE) <= 0
-            || $default === null || $to->dimension !== 'mass') {
+        if ($grams === null || bccomp($grams, '0', self::WORKING_SCALE) <= 0
+            || $default === null || $to['dimension'] !== 'mass') {
             return null;
         }
 
-        if ($from->id !== $default->id && ! $this->convertible($from, $default)) {
+        if ($from['id'] !== $default['id'] && ! $this->convertible($from, $default)) {
             return null;
         }
 
         // One `$from` in the old stock unit, weighed by that unit's grams, stated in the new unit's grams.
-        $inDefault = $from->id === $default->id
+        $inDefault = $from['id'] === $default['id']
             ? '1'
-            : bcdiv((string) $from->base_ratio, (string) $default->base_ratio, self::WORKING_SCALE);
+            : bcdiv($from['base_ratio'], $default['base_ratio'], self::WORKING_SCALE);
 
-        return bcdiv(bcmul($inDefault, $ingredient['grams'], self::WORKING_SCALE), (string) $to->base_ratio, self::WORKING_SCALE);
-    }
-
-    private function convertible(object $from, object $to): bool
-    {
-        return $from->dimension === $to->dimension && in_array($from->dimension, self::CONVERTIBLE_DIMENSIONS, true);
-    }
-
-    /** @return object{id: string, code: string, dimension: string, base_ratio: string} */
-    private function unit(string $id): object
-    {
-        return $this->units->get($id) ?? throw new RuntimeException("A row references a measurement unit that does not exist [{$id}].");
+        return bcdiv(bcmul($inDefault, $grams, self::WORKING_SCALE), $to['base_ratio'], self::WORKING_SCALE);
     }
 
     /**
+     * @param  array{id: string, code: string, dimension: string, base_ratio: numeric-string}  $from
+     * @param  array{id: string, code: string, dimension: string, base_ratio: numeric-string}  $to
+     */
+    private function convertible(array $from, array $to): bool
+    {
+        return $from['dimension'] === $to['dimension'] && in_array($from['dimension'], self::CONVERTIBLE_DIMENSIONS, true);
+    }
+
+    /** @return array{id: string, code: string, dimension: string, base_ratio: numeric-string} */
+    private function unit(string $id): array
+    {
+        return $this->units[$id] ?? throw new RuntimeException("A row references a measurement unit that does not exist [{$id}].");
+    }
+
+    /**
+     * A value read from the database, proven to be a number before any arithmetic touches it.
+     *
+     * @return numeric-string
+     */
+    private function numeric(mixed $value): string
+    {
+        if (! is_numeric($value)) {
+            throw new RuntimeException('Unit normalisation read a non-numeric value where a quantity or ratio belongs.');
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * @param  numeric-string  $value
      * @param  numeric-string  $factor
      * @return numeric-string
      */
@@ -438,12 +465,13 @@ return new class extends Migration
      */
     private function per(mixed $amount, string $factor): ?string
     {
-        return $amount === null ? null : $this->round(bcdiv((string) $amount, $factor, self::WORKING_SCALE), self::COST_SCALE);
+        return $amount === null ? null : $this->round(bcdiv($this->numeric($amount), $factor, self::WORKING_SCALE), self::COST_SCALE);
     }
 
     /**
      * Half away from zero, once, the rule the stock and cost arithmetic uses everywhere else.
      *
+     * @param  numeric-string  $value
      * @return numeric-string
      */
     private function round(string $value, int $scale): string

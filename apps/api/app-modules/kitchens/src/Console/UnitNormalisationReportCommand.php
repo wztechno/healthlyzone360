@@ -383,6 +383,7 @@ final class UnitNormalisationReportCommand extends Command
 
         return $target->dimension === 'mass'
             && is_string($ingredient['grams_per_unit'])
+            && is_numeric($ingredient['grams_per_unit'])
             && bccomp($ingredient['grams_per_unit'], '0', 4) > 0
             && $default instanceof MeasurementUnit
             && $conversion->canConvert($unit, $default);
