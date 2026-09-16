@@ -13,6 +13,7 @@ import { ProductId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
@@ -30,16 +31,17 @@ import {
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { ProductEditScreen } from './product-edit-screen.tsx';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
 
 /**
  * `/kitchen/sauces/{item}` and `/kitchen/dressings/{item}` — the recipe editor, filed as a sauce.
  *
  * ```
- * Kitchen workspace › Sauces & marinations › New recipe
- * New recipe  Draft  Restricted             [ Discard ] [ Save draft ]
- * yields 1 kg · 0 raw materials · 0.00 / kg
- * ── Description │ Production 0 │ Costing │ Technical sheet ──────────────────────
+ * Kitchen workspace › Sauces & marinations › Garlic sauce
+ * Garlic sauce  Draft  Restricted          [ Discard ] [ Save draft ] [ Publish ]
+ * RC-0104 · yields 2 kg · 4 raw materials · 6.66 / kg
+ * ── Description │ Production 4 │ Packaging 1 │ Costing │ Selling │ Technical sheet ──
  *
  * IDENTITY   Designation and classification
  * [ Designation (EN) * ] [ Designation (AR) ] [ Ref. ] [ Category ] [ Sub-category ]
@@ -53,9 +55,12 @@ import { RecipeEditScreen } from './recipe-edit-screen.tsx';
  * together. A create form that showed three locked tabs until something was saved would be asking a
  * chef to write the formulation twice.
  *
- * **Four tabs, not five.** `withoutPackaging` drops the recipe's Packaging tab: that tab lists the
- * consumables one batch eats, and how a sauce is packed for sale is its catalogue item's pack
- * variants, on the products form.
+ * **The same tabs as any recipe, and one more.** A sauce's bottles are packaging lines like a meal's
+ * box: a batch fills them, a cooked batch takes them off the shelf, and the Costing tab prices one
+ * filled bottle. What it is *sold* as — its listing, its packs, where it is on sale, whether it is
+ * published — is the catalogue item's, and that is the Selling tab: the product editor, drawn
+ * inside this page rather than beside it (`ProductEditScreen` with `embedded`). Two records still
+ * save separately, each against its own lock version.
  *
  * ## Category is stated; sub-category is asked
  *
@@ -164,6 +169,8 @@ function CookedItemEditor({ product, itemType, routeBase }: CookedItemEditScreen
     const parsed = isCreating ? null : ProductId.safeParse(product);
 
     const record = useProductQuery(parsed);
+    // The listing's unsaved state, so the page's own exits ask before dropping it.
+    const [listingDirty, setListingDirty] = useState(false);
     const createItem = useCreateProductMutation();
     const createRecipe = useCreateRecipeMutation();
     const linkRecipe = useUpdateProductMutation();
@@ -206,7 +213,6 @@ function CookedItemEditor({ product, itemType, routeBase }: CookedItemEditScreen
         return (
             <RecipeEditScreen
                 recipe="new"
-                withoutPackaging
                 backTo={routeBase}
                 classification={classification}
                 referenceSeries={REFERENCE_SERIES[itemType]}
@@ -268,14 +274,30 @@ function CookedItemEditor({ product, itemType, routeBase }: CookedItemEditScreen
 
     const item = record.data;
 
+    /** The item's own listing — the product editor, inside this page. */
+    const listing =
+        item === undefined ? null : (
+            <ProductEditScreen
+                product={String(item.id)}
+                itemType={itemType}
+                routeBase={routeBase}
+                embedded
+                onDirtyChange={setListingDirty}
+            />
+        );
+
     if (item !== undefined && item.recipeId !== null) {
         return (
             <RecipeEditScreen
                 recipe={String(item.recipeId)}
-                withoutPackaging
                 backTo={routeBase}
                 classification={classification}
                 referenceSeries={REFERENCE_SERIES[itemType]}
+                sellsAs={{
+                    label: t('kitchen:recipes.tabSelling'),
+                    content: listing,
+                    isDirty: listingDirty,
+                }}
             />
         );
     }
@@ -361,6 +383,13 @@ function CookedItemEditor({ product, itemType, routeBase }: CookedItemEditScreen
                     {startFailure.message}
                 </Text>
             )}
+
+            {/*
+             * The listing is editable before there is a formulation: an imported sauce already has its
+             * packs and its ingredient, and pricing it or putting it on sale is not a question its
+             * recipe has to answer first.
+             */}
+            {listing}
         </Stack>
     );
 }

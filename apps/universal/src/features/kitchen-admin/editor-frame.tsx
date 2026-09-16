@@ -80,6 +80,16 @@ export interface EditorFrameProps {
      * Stacks after the form below `lg`, so the reading order is the same at every width.
      */
     readonly rail?: ReactNode | undefined;
+    /**
+     * Drawn inside another page rather than as a page — a cooked item's Selling tab, whose page is
+     * the recipe it is made from.
+     *
+     * The host already has a title, a trail and a way back, so none of those are drawn and `onBack`
+     * is never offered. What stays is everything that belongs to *this* record: its status, who last
+     * changed it and whether it is dirty (one line, where the header would have put it), its banner,
+     * its form and rail, its own save, and the two dialogs that guard it.
+     */
+    readonly embedded?: boolean | undefined;
     readonly children: ReactNode;
     readonly testID: string;
 }
@@ -101,12 +111,14 @@ export function EditorFrame({
     actionsPlacement = 'footer',
     headerVariant = 'band',
     rail,
+    embedded = false,
     children,
     testID,
 }: EditorFrameProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const inHeader = actionsPlacement === 'header';
+    // Embedded, there is no header to put the actions in, so they take the footer bar.
+    const inHeader = actionsPlacement === 'header' && !embedded;
 
     const updatedLine = (): string => {
         // An unknown timestamp reads the same as no record at all. `/kitchen/branch-operating` is the
@@ -144,9 +156,41 @@ export function EditorFrame({
         />
     );
 
-    return (
-        <PageTransition testID={testID} transitionKey={testID}>
-            <Stack space="lg">
+    const metaLine = (
+        <Inline space="sm" align="center" wrap testID={`${testID}-meta`}>
+            {meta === null ? (
+                <Badge
+                    testID={`${testID}-status`}
+                    tone="neutral"
+                    icon="dot"
+                    label={t('kitchen:status.draft')}
+                />
+            ) : 'status' in meta ? (
+                <Badge
+                    testID={`${testID}-status`}
+                    tone={statusTone(meta.status)}
+                    label={t(statusKey(meta.status))}
+                />
+            ) : null}
+            {guard.isDirty ? (
+                <Badge
+                    testID={`${testID}-dirty`}
+                    tone="warning"
+                    icon="warning"
+                    label={t('kitchen:editor.unsaved')}
+                />
+            ) : null}
+            <Text testID={`${testID}-updated`} tone="secondary" variant="caption">
+                {updatedLine()}
+            </Text>
+        </Inline>
+    );
+
+    const body = (
+        <Stack space="lg">
+            {embedded ? (
+                metaLine
+            ) : (
                 <KitchenPageHeader
                     testID={`${testID}-header`}
                     variant={headerVariant}
@@ -162,129 +206,106 @@ export function EditorFrame({
                             </Inline>
                         ) : undefined
                     }
-                    meta={
-                        <Inline space="sm" align="center" wrap testID={`${testID}-meta`}>
-                            {meta === null ? (
-                                <Badge
-                                    testID={`${testID}-status`}
-                                    tone="neutral"
-                                    icon="dot"
-                                    label={t('kitchen:status.draft')}
-                                />
-                            ) : 'status' in meta ? (
-                                <Badge
-                                    testID={`${testID}-status`}
-                                    tone={statusTone(meta.status)}
-                                    label={t(statusKey(meta.status))}
-                                />
-                            ) : null}
-                            {guard.isDirty ? (
-                                <Badge
-                                    testID={`${testID}-dirty`}
-                                    tone="warning"
-                                    icon="warning"
-                                    label={t('kitchen:editor.unsaved')}
-                                />
-                            ) : null}
-                            <Text testID={`${testID}-updated`} tone="secondary" variant="caption">
-                                {updatedLine()}
-                            </Text>
-                        </Inline>
-                    }
+                    meta={metaLine}
                 />
+            )}
 
-                {banner}
+            {banner}
 
-                {rail === undefined ? (
-                    <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
+            {rail === undefined ? (
+                <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
+                    {children}
+                </View>
+            ) : (
+                <View className="flex-col gap-4 lg:flex-row lg:items-start">
+                    <View className="min-w-0 flex-1 rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
                         {children}
                     </View>
-                ) : (
-                    <View className="flex-col gap-4 lg:flex-row lg:items-start">
-                        <View className="min-w-0 flex-1 rounded-panel border border-brand-100 bg-surface-raised p-4 md:p-5">
-                            {children}
-                        </View>
-                        <View testID={`${testID}-rail`} className="lg:w-[330px] lg:shrink-0">
-                            {rail}
-                        </View>
+                    <View testID={`${testID}-rail`} className="lg:w-[330px] lg:shrink-0">
+                        {rail}
                     </View>
-                )}
+                </View>
+            )}
 
-                {/*
-                 * The bar is a normal block at the end of the flow rather than a fixed overlay: a
-                 * position-fixed footer covers the last field of a form on a short screen, and on the
-                 * web it also fights the software keyboard. Brand-tinted border keeps it reachable
-                 * visually without stealing viewport height.
-                 */}
-                {inHeader ? null : (
-                    <View
-                        testID={`${testID}-actions`}
-                        className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
-                    >
-                        {primaryAction}
-                        {saveButton}
-                    </View>
-                )}
-
-                <Dialog
-                    testID={`${testID}-unsaved-dialog`}
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
-                    title={t('kitchen:unsaved.title')}
-                    description={t('kitchen:unsaved.body')}
-                    actions={
-                        <>
-                            <Button
-                                testID={`${testID}-unsaved-keep`}
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <Button
-                                testID={`${testID}-unsaved-discard`}
-                                variant="danger"
-                                label={t('kitchen:unsaved.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
-                />
-
-                <Dialog
-                    testID={`${testID}-conflict-dialog`}
-                    open={concurrency.conflict !== null}
-                    onClose={concurrency.keepEditing}
-                    dismissOnBackdrop={false}
-                    title={t('kitchen:conflict.title')}
-                    description={t('kitchen:conflict.body')}
-                    actions={
-                        <>
-                            <Button
-                                testID={`${testID}-conflict-keep`}
-                                variant="quiet"
-                                label={t('kitchen:conflict.keepEditing')}
-                                onPress={concurrency.keepEditing}
-                            />
-                            <Button
-                                testID={`${testID}-conflict-reload`}
-                                variant="danger"
-                                label={t('kitchen:conflict.reload')}
-                                onPress={concurrency.reload}
-                            />
-                        </>
-                    }
+            {/*
+             * The bar is a normal block at the end of the flow rather than a fixed overlay: a
+             * position-fixed footer covers the last field of a form on a short screen, and on the
+             * web it also fights the software keyboard. Brand-tinted border keeps it reachable
+             * visually without stealing viewport height.
+             */}
+            {inHeader ? null : (
+                <View
+                    testID={`${testID}-actions`}
+                    className="flex-row flex-wrap items-center justify-end gap-2 rounded-panel border border-brand-100 bg-surface-raised p-3 shadow-elevation-card"
                 >
-                    {concurrency.conflict === null ? null : (
-                        <Text
-                            testID={`${testID}-conflict-detail`}
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {concurrency.conflict.failure.message}
-                        </Text>
-                    )}
-                </Dialog>
-            </Stack>
+                    {primaryAction}
+                    {saveButton}
+                </View>
+            )}
+
+            <Dialog
+                testID={`${testID}-unsaved-dialog`}
+                open={guard.isPrompting}
+                onClose={guard.cancelDiscard}
+                title={t('kitchen:unsaved.title')}
+                description={t('kitchen:unsaved.body')}
+                actions={
+                    <>
+                        <Button
+                            testID={`${testID}-unsaved-keep`}
+                            variant="quiet"
+                            label={t('kitchen:unsaved.keepEditing')}
+                            onPress={guard.cancelDiscard}
+                        />
+                        <Button
+                            testID={`${testID}-unsaved-discard`}
+                            variant="danger"
+                            label={t('kitchen:unsaved.discard')}
+                            onPress={guard.confirmDiscard}
+                        />
+                    </>
+                }
+            />
+
+            <Dialog
+                testID={`${testID}-conflict-dialog`}
+                open={concurrency.conflict !== null}
+                onClose={concurrency.keepEditing}
+                dismissOnBackdrop={false}
+                title={t('kitchen:conflict.title')}
+                description={t('kitchen:conflict.body')}
+                actions={
+                    <>
+                        <Button
+                            testID={`${testID}-conflict-keep`}
+                            variant="quiet"
+                            label={t('kitchen:conflict.keepEditing')}
+                            onPress={concurrency.keepEditing}
+                        />
+                        <Button
+                            testID={`${testID}-conflict-reload`}
+                            variant="danger"
+                            label={t('kitchen:conflict.reload')}
+                            onPress={concurrency.reload}
+                        />
+                    </>
+                }
+            >
+                {concurrency.conflict === null ? null : (
+                    <Text testID={`${testID}-conflict-detail`} tone="secondary" variant="caption">
+                        {concurrency.conflict.failure.message}
+                    </Text>
+                )}
+            </Dialog>
+        </Stack>
+    );
+
+    // The page transition belongs to a page. Inside a tab it would replay on every tab switch.
+    return embedded ? (
+        <View testID={testID}>{body}</View>
+    ) : (
+        <PageTransition testID={testID} transitionKey={testID}>
+            {body}
         </PageTransition>
     );
 }

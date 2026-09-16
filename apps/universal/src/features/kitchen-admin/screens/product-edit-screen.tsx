@@ -24,7 +24,7 @@ import { ProductId } from '@healthy360/domain-types';
 import type { RecipeId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -198,12 +198,27 @@ export interface ProductEditScreenProps {
      */
     readonly itemType?: 'product' | 'sauce' | 'dressing';
     readonly routeBase?: '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings';
+    /**
+     * Drawn as a cooked item's Selling tab rather than as a page — a sauce's or a dressing's listing,
+     * on the page its recipe is.
+     *
+     * The recipe is the page the tab sits on, so the recipe picker is not drawn: which formulation a
+     * sauce is made from is not a question its listing answers. Nor is the category, which the route
+     * has already decided. Both keep their stored values through a save. There is no Back, because
+     * the page has its own; and no create, because a cooked item's listing is written by the recipe's
+     * first save.
+     */
+    readonly embedded?: boolean | undefined;
+    /** Told when this listing's unsaved state changes, so a host page can guard its own exits. */
+    readonly onDirtyChange?: ((dirty: boolean) => void) | undefined;
 }
 
 export function ProductEditScreen({
     product,
     itemType = 'product',
     routeBase = '/kitchen/products',
+    embedded = false,
+    onDirtyChange,
 }: ProductEditScreenProps) {
     return (
         <Gate
@@ -211,7 +226,13 @@ export function ProductEditScreen({
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-product-editor"
         >
-            <ProductEditor product={product} itemType={itemType} routeBase={routeBase} />
+            <ProductEditor
+                product={product}
+                itemType={itemType}
+                routeBase={routeBase}
+                embedded={embedded}
+                onDirtyChange={onDirtyChange}
+            />
         </Gate>
     );
 }
@@ -220,6 +241,8 @@ function ProductEditor({
     product,
     itemType = 'product',
     routeBase = '/kitchen/products',
+    embedded = false,
+    onDirtyChange,
 }: ProductEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
@@ -241,6 +264,10 @@ function ProductEditor({
     const archive = useArchiveProductMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+
+    useEffect(() => {
+        onDirtyChange?.(guard.isDirty);
+    }, [guard.isDirty, onDirtyChange]);
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
@@ -607,6 +634,7 @@ function ProductEditor({
             }}
             actionsPlacement="header"
             headerVariant="plain"
+            embedded={embedded}
             rail={
                 <Stack space="md">
                     <GateRailCard
@@ -833,58 +861,62 @@ function ProductEditor({
                          * resale item in the same breath, so they share a row. The recipe hint answers
                          * the state the field is in: with no recipe there is nothing to derive.
                          */}
-                        <View className="z-auto flex-col gap-base md:flex-row">
-                            <View className="z-auto min-w-0 flex-1">
-                                <Select
-                                    testID="kitchen-product-category"
-                                    id="kitchen-product-category"
-                                    label={t('kitchen:fields.category')}
-                                    placeholder={t('kitchen:fields.categoryPlaceholder')}
-                                    searchable
-                                    required
-                                    disabled={!canManage}
-                                    options={categoryOptions}
-                                    value={
-                                        details.categoryCode === '' ? null : details.categoryCode
-                                    }
-                                    {...(categoryMissing
-                                        ? { error: t('kitchen:editor.categoryRequired') }
-                                        : {})}
-                                    onChange={(next) => {
-                                        setDetails({ ...details, categoryCode: next });
-                                        markDetailsDirty();
-                                    }}
-                                />
-                            </View>
+                        {embedded ? null : (
+                            <View className="z-auto flex-col gap-base md:flex-row">
+                                <View className="z-auto min-w-0 flex-1">
+                                    <Select
+                                        testID="kitchen-product-category"
+                                        id="kitchen-product-category"
+                                        label={t('kitchen:fields.category')}
+                                        placeholder={t('kitchen:fields.categoryPlaceholder')}
+                                        searchable
+                                        required
+                                        disabled={!canManage}
+                                        options={categoryOptions}
+                                        value={
+                                            details.categoryCode === ''
+                                                ? null
+                                                : details.categoryCode
+                                        }
+                                        {...(categoryMissing
+                                            ? { error: t('kitchen:editor.categoryRequired') }
+                                            : {})}
+                                        onChange={(next) => {
+                                            setDetails({ ...details, categoryCode: next });
+                                            markDetailsDirty();
+                                        }}
+                                    />
+                                </View>
 
-                            <View className="z-auto min-w-0 flex-1">
-                                <Select
-                                    testID="kitchen-product-recipe-select"
-                                    id="kitchen-product-recipe-select"
-                                    label={t('kitchen:products.recipeLabel')}
-                                    placeholder={t('kitchen:products.recipePlaceholder')}
-                                    searchable
-                                    disabled={!canManage}
-                                    options={recipeOptions}
-                                    value={
-                                        details.recipeId === null
-                                            ? NO_RECIPE
-                                            : String(details.recipeId)
-                                    }
-                                    {...(details.recipeId === null
-                                        ? { hint: t('kitchen:products.recipeHintNone') }
-                                        : {})}
-                                    onChange={(next) => {
-                                        setDetails({
-                                            ...details,
-                                            recipeId:
-                                                next === NO_RECIPE ? null : (next as RecipeId),
-                                        });
-                                        markDetailsDirty();
-                                    }}
-                                />
+                                <View className="z-auto min-w-0 flex-1">
+                                    <Select
+                                        testID="kitchen-product-recipe-select"
+                                        id="kitchen-product-recipe-select"
+                                        label={t('kitchen:products.recipeLabel')}
+                                        placeholder={t('kitchen:products.recipePlaceholder')}
+                                        searchable
+                                        disabled={!canManage}
+                                        options={recipeOptions}
+                                        value={
+                                            details.recipeId === null
+                                                ? NO_RECIPE
+                                                : String(details.recipeId)
+                                        }
+                                        {...(details.recipeId === null
+                                            ? { hint: t('kitchen:products.recipeHintNone') }
+                                            : {})}
+                                        onChange={(next) => {
+                                            setDetails({
+                                                ...details,
+                                                recipeId:
+                                                    next === NO_RECIPE ? null : (next as RecipeId),
+                                            });
+                                            markDetailsDirty();
+                                        }}
+                                    />
+                                </View>
                             </View>
-                        </View>
+                        )}
 
                         {/*
                          * Two flags, two words each. `isMarketPriced` is not decoration: a product
@@ -922,7 +954,7 @@ function ProductEditor({
                             />
                         </Inline>
 
-                        {details.recipeId === null ? null : (
+                        {embedded || details.recipeId === null ? null : (
                             <Inline space="sm" align="center" wrap>
                                 <Text testID="kitchen-product-recipe-linked">
                                     {linkedRecipe === null

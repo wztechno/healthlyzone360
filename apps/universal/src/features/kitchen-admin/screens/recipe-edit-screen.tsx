@@ -45,6 +45,7 @@ import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -110,8 +111,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * It is also what `/kitchen/sauces/{item}` and `/kitchen/dressings/{item}` draw. A sauce is cooked
  * and owns a recipe of its own — the import writes one per SC-/DR- row — so the questions asked of
  * one are these questions, and `CookedItemEditScreen` resolves the catalogue item to its recipe and
- * hands it here with `withoutPackaging`. Four tabs there, five here; everything else is identical
- * because it is the same component rather than a copy of it.
+ * hands it here. The same tabs, because it is the same component rather than a copy of it — a
+ * sauce's bottles are packaging lines exactly as a meal's box is.
  *
  * ```
  * Kitchen workspace › Recipes › Thousand Islands   <- the shell's trail
@@ -399,13 +400,11 @@ function useDebouncedRollupDraft(draft: RecipeRollupDraft | null): RecipeRollupD
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * The design's five, in its order. A union rather than an array — nothing iterates them; the tab row
- * is built by hand so each entry can carry its own count and testID.
- *
- * Four of them on `/kitchen/sauces/{item}` and `/kitchen/dressings/{item}`, which are this same
- * editor with {@link RecipeEditScreenProps.withoutPackaging}.
+ * The design's five, in its order, and a sixth — Selling — when the recipe is sold as an item. A
+ * union rather than an array — nothing iterates them; the tab row is built by hand so each entry can
+ * carry its own count and testID.
  */
-type RecipeTab = 'description' | 'production' | 'packaging' | 'costing' | 'sheet';
+type RecipeTab = 'description' | 'production' | 'packaging' | 'costing' | 'selling' | 'sheet';
 
 /* ------------------------------------------------------------------------------------------------
  * Screen
@@ -414,15 +413,6 @@ type RecipeTab = 'description' | 'production' | 'packaging' | 'costing' | 'sheet
 export interface RecipeEditScreenProps {
     /** The route parameter. `'new'` or absent creates. */
     readonly recipe?: string | undefined;
-    /**
-     * Drop the Packaging tab.
-     *
-     * The sauce and dressing routes pass it. A sauce owns a recipe of its own — the import writes
-     * one per SC-/DR- row — and `/kitchen/sauces/{item}` is this editor over that recipe; what a
-     * sauce is *packed* in is its catalogue item's pack variants, a commercial fact on a different
-     * record, so the tab that lists the consumables a batch eats has nothing to say there.
-     */
-    readonly withoutPackaging?: boolean | undefined;
     /**
      * Where Discard and the not-found notice return to. `/kitchen/recipes` unless a host route says
      * otherwise — a sauce opened from `/kitchen/sauces` must go back to the list it came from.
@@ -462,6 +452,22 @@ export interface RecipeEditScreenProps {
      * nobody reads off this screen.
      */
     readonly referenceSeries?: ReferenceSeries | undefined;
+    /**
+     * The catalogue item this formulation is sold as, drawn as a tab of its own.
+     *
+     * A sauce, a dressing or a meal is one thing to a kitchen and two records to the API: the recipe
+     * it is made from and the item it is sold as. This editor owns the recipe; the host that resolved
+     * the item owns the item, and hands its listing over as `content` so the two read as one page.
+     * They still save separately — different records, different lock versions, different permissions
+     * — so nothing on this screen's Save draft writes the item, and nothing in the tab writes the
+     * recipe.
+     *
+     * `isDirty` is the listing's unsaved state, so leaving this page asks first whichever half holds
+     * the edit.
+     */
+    readonly sellsAs?:
+        | { readonly label: string; readonly content: ReactNode; readonly isDirty?: boolean }
+        | undefined;
 }
 
 export function RecipeEditScreen({ recipe, ...rest }: RecipeEditScreenProps) {
@@ -478,11 +484,11 @@ export function RecipeEditScreen({ recipe, ...rest }: RecipeEditScreenProps) {
 
 function RecipeEditor({
     recipe,
-    withoutPackaging = false,
     backTo = '/kitchen/recipes',
     classification,
     onCreated,
     referenceSeries = 'RC-',
+    sellsAs,
 }: RecipeEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
@@ -613,6 +619,20 @@ function RecipeEditor({
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
 
+    /*
+     * The listing's unsaved edits are this page's too.
+     *
+     * The Selling tab is another record with drafts of its own, and leaving from here — Discard, the
+     * trail — would drop them without a word unless this page's guard knew. So a dirty listing arms
+     * the guard, and it is disarmed only once neither half holds an edit.
+     */
+    const listingDirty = sellsAs?.isDirty === true;
+    const { markDirty: armGuard, markClean: disarmGuard } = guard;
+    useEffect(() => {
+        if (listingDirty) armGuard();
+        else if (!anyDirty) disarmGuard();
+    }, [listingDirty, anyDirty, armGuard, disarmGuard]);
+
     /* ── the version being looked at ─────────────────────────────────────────────────────────── */
 
     const versions: readonly RecipeVersionSummary[] = data?.versions ?? [];
@@ -679,8 +699,7 @@ function RecipeEditor({
                        * The same rows the Packaging tab holds, sent with the draft.
                        *
                        * Without them the preview costed a batch that ships in nothing, while the
-                       * tab one click away listed three consumables. `withoutPackaging` routes
-                       * (sauces, dressings) hold no rows, so the array is simply empty for them.
+                       * tab one click away listed three consumables.
                        */
                       ...(packagingInputs.length === 0 ? {} : { packaging: packagingInputs }),
                       packagingWastePercent,
@@ -1243,21 +1262,27 @@ function RecipeEditor({
             count: lines.length,
             testID: 'kitchen-recipe-tab-production',
         },
-        ...(withoutPackaging
-            ? []
-            : [
-                  {
-                      value: 'packaging' as const,
-                      label: t('kitchen:recipes.tabPackaging'),
-                      count: packaging.length,
-                      testID: 'kitchen-recipe-tab-packaging',
-                  },
-              ]),
+        {
+            value: 'packaging' as const,
+            label: t('kitchen:recipes.tabPackaging'),
+            count: packaging.length,
+            testID: 'kitchen-recipe-tab-packaging',
+        },
         {
             value: 'costing' as const,
             label: t('kitchen:recipes.tabCosting'),
             testID: 'kitchen-recipe-tab-costing',
         },
+        // After the cost and before the sheet: what it costs, what it sells as, what it is.
+        ...(sellsAs === undefined
+            ? []
+            : [
+                  {
+                      value: 'selling' as const,
+                      label: sellsAs.label,
+                      testID: 'kitchen-recipe-tab-selling',
+                  },
+              ]),
         {
             value: 'sheet' as const,
             label: t('kitchen:recipes.tabSheet'),
@@ -1268,8 +1293,8 @@ function RecipeEditor({
     /*
      * The tab row, as an order to walk.
      *
-     * Read off `tabItems` rather than written out, so the sauce routes — which drop Packaging — step
-     * over four rather than falling into a gap. `-1` is unreachable in practice and still guarded:
+     * Read off `tabItems` rather than written out, so a tab that is only sometimes drawn is stepped
+     * over rather than fallen into. `-1` is unreachable in practice and still guarded:
      * `indexOf` answering it would disable both controls rather than stepping off the end.
      */
     const order = tabItems.map((item) => item.value);
@@ -1891,7 +1916,6 @@ function RecipeEditor({
                                     yieldUnit={t(unitShortKey(details.yieldUnit))}
                                     productionWaste={details.wastePercent}
                                     packagingWaste={details.packagingWastePercent}
-                                    withoutPackaging={withoutPackaging}
                                     t={t}
                                     formatter={formatter}
                                 />
@@ -1932,10 +1956,9 @@ function RecipeEditor({
                     {/*
                      * Between the cascade and the prices, because that is the order the question is
                      * asked in: what does a kilogram cost, what does one of the things we actually
-                     * sell cost, what do we charge for it. Dropped entirely on the sauce routes,
-                     * which have no packaging lines to cost.
+                     * sell cost, what do we charge for it.
                      */}
-                    {withoutPackaging || !canViewCosts ? null : (
+                    {!canViewCosts ? null : (
                         <FormSection
                             testID="kitchen-recipe-package-costs"
                             title={t('kitchen:recipes.sectionPackageCosts')}
@@ -2080,6 +2103,22 @@ function RecipeEditor({
                             </FormGrid>
                         </Stack>
                     </FormSection>
+                </View>
+            )}
+
+            {/* ── Selling ──────────────────────────────────────────────────────────────────── */}
+            {/*
+             * Mounted whenever there is a listing, and hidden rather than unmounted on the other tabs.
+             * Its drafts live inside it, so unmounting it on a tab switch would throw away a pack
+             * somebody had half typed — the recipe's own drafts survive a switch because they live on
+             * this screen, and the listing's have to as well.
+             */}
+            {sellsAs === undefined ? null : (
+                <View
+                    className={tab === 'selling' ? 'relative z-raised' : 'hidden'}
+                    testID="kitchen-recipe-selling"
+                >
+                    {sellsAs.content}
                 </View>
             )}
 
@@ -2601,7 +2640,6 @@ function CostCascade({
     yieldUnit,
     productionWaste,
     packagingWaste,
-    withoutPackaging,
     t,
     formatter,
     testID,
@@ -2612,14 +2650,6 @@ function CostCascade({
     /** The rates as typed, for the labels. The figures carry the rates the server applied. */
     readonly productionWaste: string;
     readonly packagingWaste: string;
-    /**
-     * Draw the production card alone.
-     *
-     * A route with no Packaging tab has no packaging lines, so its packaging cost is nothing by
-     * construction and its total is the production figure restated. Two cards of dashes and one
-     * repeating the card beside it is three tiles of furniture over the one number the tab is for.
-     */
-    readonly withoutPackaging: boolean;
     readonly t: TFunction;
     readonly formatter: Formatter;
     readonly testID: string;
@@ -2724,7 +2754,7 @@ function CostCascade({
         },
     ];
 
-    const drawn = withoutPackaging ? cards : [...cards, ...packagingCards];
+    const drawn = [...cards, ...packagingCards];
 
     return (
         <FormGrid testID={testID}>
