@@ -1,12 +1,13 @@
 import type {
     AdminEntityMeta,
     IngredientAdmin,
+    MealAdmin,
     ProductAdmin,
     RecipeAdmin,
     RecipeRollupPreview,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { IngredientId, KitchenId, ProductId, RecipeId } from '@healthy360/domain-types';
+import { IngredientId, KitchenId, MealId, ProductId, RecipeId } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
@@ -14,11 +15,11 @@ import type { ReactNode } from 'react';
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { CookedItemEditScreen } from './screens/sauce-edit-screen.tsx';
+import { CookedItemEditScreen } from './screens/cooked-item-edit-screen.tsx';
 
 /**
- * A cooked item is one page: the recipe it is made from, and — on a tab of its own — the listing it
- * is sold as.
+ * A cooked item — a meal, a sauce, a dressing — is one page: the recipe it is made from, and — on a
+ * tab of its own — the listing it is sold as.
  *
  * Two records, two lock versions, two saves, and the page has to keep them apart without making the
  * reader care. What this file pins:
@@ -31,6 +32,8 @@ import { CookedItemEditScreen } from './screens/sauce-edit-screen.tsx';
  * 3. **Nothing typed is lost.** A half-typed pack survives a tab switch, and leaving the page with
  *    one asks first.
  * 4. **A sauce with no recipe yet can still be listed**, under the notice that offers to start one.
+ * 5. **A meal is the same page.** Its listing holds the portion and the service days, and a new meal
+ *    is written recipe first — then the listing that sells it, then the page lands on its address.
  */
 
 jest.mock('expo-router', () => {
@@ -44,14 +47,16 @@ jest.mock('expo-router', () => {
         Redirect: () => null,
         Link: ({ children }: { children: ReactNode }) => children,
         __push: push,
+        __replace: replace,
     };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock };
+const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
 
 beforeEach(() => {
     routerMock.__push.mockClear();
+    routerMock.__replace.mockClear();
 });
 
 function untilVisible(testID: string) {
@@ -77,6 +82,7 @@ const KITCHEN_ID = KitchenId.unsafe('01935f6d-0000-7000-8000-00000000c001');
 const RECIPE_ID = RecipeId.unsafe('01935f6d-0000-7000-8000-0000000b0001');
 const VERSION_ID = '01935f6d-0000-7000-8000-0000000e0001' as RecipeVersionId;
 const SAUCE_ID = ProductId.unsafe('01935f6d-0000-7000-8000-0000000d0001');
+const MEAL_ID = MealId.unsafe('01935f6d-0000-7000-8000-0000000f0001');
 const GARLIC_ID = IngredientId.unsafe('01935f6d-0000-7000-8000-0000000a0001');
 
 function meta(overrides: Partial<AdminEntityMeta> = {}): AdminEntityMeta {
@@ -243,7 +249,7 @@ function pageReads(item: ProductAdmin) {
 function renderSauce(item: ProductAdmin, writes: Record<string, unknown> = {}) {
     return renderStubScreen(
         <CookedItemEditScreen
-            product={String(item.id)}
+            item={String(item.id)}
             itemType="sauce"
             routeBase="/kitchen/sauces"
         />,
@@ -337,8 +343,152 @@ describe('a cooked item’s page', () => {
     it('lists a sauce that has no recipe yet, under the notice that offers to start one', async () => {
         await renderSauce(sauce({ recipeId: null }));
 
-        await untilVisible('kitchen-sauce-recipe-missing');
+        await untilVisible('kitchen-cooked-item-recipe-missing');
         await untilVisible('kitchen-product-packs');
         expect(screen.getByTestId('kitchen-product-publish')).toBeTruthy();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Meals
+ * ---------------------------------------------------------------------------------------------- */
+
+/** A saved meal made from the recipe, at lock version 5 — neither the recipe's nor the sauce's. */
+function mealItem(overrides: Partial<MealAdmin> = {}): MealAdmin {
+    return {
+        id: MEAL_ID,
+        meta: meta({ lockVersion: 5 }),
+        name: { en: 'Toum bowl', ar: 'وعاء الثومية' },
+        description: { en: 'Garlic sauce and chicken.', ar: 'ثومية ودجاج.' },
+        kitchenCategory: null,
+        kitchenSubcategory: null,
+        composition: null,
+        kitchenId: KITCHEN_ID,
+        recipeId: RECIPE_ID,
+        recipeVersionId: VERSION_ID,
+        portionFactor: 1,
+        mealTypes: [],
+        dietClassifications: [],
+        allergens: [],
+        channelAvailability: [],
+        availability: [],
+        imagePlaceholderId: 'meal-bowl',
+        marginPercent: null,
+        ...overrides,
+    };
+}
+
+function mealReads(item: MealAdmin) {
+    return {
+        getMeal: async () => item,
+        getRecipe: async () => RECIPE,
+        listIngredients: async () => page([GARLIC]),
+        getIngredient: async () => GARLIC,
+        previewRecipeRollup: async () => NO_PREVIEW,
+    };
+}
+
+describe('a meal page', () => {
+    it('opens a meal on its recipe, with the portion and service days on its Selling tab', async () => {
+        await renderStubScreen(
+            <CookedItemEditScreen
+                item={String(MEAL_ID)}
+                itemType="meal"
+                routeBase="/kitchen/meals"
+            />,
+            {
+                session: kitchenManagerSession(),
+                repositories: { kitchenAdmin: mealReads(mealItem()) },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await press('kitchen-recipe-tab-selling');
+        await untilVisible('kitchen-meal-portion-input');
+
+        // The page is the recipe, so the listing no longer asks which one.
+        expect(screen.queryByTestId('kitchen-meal-recipe-select')).toBeNull();
+        expect(screen.getByTestId('kitchen-meal-availability-add')).toBeTruthy();
+    });
+
+    it('writes a new meal recipe first, then the listing that sells it, and lands on the listing', async () => {
+        const { repositories } = await renderStubScreen(
+            <CookedItemEditScreen item="new" itemType="meal" routeBase="/kitchen/meals" />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...mealReads(mealItem()),
+                        nextReference: async () => 'RC-0002',
+                        createRecipe: async () => RECIPE,
+                        createMeal: async () => mealItem(),
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Toum bowl');
+        });
+        await press('kitchen-recipe-editor-screen-save');
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.createMeal).toHaveBeenCalledWith(
+                expect.objectContaining({ recipeId: RECIPE_ID, name: RECIPE.name }),
+            );
+        });
+        expect(repositories.kitchenAdmin.createRecipe).toHaveBeenCalledTimes(1);
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(`/kitchen/meals/${String(MEAL_ID)}`);
+        });
+    });
+
+    it('keeps the recipe, and says so, when the listing cannot be written', async () => {
+        await renderStubScreen(
+            <CookedItemEditScreen item="new" itemType="meal" routeBase="/kitchen/meals" />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...mealReads(mealItem()),
+                        nextReference: async () => 'RC-0002',
+                        createRecipe: async () => RECIPE,
+                        createMeal: () => {
+                            throw new TypeError('allergens.map is not a function');
+                        },
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Toum bowl');
+        });
+        await press('kitchen-recipe-editor-screen-save');
+
+        // Not a silent redirect: the recipe exists, the listing does not, and the reader is told.
+        await untilVisible('kitchen-cooked-item-listing-failed-toast');
+        expect(routerMock.__replace).toHaveBeenCalledWith(`/kitchen/recipes/${String(RECIPE_ID)}`);
+    });
+
+    it('lists a meal that has no recipe yet, under the notice that offers to start one', async () => {
+        await renderStubScreen(
+            <CookedItemEditScreen
+                item={String(MEAL_ID)}
+                itemType="meal"
+                routeBase="/kitchen/meals"
+            />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: mealReads(mealItem({ recipeId: null, recipeVersionId: null })),
+                },
+            },
+        );
+
+        await untilVisible('kitchen-cooked-item-recipe-missing');
+        await untilVisible('kitchen-meal-portion-input');
     });
 });

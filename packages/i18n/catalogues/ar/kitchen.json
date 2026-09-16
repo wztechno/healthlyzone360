@@ -2613,6 +2613,7 @@
         "tabPackaging": "التعبئة",
         "tabCosting": "التكلفة",
         "tabSelling": "البيع",
+        "listingFailedToast": "حُفظت الوصفة، لكن تعذّر إنشاء الصنف الذي يبيعها. تجدها في مكتبة الوصفات.",
         "tabSheet": "البطاقة الفنية",
         "restricted": "مقيّد",
         "discard": "تجاهل",

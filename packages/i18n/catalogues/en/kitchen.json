@@ -2325,6 +2325,7 @@
         "tabPackaging": "Packaging",
         "tabCosting": "Costing",
         "tabSelling": "Selling",
+        "listingFailedToast": "The recipe is saved, but the item that sells it could not be created. It is in the recipe library.",
         "tabSheet": "Technical sheet",
         "restricted": "Restricted",
         "discard": "Discard",
