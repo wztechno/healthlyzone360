@@ -260,7 +260,7 @@ function renderSauce(item: ProductAdmin, writes: Record<string, unknown> = {}) {
     );
 }
 
-const PACK_LABEL = 'kitchen-product-pack-editor-row-seed-0-BTL300-label-en-input';
+const PACK_LABEL = 'kitchen-product-pack-editor-row-seed-0-BTL300-label-input';
 
 /* ------------------------------------------------------------------------------------------------
  * The page
