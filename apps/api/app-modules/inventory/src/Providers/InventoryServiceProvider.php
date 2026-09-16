@@ -7,8 +7,10 @@ namespace Healthy360\Inventory\Providers;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Console\DeriveStockItemsCommand;
+use Healthy360\Inventory\Contracts\ProductionValuationLedger;
 use Healthy360\Inventory\Contracts\SubscriptionMealDemand;
 use Healthy360\Inventory\Observers\DerivedStockObserver;
+use Healthy360\Inventory\Services\NullProductionValuationLedger;
 use Healthy360\Inventory\Services\NullSubscriptionMealDemand;
 use Healthy360\Inventory\Services\OrderConsumptionService;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
@@ -43,6 +45,17 @@ class InventoryServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(SubscriptionMealDemand::class, NullSubscriptionMealDemand::class);
+
+        /*
+         * The second port this module declares for somebody else to answer
+         * (PROD1). The monthly cost report — in Procurement — needs to know
+         * whether a month contains a batch nobody could value, and
+         * `production_orders` belongs to Production, which now depends on
+         * Procurement. Declaring the question here, upstream of both, is what
+         * keeps the graph acyclic; the null default keeps an installation
+         * without production reporting honestly rather than failing.
+         */
+        $this->app->bind(ProductionValuationLedger::class, NullProductionValuationLedger::class);
     }
 
     /**

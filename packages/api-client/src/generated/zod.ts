@@ -72,6 +72,9 @@ export const zErrorCode = z.enum([
     'record_export.unavailable',
     'payment.refund_exceeds_capture',
     'inventory.insufficient_stock',
+    'production.state_invalid',
+    'production.plan_refused',
+    'production.consumption_recorded',
     'unit.conversion_unsupported',
     'access.self_lockout',
     'rate_limit.exceeded',
@@ -4393,8 +4396,48 @@ export const zSpendSummaryCollection = z.object({
     meta: zMeta
 });
 
+export const zInventoryValueRow = z.object({
+    currency_code: z.string(),
+    value_amount: z.string(),
+    valued_item_count: z.int()
+});
+
+export const zInventoryValueEnvelope = z.object({
+    data: z.object({
+        inventory_value: z.array(zInventoryValueRow)
+    }),
+    meta: zMeta.and(z.object({
+        as_of: z.iso.datetime({ offset: true }).optional(),
+        unvalued_item_count: z.int().optional(),
+        valued_item_count: z.int().optional(),
+        is_complete: z.boolean().optional()
+    }))
+});
+
 /**
- * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies. Two data-quality flags, never merged: one says the month's COGS is understated by unresolved consumption exceptions, the other says its spend is understated because a delivery's invoice has not been entered (SUP6, §3.6). The three spend-completeness fields are month facts rather than currency facts — an unpriced line has no currency — so, like waste_quantity, they repeat across a month's currency rows.
+ * One month of one kitchen's economics in one currency (INV1.4). Every
+ * amount is a major-unit decimal string; figures are never summed across
+ * currencies. The spend-completeness fields are month facts rather than
+ * currency facts — an unpriced line has no currency — so, like
+ * `waste_quantity`, they repeat across a month's currency rows.
+ *
+ * **Three production figures, and none of them sums with anything** (PROD1).
+ * `production_consumption_amount` is *not* inside `cogs_amount`: COGS joins
+ * to an order and a batch has none, so flour that became dressing has not
+ * been sold yet. `production_waste_amount` *is* inside `waste_amount`,
+ * published as an "of which" breakdown rather than an addition, because the
+ * waste row already counted it. `production_yield_value_amount` is
+ * **neither revenue nor expense** — money moving from raw materials into
+ * finished goods, the same figure on both sides of the shelf — and is named
+ * so nobody adds it to anything.
+ *
+ * **Three completeness flags, never merged**, because they undermine three
+ * different numbers: `is_spend_complete` says what the month cost to buy is
+ * understated, `has_data_quality_flag` says what it cost to sell is, and
+ * `is_production_valuation_complete` says what it cost to *make* is. One
+ * flag covering all three would tell a reader something is wrong and not
+ * what.
+ *
  */
 export const zMonthlyCostReportRow = z.object({
     month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
@@ -4412,6 +4455,16 @@ export const zMonthlyCostReportRow = z.object({
     meal_cogs_amount: z.string(),
     product_cogs_amount: z.string(),
     other_cogs_amount: z.string(),
+    production_consumption_amount: z.string(),
+    production_waste_amount: z.string(),
+    production_yield_value_amount: z.string(),
+    estimated_cogs_amount: z.string().nullable(),
+    estimated_margin_amount: z.string().nullable(),
+    estimated_margin_percent: z.string().nullable(),
+    unestimated_line_count: z.int(),
+    is_estimate_complete: z.boolean(),
+    is_production_valuation_complete: z.boolean(),
+    unvalued_batch_count: z.int(),
     has_data_quality_flag: z.boolean(),
     exception_count: z.int(),
     is_spend_complete: z.boolean(),
@@ -4505,60 +4558,393 @@ export const zResolveConsumptionExceptionRequest = z.object({
     note: z.string().max(500).nullish()
 });
 
+/**
+ * Where a batch has got to (PROD1). Six states, one forward path and two
+ * different exits.
+ *
+ * `draft → confirmed → in_production → completed`, with `cancelled`
+ * reachable while nothing has been taken off a shelf and `abandoned`
+ * reachable once something has. **`cancelled` never carries stock movements
+ * and `abandoned` always may** — that is the whole distinction, and it is
+ * what lets a reader trust the status without opening the movement ledger.
+ *
+ * `draft` and `in_production` replace the pre-PROD1 `planned` and
+ * `in_progress`: the old words described a schedule, and these describe a
+ * commitment. Nothing is reserved under `draft`, which is what the word now
+ * says out loud.
+ *
+ */
+export const zProductionOrderStatus = z.enum([
+    'draft',
+    'confirmed',
+    'in_production',
+    'completed',
+    'cancelled',
+    'abandoned'
+]);
+
+/**
+ * Whether a completed batch could be valued (PROD1).
+ *
+ * `complete` — every input that moved had a valued cost, all in one
+ * currency. `partial` — at least one input contributed quantity and no
+ * money, so the total is real and **too small**; the unit cost is withheld
+ * rather than published, because a partial total reads exactly like a
+ * complete one. `unvalued` — the inputs disagree about currency, and this
+ * system has no exchange rate and refuses to add unlike money.
+ *
+ */
+export const zProductionCostStatus = z.enum([
+    'complete',
+    'partial',
+    'unvalued'
+]);
+
+/**
+ * Whether a batch line is formulation or packaging (PROD1). They behave
+ * differently: a cook reports what actually went into the pot and what was
+ * thrown away, while packaging is taken as planned. The split is also what
+ * stops a finished-stock sale deducting the box a second time.
+ *
+ */
+export const zProductionLineKind = z.enum(['ingredient', 'packaging']);
+
+/**
+ * On whose authority a line was estimated (PROD1). `weekly` is the
+ * published weighted average of what was actually paid; `component` is the
+ * recipe that makes the thing, which is what stops a dressing's olive oil
+ * being counted inside the dressing and again inside the salad; `fallback`
+ * is a price somebody typed, real and visibly weaker than the other two.
+ *
+ * A line with no usable figure carries `null` and stays **uncosted** rather
+ * than zero — a zero reads as free, and a kitchen would price against it.
+ *
+ */
+export const zProductionCostSource = z.enum([
+    'weekly',
+    'component',
+    'fallback'
+]);
+
+/**
+ * One batch (PROD1).
+ *
+ * **The money keys are absent, not null, without
+ * `production.view_costs_organisation`.** Absent means "this reader may not
+ * see it"; present and null means "nobody could compute it". A surface
+ * renders the first as nothing at all and the second as an em dash, and
+ * collapsing them would tell a kitchen manager a batch was free.
+ *
+ * `usable_yield_quantity` and `yield_variance_quantity` are computed, never
+ * stored: `produced − rejected` and `produced − planned`. Rejected units are
+ * **inside** produced, never beside it — a batch that made 38 and threw one
+ * away produced 38 and has 37 on the shelf.
+ *
+ */
 export const zProductionOrder = z.object({
     id: zUuid,
+    reference: z.string().nullable(),
+    branch_id: zUuid,
     recipe_version_id: zUuid,
-    status: z.enum([
-        'planned',
-        'in_progress',
-        'completed',
-        'cancelled'
-    ]),
-    branch_id: zUuid
+    production_item_ingredient_id: zUuid.nullable(),
+    production_item_name_en: z.string().nullable(),
+    planned_yield_unit_code: z.string().nullable(),
+    status: zProductionOrderStatus,
+    batch_factor: z.string().nullable(),
+    planned_yield: z.string().nullable(),
+    planned_yield_unit_id: zUuid.nullable(),
+    produced_quantity: z.string().nullable(),
+    rejected_quantity: z.string().nullable(),
+    usable_yield_quantity: z.string().nullable(),
+    yield_variance_quantity: z.string().nullable(),
+    production_date: z.iso.date().nullable(),
+    batch_reference: z.string().nullable(),
+    storage_location: z.string().nullable(),
+    expiry_date: z.iso.date().nullable(),
+    is_expired: z.boolean(),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    started_at: z.iso.datetime({ offset: true }).nullable(),
+    completed_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    abandoned_at: z.iso.datetime({ offset: true }).nullable(),
+    abandon_reason: z.string().nullable(),
+    lock_version: z.int(),
+    notes: z.string().nullable(),
+    estimated_cost_amount: z.string().nullish(),
+    estimated_cost_currency_code: z.string().nullish(),
+    weekly_price_publication_id: zUuid.nullish(),
+    actual_cost_amount: z.string().nullish(),
+    actual_cost_currency_code: z.string().nullish(),
+    actual_unit_cost_amount: z.string().nullish(),
+    actual_cost_status: zProductionCostStatus.nullish(),
+    valuation_note: z.string().nullish()
+});
+
+/**
+ * One shelf a batch draws on, as planned and as it turned out (PROD1).
+ *
+ * `consumed_quantity` and `waste_quantity` **do not overlap**. The shelf
+ * falls by their sum, as two movements with different reasons: what went
+ * into the batch is cost of goods, and what was dropped on the floor is
+ * waste. Folding the second into the first would put the loss into the
+ * batch's unit cost, where the monthly report would read it as the price of
+ * the food.
+ *
+ * Money keys follow the batch's rule: absent without
+ * `production.view_costs_organisation`, null when nobody could compute them.
+ *
+ */
+export const zProductionOrderLine = z.object({
+    id: zUuid,
+    stock_item_id: zUuid,
+    ingredient_id: zUuid,
+    line_kind: zProductionLineKind,
+    unit_id: zUuid,
+    required_quantity: z.string(),
+    reserved_quantity: z.string().nullable(),
+    consumed_quantity: z.string().nullable(),
+    waste_quantity: z.string().nullable(),
+    source_recipe_version_id: zUuid.nullable(),
+    display_order: z.int(),
+    estimated_unit_cost_amount: z.string().nullish(),
+    cost_source: zProductionCostSource.nullish(),
+    fallback_unit_cost_amount: z.string().nullish(),
+    actual_unit_cost_amount: z.string().nullish(),
+    cost_currency_code: z.string().nullish()
+});
+
+/**
+ * One shelf a planned batch would draw on, and whether it can (PROD1).
+ *
+ * Five quantities and no two of them the same question. `available` is
+ * `on_hand − reserved` and **may be negative**, where more is claimed than
+ * is there; a shelf somebody over-committed is a real state and clamping it
+ * would hide it. A batch never counts **its own** claim against itself, so
+ * re-opening a confirmed order does not show it short of everything it
+ * already holds.
+ *
+ */
+export const zProductionPlanLine = z.object({
+    stock_item_id: zUuid,
+    ingredient_id: zUuid,
+    line_kind: zProductionLineKind,
+    unit_id: zUuid,
+    required: z.string(),
+    on_hand: z.string(),
+    reserved: z.string(),
+    available: z.string(),
+    missing: z.string(),
+    estimated_unit_cost_amount: z.string().nullish(),
+    estimated_line_cost_amount: z.string().nullish(),
+    currency_code: z.string().nullish(),
+    cost_source: z.enum([
+        'weekly',
+        'component',
+        'fallback',
+        'none'
+    ]).optional(),
+    effective_from: z.iso.date().nullish()
+});
+
+/**
+ * Part of a recipe nobody could turn into a quantity (PROD1). **Never
+ * folded into the lines as a zero**: "need nothing for that" and "we could
+ * not work out what this needs" are opposite statements, and a plan that
+ * confused them would send somebody to cook with the wrong shopping.
+ *
+ */
+export const zProductionPlanHole = z.object({
+    reason_code: z.string(),
+    detail: z.string()
+});
+
+/**
+ * What a batch would need, against what the shelves can actually give
+ * (PROD1). Reads nothing into the future and writes nothing at all.
+ *
+ * `estimated_cost_amount` is **withheld** rather than partial: any uncosted
+ * line, or two currencies among the lines, and it is null with
+ * `uncosted_line_count` or `currency_conflict` saying why. A total over the
+ * lines that happened to have prices reads exactly like a complete one and
+ * is smaller, which is the direction that gets a kitchen into trouble.
+ *
+ * That never blocks anything. `is_confirmable` does not consult cost at all,
+ * because a kitchen about to cook is not refused over arithmetic nobody has
+ * finished.
+ *
+ */
+export const zProductionPlan = z.object({
+    batch_factor: z.string(),
+    ingredients: z.array(zProductionPlanLine),
+    packaging: z.array(zProductionPlanLine),
+    not_computable: z.array(zProductionPlanHole),
+    short_line_count: z.int(),
+    is_confirmable: z.boolean(),
+    estimated_cost_amount: z.string().nullish(),
+    currency_code: z.string().nullish(),
+    uncosted_line_count: z.int().optional(),
+    currency_conflict: z.boolean().optional(),
+    weekly_price_publication_id: zUuid.nullish()
+});
+
+/**
+ * The four yield figures and what separates them (PROD1).
+ *
+ * `rejected_quantity` is **inside** `produced_quantity`, so `usable` is the
+ * difference and never the sum of anything. `variance_quantity` is
+ * `produced − planned`: negative is process loss, which never existed as
+ * stock and carries no money of its own.
+ *
+ */
+export const zProductionBatchYield = z.object({
+    planned_quantity: z.string().nullable(),
+    produced_quantity: z.string().nullable(),
+    rejected_quantity: z.string().nullable(),
+    usable_quantity: z.string().nullable(),
+    variance_quantity: z.string().nullable(),
+    unit_id: zUuid.nullable()
+});
+
+/**
+ * What the sheet's figures were anchored to at confirm.
+ */
+export const zProductionSheetBasis = z.object({
+    recipe_version_id: zUuid,
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    weekly_price_publication_id: zUuid.nullable()
+});
+
+export const zProductionTechnicalSheetEnvelope = z.object({
+    data: z.object({
+        technical_sheet: z.object({
+            production_order: zProductionOrder,
+            lines: z.array(zProductionOrderLine),
+            yield: zProductionBatchYield,
+            nutrition_facts: z.record(z.string(), z.unknown()).nullable(),
+            basis: zProductionSheetBasis
+        })
+    }),
+    meta: zMeta.and(z.object({
+        costs_visible: z.boolean().optional()
+    }))
 });
 
 export const zProductionOrderCollection = z.object({
     data: z.object({
         production_orders: z.array(zProductionOrder)
     }),
-    meta: zMeta
-});
-
-export const zCreateProductionOrderRequest = z.object({
-    branch_id: zUuid,
-    recipe_version_id: zUuid,
-    planned_yield: z.number().nullish()
+    meta: zMeta.and(z.object({
+        page: z.int().optional(),
+        per_page: z.int().optional(),
+        has_more: z.boolean().optional(),
+        costs_visible: z.boolean().optional(),
+        limit: z.int().optional(),
+        is_truncated: z.boolean().optional()
+    }))
 });
 
 export const zProductionOrderEnvelope = z.object({
     data: z.object({
-        production_order: z.object({
-            id: zUuid,
-            status: z.enum([
-                'planned',
-                'in_progress',
-                'completed',
-                'cancelled'
-            ])
-        })
+        production_order: zProductionOrder,
+        lines: z.array(zProductionOrderLine).optional(),
+        plan: zProductionPlan.optional()
     }),
     meta: zMeta
 });
 
-export const zProductionMovementInput = z.object({
-    stock_item_id: zUuid,
-    quantity: z.number()
+/**
+ * A batch with its lines, and — while it has none — its live plan (PROD1).
+ *
+ * A draft has committed to nothing, so it reads its plan fresh: the shelves
+ * move under it. From confirm onwards the **lines are the answer**: they are
+ * what the kitchen agreed to, what the reservations were opened against and
+ * what the estimate was computed from, and re-deriving them would make all
+ * three disagree.
+ *
+ */
+export const zProductionOrderDetailEnvelope = z.object({
+    data: z.object({
+        production_order: zProductionOrder,
+        lines: z.array(zProductionOrderLine),
+        plan: zProductionPlan.optional()
+    }),
+    meta: zMeta.and(z.object({
+        costs_visible: z.boolean().optional()
+    }))
+});
+
+export const zProductionPlanEnvelope = z.object({
+    data: z.object({
+        plan: zProductionPlan
+    }),
+    meta: zMeta.and(z.object({
+        costs_visible: z.boolean().optional()
+    }))
 });
 
 /**
- * No production tasks here (O5) — completing an order is entirely
- * about the stock it consumed and yielded, not a checklist.
+ * Open a draft batch (PROD1). **A draft claims nothing** — that is the whole
+ * reason the state is not called `planned`: a kitchen writing next week's
+ * runs on a Friday afternoon must not be quietly reserving Monday's flour
+ * while it decides.
+ *
+ * `planned_yield` is what a cook thinks in — forty litres of dressing — and
+ * `batch_factor` is what the explosion thinks in — two and a half times
+ * over. Send one; the server derives the other from the version's own yield,
+ * because a client doing that conversion would be a second place the
+ * arithmetic lives.
+ *
+ */
+export const zCreateProductionOrderRequest = z.object({
+    branch_id: zUuid,
+    recipe_version_id: zUuid,
+    planned_yield: z.number().nullish(),
+    batch_factor: z.number().nullish(),
+    notes: z.string().nullish()
+});
+
+/**
+ * What the cook says actually happened (PROD1).
+ *
+ * Three yield facts, and exactly one of them is free. **Finished waste** is
+ * `rejected_quantity`: units that were made and then thrown away, inside
+ * `produced_quantity`, carrying the batch's unit cost and leaving the shelf
+ * again as a waste movement. **Input waste** is `waste`, per shelf: raw
+ * material discarded during the batch, which never became product and is
+ * therefore not part of `consumed` and not part of the batch's cost.
+ * **Process loss** is not reported at all — planned forty litres, made
+ * thirty-eight — because it never existed as stock and its cost is already
+ * absorbed into the unit cost of what was produced.
+ *
+ * Omitting a shelf from `consumed` means "as planned" rather than "nothing":
+ * a cook who followed the recipe should not have to retype it. Omitting one
+ * from `waste` means zero, because waste nobody mentioned did not happen.
  *
  */
 export const zCompleteProductionOrderRequest = z.object({
-    consumes: z.array(zProductionMovementInput).optional(),
-    yields: z.array(zProductionMovementInput).optional()
+    produced_quantity: z.number().gte(0),
+    rejected_quantity: z.number().gte(0).nullish(),
+    consumed: z.record(z.string(), z.number().gte(0)).optional(),
+    waste: z.record(z.string(), z.number().gte(0)).optional(),
+    production_date: z.iso.date().nullish(),
+    batch_reference: z.string().nullish(),
+    storage_location: z.string().nullish(),
+    expiry_date: z.iso.date().nullish(),
+    notes: z.string().nullish()
 });
+
+/**
+ * The completion report plus a required reason (PROD1).
+ *
+ * The same payload as completing, deliberately: what was used was used and
+ * whatever came out came out. A kitchen that had to retype everything to
+ * abandon would cancel instead and leave the flour unaccounted for — and
+ * `cancelled` is the status that promises no stock moved.
+ *
+ */
+export const zAbandonProductionOrderRequest = zCompleteProductionOrderRequest.and(z.object({
+    reason: z.string().max(255)
+}));
 
 /**
  * The only two subjects a check may attach to (O3). Anything else is
@@ -12097,6 +12483,16 @@ export const zGetMonthlyCostReportQuery = z.object({
  */
 export const zGetMonthlyCostReportResponse = zMonthlyCostReportCollection;
 
+export const zShowInventoryValueHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The current stock valuation.
+ */
+export const zShowInventoryValueResponse = zInventoryValueEnvelope;
+
 export const zListConsumptionExceptionsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -12156,13 +12552,29 @@ export const zRetryConsumptionExceptionPath = z.object({
  */
 export const zRetryConsumptionExceptionResponse = zConsumptionExceptionEnvelope;
 
-export const zListProductionOrdersHeaders = z.object({
+export const zListPendingProductionValuationsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
 });
 
 /**
- * Recent production orders.
+ * Batches awaiting a valuation.
+ */
+export const zListPendingProductionValuationsResponse = zProductionOrderCollection;
+
+export const zListProductionOrdersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListProductionOrdersQuery = z.object({
+    status: zProductionOrderStatus.optional(),
+    branch_id: zUuid.optional(),
+    page: z.int().gte(1).optional()
+});
+
+/**
+ * The desk queue.
  */
 export const zListProductionOrdersResponse = zProductionOrderCollection;
 
@@ -12174,15 +12586,90 @@ export const zCreateProductionOrderHeaders = z.object({
 });
 
 /**
- * The production order was planned.
+ * The draft batch.
  */
 export const zCreateProductionOrderResponse = zProductionOrderEnvelope;
+
+export const zShowProductionOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowProductionOrderPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The batch.
+ */
+export const zShowProductionOrderResponse = zProductionOrderDetailEnvelope;
+
+export const zShowProductionOrderPlanHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowProductionOrderPlanPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The plan.
+ */
+export const zShowProductionOrderPlanResponse = zProductionPlanEnvelope;
+
+export const zShowProductionTechnicalSheetHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowProductionTechnicalSheetPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The batch's sheet.
+ */
+export const zShowProductionTechnicalSheetResponse = zProductionTechnicalSheetEnvelope;
+
+export const zConfirmProductionOrderHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'Idempotency-Key': z.string().max(255).optional()
+});
+
+export const zConfirmProductionOrderPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The batch and its lines, after the move.
+ */
+export const zConfirmProductionOrderResponse = zProductionOrderDetailEnvelope;
+
+export const zStartProductionOrderHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zStartProductionOrderPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The batch and its lines, after the move.
+ */
+export const zStartProductionOrderResponse = zProductionOrderDetailEnvelope;
 
 export const zCompleteProductionOrderBody = zCompleteProductionOrderRequest;
 
 export const zCompleteProductionOrderHeaders = z.object({
+    'If-Match': z.string(),
     'X-Organisation-Id': zUuid,
-    'X-Client-Request-Id': z.string().max(128).optional()
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'Idempotency-Key': z.string().max(255).optional()
 });
 
 export const zCompleteProductionOrderPath = z.object({
@@ -12190,9 +12677,42 @@ export const zCompleteProductionOrderPath = z.object({
 });
 
 /**
- * The production order is completed.
+ * The batch and its lines, after the move.
  */
-export const zCompleteProductionOrderResponse = zProductionOrderEnvelope;
+export const zCompleteProductionOrderResponse = zProductionOrderDetailEnvelope;
+
+export const zAbandonProductionOrderBody = zAbandonProductionOrderRequest;
+
+export const zAbandonProductionOrderHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'Idempotency-Key': z.string().max(255).optional()
+});
+
+export const zAbandonProductionOrderPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The batch and its lines, after the move.
+ */
+export const zAbandonProductionOrderResponse = zProductionOrderDetailEnvelope;
+
+export const zCancelProductionOrderHeaders = z.object({
+    'If-Match': z.string(),
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelProductionOrderPath = z.object({
+    productionOrder: zUuid
+});
+
+/**
+ * The batch and its lines, after the move.
+ */
+export const zCancelProductionOrderResponse = zProductionOrderDetailEnvelope;
 
 export const zListQualityChecksHeaders = z.object({
     'X-Organisation-Id': zUuid,

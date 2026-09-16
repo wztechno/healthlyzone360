@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'unit.conversion_unsupported' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -6362,8 +6362,60 @@ export type SpendSummaryCollection = {
     meta: Meta;
 };
 
+export type InventoryValueRow = {
+    currency_code: string;
+    /**
+     * Major units. Real and possibly **incomplete** — see `meta.unvalued_item_count`.
+     */
+    value_amount: string;
+    /**
+     * Ingredients contributing to this currency's figure.
+     */
+    valued_item_count: number;
+};
+
+export type InventoryValueEnvelope = {
+    data: {
+        inventory_value: Array<InventoryValueRow>;
+    };
+    meta: Meta & {
+        /**
+         * The instant the figure was read. Published rather than implied, so nobody mistakes a live valuation for a closing one.
+         */
+        as_of?: string;
+        unvalued_item_count?: number;
+        valued_item_count?: number;
+        /**
+         * Stated rather than derived from the count, so a client renders "incomplete" without re-deciding what incomplete means.
+         */
+        is_complete?: boolean;
+    };
+};
+
 /**
- * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies. Two data-quality flags, never merged: one says the month's COGS is understated by unresolved consumption exceptions, the other says its spend is understated because a delivery's invoice has not been entered (SUP6, §3.6). The three spend-completeness fields are month facts rather than currency facts — an unpriced line has no currency — so, like waste_quantity, they repeat across a month's currency rows.
+ * One month of one kitchen's economics in one currency (INV1.4). Every
+ * amount is a major-unit decimal string; figures are never summed across
+ * currencies. The spend-completeness fields are month facts rather than
+ * currency facts — an unpriced line has no currency — so, like
+ * `waste_quantity`, they repeat across a month's currency rows.
+ *
+ * **Three production figures, and none of them sums with anything** (PROD1).
+ * `production_consumption_amount` is *not* inside `cogs_amount`: COGS joins
+ * to an order and a batch has none, so flour that became dressing has not
+ * been sold yet. `production_waste_amount` *is* inside `waste_amount`,
+ * published as an "of which" breakdown rather than an addition, because the
+ * waste row already counted it. `production_yield_value_amount` is
+ * **neither revenue nor expense** — money moving from raw materials into
+ * finished goods, the same figure on both sides of the shelf — and is named
+ * so nobody adds it to anything.
+ *
+ * **Three completeness flags, never merged**, because they undermine three
+ * different numbers: `is_spend_complete` says what the month cost to buy is
+ * understated, `has_data_quality_flag` says what it cost to sell is, and
+ * `is_production_valuation_complete` says what it cost to *make* is. One
+ * flag covering all three would tell a reader something is wrong and not
+ * what.
+ *
  */
 export type MonthlyCostReportRow = {
     /**
@@ -6426,6 +6478,69 @@ export type MonthlyCostReportRow = {
      * Cost of goods sold not attributed to a meal or product line (e.g. a consume predating INV1.5), major units. The three COGS splits reconcile to cogs_amount.
      */
     other_cogs_amount: string;
+    /**
+     * What batches ate this month — Σ consume-movement cost against a
+     * production order, major units. **Not** part of `cogs_amount`: it has
+     * not been sold yet.
+     *
+     */
+    production_consumption_amount: string;
+    /**
+     * What batches lost this month — input discarded during a run and
+     * finished units rejected after one. **Already inside `waste_amount`**;
+     * adding the two would count the loss twice.
+     *
+     */
+    production_waste_amount: string;
+    /**
+     * What batches put on the shelf this month, at the batch unit cost.
+     * **Neither revenue nor expense** — an inventory transformation, stated
+     * so a reader can see the batch happened.
+     *
+     */
+    production_yield_value_amount: string;
+    /**
+     * What this month's sales were **expected** to cost, frozen line by
+     * line when each order was confirmed (PROD1) — never recomputed, or a
+     * recipe edited in October would move September's margin silently.
+     * Null whenever any line of the month could not be estimated: a total
+     * over the priced half reads exactly like a complete one and is too
+     * small.
+     *
+     */
+    estimated_cogs_amount: string | null;
+    /**
+     * Revenue minus `estimated_cogs_amount`. Null on the same terms.
+     */
+    estimated_margin_amount: string | null;
+    /**
+     * The estimated margin as a percentage of revenue; null when revenue is zero or the estimate is withheld.
+     */
+    estimated_margin_percent: string | null;
+    /**
+     * Sold lines with no frozen estimate — no recipe, no price, or two
+     * currencies. Published so the withheld estimate says how much is
+     * missing rather than leaving the null unexplained. A month fact, like
+     * the spend-completeness fields.
+     *
+     */
+    unestimated_line_count: number;
+    /**
+     * True when every sold line of the month carries a frozen estimate.
+     */
+    is_estimate_complete: boolean;
+    /**
+     * False when a batch finished this month without a complete valuation.
+     * Such a batch put stock on a shelf whose value nobody could compute,
+     * so the finished-goods figures and every sale drawn from that shelf are
+     * understated.
+     *
+     */
+    is_production_valuation_complete: boolean;
+    /**
+     * How many batches completed or abandoned this month carry a `partial` or `unvalued` cost. A month fact.
+     */
+    unvalued_batch_count: number;
     /**
      * True when unresolved consumption exceptions mean this month's COGS is understated.
      */
@@ -6529,55 +6644,519 @@ export type ResolveConsumptionExceptionRequest = {
     note?: string | null;
 };
 
+/**
+ * Where a batch has got to (PROD1). Six states, one forward path and two
+ * different exits.
+ *
+ * `draft → confirmed → in_production → completed`, with `cancelled`
+ * reachable while nothing has been taken off a shelf and `abandoned`
+ * reachable once something has. **`cancelled` never carries stock movements
+ * and `abandoned` always may** — that is the whole distinction, and it is
+ * what lets a reader trust the status without opening the movement ledger.
+ *
+ * `draft` and `in_production` replace the pre-PROD1 `planned` and
+ * `in_progress`: the old words described a schedule, and these describe a
+ * commitment. Nothing is reserved under `draft`, which is what the word now
+ * says out loud.
+ *
+ */
+export type ProductionOrderStatus = 'draft' | 'confirmed' | 'in_production' | 'completed' | 'cancelled' | 'abandoned';
+
+/**
+ * Whether a completed batch could be valued (PROD1).
+ *
+ * `complete` — every input that moved had a valued cost, all in one
+ * currency. `partial` — at least one input contributed quantity and no
+ * money, so the total is real and **too small**; the unit cost is withheld
+ * rather than published, because a partial total reads exactly like a
+ * complete one. `unvalued` — the inputs disagree about currency, and this
+ * system has no exchange rate and refuses to add unlike money.
+ *
+ */
+export type ProductionCostStatus = 'complete' | 'partial' | 'unvalued';
+
+/**
+ * Whether a batch line is formulation or packaging (PROD1). They behave
+ * differently: a cook reports what actually went into the pot and what was
+ * thrown away, while packaging is taken as planned. The split is also what
+ * stops a finished-stock sale deducting the box a second time.
+ *
+ */
+export type ProductionLineKind = 'ingredient' | 'packaging';
+
+/**
+ * On whose authority a line was estimated (PROD1). `weekly` is the
+ * published weighted average of what was actually paid; `component` is the
+ * recipe that makes the thing, which is what stops a dressing's olive oil
+ * being counted inside the dressing and again inside the salad; `fallback`
+ * is a price somebody typed, real and visibly weaker than the other two.
+ *
+ * A line with no usable figure carries `null` and stays **uncosted** rather
+ * than zero — a zero reads as free, and a kitchen would price against it.
+ *
+ */
+export type ProductionCostSource = 'weekly' | 'component' | 'fallback';
+
+/**
+ * One batch (PROD1).
+ *
+ * **The money keys are absent, not null, without
+ * `production.view_costs_organisation`.** Absent means "this reader may not
+ * see it"; present and null means "nobody could compute it". A surface
+ * renders the first as nothing at all and the second as an em dash, and
+ * collapsing them would tell a kitchen manager a batch was free.
+ *
+ * `usable_yield_quantity` and `yield_variance_quantity` are computed, never
+ * stored: `produced − rejected` and `produced − planned`. Rejected units are
+ * **inside** produced, never beside it — a batch that made 38 and threw one
+ * away produced 38 and has 37 on the shelf.
+ *
+ */
 export type ProductionOrder = {
     id: Uuid;
-    recipe_version_id: Uuid;
-    status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+    /**
+     * The kitchen-facing batch number, `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. Not the label — that is `batch_reference`, which the cook writes.
+     */
+    reference: string | null;
     branch_id: Uuid;
+    recipe_version_id: Uuid;
+    /**
+     * What the batch makes — the recipe version's single output.
+     */
+    production_item_ingredient_id: Uuid | null;
+    /**
+     * That ingredient's name. Carried beside the id because a desk showing a
+     * uuid where a name belongs is a desk nobody can work from. Null means
+     * the ingredient is gone — an em dash, not a blank.
+     *
+     */
+    production_item_name_en: string | null;
+    /**
+     * The unit's code, for rendering a quantity that reads as a quantity.
+     */
+    planned_yield_unit_code: string | null;
+    status: ProductionOrderStatus;
+    /**
+     * How many times over the recipe is being made. Stored rather than re-derived, because a published version can be superseded and a batch confirmed at 2.5× stays a batch of 2.5×.
+     */
+    batch_factor: string | null;
+    /**
+     * How much the batch is meant to make, in `planned_yield_unit_id`.
+     */
+    planned_yield: string | null;
+    planned_yield_unit_id: Uuid | null;
+    /**
+     * What came out, **including** anything later rejected. Null until the batch is settled, which is not the same as zero.
+     */
+    produced_quantity: string | null;
+    /**
+     * Produced and then discarded — inside `produced_quantity`, never beside it.
+     */
+    rejected_quantity: string | null;
+    /**
+     * `produced − rejected` — what is actually on the shelf. Computed, never stored.
+     */
+    usable_yield_quantity: string | null;
+    /**
+     * `produced − planned`. Negative is process loss — evaporation, pot
+     * residue — which never existed as stock, has no movement and no money
+     * of its own. Its cost is already absorbed into the unit cost of what
+     * *was* produced, so no figure is invented for it.
+     *
+     */
+    yield_variance_quantity: string | null;
+    /**
+     * The branch-local business date the batch was made, like `goods_receipts.received_on`.
+     */
+    production_date: string | null;
+    /**
+     * What the cook writes on the tray, in whatever scheme the kitchen already uses. Free text, deliberately not the system reference.
+     */
+    batch_reference: string | null;
+    storage_location: string | null;
+    expiry_date: string | null;
+    /**
+     * Past its date. A batch with **no** expiry date is not expired — that is "nobody recorded one", which is never the same as "it is fine".
+     */
+    is_expired: boolean;
+    confirmed_at: string | null;
+    started_at: string | null;
+    completed_at: string | null;
+    cancelled_at: string | null;
+    abandoned_at: string | null;
+    abandon_reason: string | null;
+    /**
+     * The validator every write carries in `If-Match`.
+     */
+    lock_version: number;
+    notes: string | null;
+    /**
+     * The batch cost at confirm, at the weekly prices of that moment. Null when any line was uncosted or the lines disagreed about currency — withheld rather than published short.
+     */
+    estimated_cost_amount?: string | null;
+    estimated_cost_currency_code?: string | null;
+    /**
+     * The published week the estimate was computed against. What makes a historical estimate reproducible when next Monday lands.
+     */
+    weekly_price_publication_id?: Uuid | null;
+    /**
+     * `Σ consumed input cost` at completion. Input waste is **not** in it: it never became product and is reported as production waste instead.
+     */
+    actual_cost_amount?: string | null;
+    actual_cost_currency_code?: string | null;
+    /**
+     * `actual_cost_amount ÷ produced_quantity`. **Withheld unless `actual_cost_status` is `complete`.**
+     */
+    actual_unit_cost_amount?: string | null;
+    actual_cost_status?: ProductionCostStatus | null;
+    /**
+     * Why the cost is partial or unvalued, in the words a reader needs.
+     */
+    valuation_note?: string | null;
+};
+
+/**
+ * One shelf a batch draws on, as planned and as it turned out (PROD1).
+ *
+ * `consumed_quantity` and `waste_quantity` **do not overlap**. The shelf
+ * falls by their sum, as two movements with different reasons: what went
+ * into the batch is cost of goods, and what was dropped on the floor is
+ * waste. Folding the second into the first would put the loss into the
+ * batch's unit cost, where the monthly report would read it as the price of
+ * the food.
+ *
+ * Money keys follow the batch's rule: absent without
+ * `production.view_costs_organisation`, null when nobody could compute them.
+ *
+ */
+export type ProductionOrderLine = {
+    id: Uuid;
+    stock_item_id: Uuid;
+    ingredient_id: Uuid;
+    line_kind: ProductionLineKind;
+    unit_id: Uuid;
+    /**
+     * The plan, in the stock item's own unit.
+     */
+    required_quantity: string;
+    /**
+     * What was actually claimed. Equal to required in the ordinary case; below it after a physical correction left the shelf short, which is precisely what a cook needs to see.
+     */
+    reserved_quantity: string | null;
+    consumed_quantity: string | null;
+    waste_quantity: string | null;
+    /**
+     * The version that supplied a produced component's cost — the one claiming that ingredient's nutrition, so cost and nutrition can never name different versions.
+     */
+    source_recipe_version_id: Uuid | null;
+    display_order: number;
+    estimated_unit_cost_amount?: string | null;
+    cost_source?: ProductionCostSource | null;
+    /**
+     * The figure used when no weekly price existed, so a reader can tell an estimate standing on last week's purchases from one standing on a typed cost.
+     */
+    fallback_unit_cost_amount?: string | null;
+    /**
+     * The moving average at the moment of completion, per `unit_id`.
+     */
+    actual_unit_cost_amount?: string | null;
+    cost_currency_code?: string | null;
+};
+
+/**
+ * One shelf a planned batch would draw on, and whether it can (PROD1).
+ *
+ * Five quantities and no two of them the same question. `available` is
+ * `on_hand − reserved` and **may be negative**, where more is claimed than
+ * is there; a shelf somebody over-committed is a real state and clamping it
+ * would hide it. A batch never counts **its own** claim against itself, so
+ * re-opening a confirmed order does not show it short of everything it
+ * already holds.
+ *
+ */
+export type ProductionPlanLine = {
+    stock_item_id: Uuid;
+    ingredient_id: Uuid;
+    line_kind: ProductionLineKind;
+    unit_id: Uuid;
+    required: string;
+    /**
+     * What is physically there, before any claim.
+     */
+    on_hand: string;
+    /**
+     * What **other** confirmed batches have already claimed.
+     */
+    reserved: string;
+    /**
+     * `on_hand − reserved`. May be negative.
+     */
+    available: string;
+    /**
+     * `max(0, required − available)` — the number a buyer acts on.
+     */
+    missing: string;
+    estimated_unit_cost_amount?: string | null;
+    estimated_line_cost_amount?: string | null;
+    currency_code?: string | null;
+    cost_source?: 'weekly' | 'component' | 'fallback' | 'none';
+    /**
+     * The week the weekly price took effect from. Null on a component or fallback figure, which has no week.
+     */
+    effective_from?: string | null;
+};
+
+/**
+ * Part of a recipe nobody could turn into a quantity (PROD1). **Never
+ * folded into the lines as a zero**: "need nothing for that" and "we could
+ * not work out what this needs" are opposite statements, and a plan that
+ * confused them would send somebody to cook with the wrong shopping.
+ *
+ */
+export type ProductionPlanHole = {
+    reason_code: string;
+    detail: string;
+};
+
+/**
+ * What a batch would need, against what the shelves can actually give
+ * (PROD1). Reads nothing into the future and writes nothing at all.
+ *
+ * `estimated_cost_amount` is **withheld** rather than partial: any uncosted
+ * line, or two currencies among the lines, and it is null with
+ * `uncosted_line_count` or `currency_conflict` saying why. A total over the
+ * lines that happened to have prices reads exactly like a complete one and
+ * is smaller, which is the direction that gets a kitchen into trouble.
+ *
+ * That never blocks anything. `is_confirmable` does not consult cost at all,
+ * because a kitchen about to cook is not refused over arithmetic nobody has
+ * finished.
+ *
+ */
+export type ProductionPlan = {
+    batch_factor: string;
+    ingredients: Array<ProductionPlanLine>;
+    packaging: Array<ProductionPlanLine>;
+    not_computable: Array<ProductionPlanHole>;
+    short_line_count: number;
+    is_confirmable: boolean;
+    estimated_cost_amount?: string | null;
+    currency_code?: string | null;
+    uncosted_line_count?: number;
+    currency_conflict?: boolean;
+    weekly_price_publication_id?: Uuid | null;
+};
+
+/**
+ * The four yield figures and what separates them (PROD1).
+ *
+ * `rejected_quantity` is **inside** `produced_quantity`, so `usable` is the
+ * difference and never the sum of anything. `variance_quantity` is
+ * `produced − planned`: negative is process loss, which never existed as
+ * stock and carries no money of its own.
+ *
+ */
+export type ProductionBatchYield = {
+    planned_quantity: string | null;
+    produced_quantity: string | null;
+    rejected_quantity: string | null;
+    usable_quantity: string | null;
+    variance_quantity: string | null;
+    unit_id: Uuid | null;
+};
+
+/**
+ * What the sheet's figures were anchored to at confirm.
+ */
+export type ProductionSheetBasis = {
+    recipe_version_id: Uuid;
+    confirmed_at: string | null;
+    /**
+     * Stated even without the costs code: **which** week priced a batch is
+     * not itself a price, and a reader who cannot see the money can still
+     * see that the estimate is anchored.
+     *
+     */
+    weekly_price_publication_id: Uuid | null;
+};
+
+export type ProductionTechnicalSheetEnvelope = {
+    data: {
+        technical_sheet: {
+            production_order: ProductionOrder;
+            lines: Array<ProductionOrderLine>;
+            yield: ProductionBatchYield;
+            /**
+             * The version's own block, copied at confirm and presented
+             * rather than recomputed. Where the version **withheld** a
+             * nutrient because an ingredient's data was incomplete, it stays
+             * withheld rather than summed into a total that looks whole.
+             *
+             */
+            nutrition_facts: {
+                [key: string]: unknown;
+            } | null;
+            basis: ProductionSheetBasis;
+        };
+    };
+    meta: Meta & {
+        costs_visible?: boolean;
+    };
 };
 
 export type ProductionOrderCollection = {
     data: {
         production_orders: Array<ProductionOrder>;
     };
-    meta: Meta;
-};
-
-export type CreateProductionOrderRequest = {
-    branch_id: Uuid;
-    recipe_version_id: Uuid;
-    planned_yield?: number | null;
+    meta: Meta & {
+        page?: number;
+        per_page?: number;
+        /**
+         * Stated rather than inferred. A bounded list that stops silently is one somebody plans a week against and gets wrong.
+         */
+        has_more?: boolean;
+        /**
+         * Whether this reader holds `production.view_costs_organisation`. It is what tells a surface that an absent money key is redacted rather than uncomputed.
+         */
+        costs_visible?: boolean;
+        /**
+         * The valuation queue's bound. Absent on the desk queue, which pages instead.
+         */
+        limit?: number;
+        /**
+         * The valuation queue's own "there is more" signal, for the same reason `has_more` exists on the desk.
+         */
+        is_truncated?: boolean;
+    };
 };
 
 export type ProductionOrderEnvelope = {
     data: {
-        production_order: {
-            id: Uuid;
-            status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
-        };
+        production_order: ProductionOrder;
+        lines?: Array<ProductionOrderLine>;
+        plan?: ProductionPlan;
     };
     meta: Meta;
 };
 
-export type ProductionMovementInput = {
-    stock_item_id: Uuid;
-    quantity: number;
+/**
+ * A batch with its lines, and — while it has none — its live plan (PROD1).
+ *
+ * A draft has committed to nothing, so it reads its plan fresh: the shelves
+ * move under it. From confirm onwards the **lines are the answer**: they are
+ * what the kitchen agreed to, what the reservations were opened against and
+ * what the estimate was computed from, and re-deriving them would make all
+ * three disagree.
+ *
+ */
+export type ProductionOrderDetailEnvelope = {
+    data: {
+        production_order: ProductionOrder;
+        lines: Array<ProductionOrderLine>;
+        plan?: ProductionPlan;
+    };
+    meta: Meta & {
+        costs_visible?: boolean;
+    };
+};
+
+export type ProductionPlanEnvelope = {
+    data: {
+        plan: ProductionPlan;
+    };
+    meta: Meta & {
+        costs_visible?: boolean;
+    };
 };
 
 /**
- * No production tasks here (O5) — completing an order is entirely
- * about the stock it consumed and yielded, not a checklist.
+ * Open a draft batch (PROD1). **A draft claims nothing** — that is the whole
+ * reason the state is not called `planned`: a kitchen writing next week's
+ * runs on a Friday afternoon must not be quietly reserving Monday's flour
+ * while it decides.
+ *
+ * `planned_yield` is what a cook thinks in — forty litres of dressing — and
+ * `batch_factor` is what the explosion thinks in — two and a half times
+ * over. Send one; the server derives the other from the version's own yield,
+ * because a client doing that conversion would be a second place the
+ * arithmetic lives.
+ *
+ */
+export type CreateProductionOrderRequest = {
+    branch_id: Uuid;
+    recipe_version_id: Uuid;
+    /**
+     * How much to make, in the output's own unit.
+     */
+    planned_yield?: number | null;
+    /**
+     * How many times over the recipe is made.
+     */
+    batch_factor?: number | null;
+    notes?: string | null;
+};
+
+/**
+ * What the cook says actually happened (PROD1).
+ *
+ * Three yield facts, and exactly one of them is free. **Finished waste** is
+ * `rejected_quantity`: units that were made and then thrown away, inside
+ * `produced_quantity`, carrying the batch's unit cost and leaving the shelf
+ * again as a waste movement. **Input waste** is `waste`, per shelf: raw
+ * material discarded during the batch, which never became product and is
+ * therefore not part of `consumed` and not part of the batch's cost.
+ * **Process loss** is not reported at all — planned forty litres, made
+ * thirty-eight — because it never existed as stock and its cost is already
+ * absorbed into the unit cost of what was produced.
+ *
+ * Omitting a shelf from `consumed` means "as planned" rather than "nothing":
+ * a cook who followed the recipe should not have to retype it. Omitting one
+ * from `waste` means zero, because waste nobody mentioned did not happen.
  *
  */
 export type CompleteProductionOrderRequest = {
     /**
-     * Stock taken from the branch's inventory to run this order. Omitted or empty is legal.
+     * What came out, in the planned yield unit, **including** anything
+     * rejected. Zero is legal and is the batch that went entirely wrong: its
+     * inputs post as waste rather than consumption, nothing reaches a shelf,
+     * and no unit cost is divided.
+     *
      */
-    consumes?: Array<ProductionMovementInput>;
+    produced_quantity: number;
+    rejected_quantity?: number | null;
     /**
-     * Stock produced by this order and added back to inventory.
+     * Stock item id to what went into the batch.
      */
-    yields?: Array<ProductionMovementInput>;
+    consumed?: {
+        [key: string]: number;
+    };
+    /**
+     * Stock item id to input discarded during the batch.
+     */
+    waste?: {
+        [key: string]: number;
+    };
+    production_date?: string | null;
+    batch_reference?: string | null;
+    storage_location?: string | null;
+    expiry_date?: string | null;
+    notes?: string | null;
+};
+
+/**
+ * The completion report plus a required reason (PROD1).
+ *
+ * The same payload as completing, deliberately: what was used was used and
+ * whatever came out came out. A kitchen that had to retype everything to
+ * abandon would cancel instead and leave the flour unaccounted for — and
+ * `cancelled` is the status that promises no stock moved.
+ *
+ */
+export type AbandonProductionOrderRequest = CompleteProductionOrderRequest & {
+    /**
+     * Why the batch was given up. Required, unlike every other field here — an abandoned batch is a loss somebody asks about in a month, and "no reason given" is the answer that makes the record useless.
+     */
+    reason: string;
 };
 
 /**
@@ -25267,6 +25846,57 @@ export type GetMonthlyCostReportResponses = {
 
 export type GetMonthlyCostReportResponse = GetMonthlyCostReportResponses[keyof GetMonthlyCostReportResponses];
 
+export type ShowInventoryValueData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/reports/inventory-value';
+};
+
+export type ShowInventoryValueErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowInventoryValueError = ShowInventoryValueErrors[keyof ShowInventoryValueErrors];
+
+export type ShowInventoryValueResponses = {
+    /**
+     * The current stock valuation.
+     */
+    200: InventoryValueEnvelope;
+};
+
+export type ShowInventoryValueResponse = ShowInventoryValueResponses[keyof ShowInventoryValueResponses];
+
 export type ListConsumptionExceptionsData = {
     body?: never;
     headers: {
@@ -25529,7 +26159,7 @@ export type RetryConsumptionExceptionResponses = {
 
 export type RetryConsumptionExceptionResponse = RetryConsumptionExceptionResponses[keyof RetryConsumptionExceptionResponses];
 
-export type ListProductionOrdersData = {
+export type ListPendingProductionValuationsData = {
     body?: never;
     headers: {
         /**
@@ -25547,10 +26177,10 @@ export type ListProductionOrdersData = {
     };
     path?: never;
     query?: never;
-    url: '/catalogue/production/orders';
+    url: '/catalogue/production/valuations-pending';
 };
 
-export type ListProductionOrdersErrors = {
+export type ListPendingProductionValuationsErrors = {
     /**
      * No usable credential was presented.
      */
@@ -25569,11 +26199,76 @@ export type ListProductionOrdersErrors = {
     429: ErrorEnvelope;
 };
 
+export type ListPendingProductionValuationsError = ListPendingProductionValuationsErrors[keyof ListPendingProductionValuationsErrors];
+
+export type ListPendingProductionValuationsResponses = {
+    /**
+     * Batches awaiting a valuation.
+     */
+    200: ProductionOrderCollection;
+};
+
+export type ListPendingProductionValuationsResponse = ListPendingProductionValuationsResponses[keyof ListPendingProductionValuationsResponses];
+
+export type ListProductionOrdersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * One of the six states. Omitted, the four open ones.
+         */
+        status?: ProductionOrderStatus;
+        /**
+         * Narrow to one production site.
+         */
+        branch_id?: Uuid;
+        page?: number;
+    };
+    url: '/catalogue/production/orders';
+};
+
+export type ListProductionOrdersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
 export type ListProductionOrdersError = ListProductionOrdersErrors[keyof ListProductionOrdersErrors];
 
 export type ListProductionOrdersResponses = {
     /**
-     * Recent production orders.
+     * The desk queue.
      */
     200: ProductionOrderCollection;
 };
@@ -25615,6 +26310,10 @@ export type CreateProductionOrderErrors = {
      */
     403: ErrorEnvelope;
     /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -25628,15 +26327,15 @@ export type CreateProductionOrderError = CreateProductionOrderErrors[keyof Creat
 
 export type CreateProductionOrderResponses = {
     /**
-     * The production order was planned.
+     * The draft batch.
      */
     201: ProductionOrderEnvelope;
 };
 
 export type CreateProductionOrderResponse = CreateProductionOrderResponses[keyof CreateProductionOrderResponses];
 
-export type CompleteProductionOrderData = {
-    body?: CompleteProductionOrderRequest;
+export type ShowProductionOrderData = {
+    body?: never;
     headers: {
         /**
          * The active organisation. Never trusted without server-side validation
@@ -25650,6 +26349,403 @@ export type CompleteProductionOrderData = {
          *
          */
         'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}';
+};
+
+export type ShowProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowProductionOrderError = ShowProductionOrderErrors[keyof ShowProductionOrderErrors];
+
+export type ShowProductionOrderResponses = {
+    /**
+     * The batch.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type ShowProductionOrderResponse = ShowProductionOrderResponses[keyof ShowProductionOrderResponses];
+
+export type ShowProductionOrderPlanData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/plan';
+};
+
+export type ShowProductionOrderPlanErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowProductionOrderPlanError = ShowProductionOrderPlanErrors[keyof ShowProductionOrderPlanErrors];
+
+export type ShowProductionOrderPlanResponses = {
+    /**
+     * The plan.
+     */
+    200: ProductionPlanEnvelope;
+};
+
+export type ShowProductionOrderPlanResponse = ShowProductionOrderPlanResponses[keyof ShowProductionOrderPlanResponses];
+
+export type ShowProductionTechnicalSheetData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/technical-sheet';
+};
+
+export type ShowProductionTechnicalSheetErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowProductionTechnicalSheetError = ShowProductionTechnicalSheetErrors[keyof ShowProductionTechnicalSheetErrors];
+
+export type ShowProductionTechnicalSheetResponses = {
+    /**
+     * The batch's sheet.
+     */
+    200: ProductionTechnicalSheetEnvelope;
+};
+
+export type ShowProductionTechnicalSheetResponse = ShowProductionTechnicalSheetResponses[keyof ShowProductionTechnicalSheetResponses];
+
+export type ConfirmProductionOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/confirm';
+};
+
+export type ConfirmProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ConfirmProductionOrderError = ConfirmProductionOrderErrors[keyof ConfirmProductionOrderErrors];
+
+export type ConfirmProductionOrderResponses = {
+    /**
+     * The batch and its lines, after the move.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type ConfirmProductionOrderResponse = ConfirmProductionOrderResponses[keyof ConfirmProductionOrderResponses];
+
+export type StartProductionOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/start';
+};
+
+export type StartProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StartProductionOrderError = StartProductionOrderErrors[keyof StartProductionOrderErrors];
+
+export type StartProductionOrderResponses = {
+    /**
+     * The batch and its lines, after the move.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type StartProductionOrderResponse = StartProductionOrderResponses[keyof StartProductionOrderResponses];
+
+export type CompleteProductionOrderData = {
+    body: CompleteProductionOrderRequest;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
     };
     path: {
         /**
@@ -25679,9 +26775,25 @@ export type CompleteProductionOrderErrors = {
      */
     404: ErrorEnvelope;
     /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
     /**
      * The rate limit for this endpoint was exceeded.
      */
@@ -25692,12 +26804,203 @@ export type CompleteProductionOrderError = CompleteProductionOrderErrors[keyof C
 
 export type CompleteProductionOrderResponses = {
     /**
-     * The production order is completed.
+     * The batch and its lines, after the move.
      */
-    200: ProductionOrderEnvelope;
+    200: ProductionOrderDetailEnvelope;
 };
 
 export type CompleteProductionOrderResponse = CompleteProductionOrderResponses[keyof CompleteProductionOrderResponses];
+
+export type AbandonProductionOrderData = {
+    body: AbandonProductionOrderRequest;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/abandon';
+};
+
+export type AbandonProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AbandonProductionOrderError = AbandonProductionOrderErrors[keyof AbandonProductionOrderErrors];
+
+export type AbandonProductionOrderResponses = {
+    /**
+     * The batch and its lines, after the move.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type AbandonProductionOrderResponse = AbandonProductionOrderResponses[keyof AbandonProductionOrderResponses];
+
+export type CancelProductionOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/cancel';
+};
+
+export type CancelProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelProductionOrderError = CancelProductionOrderErrors[keyof CancelProductionOrderErrors];
+
+export type CancelProductionOrderResponses = {
+    /**
+     * The batch and its lines, after the move.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type CancelProductionOrderResponse = CancelProductionOrderResponses[keyof CancelProductionOrderResponses];
 
 export type ListQualityChecksData = {
     body?: never;

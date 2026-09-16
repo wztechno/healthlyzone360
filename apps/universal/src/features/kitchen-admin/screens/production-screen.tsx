@@ -22,14 +22,16 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    useCompleteProductionOrderMutation,
+    useConfirmProductionOrderMutation,
     useCreateProductionOrderMutation,
     useProductionOrdersQuery,
+    useStartProductionOrderMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     isProductionOrderOpen,
+    nextProductionEdge,
     productionOrderRowTestId,
     productionStatusKey,
     productionStatusTone,
@@ -38,17 +40,23 @@ import { OpsPanel } from '../ops-panel.tsx';
 import type { OpsMetric } from '../ops-panel.tsx';
 
 /**
- * `/kitchen/production` — batch orders from recipe versions (O5: no task UI).
+ * `/kitchen/production` — the batch list, pending its desk (PROD1).
  *
- * Create takes a published recipe-version id (from the recipe editor). Complete flips planned /
- * in_progress orders to completed with empty consume/yield lists when movements are not entered.
+ * **This screen is interim and the plan replaces it** with a five-route desk under
+ * `/kitchen/production-desk`. What it does today is honest and small: it lists batches, opens
+ * drafts, and advances a batch along the one edge that needs no information — confirm, then start.
+ *
+ * It deliberately offers **no complete button**. Finishing a batch needs what actually came out:
+ * produced, rejected, what went into the pot and what was dropped on the floor. A one-click
+ * complete would have to invent a produced quantity, and the whole point of the settlement is that
+ * those three facts are three different facts. A batch in production says so and waits for the desk.
  */
 
 export function ProductionScreen() {
     return (
         <Gate
             area="kitchen"
-            requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
+            requirement={{ allOf: [PRODUCTION_VIEW_PERMISSION] }}
             testID="kitchen-production"
         >
             <Production />
@@ -60,17 +68,20 @@ function Production() {
     const { t } = useTranslation();
     const toast = useToast();
     const access = useAccessState();
-    const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
+    const canManage = useCan(PRODUCTION_MANAGE_PERMISSION);
     const branchId = access.branch?.id ?? null;
 
-    const orders = useProductionOrdersQuery();
+    // Every state rather than the open ones, because this list is also the only
+    // place a completed batch can be seen until the register lands.
+    const orders = useProductionOrdersQuery({});
     const createOrder = useCreateProductionOrderMutation();
-    const completeOrder = useCompleteProductionOrderMutation();
+    const confirmOrder = useConfirmProductionOrderMutation();
+    const startOrder = useStartProductionOrderMutation();
 
     const [creating, setCreating] = useState(false);
     const [recipeVersionId, setRecipeVersionId] = useState('');
 
-    const rows = orders.data ?? [];
+    const rows = orders.data?.orders ?? [];
     const ordersFailure = toFailure(orders.error);
     const openCount = rows.filter((row) => isProductionOrderOpen(row.status)).length;
     const completedCount = rows.filter((row) => row.status === 'completed').length;
@@ -120,22 +131,36 @@ function Production() {
         );
     }
 
-    function submitComplete(order: ProductionOrder) {
-        completeOrder.mutate(
-            {
-                productionOrderId: order.id,
-                request: { consumes: [], yields: [] },
-            },
-            {
-                onSuccess: () => {
-                    toast.show({
-                        testID: 'kitchen-production-completed-toast',
-                        tone: 'success',
-                        message: t('kitchen:ops.production.completedToast'),
-                    });
-                },
-            },
-        );
+    /**
+     * Advance a batch along its next edge, carrying the version it was read at.
+     *
+     * Two people share this list, so the `lockVersion` is what stops the second press
+     * double-confirming a batch the first already moved.
+     */
+    function advance(order: ProductionOrder) {
+        const edge = nextProductionEdge(order.status);
+        if (edge === null) return;
+
+        const variables = { productionOrderId: order.id, lockVersion: order.lockVersion };
+
+        const onSuccess = () => {
+            toast.show({
+                testID: 'kitchen-production-advanced-toast',
+                tone: 'success',
+                message: t(
+                    edge === 'confirm'
+                        ? 'kitchen:ops.production.confirmedToast'
+                        : 'kitchen:ops.production.startedToast',
+                ),
+            });
+        };
+
+        if (edge === 'confirm') {
+            confirmOrder.mutate(variables, { onSuccess });
+            return;
+        }
+
+        startOrder.mutate(variables, { onSuccess });
     }
 
     const columns: readonly TableColumn<ProductionOrder>[] = [
@@ -167,21 +192,30 @@ function Production() {
         {
             key: 'actions',
             header: t('kitchen:ops.production.columnActions'),
-            render: (row) =>
-                canManage && isProductionOrderOpen(row.status) ? (
+            render: (row) => {
+                const edge = canManage ? nextProductionEdge(row.status) : null;
+
+                if (edge === null) {
+                    return <Text tone="secondary">—</Text>;
+                }
+
+                return (
                     <Button
-                        testID={`${productionOrderRowTestId(String(row.id))}-complete`}
+                        testID={`${productionOrderRowTestId(String(row.id))}-${edge}`}
                         size="sm"
                         variant="secondary"
-                        label={t('kitchen:ops.production.complete')}
-                        loading={completeOrder.isPending}
+                        label={t(
+                            edge === 'confirm'
+                                ? 'kitchen:ops.production.confirm'
+                                : 'kitchen:ops.production.start',
+                        )}
+                        loading={confirmOrder.isPending || startOrder.isPending}
                         onPress={() => {
-                            submitComplete(row);
+                            advance(row);
                         }}
                     />
-                ) : (
-                    <Text tone="secondary">—</Text>
-                ),
+                );
+            },
         },
     ];
 

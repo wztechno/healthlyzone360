@@ -8,6 +8,7 @@ use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
 use Healthy360\Inventory\Models\OrderConsumptionException;
+use Healthy360\Inventory\Models\OrderLineEstimatedCost;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -19,8 +20,13 @@ use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Procurement\Models\GoodsReceipt;
 use Healthy360\Procurement\Models\GoodsReceiptLine;
 use Healthy360\Procurement\Services\MonthlyCostReportService;
+use Healthy360\Production\Enums\ProductionOrderStatus;
+use Healthy360\Production\Models\ProductionOrder;
+use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -430,3 +436,160 @@ it('counts a price waiting on an exchange rate as spend, and still calls the mon
         ->and($row['unpriced_line_count'])->toBe(0)
         ->and($row['valuation_pending_line_count'])->toBe(1);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Production and the estimated margin (PROD1)
+|--------------------------------------------------------------------------
+|
+| Three figures that must never be added to anything, and a fourth that must be
+| withheld rather than published short.
+|
+*/
+
+/** A production movement of one reason, valued, stamped in a given month. */
+function reportProductionMovement(object $test, string $reason, string $quantity, string $cost, string $createdAt): void
+{
+    StockMovement::withoutTimestamps(fn () => StockMovement::query()->create([
+        'organisation_id' => $test->orgId,
+        'branch_id' => $test->branchId,
+        'stock_item_id' => $test->stockItemId,
+        'quantity_delta' => $reason === 'yield' ? $quantity : '-'.$quantity,
+        'reason' => $reason,
+        'reference_type' => 'production_order',
+        'reference_id' => (string) Str::uuid(),
+        'unit_cost_amount' => $cost,
+        'cost_amount' => $cost,
+        'cost_currency_code' => 'USD',
+        'created_at' => $createdAt,
+        'updated_at' => $createdAt,
+    ]));
+}
+
+it('keeps what a batch ate out of cost of goods sold', function (): void {
+    $order = reportOrder($this, OrderStatus::Confirmed, 10_000, '2026-03-04 10:00:00');
+    reportConsume($this, $order, '30.000000', '2026-03-04 10:05:00');
+
+    // A batch ate twenty dollars of flour in the same month. The flour has not
+    // been sold — it is dressing on a shelf — so charging it to COGS would make
+    // the month look like it sold food it still has.
+    reportProductionMovement($this, 'consume', '10.0000', '20.000000', '2026-03-06 09:00:00');
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-03', 'USD');
+
+    expect($row['cogs_amount'])->toBe('30.000000')
+        ->and($row['production_consumption_amount'])->toBe('20.000000');
+});
+
+it('reports production waste as a subset of the waste row rather than an addition', function (): void {
+    reportWaste($this, '2.0000', '5.000000', '2026-03-10 09:00:00');
+    reportProductionMovement($this, 'waste', '1.0000', '3.000000', '2026-03-11 09:00:00');
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-03', 'USD');
+
+    // Eight is the total and three is the part of it production caused. A reader
+    // adding them would count the batch's loss twice.
+    expect($row['waste_amount'])->toBe('8.000000')
+        ->and($row['production_waste_amount'])->toBe('3.000000');
+});
+
+it('states finished-goods yield value without putting it in revenue or in cost', function (): void {
+    $order = reportOrder($this, OrderStatus::Confirmed, 10_000, '2026-03-04 10:00:00');
+    reportConsume($this, $order, '30.000000', '2026-03-04 10:05:00');
+    reportProductionMovement($this, 'yield', '20.0000', '18.000000', '2026-03-06 09:00:00');
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-03', 'USD');
+
+    // An inventory transformation: the same money, now in finished goods rather
+    // than raw materials. It appears on neither side of the margin.
+    expect($row['production_yield_value_amount'])->toBe('18.000000')
+        ->and($row['revenue_amount'])->toBe('100.000000')
+        ->and($row['cogs_amount'])->toBe('30.000000')
+        ->and($row['gross_margin_amount'])->toBe('70.000000');
+});
+
+it('reports an estimated margin beside the actual one, over the same sales', function (): void {
+    $order = reportOrder($this, OrderStatus::Confirmed, 10_000, '2026-03-04 10:00:00');
+    reportLine($order, $this->meal, 10_000);
+    reportConsume($this, $order, '30.000000', '2026-03-04 10:05:00');
+
+    OrderLineEstimatedCost::query()->create([
+        'organisation_id' => $this->orgId,
+        'order_id' => (string) $order->getKey(),
+        'order_line_id' => (string) $order->lines()->sole()->getKey(),
+        'estimated_cost_amount' => '25.000000',
+        'currency_code' => 'USD',
+    ]);
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-03', 'USD');
+
+    // Expected 25, cost 30: the kitchen priced this dish against a number five
+    // dollars too low, and the gap between the two margins is the thing worth
+    // knowing.
+    expect($row['estimated_cogs_amount'])->toBe('25.000000')
+        ->and($row['estimated_margin_amount'])->toBe('75.000000')
+        ->and($row['gross_margin_amount'])->toBe('70.000000')
+        ->and($row['is_estimate_complete'])->toBeTrue()
+        ->and($row['unestimated_line_count'])->toBe(0);
+});
+
+it('withholds the estimated margin when a line of the month has no estimate', function (): void {
+    $order = reportOrder($this, OrderStatus::Confirmed, 10_000, '2026-03-04 10:00:00');
+    reportLine($order, $this->meal, 6_000);
+    reportLine($order, $this->product, 4_000);
+    reportConsume($this, $order, '30.000000', '2026-03-04 10:05:00');
+
+    // Only one of the two lines could be estimated.
+    OrderLineEstimatedCost::query()->create([
+        'organisation_id' => $this->orgId,
+        'order_id' => (string) $order->getKey(),
+        'order_line_id' => (string) $order->lines()->first()->getKey(),
+        'estimated_cost_amount' => '15.000000',
+        'currency_code' => 'USD',
+    ]);
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-03', 'USD');
+
+    // Fifteen over a two-line month reads exactly like a complete figure and is
+    // too small, so it is withheld — and the count says how much is missing
+    // rather than leaving the null bare.
+    expect($row['estimated_cogs_amount'])->toBeNull()
+        ->and($row['estimated_margin_amount'])->toBeNull()
+        ->and($row['estimated_margin_percent'])->toBeNull()
+        ->and($row['is_estimate_complete'])->toBeFalse()
+        ->and($row['unestimated_line_count'])->toBe(1);
+});
+
+it('flags a month whose batch nobody could value, on its own third flag', function (): void {
+    $order = reportOrder($this, OrderStatus::Confirmed, 10_000, '2026-03-04 10:00:00');
+    reportConsume($this, $order, '30.000000', '2026-03-04 10:05:00');
+
+    ProductionOrder::withoutTimestamps(fn () => ProductionOrder::query()->create([
+        'organisation_id' => $this->orgId,
+        'branch_id' => $this->branchId,
+        'recipe_version_id' => reportRecipeVersion($this),
+        'status' => ProductionOrderStatus::Completed,
+        'actual_cost_status' => ProductionOrder::COST_PARTIAL,
+        'completed_at' => '2026-03-12 14:00:00',
+    ]));
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-03', 'USD');
+
+    // Three flags, three different things to be wrong about. This month's
+    // purchases are fine and its sales are fine; what it cost to *make* is not.
+    expect($row['is_production_valuation_complete'])->toBeFalse()
+        ->and($row['unvalued_batch_count'])->toBe(1)
+        ->and($row['is_spend_complete'])->toBeTrue()
+        ->and($row['has_data_quality_flag'])->toBeFalse();
+});
+
+/** A published recipe version this kitchen can hang a batch off. */
+function reportRecipeVersion(object $test): string
+{
+    $recipe = Recipe::factory()->create(['organisation_id' => $test->orgId]);
+
+    return (string) RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $test->orgId,
+    ])->getKey();
+}

@@ -11,6 +11,7 @@ use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Inventory\Models\OrderConsumptionException;
+use Healthy360\Inventory\Models\OrderLineEstimatedCost;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
@@ -467,6 +468,48 @@ it('records an exception instead of hard-failing when there is not enough stock'
         ->and(levelOf($flour))->toBe('0.0100')
         ->and(consumeMovements($order)->count())->toBe(0)
         ->and(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('insufficient_stock');
+});
+
+it('freezes what a line was expected to cost, and does not move it afterwards', function (): void {
+    // Two dollars a kilo typed on the ingredient, 0.05 kg per portion: the line
+    // was expected to cost ten cents.
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+
+    Ingredient::withoutTenancy()->whereKey($flour->ingredient_id)->update([
+        'purchase_price_amount' => '2.000000',
+        'purchase_price_currency' => 'USD',
+        'purchase_unit_id' => (string) $this->kg->getKey(),
+    ]);
+
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    $estimate = OrderLineEstimatedCost::withoutTenancy()->sole();
+
+    expect((string) $estimate->estimated_cost_amount)->toBe('0.100000')
+        ->and($estimate->currency_code)->toBe('USD');
+
+    // The ingredient's price triples afterwards. Last month's estimated margin
+    // must not move — which is the entire reason this is a stored figure rather
+    // than one the report recomputes.
+    Ingredient::withoutTenancy()->whereKey($flour->ingredient_id)->update([
+        'purchase_price_amount' => '6.000000',
+    ]);
+
+    expect((string) OrderLineEstimatedCost::withoutTenancy()->sole()->estimated_cost_amount)->toBe('0.100000');
+});
+
+it('writes no estimate at all for a line it cannot price, rather than a zero', function (): void {
+    // No typed price and no weekly price: the line has no estimate. A zero here
+    // would make the month's estimated margin read high and complete.
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    expect(OrderLineEstimatedCost::withoutTenancy()->count())->toBe(0);
 });
 
 it('records a reservation block as its own reason, not as an empty shelf', function (): void {

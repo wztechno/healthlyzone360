@@ -10261,6 +10261,53 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/reports/inventory-value:
+    get:
+      operationId: showInventoryValue
+      tags: [Kitchen inventory & production]
+      summary: What the stock on hand is worth
+      description: |
+        `Σ quantity_on_hand × moving_average_cost_amount`, one row per currency
+        (PROD1). The one figure the finance requirement names that had nowhere to
+        live: the monthly report says what a month bought, sold, wasted and made,
+        and nothing said what is left.
+
+        **A current valuation, not a period-end one.** There is no period close in
+        this system and this does not invent one — `meta.as_of` is the instant the
+        figure was read, published rather than implied, because a closing
+        valuation would need snapshots nobody takes.
+
+        **Never a single total.** A kitchen holding dollar flour and euro oil has
+        two valuations; this system has no exchange rate and will not acquire one
+        here.
+
+        **Stock nobody can value is counted, not zeroed.**
+        `meta.unvalued_item_count` is ingredients holding quantity with no moving
+        average — never bought at a recorded price, or a batch that finished
+        `partial`. Valuing them at zero would make the total read low *and*
+        complete, which is the worse of the two ways to be wrong.
+
+        Requires `inventory.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The current stock valuation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryValueEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/inventory/consumption-exceptions:
     get:
       operationId: listConsumptionExceptions
@@ -10456,23 +10503,37 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
-  /catalogue/production/orders:
+  /catalogue/production/valuations-pending:
     get:
-      operationId: listProductionOrders
+      operationId: listPendingProductionValuations
       tags: [Kitchen inventory & production]
-      summary: List production orders
+      summary: Batches that finished without a cost
       description: |
-        The most recent 50 orders, newest first. No production tasks are
-        served here (O5) — an order's own checklist is not part of this
-        surface.
+        The work queue behind the monthly report's third completeness flag
+        (PROD1). A batch is on it while `actual_cost_status` is anything but
+        `complete`, and leaves it when that changes — the same definition the
+        report counts, so the badge and the list can never disagree.
 
-        Requires `inventory.view_organisation`.
+        **A read, with deliberately no companion write.** The obvious next
+        endpoint would re-value a batch once the missing input costs arrive and
+        blend the result into the produced ingredient's moving average. Doing that
+        correctly needs something nothing records: how much of the batch is still
+        on the shelf. Blending the full produced quantity would overstate the
+        basis, and blending nothing while clearing the flag would tell a reader
+        the period is trustworthy when it is not. So the batch stays flagged and
+        the queue says which to look at (OQ-052).
+
+        Bounded at 100 with `meta.is_truncated` stated: a queue that silently
+        stops is one somebody works through and believes they finished.
+
+        Requires `inventory.view_costs_organisation` — the queue is entirely about
+        money.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
-          description: Recent production orders.
+          description: Batches awaiting a valuation.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -10486,15 +10547,77 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders:
+    get:
+      operationId: listProductionOrders
+      tags: [Kitchen inventory & production]
+      summary: List production batches
+      description: |
+        The production desk queue (PROD1) — fifty per page, newest first, with
+        `has_more` stated rather than inferred.
+
+        `status` defaults to the four **open** states, because a desk is a working
+        surface and what it is for is the batches somebody still has to do
+        something about. Narrowing it to one state is also how the batch register
+        reads completed runs, out of this endpoint rather than a second one.
+
+        Ordered by creation rather than by status: a queue sorted by a status
+        vocabulary teaches people the vocabulary's order instead of showing them
+        their work.
+
+        Requires `production.view_organisation`. Money is redacted **inside** the
+        payload by `production.view_costs_organisation`, and `meta.costs_visible`
+        says which happened.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: One of the six states. Omitted, the four open ones.
+          schema:
+            $ref: '#/components/schemas/ProductionOrderStatus'
+        - name: branch_id
+          in: query
+          required: false
+          description: Narrow to one production site.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The desk queue.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
     post:
       operationId: createProductionOrder
       tags: [Kitchen inventory & production]
-      summary: Plan a production order
+      summary: Open a draft batch
       description: |
-        Starts an order in `planned`. Nothing is consumed or yielded yet —
-        that is what completing the order does.
+        Starts a batch in `draft` (PROD1). **A draft claims nothing** — that is
+        the whole reason the state is not called `planned`. Confirm is where the
+        commitment happens.
 
-        Requires `inventory.manage_organisation`.
+        Requires `production.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -10506,54 +10629,7 @@ paths:
               $ref: '#/components/schemas/CreateProductionOrderRequest'
       responses:
         '201':
-          description: The production order was planned.
-          headers:
-            X-Correlation-Id:
-              $ref: '#/components/headers/XCorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProductionOrderEnvelope'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/ContextOrPermissionDenied'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-
-  /catalogue/production/orders/{productionOrder}/complete:
-    post:
-      operationId: completeProductionOrder
-      tags: [Kitchen inventory & production]
-      summary: Complete a production order
-      description: |
-        Records what the run actually consumed and yielded, one inventory
-        movement per line (`reason: consume` and `reason: yield`), and
-        moves the order to `completed` — all inside one transaction. Both
-        lists are optional: an order with nothing yet consumed is a legal
-        call, though an unusual one.
-
-        Requires `inventory.manage_organisation`.
-      parameters:
-        - name: productionOrder
-          in: path
-          required: true
-          description: The production order identifier.
-          schema:
-            $ref: '#/components/schemas/Uuid'
-        - $ref: '#/components/parameters/XOrganisationIdRequired'
-        - $ref: '#/components/parameters/XClientRequestId'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CompleteProductionOrderRequest'
-      responses:
-        '200':
-          description: The production order is completed.
+          description: The draft batch.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -10571,6 +10647,483 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}:
+    get:
+      operationId: showProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Read one batch
+      description: |
+        A batch with its lines and, while it has none, its live plan (PROD1).
+
+        A draft has committed to nothing, so it reads its plan fresh: the shelves
+        move under it, and showing yesterday's availability would be showing a
+        number nobody can act on. From confirm onwards the **lines are the
+        answer** — they are what the kitchen agreed to, what the reservations were
+        opened against and what the estimate was computed from.
+
+        A batch belonging to another kitchen is a **404**, never a 403: telling
+        somebody that a production order exists and is not theirs is itself a
+        disclosure.
+
+        Requires `production.view_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The batch.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/plan:
+    get:
+      operationId: showProductionOrderPlan
+      tags: [Kitchen inventory & production]
+      summary: What this batch would need now
+      description: |
+        The live plan against today's shelves (PROD1). Separate from the batch
+        detail because it answers a *moving* question, and a confirmed batch wants
+        both: what it committed to (its lines) and what the shelves say today.
+
+        A confirmed batch's plan excludes **its own** claim, so it does not appear
+        short of everything it already holds — the one thing that must never
+        happen when somebody re-opens an order to check it.
+
+        Writes nothing.
+
+        Requires `production.view_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The plan.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionPlanEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/technical-sheet:
+    get:
+      operationId: showProductionTechnicalSheet
+      tags: [Kitchen inventory & production]
+      summary: What this batch stood on
+      description: |
+        The batch's technical sheet, read **only** from what confirm snapshotted
+        (PROD1).
+
+        The recipe's own sheet answers "what does this cost today" and moves when
+        a price is published or a formulation is edited. This answers "what did
+        *that batch* stand on", and must not move at all — a publication id alone
+        does not freeze a fallback price, a produced component's chosen version or
+        the version's nutrition, so the order stores each of those and this reads
+        them back.
+
+        Available from confirm onwards. A draft answers with an empty `lines`
+        array rather than a 404: the batch exists, and saying so is more useful
+        than pretending it does not.
+
+        Requires `production.view_organisation`; the money on it additionally
+        requires `production.view_costs_organisation`, redacted field by field.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The batch's sheet.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionTechnicalSheetEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/confirm:
+    post:
+      operationId: confirmProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Commit to a batch
+      description: |
+        Freezes the plan, **claims the stock**, and snapshots the estimate, the
+        price basis and the version's nutrition (PROD1). Everything it writes is
+        frozen: re-deriving any of it later would make the plan, the claims and
+        the estimate disagree with each other.
+
+        It **refuses a shelf it cannot claim** — `409 inventory.insufficient_stock`
+        naming the shelf. That is the point of a reservation: the desk shows
+        `missing` before anybody presses the button, so this is never a surprise,
+        and a confirm that reserved what it could would be a promise the system
+        knows it cannot keep.
+
+        A version that states no output, or more than one, is
+        `422 production.plan_refused`. Co-product allocation needs a policy nobody
+        has chosen, and by mass, by value and by a stated ratio give materially
+        different unit costs.
+
+        **`Idempotency-Key` is optional and is one of three different guards.**
+        `If-Match` catches a stale screen — somebody else moved the batch. This
+        catches a redelivered request. The service's own movement-existence check
+        catches a partial failure, which neither header would save, because a
+        retry after one is a different request with a different key and a fresh
+        lock version.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/start:
+    post:
+      operationId: startProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Start cooking a batch
+      description: |
+        Moves a confirmed batch to `in_production` (PROD1). Nothing moves; this is
+        the point after which something may.
+
+        Requires `production.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/complete:
+    post:
+      operationId: completeProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Finish a batch
+      description: |
+        One transaction (PROD1): consume the inputs against the batch's own claim,
+        record input waste as its own movements, post the yield, take the rejected
+        units back off at the batch unit cost, blend the finished valuation, close
+        the claims.
+
+        **Never blocked on cost arithmetic.** A kitchen that has physically cooked
+        is not refused because nobody typed a price for the salt: the batch
+        carries `actual_cost_status` instead, the unit cost is withheld unless it
+        is `complete`, and the produced ingredient's average is left where it was
+        rather than blended with a partial figure.
+
+        Idempotent at two grains: a completed batch completes again as a no-op,
+        and a movement that already exists for a `(batch, shelf, reason)` is not
+        posted twice — which is what makes a *partial* failure recoverable.
+
+        Requires `production.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteProductionOrderRequest'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/abandon:
+    post:
+      operationId: abandonProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Give up on a started batch
+      description: |
+        The same transaction as completing, with a different ending and a required
+        reason (PROD1). A batch that went wrong after eating four kilos of flour
+        did not un-happen, and recording it as cancelled would leave four kilos
+        missing from a shelf with nothing to explain it.
+
+        **`cancelled` never carries stock movements and `abandoned` always may.**
+        That is the entire distinction, and it is what lets anybody reading a
+        production order trust its status without opening the ledger.
+
+        Requires `production.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AbandonProductionOrderRequest'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/cancel:
+    post:
+      operationId: cancelProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Call off a batch that took nothing
+      description: |
+        Releases the claims and deducts nothing (PROD1). A draft has none to
+        release; a confirmed batch does.
+
+        From `in_production` it is permitted **only** when nothing has moved, and
+        that is proven against the movement ledger rather than believed: where
+        movements exist the refusal is
+        `409 production.consumption_recorded`, naming `abandon` as the route
+        rather than leaving the caller to guess.
+
+        Requires `production.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 
   /catalogue/quality-control/checks:
     get:
@@ -22053,6 +22606,9 @@ components:
         - record_export.unavailable
         - payment.refund_exceeds_capture
         - inventory.insufficient_stock
+        - production.state_invalid
+        - production.plan_refused
+        - production.consumption_recorded
         - unit.conversion_unsupported
         - access.self_lockout
         - rate_limit.exceeded
@@ -31235,6 +31791,51 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    InventoryValueRow:
+      type: object
+      required: [currency_code, value_amount, valued_item_count]
+      additionalProperties: false
+      properties:
+        currency_code:
+          type: string
+        value_amount:
+          type: string
+          description: Major units. Real and possibly **incomplete** — see `meta.unvalued_item_count`.
+        valued_item_count:
+          type: integer
+          description: Ingredients contributing to this currency's figure.
+
+    InventoryValueEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [inventory_value]
+          additionalProperties: false
+          properties:
+            inventory_value:
+              type: array
+              items:
+                $ref: '#/components/schemas/InventoryValueRow'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                as_of:
+                  type: string
+                  format: date-time
+                  description: The instant the figure was read. Published rather than implied, so nobody mistakes a live valuation for a closing one.
+                unvalued_item_count:
+                  type: integer
+                valued_item_count:
+                  type: integer
+                is_complete:
+                  type: boolean
+                  description: Stated rather than derived from the count, so a client renders "incomplete" without re-deciding what incomplete means.
+
     MonthlyCostReportRow:
       type: object
       required:
@@ -31258,15 +31859,39 @@ components:
         - is_spend_complete
         - unpriced_line_count
         - valuation_pending_line_count
-      description: >-
+        - production_consumption_amount
+        - production_waste_amount
+        - production_yield_value_amount
+        - estimated_cogs_amount
+        - estimated_margin_amount
+        - estimated_margin_percent
+        - unestimated_line_count
+        - is_estimate_complete
+        - is_production_valuation_complete
+        - unvalued_batch_count
+      description: |
         One month of one kitchen's economics in one currency (INV1.4). Every
         amount is a major-unit decimal string; figures are never summed across
-        currencies. Two data-quality flags, never merged: one says the month's
-        COGS is understated by unresolved consumption exceptions, the other says
-        its spend is understated because a delivery's invoice has not been
-        entered (SUP6, §3.6). The three spend-completeness fields are month facts
-        rather than currency facts — an unpriced line has no currency — so, like
-        waste_quantity, they repeat across a month's currency rows.
+        currencies. The spend-completeness fields are month facts rather than
+        currency facts — an unpriced line has no currency — so, like
+        `waste_quantity`, they repeat across a month's currency rows.
+
+        **Three production figures, and none of them sums with anything** (PROD1).
+        `production_consumption_amount` is *not* inside `cogs_amount`: COGS joins
+        to an order and a batch has none, so flour that became dressing has not
+        been sold yet. `production_waste_amount` *is* inside `waste_amount`,
+        published as an "of which" breakdown rather than an addition, because the
+        waste row already counted it. `production_yield_value_amount` is
+        **neither revenue nor expense** — money moving from raw materials into
+        finished goods, the same figure on both sides of the shelf — and is named
+        so nobody adds it to anything.
+
+        **Three completeness flags, never merged**, because they undermine three
+        different numbers: `is_spend_complete` says what the month cost to buy is
+        understated, `has_data_quality_flag` says what it cost to sell is, and
+        `is_production_valuation_complete` says what it cost to *make* is. One
+        flag covering all three would tell a reader something is wrong and not
+        what.
       properties:
         month:
           type: string
@@ -31314,6 +31939,59 @@ components:
         other_cogs_amount:
           type: string
           description: Cost of goods sold not attributed to a meal or product line (e.g. a consume predating INV1.5), major units. The three COGS splits reconcile to cogs_amount.
+        production_consumption_amount:
+          type: string
+          description: |
+            What batches ate this month — Σ consume-movement cost against a
+            production order, major units. **Not** part of `cogs_amount`: it has
+            not been sold yet.
+        production_waste_amount:
+          type: string
+          description: |
+            What batches lost this month — input discarded during a run and
+            finished units rejected after one. **Already inside `waste_amount`**;
+            adding the two would count the loss twice.
+        production_yield_value_amount:
+          type: string
+          description: |
+            What batches put on the shelf this month, at the batch unit cost.
+            **Neither revenue nor expense** — an inventory transformation, stated
+            so a reader can see the batch happened.
+        estimated_cogs_amount:
+          type: [string, 'null']
+          description: |
+            What this month's sales were **expected** to cost, frozen line by
+            line when each order was confirmed (PROD1) — never recomputed, or a
+            recipe edited in October would move September's margin silently.
+            Null whenever any line of the month could not be estimated: a total
+            over the priced half reads exactly like a complete one and is too
+            small.
+        estimated_margin_amount:
+          type: [string, 'null']
+          description: Revenue minus `estimated_cogs_amount`. Null on the same terms.
+        estimated_margin_percent:
+          type: [string, 'null']
+          description: The estimated margin as a percentage of revenue; null when revenue is zero or the estimate is withheld.
+        unestimated_line_count:
+          type: integer
+          description: |
+            Sold lines with no frozen estimate — no recipe, no price, or two
+            currencies. Published so the withheld estimate says how much is
+            missing rather than leaving the null unexplained. A month fact, like
+            the spend-completeness fields.
+        is_estimate_complete:
+          type: boolean
+          description: True when every sold line of the month carries a frozen estimate.
+        is_production_valuation_complete:
+          type: boolean
+          description: |
+            False when a batch finished this month without a complete valuation.
+            Such a batch put stock on a shelf whose value nobody could compute,
+            so the finished-goods figures and every sale drawn from that shelf are
+            understated.
+        unvalued_batch_count:
+          type: integer
+          description: How many batches completed or abandoned this month carry a `partial` or `unvalued` cost. A month fact.
         has_data_quality_flag:
           type: boolean
           description: True when unresolved consumption exceptions mean this month's COGS is understated.
@@ -31504,95 +32182,674 @@ components:
           description: A free-text reason the reviewer typed, or null.
       additionalProperties: false
 
+    ProductionOrderStatus:
+      type: string
+      description: |
+        Where a batch has got to (PROD1). Six states, one forward path and two
+        different exits.
+
+        `draft → confirmed → in_production → completed`, with `cancelled`
+        reachable while nothing has been taken off a shelf and `abandoned`
+        reachable once something has. **`cancelled` never carries stock movements
+        and `abandoned` always may** — that is the whole distinction, and it is
+        what lets a reader trust the status without opening the movement ledger.
+
+        `draft` and `in_production` replace the pre-PROD1 `planned` and
+        `in_progress`: the old words described a schedule, and these describe a
+        commitment. Nothing is reserved under `draft`, which is what the word now
+        says out loud.
+      enum: [draft, confirmed, in_production, completed, cancelled, abandoned]
+
+    ProductionCostStatus:
+      type: string
+      description: |
+        Whether a completed batch could be valued (PROD1).
+
+        `complete` — every input that moved had a valued cost, all in one
+        currency. `partial` — at least one input contributed quantity and no
+        money, so the total is real and **too small**; the unit cost is withheld
+        rather than published, because a partial total reads exactly like a
+        complete one. `unvalued` — the inputs disagree about currency, and this
+        system has no exchange rate and refuses to add unlike money.
+      enum: [complete, partial, unvalued]
+
+    ProductionLineKind:
+      type: string
+      description: |
+        Whether a batch line is formulation or packaging (PROD1). They behave
+        differently: a cook reports what actually went into the pot and what was
+        thrown away, while packaging is taken as planned. The split is also what
+        stops a finished-stock sale deducting the box a second time.
+      enum: [ingredient, packaging]
+
+    ProductionCostSource:
+      type: string
+      description: |
+        On whose authority a line was estimated (PROD1). `weekly` is the
+        published weighted average of what was actually paid; `component` is the
+        recipe that makes the thing, which is what stops a dressing's olive oil
+        being counted inside the dressing and again inside the salad; `fallback`
+        is a price somebody typed, real and visibly weaker than the other two.
+
+        A line with no usable figure carries `null` and stays **uncosted** rather
+        than zero — a zero reads as free, and a kitchen would price against it.
+      enum: [weekly, component, fallback]
+
     ProductionOrder:
       type: object
-      required: [id, recipe_version_id, status, branch_id]
+      description: |
+        One batch (PROD1).
+
+        **The money keys are absent, not null, without
+        `production.view_costs_organisation`.** Absent means "this reader may not
+        see it"; present and null means "nobody could compute it". A surface
+        renders the first as nothing at all and the second as an em dash, and
+        collapsing them would tell a kitchen manager a batch was free.
+
+        `usable_yield_quantity` and `yield_variance_quantity` are computed, never
+        stored: `produced − rejected` and `produced − planned`. Rejected units are
+        **inside** produced, never beside it — a batch that made 38 and threw one
+        away produced 38 and has 37 on the shelf.
+      required:
+        [id, reference, branch_id, recipe_version_id, production_item_ingredient_id,
+         production_item_name_en, planned_yield_unit_code, status,
+         batch_factor, planned_yield, planned_yield_unit_id, produced_quantity, rejected_quantity,
+         usable_yield_quantity, yield_variance_quantity, production_date, batch_reference,
+         storage_location, expiry_date, is_expired, confirmed_at, started_at, completed_at,
+         cancelled_at, abandoned_at, abandon_reason, lock_version, notes]
+      additionalProperties: false
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
-        recipe_version_id:
-          $ref: '#/components/schemas/Uuid'
-        status:
-          type: string
-          enum: [planned, in_progress, completed, cancelled]
+        reference:
+          type: [string, 'null']
+          description: The kitchen-facing batch number, `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. Not the label — that is `batch_reference`, which the cook writes.
         branch_id:
           $ref: '#/components/schemas/Uuid'
+        recipe_version_id:
+          $ref: '#/components/schemas/Uuid'
+        production_item_ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: What the batch makes — the recipe version's single output.
+        production_item_name_en:
+          type: [string, 'null']
+          description: |
+            That ingredient's name. Carried beside the id because a desk showing a
+            uuid where a name belongs is a desk nobody can work from. Null means
+            the ingredient is gone — an em dash, not a blank.
+        planned_yield_unit_code:
+          type: [string, 'null']
+          description: The unit's code, for rendering a quantity that reads as a quantity.
+        status:
+          $ref: '#/components/schemas/ProductionOrderStatus'
+        batch_factor:
+          type: [string, 'null']
+          description: How many times over the recipe is being made. Stored rather than re-derived, because a published version can be superseded and a batch confirmed at 2.5× stays a batch of 2.5×.
+        planned_yield:
+          type: [string, 'null']
+          description: How much the batch is meant to make, in `planned_yield_unit_id`.
+        planned_yield_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        produced_quantity:
+          type: [string, 'null']
+          description: What came out, **including** anything later rejected. Null until the batch is settled, which is not the same as zero.
+        rejected_quantity:
+          type: [string, 'null']
+          description: Produced and then discarded — inside `produced_quantity`, never beside it.
+        usable_yield_quantity:
+          type: [string, 'null']
+          description: '`produced − rejected` — what is actually on the shelf. Computed, never stored.'
+        yield_variance_quantity:
+          type: [string, 'null']
+          description: |
+            `produced − planned`. Negative is process loss — evaporation, pot
+            residue — which never existed as stock, has no movement and no money
+            of its own. Its cost is already absorbed into the unit cost of what
+            *was* produced, so no figure is invented for it.
+        production_date:
+          type: [string, 'null']
+          format: date
+          description: The branch-local business date the batch was made, like `goods_receipts.received_on`.
+        batch_reference:
+          type: [string, 'null']
+          description: What the cook writes on the tray, in whatever scheme the kitchen already uses. Free text, deliberately not the system reference.
+        storage_location:
+          type: [string, 'null']
+        expiry_date:
+          type: [string, 'null']
+          format: date
+        is_expired:
+          type: boolean
+          description: Past its date. A batch with **no** expiry date is not expired — that is "nobody recorded one", which is never the same as "it is fine".
+        confirmed_at:
+          type: [string, 'null']
+          format: date-time
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+        cancelled_at:
+          type: [string, 'null']
+          format: date-time
+        abandoned_at:
+          type: [string, 'null']
+          format: date-time
+        abandon_reason:
+          type: [string, 'null']
+        lock_version:
+          type: integer
+          description: The validator every write carries in `If-Match`.
+        notes:
+          type: [string, 'null']
+        estimated_cost_amount:
+          type: [string, 'null']
+          description: The batch cost at confirm, at the weekly prices of that moment. Null when any line was uncosted or the lines disagreed about currency — withheld rather than published short.
+        estimated_cost_currency_code:
+          type: [string, 'null']
+        weekly_price_publication_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The published week the estimate was computed against. What makes a historical estimate reproducible when next Monday lands.
+        actual_cost_amount:
+          type: [string, 'null']
+          description: '`Σ consumed input cost` at completion. Input waste is **not** in it: it never became product and is reported as production waste instead.'
+        actual_cost_currency_code:
+          type: [string, 'null']
+        actual_unit_cost_amount:
+          type: [string, 'null']
+          description: '`actual_cost_amount ÷ produced_quantity`. **Withheld unless `actual_cost_status` is `complete`.**'
+        actual_cost_status:
+          oneOf:
+            - $ref: '#/components/schemas/ProductionCostStatus'
+            - type: 'null'
+        valuation_note:
+          type: [string, 'null']
+          description: Why the cost is partial or unvalued, in the words a reader needs.
+
+    ProductionOrderLine:
+      type: object
+      description: |
+        One shelf a batch draws on, as planned and as it turned out (PROD1).
+
+        `consumed_quantity` and `waste_quantity` **do not overlap**. The shelf
+        falls by their sum, as two movements with different reasons: what went
+        into the batch is cost of goods, and what was dropped on the floor is
+        waste. Folding the second into the first would put the loss into the
+        batch's unit cost, where the monthly report would read it as the price of
+        the food.
+
+        Money keys follow the batch's rule: absent without
+        `production.view_costs_organisation`, null when nobody could compute them.
+      required:
+        [id, stock_item_id, ingredient_id, line_kind, unit_id, required_quantity,
+         reserved_quantity, consumed_quantity, waste_quantity, source_recipe_version_id, display_order]
       additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        line_kind:
+          $ref: '#/components/schemas/ProductionLineKind'
+        unit_id:
+          $ref: '#/components/schemas/Uuid'
+        required_quantity:
+          type: string
+          description: The plan, in the stock item's own unit.
+        reserved_quantity:
+          type: [string, 'null']
+          description: What was actually claimed. Equal to required in the ordinary case; below it after a physical correction left the shelf short, which is precisely what a cook needs to see.
+        consumed_quantity:
+          type: [string, 'null']
+        waste_quantity:
+          type: [string, 'null']
+        source_recipe_version_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The version that supplied a produced component's cost — the one claiming that ingredient's nutrition, so cost and nutrition can never name different versions.
+        display_order:
+          type: integer
+        estimated_unit_cost_amount:
+          type: [string, 'null']
+        cost_source:
+          oneOf:
+            - $ref: '#/components/schemas/ProductionCostSource'
+            - type: 'null'
+        fallback_unit_cost_amount:
+          type: [string, 'null']
+          description: The figure used when no weekly price existed, so a reader can tell an estimate standing on last week's purchases from one standing on a typed cost.
+        actual_unit_cost_amount:
+          type: [string, 'null']
+          description: The moving average at the moment of completion, per `unit_id`.
+        cost_currency_code:
+          type: [string, 'null']
+
+    ProductionPlanLine:
+      type: object
+      description: |
+        One shelf a planned batch would draw on, and whether it can (PROD1).
+
+        Five quantities and no two of them the same question. `available` is
+        `on_hand − reserved` and **may be negative**, where more is claimed than
+        is there; a shelf somebody over-committed is a real state and clamping it
+        would hide it. A batch never counts **its own** claim against itself, so
+        re-opening a confirmed order does not show it short of everything it
+        already holds.
+      required: [stock_item_id, ingredient_id, line_kind, unit_id, required, on_hand, reserved, available, missing]
+      additionalProperties: false
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        line_kind:
+          $ref: '#/components/schemas/ProductionLineKind'
+        unit_id:
+          $ref: '#/components/schemas/Uuid'
+        required:
+          type: string
+        on_hand:
+          type: string
+          description: What is physically there, before any claim.
+        reserved:
+          type: string
+          description: What **other** confirmed batches have already claimed.
+        available:
+          type: string
+          description: '`on_hand − reserved`. May be negative.'
+        missing:
+          type: string
+          description: '`max(0, required − available)` — the number a buyer acts on.'
+        estimated_unit_cost_amount:
+          type: [string, 'null']
+        estimated_line_cost_amount:
+          type: [string, 'null']
+        currency_code:
+          type: [string, 'null']
+        cost_source:
+          type: string
+          enum: [weekly, component, fallback, none]
+        effective_from:
+          type: [string, 'null']
+          format: date
+          description: The week the weekly price took effect from. Null on a component or fallback figure, which has no week.
+
+    ProductionPlanHole:
+      type: object
+      description: |
+        Part of a recipe nobody could turn into a quantity (PROD1). **Never
+        folded into the lines as a zero**: "need nothing for that" and "we could
+        not work out what this needs" are opposite statements, and a plan that
+        confused them would send somebody to cook with the wrong shopping.
+      required: [reason_code, detail]
+      additionalProperties: false
+      properties:
+        reason_code:
+          type: string
+        detail:
+          type: string
+
+    ProductionPlan:
+      type: object
+      description: |
+        What a batch would need, against what the shelves can actually give
+        (PROD1). Reads nothing into the future and writes nothing at all.
+
+        `estimated_cost_amount` is **withheld** rather than partial: any uncosted
+        line, or two currencies among the lines, and it is null with
+        `uncosted_line_count` or `currency_conflict` saying why. A total over the
+        lines that happened to have prices reads exactly like a complete one and
+        is smaller, which is the direction that gets a kitchen into trouble.
+
+        That never blocks anything. `is_confirmable` does not consult cost at all,
+        because a kitchen about to cook is not refused over arithmetic nobody has
+        finished.
+      required: [batch_factor, ingredients, packaging, not_computable, short_line_count, is_confirmable]
+      additionalProperties: false
+      properties:
+        batch_factor:
+          type: string
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionPlanLine'
+        packaging:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionPlanLine'
+        not_computable:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionPlanHole'
+        short_line_count:
+          type: integer
+        is_confirmable:
+          type: boolean
+        estimated_cost_amount:
+          type: [string, 'null']
+        currency_code:
+          type: [string, 'null']
+        uncosted_line_count:
+          type: integer
+        currency_conflict:
+          type: boolean
+        weekly_price_publication_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+
+    ProductionBatchYield:
+      type: object
+      description: |
+        The four yield figures and what separates them (PROD1).
+
+        `rejected_quantity` is **inside** `produced_quantity`, so `usable` is the
+        difference and never the sum of anything. `variance_quantity` is
+        `produced − planned`: negative is process loss, which never existed as
+        stock and carries no money of its own.
+      required: [planned_quantity, produced_quantity, rejected_quantity, usable_quantity, variance_quantity, unit_id]
+      additionalProperties: false
+      properties:
+        planned_quantity:
+          type: [string, 'null']
+        produced_quantity:
+          type: [string, 'null']
+        rejected_quantity:
+          type: [string, 'null']
+        usable_quantity:
+          type: [string, 'null']
+        variance_quantity:
+          type: [string, 'null']
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+
+    ProductionSheetBasis:
+      type: object
+      description: What the sheet's figures were anchored to at confirm.
+      required: [recipe_version_id, confirmed_at, weekly_price_publication_id]
+      additionalProperties: false
+      properties:
+        recipe_version_id:
+          $ref: '#/components/schemas/Uuid'
+        confirmed_at:
+          type: [string, 'null']
+          format: date-time
+        weekly_price_publication_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Stated even without the costs code: **which** week priced a batch is
+            not itself a price, and a reader who cannot see the money can still
+            see that the estimate is anchored.
+
+    ProductionTechnicalSheetEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [technical_sheet]
+          additionalProperties: false
+          properties:
+            technical_sheet:
+              type: object
+              required: [production_order, lines, yield, nutrition_facts, basis]
+              additionalProperties: false
+              properties:
+                production_order:
+                  $ref: '#/components/schemas/ProductionOrder'
+                lines:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ProductionOrderLine'
+                yield:
+                  $ref: '#/components/schemas/ProductionBatchYield'
+                nutrition_facts:
+                  type: ['object', 'null']
+                  additionalProperties: true
+                  description: |
+                    The version's own block, copied at confirm and presented
+                    rather than recomputed. Where the version **withheld** a
+                    nutrient because an ingredient's data was incomplete, it stays
+                    withheld rather than summed into a total that looks whole.
+                basis:
+                  $ref: '#/components/schemas/ProductionSheetBasis'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                costs_visible:
+                  type: boolean
 
     ProductionOrderCollection:
       type: object
       required: [data, meta]
+      additionalProperties: false
       properties:
         data:
           type: object
           required: [production_orders]
+          additionalProperties: false
           properties:
             production_orders:
               type: array
               items:
                 $ref: '#/components/schemas/ProductionOrder'
         meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                page:
+                  type: integer
+                per_page:
+                  type: integer
+                has_more:
+                  type: boolean
+                  description: Stated rather than inferred. A bounded list that stops silently is one somebody plans a week against and gets wrong.
+                costs_visible:
+                  type: boolean
+                  description: Whether this reader holds `production.view_costs_organisation`. It is what tells a surface that an absent money key is redacted rather than uncomputed.
+                limit:
+                  type: integer
+                  description: The valuation queue's bound. Absent on the desk queue, which pages instead.
+                is_truncated:
+                  type: boolean
+                  description: The valuation queue's own "there is more" signal, for the same reason `has_more` exists on the desk.
+
+    ProductionOrderEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [production_order]
+          additionalProperties: false
+          properties:
+            production_order:
+              $ref: '#/components/schemas/ProductionOrder'
+            lines:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductionOrderLine'
+            plan:
+              $ref: '#/components/schemas/ProductionPlan'
+        meta:
           $ref: '#/components/schemas/Meta'
+
+    ProductionOrderDetailEnvelope:
+      type: object
+      description: |
+        A batch with its lines, and — while it has none — its live plan (PROD1).
+
+        A draft has committed to nothing, so it reads its plan fresh: the shelves
+        move under it. From confirm onwards the **lines are the answer**: they are
+        what the kitchen agreed to, what the reservations were opened against and
+        what the estimate was computed from, and re-deriving them would make all
+        three disagree.
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [production_order, lines]
+          additionalProperties: false
+          properties:
+            production_order:
+              $ref: '#/components/schemas/ProductionOrder'
+            lines:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductionOrderLine'
+            plan:
+              $ref: '#/components/schemas/ProductionPlan'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                costs_visible:
+                  type: boolean
+
+    ProductionPlanEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [plan]
+          additionalProperties: false
+          properties:
+            plan:
+              $ref: '#/components/schemas/ProductionPlan'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                costs_visible:
+                  type: boolean
 
     CreateProductionOrderRequest:
       type: object
+      description: |
+        Open a draft batch (PROD1). **A draft claims nothing** — that is the whole
+        reason the state is not called `planned`: a kitchen writing next week's
+        runs on a Friday afternoon must not be quietly reserving Monday's flour
+        while it decides.
+
+        `planned_yield` is what a cook thinks in — forty litres of dressing — and
+        `batch_factor` is what the explosion thinks in — two and a half times
+        over. Send one; the server derives the other from the version's own yield,
+        because a client doing that conversion would be a second place the
+        arithmetic lives.
       required: [branch_id, recipe_version_id]
+      additionalProperties: false
       properties:
         branch_id:
           $ref: '#/components/schemas/Uuid'
         recipe_version_id:
           $ref: '#/components/schemas/Uuid'
         planned_yield:
-          type: ['number', 'null']
-      additionalProperties: false
-
-    ProductionOrderEnvelope:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: object
-          required: [production_order]
-          properties:
-            production_order:
-              type: object
-              required: [id, status]
-              properties:
-                id:
-                  $ref: '#/components/schemas/Uuid'
-                status:
-                  type: string
-                  enum: [planned, in_progress, completed, cancelled]
-        meta:
-          $ref: '#/components/schemas/Meta'
-
-    ProductionMovementInput:
-      type: object
-      required: [stock_item_id, quantity]
-      properties:
-        stock_item_id:
-          $ref: '#/components/schemas/Uuid'
-        quantity:
-          type: number
-      additionalProperties: false
+          type: [number, 'null']
+          description: How much to make, in the output's own unit.
+        batch_factor:
+          type: [number, 'null']
+          description: How many times over the recipe is made.
+        notes:
+          type: [string, 'null']
 
     CompleteProductionOrderRequest:
       type: object
       description: |
-        No production tasks here (O5) — completing an order is entirely
-        about the stock it consumed and yielded, not a checklist.
-      properties:
-        consumes:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProductionMovementInput'
-          description: Stock taken from the branch's inventory to run this order. Omitted or empty is legal.
-        yields:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProductionMovementInput'
-          description: Stock produced by this order and added back to inventory.
+        What the cook says actually happened (PROD1).
+
+        Three yield facts, and exactly one of them is free. **Finished waste** is
+        `rejected_quantity`: units that were made and then thrown away, inside
+        `produced_quantity`, carrying the batch's unit cost and leaving the shelf
+        again as a waste movement. **Input waste** is `waste`, per shelf: raw
+        material discarded during the batch, which never became product and is
+        therefore not part of `consumed` and not part of the batch's cost.
+        **Process loss** is not reported at all — planned forty litres, made
+        thirty-eight — because it never existed as stock and its cost is already
+        absorbed into the unit cost of what was produced.
+
+        Omitting a shelf from `consumed` means "as planned" rather than "nothing":
+        a cook who followed the recipe should not have to retype it. Omitting one
+        from `waste` means zero, because waste nobody mentioned did not happen.
+      required: [produced_quantity]
       additionalProperties: false
+      properties:
+        produced_quantity:
+          type: number
+          minimum: 0
+          description: |
+            What came out, in the planned yield unit, **including** anything
+            rejected. Zero is legal and is the batch that went entirely wrong: its
+            inputs post as waste rather than consumption, nothing reaches a shelf,
+            and no unit cost is divided.
+        rejected_quantity:
+          type: [number, 'null']
+          minimum: 0
+        consumed:
+          type: object
+          additionalProperties:
+            type: number
+            minimum: 0
+          description: Stock item id to what went into the batch.
+        waste:
+          type: object
+          additionalProperties:
+            type: number
+            minimum: 0
+          description: Stock item id to input discarded during the batch.
+        production_date:
+          type: [string, 'null']
+          format: date
+        batch_reference:
+          type: [string, 'null']
+        storage_location:
+          type: [string, 'null']
+        expiry_date:
+          type: [string, 'null']
+          format: date
+        notes:
+          type: [string, 'null']
+
+    AbandonProductionOrderRequest:
+      description: |
+        The completion report plus a required reason (PROD1).
+
+        The same payload as completing, deliberately: what was used was used and
+        whatever came out came out. A kitchen that had to retype everything to
+        abandon would cancel instead and leave the flour unaccounted for — and
+        `cancelled` is the status that promises no stock moved.
+      allOf:
+        - $ref: '#/components/schemas/CompleteProductionOrderRequest'
+        - type: object
+          required: [reason]
+          properties:
+            reason:
+              type: string
+              maxLength: 255
+              description: Why the batch was given up. Required, unlike every other field here — an abandoned batch is a loss somebody asks about in a month, and "no reason given" is the answer that makes the record useless.
 
     QualityCheckSubjectType:
       type: string

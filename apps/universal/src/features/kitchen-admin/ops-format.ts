@@ -45,30 +45,53 @@ export function isOutOfStock(quantity: string): boolean {
 /* ── production orders ──────────────────────────────────────────────────────────────────────── */
 
 const PRODUCTION_STATUS_KEYS: Readonly<Record<ProductionOrderStatus, string>> = {
-    planned: 'kitchen:ops.production.status.planned',
-    in_progress: 'kitchen:ops.production.status.inProgress',
+    draft: 'kitchen:ops.production.status.draft',
+    confirmed: 'kitchen:ops.production.status.confirmed',
+    in_production: 'kitchen:ops.production.status.inProduction',
     completed: 'kitchen:ops.production.status.completed',
     cancelled: 'kitchen:ops.production.status.cancelled',
+    abandoned: 'kitchen:ops.production.status.abandoned',
 };
 
 export function productionStatusKey(status: ProductionOrderStatus): string {
     return PRODUCTION_STATUS_KEYS[status];
 }
 
+/**
+ * The tones say what a reader should feel about the state, not what stage it is.
+ *
+ * `abandoned` is `danger` and `cancelled` is `neutral`, and the difference is the whole point of the
+ * two words: a cancelled batch took nothing and cost nothing, while an abandoned one ate stock and
+ * produced something less than it should have. Giving them the same tone would hide the loss.
+ */
 const PRODUCTION_STATUS_TONES: Readonly<Record<ProductionOrderStatus, BadgeTone>> = {
-    planned: 'neutral',
-    in_progress: 'info',
+    draft: 'neutral',
+    confirmed: 'info',
+    in_production: 'brand',
     completed: 'success',
     cancelled: 'neutral',
+    abandoned: 'danger',
 };
 
 export function productionStatusTone(status: ProductionOrderStatus): BadgeTone {
     return PRODUCTION_STATUS_TONES[status];
 }
 
-/** `true` for a status a "complete" action may still be sent for. */
+/** `true` while the batch is still moving — what the desk queue shows by default. */
 export function isProductionOrderOpen(status: ProductionOrderStatus): boolean {
-    return status === 'planned' || status === 'in_progress';
+    return status === 'draft' || status === 'confirmed' || status === 'in_production';
+}
+
+/**
+ * The edge a batch takes next, or `null` when it is terminal or needs a form.
+ *
+ * `in_production` returns null deliberately: finishing a batch needs what actually came out, and a
+ * one-click "complete" would have to invent a produced quantity. The batch detail screen asks.
+ */
+export function nextProductionEdge(status: ProductionOrderStatus): 'confirm' | 'start' | null {
+    if (status === 'draft') return 'confirm';
+    if (status === 'confirmed') return 'start';
+    return null;
 }
 
 /* ── quality checks ──────────────────────────────────────────────────────────────────────────── */

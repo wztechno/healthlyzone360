@@ -605,7 +605,14 @@ it('seeds exactly the registered permission set', function (): void {
     // are not. It gates reads as well as writes: the order book names who the
     // kitchen buys from and in what quantity, which the plain view code has no
     // business exposing.
-    expect(Permission::query()->count())->toBe(55)
+    //
+    // PROD1 takes it to 58 with a `production` domain of its own — view, manage
+    // and view_costs. A domain rather than a fifth inventory code, because a
+    // production order stopped being a row with a status: it claims stock in
+    // advance, carries an estimated cost and blends a finished valuation into the
+    // basis every sale is costed against. Whoever may count a shelf is not
+    // thereby whoever may commit next Thursday's oil to a batch.
+    expect(Permission::query()->count())->toBe(58)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -641,12 +648,16 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and($role->organisation_id)->toBeNull()
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 43],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 42],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 46],
+    'organisation administrator cannot manage roles' => ['organisation_admin', 45],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 28],
-    'chef edits recipes and their costs and runs inventory, but never publishes and never sees a price or an inventory cost' => ['kitchen_chef', 7],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 31],
+    // Nine since PROD1: the chef gained `production.view_organisation` and
+    // `production.manage_organisation` and not the costs code. Running the line
+    // is the job; what the line cost is the commercial side's, which is the same
+    // line `inventory.view_costs_organisation` already draws through this role.
+    'chef edits recipes and their costs and runs inventory and batches, but never publishes and never sees a price or a cost outside a recipe' => ['kitchen_chef', 9],
     'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
     'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
     // Eight, not seven: the role gained `catalogue.view_organisation` with the

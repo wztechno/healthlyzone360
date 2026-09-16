@@ -2218,9 +2218,9 @@
         },
         "production": {
             "title": "الإنتاج",
-            "subtitle": "دفعات من إصدارات الوصفات مع حركات الاستهلاك والإنتاج.",
+            "subtitle": "دفعات مصنوعة من إصدارات الوصفات: ما حجزته كل دفعة وما أنتجته وما كلفته.",
             "emptyTitle": "لا توجد دفعات إنتاج بعد",
-            "emptyBody": "أنشئ دفعة من إصدار وصفة منشور. تظهر الدفعات المكتملة هنا مع حالتها.",
+            "emptyBody": "افتح دفعة من إصدار وصفة منشور. تأكيد الدفعة يحجز المخزون الذي تحتاجه؛ ولا يُحجز شيء قبل ذلك.",
             "metrics": {
                 "batches": "الدفعات",
                 "inProgress": "مفتوحة",
@@ -2235,8 +2235,10 @@
             "createSubmit": "إنشاء الدفعة",
             "createFailed": "تعذّر إنشاء الدفعة.",
             "createdToast": "تم إنشاء دفعة الإنتاج.",
-            "completedToast": "تم تعليم الدفعة كمكتملة.",
-            "complete": "إكمال",
+            "confirm": "تأكيد",
+            "start": "بدء",
+            "confirmedToast": "تم تأكيد الدفعة، وأصبح مخزونها محجوزًا.",
+            "startedToast": "بدأت الدفعة.",
             "versionLabel": "معرّف إصدار الوصفة",
             "versionHint": "الصق معرّف الإصدار المنشور من محرر الوصفة.",
             "noBranchTitle": "اختر فرعاً أولاً",
@@ -2244,10 +2246,12 @@
             "loadErrorTitle": "تعذّر تحميل أوامر الإنتاج",
             "loadErrorBody": "تحقق من الاتصال وحاول مرة أخرى.",
             "status": {
-                "planned": "مخطط",
-                "inProgress": "قيد التنفيذ",
-                "completed": "مكتمل",
-                "cancelled": "ملغى"
+                "draft": "مسودة",
+                "confirmed": "مؤكدة",
+                "inProduction": "قيد الإنتاج",
+                "completed": "مكتملة",
+                "cancelled": "ملغاة",
+                "abandoned": "متوقفة"
             }
         },
         "qc": {
@@ -2328,6 +2332,10 @@
             "columnCogs": "تكلفة البضاعة",
             "columnRevenue": "الإيراد",
             "columnMargin": "الهامش",
+            "columnProductionConsumption": "مستهلك في الإنتاج",
+            "columnProductionWaste": "هدر الإنتاج",
+            "columnProductionYield": "ناتج الإنتاج",
+            "columnEstimatedMargin": "الهامش التقديري",
             "columnMarginPercent": "نسبة الهامش",
             "spendIncomplete": "إنفاق غير مكتمل",
             "spendIncompleteTitle": "بعض المشتريات ما زالت تنتظر أسعارها",

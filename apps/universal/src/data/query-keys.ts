@@ -499,7 +499,31 @@ export const queryKeys = {
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,
         consumptionExceptionCount: () => ['kitchenOps', 'consumption-exception-count'] as const,
-        productionOrders: () => ['kitchenOps', 'production-orders'] as const,
+        /*
+         * The desk queue is filtered (status, branch, page), so the filter is
+         * inside the key: the open queue and the batch register are two
+         * different answers and must not share a cache entry.
+         *
+         * A batch's **plan** is keyed apart from the batch itself, because it is
+         * a live read against a moving shelf while the batch is a record. They
+         * invalidate on different things — a plan goes stale when anybody else's
+         * batch claims something — and one key would make the cheaper of the two
+         * refetch the other.
+         */
+        productionOrders: (filter: object = {}) =>
+            ['kitchenOps', 'production-orders', filter] as const,
+        productionOrder: (productionOrderId: string) =>
+            ['kitchenOps', 'production-order', productionOrderId] as const,
+        productionOrderPlan: (productionOrderId: string) =>
+            ['kitchenOps', 'production-order-plan', productionOrderId] as const,
+        productionTechnicalSheet: (productionOrderId: string) =>
+            ['kitchenOps', 'production-technical-sheet', productionOrderId] as const,
+        /*
+         * Both are **now** rather than a period, so neither shares a key with the
+         * monthly cost report: a shelf moving must not refetch a year of history.
+         */
+        inventoryValue: () => ['kitchenOps', 'inventory-value'] as const,
+        pendingProductionValuations: () => ['kitchenOps', 'pending-production-valuations'] as const,
         qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
     },
 

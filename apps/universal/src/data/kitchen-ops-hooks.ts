@@ -17,8 +17,14 @@ import type {
     OrderProposal,
     PostGoodsReceiptRequest,
     ProcurementReference,
+    AbandonProductionOrderRequest,
+    InventoryValue,
     ProductionOrder,
-    ProductionOrderResult,
+    ProductionOrderDetail,
+    ProductionOrderFilters,
+    ProductionOrderPage,
+    ProductionPlan,
+    ProductionTechnicalSheet,
     PurchaseLedgerFilter,
     PurchaseLedgerLine,
     PurchaseOrder,
@@ -911,26 +917,137 @@ export function useRetryConsumptionExceptionMutation(): UseMutationResult<
     });
 }
 
-/* ── production (O5) — no task UI ────────────────────────────────────────────────────────────── */
+/**
+ * What the stock on hand is worth, per currency (PROD1).
+ *
+ * Its own key rather than a branch of the cost report's: the report is per month and this is
+ * **now**, and a shared key would refetch a month's history every time a shelf moved.
+ */
+export function useInventoryValueQuery(enabled = true): UseQueryResult<InventoryValue> {
+    const { repositories } = useRepositoryContext();
 
-/** The most recent fifty production orders, newest first. */
-export function useProductionOrdersQuery(
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.inventoryValue(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getInventoryValue();
+        },
+    });
+}
+
+/**
+ * Batches that finished without a cost the report can trust.
+ *
+ * The same population the monthly report's third completeness flag counts, so the badge and the
+ * list can never disagree about which months are understated.
+ */
+export function usePendingProductionValuationsQuery(
     enabled = true,
 ): UseQueryResult<readonly ProductionOrder[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenOps.productionOrders(),
+        queryKey: queryKeys.kitchenOps.pendingProductionValuations(),
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            return repositories.kitchenOps.listProductionOrders();
+            return repositories.kitchenOps.listPendingProductionValuations();
+        },
+    });
+}
+
+/* ── internal production — the batch desk (PROD1) ─────────────────────────────────────────────── */
+
+/**
+ * The production desk queue.
+ *
+ * `status` defaults to the four open states server-side, so the plain call is the working surface
+ * and the batch register is the same hook with a terminal status.
+ */
+export function useProductionOrdersQuery(
+    filters: ProductionOrderFilters = {},
+    enabled = true,
+): UseQueryResult<ProductionOrderPage> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.productionOrders(filters),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listProductionOrders(filters);
+        },
+    });
+}
+
+/** One batch, with its lines and — while it has none — its live plan. */
+export function useProductionOrderQuery(
+    productionOrderId: ProductionOrderId | null,
+): UseQueryResult<ProductionOrderDetail> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.productionOrder(productionOrderId ?? ''),
+        enabled: productionOrderId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (productionOrderId === null) throw new Error('No production order selected.');
+            return repositories.kitchenOps.getProductionOrder(productionOrderId);
+        },
+    });
+}
+
+/**
+ * What this batch would need against today's shelves.
+ *
+ * Separate from the batch itself because it answers a **moving** question: a confirmed batch wants
+ * both what it committed to and what the shelves say now, and folding them into one query would
+ * make one of the two quietly win.
+ */
+export function useProductionOrderPlanQuery(
+    productionOrderId: ProductionOrderId | null,
+    enabled = true,
+): UseQueryResult<ProductionPlan> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.productionOrderPlan(productionOrderId ?? ''),
+        enabled: enabled && productionOrderId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (productionOrderId === null) throw new Error('No production order selected.');
+            return repositories.kitchenOps.getProductionOrderPlan(productionOrderId);
+        },
+    });
+}
+
+/**
+ * What a batch stood on — the confirm-time snapshot, not the recipe's live sheet.
+ *
+ * Its own query key rather than a branch of the batch's, because the two go stale on different
+ * things: the sheet never moves once the batch is confirmed, while the batch itself moves on every
+ * edge. One key would refetch a frozen document every time somebody pressed a button.
+ */
+export function useProductionTechnicalSheetQuery(
+    productionOrderId: ProductionOrderId | null,
+    enabled = true,
+): UseQueryResult<ProductionTechnicalSheet> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.productionTechnicalSheet(productionOrderId ?? ''),
+        enabled: enabled && productionOrderId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (productionOrderId === null) throw new Error('No production order selected.');
+            return repositories.kitchenOps.getProductionTechnicalSheet(productionOrderId);
         },
     });
 }
 
 export function useCreateProductionOrderMutation(): UseMutationResult<
-    ProductionOrderResult,
+    ProductionOrderDetail,
     unknown,
     CreateProductionOrderRequest
 > {
@@ -944,14 +1061,60 @@ export function useCreateProductionOrderMutation(): UseMutationResult<
     });
 }
 
-export interface CompleteProductionOrderVariables {
+/**
+ * Every batch edge carries the version the caller last read.
+ *
+ * Two people share a production desk and can both see the same batch, so a stale validator is a
+ * `409` that hands back the current version rather than a silent double-confirm.
+ */
+export interface ProductionOrderEdgeVariables {
     readonly productionOrderId: ProductionOrderId;
+    readonly lockVersion: number;
+}
+
+export interface CompleteProductionOrderVariables extends ProductionOrderEdgeVariables {
     readonly request: CompleteProductionOrderRequest;
 }
 
-/** States what an order consumed and yielded. Not a checklist — see the module note. */
+export interface AbandonProductionOrderVariables extends ProductionOrderEdgeVariables {
+    readonly request: AbandonProductionOrderRequest;
+}
+
+/** Commit to the batch: freeze the plan, claim the stock, snapshot the estimate. */
+export function useConfirmProductionOrderMutation(): UseMutationResult<
+    ProductionOrderDetail,
+    unknown,
+    ProductionOrderEdgeVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productionOrderId, lockVersion }: ProductionOrderEdgeVariables) =>
+            repositories.kitchenOps.confirmProductionOrder(productionOrderId, lockVersion),
+        onSuccess: onWritten,
+    });
+}
+
+/** Move a confirmed batch to `in_production`. Nothing moves; this is the point after which something may. */
+export function useStartProductionOrderMutation(): UseMutationResult<
+    ProductionOrderDetail,
+    unknown,
+    ProductionOrderEdgeVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productionOrderId, lockVersion }: ProductionOrderEdgeVariables) =>
+            repositories.kitchenOps.startProductionOrder(productionOrderId, lockVersion),
+        onSuccess: onWritten,
+    });
+}
+
+/** What the cook says actually happened: produced, rejected, consumed and input waste. */
 export function useCompleteProductionOrderMutation(): UseMutationResult<
-    ProductionOrderResult,
+    ProductionOrderDetail,
     unknown,
     CompleteProductionOrderVariables
 > {
@@ -959,8 +1122,52 @@ export function useCompleteProductionOrderMutation(): UseMutationResult<
     const onWritten = useKitchenOpsWriteEffects();
 
     return useMutation({
-        mutationFn: ({ productionOrderId, request }: CompleteProductionOrderVariables) =>
-            repositories.kitchenOps.completeProductionOrder(productionOrderId, request),
+        mutationFn: ({
+            productionOrderId,
+            lockVersion,
+            request,
+        }: CompleteProductionOrderVariables) =>
+            repositories.kitchenOps.completeProductionOrder(
+                productionOrderId,
+                lockVersion,
+                request,
+            ),
+        onSuccess: onWritten,
+    });
+}
+
+/** Give up on a started batch. `abandoned` carries movements; `cancelled` never does. */
+export function useAbandonProductionOrderMutation(): UseMutationResult<
+    ProductionOrderDetail,
+    unknown,
+    AbandonProductionOrderVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({
+            productionOrderId,
+            lockVersion,
+            request,
+        }: AbandonProductionOrderVariables) =>
+            repositories.kitchenOps.abandonProductionOrder(productionOrderId, lockVersion, request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Call off a batch that took nothing. Refused once stock has moved. */
+export function useCancelProductionOrderMutation(): UseMutationResult<
+    ProductionOrderDetail,
+    unknown,
+    ProductionOrderEdgeVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ productionOrderId, lockVersion }: ProductionOrderEdgeVariables) =>
+            repositories.kitchenOps.cancelProductionOrder(productionOrderId, lockVersion),
         onSuccess: onWritten,
     });
 }

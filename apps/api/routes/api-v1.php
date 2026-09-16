@@ -239,6 +239,7 @@ use Healthy360\Pricing\Http\Controllers\PriceListUpdateController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptIndexController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptShowController;
 use Healthy360\Procurement\Http\Controllers\GoodsReceiptStoreController;
+use Healthy360\Procurement\Http\Controllers\InventoryValueReportController;
 use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\OrderProposalController;
@@ -264,9 +265,13 @@ use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
 use Healthy360\Procurement\Http\Controllers\SupplierUpdateController;
 use Healthy360\Procurement\Http\Controllers\SupplyNeedsCountController;
 use Healthy360\Procurement\Http\Controllers\UnpricedReceiptIndexController;
-use Healthy360\Production\Http\Controllers\ProductionOrderCompleteController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
+use Healthy360\Production\Http\Controllers\ProductionOrderPlanController;
+use Healthy360\Production\Http\Controllers\ProductionOrderShowController;
 use Healthy360\Production\Http\Controllers\ProductionOrderStoreController;
+use Healthy360\Production\Http\Controllers\ProductionOrderTransitionController;
+use Healthy360\Production\Http\Controllers\ProductionTechnicalSheetController;
+use Healthy360\Production\Http\Controllers\ProductionValuationQueueController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckHoldController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckIndexController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckReleaseController;
@@ -1509,7 +1514,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/procurement/item-purchases/latest', ItemLatestPurchaseIndexController::class)->name('catalogue.procurement.item-purchases.latest');
                 Route::get('/procurement/reference', ProcurementReferenceController::class)->name('catalogue.procurement.reference.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
-                Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
                 Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
             });
 
@@ -1585,11 +1589,86 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::get('/procurement/receivable-orders', ReceivableOrderIndexController::class)->name('catalogue.procurement.receivable-orders.index');
                 Route::get('/procurement/goods-receipts/{goodsReceipt}', GoodsReceiptShowController::class)->name('catalogue.procurement.goods-receipts.show');
-                Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
-                Route::post('/production/orders/{productionOrder}/complete', ProductionOrderCompleteController::class)->name('catalogue.production.orders.complete');
                 Route::post('/quality-control/checks', QualityCheckStoreController::class)->name('catalogue.quality-control.checks.store');
                 Route::post('/quality-control/checks/{qualityCheck}/hold', QualityCheckHoldController::class)->name('catalogue.quality-control.checks.hold');
                 Route::post('/quality-control/checks/{qualityCheck}/release', QualityCheckReleaseController::class)->name('catalogue.quality-control.checks.release');
+            });
+
+            /*
+            |------------------------------------------------------------------
+            | Internal production — the batch desk (PROD1)
+            |------------------------------------------------------------------
+            |
+            | Off `inventory.*` and onto a `production` domain of its own. The two
+            | routes that used to live above were written when a production order
+            | was a row with a status; a batch now claims stock in advance,
+            | carries an estimated cost and blends a finished valuation into the
+            | basis every sale is costed against. Whoever may count a shelf is not
+            | thereby whoever may commit next Thursday's oil to a batch.
+            |
+            | **The old free-form `complete` is gone rather than aliased.** It took
+            | arbitrary consume and yield lines and wrote them straight into the
+            | ledger, with no reservation, no duplicate guard, no valuation and no
+            | idea what the batch was supposed to make. Keeping it as a second way
+            | in would keep every one of those holes open beside the door that
+            | closes them.
+            |
+            | `precondition` on all five writes: two people share a production desk
+            | and can both see the same batch, so every edge carries the version
+            | the caller last read. The service is idempotent underneath that as
+            | well — a redelivered request is a different failure from a stale
+            | screen, and both have to be safe.
+            |
+            | `idempotency` on the three edges that **move stock or money**:
+            | confirm, complete and abandon. Not on start or cancel, which carry
+            | no payload and whose second delivery the state machine already
+            | answers. The key is optional, as everywhere else it is offered: a
+            | client that sends none gets no replay protection and is told so by
+            | its absence rather than by a 400.
+            |
+            | Three guards rather than one, and each catches something the others
+            | do not. `If-Match` catches a **stale screen** — somebody else moved
+            | the batch. `Idempotency-Key` catches a **redelivered request** —
+            | the same call arriving twice. The service's own movement-existence
+            | check catches a **partial failure** — a completion that got half
+            | its lines through before something threw. A retry after that third
+            | case is a *different* request with a *different* key and a fresh
+            | lock version, so neither header would save it.
+            |
+            | Money is redacted **inside** the payload by
+            | `production.view_costs_organisation` rather than at the door. A chef
+            | holds view and manage and not costs; a 403 here would blank the whole
+            | desk for somebody entitled to every quantity on it.
+            */
+            Route::middleware('permission:production.view_organisation')->group(function (): void {
+                Route::get('/production/orders', ProductionOrderIndexController::class)->name('catalogue.production.orders.index');
+                Route::get('/production/orders/{productionOrder}', ProductionOrderShowController::class)->name('catalogue.production.orders.show');
+                Route::get('/production/orders/{productionOrder}/plan', ProductionOrderPlanController::class)->name('catalogue.production.orders.plan');
+                Route::get('/production/orders/{productionOrder}/technical-sheet', ProductionTechnicalSheetController::class)->name('catalogue.production.orders.technical-sheet');
+            });
+
+            Route::middleware('permission:production.manage_organisation')->group(function (): void {
+                Route::post('/production/orders', ProductionOrderStoreController::class)->name('catalogue.production.orders.store');
+
+                Route::post('/production/orders/{productionOrder}/confirm', [ProductionOrderTransitionController::class, 'confirm'])
+                    ->middleware(['precondition', 'idempotency'])
+                    ->name('catalogue.production.orders.confirm');
+
+                Route::post('/production/orders/{productionOrder}/start', [ProductionOrderTransitionController::class, 'start'])
+                    ->middleware('precondition')
+                    ->name('catalogue.production.orders.start');
+
+                Route::post('/production/orders/{productionOrder}/complete', [ProductionOrderTransitionController::class, 'complete'])
+                    ->middleware(['precondition', 'idempotency'])
+                    ->name('catalogue.production.orders.complete');
+
+                Route::post('/production/orders/{productionOrder}/abandon', [ProductionOrderTransitionController::class, 'abandon'])
+                    ->middleware(['precondition', 'idempotency'])
+                    ->name('catalogue.production.orders.abandon');
+
+                Route::post('/production/orders/{productionOrder}/cancel', [ProductionOrderTransitionController::class, 'cancel'])
+                    ->middleware('precondition')
+                    ->name('catalogue.production.orders.cancel');
             });
 
             /*
@@ -1640,6 +1719,30 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 | gates money everywhere in this domain, not the plain view code.
                 */
                 Route::get('/reports/monthly-cost', MonthlyCostReportController::class)->name('catalogue.reports.monthly-cost.index');
+
+                /*
+                | What the shelves are worth right now (PROD1). The one figure the
+                | finance requirement names that had nowhere to live: the monthly
+                | report says what a month bought, sold, wasted and made, and
+                | nothing said what is *left*.
+                |
+                | A **current** valuation, not a period-end one, and `meta.as_of`
+                | says so — there is no period close in this system and this does
+                | not invent one.
+                */
+                Route::get('/reports/inventory-value', InventoryValueReportController::class)->name('catalogue.reports.inventory-value.index');
+
+                /*
+                | Batches that finished without a cost (PROD1) — the work queue
+                | behind the monthly report's third completeness flag, on the
+                | money code rather than the production desk's view code because
+                | the queue is entirely about money.
+                |
+                | A read, and deliberately no companion write: re-valuing a batch
+                | later needs to know how much of it is still on the shelf, which
+                | nothing records. See the controller.
+                */
+                Route::get('/production/valuations-pending', ProductionValuationQueueController::class)->name('catalogue.production.valuations-pending.index');
             });
 
             /*

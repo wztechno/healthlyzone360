@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7069 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7077 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3475,9 +3475,13 @@ export interface NamespaceKeys {
     | 'ops.costReport.chip'
     | 'ops.costReport.cogsMixCenter'
     | 'ops.costReport.columnCogs'
+    | 'ops.costReport.columnEstimatedMargin'
     | 'ops.costReport.columnMargin'
     | 'ops.costReport.columnMarginPercent'
     | 'ops.costReport.columnMonth'
+    | 'ops.costReport.columnProductionConsumption'
+    | 'ops.costReport.columnProductionWaste'
+    | 'ops.costReport.columnProductionYield'
     | 'ops.costReport.columnRevenue'
     | 'ops.costReport.columnSpend'
     | 'ops.costReport.currencyLabel'
@@ -3731,8 +3735,8 @@ export interface NamespaceKeys {
     | 'ops.production.columnActions'
     | 'ops.production.columnId'
     | 'ops.production.columnStatus'
-    | 'ops.production.complete'
-    | 'ops.production.completedToast'
+    | 'ops.production.confirm'
+    | 'ops.production.confirmedToast'
     | 'ops.production.create'
     | 'ops.production.createFailed'
     | 'ops.production.createSubmit'
@@ -3748,10 +3752,14 @@ export interface NamespaceKeys {
     | 'ops.production.noBranchBody'
     | 'ops.production.noBranchTitle'
     | 'ops.production.ordersHeading'
+    | 'ops.production.start'
+    | 'ops.production.startedToast'
+    | 'ops.production.status.abandoned'
     | 'ops.production.status.cancelled'
     | 'ops.production.status.completed'
-    | 'ops.production.status.inProgress'
-    | 'ops.production.status.planned'
+    | 'ops.production.status.confirmed'
+    | 'ops.production.status.draft'
+    | 'ops.production.status.inProduction'
     | 'ops.production.subtitle'
     | 'ops.production.title'
     | 'ops.production.versionHint'
@@ -10562,9 +10570,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.chip',
   'kitchen:ops.costReport.cogsMixCenter',
   'kitchen:ops.costReport.columnCogs',
+  'kitchen:ops.costReport.columnEstimatedMargin',
   'kitchen:ops.costReport.columnMargin',
   'kitchen:ops.costReport.columnMarginPercent',
   'kitchen:ops.costReport.columnMonth',
+  'kitchen:ops.costReport.columnProductionConsumption',
+  'kitchen:ops.costReport.columnProductionWaste',
+  'kitchen:ops.costReport.columnProductionYield',
   'kitchen:ops.costReport.columnRevenue',
   'kitchen:ops.costReport.columnSpend',
   'kitchen:ops.costReport.currencyLabel',
@@ -10818,8 +10830,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.columnActions',
   'kitchen:ops.production.columnId',
   'kitchen:ops.production.columnStatus',
-  'kitchen:ops.production.complete',
-  'kitchen:ops.production.completedToast',
+  'kitchen:ops.production.confirm',
+  'kitchen:ops.production.confirmedToast',
   'kitchen:ops.production.create',
   'kitchen:ops.production.createFailed',
   'kitchen:ops.production.createSubmit',
@@ -10835,10 +10847,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.noBranchBody',
   'kitchen:ops.production.noBranchTitle',
   'kitchen:ops.production.ordersHeading',
+  'kitchen:ops.production.start',
+  'kitchen:ops.production.startedToast',
+  'kitchen:ops.production.status.abandoned',
   'kitchen:ops.production.status.cancelled',
   'kitchen:ops.production.status.completed',
-  'kitchen:ops.production.status.inProgress',
-  'kitchen:ops.production.status.planned',
+  'kitchen:ops.production.status.confirmed',
+  'kitchen:ops.production.status.draft',
+  'kitchen:ops.production.status.inProduction',
   'kitchen:ops.production.subtitle',
   'kitchen:ops.production.title',
   'kitchen:ops.production.versionHint',

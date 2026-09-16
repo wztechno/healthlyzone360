@@ -207,7 +207,9 @@ final readonly class WeeklyRecipeCostingService
         foreach ($lines as $line) {
             $sources[$line->line_number] = $this->resolveLine(
                 $organisationId,
-                $line,
+                $line->line_number,
+                (string) $line->ingredient_id,
+                $line->unit_id,
                 $prices[(string) $line->ingredient_id] ?? null,
                 $ingredients[(string) $line->ingredient_id] ?? null,
                 $units,
@@ -220,22 +222,28 @@ final readonly class WeeklyRecipeCostingService
     }
 
     /**
+     * The four sources, in order, for one ingredient wanted in one unit.
+     *
+     * Takes the three fields it needs rather than a {@see RecipeVersionLine},
+     * because a production batch asks the same question about a *stock item*
+     * rather than a formulation line (PROD1) and two implementations of "where
+     * does this ingredient's price come from" would drift on exactly the
+     * ingredients that are hardest to price.
+     *
      * @param  array<string, MeasurementUnit>  $units
      * @param  list<string>  $visitedVersionIds
      */
     private function resolveLine(
         string $organisationId,
-        RecipeVersionLine $line,
+        int $lineNumber,
+        string $ingredientId,
+        ?string $lineUnitId,
         ?WeeklyIngredientPrice $price,
         ?Ingredient $ingredient,
         array $units,
         ?string $publicationId,
         array $visitedVersionIds,
     ): WeeklyLineCost {
-        $lineNumber = $line->line_number;
-        $ingredientId = (string) $line->ingredient_id;
-        $lineUnitId = $line->unit_id;
-
         if ($lineUnitId === null || ! $ingredient instanceof Ingredient) {
             return WeeklyLineCost::none($lineNumber, $ingredientId);
         }
@@ -254,6 +262,7 @@ final readonly class WeeklyRecipeCostingService
                     $price->effectiveFrom,
                     null,
                     $price->isCarriedForward(),
+                    $price->publicationId,
                 );
             }
         }
@@ -288,6 +297,58 @@ final readonly class WeeklyRecipeCostingService
         }
 
         return WeeklyLineCost::none($lineNumber, $ingredientId);
+    }
+
+    /**
+     * One unit cost per ingredient, each in the unit the caller names (PROD1).
+     *
+     * The production planner's entry point. It asks the same question a
+     * formulation line asks — what does one unit of this ingredient cost, and on
+     * whose authority — but about a **stock item's** unit rather than a recipe
+     * line's, and about a set of ingredients that came out of an explosion rather
+     * than off one version.
+     *
+     * Batched for the same reason {@see resolveLines()} is: a batch of ninety
+     * shelves must cost a handful of reads.
+     *
+     * `$publicationId` pins the answer to one published week, which is what a
+     * confirmed batch stores so that next Monday cannot move its estimate.
+     *
+     * @param  array<string, string>  $unitByIngredient  ingredient id => the unit the cost is wanted in
+     * @return array<string, WeeklyLineCost> keyed by ingredient id; `lineNumber` is not meaningful here and is always zero
+     */
+    public function unitCostsFor(
+        string $organisationId,
+        array $unitByIngredient,
+        ?string $publicationId = null,
+    ): array {
+        if ($unitByIngredient === []) {
+            return [];
+        }
+
+        $ingredientIds = array_map(strval(...), array_keys($unitByIngredient));
+
+        $prices = $this->pricesFor($organisationId, $ingredientIds, $publicationId);
+        $ingredients = $this->ingredientsById($ingredientIds);
+        $units = $this->unitsById();
+
+        $costs = [];
+
+        foreach ($unitByIngredient as $ingredientId => $unitId) {
+            $costs[(string) $ingredientId] = $this->resolveLine(
+                $organisationId,
+                0,
+                (string) $ingredientId,
+                $unitId,
+                $prices[(string) $ingredientId] ?? null,
+                $ingredients[(string) $ingredientId] ?? null,
+                $units,
+                $publicationId,
+                [],
+            );
+        }
+
+        return $costs;
     }
 
     /**

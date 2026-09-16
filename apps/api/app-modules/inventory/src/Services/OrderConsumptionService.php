@@ -130,6 +130,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         private InventoryService $inventory,
         private UnitConversionService $conversion,
         private MealExplosion $explosion,
+        private OrderLineEstimator $estimator,
     ) {}
 
     public function consume(Order $order): void
@@ -151,7 +152,26 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         foreach ($order->lines()->get() as $line) {
             /** @var list<ConsumptionFailure> $failures */
             $failures = [];
-            $this->resolveLine($order, $line, (string) $order->branch_id, $failures);
+
+            /** @var list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}> $drawn */
+            $drawn = [];
+
+            $this->resolveLine($order, $line, (string) $order->branch_id, $failures, $drawn);
+
+            /*
+             * Freeze what this line was *expected* to cost, at the prices
+             * standing now (PROD1).
+             *
+             * Not computed later on the report, because later answers a different
+             * question: a recipe edited in October would change September's
+             * estimated margin, and a weekly price published on Monday would
+             * change last month's. Both are wrong and both are silent.
+             *
+             * It runs on the rows the deduction already produced rather than
+             * exploding a second time — this is the confirm path, and the
+             * explosion is the expensive part of it.
+             */
+            $this->estimator->record($order, $line, $drawn);
 
             foreach ($failures as $failure) {
                 $this->persistException($order, $line, $failure['catalogue_item_id'], $failure['reason_code'], $failure['detail']);
@@ -287,7 +307,20 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
         /** @var list<ConsumptionFailure> $failures */
         $failures = [];
-        $this->resolveLine($order, $line, (string) $order->branch_id, $failures);
+
+        /** @var list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}> $drawn */
+        $drawn = [];
+
+        $this->resolveLine($order, $line, (string) $order->branch_id, $failures, $drawn);
+
+        /*
+         * A retry that finally resolves a blocked line is the first moment this
+         * line has an estimate at all, so it is written here too (PROD1). The
+         * unique index makes a second write a no-op, which is what keeps the
+         * *original* estimate — the one at the confirm-time prices — rather than
+         * replacing it with today's.
+         */
+        $this->estimator->record($order, $line, $drawn);
 
         $after = $this->consumeMovementCountForLine($order, $line);
 
@@ -383,8 +416,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
     /**
      * @param  list<ConsumptionFailure>  $failures
+     * @param  list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}>  $drawn  what the line took, collected for the estimate rather than re-derived
      */
-    private function resolveLine(Order $order, OrderLine $line, string $branchId, array &$failures): void
+    private function resolveLine(Order $order, OrderLine $line, string $branchId, array &$failures, array &$drawn): void
     {
         $item = CatalogueItem::withoutTenancy()
             ->where('id', $line->catalogue_item_id)
@@ -421,12 +455,12 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
          * catalogue keeps exploding, because the flag behind it defaults false.
          */
         if ($item->sellsFromFinishedStock()) {
-            $this->resolveFinishedStock($order, $line, $item, $branchId, $failures);
+            $this->resolveFinishedStock($order, $line, $item, $branchId, $failures, $drawn);
 
             return;
         }
 
-        $this->resolveMeal($order, $line, $item, $branchId, $failures);
+        $this->resolveMeal($order, $line, $item, $branchId, $failures, $drawn);
     }
 
     /**
@@ -439,8 +473,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      * writing is left here.
      *
      * @param  list<ConsumptionFailure>  $failures
+     * @param  list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}>  $drawn
      */
-    private function resolveMeal(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures): void
+    private function resolveMeal(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures, array &$drawn): void
     {
         $explosion = $this->explosion->explode(
             (string) $order->organisation_id,
@@ -474,7 +509,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
                 continue;
             }
 
-            $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, $row['ingredient_id'], $row['quantity'], $failures);
+            $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, $row['ingredient_id'], $row['quantity'], $failures, $drawn);
         }
 
         foreach ($explosion->failures as $failure) {
@@ -503,8 +538,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      * finished unit and nothing else.
      *
      * @param  list<ConsumptionFailure>  $failures
+     * @param  list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}>  $drawn
      */
-    private function resolveFinishedStock(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures): void
+    private function resolveFinishedStock(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures, array &$drawn): void
     {
         if ($item->ingredient_id === null) {
             $failures[] = $this->failure((string) $item->getKey(), 'no_ingredient_link', 'The item links no ingredient, so it has no finished stock to deduct.');
@@ -550,7 +586,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             return;
         }
 
-        $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, (string) $item->ingredient_id, $consumed, $failures);
+        $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, (string) $item->ingredient_id, $consumed, $failures, $drawn);
     }
 
     /**
@@ -629,6 +665,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      *
      * @param  numeric-string  $consumedInStockUnit
      * @param  list<ConsumptionFailure>  $failures
+     * @param  list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}>  $drawn
      */
     private function deduct(
         Order $order,
@@ -640,7 +677,20 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         string $ingredientId,
         string $consumedInStockUnit,
         array &$failures,
+        array &$drawn,
     ): void {
+        /*
+         * Recorded before the idempotency guard, on purpose: a retry that deducts
+         * nothing still drew this quantity, and an estimate assembled from the
+         * lines a *second* run happened to write would be missing everything the
+         * first one got through.
+         */
+        $drawn[] = [
+            'ingredient_id' => $ingredientId,
+            'stock_unit_id' => (string) $stockUnit->getKey(),
+            'quantity' => $consumedInStockUnit,
+        ];
+
         if ($this->alreadyDeducted($order, $line, $stockItem)) {
             // This (line, ingredient) already came off the shelf on a prior run —
             // a retry must not deduct it a second time, and it is not a failure.

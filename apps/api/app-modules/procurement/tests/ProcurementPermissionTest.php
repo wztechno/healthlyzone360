@@ -227,3 +227,70 @@ it('registers the ordering code in the inventory domain and grants it to the kit
         expect($roles[$code]['permissions'])->not->toContain('inventory.order_supplies_organisation');
     }
 });
+
+/*
+|--------------------------------------------------------------------------
+| The two reports PROD1 adds
+|--------------------------------------------------------------------------
+|
+| Both are money, so both take the money code — and the second is money about
+| production, which is why it is here rather than on the production desk's own
+| view code.
+|
+*/
+
+it('refuses the inventory valuation to a caller who may count stock but not price it', function (): void {
+    // The whole point of the cost split: a person who counts the shelves is not
+    // thereby a person who reads what they are worth.
+    $world = permissionWorld('no-valuation@kitchen.test', PERMISSION_OPS_WITHOUT_COSTS);
+    $this->actingAs($world->user);
+
+    $this->getJson('/api/v1/catalogue/reports/inventory-value', $world->headers)
+        ->assertForbidden();
+});
+
+it('admits the inventory valuation to the cost code, and says it is a current figure', function (): void {
+    $world = permissionWorld('valuation@kitchen.test', [
+        'organisation.view_current',
+        'branch.view_current',
+        'inventory.view_costs_organisation',
+    ]);
+    $this->actingAs($world->user);
+
+    // An empty kitchen answers an empty list rather than an error: nothing is
+    // held, which is a fact. `as_of` is published rather than implied, so nobody
+    // mistakes a live valuation for a closing one.
+    $this->getJson('/api/v1/catalogue/reports/inventory-value', $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.inventory_value', [])
+        ->assertJsonPath('meta.unvalued_item_count', 0)
+        ->assertJsonPath('meta.is_complete', true)
+        ->assertJsonStructure(['meta' => ['as_of']]);
+});
+
+it('puts the pending-valuation queue behind the cost code, not the production desk', function (): void {
+    // The queue is entirely about money that could not be computed, so it takes
+    // the money code. A chef who runs batches has no business on it.
+    $world = permissionWorld('batch-runner@kitchen.test', [
+        'organisation.view_current',
+        'branch.view_current',
+        'production.view_organisation',
+        'production.manage_organisation',
+    ]);
+    $this->actingAs($world->user);
+
+    $this->getJson('/api/v1/catalogue/production/valuations-pending', $world->headers)
+        ->assertForbidden();
+
+    $costs = permissionWorld('batch-costs@kitchen.test', [
+        'organisation.view_current',
+        'branch.view_current',
+        'inventory.view_costs_organisation',
+    ]);
+    $this->actingAs($costs->user);
+
+    $this->getJson('/api/v1/catalogue/production/valuations-pending', $costs->headers)
+        ->assertOk()
+        ->assertJsonPath('data.production_orders', [])
+        ->assertJsonPath('meta.is_truncated', false);
+});

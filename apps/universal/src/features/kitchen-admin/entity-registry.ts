@@ -61,6 +61,21 @@ export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
 export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
 
 /**
+ * The batch desk's own three (PROD1), and deliberately not the inventory codes it used to borrow.
+ *
+ * A production order stopped being a row with a status: it claims stock in advance, carries an
+ * estimated cost, and blends a finished valuation into the basis every sale is costed against.
+ * Whoever may count a shelf is not thereby whoever may commit next Thursday's oil to a batch.
+ *
+ * Costs split off for the reason they split everywhere else in this product: a chef runs the line
+ * and does not see what the line cost. The money is redacted **inside** the payload rather than at
+ * the door, so this code gates fields rather than a screen.
+ */
+export const PRODUCTION_VIEW_PERMISSION = 'production.view_organisation';
+export const PRODUCTION_MANAGE_PERMISSION = 'production.manage_organisation';
+export const PRODUCTION_VIEW_COSTS_PERMISSION = 'production.view_costs_organisation';
+
+/**
  * Placing an order **for somebody else** — the authority the Order Desk's sale wizard needs, and its
  * own code rather than `order.manage_organisation`.
  *
@@ -748,8 +763,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         descriptionKey: 'kitchen:families.production.description',
         icon: 'calendar',
         href: '/kitchen/production',
-        permission: INVENTORY_VIEW_PERMISSION,
-        managePermission: INVENTORY_MANAGE_PERMISSION,
+        permission: PRODUCTION_VIEW_PERMISSION,
+        managePermission: PRODUCTION_MANAGE_PERMISSION,
     },
     {
         key: 'qc',

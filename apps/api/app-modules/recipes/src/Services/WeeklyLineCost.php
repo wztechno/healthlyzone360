@@ -50,6 +50,16 @@ final readonly class WeeklyLineCost
         public ?string $effectiveFrom,
         public ?string $sourceRecipeVersionId = null,
         public bool $carriedForward = false,
+        /**
+         * The publication this figure came out of, on a `weekly` line and nowhere
+         * else (PROD1).
+         *
+         * Carried so that a caller freezing an estimate can say **which** week it
+         * stood on. Null on `component_recipe`, `ingredient_fallback` and `none`,
+         * because those have no week — and a null is the honest answer there
+         * rather than the nearest publication that happened to exist.
+         */
+        public ?string $publicationId = null,
     ) {}
 
     public static function none(int $lineNumber, string $ingredientId): self

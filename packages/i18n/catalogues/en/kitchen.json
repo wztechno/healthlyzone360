@@ -1998,9 +1998,9 @@
         },
         "production": {
             "title": "Production",
-            "subtitle": "Batch orders from recipe versions with consume and yield movements.",
+            "subtitle": "Batches made from recipe versions: what each one claimed, what it produced and what it cost.",
             "emptyTitle": "No production batches yet",
-            "emptyBody": "Create a batch from a published recipe version. Completed batches show here with their status.",
+            "emptyBody": "Open a batch from a published recipe version. Confirming it claims the stock it needs; nothing is reserved before that.",
             "metrics": {
                 "batches": "Batches",
                 "inProgress": "Open",
@@ -2015,8 +2015,10 @@
             "createSubmit": "Create batch",
             "createFailed": "The batch could not be created.",
             "createdToast": "Production batch created.",
-            "completedToast": "Production batch marked complete.",
-            "complete": "Complete",
+            "confirm": "Confirm",
+            "start": "Start",
+            "confirmedToast": "Batch confirmed. Its inputs are now claimed.",
+            "startedToast": "Batch started.",
             "versionLabel": "Recipe version id",
             "versionHint": "Paste the published version id from the recipe editor.",
             "noBranchTitle": "Choose a branch first",
@@ -2024,10 +2026,12 @@
             "loadErrorTitle": "Production orders could not be loaded",
             "loadErrorBody": "Check your connection and try again.",
             "status": {
-                "planned": "Planned",
-                "inProgress": "In progress",
+                "draft": "Draft",
+                "confirmed": "Confirmed",
+                "inProduction": "In production",
                 "completed": "Completed",
-                "cancelled": "Cancelled"
+                "cancelled": "Cancelled",
+                "abandoned": "Abandoned"
             }
         },
         "qc": {
@@ -2104,6 +2108,10 @@
             "columnCogs": "COGS",
             "columnRevenue": "Revenue",
             "columnMargin": "Margin",
+            "columnProductionConsumption": "Made with",
+            "columnProductionWaste": "Batch waste",
+            "columnProductionYield": "Batch yield",
+            "columnEstimatedMargin": "Est. margin",
             "columnMarginPercent": "Margin %",
             "spendIncomplete": "Spend incomplete",
             "spendIncompleteTitle": "Some purchases are still waiting on their prices",

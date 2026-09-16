@@ -324,11 +324,25 @@ modules:
     description: Suppliers, purchase orders and goods receipts that post quantity and cost into the inventory ledger, blending each priced purchase into an ingredient's weighted moving-average cost; and the monthly cost report reconciling purchasing spend and COGS against selling revenue per month and currency (INV1.4).
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Ingredients, Inventory, Orders, Catalogues]
 
+  # PROD1 turned this from a stub into the Internal Production Order Desk: a
+  # batch is planned from a recipe version and a factor, confirmed against real
+  # stock (which opens reservations), started, and completed with what actually
+  # came out — produced, rejected and input waste kept as three different facts.
+  #
+  # Three edges are added and each is used rather than reserved. `Ingredients`
+  # for the produced item and the weekly-price port declared there.
+  # `ReferenceData` for unit conversion, which is what lets a recipe written in
+  # grams reserve off a shelf counted in kilos. `Procurement` for
+  # `IngredientCostService`, because a finished batch is valued into the *same*
+  # moving average a purchase is — two blends would be two answers to what a
+  # kilo of dressing is worth. All three are acyclic: nothing in Procurement,
+  # Ingredients or ReferenceData depends on Production, whose only dependants
+  # are QualityControl and Kds.
   - name: Production
     status: foundation
     phase: 2
-    description: Production orders from recipe versions, tasks, and consume/yield movements into inventory.
-    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Kitchens, Inventory, Recipes]
+    description: Internal production orders — a batch planned from a recipe version and a batch factor, with required/available/missing against reserved stock and an estimated cost at published weekly prices; confirm opens reservations, completion consumes inputs, records input waste separately, posts the yield and blends it into the produced ingredient's moving average; planned-versus-actual yield, batch reference, storage and expiry; and the technical sheet read back off the confirm-time snapshot.
+    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Kitchens, Inventory, Recipes, Ingredients, ReferenceData, Procurement]
 
   - name: QualityControl
     status: foundation

@@ -326,6 +326,25 @@ final class PermissionRegistry
             // one. Receiving stays on `manage` in a later slice, deliberately —
             // the person unloading the van is rarely the person who ordered it.
             'inventory.order_supplies_organisation' => ['domain' => 'inventory', 'description' => 'Prepare, issue, print and cancel supplier purchase orders'],
+
+            // PROD1. A domain of its own rather than a fifth inventory code, and
+            // the reason is what a production order *is*: the two legacy routes
+            // sat on `inventory.*` when a production order was a row with a
+            // status, and it is now a commitment that claims stock in advance,
+            // carries an estimated cost, and blends a finished valuation into the
+            // basis every sale is costed against. Whoever may count a shelf is
+            // not thereby whoever may commit next Thursday's oil to a batch.
+            //
+            // Split three ways on the lines the rest of the system already draws.
+            // Reading the desk is one authority; running a batch — confirm, start,
+            // complete, abandon, cancel — is another, because each of those moves
+            // real stock or real claims. And money is a third, exactly as
+            // `inventory.view_costs_organisation` and
+            // `recipe.view_costs_organisation` split it: a chef who runs the line
+            // has no business seeing what the line cost.
+            'production.view_organisation' => ['domain' => 'production', 'description' => 'View the production desk, batch details and the batch register'],
+            'production.manage_organisation' => ['domain' => 'production', 'description' => 'Plan, confirm, start, complete, abandon and cancel production batches'],
+            'production.view_costs_organisation' => ['domain' => 'production', 'description' => 'View estimated and actual batch costs, and the money on a production technical sheet'],
         ];
     }
 
@@ -636,6 +655,15 @@ final class PermissionRegistry
                     // the chequebook.
                     'inventory.order_supplies_organisation',
 
+                    // PROD1. All three production codes. The kitchen manager is
+                    // the person who decides what gets made and is already the
+                    // one who sees what the shelf is worth, so the costs code
+                    // lands here for the same reason
+                    // `inventory.view_costs_organisation` did.
+                    'production.view_organisation',
+                    'production.manage_organisation',
+                    'production.view_costs_organisation',
+
                     // S1. `subscription.view_organisation` has existed in the
                     // registry since the foundation as a proposal and had no
                     // endpoint until the schedule projection; it is granted here
@@ -680,6 +708,14 @@ final class PermissionRegistry
                     // line the plan draws.
                     'inventory.view_organisation',
                     'inventory.manage_organisation',
+
+                    // PROD1. A chef runs batches — that is the job — so view and
+                    // manage are theirs. Costs are not, on exactly the line drawn
+                    // two comments up: a chef sees what a substitution does to a
+                    // recipe's cost and does not see what the kitchen paid or what
+                    // a batch was worth.
+                    'production.view_organisation',
+                    'production.manage_organisation',
                 ],
             ],
 

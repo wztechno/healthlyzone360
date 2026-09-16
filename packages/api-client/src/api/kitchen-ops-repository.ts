@@ -44,8 +44,14 @@ import type {
     OrderProposalOrigin,
     PostGoodsReceiptRequest,
     ProcurementReference,
+    AbandonProductionOrderRequest,
     ProductionOrder,
-    ProductionOrderResult,
+    ProductionOrderDetail,
+    ProductionOrderFilters,
+    ProductionOrderLine,
+    ProductionPlan,
+    ProductionPlanLine,
+    ProductionTechnicalSheet,
     PurchaseLedgerFilter,
     PurchaseLedgerLine,
     PurchaseOrder,
@@ -96,6 +102,9 @@ import type {
     OrderProposalItem as WireOrderProposalItem,
     ProcurementReference as WireProcurementReference,
     ProductionOrder as WireProductionOrder,
+    ProductionOrderLine as WireProductionOrderLine,
+    ProductionPlan as WireProductionPlan,
+    ProductionPlanLine as WireProductionPlanLine,
     PurchaseOrder as WirePurchaseOrder,
     PurchaseOrderLine as WirePurchaseOrderLine,
     PurchaseOrderReceiptRef as WirePurchaseOrderReceiptRef,
@@ -685,6 +694,16 @@ function mapMonthlyCostReportRow(wire: WireMonthlyCostReportRow): MonthlyCostRep
         isSpendComplete: wire.is_spend_complete,
         unpricedLineCount: wire.unpriced_line_count,
         valuationPendingLineCount: wire.valuation_pending_line_count,
+        productionConsumptionAmount: wire.production_consumption_amount,
+        productionWasteAmount: wire.production_waste_amount,
+        productionYieldValueAmount: wire.production_yield_value_amount,
+        estimatedCogsAmount: wire.estimated_cogs_amount,
+        estimatedMarginAmount: wire.estimated_margin_amount,
+        estimatedMarginPercent: wire.estimated_margin_percent,
+        unestimatedLineCount: wire.unestimated_line_count,
+        isEstimateComplete: wire.is_estimate_complete,
+        isProductionValuationComplete: wire.is_production_valuation_complete,
+        unvaluedBatchCount: wire.unvalued_batch_count,
     };
 }
 
@@ -759,12 +778,215 @@ function mapConsumptionException(wire: WireConsumptionException): ConsumptionExc
     };
 }
 
+/**
+ * A batch off the wire.
+ *
+ * **The money keys are copied only when the server sent them**, and that is the whole redaction
+ * model rather than a micro-optimisation: a reader without `production.view_costs_organisation`
+ * gets no cost keys at all, and a `null` here therefore means "nobody could compute it" rather than
+ * "you may not see it". Defaulting them to null would collapse the two and tell a kitchen manager a
+ * batch was free.
+ *
+ * Every quantity crosses as the decimal string the server computed. A `Number()` here would be the
+ * client quietly disagreeing with the server about how much dressing is on the shelf.
+ */
 function mapProductionOrder(wire: WireProductionOrder): ProductionOrder {
-    return {
+    const order: ProductionOrder = {
         id: ProductionOrderId.unsafe(wire.id),
-        recipeVersionId: RecipeVersionId.unsafe(wire.recipe_version_id),
-        status: wire.status,
+        reference: wire.reference,
         branchId: BranchId.unsafe(wire.branch_id),
+        recipeVersionId: RecipeVersionId.unsafe(wire.recipe_version_id),
+        productionItemIngredientId: wire.production_item_ingredient_id,
+        productionItemNameEn: wire.production_item_name_en,
+        plannedYieldUnitCode: wire.planned_yield_unit_code,
+        status: wire.status,
+        batchFactor: wire.batch_factor,
+        plannedYield: wire.planned_yield,
+        plannedYieldUnitId: wire.planned_yield_unit_id,
+        producedQuantity: wire.produced_quantity,
+        rejectedQuantity: wire.rejected_quantity,
+        usableYieldQuantity: wire.usable_yield_quantity,
+        yieldVarianceQuantity: wire.yield_variance_quantity,
+        productionDate: wire.production_date,
+        batchReference: wire.batch_reference,
+        storageLocation: wire.storage_location,
+        expiryDate: wire.expiry_date,
+        isExpired: wire.is_expired,
+        confirmedAt: wire.confirmed_at,
+        startedAt: wire.started_at,
+        completedAt: wire.completed_at,
+        cancelledAt: wire.cancelled_at,
+        abandonedAt: wire.abandoned_at,
+        abandonReason: wire.abandon_reason,
+        lockVersion: wire.lock_version,
+        notes: wire.notes,
+    };
+
+    if (!('estimated_cost_amount' in wire)) return order;
+
+    return {
+        ...order,
+        estimatedCostAmount: wire.estimated_cost_amount ?? null,
+        estimatedCostCurrencyCode: wire.estimated_cost_currency_code ?? null,
+        weeklyPricePublicationId: wire.weekly_price_publication_id ?? null,
+        actualCostAmount: wire.actual_cost_amount ?? null,
+        actualCostCurrencyCode: wire.actual_cost_currency_code ?? null,
+        actualUnitCostAmount: wire.actual_unit_cost_amount ?? null,
+        actualCostStatus: wire.actual_cost_status ?? null,
+        valuationNote: wire.valuation_note ?? null,
+    };
+}
+
+function mapProductionOrderLine(wire: WireProductionOrderLine): ProductionOrderLine {
+    const line: ProductionOrderLine = {
+        id: wire.id,
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        ingredientId: wire.ingredient_id,
+        lineKind: wire.line_kind,
+        unitId: wire.unit_id,
+        requiredQuantity: wire.required_quantity,
+        reservedQuantity: wire.reserved_quantity,
+        consumedQuantity: wire.consumed_quantity,
+        wasteQuantity: wire.waste_quantity,
+        sourceRecipeVersionId: wire.source_recipe_version_id,
+        displayOrder: wire.display_order,
+    };
+
+    if (!('estimated_unit_cost_amount' in wire)) return line;
+
+    return {
+        ...line,
+        estimatedUnitCostAmount: wire.estimated_unit_cost_amount ?? null,
+        costSource: wire.cost_source ?? null,
+        fallbackUnitCostAmount: wire.fallback_unit_cost_amount ?? null,
+        actualUnitCostAmount: wire.actual_unit_cost_amount ?? null,
+        costCurrencyCode: wire.cost_currency_code ?? null,
+    };
+}
+
+function mapProductionPlanLine(wire: WireProductionPlanLine): ProductionPlanLine {
+    const line: ProductionPlanLine = {
+        stockItemId: StockItemId.unsafe(wire.stock_item_id),
+        ingredientId: wire.ingredient_id,
+        lineKind: wire.line_kind,
+        unitId: wire.unit_id,
+        required: wire.required,
+        onHand: wire.on_hand,
+        reserved: wire.reserved,
+        available: wire.available,
+        missing: wire.missing,
+    };
+
+    if (!('cost_source' in wire)) return line;
+
+    return {
+        ...line,
+        estimatedUnitCostAmount: wire.estimated_unit_cost_amount ?? null,
+        estimatedLineCostAmount: wire.estimated_line_cost_amount ?? null,
+        currencyCode: wire.currency_code ?? null,
+        costSource: wire.cost_source,
+        effectiveFrom: wire.effective_from ?? null,
+    };
+}
+
+function mapProductionPlan(wire: WireProductionPlan): ProductionPlan {
+    const plan: ProductionPlan = {
+        batchFactor: wire.batch_factor,
+        ingredients: wire.ingredients.map(mapProductionPlanLine),
+        packaging: wire.packaging.map(mapProductionPlanLine),
+        // Passed through in the server's own casing: the reason codes are a
+        // vocabulary rather than a shape, looked up for a label and never
+        // destructured, and camel-casing them here would invent client-side
+        // names for codes the server owns and may extend.
+        notComputable: wire.not_computable.map((hole) => ({
+            reasonCode: hole.reason_code,
+            detail: hole.detail,
+        })),
+        shortLineCount: wire.short_line_count,
+        isConfirmable: wire.is_confirmable,
+    };
+
+    if (!('estimated_cost_amount' in wire)) return plan;
+
+    return {
+        ...plan,
+        estimatedCostAmount: wire.estimated_cost_amount ?? null,
+        currencyCode: wire.currency_code ?? null,
+        uncostedLineCount: wire.uncosted_line_count ?? 0,
+        currencyConflict: wire.currency_conflict ?? false,
+        weeklyPricePublicationId: wire.weekly_price_publication_id ?? null,
+    };
+}
+
+/**
+ * A batch detail envelope: the order, its lines, and the plan when it has none.
+ *
+ * `plan` is null once lines exist, and that is the server's decision rather than this mapper's — a
+ * confirmed batch's lines are what the kitchen agreed to, and a live plan beside them would be a
+ * second answer to the same question.
+ */
+/**
+ * The five batch edges, which differ only in a path segment and a body.
+ *
+ * `If-Match` is mandatory on every one of them: two people share a production desk and can both see
+ * the same batch, so confirming something somebody else has already started is not hypothetical. A
+ * stale validator comes back `409 resource.conflict` carrying the current version, which is what
+ * lets a screen offer "reload" without a second round trip.
+ */
+async function transitionProductionOrder(
+    transport: Transport,
+    productionOrderId: ProductionOrderId,
+    edge: 'confirm' | 'start' | 'complete' | 'abandon' | 'cancel',
+    lockVersion: number,
+    body?: Record<string, unknown>,
+): Promise<ProductionOrderDetail> {
+    const envelope = await transport.requestEnvelope<{
+        readonly production_order: WireProductionOrder;
+        readonly lines: readonly WireProductionOrderLine[];
+    }>({
+        method: 'POST',
+        path: `/catalogue/production/orders/${encodeURIComponent(String(productionOrderId))}/${edge}`,
+        headers: { 'If-Match': `"${lockVersion}"` },
+        ...(body === undefined ? {} : { body }),
+    });
+
+    return mapProductionOrderDetail(envelope.data);
+}
+
+/**
+ * The completion report, with every optional field omitted rather than nulled.
+ *
+ * Omission is meaningful on two of them: a shelf absent from `consumed` means "as planned" rather
+ * than "nothing", and one absent from `waste` means none. Sending nulls would make the server
+ * choose between reading them as zero and rejecting them, and neither is what a cook meant.
+ */
+function batchReportBody(request: CompleteProductionOrderRequest): Record<string, unknown> {
+    return {
+        produced_quantity: request.producedQuantity,
+        ...(request.rejectedQuantity == null
+            ? {}
+            : { rejected_quantity: request.rejectedQuantity }),
+        ...(request.consumed === undefined ? {} : { consumed: request.consumed }),
+        ...(request.waste === undefined ? {} : { waste: request.waste }),
+        ...(request.productionDate == null ? {} : { production_date: request.productionDate }),
+        ...(request.batchReference == null ? {} : { batch_reference: request.batchReference }),
+        ...(request.storageLocation == null ? {} : { storage_location: request.storageLocation }),
+        ...(request.expiryDate == null ? {} : { expiry_date: request.expiryDate }),
+        ...(request.notes == null ? {} : { notes: request.notes }),
+    };
+}
+
+function mapProductionOrderDetail(data: {
+    readonly production_order: WireProductionOrder;
+    readonly lines?: readonly WireProductionOrderLine[];
+    readonly plan?: WireProductionPlan;
+    readonly costs_visible?: boolean;
+}): ProductionOrderDetail {
+    return {
+        order: mapProductionOrder(data.production_order),
+        lines: (data.lines ?? []).map(mapProductionOrderLine),
+        plan: data.plan === undefined ? null : mapProductionPlan(data.plan),
+        costsVisible: 'estimated_cost_amount' in data.production_order,
     };
 }
 
@@ -1525,59 +1747,201 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return mapConsumptionException(envelope.data.exception);
         },
 
-        async listProductionOrders(): Promise<readonly ProductionOrder[]> {
+        async listProductionOrders(filters: ProductionOrderFilters = {}) {
+            const query = new URLSearchParams();
+            if (filters.status !== undefined) query.set('status', filters.status);
+            if (filters.branchId !== undefined) query.set('branch_id', String(filters.branchId));
+            if (filters.page !== undefined) query.set('page', String(filters.page));
+
+            const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+
             const envelope = await transport.requestEnvelope<{
                 readonly production_orders: readonly WireProductionOrder[];
-            }>({ method: 'GET', path: '/catalogue/production/orders' });
+            }>({ method: 'GET', path: `/catalogue/production/orders${suffix}` });
+
+            const meta = (envelope.meta ?? {}) as {
+                readonly page?: number;
+                readonly per_page?: number;
+                readonly has_more?: boolean;
+                readonly costs_visible?: boolean;
+            };
+
+            return {
+                orders: envelope.data.production_orders.map(mapProductionOrder),
+                page: meta.page ?? 1,
+                perPage: meta.per_page ?? envelope.data.production_orders.length,
+                // Defaulted to false rather than to "maybe": a pager that offers a
+                // next page it cannot fetch is worse than one that stops.
+                hasMore: meta.has_more ?? false,
+                costsVisible: meta.costs_visible ?? false,
+            };
+        },
+
+        async getProductionOrder(productionOrderId: ProductionOrderId) {
+            const envelope = await transport.requestEnvelope<{
+                readonly production_order: WireProductionOrder;
+                readonly lines: readonly WireProductionOrderLine[];
+                readonly plan?: WireProductionPlan;
+            }>({
+                method: 'GET',
+                path: `/catalogue/production/orders/${encodeURIComponent(String(productionOrderId))}`,
+            });
+            return mapProductionOrderDetail(envelope.data);
+        },
+
+        async getProductionOrderPlan(productionOrderId: ProductionOrderId) {
+            const envelope = await transport.requestEnvelope<{
+                readonly plan: WireProductionPlan;
+            }>({
+                method: 'GET',
+                path: `/catalogue/production/orders/${encodeURIComponent(String(productionOrderId))}/plan`,
+            });
+            return mapProductionPlan(envelope.data.plan);
+        },
+
+        async getInventoryValue() {
+            const envelope = await transport.requestEnvelope<{
+                readonly inventory_value: readonly {
+                    readonly currency_code: string;
+                    readonly value_amount: string;
+                    readonly valued_item_count: number;
+                }[];
+            }>({ method: 'GET', path: '/catalogue/reports/inventory-value' });
+
+            const meta = (envelope.meta ?? {}) as {
+                readonly as_of?: string;
+                readonly unvalued_item_count?: number;
+                readonly is_complete?: boolean;
+            };
+
+            return {
+                rows: envelope.data.inventory_value.map((row) => ({
+                    currencyCode: row.currency_code,
+                    valueAmount: row.value_amount,
+                    valuedItemCount: row.valued_item_count,
+                })),
+                asOf: meta.as_of ?? '',
+                unvaluedItemCount: meta.unvalued_item_count ?? 0,
+                // Defaulted to false rather than true: a valuation whose
+                // completeness the server did not state is one to distrust, not
+                // one to present as whole.
+                isComplete: meta.is_complete ?? false,
+            };
+        },
+
+        async listPendingProductionValuations() {
+            const envelope = await transport.requestEnvelope<{
+                readonly production_orders: readonly WireProductionOrder[];
+            }>({ method: 'GET', path: '/catalogue/production/valuations-pending' });
+
             return envelope.data.production_orders.map(mapProductionOrder);
         },
 
-        async createProductionOrder(
-            request: CreateProductionOrderRequest,
-        ): Promise<ProductionOrderResult> {
+        async getProductionTechnicalSheet(productionOrderId: ProductionOrderId) {
             const envelope = await transport.requestEnvelope<{
-                readonly production_order: { readonly id: string; readonly status: string };
+                readonly technical_sheet: {
+                    readonly production_order: WireProductionOrder;
+                    readonly lines: readonly WireProductionOrderLine[];
+                    readonly yield: {
+                        readonly planned_quantity: string | null;
+                        readonly produced_quantity: string | null;
+                        readonly rejected_quantity: string | null;
+                        readonly usable_quantity: string | null;
+                        readonly variance_quantity: string | null;
+                        readonly unit_id: string | null;
+                    };
+                    readonly nutrition_facts: Readonly<Record<string, unknown>> | null;
+                    readonly basis: {
+                        readonly recipe_version_id: string;
+                        readonly confirmed_at: string | null;
+                        readonly weekly_price_publication_id: string | null;
+                    };
+                };
+            }>({
+                method: 'GET',
+                path: `/catalogue/production/orders/${encodeURIComponent(String(productionOrderId))}/technical-sheet`,
+            });
+
+            const sheet = envelope.data.technical_sheet;
+
+            return {
+                order: mapProductionOrder(sheet.production_order),
+                lines: sheet.lines.map(mapProductionOrderLine),
+                yield: {
+                    plannedQuantity: sheet.yield.planned_quantity,
+                    producedQuantity: sheet.yield.produced_quantity,
+                    rejectedQuantity: sheet.yield.rejected_quantity,
+                    usableQuantity: sheet.yield.usable_quantity,
+                    varianceQuantity: sheet.yield.variance_quantity,
+                    unitId: sheet.yield.unit_id,
+                },
+                // Passed through whole. The server's own block is per 100 g by
+                // construction, and a nutrient it withheld must stay withheld
+                // rather than be defaulted into a total that looks complete.
+                nutritionFacts: sheet.nutrition_facts,
+                basis: {
+                    recipeVersionId: RecipeVersionId.unsafe(sheet.basis.recipe_version_id),
+                    confirmedAt: sheet.basis.confirmed_at,
+                    weeklyPricePublicationId: sheet.basis.weekly_price_publication_id,
+                },
+                costsVisible: 'estimated_cost_amount' in sheet.production_order,
+            } satisfies ProductionTechnicalSheet;
+        },
+
+        async createProductionOrder(request: CreateProductionOrderRequest) {
+            const envelope = await transport.requestEnvelope<{
+                readonly production_order: WireProductionOrder;
             }>({
                 method: 'POST',
                 path: '/catalogue/production/orders',
                 body: {
                     branch_id: String(request.branchId),
                     recipe_version_id: String(request.recipeVersionId),
-                    ...(request.plannedYield === undefined
+                    ...(request.plannedYield == null
                         ? {}
                         : { planned_yield: request.plannedYield }),
+                    ...(request.batchFactor == null ? {} : { batch_factor: request.batchFactor }),
+                    ...(request.notes == null ? {} : { notes: request.notes }),
                 },
             });
-            return {
-                id: ProductionOrderId.unsafe(envelope.data.production_order.id),
-                status: envelope.data.production_order.status as ProductionOrderResult['status'],
-            };
+            return mapProductionOrderDetail(envelope.data);
+        },
+
+        async confirmProductionOrder(productionOrderId: ProductionOrderId, lockVersion: number) {
+            return transitionProductionOrder(transport, productionOrderId, 'confirm', lockVersion);
+        },
+
+        async startProductionOrder(productionOrderId: ProductionOrderId, lockVersion: number) {
+            return transitionProductionOrder(transport, productionOrderId, 'start', lockVersion);
         },
 
         async completeProductionOrder(
-            productionOrderId,
+            productionOrderId: ProductionOrderId,
+            lockVersion: number,
             request: CompleteProductionOrderRequest,
-        ): Promise<ProductionOrderResult> {
-            const envelope = await transport.requestEnvelope<{
-                readonly production_order: { readonly id: string; readonly status: string };
-            }>({
-                method: 'POST',
-                path: `/catalogue/production/orders/${encodeURIComponent(String(productionOrderId))}/complete`,
-                body: {
-                    consumes: (request.consumes ?? []).map((line) => ({
-                        stock_item_id: String(line.stockItemId),
-                        quantity: line.quantity,
-                    })),
-                    yields: (request.yields ?? []).map((line) => ({
-                        stock_item_id: String(line.stockItemId),
-                        quantity: line.quantity,
-                    })),
-                },
+        ) {
+            return transitionProductionOrder(
+                transport,
+                productionOrderId,
+                'complete',
+                lockVersion,
+                batchReportBody(request),
+            );
+        },
+
+        async abandonProductionOrder(
+            productionOrderId: ProductionOrderId,
+            lockVersion: number,
+            request: AbandonProductionOrderRequest,
+        ) {
+            return transitionProductionOrder(transport, productionOrderId, 'abandon', lockVersion, {
+                ...batchReportBody(request),
+                reason: request.reason,
             });
-            return {
-                id: ProductionOrderId.unsafe(envelope.data.production_order.id),
-                status: envelope.data.production_order.status as ProductionOrderResult['status'],
-            };
+        },
+
+        async cancelProductionOrder(productionOrderId: ProductionOrderId, lockVersion: number) {
+            return transitionProductionOrder(transport, productionOrderId, 'cancel', lockVersion);
         },
 
         async listQualityChecks(): Promise<readonly QualityCheck[]> {
