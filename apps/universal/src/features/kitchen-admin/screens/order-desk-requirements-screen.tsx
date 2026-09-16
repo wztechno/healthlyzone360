@@ -66,6 +66,13 @@ import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
  *
  * ## Em dashes, zeroes, and the one thing that must never be confused
  *
+ * `onHand`, `reserved` and `available` are three columns rather than one because the drop between
+ * the first and the third needs explaining: `available` is net of what confirmed production orders
+ * have claimed (PROD1), so a buyer looking at a full shelf and a buy suggestion beside it can see
+ * that the flour is spoken for rather than missing. `available` may arrive **negative** where more
+ * is claimed than is there, and is rendered as it arrives — an over-committed shelf is a real state
+ * and clamping it would hide it.
+ *
  * A zero in the table is a **true zero**: the server computed it. `available: 0` is a shelf holding
  * none of that thing, not an unknown. The em dash is reserved for what genuinely is not known — a
  * shelf with no resolved unit, and the ops metrics while they are still loading.
@@ -160,6 +167,38 @@ function OrderDeskRequirements() {
             render: (row) => (
                 <Text variant="mono" testID={`${rowTestId(row)}-required`}>
                     {quantity(row.required)}
+                </Text>
+            ),
+        },
+        {
+            key: 'onHand',
+            label: t('kitchen:ops.requirements.columnOnHand'),
+            width: 100,
+            priority: 55,
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.onHand), Number(right.onHand), direction),
+            render: (row) => (
+                <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-on-hand`}>
+                    {quantity(row.onHand)}
+                </Text>
+            ),
+        },
+        {
+            key: 'reserved',
+            label: t('kitchen:ops.requirements.columnReserved'),
+            width: 100,
+            priority: 60,
+            align: 'center',
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.reserved), Number(right.reserved), direction),
+            render: (row) => (
+                <Text
+                    variant="mono"
+                    tone={Number(row.reserved) > 0 ? 'primary' : 'secondary'}
+                    testID={`${rowTestId(row)}-reserved`}
+                >
+                    {quantity(row.reserved)}
                 </Text>
             ),
         },

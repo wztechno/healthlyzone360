@@ -14,8 +14,10 @@ use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
+use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\OrderConsumptionService;
+use Healthy360\Inventory\Services\ReservationService;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Models\Order;
@@ -465,6 +467,34 @@ it('records an exception instead of hard-failing when there is not enough stock'
         ->and(levelOf($flour))->toBe('0.0100')
         ->and(consumeMovements($order)->count())->toBe(0)
         ->and(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('insufficient_stock');
+});
+
+it('records a reservation block as its own reason, not as an empty shelf', function (): void {
+    // The flour is on the shelf and the meal needs a fraction of it. What stops
+    // the deduction is a confirmed batch that has claimed the lot (PROD1), and
+    // that is a different problem with a different remedy — talk to the kitchen,
+    // or release the claim — so it gets a reason of its own.
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+
+    app(ReservationService::class)->open(
+        (string) $this->organisation->getKey(),
+        (string) $this->branch->getKey(),
+        StockReservation::HOLDER_PRODUCTION_ORDER,
+        '01a0b000-0000-7000-8000-0000000000c1',
+        [(string) $flour->getKey() => '100'],
+    );
+
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    // The confirm still stands — a kitchen has committed to cook — and nothing
+    // came off a shelf somebody else is counting on.
+    expect($order->refresh()->status->value)->toBe('confirmed')
+        ->and(levelOf($flour))->toBe('100.0000')
+        ->and(consumeMovements($order)->count())->toBe(0)
+        ->and(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('reserved_for_production');
 });
 
 it('retries a blocked line once the stock item exists, deducting and auto-resolving, and is idempotent', function (): void {

@@ -2157,7 +2157,9 @@
         "no_stock_unit": "[[Šţóçķ íţéɱ ĥáš ñó úñíţ āēīōūāēīō]]",
         "unit_conversion_unsupported": "[[Úñíţš çáññóţ ƀé çóñṽéŕţéð āēīōūāēīōū]]",
         "no_ingredient_cost": "[[Ñó çóšţ ţó ṽáłúé ÇÓĜŠ āēīōūāēīō]]",
-        "insufficient_stock": "[[Ñóţ éñóúĝĥ šţóçķ āēīōūāē]]"
+        "insufficient_stock": "[[Ñóţ éñóúĝĥ šţóçķ āēīōūāē]]",
+        "no_net_content": "[[Šółð úñíţ šížé ñóţ šéţ āēīōūāēīō]]",
+        "reserved_for_production": "[[Ŕéšéŕṽéð ƒóŕ þŕóðúçţíóñ āēīōūāēīōū]]"
       },
       "chip": "[[Ŕéţŕý ŵŕíţéš šţóçķ āēīōūāēī]]",
       "statUnit": "[[éẋçéþţíóñš āēīō]]",
@@ -2195,6 +2197,8 @@
       },
       "columnIngredient": "[[Íñĝŕéðíéñţ āēīō]]",
       "columnRequired": "[[Ŕéǫúíŕéð āēīō]]",
+      "columnOnHand": "[[Óñ ĥáñð āēī]]",
+      "columnReserved": "[[Ŕéšéŕṽéð āēīō]]",
       "columnAvailable": "[[Áṽáíłáƀłé āēīō]]",
       "columnShort": "[[Šĥóŕţ āē]]",
       "columnSuggestedBuy": "[[Šúĝĝéšţéð ƀúý āēīōūā]]",

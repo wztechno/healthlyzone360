@@ -243,7 +243,7 @@ export function mapCalendarMeta(wire: OrderDeskCalendarEnvelope['meta']): OrderD
 /**
  * One shelf the window needs something of.
  *
- * Every field is carried across as it arrived and **nothing is defaulted**. The four quantities are
+ * Every field is carried across as it arrived and **nothing is defaulted**. The six quantities are
  * decimal strings and stay strings — a `Number()` here would be the client quietly disagreeing with
  * the server about how much flour to buy — and `unit_id`/`unit_code` keep their `null`, which is a
  * shelf with no resolved unit and takes the em dash rather than a guessed one.
@@ -261,6 +261,8 @@ export function mapOrderDeskRequirement(wire: WireOrderDeskRequirement): OrderDe
         unitId: wire.unit_id,
         unitCode: wire.unit_code,
         required: wire.required,
+        onHand: wire.on_hand,
+        reserved: wire.reserved,
         available: wire.available,
         short: wire.short,
         suggestedBuy: wire.suggested_buy,

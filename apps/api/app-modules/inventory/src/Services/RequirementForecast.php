@@ -164,6 +164,7 @@ final readonly class RequirementForecast
         private MealExplosion $explosion,
         private SubscriptionMealDemand $demand,
         private PlanMenuService $menus,
+        private ReservationService $reservations,
     ) {}
 
     /**
@@ -582,6 +583,14 @@ final readonly class RequirementForecast
      * none of that thing. Publishing it as an unknown would put an em dash where
      * the buyer most needs a number.
      *
+     * **`available` is net of what production has claimed** (PROD1). A buy list
+     * that counted the oil a confirmed batch is going to use would tell the buyer
+     * to buy nothing and leave the batch short on the day. `on_hand` and
+     * `reserved` are published beside it so the drop is explained rather than
+     * merely applied, and `available` is allowed to go negative where more is
+     * claimed than is there — clamping it would hide exactly the over-commitment
+     * the buyer is being asked to fix.
+     *
      * `suggested_buy` is buy-up-to-par where a par is set and the bare shortfall
      * where it is not: `par − (available − required)` is what leaves the shelf at
      * par once the window has been cooked. Where that is not positive — which is
@@ -590,7 +599,7 @@ final readonly class RequirementForecast
      * nobody has maintained can never *reduce* a buy below what the window needs.
      *
      * @param  array<string, array{ingredient_id: string, quantity: numeric-string}>  $required
-     * @return list<array{ingredient_id: string, stock_item_id: string, code: string, name_en: string, unit_id: string|null, unit_code: string|null, required: numeric-string, available: numeric-string, short: numeric-string, suggested_buy: numeric-string}>
+     * @return list<array{ingredient_id: string, stock_item_id: string, code: string, name_en: string, unit_id: string|null, unit_code: string|null, required: numeric-string, on_hand: numeric-string, reserved: numeric-string, available: numeric-string, short: numeric-string, suggested_buy: numeric-string}>
      */
     private function compareAgainstShelf(string $organisationId, string $branchId, array $required): array
     {
@@ -617,6 +626,11 @@ final readonly class RequirementForecast
             ->get()
             ->keyBy(static fn (StockLevel $level): string => (string) $level->stock_item_id)
             ->all();
+
+        $claimed = $this->reservations->openTotals($branchId, array_values(array_map(
+            static fn (int|string $id): string => (string) $id,
+            $stockItemIds,
+        )));
 
         $unitIds = array_values(array_filter(array_map(
             static fn (StockItem $item): ?string => $item->unit_id,
@@ -645,7 +659,14 @@ final readonly class RequirementForecast
             }
 
             $level = $levels[$stockItemId] ?? null;
-            $available = $level === null ? '0' : $this->numeric((string) $level->quantity);
+            $onHand = $level === null ? '0' : $this->numeric((string) $level->quantity);
+            $reserved = $claimed[(string) $stockItemId] ?? '0';
+
+            // Net of what production has claimed, and deliberately allowed to go
+            // negative: a shelf holding 4 with 6 claimed is over-committed, and
+            // clamping that to zero would hide the part of the problem a buyer can
+            // actually fix.
+            $available = bcsub($onHand, $reserved, self::COMPARISON_SCALE);
             $need = $requirement['quantity'];
 
             $short = bccomp($need, $available, self::COMPARISON_SCALE) > 0
@@ -663,6 +684,8 @@ final readonly class RequirementForecast
                 'unit_id' => $unitId,
                 'unit_code' => $unit?->code,
                 'required' => bcadd($need, '0', self::SCALE),
+                'on_hand' => bcadd($onHand, '0', self::COMPARISON_SCALE),
+                'reserved' => bcadd($reserved, '0', self::COMPARISON_SCALE),
                 'available' => bcadd($available, '0', self::COMPARISON_SCALE),
                 'short' => $short,
                 'suggested_buy' => $this->suggestedBuy($level?->par_level, $available, $need, $short),

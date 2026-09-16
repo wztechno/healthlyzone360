@@ -429,7 +429,8 @@ export interface OrderDeskCalendarFilters {
  * Every quantity is a **decimal string**, not a number, and for the reason every other quantity on
  * this client is: a `numeric` column crossed through IEEE-754 is a quantity that stops being the one
  * the server computed. `required` carries six places (the scale the recipe explosion works at) while
- * `available`, `short` and `suggestedBuy` carry four (the scale the stock column stores). The
+ * `onHand`, `reserved`, `available`, `short` and `suggestedBuy` carry four (the scale the stock
+ * column stores). The
  * difference is deliberate on the server's side — see the operation — and is passed through here
  * rather than normalised, because rounding a figure to make two columns agree is inventing one.
  *
@@ -450,9 +451,23 @@ export interface OrderDeskRequirement {
     readonly unitCode: string | null;
     /** How much the window needs, six decimal places. */
     readonly required: string;
-    /** What the branch holds, four places. `0` is a shelf holding none — never an unknown. */
+    /**
+     * What is physically on the shelf before any claim, four places. `0` is a shelf holding none —
+     * never an unknown.
+     */
+    readonly onHand: string;
+    /**
+     * How much of `onHand` confirmed production orders have claimed, four places. Carried so a
+     * screen can explain the gap between `onHand` and `available` rather than just applying it.
+     */
+    readonly reserved: string;
+    /**
+     * `onHand − reserved`, four places — what the window can actually draw on. **May be negative**
+     * where more is claimed than is there; render it as it arrives, because clamping it would hide
+     * an over-committed shelf.
+     */
     readonly available: string;
-    /** `max(0, required − available)`, four places. Zero is a true zero. */
+    /** `max(0, required − available)`, four places, so net of production's claims. Zero is a true zero. */
     readonly short: string;
     /** What to order: buy-up-to-par where a par is set, the bare shortfall otherwise. */
     readonly suggestedBuy: string;

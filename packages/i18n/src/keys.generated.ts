@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7065 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7069 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3533,10 +3533,12 @@ export interface NamespaceKeys {
     | 'ops.exceptions.reasons.no_catalogue_item'
     | 'ops.exceptions.reasons.no_ingredient_cost'
     | 'ops.exceptions.reasons.no_ingredient_link'
+    | 'ops.exceptions.reasons.no_net_content'
     | 'ops.exceptions.reasons.no_recipe_version'
     | 'ops.exceptions.reasons.no_stock_item'
     | 'ops.exceptions.reasons.no_stock_unit'
     | 'ops.exceptions.reasons.no_yield_piece_count'
+    | 'ops.exceptions.reasons.reserved_for_production'
     | 'ops.exceptions.reasons.unit_conversion_unsupported'
     | 'ops.exceptions.reasons.unquantified_recipe_line'
     | 'ops.exceptions.resolve'
@@ -3910,8 +3912,10 @@ export interface NamespaceKeys {
     | 'ops.requirements.branchRequiredTitle'
     | 'ops.requirements.columnAvailable'
     | 'ops.requirements.columnIngredient'
+    | 'ops.requirements.columnOnHand'
     | 'ops.requirements.columnPosition'
     | 'ops.requirements.columnRequired'
+    | 'ops.requirements.columnReserved'
     | 'ops.requirements.columnShort'
     | 'ops.requirements.columnSuggestedBuy'
     | 'ops.requirements.columnUnit'
@@ -10616,10 +10620,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.reasons.no_catalogue_item',
   'kitchen:ops.exceptions.reasons.no_ingredient_cost',
   'kitchen:ops.exceptions.reasons.no_ingredient_link',
+  'kitchen:ops.exceptions.reasons.no_net_content',
   'kitchen:ops.exceptions.reasons.no_recipe_version',
   'kitchen:ops.exceptions.reasons.no_stock_item',
   'kitchen:ops.exceptions.reasons.no_stock_unit',
   'kitchen:ops.exceptions.reasons.no_yield_piece_count',
+  'kitchen:ops.exceptions.reasons.reserved_for_production',
   'kitchen:ops.exceptions.reasons.unit_conversion_unsupported',
   'kitchen:ops.exceptions.reasons.unquantified_recipe_line',
   'kitchen:ops.exceptions.resolve',
@@ -10993,8 +10999,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.branchRequiredTitle',
   'kitchen:ops.requirements.columnAvailable',
   'kitchen:ops.requirements.columnIngredient',
+  'kitchen:ops.requirements.columnOnHand',
   'kitchen:ops.requirements.columnPosition',
   'kitchen:ops.requirements.columnRequired',
+  'kitchen:ops.requirements.columnReserved',
   'kitchen:ops.requirements.columnShort',
   'kitchen:ops.requirements.columnSuggestedBuy',
   'kitchen:ops.requirements.columnUnit',

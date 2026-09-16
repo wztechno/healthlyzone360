@@ -35,6 +35,8 @@ final readonly class InventoryService
      */
     private const int SCALE = 6;
 
+    public function __construct(private ReservationService $reservations) {}
+
     /**
      * @param  string  $quantityDelta  a signed decimal string; negative removes stock. Narrowed to a numeric-string by {@see numeric()} before any arithmetic.
      * @param  numeric-string|null  $unitCostAmount  the moving-average cost this movement is valued at, per the ingredient default unit — set only by the consume path (INV1.2), which captures COGS here because the order tables may not
@@ -42,8 +44,10 @@ final readonly class InventoryService
      * @param  string|null  $costCurrencyCode  required when either cost amount is given (the CHECK on the column enforces it)
      * @param  string|null  $orderLineId  the order line a consume served, so COGS attributes per line and kind (INV1.5); null on every non-consume movement
      * @param  string|null  $soldItemType  `meal` or `product`, denormalised from the sold catalogue item so the report splits COGS by line of business without a join (INV1.5)
+     * @param  string|null  $holderType  the claim this movement consumes against, so a batch is checked against everyone else's reservations rather than its own (PROD1)
+     * @param  string|null  $holderId  the holder id, paired with `$holderType`; both or neither
      *
-     * @throws InsufficientStock when a consume would drive the level below zero
+     * @throws InsufficientStock when a consume would drive available stock below zero
      */
     public function recordMovement(
         string $organisationId,
@@ -59,10 +63,12 @@ final readonly class InventoryService
         ?string $costCurrencyCode = null,
         ?string $orderLineId = null,
         ?string $soldItemType = null,
+        ?string $holderType = null,
+        ?string $holderId = null,
     ): StockMovement {
         $delta = $this->numeric($quantityDelta);
 
-        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode, $orderLineId, $soldItemType): StockMovement {
+        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode, $orderLineId, $soldItemType, $holderType, $holderId): StockMovement {
             // Establish the row if this is the item's first movement at the
             // branch, then take a row lock for the read-modify-write itself.
             StockLevel::query()->firstOrCreate(
@@ -79,13 +85,42 @@ final readonly class InventoryService
             $currentQuantity = $this->numeric((string) $level->quantity);
             $newQuantity = bcadd($currentQuantity, $delta, self::SCALE);
 
-            if ($reason === 'consume' && bccomp($newQuantity, '0', self::SCALE) < 0) {
-                throw new InsufficientStock(
-                    $branchId,
-                    $stockItemId,
-                    $currentQuantity,
-                    bcmul($delta, '-1', self::SCALE),
-                );
+            /*
+             * A consume is checked against **available** stock, not against what
+             * is physically on the shelf (PROD1).
+             *
+             * On-hand was the right question while nothing could claim stock in
+             * advance. Once a confirmed production order can, it stops being: the
+             * oil for Thursday's dressing is on the shelf on Wednesday, and a
+             * customer order that eats it leaves Thursday short with nothing
+             * visibly wrong anywhere. So a sale may take what is free, and what is
+             * spoken for stays spoken for.
+             *
+             * A batch consuming its **own** claim passes its holder and is checked
+             * against everyone else's — without that it would be refused by the
+             * very reservation it opened, which is the one thing that must never
+             * happen.
+             *
+             * `adjust` and `waste` stay exempt, unchanged and deliberately. A
+             * stock count that comes up short is a fact; refusing to record it
+             * would hide the discrepancy rather than surface it. It can therefore
+             * leave a confirmed batch short, and
+             * {@see ReservationService::isShort()} is how that is reported rather
+             * than prevented.
+             */
+            if ($reason === 'consume') {
+                $reserved = $this->reservations->reservedQuantity($branchId, $stockItemId, $holderType, $holderId);
+                $availableAfter = bcsub($newQuantity, $reserved, self::SCALE);
+
+                if (bccomp($availableAfter, '0', self::SCALE) < 0) {
+                    throw new InsufficientStock(
+                        $branchId,
+                        $stockItemId,
+                        bcsub($currentQuantity, $reserved, self::SCALE),
+                        bcmul($delta, '-1', self::SCALE),
+                        $reserved,
+                    );
+                }
             }
 
             $level->quantity = $newQuantity;

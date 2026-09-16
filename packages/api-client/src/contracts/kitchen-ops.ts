@@ -1436,6 +1436,12 @@ export interface SpendSummaryFilter {
 /**
  * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the backend
  * raises; the client renders it as a human label (i18n) rather than branching on it.
+ *
+ * Three of these are shortfall-shaped and stay separate because they have different remedies.
+ * `insufficient_stock` is an empty shelf — buy more. `reserved_for_production` is a shelf that is
+ * not empty but is claimed by a confirmed batch — talk to the kitchen, or release the claim.
+ * `no_net_content` is an item selling from finished stock without saying how much of the shelf one
+ * sold unit takes, which is a field somebody can go and fill in.
  */
 export const CONSUMPTION_EXCEPTION_REASON_CODES = [
     'no_branch',
@@ -1449,6 +1455,8 @@ export const CONSUMPTION_EXCEPTION_REASON_CODES = [
     'unit_conversion_unsupported',
     'no_ingredient_cost',
     'insufficient_stock',
+    'no_net_content',
+    'reserved_for_production',
 ] as const;
 export type ConsumptionExceptionReasonCode = (typeof CONSUMPTION_EXCEPTION_REASON_CODES)[number];
 

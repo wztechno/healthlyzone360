@@ -11,7 +11,9 @@ use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
+use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\RequirementForecast;
+use Healthy360\Inventory\Services\ReservationService;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
@@ -595,6 +597,67 @@ it('buys up to par, and falls back to the bare shortfall when the par is below w
     // Flour: no par, so the shortfall stands alone.
     expect(($this->row)($result, 'sku-flour')['short'])->toBe('4.0000')
         ->and(($this->row)($result, 'sku-flour')['suggested_buy'])->toBe('4.0000');
+});
+
+it('reports availability net of what production has claimed, and says what was claimed', function (): void {
+    // The flour is visibly on the shelf. A confirmed batch has claimed most of
+    // it (PROD1), so a buy list that counted it would tell the buyer to buy
+    // nothing and leave the batch short on the day.
+    [$flour, $flourShelf] = ($this->shelf)('sku-flour', $this->kg);
+    $pie = ($this->meal)('Pie', $flour, '5', $this->kg);
+    ($this->level)($flourShelf, '10.0000');
+
+    app(ReservationService::class)->open(
+        $this->organisationId,
+        $this->branchId,
+        StockReservation::HOLDER_PRODUCTION_ORDER,
+        '01a0b000-0000-7000-8000-0000000000f1',
+        [(string) $flourShelf->getKey() => '8'],
+    );
+
+    ($this->order)($this->thursday, [[$pie, '1.0000']]);
+
+    $row = ($this->row)(($this->week)(), 'sku-flour');
+
+    // Three figures, because the drop between the first and the third needs
+    // explaining: 10 on the shelf, 8 spoken for, 2 the window may draw on.
+    expect($row['on_hand'])->toBe('10.0000')
+        ->and($row['reserved'])->toBe('8.0000')
+        ->and($row['available'])->toBe('2.0000')
+        ->and($row['short'])->toBe('3.0000')
+        ->and($row['suggested_buy'])->toBe('3.0000');
+});
+
+it('lets an over-claimed shelf report a negative availability rather than clamping it', function (): void {
+    // More claimed than is there — the state a `waste` below the reserved total
+    // legitimately produces, because a physical correction is a fact and
+    // `InventoryService` never refuses one. (`StockReservationTest` holds that
+    // path; here it is the starting shelf.) Clamping `available` to zero would
+    // hide exactly the over-commitment the buyer is being asked to fix.
+    [$flour, $flourShelf] = ($this->shelf)('sku-flour', $this->kg);
+    $pie = ($this->meal)('Pie', $flour, '5', $this->kg);
+    ($this->level)($flourShelf, '6.0000');
+
+    app(ReservationService::class)->open(
+        $this->organisationId,
+        $this->branchId,
+        StockReservation::HOLDER_PRODUCTION_ORDER,
+        '01a0b000-0000-7000-8000-0000000000f2',
+        [(string) $flourShelf->getKey() => '6'],
+    );
+
+    StockLevel::withoutTenancy()
+        ->where('stock_item_id', (string) $flourShelf->getKey())
+        ->update(['quantity' => '4.0000']);
+
+    ($this->order)($this->thursday, [[$pie, '1.0000']]);
+
+    $row = ($this->row)(($this->week)(), 'sku-flour');
+
+    expect($row['on_hand'])->toBe('4.0000')
+        ->and($row['reserved'])->toBe('6.0000')
+        ->and($row['available'])->toBe('-2.0000')
+        ->and($row['short'])->toBe('7.0000');
 });
 
 it('reads availability from the branch it was asked about and from no other', function (): void {

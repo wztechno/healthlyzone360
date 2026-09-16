@@ -880,6 +880,12 @@ it('protects exactly the twelve declared tables and no others', function (): voi
     // only through `customer_accounts`, which is here); the pin is what makes
     // those decisions rather than omissions.
     //
+    // PROD1's `stock_reservations` decided *not* to join, following
+    // `stock_levels` beside it: it is `app-scope`, reachable only through
+    // `ReservationService`, which states its branch on every read and never
+    // consults ambient context — which is what lets the same service answer a
+    // controller and a nightly production job identically.
+    //
     // AA1 brought `role_permissions` in when the access console made it
     // tenant-writable for the first time. Its sibling `membership_roles` is
     // still out, deliberately — `PermissionChecker` reads it on a hotter path,

@@ -2157,7 +2157,9 @@
                 "no_stock_unit": "Stock item has no unit",
                 "unit_conversion_unsupported": "Units cannot be converted",
                 "no_ingredient_cost": "No cost to value COGS",
-                "insufficient_stock": "Not enough stock"
+                "insufficient_stock": "Not enough stock",
+                "no_net_content": "Sold unit size not set",
+                "reserved_for_production": "Reserved for production"
             },
             "chip": "Retry writes stock",
             "statUnit": "exceptions",
@@ -2195,6 +2197,8 @@
             },
             "columnIngredient": "Ingredient",
             "columnRequired": "Required",
+            "columnOnHand": "On hand",
+            "columnReserved": "Reserved",
             "columnAvailable": "Available",
             "columnShort": "Short",
             "columnSuggestedBuy": "Suggested buy",

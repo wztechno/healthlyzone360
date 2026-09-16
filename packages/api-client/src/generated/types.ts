@@ -6456,9 +6456,20 @@ export type MonthlyCostReportCollection = {
 };
 
 /**
- * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the consumption service raises; a client renders it as a human label rather than branching on it.
+ * Why a confirmed order could not deduct a line honestly (INV1.2). A closed
+ * vocabulary the consumption service raises; a client renders it as a human
+ * label rather than branching on it.
+ *
+ * Three of these are shortfall-shaped and mean different things, so they are
+ * separate codes rather than one. `insufficient_stock` is an empty shelf —
+ * buy more. `reserved_for_production` is a shelf that is not empty but is
+ * spoken for by a confirmed batch — talk to the kitchen, or release the
+ * claim. `no_net_content` is an item that sells from finished stock without
+ * saying how much of the shelf one sold unit takes, which is a field
+ * somebody can go and fill in.
+ *
  */
-export type ConsumptionExceptionReasonCode = 'no_branch' | 'no_catalogue_item' | 'no_recipe_version' | 'no_yield_piece_count' | 'unquantified_recipe_line' | 'no_ingredient_link' | 'no_stock_item' | 'no_stock_unit' | 'unit_conversion_unsupported' | 'no_ingredient_cost' | 'insufficient_stock';
+export type ConsumptionExceptionReasonCode = 'no_branch' | 'no_catalogue_item' | 'no_recipe_version' | 'no_yield_piece_count' | 'unquantified_recipe_line' | 'no_ingredient_link' | 'no_stock_item' | 'no_stock_unit' | 'unit_conversion_unsupported' | 'no_ingredient_cost' | 'insufficient_stock' | 'no_net_content' | 'reserved_for_production';
 
 /**
  * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
@@ -7533,15 +7544,33 @@ export type OrderDeskRequirementRow = {
      */
     required: string;
     /**
-     * What the branch holds, at four places. `0` when the shelf has no
-     * level row here — that is a shelf holding none, not an unknown.
+     * What is physically on the shelf, at four places, before any claim is
+     * taken off it. `0` when the shelf has no level row here — that is a
+     * shelf holding none, not an unknown.
+     *
+     */
+    on_hand: string;
+    /**
+     * How much of `on_hand` confirmed production orders have claimed, at
+     * four places. Published beside `available` so the drop between the two
+     * is explained rather than merely applied: a buyer who sees the oil on
+     * the shelf and a buy suggestion anyway needs to know why.
+     *
+     */
+    reserved: string;
+    /**
+     * `on_hand − reserved`, at four places — what the window can actually
+     * draw on. **May be negative**, where more is claimed than is there;
+     * that is a shelf somebody has over-committed and clamping it to zero
+     * would hide the part of the problem a buyer can fix.
      *
      */
     available: string;
     /**
-     * `max(0, required − available)`, at four places. **Compared at four**
-     * so a rounding tail five decimal places down cannot manufacture a
-     * shortfall on a row that balances exactly.
+     * `max(0, required − available)`, at four places, and therefore net of
+     * production's claims too. **Compared at four** so a rounding tail five
+     * decimal places down cannot manufacture a shortfall on a row that
+     * balances exactly.
      *
      */
     short: string;

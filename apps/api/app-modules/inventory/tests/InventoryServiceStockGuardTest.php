@@ -96,9 +96,15 @@ it('carries the arithmetic on the refusal so a caller can explain it', function 
         move($this, 'consume', '-8');
         $this->fail('Expected the consume to be refused.');
     } catch (InsufficientStock $e) {
+        // All three figures at the inventory layer's own scale. `available` used
+        // to arrive at the column's four places because it was the raw cast; it
+        // is a subtraction now (on-hand minus claims, PROD1) and reads at six
+        // like the two numbers beside it.
         expect($e->errorCode)->toBe(ErrorCode::InventoryInsufficientStock)
-            ->and($e->details['available'])->toBe('5.0000')
+            ->and($e->details['available'])->toBe('5.000000')
             ->and($e->details['requested'])->toBe('8.000000')
+            ->and($e->details['reserved'])->toBe('0.000000')
+            ->and($e->isBlockedByReservation())->toBeFalse()
             ->and($e->status())->toBe(409);
     }
 });

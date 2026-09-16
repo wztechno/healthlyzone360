@@ -122,6 +122,8 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         'no_stock_item',
         'no_stock_unit',
         'insufficient_stock',
+        'reserved_for_production',
+        'no_net_content',
     ];
 
     public function __construct(
@@ -697,7 +699,24 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         } catch (InsufficientStock $exception) {
             // A confirmed order does not hard-fail on stock math: the movement
             // is refused, nothing is deducted, and the shortfall is surfaced.
-            $failures[] = $this->failure((string) $item->getKey(), 'insufficient_stock', 'Ingredient '.$ingredientId.': not enough stock to deduct '.$consumedInStockUnit.'.');
+            //
+            // Which shortfall matters (PROD1). A shelf that is empty and a shelf
+            // that is full but claimed by a confirmed batch both refuse the
+            // consume, and they are not the same problem: the first is answered by
+            // buying, the second by talking to the kitchen about the batch.
+            // Reporting both as `insufficient_stock` would make a week of
+            // over-eager reservations read as a week of stockouts.
+            $failures[] = $exception->isBlockedByReservation()
+                ? $this->failure(
+                    (string) $item->getKey(),
+                    'reserved_for_production',
+                    'Ingredient '.$ingredientId.': '.$consumedInStockUnit.' could not be deducted because production has claimed the stock.',
+                )
+                : $this->failure(
+                    (string) $item->getKey(),
+                    'insufficient_stock',
+                    'Ingredient '.$ingredientId.': not enough stock to deduct '.$consumedInStockUnit.'.',
+                );
 
             return;
         }

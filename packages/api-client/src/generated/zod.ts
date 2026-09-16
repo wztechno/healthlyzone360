@@ -4427,7 +4427,18 @@ export const zMonthlyCostReportCollection = z.object({
 });
 
 /**
- * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the consumption service raises; a client renders it as a human label rather than branching on it.
+ * Why a confirmed order could not deduct a line honestly (INV1.2). A closed
+ * vocabulary the consumption service raises; a client renders it as a human
+ * label rather than branching on it.
+ *
+ * Three of these are shortfall-shaped and mean different things, so they are
+ * separate codes rather than one. `insufficient_stock` is an empty shelf —
+ * buy more. `reserved_for_production` is a shelf that is not empty but is
+ * spoken for by a confirmed batch — talk to the kitchen, or release the
+ * claim. `no_net_content` is an item that sells from finished stock without
+ * saying how much of the shelf one sold unit takes, which is a field
+ * somebody can go and fill in.
+ *
  */
 export const zConsumptionExceptionReasonCode = z.enum([
     'no_branch',
@@ -4440,7 +4451,9 @@ export const zConsumptionExceptionReasonCode = z.enum([
     'no_stock_unit',
     'unit_conversion_unsupported',
     'no_ingredient_cost',
-    'insufficient_stock'
+    'insufficient_stock',
+    'no_net_content',
+    'reserved_for_production'
 ]);
 
 /**
@@ -5085,6 +5098,8 @@ export const zOrderDeskRequirementRow = z.object({
     unit_id: zUuid.nullable(),
     unit_code: z.string().nullable(),
     required: z.string(),
+    on_hand: z.string(),
+    reserved: z.string(),
     available: z.string(),
     short: z.string(),
     suggested_buy: z.string()

@@ -2389,7 +2389,9 @@
                 "no_stock_unit": "صنف المخزون بلا وحدة",
                 "unit_conversion_unsupported": "تعذّر تحويل الوحدات",
                 "no_ingredient_cost": "لا تكلفة لتقييم البضاعة المُباعة",
-                "insufficient_stock": "مخزون غير كافٍ"
+                "insufficient_stock": "مخزون غير كافٍ",
+                "no_net_content": "حجم وحدة البيع غير محدد",
+                "reserved_for_production": "محجوز للإنتاج"
             },
             "chip": "إعادة المحاولة تكتب في المخزون",
             "statUnit": "استثناءات",
@@ -2431,6 +2433,8 @@
             },
             "columnIngredient": "المكوّن",
             "columnRequired": "المطلوب",
+            "columnOnHand": "المتوفر فعليًا",
+            "columnReserved": "محجوز",
             "columnAvailable": "المتوفّر",
             "columnShort": "النقص",
             "columnSuggestedBuy": "الشراء المقترح",
