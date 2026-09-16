@@ -1,0 +1,340 @@
+{
+    "title": "الصلاحيات",
+    "team": {
+        "title": "الفريق",
+        "subtitle": "كل من يمكنه تسجيل الدخول إلى هذا المطبخ، وما يستطيع كل منهم الوصول إليه.",
+        "caption": "العاملون في هذا المطبخ",
+        "columns": {
+            "person": "الشخص",
+            "email": "يسجّل الدخول باسم",
+            "roles": "الأدوار",
+            "scope": "يعمل في",
+            "status": "الحالة"
+        },
+        "organisationWide": "المطبخ بأكمله",
+        "noRoles": "لا أدوار بعد",
+        "unnamed": "الاسم غير محدّد",
+        "emptyTitle": "لا يعمل هنا أحد آخر بعد",
+        "emptyBody": "ادعُ زميلًا لديه بريد إلكتروني، أو أنشئ حساب دخول لمن ليس لديه.",
+        "filteredEmptyTitle": "لا أحد يطابق ذلك",
+        "filteredEmptyBody": "جرّب حالة أخرى، أو امسح عامل التصفية.",
+        "showEnded": "أدرج من غادروا",
+        "add": "إضافة شخص",
+        "open": "فتح",
+        "invitations": {
+            "title": "بانتظار القبول",
+            "subtitle": "دعوات أُرسلت ولم تُقبل بعد.",
+            "caption": "الدعوات المعلّقة",
+            "revoke": "سحب",
+            "revoked": "تم سحب الدعوة المرسلة إلى {{email}}.",
+            "sent": "أُرسلت دعوة إلى {{email}}.",
+            "expires": "تنتهي في {{date}}",
+            "empty": "لا دعوات معلّقة."
+        }
+    },
+    "member": {
+        "title": "{{name}}",
+        "back": "العودة إلى الفريق",
+        "rolesHeading": "الأدوار",
+        "rolesHint": "ما يمكن لهذا الشخص فعله. من يحمل دورين يستطيع ما يسمح به أيٌّ منهما.",
+        "scopeHeading": "مكان العمل",
+        "scopeHint": "اتركه على المطبخ بأكمله إلا إذا كان يعمل في فرع واحد فقط.",
+        "permissionsHeading": "مجموع ما يسمح به ذلك",
+        "permissionsHint": "كل الإجراءات التي تسمح بها هذه الأدوار مجتمعةً.",
+        "assignmentFrom": "اعتبارًا من {{date}}",
+        "assignmentUntil": "حتى {{date}}",
+        "assignmentScheduled": "لم يبدأ سريانه بعد",
+        "assignmentExpired": "لم يعد ساريًا",
+        "save": "حفظ الأدوار",
+        "suspend": "تعليق",
+        "suspended": "لم يعد بإمكان {{name}} تسجيل الدخول.",
+        "reactivate": "إعادة السماح بالدخول",
+        "reactivated": "أصبح بإمكان {{name}} تسجيل الدخول مجددًا.",
+        "end": "إزالة من هذا المطبخ",
+        "ended": "لم يعد {{name}} يعمل هنا.",
+        "endTitle": "إزالة {{name}}؟",
+        "endBody": "لن يعود بإمكانه تسجيل الدخول إلى هذا المطبخ. يبقى سجله، فيظل ما قام به منسوبًا إليه.",
+        "endConfirm": "إزالته",
+        "cancel": "إلغاء",
+        "lastAdministrator": "لا يستطيع أحد غيره إدارة الصلاحيات. إذا أزلت هذا الشخص فلن يتمكن من تغييرها سوى المالك.",
+        "selfLockout": "لا يمكنك إزالة صلاحيتك أنت. اطلب من مسؤول آخر القيام بذلك.",
+        "saved_zero": "تم الحفظ. لا يحمل {{name}} أي دور الآن.",
+        "saved_one": "تم الحفظ. يحمل {{name}} الآن دورًا واحدًا.",
+        "saved_two": "تم الحفظ. يحمل {{name}} الآن دورين.",
+        "saved_few": "تم الحفظ. يحمل {{name}} الآن {{count}} أدوار.",
+        "saved_many": "تم الحفظ. يحمل {{name}} الآن {{count}} دورًا.",
+        "saved_other": "تم الحفظ. يحمل {{name}} الآن {{count}} دور."
+    },
+    "roles": {
+        "title": "الأدوار",
+        "subtitle": "ما يُسمح لكل مسمّى وظيفي بالوصول إليه. عدّل دورًا يتغيّر معه كل من يحمله.",
+        "templatesHeading": "الأدوار القياسية",
+        "templatesHint": "تحدّدها Healthy360 وتشترك فيها كل المطابخ. انسخ واحدًا لتصنع نسخةً خاصة بك.",
+        "ownHeading": "أدوار هذا المطبخ",
+        "ownHint": "الأدوار التي عرّفتها. هذه وحدها قابلة للتعديل.",
+        "caption": "الأدوار المتاحة في هذا المطبخ",
+        "columns": {
+            "role": "الدور",
+            "holders": "يحمله",
+            "pages": "الصلاحيات"
+        },
+        "holdersNone": "لا أحد بعد",
+        "copy": "نسخ",
+        "edit": "تعديل",
+        "open": "فتح",
+        "create": "دور جديد",
+        "emptyTitle": "لم تعرّف أي أدوار خاصة بك",
+        "emptyBody": "انسخ دورًا قياسيًا لتصنع نسخةً يستطيع هذا المطبخ تغييرها.",
+        "holders_zero": "لا أحد",
+        "holders_one": "شخص واحد",
+        "holders_two": "شخصان",
+        "holders_few": "{{count}} أشخاص",
+        "holders_many": "{{count}} شخصًا",
+        "holders_other": "{{count}} شخص",
+        "permissionCount_zero": "لا صلاحيات",
+        "permissionCount_one": "صلاحية واحدة",
+        "permissionCount_two": "صلاحيتان",
+        "permissionCount_few": "{{count}} صلاحيات",
+        "permissionCount_many": "{{count}} صلاحية",
+        "permissionCount_other": "{{count}} صلاحية"
+    },
+    "role": {
+        "back": "العودة إلى الأدوار",
+        "newTitle": "دور جديد",
+        "copyTitle": "نسخة من {{name}}",
+        "nameEn": "الاسم (بالإنجليزية)",
+        "nameAr": "الاسم (بالعربية)",
+        "code": "المرجع",
+        "codeHint": "كلمات بأحرف صغيرة تفصلها شرطات سفلية. لا يمكن تغييره لاحقًا.",
+        "descriptionEn": "الغرض من هذا الدور (بالإنجليزية)",
+        "descriptionAr": "الغرض من هذا الدور (بالعربية)",
+        "tabs": {
+            "pages": "الصفحات",
+            "advanced": "متقدّم"
+        },
+        "save": "حفظ الدور",
+        "saved": "تم الحفظ.",
+        "created": "تم إنشاء {{name}}.",
+        "delete": "حذف الدور",
+        "deleteTitle": "حذف {{name}}؟",
+        "deleteBody": "لا أحد يحمل هذا الدور، فلن يفقد أحد صلاحياته.",
+        "deleteConfirm": "احذفه",
+        "deleted": "تم حذف {{name}}.",
+        "cancel": "إلغاء",
+        "templateNotice": "هذا دور قياسي ولا يمكن تعديله. انسخه لتصنع نسخةً يستطيع هذا المطبخ تغييرها.",
+        "shadowsTemplate": "يوجد دور قياسي بهذا المرجع. سيُستخدم دورك بدلًا منه في كل مكان داخل هذا المطبخ.",
+        "selfLockout": "سيؤدي هذا إلى إلغاء قدرتك أنت على إدارة الأدوار، ولن يستطيع أحد إعادتها إليك من هنا.",
+        "deleteBlocked_zero": "لا أحد يحمل هذا الدور.",
+        "deleteBlocked_one": "ما زال شخص واحد يحمل هذا الدور. امنحه دورًا آخر أولًا.",
+        "deleteBlocked_two": "ما زال شخصان يحملان هذا الدور. امنحهما دورًا آخر أولًا.",
+        "deleteBlocked_few": "ما زال {{count}} أشخاص يحملون هذا الدور. امنحهم دورًا آخر أولًا.",
+        "deleteBlocked_many": "ما زال {{count}} شخصًا يحملون هذا الدور. امنحهم دورًا آخر أولًا.",
+        "deleteBlocked_other": "ما زال {{count}} شخص يحملون هذا الدور. امنحهم دورًا آخر أولًا."
+    },
+    "pages": {
+        "hint": "حدّد ما يمكن لهذا الدور الوصول إليه، صفحةً صفحة.",
+        "levels": {
+            "none": "لا وصول",
+            "view": "يستطيع الاطلاع",
+            "manage": "يستطيع التغيير"
+        },
+        "alsoOpens": "يفتح أيضًا: {{pages}}",
+        "unmappedHeading": "ممنوحة، ولا تظهر في أي صفحة",
+        "unmappedHint": "تبقى كما هي تمامًا عند الحفظ من هذا التبويب. افتح «متقدّم» لتغييرها.",
+        "unmappedCount_zero": "لا صلاحيات",
+        "unmappedCount_one": "صلاحية واحدة",
+        "unmappedCount_two": "صلاحيتان",
+        "unmappedCount_few": "{{count}} صلاحيات",
+        "unmappedCount_many": "{{count}} صلاحية",
+        "unmappedCount_other": "{{count}} صلاحية"
+    },
+    "advanced": {
+        "hint": "كل صلاحية يمكن لهذا الدور حملها. استخدم «الصفحات» إلا إذا احتجت شيئًا لا تستطيع التعبير عنه.",
+        "notHeld": "أنت لا تحمل هذه الصلاحية",
+        "selected": "{{count}} من {{total}} محدّدة",
+        "emptyDomain": "لا شيء في هذه المجموعة."
+    },
+    "extras": {
+        "orderDeskSale": "تسجيل عملية بيع",
+        "orderDeskCustomer": "فتح حساب لمتصل",
+        "unpricedReceipts": "إيصالات بلا أسعار"
+    },
+    "add": {
+        "title": "إضافة شخص",
+        "back": "العودة إلى الفريق",
+        "modes": {
+            "invite": "إرسال دعوة",
+            "create": "إنشاء حساب الدخول هنا"
+        },
+        "inviteHint": "يختار كلمة المرور بنفسه من رابط في البريد. الأفضل متى كان لديه عنوان خاص به.",
+        "createHint": "تختار أنت كلمة المرور الأولى وتسلّمها له. لمن ليس لديه بريد إلكتروني للعمل.",
+        "email": "البريد الإلكتروني",
+        "signInName": "اسم الدخول",
+        "signInNameHint": "أحرف صغيرة وأرقام. سيسجّل الدخول باسم {{example}}.",
+        "domain": "لدى",
+        "givenName": "الاسم الأول",
+        "familyName": "اسم العائلة",
+        "password": "كلمة المرور الأولى",
+        "passwordHint": "سيُطلب منه اختيار كلمة مرور جديدة عند أول تسجيل دخول.",
+        "generate": "توليد واحدة",
+        "role": "الدور",
+        "branch": "يعمل في",
+        "message": "سطر يُضاف إلى البريد (اختياري)",
+        "submitInvite": "إرسال الدعوة",
+        "submitCreate": "إنشاء الحساب",
+        "passwordTitle": "دوّنها الآن",
+        "passwordBody": "هذه المرة الوحيدة التي تظهر فيها كلمة مرور {{name}}. سيُطلب منه تغييرها عند أول تسجيل دخول.",
+        "passwordAcknowledge": "دوّنتها",
+        "created": "أصبح بإمكان {{name}} تسجيل الدخول."
+    },
+    "signIn": {
+        "organisation": "أين تعمل؟",
+        "useFullEmail": "استخدام بريدي الإلكتروني الكامل"
+    },
+    "changePassword": {
+        "title": "اختر كلمة مرورك",
+        "subtitle": "قام شخص آخر بتعيين كلمة المرور هذه لك. استبدلها بأخرى لا يعرفها سواك.",
+        "current": "كلمة المرور التي مُنحت لك",
+        "password": "كلمة المرور الجديدة",
+        "confirmation": "كلمة المرور الجديدة مرة أخرى",
+        "submit": "حفظها",
+        "done": "تم الحفظ. هذه كلمة مرورك الآن."
+    },
+    "status": {
+        "invited": "مدعو",
+        "active": "يعمل",
+        "suspended": "معلّق",
+        "ended": "غادر"
+    },
+    "codes": {
+        "audit.view_organisation": {
+            "name": "الاطّلاع على سجلّ التدقيق"
+        },
+        "b2b_quotation.quote_organisation": {
+            "name": "تسعير عرض سعر لشركة"
+        },
+        "b2b_quotation.view_organisation": {
+            "name": "الاطّلاع على عروض أسعار الشركات"
+        },
+        "branch.manage_current": {
+            "name": "إدارة الفروع وساعات العمل"
+        },
+        "branch.view_current": {
+            "name": "الاطّلاع على الفروع"
+        },
+        "catalogue.manage_organisation": {
+            "name": "تعديل الكتالوج"
+        },
+        "catalogue.publish_organisation": {
+            "name": "تحديد ما يُعرض للبيع"
+        },
+        "catalogue.view_organisation": {
+            "name": "الاطّلاع على الكتالوج"
+        },
+        "consent.manage_own": {
+            "name": "تعديل موافقاته"
+        },
+        "consent.view_own": {
+            "name": "الاطّلاع على موافقاته"
+        },
+        "customer.create_on_behalf_organisation": {
+            "name": "فتح حساب عميل"
+        },
+        "delivery_zone.manage_organisation": {
+            "name": "إدارة مناطق التوصيل ومواعيده"
+        },
+        "device.manage_own": {
+            "name": "إدارة أجهزته الخاصة"
+        },
+        "entitlement.view_organisation": {
+            "name": "الاطّلاع على مزايا اشتراك المطبخ"
+        },
+        "inventory.manage_organisation": {
+            "name": "تحريك المخزون وتشغيل الإنتاج"
+        },
+        "inventory.order_supplies_organisation": {
+            "name": "الشراء من المورّدين"
+        },
+        "inventory.view_costs_organisation": {
+            "name": "الاطّلاع على تكلفة المخزون"
+        },
+        "inventory.view_organisation": {
+            "name": "الاطّلاع على المخزون والإنتاج"
+        },
+        "membership.end_organisation": {
+            "name": "إزالة شخص"
+        },
+        "membership.invite_organisation": {
+            "name": "دعوة أشخاص"
+        },
+        "membership.update_organisation": {
+            "name": "تغيير مكان عمل شخص"
+        },
+        "membership.view_organisation": {
+            "name": "الاطّلاع على العاملين هنا"
+        },
+        "order.create_on_behalf_organisation": {
+            "name": "تسجيل طلب نيابةً عن شخص"
+        },
+        "order.manage_organisation": {
+            "name": "تأكيد الطلبات وتنفيذها وإلغاؤها"
+        },
+        "order.view_customer_contact_organisation": {
+            "name": "الاطّلاع على اسم المتصل ورقمه"
+        },
+        "order.view_organisation": {
+            "name": "الاطّلاع على الطلبات"
+        },
+        "organisation.update_current": {
+            "name": "تعديل بيانات المطبخ"
+        },
+        "organisation.view_current": {
+            "name": "الاطّلاع على هذا المطبخ"
+        },
+        "plan.manage_organisation": {
+            "name": "تصميم خطط الاشتراك"
+        },
+        "plan.publish_organisation": {
+            "name": "طرح خطط الاشتراك للبيع"
+        },
+        "price_list.manage_organisation": {
+            "name": "تحديد الأسعار"
+        },
+        "price_list.view_organisation": {
+            "name": "الاطّلاع على الأسعار"
+        },
+        "profile.update_own": {
+            "name": "تعديل ملفه الشخصي"
+        },
+        "profile.view_own": {
+            "name": "الاطّلاع على ملفه الشخصي"
+        },
+        "recipe.manage_organisation": {
+            "name": "كتابة الوصفات"
+        },
+        "recipe.publish_organisation": {
+            "name": "نشر إصدارات الوصفات"
+        },
+        "recipe.view_costs_organisation": {
+            "name": "الاطّلاع على تكاليف الوصفات وتحديدها"
+        },
+        "recipe.view_organisation": {
+            "name": "الاطّلاع على الوصفات"
+        },
+        "role.manage_organisation": {
+            "name": "إدارة الأدوار ومن يحملها"
+        },
+        "role.view_organisation": {
+            "name": "الاطّلاع على الأدوار"
+        },
+        "session.revoke_own": {
+            "name": "إنهاء جلساته الخاصة"
+        },
+        "subscription.view_organisation": {
+            "name": "الاطّلاع على الاشتراكات القائمة"
+        },
+        "user.manage_organisation": {
+            "name": "إنشاء حسابات دخول"
+        }
+    }
+}

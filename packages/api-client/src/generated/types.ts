@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'unit.conversion_unsupported' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'unit.conversion_unsupported' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -10279,6 +10279,319 @@ export type B2bAgreementEnvelope = {
     meta: Meta;
 };
 
+export type CreateStaffAccountRequest = {
+    /**
+     * A full address. Mutually exclusive with `local_part` — a body
+     * carrying both is a client that has not decided, and silently
+     * preferring one would make the other look like it worked.
+     *
+     */
+    email?: string;
+    /**
+     * The left-hand side only. Composed against the organisation's
+     * `staff_email_domain` into an ordinary address, so nothing in the
+     * authentication pipeline learns that this form exists. Refused when
+     * the organisation has no domain set: a generated address nobody
+     * chose is one nobody can be told.
+     *
+     */
+    local_part?: string;
+    given_name: string;
+    family_name: string;
+    /**
+     * Validated exactly as a self-chosen password, so a provisioned
+     * account cannot be weaker than a registered one. Not confirmed —
+     * confirmation catches a typo by somebody who cannot see what they
+     * typed, and this is shown back to the administrator once before they
+     * hand it over.
+     *
+     */
+    password: string;
+    preferred_language_code?: string | null;
+    /**
+     * May be empty. Somebody can be given a login today and duties
+     * tomorrow, which is the ordinary shape of a first morning.
+     *
+     */
+    role_ids: Array<string>;
+    /**
+     * Null means organisation-wide.
+     */
+    branch_id?: string | null;
+};
+
+export type StaffAccountEnvelope = TeamMemberEnvelope & {
+    data?: {
+        /**
+         * **Returned exactly once, here.** Never stored readable,
+         * never audited, never logged, and not on any later read —
+         * the model `InvitationService::issue()` uses for its token.
+         * `must_change_password` on the new account is what makes
+         * that defensible: what the administrator carries out of this
+         * response is a credential good for one sign-in.
+         *
+         */
+        initial_password: string;
+    };
+};
+
+export type StaffSignInDomain = {
+    organisation_name: string;
+    /**
+     * The right-hand side of every staff address this organisation issues.
+     */
+    domain: string;
+};
+
+export type UpdatePasswordRequest = {
+    /**
+     * Required even on a forced first change. A session is not a
+     * password: it survives on a shared terminal and in an unlocked
+     * phone, and the value of this route is that it takes a credential
+     * away from whoever else holds it.
+     *
+     */
+    current_password: string;
+    password: string;
+    password_confirmation: string;
+};
+
+export type PermissionDefinition = {
+    /**
+     * `domain.action_scope`. Only organisation-scoped, assignable codes
+     * ever appear here — the registry is split in two so that no
+     * organisation role can hold a platform code, and a catalogue that
+     * offered one would be a form with a trap in it.
+     *
+     */
+    code: string;
+    /**
+     * The seeded English description. Clients translate the code and fall
+     * back to this when they have no string for it, so a code added on
+     * the backend shows up in the editor rather than as a blank row.
+     *
+     */
+    description: string;
+    /**
+     * Whether the caller holds this code themselves. Information, not a
+     * gate: role management is total, so an administrator may grant an
+     * authority they cannot exercise — this is how the editor marks it
+     * instead of hiding it.
+     *
+     */
+    held_by_caller: boolean;
+};
+
+export type PermissionDomain = {
+    domain: string;
+    permissions: Array<PermissionDefinition>;
+};
+
+export type PermissionCatalogueEnvelope = {
+    data: {
+        domains: Array<PermissionDomain>;
+    };
+    meta: Meta;
+};
+
+export type OrganisationRoleSummary = {
+    id: string;
+    /**
+     * Lowercase words joined by single underscores. Immutable once set:
+     * it is what an invitation's `role_code` resolves against, so
+     * changing it would silently redirect every outstanding offer naming
+     * the old one.
+     *
+     */
+    code: string;
+    name_en: string;
+    name_ar: string;
+    description_en: string | null;
+    description_ar: string | null;
+    /**
+     * A platform template: visible in every tenant, editable in none.
+     * The console offers **Copy** on these rather than Edit — forking one
+     * into a role of your own is how a kitchen changes what a template
+     * means inside its walls, and `MembershipGranter` prefers the fork.
+     *
+     */
+    is_system: boolean;
+    /**
+     * How many memberships hold it. The number that says which roles are
+     * real and which were defined and forgotten — and the one that
+     * decides whether deletion will be refused.
+     *
+     */
+    holder_count: number;
+    permission_count: number;
+    /**
+     * Always `0` on a template, which is never written from here.
+     */
+    lock_version: number;
+    updated_at: string | null;
+};
+
+export type OrganisationRole = OrganisationRoleSummary & {
+    /**
+     * Every code this role grants, in catalogue order rather than the
+     * order they were submitted — so two saves that changed nothing
+     * produce the same list.
+     *
+     */
+    permissions: Array<string>;
+    /**
+     * Who last changed what this role reaches. `created_by` cannot
+     * answer that, and it is the one question an access review asks.
+     *
+     */
+    updated_by_name: string | null;
+};
+
+export type OrganisationRoleEnvelope = {
+    data: {
+        role: OrganisationRole;
+    };
+    meta: Meta & {
+        /**
+         * Present on create. True when this kitchen has defined a role
+         * carrying a platform template's code. Permitted — it is the
+         * mechanism Copy relies on — and reported, because a kitchen
+         * that did it deliberately and one that did it by accident
+         * type exactly the same thing.
+         *
+         */
+        shadows_template?: boolean;
+    };
+};
+
+export type WriteOrganisationRoleRequest = {
+    /**
+     * Required on create, and absent from update — see `code` above.
+     */
+    code?: string;
+    name_en: string;
+    name_ar: string;
+    description_en?: string | null;
+    description_ar?: string | null;
+    /**
+     * The codes this role should end up with. A **replacement**, not an
+     * addition: an additive body could not express "take this away", and
+     * taking things away is the half of a role editor that matters. An
+     * empty array is valid — a role that grants nothing is a legitimate
+     * thing to park.
+     *
+     */
+    permissions: Array<string>;
+};
+
+export type TeamMemberRole = {
+    id: string;
+    code: string;
+    name_en: string;
+    name_ar: string;
+    is_system: boolean;
+};
+
+export type TeamMemberBranch = {
+    id: string;
+    name: string;
+};
+
+export type TeamMemberSummary = {
+    membership_id: string;
+    user_id: string;
+    given_name: string | null;
+    family_name: string | null;
+    /**
+     * In full, unlike `Invitation.email_masked`. That one is read
+     * anonymously, where the address would be a credential; this one is
+     * read by a member of the organisation holding
+     * `membership.view_organisation`, and it is the login identifier —
+     * an administrator who cannot see it cannot tell two people with the
+     * same name apart.
+     *
+     */
+    email: string | null;
+    /**
+     * All four, unlike `Membership.status` on `/me` — that one describes
+     * the caller's own live memberships, and an ended one is not a
+     * workspace they can enter. Here `ended` is listed, because who
+     * *used* to have access is exactly what an access review reads, and a
+     * console that could not answer "did she ever work here" would send
+     * somebody to the database.
+     *
+     */
+    status: 'invited' | 'active' | 'suspended' | 'ended';
+    joined_at: string | null;
+    /**
+     * Null means organisation-wide, which is a value rather than an absence.
+     */
+    branch: TeamMemberBranch | null;
+    roles: Array<TeamMemberRole>;
+    lock_version: number;
+};
+
+export type MembershipRoleAssignment = {
+    role_id: string;
+    starts_at: string | null;
+    expires_at: string | null;
+};
+
+export type TeamMember = TeamMemberSummary & {
+    /**
+     * Every assignment including ones that have not started or have
+     * expired. A console that hid a future assignment could not show
+     * you what you scheduled, and the editor would drop it on the
+     * next save — a `PUT` replaces what it was shown.
+     *
+     */
+    assignments: Array<MembershipRoleAssignment>;
+    /**
+     * What the roles add up to. Computed rather than implied, because
+     * two roles overlapping is the ordinary case and a client that
+     * got the union wrong would be wrong quietly.
+     *
+     */
+    permissions: Array<string>;
+};
+
+export type TeamMemberEnvelope = {
+    data: {
+        membership: TeamMember;
+    };
+    meta: Meta & {
+        /**
+         * How many *other* active memberships could still administer
+         * access. Reported, never enforced: removing the last other
+         * administrator is permitted, because a console that refused
+         * the thing an operator opened it to do is a control that has
+         * made itself unusable. Zero on your own row means nobody
+         * else can.
+         *
+         */
+        remaining_role_administrators: number;
+    };
+};
+
+export type ReplaceMembershipRolesRequest = {
+    /**
+     * The whole set. `[]` strips every role while leaving the person a
+     * member — a real state, and not the same as ending their membership.
+     *
+     */
+    roles: Array<MembershipRoleAssignment>;
+};
+
+export type UpdateMembershipScopeRequest = {
+    /**
+     * Null means organisation-wide. Required to be *present* rather than
+     * non-null, because on a `PATCH` "make this person organisation-wide"
+     * and "I forgot the field" are otherwise the same request.
+     *
+     */
+    branch_id: string | null;
+};
+
 export type OrganisationInvitationEnvelope = {
     data: {
         invitation: OrganisationInvitation;
@@ -12157,6 +12470,22 @@ export type B2bCatalogueLanguage = 'en' | 'ar';
 export type OrganisationPath = Uuid;
 
 /**
+ * A role of this organisation, or a platform template. Reads accept
+ * either; writes answer **404** for a template, because from the writing
+ * side there is no role at that identifier belonging to you.
+ *
+ */
+export type RolePath = Uuid;
+
+/**
+ * A membership of this organisation, in any status. An ended one resolves
+ * deliberately — a detail page that 404'd on the row the list just showed
+ * would be a list lying about what it links to.
+ *
+ */
+export type MembershipPath = Uuid;
+
+/**
  * The invitation identifier. Always resolved inside the organisation in the path.
  */
 export type OrganisationInvitationPath = Uuid;
@@ -12574,6 +12903,91 @@ export type ResetPasswordResponses = {
 };
 
 export type ResetPasswordResponse = ResetPasswordResponses[keyof ResetPasswordResponses];
+
+export type UpdateOwnPasswordData = {
+    body: UpdatePasswordRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/auth/user/password';
+};
+
+export type UpdateOwnPasswordErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateOwnPasswordError = UpdateOwnPasswordErrors[keyof UpdateOwnPasswordErrors];
+
+export type UpdateOwnPasswordResponses = {
+    /**
+     * Replaced, and the obligation cleared.
+     */
+    200: {
+        data: {
+            password_updated: boolean;
+            must_change_password: boolean;
+        };
+        meta: Meta;
+    };
+};
+
+export type UpdateOwnPasswordResponse = UpdateOwnPasswordResponses[keyof UpdateOwnPasswordResponses];
+
+export type ListStaffSignInDomainsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/auth/staff-domains';
+};
+
+export type ListStaffSignInDomainsErrors = {
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListStaffSignInDomainsError = ListStaffSignInDomainsErrors[keyof ListStaffSignInDomainsErrors];
+
+export type ListStaffSignInDomainsResponses = {
+    /**
+     * The organisations whose staff sign in with a name.
+     */
+    200: {
+        data: {
+            domains: Array<StaffSignInDomain>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ListStaffSignInDomainsResponse = ListStaffSignInDomainsResponses[keyof ListStaffSignInDomainsResponses];
 
 export type ResendEmailVerificationData = {
     body?: never;
@@ -31982,6 +32396,1266 @@ export type ReviewKycDocumentResponses = {
 };
 
 export type ReviewKycDocumentResponse = ReviewKycDocumentResponses[keyof ReviewKycDocumentResponses];
+
+export type CreateStaffAccountData = {
+    body: CreateStaffAccountRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/staff';
+};
+
+export type CreateStaffAccountErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The action is sensitive and needs a recent password confirmation.
+     * **HTTP 403, never 423** (plan §13).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateStaffAccountError = CreateStaffAccountErrors[keyof CreateStaffAccountErrors];
+
+export type CreateStaffAccountResponses = {
+    /**
+     * The new membership, and the password — once.
+     */
+    201: StaffAccountEnvelope;
+};
+
+export type CreateStaffAccountResponse = CreateStaffAccountResponses[keyof CreateStaffAccountResponses];
+
+export type ListAssignablePermissionsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/permissions';
+};
+
+export type ListAssignablePermissionsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListAssignablePermissionsError = ListAssignablePermissionsErrors[keyof ListAssignablePermissionsErrors];
+
+export type ListAssignablePermissionsResponses = {
+    /**
+     * The assignable catalogue, grouped by domain.
+     */
+    200: PermissionCatalogueEnvelope;
+};
+
+export type ListAssignablePermissionsResponse = ListAssignablePermissionsResponses[keyof ListAssignablePermissionsResponses];
+
+export type ListOrganisationRolesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles';
+};
+
+export type ListOrganisationRolesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrganisationRolesError = ListOrganisationRolesErrors[keyof ListOrganisationRolesErrors];
+
+export type ListOrganisationRolesResponses = {
+    /**
+     * Every role available in this organisation.
+     */
+    200: {
+        data: Array<OrganisationRoleSummary>;
+        meta: Meta;
+    };
+};
+
+export type ListOrganisationRolesResponse = ListOrganisationRolesResponses[keyof ListOrganisationRolesResponses];
+
+export type CreateOrganisationRoleData = {
+    body: WriteOrganisationRoleRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles';
+};
+
+export type CreateOrganisationRoleErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateOrganisationRoleError = CreateOrganisationRoleErrors[keyof CreateOrganisationRoleErrors];
+
+export type CreateOrganisationRoleResponses = {
+    /**
+     * The role, with its grants and its validator.
+     */
+    201: OrganisationRoleEnvelope;
+};
+
+export type CreateOrganisationRoleResponse = CreateOrganisationRoleResponses[keyof CreateOrganisationRoleResponses];
+
+export type DeleteOrganisationRoleData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A role of this organisation, or a platform template. Reads accept
+         * either; writes answer **404** for a template, because from the writing
+         * side there is no role at that identifier belonging to you.
+         *
+         */
+        role: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles/{role}';
+};
+
+export type DeleteOrganisationRoleErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The role is still assigned to somebody. `membership_roles` cascades on
+     * delete, so the database would take it away from them without a word —
+     * which is the silent revocation this console exists to prevent. The
+     * count and up to twenty identifiers come back so a screen can say
+     * "reassign these six first" rather than "no".
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DeleteOrganisationRoleError = DeleteOrganisationRoleErrors[keyof DeleteOrganisationRoleErrors];
+
+export type DeleteOrganisationRoleResponses = {
+    /**
+     * Deleted. Nothing to describe.
+     */
+    204: void;
+};
+
+export type DeleteOrganisationRoleResponse = DeleteOrganisationRoleResponses[keyof DeleteOrganisationRoleResponses];
+
+export type ShowOrganisationRoleData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A role of this organisation, or a platform template. Reads accept
+         * either; writes answer **404** for a template, because from the writing
+         * side there is no role at that identifier belonging to you.
+         *
+         */
+        role: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles/{role}';
+};
+
+export type ShowOrganisationRoleErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowOrganisationRoleError = ShowOrganisationRoleErrors[keyof ShowOrganisationRoleErrors];
+
+export type ShowOrganisationRoleResponses = {
+    /**
+     * The role.
+     */
+    200: OrganisationRoleEnvelope;
+};
+
+export type ShowOrganisationRoleResponse = ShowOrganisationRoleResponses[keyof ShowOrganisationRoleResponses];
+
+export type UpdateOrganisationRoleData = {
+    body: WriteOrganisationRoleRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A role of this organisation, or a platform template. Reads accept
+         * either; writes answer **404** for a template, because from the writing
+         * side there is no role at that identifier belonging to you.
+         *
+         */
+        role: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles/{role}';
+};
+
+export type UpdateOrganisationRoleErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the validator is stale (`resource.conflict`), or the change
+     * would have removed the caller's own access (`access.self_lockout`).
+     *
+     * The two are one status and two codes because the remedies are
+     * different: a stale validator means reload and reapply, and a
+     * self-lockout means ask another administrator. `details.reason` names
+     * which of the self-lockout cases fired.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateOrganisationRoleError = UpdateOrganisationRoleErrors[keyof UpdateOrganisationRoleErrors];
+
+export type UpdateOrganisationRoleResponses = {
+    /**
+     * The role as it now stands.
+     */
+    200: OrganisationRoleEnvelope;
+};
+
+export type UpdateOrganisationRoleResponse = UpdateOrganisationRoleResponses[keyof UpdateOrganisationRoleResponses];
+
+export type ListOrganisationMembershipsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: {
+        /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
+        /**
+         * Restrict to one membership status.
+         */
+        status?: 'invited' | 'active' | 'suspended' | 'ended';
+    };
+    url: '/organisations/{organisation}/memberships';
+};
+
+export type ListOrganisationMembershipsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrganisationMembershipsError = ListOrganisationMembershipsErrors[keyof ListOrganisationMembershipsErrors];
+
+export type ListOrganisationMembershipsResponses = {
+    /**
+     * A page of memberships.
+     */
+    200: {
+        data: Array<TeamMemberSummary>;
+        meta: NumberedPaginationMeta;
+    };
+};
+
+export type ListOrganisationMembershipsResponse = ListOrganisationMembershipsResponses[keyof ListOrganisationMembershipsResponses];
+
+export type ShowOrganisationMembershipData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}';
+};
+
+export type ShowOrganisationMembershipErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowOrganisationMembershipError = ShowOrganisationMembershipErrors[keyof ShowOrganisationMembershipErrors];
+
+export type ShowOrganisationMembershipResponses = {
+    /**
+     * The membership.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type ShowOrganisationMembershipResponse = ShowOrganisationMembershipResponses[keyof ShowOrganisationMembershipResponses];
+
+export type UpdateOrganisationMembershipScopeData = {
+    body: UpdateMembershipScopeRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}';
+};
+
+export type UpdateOrganisationMembershipScopeErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateOrganisationMembershipScopeError = UpdateOrganisationMembershipScopeErrors[keyof UpdateOrganisationMembershipScopeErrors];
+
+export type UpdateOrganisationMembershipScopeResponses = {
+    /**
+     * The membership as it now stands.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type UpdateOrganisationMembershipScopeResponse = UpdateOrganisationMembershipScopeResponses[keyof UpdateOrganisationMembershipScopeResponses];
+
+export type ReplaceMembershipRolesData = {
+    body: ReplaceMembershipRolesRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}/roles';
+};
+
+export type ReplaceMembershipRolesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the validator is stale (`resource.conflict`), or the change
+     * would have removed the caller's own access (`access.self_lockout`).
+     *
+     * The two are one status and two codes because the remedies are
+     * different: a stale validator means reload and reapply, and a
+     * self-lockout means ask another administrator. `details.reason` names
+     * which of the self-lockout cases fired.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceMembershipRolesError = ReplaceMembershipRolesErrors[keyof ReplaceMembershipRolesErrors];
+
+export type ReplaceMembershipRolesResponses = {
+    /**
+     * The membership, with its new roles and what they add up to.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type ReplaceMembershipRolesResponse = ReplaceMembershipRolesResponses[keyof ReplaceMembershipRolesResponses];
+
+export type SuspendOrganisationMembershipData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}/suspend';
+};
+
+export type SuspendOrganisationMembershipErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the validator is stale (`resource.conflict`), or the change
+     * would have removed the caller's own access (`access.self_lockout`).
+     *
+     * The two are one status and two codes because the remedies are
+     * different: a stale validator means reload and reapply, and a
+     * self-lockout means ask another administrator. `details.reason` names
+     * which of the self-lockout cases fired.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SuspendOrganisationMembershipError = SuspendOrganisationMembershipErrors[keyof SuspendOrganisationMembershipErrors];
+
+export type SuspendOrganisationMembershipResponses = {
+    /**
+     * The suspended membership.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type SuspendOrganisationMembershipResponse = SuspendOrganisationMembershipResponses[keyof SuspendOrganisationMembershipResponses];
+
+export type ReactivateOrganisationMembershipData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}/reactivate';
+};
+
+export type ReactivateOrganisationMembershipErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReactivateOrganisationMembershipError = ReactivateOrganisationMembershipErrors[keyof ReactivateOrganisationMembershipErrors];
+
+export type ReactivateOrganisationMembershipResponses = {
+    /**
+     * The reactivated membership.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type ReactivateOrganisationMembershipResponse = ReactivateOrganisationMembershipResponses[keyof ReactivateOrganisationMembershipResponses];
+
+export type EndOrganisationMembershipData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}/end';
+};
+
+export type EndOrganisationMembershipErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the validator is stale (`resource.conflict`), or the change
+     * would have removed the caller's own access (`access.self_lockout`).
+     *
+     * The two are one status and two codes because the remedies are
+     * different: a stale validator means reload and reapply, and a
+     * self-lockout means ask another administrator. `details.reason` names
+     * which of the self-lockout cases fired.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type EndOrganisationMembershipError = EndOrganisationMembershipErrors[keyof EndOrganisationMembershipErrors];
+
+export type EndOrganisationMembershipResponses = {
+    /**
+     * The ended membership, and how many administrators remain.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type EndOrganisationMembershipResponse = EndOrganisationMembershipResponses[keyof EndOrganisationMembershipResponses];
 
 export type ListOrganisationInvitationsData = {
     body?: never;

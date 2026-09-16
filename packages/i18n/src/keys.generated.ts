@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6833 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7030 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -54,6 +54,198 @@ export interface NamespaceKeys {
     | 'workspaceSelector.open'
     | 'workspaceSelector.subtitle'
     | 'workspaceSelector.title';
+  readonly "accessAdmin":
+    | 'add.back'
+    | 'add.branch'
+    | 'add.createHint'
+    | 'add.created'
+    | 'add.domain'
+    | 'add.email'
+    | 'add.familyName'
+    | 'add.generate'
+    | 'add.givenName'
+    | 'add.inviteHint'
+    | 'add.message'
+    | 'add.modes.create'
+    | 'add.modes.invite'
+    | 'add.password'
+    | 'add.passwordAcknowledge'
+    | 'add.passwordBody'
+    | 'add.passwordHint'
+    | 'add.passwordTitle'
+    | 'add.role'
+    | 'add.signInName'
+    | 'add.signInNameHint'
+    | 'add.submitCreate'
+    | 'add.submitInvite'
+    | 'add.title'
+    | 'advanced.emptyDomain'
+    | 'advanced.hint'
+    | 'advanced.notHeld'
+    | 'advanced.selected'
+    | 'changePassword.confirmation'
+    | 'changePassword.current'
+    | 'changePassword.done'
+    | 'changePassword.password'
+    | 'changePassword.submit'
+    | 'changePassword.subtitle'
+    | 'changePassword.title'
+    | 'codes.audit.view_organisation.name'
+    | 'codes.b2b_quotation.quote_organisation.name'
+    | 'codes.b2b_quotation.view_organisation.name'
+    | 'codes.branch.manage_current.name'
+    | 'codes.branch.view_current.name'
+    | 'codes.catalogue.manage_organisation.name'
+    | 'codes.catalogue.publish_organisation.name'
+    | 'codes.catalogue.view_organisation.name'
+    | 'codes.consent.manage_own.name'
+    | 'codes.consent.view_own.name'
+    | 'codes.customer.create_on_behalf_organisation.name'
+    | 'codes.delivery_zone.manage_organisation.name'
+    | 'codes.device.manage_own.name'
+    | 'codes.entitlement.view_organisation.name'
+    | 'codes.inventory.manage_organisation.name'
+    | 'codes.inventory.order_supplies_organisation.name'
+    | 'codes.inventory.view_costs_organisation.name'
+    | 'codes.inventory.view_organisation.name'
+    | 'codes.membership.end_organisation.name'
+    | 'codes.membership.invite_organisation.name'
+    | 'codes.membership.update_organisation.name'
+    | 'codes.membership.view_organisation.name'
+    | 'codes.order.create_on_behalf_organisation.name'
+    | 'codes.order.manage_organisation.name'
+    | 'codes.order.view_customer_contact_organisation.name'
+    | 'codes.order.view_organisation.name'
+    | 'codes.organisation.update_current.name'
+    | 'codes.organisation.view_current.name'
+    | 'codes.plan.manage_organisation.name'
+    | 'codes.plan.publish_organisation.name'
+    | 'codes.price_list.manage_organisation.name'
+    | 'codes.price_list.view_organisation.name'
+    | 'codes.profile.update_own.name'
+    | 'codes.profile.view_own.name'
+    | 'codes.recipe.manage_organisation.name'
+    | 'codes.recipe.publish_organisation.name'
+    | 'codes.recipe.view_costs_organisation.name'
+    | 'codes.recipe.view_organisation.name'
+    | 'codes.role.manage_organisation.name'
+    | 'codes.role.view_organisation.name'
+    | 'codes.session.revoke_own.name'
+    | 'codes.subscription.view_organisation.name'
+    | 'codes.user.manage_organisation.name'
+    | 'extras.orderDeskCustomer'
+    | 'extras.orderDeskSale'
+    | 'extras.unpricedReceipts'
+    | 'member.assignmentExpired'
+    | 'member.assignmentFrom'
+    | 'member.assignmentScheduled'
+    | 'member.assignmentUntil'
+    | 'member.back'
+    | 'member.cancel'
+    | 'member.end'
+    | 'member.endBody'
+    | 'member.endConfirm'
+    | 'member.endTitle'
+    | 'member.ended'
+    | 'member.lastAdministrator'
+    | 'member.permissionsHeading'
+    | 'member.permissionsHint'
+    | 'member.reactivate'
+    | 'member.reactivated'
+    | 'member.rolesHeading'
+    | 'member.rolesHint'
+    | 'member.save'
+    | 'member.saved'
+    | 'member.scopeHeading'
+    | 'member.scopeHint'
+    | 'member.selfLockout'
+    | 'member.suspend'
+    | 'member.suspended'
+    | 'member.title'
+    | 'pages.alsoOpens'
+    | 'pages.hint'
+    | 'pages.levels.manage'
+    | 'pages.levels.none'
+    | 'pages.levels.view'
+    | 'pages.unmappedCount'
+    | 'pages.unmappedHeading'
+    | 'pages.unmappedHint'
+    | 'role.back'
+    | 'role.cancel'
+    | 'role.code'
+    | 'role.codeHint'
+    | 'role.copyTitle'
+    | 'role.created'
+    | 'role.delete'
+    | 'role.deleteBlocked'
+    | 'role.deleteBody'
+    | 'role.deleteConfirm'
+    | 'role.deleteTitle'
+    | 'role.deleted'
+    | 'role.descriptionAr'
+    | 'role.descriptionEn'
+    | 'role.nameAr'
+    | 'role.nameEn'
+    | 'role.newTitle'
+    | 'role.save'
+    | 'role.saved'
+    | 'role.selfLockout'
+    | 'role.shadowsTemplate'
+    | 'role.tabs.advanced'
+    | 'role.tabs.pages'
+    | 'role.templateNotice'
+    | 'roles.caption'
+    | 'roles.columns.holders'
+    | 'roles.columns.pages'
+    | 'roles.columns.role'
+    | 'roles.copy'
+    | 'roles.create'
+    | 'roles.edit'
+    | 'roles.emptyBody'
+    | 'roles.emptyTitle'
+    | 'roles.holders'
+    | 'roles.holdersNone'
+    | 'roles.open'
+    | 'roles.ownHeading'
+    | 'roles.ownHint'
+    | 'roles.permissionCount'
+    | 'roles.subtitle'
+    | 'roles.templatesHeading'
+    | 'roles.templatesHint'
+    | 'roles.title'
+    | 'signIn.organisation'
+    | 'signIn.useFullEmail'
+    | 'status.active'
+    | 'status.ended'
+    | 'status.invited'
+    | 'status.suspended'
+    | 'team.add'
+    | 'team.caption'
+    | 'team.columns.email'
+    | 'team.columns.person'
+    | 'team.columns.roles'
+    | 'team.columns.scope'
+    | 'team.columns.status'
+    | 'team.emptyBody'
+    | 'team.emptyTitle'
+    | 'team.filteredEmptyBody'
+    | 'team.filteredEmptyTitle'
+    | 'team.invitations.caption'
+    | 'team.invitations.empty'
+    | 'team.invitations.expires'
+    | 'team.invitations.revoke'
+    | 'team.invitations.revoked'
+    | 'team.invitations.sent'
+    | 'team.invitations.subtitle'
+    | 'team.invitations.title'
+    | 'team.noRoles'
+    | 'team.open'
+    | 'team.organisationWide'
+    | 'team.showEnded'
+    | 'team.subtitle'
+    | 'team.title'
+    | 'team.unnamed'
+    | 'title';
   readonly "account":
     | 'addresses.add'
     | 'addresses.areaHint'
@@ -1920,6 +2112,7 @@ export interface NamespaceKeys {
     | 'tag.more'
     | 'tag.overflow';
   readonly "errors":
+    | 'failure.access_self_lockout'
     | 'failure.account_verification_required'
     | 'failure.address_area_not_served'
     | 'failure.auth_email_unverified'
@@ -2866,6 +3059,8 @@ export interface NamespaceKeys {
     | 'families.recipes.name'
     | 'families.review.description'
     | 'families.review.name'
+    | 'families.roles.description'
+    | 'families.roles.name'
     | 'families.sauces.description'
     | 'families.sauces.name'
     | 'families.stock.description'
@@ -2874,6 +3069,8 @@ export interface NamespaceKeys {
     | 'families.suppliers.name'
     | 'families.supplyOrders.description'
     | 'families.supplyOrders.name'
+    | 'families.team.description'
+    | 'families.team.name'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
@@ -3152,6 +3349,7 @@ export interface NamespaceKeys {
     | 'meals.viewPublic'
     | 'meals.viewVisibility'
     | 'meals.visibleToConsumers'
+    | 'nav.groups.access'
     | 'nav.groups.catalogue'
     | 'nav.groups.commercial'
     | 'nav.groups.operations'
@@ -6917,6 +7115,197 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:workspaceSelector.open',
   'access:workspaceSelector.subtitle',
   'access:workspaceSelector.title',
+  'accessAdmin:add.back',
+  'accessAdmin:add.branch',
+  'accessAdmin:add.createHint',
+  'accessAdmin:add.created',
+  'accessAdmin:add.domain',
+  'accessAdmin:add.email',
+  'accessAdmin:add.familyName',
+  'accessAdmin:add.generate',
+  'accessAdmin:add.givenName',
+  'accessAdmin:add.inviteHint',
+  'accessAdmin:add.message',
+  'accessAdmin:add.modes.create',
+  'accessAdmin:add.modes.invite',
+  'accessAdmin:add.password',
+  'accessAdmin:add.passwordAcknowledge',
+  'accessAdmin:add.passwordBody',
+  'accessAdmin:add.passwordHint',
+  'accessAdmin:add.passwordTitle',
+  'accessAdmin:add.role',
+  'accessAdmin:add.signInName',
+  'accessAdmin:add.signInNameHint',
+  'accessAdmin:add.submitCreate',
+  'accessAdmin:add.submitInvite',
+  'accessAdmin:add.title',
+  'accessAdmin:advanced.emptyDomain',
+  'accessAdmin:advanced.hint',
+  'accessAdmin:advanced.notHeld',
+  'accessAdmin:advanced.selected',
+  'accessAdmin:changePassword.confirmation',
+  'accessAdmin:changePassword.current',
+  'accessAdmin:changePassword.done',
+  'accessAdmin:changePassword.password',
+  'accessAdmin:changePassword.submit',
+  'accessAdmin:changePassword.subtitle',
+  'accessAdmin:changePassword.title',
+  'accessAdmin:codes.audit.view_organisation.name',
+  'accessAdmin:codes.b2b_quotation.quote_organisation.name',
+  'accessAdmin:codes.b2b_quotation.view_organisation.name',
+  'accessAdmin:codes.branch.manage_current.name',
+  'accessAdmin:codes.branch.view_current.name',
+  'accessAdmin:codes.catalogue.manage_organisation.name',
+  'accessAdmin:codes.catalogue.publish_organisation.name',
+  'accessAdmin:codes.catalogue.view_organisation.name',
+  'accessAdmin:codes.consent.manage_own.name',
+  'accessAdmin:codes.consent.view_own.name',
+  'accessAdmin:codes.customer.create_on_behalf_organisation.name',
+  'accessAdmin:codes.delivery_zone.manage_organisation.name',
+  'accessAdmin:codes.device.manage_own.name',
+  'accessAdmin:codes.entitlement.view_organisation.name',
+  'accessAdmin:codes.inventory.manage_organisation.name',
+  'accessAdmin:codes.inventory.order_supplies_organisation.name',
+  'accessAdmin:codes.inventory.view_costs_organisation.name',
+  'accessAdmin:codes.inventory.view_organisation.name',
+  'accessAdmin:codes.membership.end_organisation.name',
+  'accessAdmin:codes.membership.invite_organisation.name',
+  'accessAdmin:codes.membership.update_organisation.name',
+  'accessAdmin:codes.membership.view_organisation.name',
+  'accessAdmin:codes.order.create_on_behalf_organisation.name',
+  'accessAdmin:codes.order.manage_organisation.name',
+  'accessAdmin:codes.order.view_customer_contact_organisation.name',
+  'accessAdmin:codes.order.view_organisation.name',
+  'accessAdmin:codes.organisation.update_current.name',
+  'accessAdmin:codes.organisation.view_current.name',
+  'accessAdmin:codes.plan.manage_organisation.name',
+  'accessAdmin:codes.plan.publish_organisation.name',
+  'accessAdmin:codes.price_list.manage_organisation.name',
+  'accessAdmin:codes.price_list.view_organisation.name',
+  'accessAdmin:codes.profile.update_own.name',
+  'accessAdmin:codes.profile.view_own.name',
+  'accessAdmin:codes.recipe.manage_organisation.name',
+  'accessAdmin:codes.recipe.publish_organisation.name',
+  'accessAdmin:codes.recipe.view_costs_organisation.name',
+  'accessAdmin:codes.recipe.view_organisation.name',
+  'accessAdmin:codes.role.manage_organisation.name',
+  'accessAdmin:codes.role.view_organisation.name',
+  'accessAdmin:codes.session.revoke_own.name',
+  'accessAdmin:codes.subscription.view_organisation.name',
+  'accessAdmin:codes.user.manage_organisation.name',
+  'accessAdmin:extras.orderDeskCustomer',
+  'accessAdmin:extras.orderDeskSale',
+  'accessAdmin:extras.unpricedReceipts',
+  'accessAdmin:member.assignmentExpired',
+  'accessAdmin:member.assignmentFrom',
+  'accessAdmin:member.assignmentScheduled',
+  'accessAdmin:member.assignmentUntil',
+  'accessAdmin:member.back',
+  'accessAdmin:member.cancel',
+  'accessAdmin:member.end',
+  'accessAdmin:member.endBody',
+  'accessAdmin:member.endConfirm',
+  'accessAdmin:member.endTitle',
+  'accessAdmin:member.ended',
+  'accessAdmin:member.lastAdministrator',
+  'accessAdmin:member.permissionsHeading',
+  'accessAdmin:member.permissionsHint',
+  'accessAdmin:member.reactivate',
+  'accessAdmin:member.reactivated',
+  'accessAdmin:member.rolesHeading',
+  'accessAdmin:member.rolesHint',
+  'accessAdmin:member.save',
+  'accessAdmin:member.saved',
+  'accessAdmin:member.scopeHeading',
+  'accessAdmin:member.scopeHint',
+  'accessAdmin:member.selfLockout',
+  'accessAdmin:member.suspend',
+  'accessAdmin:member.suspended',
+  'accessAdmin:member.title',
+  'accessAdmin:pages.alsoOpens',
+  'accessAdmin:pages.hint',
+  'accessAdmin:pages.levels.manage',
+  'accessAdmin:pages.levels.none',
+  'accessAdmin:pages.levels.view',
+  'accessAdmin:pages.unmappedCount',
+  'accessAdmin:pages.unmappedHeading',
+  'accessAdmin:pages.unmappedHint',
+  'accessAdmin:role.back',
+  'accessAdmin:role.cancel',
+  'accessAdmin:role.code',
+  'accessAdmin:role.codeHint',
+  'accessAdmin:role.copyTitle',
+  'accessAdmin:role.created',
+  'accessAdmin:role.delete',
+  'accessAdmin:role.deleteBlocked',
+  'accessAdmin:role.deleteBody',
+  'accessAdmin:role.deleteConfirm',
+  'accessAdmin:role.deleteTitle',
+  'accessAdmin:role.deleted',
+  'accessAdmin:role.descriptionAr',
+  'accessAdmin:role.descriptionEn',
+  'accessAdmin:role.nameAr',
+  'accessAdmin:role.nameEn',
+  'accessAdmin:role.newTitle',
+  'accessAdmin:role.save',
+  'accessAdmin:role.saved',
+  'accessAdmin:role.selfLockout',
+  'accessAdmin:role.shadowsTemplate',
+  'accessAdmin:role.tabs.advanced',
+  'accessAdmin:role.tabs.pages',
+  'accessAdmin:role.templateNotice',
+  'accessAdmin:roles.caption',
+  'accessAdmin:roles.columns.holders',
+  'accessAdmin:roles.columns.pages',
+  'accessAdmin:roles.columns.role',
+  'accessAdmin:roles.copy',
+  'accessAdmin:roles.create',
+  'accessAdmin:roles.edit',
+  'accessAdmin:roles.emptyBody',
+  'accessAdmin:roles.emptyTitle',
+  'accessAdmin:roles.holders',
+  'accessAdmin:roles.holdersNone',
+  'accessAdmin:roles.open',
+  'accessAdmin:roles.ownHeading',
+  'accessAdmin:roles.ownHint',
+  'accessAdmin:roles.permissionCount',
+  'accessAdmin:roles.subtitle',
+  'accessAdmin:roles.templatesHeading',
+  'accessAdmin:roles.templatesHint',
+  'accessAdmin:roles.title',
+  'accessAdmin:signIn.organisation',
+  'accessAdmin:signIn.useFullEmail',
+  'accessAdmin:status.active',
+  'accessAdmin:status.ended',
+  'accessAdmin:status.invited',
+  'accessAdmin:status.suspended',
+  'accessAdmin:team.add',
+  'accessAdmin:team.caption',
+  'accessAdmin:team.columns.email',
+  'accessAdmin:team.columns.person',
+  'accessAdmin:team.columns.roles',
+  'accessAdmin:team.columns.scope',
+  'accessAdmin:team.columns.status',
+  'accessAdmin:team.emptyBody',
+  'accessAdmin:team.emptyTitle',
+  'accessAdmin:team.filteredEmptyBody',
+  'accessAdmin:team.filteredEmptyTitle',
+  'accessAdmin:team.invitations.caption',
+  'accessAdmin:team.invitations.empty',
+  'accessAdmin:team.invitations.expires',
+  'accessAdmin:team.invitations.revoke',
+  'accessAdmin:team.invitations.revoked',
+  'accessAdmin:team.invitations.sent',
+  'accessAdmin:team.invitations.subtitle',
+  'accessAdmin:team.invitations.title',
+  'accessAdmin:team.noRoles',
+  'accessAdmin:team.open',
+  'accessAdmin:team.organisationWide',
+  'accessAdmin:team.showEnded',
+  'accessAdmin:team.subtitle',
+  'accessAdmin:team.title',
+  'accessAdmin:team.unnamed',
+  'accessAdmin:title',
   'account:addresses.add',
   'account:addresses.areaHint',
   'account:addresses.areaLabel',
@@ -8774,6 +9163,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:tag.join',
   'designSystem:tag.more',
   'designSystem:tag.overflow',
+  'errors:failure.access_self_lockout',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
   'errors:failure.auth_email_unverified',
@@ -9717,6 +10107,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.recipes.name',
   'kitchen:families.review.description',
   'kitchen:families.review.name',
+  'kitchen:families.roles.description',
+  'kitchen:families.roles.name',
   'kitchen:families.sauces.description',
   'kitchen:families.sauces.name',
   'kitchen:families.stock.description',
@@ -9725,6 +10117,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.suppliers.name',
   'kitchen:families.supplyOrders.description',
   'kitchen:families.supplyOrders.name',
+  'kitchen:families.team.description',
+  'kitchen:families.team.name',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
@@ -10003,6 +10397,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.viewPublic',
   'kitchen:meals.viewVisibility',
   'kitchen:meals.visibleToConsumers',
+  'kitchen:nav.groups.access',
   'kitchen:nav.groups.catalogue',
   'kitchen:nav.groups.commercial',
   'kitchen:nav.groups.operations',

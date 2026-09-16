@@ -25,6 +25,7 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'authz.permission_denied': 'errors:failure.authz_permission_denied',
     'resource.not_found': 'errors:failure.resource_not_found',
     'resource.conflict': 'errors:failure.resource_conflict',
+    'access.self_lockout': 'errors:failure.access_self_lockout',
     'request.precondition_required': 'errors:failure.request_precondition_required',
     'validation.failed': 'errors:failure.validation_failed',
     'rate_limit.exceeded': 'errors:failure.rate_limit_exceeded',

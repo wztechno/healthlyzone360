@@ -56,7 +56,8 @@
             "workbench": "Workbench",
             "catalogue": "Catalogue",
             "commercial": "Commercial",
-            "operations": "Operations"
+            "operations": "Operations",
+            "access": "Access"
         }
     },
     "ops": {
@@ -1646,6 +1647,14 @@
         "batch": {
             "name": "Batch planner",
             "description": "Scale a recipe to a quantity or a number of pieces, and read off the ingredients and packaging it needs."
+        },
+        "team": {
+            "name": "Team",
+            "description": "The people who work here — what each of them may reach, and how they sign in."
+        },
+        "roles": {
+            "name": "Roles",
+            "description": "What a job title is allowed to do. Edit a role and everybody holding it changes with it."
         }
     },
     "analytics": {

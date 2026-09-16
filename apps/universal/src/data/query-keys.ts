@@ -85,6 +85,7 @@ export const QUERY_ROOTS = [
     'platformAdmin',
     'invitations',
     'driverJobs',
+    'accessAdmin',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -813,6 +814,39 @@ export const queryKeys = {
     },
 
     /**
+     * AA1 — a kitchen's own access console.
+     *
+     * Its own root rather than a branch of `kitchenAdmin`, and the split is the one `platformAdmin`
+     * makes for its own reason turned inward. `kitchenAdmin` is what a kitchen *sells*: ingredients,
+     * recipes, price lists, plans — invalidated when somebody edits the menu. This is who may edit
+     * it. Folding them together would mean adding a new starter threw away the ingredient list
+     * somebody was halfway through editing, and publishing a meal evicted the staff list.
+     *
+     * **Never persisted**, and for the clearest reason on the list after `platformAdmin`'s: it
+     * carries every colleague's name and login address. A staff directory on the disk of a shared
+     * kitchen tablet is the thing this root must not become. `PERSISTABLE_QUERY_ROOTS` below
+     * therefore stays as it is.
+     *
+     * `permissions` takes no parameters because the endpoint has none — it serves the whole
+     * assignable catalogue, bounded by a constant in the backend's source.
+     */
+    accessAdmin: {
+        all: () => ['accessAdmin'] as const,
+        permissions: () => ['accessAdmin', 'permissions'] as const,
+        roles: () => ['accessAdmin', 'roles'] as const,
+        role: (role: string) => ['accessAdmin', 'role', role] as const,
+        team: (filter?: QueryScope) => ['accessAdmin', 'team', scope(filter)] as const,
+        member: (membership: string) => ['accessAdmin', 'member', membership] as const,
+        invitations: (status?: string) => ['accessAdmin', 'invitations', status ?? null] as const,
+        /**
+         * The anonymous domain list the sign-in screen reads. Under this root because it is served
+         * by the same slice, and deliberately *not* persisted with it: it is public, but it is also
+         * a list of tenant names, and nothing about a sign-in screen needs it to survive a restart.
+         */
+        signInDomains: () => ['accessAdmin', 'sign-in-domains'] as const,
+    },
+
+    /**
      * ── driverJobs: one driver's run sheet ──────────────────────────────────────────────────────
      * ────────────────────────────────────────────────────────────────────────────────────────────
      *
@@ -861,7 +895,9 @@ export const queryKeys = {
  * held on a tablet the whole kitchen signs into. `orderDesk` is absent for the same reason and one
  * step further out: its rows carry customers' names and telephone numbers, served only to a caller
  * holding `order.view_customer_contact_organisation`, and a cache on disk would outlive both the
- * session and the permission that allowed them to be read.
+ * session and the permission that allowed them to be read. `accessAdmin` (AA1) is absent on the
+ * plainest of all: it is a directory of every colleague's name and login address, and the whole
+ * point of the console is that it is opened on the kitchen's shared tablet.
  *
  * **Known deviation from plan §5.** The plan adds `catalogue` here — public, non-personal item data
  * that is cheap to keep. It is not added yet because `persistence.test.ts` pins this list to

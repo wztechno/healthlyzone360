@@ -331,6 +331,26 @@ export const REPOSITORY_SURFACE = {
         'suspendKitchen',
     ],
     invitations: ['acceptInvitation', 'getInvitation'],
+    accessAdmin: [
+        'createRole',
+        'createStaffAccount',
+        'deleteRole',
+        'endMember',
+        'getRole',
+        'getTeamMember',
+        'inviteStaff',
+        'listInvitations',
+        'listPermissions',
+        'listRoles',
+        'listStaffSignInDomains',
+        'listTeam',
+        'reactivateMember',
+        'revokeInvitation',
+        'setMemberRoles',
+        'setMemberScope',
+        'suspendMember',
+        'updateRole',
+    ],
 } as const satisfies {
     readonly [K in RepositorySurfaceKey]: readonly MethodsOf<Repositories[K]>[];
 };

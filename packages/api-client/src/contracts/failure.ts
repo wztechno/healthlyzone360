@@ -164,6 +164,10 @@ export const API_FAILURE_CODES = [
     'authz.permission_denied',
     'resource.not_found',
     'resource.conflict',
+    // AA1. A 409 like `resource.conflict` and deliberately not it: the caller has not lost a race,
+    // they have asked to remove their own access, and the remedy is another administrator rather
+    // than a reload. `details.reason` says which of the three cases fired.
+    'access.self_lockout',
     'request.precondition_required',
     'request.idempotency_key_reused',
     'validation.failed',
@@ -380,6 +384,8 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     'authz.permission_denied',
     'resource.not_found',
     'resource.conflict',
+    // A second attempt removes the same access from the same person.
+    'access.self_lockout',
     'request.precondition_required',
     // The same key with the same body is *replayed*, which is a success. Reaching this code means
     // the body differed, and repeating a request whose body is the problem cannot help.
@@ -472,6 +478,7 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'authz.permission_denied': 'Your role does not allow that.',
     'resource.not_found': 'That record no longer exists.',
     'resource.conflict': 'Somebody else changed this while you were editing it.',
+    'access.self_lockout': 'That would remove your own access. Ask another administrator to do it.',
     'request.precondition_required': 'This change was sent without the version it was based on.',
     'request.idempotency_key_reused': 'This request repeated a key with different details.',
     'validation.failed': 'Some of the details need correcting.',

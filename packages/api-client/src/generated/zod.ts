@@ -73,6 +73,7 @@ export const zErrorCode = z.enum([
     'payment.refund_exceeds_capture',
     'inventory.insufficient_stock',
     'unit.conversion_unsupported',
+    'access.self_lockout',
     'rate_limit.exceeded',
     'server.internal_error'
 ]);
@@ -7134,6 +7135,148 @@ export const zB2bAgreementEnvelope = z.object({
     meta: zMeta
 });
 
+export const zCreateStaffAccountRequest = z.object({
+    email: z.email().optional(),
+    local_part: z.string().max(64).regex(/^[a-z0-9]+([._-][a-z0-9]+)*$/).optional(),
+    given_name: z.string().max(255),
+    family_name: z.string().max(255),
+    password: z.string(),
+    preferred_language_code: z.string().length(2).nullish(),
+    role_ids: z.array(z.uuid()),
+    branch_id: z.uuid().nullish()
+});
+
+export const zStaffSignInDomain = z.object({
+    organisation_name: z.string(),
+    domain: z.string()
+});
+
+export const zUpdatePasswordRequest = z.object({
+    current_password: z.string(),
+    password: z.string(),
+    password_confirmation: z.string()
+});
+
+export const zPermissionDefinition = z.object({
+    code: z.string(),
+    description: z.string(),
+    held_by_caller: z.boolean()
+});
+
+export const zPermissionDomain = z.object({
+    domain: z.string(),
+    permissions: z.array(zPermissionDefinition)
+});
+
+export const zPermissionCatalogueEnvelope = z.object({
+    data: z.object({
+        domains: z.array(zPermissionDomain)
+    }),
+    meta: zMeta
+});
+
+export const zOrganisationRoleSummary = z.object({
+    id: z.uuid(),
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    description_en: z.string().nullable(),
+    description_ar: z.string().nullable(),
+    is_system: z.boolean(),
+    holder_count: z.int().gte(0),
+    permission_count: z.int().gte(0),
+    lock_version: z.int().gte(0),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zOrganisationRole = zOrganisationRoleSummary.and(z.object({
+    permissions: z.array(z.string()),
+    updated_by_name: z.string().nullable()
+}));
+
+export const zOrganisationRoleEnvelope = z.object({
+    data: z.object({
+        role: zOrganisationRole
+    }),
+    meta: zMeta.and(z.object({
+        shadows_template: z.boolean().optional()
+    }))
+});
+
+export const zWriteOrganisationRoleRequest = z.object({
+    code: z.string().max(64).regex(/^[a-z][a-z0-9_]*$/).optional(),
+    name_en: z.string().max(120),
+    name_ar: z.string().max(120),
+    description_en: z.string().max(500).nullish(),
+    description_ar: z.string().max(500).nullish(),
+    permissions: z.array(z.string())
+});
+
+export const zTeamMemberRole = z.object({
+    id: z.uuid(),
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    is_system: z.boolean()
+});
+
+export const zTeamMemberBranch = z.object({
+    id: z.uuid(),
+    name: z.string()
+});
+
+export const zTeamMemberSummary = z.object({
+    membership_id: z.uuid(),
+    user_id: z.uuid(),
+    given_name: z.string().nullable(),
+    family_name: z.string().nullable(),
+    email: z.email().nullable(),
+    status: z.enum([
+        'invited',
+        'active',
+        'suspended',
+        'ended'
+    ]),
+    joined_at: z.iso.datetime({ offset: true }).nullable(),
+    branch: zTeamMemberBranch.nullable(),
+    roles: z.array(zTeamMemberRole),
+    lock_version: z.int().gte(0)
+});
+
+export const zMembershipRoleAssignment = z.object({
+    role_id: z.uuid(),
+    starts_at: z.iso.datetime({ offset: true }).nullable(),
+    expires_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zTeamMember = zTeamMemberSummary.and(z.object({
+    assignments: z.array(zMembershipRoleAssignment),
+    permissions: z.array(z.string())
+}));
+
+export const zTeamMemberEnvelope = z.object({
+    data: z.object({
+        membership: zTeamMember
+    }),
+    meta: zMeta.and(z.object({
+        remaining_role_administrators: z.int().gte(0)
+    }))
+});
+
+export const zStaffAccountEnvelope = zTeamMemberEnvelope.and(z.object({
+    data: z.object({
+        initial_password: z.string()
+    }).optional()
+}));
+
+export const zReplaceMembershipRolesRequest = z.object({
+    roles: z.array(zMembershipRoleAssignment)
+});
+
+export const zUpdateMembershipScopeRequest = z.object({
+    branch_id: z.uuid().nullable()
+});
+
 export const zOrganisationInvitationEnvelope = z.object({
     data: z.object({
         invitation: zOrganisationInvitation
@@ -8720,6 +8863,22 @@ export const zB2bCatalogueLanguage = z.enum(['en', 'ar']).default('en');
 export const zOrganisationPath = zUuid;
 
 /**
+ * A role of this organisation, or a platform template. Reads accept
+ * either; writes answer **404** for a template, because from the writing
+ * side there is no role at that identifier belonging to you.
+ *
+ */
+export const zRolePath = zUuid;
+
+/**
+ * A membership of this organisation, in any status. An ended one resolves
+ * deliberately — a detail page that 404'd on the row the list just showed
+ * would be a list lying about what it links to.
+ *
+ */
+export const zMembershipPath = zUuid;
+
+/**
  * The invitation identifier. Always resolved inside the organisation in the path.
  */
 export const zOrganisationInvitationPath = zUuid;
@@ -8942,6 +9101,37 @@ export const zResetPasswordHeaders = z.object({
 export const zResetPasswordResponse = z.object({
     data: z.object({
         password_reset: z.literal(true)
+    }),
+    meta: zMeta
+});
+
+export const zUpdateOwnPasswordBody = zUpdatePasswordRequest;
+
+export const zUpdateOwnPasswordHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Replaced, and the obligation cleared.
+ */
+export const zUpdateOwnPasswordResponse = z.object({
+    data: z.object({
+        password_updated: z.boolean(),
+        must_change_password: z.boolean()
+    }),
+    meta: zMeta
+});
+
+export const zListStaffSignInDomainsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The organisations whose staff sign in with a name.
+ */
+export const zListStaffSignInDomainsResponse = z.object({
+    data: z.object({
+        domains: z.array(zStaffSignInDomain)
     }),
     meta: zMeta
 });
@@ -13432,6 +13622,246 @@ export const zReviewKycDocumentPath = z.object({
  * The reviewed document, with the internal note.
  */
 export const zReviewKycDocumentResponse = zKycDocumentReviewEnvelope;
+
+export const zCreateStaffAccountBody = zCreateStaffAccountRequest;
+
+export const zCreateStaffAccountHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateStaffAccountPath = z.object({
+    organisation: zUuid
+});
+
+/**
+ * The new membership, and the password — once.
+ */
+export const zCreateStaffAccountResponse = zStaffAccountEnvelope;
+
+export const zListAssignablePermissionsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListAssignablePermissionsPath = z.object({
+    organisation: zUuid
+});
+
+/**
+ * The assignable catalogue, grouped by domain.
+ */
+export const zListAssignablePermissionsResponse = zPermissionCatalogueEnvelope;
+
+export const zListOrganisationRolesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListOrganisationRolesPath = z.object({
+    organisation: zUuid
+});
+
+/**
+ * Every role available in this organisation.
+ */
+export const zListOrganisationRolesResponse = z.object({
+    data: z.array(zOrganisationRoleSummary),
+    meta: zMeta
+});
+
+export const zCreateOrganisationRoleBody = zWriteOrganisationRoleRequest;
+
+export const zCreateOrganisationRoleHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreateOrganisationRolePath = z.object({
+    organisation: zUuid
+});
+
+/**
+ * The role, with its grants and its validator.
+ */
+export const zCreateOrganisationRoleResponse = zOrganisationRoleEnvelope;
+
+export const zDeleteOrganisationRoleHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zDeleteOrganisationRolePath = z.object({
+    organisation: zUuid,
+    role: zUuid
+});
+
+/**
+ * Deleted. Nothing to describe.
+ */
+export const zDeleteOrganisationRoleResponse = z.void();
+
+export const zShowOrganisationRoleHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowOrganisationRolePath = z.object({
+    organisation: zUuid,
+    role: zUuid
+});
+
+/**
+ * The role.
+ */
+export const zShowOrganisationRoleResponse = zOrganisationRoleEnvelope;
+
+export const zUpdateOrganisationRoleBody = zWriteOrganisationRoleRequest;
+
+export const zUpdateOrganisationRoleHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateOrganisationRolePath = z.object({
+    organisation: zUuid,
+    role: zUuid
+});
+
+/**
+ * The role as it now stands.
+ */
+export const zUpdateOrganisationRoleResponse = zOrganisationRoleEnvelope;
+
+export const zListOrganisationMembershipsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListOrganisationMembershipsPath = z.object({
+    organisation: zUuid
+});
+
+export const zListOrganisationMembershipsQuery = z.object({
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
+    status: z.enum([
+        'invited',
+        'active',
+        'suspended',
+        'ended'
+    ]).optional()
+});
+
+/**
+ * A page of memberships.
+ */
+export const zListOrganisationMembershipsResponse = z.object({
+    data: z.array(zTeamMemberSummary),
+    meta: zNumberedPaginationMeta
+});
+
+export const zShowOrganisationMembershipHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zShowOrganisationMembershipPath = z.object({
+    organisation: zUuid,
+    membership: zUuid
+});
+
+/**
+ * The membership.
+ */
+export const zShowOrganisationMembershipResponse = zTeamMemberEnvelope;
+
+export const zUpdateOrganisationMembershipScopeBody = zUpdateMembershipScopeRequest;
+
+export const zUpdateOrganisationMembershipScopeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdateOrganisationMembershipScopePath = z.object({
+    organisation: zUuid,
+    membership: zUuid
+});
+
+/**
+ * The membership as it now stands.
+ */
+export const zUpdateOrganisationMembershipScopeResponse = zTeamMemberEnvelope;
+
+export const zReplaceMembershipRolesBody = zReplaceMembershipRolesRequest;
+
+export const zReplaceMembershipRolesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReplaceMembershipRolesPath = z.object({
+    organisation: zUuid,
+    membership: zUuid
+});
+
+/**
+ * The membership, with its new roles and what they add up to.
+ */
+export const zReplaceMembershipRolesResponse = zTeamMemberEnvelope;
+
+export const zSuspendOrganisationMembershipHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSuspendOrganisationMembershipPath = z.object({
+    organisation: zUuid,
+    membership: zUuid
+});
+
+/**
+ * The suspended membership.
+ */
+export const zSuspendOrganisationMembershipResponse = zTeamMemberEnvelope;
+
+export const zReactivateOrganisationMembershipHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReactivateOrganisationMembershipPath = z.object({
+    organisation: zUuid,
+    membership: zUuid
+});
+
+/**
+ * The reactivated membership.
+ */
+export const zReactivateOrganisationMembershipResponse = zTeamMemberEnvelope;
+
+export const zEndOrganisationMembershipHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zEndOrganisationMembershipPath = z.object({
+    organisation: zUuid,
+    membership: zUuid
+});
+
+/**
+ * The ended membership, and how many administrators remain.
+ */
+export const zEndOrganisationMembershipResponse = zTeamMemberEnvelope;
 
 export const zListOrganisationInvitationsHeaders = z.object({
     'X-Organisation-Id': zUuid,
