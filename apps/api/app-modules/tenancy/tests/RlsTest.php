@@ -937,7 +937,19 @@ it('still migrates and seeds under the owner role with row-level security enable
     // of the six protected tables with no session context whatsoever.
     $this->seed();
 
-    // **Nine** platform template roles since C2: the four foundation roles,
+    // **Eleven** platform template roles since the access console: the four
+    // foundation roles, K1.1's kitchen_manager, kitchen_chef, kitchen_staff and
+    // commercial_manager, C2's order_desk_agent, and the console's
+    // procurement_manager and finance_manager.
+    //
+    // The count moved from nine to eleven when the access console landed and
+    // updated `organisationTemplateRoleCodes()` in PermissionRegistryTest
+    // without updating this half of the same pin. Both halves exist so a new
+    // template role has to be a deliberate act; a pin that only one half of the
+    // suite enforces is not that. The history below is kept because it is the
+    // evidence for the rule rather than decoration.
+    //
+    // Previously nine since C2: the four foundation roles,
     // K1.1's kitchen_manager, kitchen_chef, kitchen_staff and
     // commercial_manager, and now order_desk_agent. Pinned so a new template
     // role has to be a deliberate act. K1.3 widened three of them with
@@ -954,8 +966,8 @@ it('still migrates and seeds under the owner role with row-level security enable
     // a counter workable, and no existing role is that shape — kitchen_staff
     // holds no order codes at all, and kitchen_manager holds strictly more.
     // `organisationTemplateRoleCodes()` in PermissionRegistryTest names the same
-    // nine and is the other half of this pin.
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(9)
+    // set and is the other half of this pin.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(11)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(ConsentDefinition::query()->count())->toBeGreaterThan(1);
