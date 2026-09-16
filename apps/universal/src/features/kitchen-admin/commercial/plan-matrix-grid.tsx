@@ -1,7 +1,7 @@
-import { Badge, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, ScrollView, View } from 'react-native';
+import { Text as RNText, ScrollView, View } from 'react-native';
 
 import { cellVariants } from '../plan-matrix.ts';
 import type { MatrixBand, MatrixRow, VariantDraft } from '../plan-matrix.ts';
@@ -16,14 +16,16 @@ import type { MatrixBand, MatrixRow, VariantDraft } from '../plan-matrix.ts';
  * STANDARD-3M1S
  * ```
  *
- * A 220px combination track, then one track per energy band, each cell a 32px toggle. **The cell
+ * A 220px combination track, then one track per energy band, each cell a 32px well. **The cell
  * carries the word** — `Sold` / `Not sold` — not just the tint, so the grid reads correctly in
- * greyscale and to a screen reader, whose accessible name is the whole sentence ("Sold — 3 meals, 1
- * snack at 1500–1800 kcal").
+ * greyscale and to a screen reader, whose accessible name is the whole sentence.
  *
- * It is a toggle grid rather than a `Table` of checkboxes: the design's cells are the control, and a
- * checkbox beside a word put two targets in a 120px cell. Each cell is `role="checkbox"` with its
- * checked state, so the semantics the table gave are kept.
+ * ## Read-only, on purpose
+ *
+ * The matrix is what the configurations say, drawn back. A cell is sold exactly when a
+ * configuration sits in it, and configurations are written on the Configurations tab — so nothing
+ * here is pressable. Each cell keeps its checked state as accessibility state, so the grid still
+ * answers "is this sold?" without being a control.
  *
  * Wide on purpose: below its 760px floor the grid scrolls sideways inside its own port rather than
  * squeezing four bands into slivers.
@@ -32,8 +34,6 @@ export interface PlanMatrixGridProps {
     readonly rows: readonly MatrixRow[];
     readonly bands: readonly MatrixBand[];
     readonly variants: readonly VariantDraft[];
-    readonly onToggle: (row: MatrixRow, band: MatrixBand) => void;
-    readonly canManage: boolean;
     readonly testID: string;
 }
 
@@ -42,14 +42,7 @@ const COMBINATION_TRACK = 220;
 const BAND_FLOOR = 120;
 const GRID_FLOOR = 760;
 
-export function PlanMatrixGrid({
-    rows,
-    bands,
-    variants,
-    onToggle,
-    canManage,
-    testID,
-}: PlanMatrixGridProps) {
+export function PlanMatrixGrid({ rows, bands, variants, testID }: PlanMatrixGridProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
 
@@ -112,25 +105,10 @@ export function PlanMatrixGrid({
                                       ? servings(row)
                                       : row.combination.label.en}
                             </Text>
-                            <Text variant="mono" tone="secondary" numberOfLines={1}>
-                                {row.combination === null ? servings(row) : row.combination.code}
-                            </Text>
-                            {row.combination === null ? (
-                                <View className="flex-row">
-                                    <Badge
-                                        testID={`${testID}-row-${row.key}-undeclared`}
-                                        tone="warning"
-                                        label={t('kitchen:plans.rowUndeclared')}
-                                    />
-                                </View>
-                            ) : row.combination.isAvailable ? null : (
-                                <View className="flex-row">
-                                    <Badge
-                                        testID={`${testID}-row-${row.key}-unavailable`}
-                                        tone="neutral"
-                                        label={t('kitchen:plans.combinationUnavailable')}
-                                    />
-                                </View>
+                            {row.combination === null ? null : (
+                                <Text variant="mono" tone="secondary" numberOfLines={1}>
+                                    {row.combination.code}
+                                </Text>
                             )}
                         </View>
 
@@ -148,12 +126,9 @@ export function PlanMatrixGrid({
                                     style={{ minWidth: BAND_FLOOR }}
                                     className="flex-1 flex-col gap-hair"
                                 >
-                                    <Pressable
+                                    <View
                                         testID={`${cellId}-control`}
-                                        role="checkbox"
-                                        accessibilityRole="checkbox"
-                                        accessibilityState={{ checked: sold, disabled: !canManage }}
-                                        aria-checked={sold}
+                                        accessibilityState={{ checked: sold }}
                                         accessibilityLabel={t('kitchen:plans.cellLabel', {
                                             combination: servings(row),
                                             band: bandLabel(band),
@@ -161,10 +136,6 @@ export function PlanMatrixGrid({
                                         {...({
                                             title: `${word} — ${servings(row)} · ${bandLabel(band)}`,
                                         } as object)}
-                                        disabled={!canManage}
-                                        onPress={() => {
-                                            onToggle(row, band);
-                                        }}
                                         className={
                                             sold
                                                 ? 'h-8 items-center justify-center rounded-sm border border-surface-brand bg-surface-brand-subtle'
@@ -182,7 +153,7 @@ export function PlanMatrixGrid({
                                         >
                                             {word}
                                         </RNText>
-                                    </Pressable>
+                                    </View>
                                     {occupants.length > 1 ? (
                                         <Text
                                             testID={`${cellId}-count`}

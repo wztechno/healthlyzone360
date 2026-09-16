@@ -32,6 +32,11 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
 export interface EditorFrameProps {
     readonly title: string;
     /**
+     * Keeps `title` for the breadcrumb leaf but draws no heading. For a create form whose tabs and
+     * fields already say what it is, so a "New …" heading would only repeat the trail.
+     */
+    readonly hideTitle?: boolean | undefined;
+    /**
      * The one upper chip beside the title (§3y) — the kind of surface this is, never a count.
      * "One record per branch" on the opening hours.
      */
@@ -73,6 +78,16 @@ export interface EditorFrameProps {
     readonly banner?: ReactNode | undefined;
     readonly onBack: () => void;
     readonly backLabel: string;
+    /** Hide the back control — for an editor whose own flow owns the way out (the zone wizard). */
+    readonly hideBack?: boolean | undefined;
+    /**
+     * Drop the header block and the record-facts line entirely, leaving the form on the page.
+     *
+     * For an editor that states its own identity: the delivery-zone wizard's breadcrumb already
+     * names the record, and its step buttons are the only controls, so the title row would be an
+     * empty band above the first field.
+     */
+    readonly chromeless?: boolean | undefined;
     /**
      * Where the save and back controls sit.
      *
@@ -101,6 +116,7 @@ export interface EditorFrameProps {
 
 export function EditorFrame({
     title,
+    hideTitle = false,
     titleChip,
     summary,
     meta,
@@ -115,6 +131,8 @@ export function EditorFrame({
     banner,
     onBack,
     backLabel,
+    hideBack = false,
+    chromeless = false,
     actionsPlacement = 'footer',
     headerVariant = 'band',
     rail,
@@ -149,80 +167,88 @@ export function EditorFrame({
     return (
         <PageTransition testID={testID} transitionKey={testID}>
             <Stack space="md">
-                <Stack space="xs">
-                    <CataloguePageHeader
-                        testID={`${testID}-header`}
-                        titleTestID={`${testID}-title`}
-                        title={title}
-                        titleAside={
-                            titleChip === undefined ? undefined : (
-                                <Badge
-                                    testID={`${testID}-chip`}
-                                    tone={titleChip.tone}
-                                    label={titleChip.label}
-                                />
-                            )
-                        }
-                        primaryAction={
-                            <Inline
-                                space="xs"
-                                align="center"
-                                wrap
-                                justify="end"
-                                testID={`${testID}-actions`}
-                            >
-                                <Button
-                                    testID={`${testID}-back`}
-                                    variant="secondary"
-                                    label={backLabel}
-                                    onPress={() => {
-                                        guard.intercept(onBack);
-                                    }}
-                                />
-                                {primaryAction}
-                                {hideSave ? null : (
-                                    <Button
-                                        testID={`${testID}-save`}
-                                        label={saveLabel}
-                                        loading={saving}
-                                        disabled={saveDisabled || saving}
-                                        onPress={onSaveDraft}
+                {chromeless ? null : (
+                    <Stack space="xs">
+                        <CataloguePageHeader
+                            testID={`${testID}-header`}
+                            titleTestID={`${testID}-title`}
+                            title={hideTitle ? undefined : title}
+                            titleAside={
+                                titleChip === undefined ? undefined : (
+                                    <Badge
+                                        testID={`${testID}-chip`}
+                                        tone={titleChip.tone}
+                                        label={titleChip.label}
                                     />
-                                )}
+                                )
+                            }
+                            primaryAction={
+                                <Inline
+                                    space="xs"
+                                    align="center"
+                                    wrap
+                                    justify="end"
+                                    testID={`${testID}-actions`}
+                                >
+                                    {hideBack ? null : (
+                                        <Button
+                                            testID={`${testID}-back`}
+                                            variant="secondary"
+                                            label={backLabel}
+                                            onPress={() => {
+                                                guard.intercept(onBack);
+                                            }}
+                                        />
+                                    )}
+                                    {primaryAction}
+                                    {hideSave ? null : (
+                                        <Button
+                                            testID={`${testID}-save`}
+                                            label={saveLabel}
+                                            loading={saving}
+                                            disabled={saveDisabled || saving}
+                                            onPress={onSaveDraft}
+                                        />
+                                    )}
+                                </Inline>
+                            }
+                        />
+                        {summary === undefined ? null : summary}
+                        {summary !== undefined && !guard.isDirty ? null : (
+                            <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
+                                {summary !== undefined ? null : meta === null ? (
+                                    <Badge
+                                        testID={`${testID}-status`}
+                                        tone="neutral"
+                                        icon="dot"
+                                        label={t('kitchen:status.draft')}
+                                    />
+                                ) : 'status' in meta ? (
+                                    <Badge
+                                        testID={`${testID}-status`}
+                                        tone={statusTone(meta.status)}
+                                        label={t(statusKey(meta.status))}
+                                    />
+                                ) : null}
+                                {guard.isDirty ? (
+                                    <Badge
+                                        testID={`${testID}-dirty`}
+                                        tone="warning"
+                                        icon="warning"
+                                        label={t('kitchen:editor.unsaved')}
+                                    />
+                                ) : null}
+                                <Text
+                                    testID={`${testID}-updated`}
+                                    tone="secondary"
+                                    variant="caption"
+                                >
+                                    {updatedLine()}
+                                </Text>
                             </Inline>
-                        }
-                    />
-                    {summary === undefined ? null : summary}
-                    {summary !== undefined && !guard.isDirty ? null : (
-                        <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
-                            {summary !== undefined ? null : meta === null ? (
-                                <Badge
-                                    testID={`${testID}-status`}
-                                    tone="neutral"
-                                    icon="dot"
-                                    label={t('kitchen:status.draft')}
-                                />
-                            ) : 'status' in meta ? (
-                                <Badge
-                                    testID={`${testID}-status`}
-                                    tone={statusTone(meta.status)}
-                                    label={t(statusKey(meta.status))}
-                                />
-                            ) : null}
-                            {guard.isDirty ? (
-                                <Badge
-                                    testID={`${testID}-dirty`}
-                                    tone="warning"
-                                    icon="warning"
-                                    label={t('kitchen:editor.unsaved')}
-                                />
-                            ) : null}
-                            <Text testID={`${testID}-updated`} tone="secondary" variant="caption">
-                                {updatedLine()}
-                            </Text>
-                        </Inline>
-                    )}
-                </Stack>
+                        )}
+                    </Stack>
+                )}
 
                 {banner}
 

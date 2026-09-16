@@ -1,22 +1,25 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
     Callout,
     Checkbox,
-    Chip,
-    FilterChip,
+    cx,
+    fieldWidth,
     Icon,
     Inline,
     PickerField,
+    Select,
     Stack,
+    Tag,
     Text,
     TextInputField,
+    useBreakpoint,
 } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { weekdayKey } from '../marketplace/format.ts';
 import { BilingualField } from './bilingual-field.tsx';
@@ -24,7 +27,7 @@ import { areaMatches, groupServiceAreas, normaliseWeekdays, toggleArea } from '.
 import type { DeliveryWindowDraft, OperatingDayDraft } from './delivery-model.ts';
 import { ISO_WEEKDAYS, displayName } from './format.ts';
 import { TRADING_TRACKS, TradingDayRow } from './commercial/trading-day-row.tsx';
-import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
+import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The three repeated editors of the delivery slice (K1.7).
@@ -46,16 +49,27 @@ import { RowAnnouncer, RowShell, UndoBar } from './row-editor-shell.tsx';
  * belongs in the design system, and when it lands these three call sites change and nothing else
  * does.
  *
- * ## Weekday chips are in ISO order and are not mirrored by hand
+ * ## Weekday toggles are in ISO order and are not mirrored by hand
  *
- * Monday is 1 in every language. The chips are laid out with `Inline`, whose direction follows the
+ * Monday is 1 in every language. The toggles are laid out in a flex row, whose direction follows the
  * document, so Arabic renders Monday on the right *automatically* — and nothing here reverses the
  * array, because reversing it would produce a left-to-right week inside a right-to-left interface
  * exactly once, on the day somebody "fixed" the order.
  */
 
-/** The capacity field's track — a count, not a sentence. There is no width token for it. */
-const CAPACITY_TRACK = 120;
+/**
+ * The window table's fixed tracks (Commercial §3.4): name takes the rest. The times are 116 rather
+ * than the design's 108 so they match the trading week's time tracks and hold a 12-hour value.
+ * Exported so the header row lines up with every window beneath it.
+ */
+export const WINDOW_TRACKS = {
+    days: 260,
+    starts: 116,
+    ends: 116,
+    capacity: 104,
+    offered: 112,
+    remove: 28,
+} as const;
 
 /* ------------------------------------------------------------------------------------------------
  * Delivery windows
@@ -67,19 +81,26 @@ export interface DeliveryWindowRowsProps {
     readonly errors: ReadonlyMap<string, string>;
     readonly canManage: boolean;
     readonly onAdd: () => void;
+    /** Drawn beside "Add a window" — the section's save, which the screen owns. */
+    readonly saveAction?: ReactNode | undefined;
     readonly testID: string;
 }
 
+type Offered = 'yes' | 'no';
+
 /**
- * The delivery windows of one zone.
+ * The delivery windows of one zone, as one ruled table.
  *
  * No move controls, unlike the recipe-line and pack editors. A window's array position carries no
  * meaning anywhere — the consumer `DeliveryZone` has no window list at all, so nothing downstream
- * reads the order — and a permanently pointless Move up button is furniture (see `RowShell`).
+ * reads the order — and a permanently pointless Move up button is furniture.
  *
  * One window spans several weekdays rather than one row per day, because that is what the contract
  * models and what a person maintains: "Morning, 08:00–11:00, Monday to Friday" is one rule, and five
  * rows of it is five chances for an inconsistent Wednesday.
+ *
+ * Each row carries at most one note under it, in order of what a person must act on first: the
+ * row's error, then "not offered", then "uncapped" — empty capacity is a sentence, never `0`.
  */
 export function DeliveryWindowRows({
     rows,
@@ -87,6 +108,7 @@ export function DeliveryWindowRows({
     errors,
     canManage,
     onAdd,
+    saveAction,
     testID,
 }: DeliveryWindowRowsProps) {
     const { t } = useTranslation();
@@ -99,66 +121,82 @@ export function DeliveryWindowRows({
         onChange(rows.map((row, position) => (position === index ? { ...row, ...next } : row)));
     };
 
+    const head = (label: string, width?: number, end = false) => (
+        <View {...(width === undefined ? { className: 'min-w-0 flex-1' } : { style: { width } })}>
+            <Text
+                variant="micro"
+                tone="secondary"
+                className={cx('uppercase', end ? 'text-end' : null)}
+            >
+                {label}
+            </Text>
+        </View>
+    );
+
     return (
         <Stack space="sm" testID={testID}>
-            {rows.length === 0 ? (
-                <Text testID={`${testID}-empty`} tone="secondary">
-                    {t('kitchen:windows.none')}
-                </Text>
-            ) : null}
+            <View className="z-auto flex-col">
+                <View className="h-6 flex-row items-center gap-3 border-b border-stroke px-tight">
+                    {head(t('kitchen:windows.labelField'))}
+                    {head(t('kitchen:windows.weekdaysLabel'), WINDOW_TRACKS.days)}
+                    {head(t('kitchen:windows.startsLabel'), WINDOW_TRACKS.starts)}
+                    {head(t('kitchen:windows.endsLabel'), WINDOW_TRACKS.ends)}
+                    {head(t('kitchen:windows.capacityColumn'), WINDOW_TRACKS.capacity, true)}
+                    {head(t('kitchen:windows.offeredColumn'), WINDOW_TRACKS.offered)}
+                    <View style={{ width: WINDOW_TRACKS.remove }} />
+                </View>
 
-            {rows.map((row, index) => {
-                const rowTestId = `${testID}-row-${row.key}`;
-                const error = errors.get(row.key);
-                const weekdays = normaliseWeekdays(row.weekdays);
+                {rows.length === 0 ? (
+                    <View className="border-b border-stroke-subtle px-tight py-2">
+                        <Text testID={`${testID}-empty`} tone="secondary" variant="caption">
+                            {t('kitchen:windows.none')}
+                        </Text>
+                    </View>
+                ) : null}
 
-                return (
-                    <RowShell
-                        key={row.key}
-                        testID={rowTestId}
-                        title={t('kitchen:windows.rowTitle', { position: index + 1 })}
-                        position={index + 1}
-                        total={rows.length}
-                        canManage={canManage}
-                        badge={
-                            row.isActive ? null : (
-                                <Badge
-                                    testID={`${rowTestId}-inactive`}
-                                    tone="neutral"
-                                    icon="eyeOff"
-                                    label={t('kitchen:windows.inactiveBadge')}
-                                />
-                            )
-                        }
-                        onRemove={() => {
-                            setRemoved({ row, index });
-                            onChange(rows.filter((_, position) => position !== index));
-                        }}
-                    >
-                        <Stack space="sm">
-                            <BilingualField
-                                testID={`${rowTestId}-label`}
-                                fieldLabel={t('kitchen:windows.labelField')}
-                                value={row.label}
-                                requiredEnglish
-                                onChange={(next) => {
-                                    patch(index, { label: next });
-                                }}
-                            />
+                {rows.map((row, index) => {
+                    const rowTestId = `${testID}-row-${row.key}`;
+                    const error = errors.get(row.key);
+                    const weekdays = normaliseWeekdays(row.weekdays);
+                    const rowName = t('kitchen:windows.rowTitle', { position: index + 1 });
 
-                            <Stack space="xs">
-                                <Text variant="label" testID={`${rowTestId}-weekdays-label`}>
-                                    {t('kitchen:windows.weekdaysLabel')}
-                                </Text>
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:windows.weekdaysHint')}
-                                </Text>
-                                <Inline space="xs" wrap testID={`${rowTestId}-weekdays`}>
+                    return (
+                        <View
+                            key={row.key}
+                            testID={rowTestId}
+                            className="z-auto flex-col gap-hair border-b border-stroke-subtle px-tight py-tight"
+                        >
+                            <View className="z-auto flex-row items-center gap-3">
+                                <View className="z-auto min-w-0 flex-1">
+                                    <BilingualField
+                                        testID={`${rowTestId}-label`}
+                                        fieldLabel={`${rowName} — ${t('kitchen:windows.labelField')}`}
+                                        value={row.label}
+                                        requiredEnglish
+                                        labelHidden
+                                        layout="fill"
+                                        disabled={!canManage}
+                                        onChange={(next) => {
+                                            patch(index, { label: next });
+                                        }}
+                                    />
+                                </View>
+
+                                <View
+                                    style={{ width: WINDOW_TRACKS.days }}
+                                    className="flex-row gap-hair"
+                                    role="group"
+                                    aria-label={`${rowName} — ${t('kitchen:windows.weekdaysLabel')}`}
+                                    testID={`${rowTestId}-weekdays`}
+                                >
                                     {ISO_WEEKDAYS.map((weekday) => (
-                                        <FilterChip
+                                        <DayToggle
                                             key={weekday}
                                             testID={`${rowTestId}-weekday-${String(weekday)}`}
-                                            label={t(weekdayKey(weekday))}
+                                            initial={t(
+                                                `kitchen:windows.dayInitial.${String(weekday)}`,
+                                            )}
+                                            name={t(weekdayKey(weekday))}
                                             selected={weekdays.includes(weekday)}
                                             disabled={!canManage}
                                             onChange={(selected) => {
@@ -175,40 +213,42 @@ export function DeliveryWindowRows({
                                             }}
                                         />
                                     ))}
-                                </Inline>
-                            </Stack>
+                                </View>
 
-                            {/*
-                             * Starts · ends · capacity on one line (Commercial §2.2
-                             * `DeliveryWindowRow`). The times are `PickerField`s — the drawn clock is
-                             * the OS picker's trigger on the web — and still `HH:mm` underneath.
-                             */}
-                            <Inline space="sm" wrap align="end">
-                                <PickerField
-                                    kind="time"
-                                    testID={`${rowTestId}-starts`}
-                                    label={t('kitchen:windows.startsLabel')}
-                                    value={row.startsAt}
-                                    disabled={!canManage}
-                                    onChange={(next) => {
-                                        patch(index, { startsAt: next });
-                                    }}
-                                />
-                                <PickerField
-                                    kind="time"
-                                    testID={`${rowTestId}-ends`}
-                                    label={t('kitchen:windows.endsLabel')}
-                                    value={row.endsAt}
-                                    disabled={!canManage}
-                                    onChange={(next) => {
-                                        patch(index, { endsAt: next });
-                                    }}
-                                />
-                                <View style={{ width: CAPACITY_TRACK }}>
+                                <View style={{ width: WINDOW_TRACKS.starts }}>
+                                    <PickerField
+                                        kind="time"
+                                        testID={`${rowTestId}-starts`}
+                                        label={`${rowName} — ${t('kitchen:windows.startsLabel')}`}
+                                        labelHidden
+                                        value={row.startsAt}
+                                        disabled={!canManage}
+                                        onChange={(next) => {
+                                            patch(index, { startsAt: next });
+                                        }}
+                                    />
+                                </View>
+                                <View style={{ width: WINDOW_TRACKS.ends }}>
+                                    <PickerField
+                                        kind="time"
+                                        testID={`${rowTestId}-ends`}
+                                        label={`${rowName} — ${t('kitchen:windows.endsLabel')}`}
+                                        labelHidden
+                                        value={row.endsAt}
+                                        disabled={!canManage}
+                                        onChange={(next) => {
+                                            patch(index, { endsAt: next });
+                                        }}
+                                    />
+                                </View>
+                                <View style={{ width: WINDOW_TRACKS.capacity }}>
                                     <TextInputField
                                         testID={`${rowTestId}-capacity`}
                                         id={`${rowTestId}-capacity`}
-                                        label={t('kitchen:windows.capacityLabel')}
+                                        label={`${rowName} — ${t('kitchen:windows.capacityLabel')}`}
+                                        labelHidden
+                                        size="sm"
+                                        placeholder={t('kitchen:windows.capacityPlaceholder')}
                                         value={row.capacity}
                                         inputMode="numeric"
                                         autoCorrect={false}
@@ -218,43 +258,88 @@ export function DeliveryWindowRows({
                                         }}
                                     />
                                 </View>
-                            </Inline>
+                                <View style={{ width: WINDOW_TRACKS.offered }} className="z-auto">
+                                    <Select<Offered>
+                                        testID={`${rowTestId}-active`}
+                                        id={`${rowTestId}-active`}
+                                        label={`${rowName} — ${t('kitchen:windows.activeLabel')}`}
+                                        labelHidden
+                                        disabled={!canManage}
+                                        value={row.isActive ? 'yes' : 'no'}
+                                        options={[
+                                            {
+                                                value: 'yes',
+                                                label: t('kitchen:windows.offeredYes'),
+                                            },
+                                            {
+                                                value: 'no',
+                                                label: t('kitchen:windows.inactiveBadge'),
+                                            },
+                                        ]}
+                                        onChange={(next) => {
+                                            patch(index, { isActive: next === 'yes' });
+                                        }}
+                                    />
+                                </View>
+                                <View
+                                    style={{ width: WINDOW_TRACKS.remove }}
+                                    className="items-center"
+                                >
+                                    {canManage ? (
+                                        <Pressable
+                                            testID={`${rowTestId}-remove`}
+                                            role="button"
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`${t('kitchen:rows.remove')} — ${rowName}`}
+                                            aria-label={`${t('kitchen:rows.remove')} — ${rowName}`}
+                                            onPress={() => {
+                                                setRemoved({ row, index });
+                                                onChange(
+                                                    rows.filter(
+                                                        (_, position) => position !== index,
+                                                    ),
+                                                );
+                                            }}
+                                            className="h-6 w-6 items-center justify-center rounded-sm border border-stroke bg-surface-raised hover:bg-surface-sunken"
+                                        >
+                                            <Icon
+                                                name="close"
+                                                size="sm"
+                                                className="text-content-secondary"
+                                            />
+                                        </Pressable>
+                                    ) : null}
+                                </View>
+                            </View>
 
-                            <Text
-                                testID={`${rowTestId}-capacity-state`}
-                                variant="caption"
-                                tone="secondary"
-                            >
-                                {/* Uncapped is empty-with-a-sentence, never `0`. */}
-                                {row.capacity.trim() === ''
-                                    ? t('kitchen:windows.capacityUncapped')
-                                    : t('kitchen:windows.capacityHint')}
-                            </Text>
-
-                            <Checkbox
-                                testID={`${rowTestId}-active`}
-                                id={`${rowTestId}-active`}
-                                label={t('kitchen:windows.activeLabel')}
-                                description={t('kitchen:windows.activeHint')}
-                                checked={row.isActive}
-                                disabled={!canManage}
-                                onChange={(checked) => {
-                                    patch(index, { isActive: checked });
-                                }}
-                            />
-
-                            {error === undefined ? null : (
+                            {error !== undefined ? (
                                 <Text testID={`${rowTestId}-error`} tone="danger" variant="caption">
                                     {error}
                                 </Text>
-                            )}
-                        </Stack>
-                    </RowShell>
-                );
-            })}
+                            ) : !row.isActive ? (
+                                <Text
+                                    testID={`${rowTestId}-active-state`}
+                                    tone="secondary"
+                                    variant="caption"
+                                >
+                                    {t('kitchen:windows.activeHint')}
+                                </Text>
+                            ) : row.capacity.trim() === '' ? (
+                                <Text
+                                    testID={`${rowTestId}-capacity-state`}
+                                    tone="secondary"
+                                    variant="caption"
+                                >
+                                    {t('kitchen:windows.capacityUncapped')}
+                                </Text>
+                            ) : null}
+                        </View>
+                    );
+                })}
+            </View>
 
-            {canManage ? (
-                <Inline space="sm" wrap align="center">
+            <Inline space="sm" wrap align="center">
+                {canManage ? (
                     <Button
                         testID={`${testID}-add`}
                         size="sm"
@@ -263,21 +348,72 @@ export function DeliveryWindowRows({
                         label={t('kitchen:windows.add')}
                         onPress={onAdd}
                     />
-                    {removed === null ? null : (
-                        <UndoBar
-                            testID={`${testID}-removed-bar`}
-                            label={t('kitchen:windows.removed')}
-                            onUndo={() => {
-                                const next = [...rows];
-                                next.splice(Math.min(removed.index, next.length), 0, removed.row);
-                                onChange(next);
-                                setRemoved(null);
-                            }}
-                        />
-                    )}
-                </Inline>
-            ) : null}
+                ) : null}
+                {saveAction}
+                {removed === null || !canManage ? null : (
+                    <UndoBar
+                        testID={`${testID}-removed-bar`}
+                        label={t('kitchen:windows.removed')}
+                        onUndo={() => {
+                            const next = [...rows];
+                            next.splice(Math.min(removed.index, next.length), 0, removed.row);
+                            onChange(next);
+                            setRemoved(null);
+                        }}
+                    />
+                )}
+            </Inline>
         </Stack>
+    );
+}
+
+/**
+ * One weekday of a window: the design's 34px lettered square. The letter is what is drawn; the
+ * whole day name is what is announced, because "T" is two days.
+ */
+export function DayToggle({
+    initial,
+    name,
+    selected,
+    disabled,
+    onChange,
+    testID,
+}: {
+    readonly initial: string;
+    readonly name: string;
+    readonly selected: boolean;
+    readonly disabled: boolean;
+    readonly onChange: (selected: boolean) => void;
+    readonly testID: string;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="checkbox"
+            accessibilityRole="checkbox"
+            accessibilityLabel={name}
+            aria-label={name}
+            aria-checked={selected}
+            accessibilityState={{ checked: selected, disabled }}
+            disabled={disabled}
+            onPress={() => {
+                onChange(!selected);
+            }}
+            className={cx(
+                'h-control-sm flex-1 items-center justify-center rounded-sm border',
+                selected
+                    ? 'border-surface-brand bg-surface-brand-subtle'
+                    : 'border-stroke bg-surface-raised hover:bg-surface-sunken',
+                disabled ? 'opacity-50' : null,
+            )}
+        >
+            <Text
+                variant="caption"
+                className={selected ? 'text-content-on-brand-subtle' : 'text-content-secondary'}
+            >
+                {initial}
+            </Text>
+        </Pressable>
     );
 }
 
@@ -387,8 +523,12 @@ export function OperatingWeekRows({
  * always drawn — a chip that could not be found again would be a chip nobody can remove — and the
  * rest is capped with a stated count and a search box, which is how somebody finds Jumeirah without
  * reading Ras Al Khor.
+ *
+ * The cap is 100 — the contract's own page limit — rather than the 40 it was while the options ran
+ * down a single column: at three and four columns a hundred short place names is a dozen lines, and
+ * the cap existed to stop a page of scrolling rather than to stop rendering.
  */
-const VISIBLE_AREA_LIMIT = 40;
+const VISIBLE_AREA_LIMIT = 100;
 
 export interface ServiceAreaPickerProps {
     /** The gazetteer as loaded. Platform reference data; this screen never writes it. */
@@ -428,7 +568,17 @@ export function ServiceAreaPicker({
     testID,
 }: ServiceAreaPickerProps) {
     const { t } = useTranslation();
+    const { atLeast } = useBreakpoint();
     const [query, setQuery] = useState('');
+
+    /*
+     * The gazetteer runs to ~125 rows, and one row per line means a page of scrolling to read a
+     * list of short place names. The options therefore flow into as many columns as the viewport
+     * holds — six on a desk screen — as a percentage rather than a fixed track, so the last column
+     * ends where the rule does.
+     */
+    const columns = atLeast('xl') ? 6 : atLeast('lg') ? 4 : atLeast('md') ? 2 : 1;
+    const columnWidth: `${number}%` = `${100 / columns}%`;
 
     const selectedSet = useMemo(() => new Set(selected.map(String)), [selected]);
     const byId = useMemo(
@@ -458,10 +608,19 @@ export function ServiceAreaPicker({
     const groups = useMemo(() => groupServiceAreas(visible), [visible]);
     const hidden = matched.length - visible.length;
 
+    /*
+     * Commercial §3.4 draws this as a desk list rather than a form: small removable chips, a
+     * 280px search, then the gazetteer as ruled rows under sunken governorate bands.
+     */
     return (
-        <Stack space="sm" testID={testID}>
+        <Stack space="md" testID={testID}>
             <Stack space="xs">
-                <Text variant="label" testID={`${testID}-selected-label`}>
+                <Text
+                    variant="micro"
+                    tone="secondary"
+                    className="uppercase"
+                    testID={`${testID}-selected-label`}
+                >
                     {t('kitchen:areas.selectedLabel')}
                 </Text>
                 {selected.length === 0 ? (
@@ -477,11 +636,11 @@ export function ServiceAreaPicker({
                                     ? t('kitchen:areas.unknownArea')
                                     : displayName(area.name, locale).value;
                             return (
-                                <Chip
+                                <AreaChip
                                     key={String(areaId)}
                                     testID={`${testID}-chip-${String(areaId)}`}
                                     label={label}
-                                    tone="brand"
+                                    removeLabel={t('designSystem:chip.remove', { label })}
                                     {...(canManage
                                         ? {
                                               onRemove: () => {
@@ -503,33 +662,38 @@ export function ServiceAreaPicker({
                 )}
             </Stack>
 
-            <TextInputField
-                testID={`${testID}-search`}
-                id={`${testID}-search`}
-                label={t('kitchen:areas.searchLabel')}
-                hint={t('kitchen:areas.searchHint')}
-                placeholder={t('kitchen:areas.searchPlaceholder')}
-                value={query}
-                onChangeText={setQuery}
-                autoCapitalize="none"
-                autoCorrect={false}
-                inputMode="search"
-                returnKeyType="search"
-                trailing={<Icon name="search" />}
-            />
-
-            <Text
-                testID={`${testID}-count`}
-                role="status"
-                aria-live="polite"
-                variant="caption"
-                tone="secondary"
-            >
-                {t('kitchen:areas.matchCount', {
-                    count: matched.length,
-                    total: gazetteer.length,
-                })}
-            </Text>
+            <Inline space="sm" align="center" wrap>
+                <View style={{ width: fieldWidth }}>
+                    <TextInputField
+                        testID={`${testID}-search`}
+                        id={`${testID}-search`}
+                        label={t('kitchen:areas.searchLabel')}
+                        labelHidden
+                        size="sm"
+                        placeholder={t('kitchen:areas.searchPlaceholder')}
+                        value={query}
+                        onChangeText={setQuery}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        inputMode="search"
+                        returnKeyType="search"
+                        trailing={<Icon name="search" />}
+                    />
+                </View>
+                {/* A polite live region: filtering silently shortens the list below. */}
+                <Text
+                    testID={`${testID}-count`}
+                    role="status"
+                    aria-live="polite"
+                    variant="caption"
+                    tone="secondary"
+                >
+                    {t('kitchen:areas.matchCount', {
+                        count: matched.length,
+                        total: gazetteer.length,
+                    })}
+                </Text>
+            </Inline>
 
             {truncated ? (
                 <Callout
@@ -546,38 +710,60 @@ export function ServiceAreaPicker({
                     {t('kitchen:areas.noMatches')}
                 </Text>
             ) : (
-                <Stack space="sm" role="group" aria-label={t('kitchen:areas.groupLabel')}>
+                <View
+                    role="group"
+                    aria-label={t('kitchen:areas.groupLabel')}
+                    className="flex-col border-t border-stroke"
+                >
                     {groups.map((group) => (
-                        <Stack key={group.key} space="xs" testID={`${testID}-group-${group.key}`}>
-                            <Text variant="label" tone="secondary">
-                                {group.parentName === null
-                                    ? t('kitchen:areas.noParent')
-                                    : displayName(group.parentName, locale).value}
-                            </Text>
-                            {group.areas.map((area) => {
-                                const name = displayName(area.name, locale);
-                                return (
-                                    <Checkbox
-                                        key={String(area.id)}
-                                        testID={`${testID}-option-${String(area.id)}`}
-                                        id={`${testID}-option-${String(area.id)}`}
-                                        label={name.value}
-                                        {...(area.isActive
-                                            ? {}
-                                            : { description: t('kitchen:areas.inactive') })}
-                                        checked={selectedSet.has(String(area.id))}
-                                        disabled={!canManage}
-                                        onChange={(checked) => {
-                                            onChange(
-                                                toggleArea(selected, area.id, checked, gazetteer),
-                                            );
-                                        }}
-                                    />
-                                );
-                            })}
-                        </Stack>
+                        <View key={group.key} testID={`${testID}-group-${group.key}`}>
+                            <View className="bg-surface-sunken px-tight pb-1 pt-tight">
+                                <Text variant="micro" tone="secondary" className="uppercase">
+                                    {group.parentName === null
+                                        ? t('kitchen:areas.noParent')
+                                        : displayName(group.parentName, locale).value}
+                                </Text>
+                            </View>
+                            <View className="flex-row flex-wrap">
+                                {group.areas.map((area) => {
+                                    const name = displayName(area.name, locale);
+                                    return (
+                                        <View
+                                            key={String(area.id)}
+                                            style={{ width: columnWidth }}
+                                            className="min-h-control-sm flex-row items-center gap-tight border-b border-stroke-subtle px-tight"
+                                        >
+                                            <Checkbox
+                                                testID={`${testID}-option-${String(area.id)}`}
+                                                id={`${testID}-option-${String(area.id)}`}
+                                                className="min-w-0 flex-1"
+                                                label={name.value}
+                                                checked={selectedSet.has(String(area.id))}
+                                                disabled={!canManage}
+                                                onChange={(checked) => {
+                                                    onChange(
+                                                        toggleArea(
+                                                            selected,
+                                                            area.id,
+                                                            checked,
+                                                            gazetteer,
+                                                        ),
+                                                    );
+                                                }}
+                                            />
+                                            {area.isActive ? null : (
+                                                <Tag
+                                                    testID={`${testID}-option-${String(area.id)}-inactive`}
+                                                    label={t('kitchen:areas.inactiveTag')}
+                                                />
+                                            )}
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        </View>
                     ))}
-                </Stack>
+                </View>
             )}
 
             {hidden > 0 ? (
@@ -586,5 +772,47 @@ export function ServiceAreaPicker({
                 </Text>
             ) : null}
         </Stack>
+    );
+}
+
+/**
+ * A chosen area: the design's 24px brand-subtle pill with its own remove control.
+ *
+ * Not the design-system `Chip`, which carries the customer surfaces' 44px touch floor — the kitchen
+ * admin is a desk surface and sizes from `control.ts` (CLAUDE.md, touch targets).
+ */
+function AreaChip({
+    label,
+    removeLabel,
+    onRemove,
+    testID,
+}: {
+    readonly label: string;
+    readonly removeLabel: string;
+    readonly onRemove?: (() => void) | undefined;
+    readonly testID: string;
+}) {
+    return (
+        <View
+            testID={testID}
+            className="h-control-xs flex-row items-center gap-1 rounded-full bg-surface-brand-subtle pe-1 ps-2"
+        >
+            <Text variant="caption" className="text-content-on-brand-subtle">
+                {label}
+            </Text>
+            {onRemove === undefined ? null : (
+                <Pressable
+                    testID={`${testID}-remove`}
+                    role="button"
+                    accessibilityRole="button"
+                    accessibilityLabel={removeLabel}
+                    aria-label={removeLabel}
+                    onPress={onRemove}
+                    className="h-4 w-4 items-center justify-center rounded-full hover:bg-surface-raised"
+                >
+                    <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
+                </Pressable>
+            )}
+        </View>
     );
 }

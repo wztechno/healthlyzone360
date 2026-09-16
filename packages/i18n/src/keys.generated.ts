@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6750 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6853 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2262,8 +2262,10 @@ export interface NamespaceKeys {
     | 'analytics.window.fieldAvgMinutes'
     | 'analytics.window.kind'
     | 'analytics.window.note'
+    | 'areas.chosenCount'
     | 'areas.groupLabel'
     | 'areas.inactive'
+    | 'areas.inactiveTag'
     | 'areas.matchCount'
     | 'areas.moreHidden'
     | 'areas.noMatches'
@@ -4146,14 +4148,9 @@ export interface NamespaceKeys {
     | 'packaging.statUnpriced'
     | 'packaging.statUnpricedCaption'
     | 'packaging.viewKind'
-    | 'plans.addCombination'
     | 'plans.addDuration'
+    | 'plans.addVariant'
     | 'plans.backToList'
-    | 'plans.bandAddAction'
-    | 'plans.bandAddBody'
-    | 'plans.bandAddIncomplete'
-    | 'plans.bandAddReady'
-    | 'plans.bandAddTitle'
     | 'plans.bandRange'
     | 'plans.blockDurations'
     | 'plans.blockInconsistentDurations'
@@ -4163,70 +4160,45 @@ export interface NamespaceKeys {
     | 'plans.blockUnsaved'
     | 'plans.blockVariants'
     | 'plans.caption'
-    | 'plans.categoriesHint'
     | 'plans.categoriesLabel'
-    | 'plans.categoriesNone'
     | 'plans.categoryAddAction'
-    | 'plans.categoryAddHint'
     | 'plans.categoryAddLabel'
     | 'plans.cellLabel'
     | 'plans.cellNotSold'
-    | 'plans.cellRemoved'
     | 'plans.cellSold'
     | 'plans.cellVariantCount'
     | 'plans.columnDurations'
     | 'plans.columnName'
     | 'plans.columnPrices'
     | 'plans.columnVariants'
-    | 'plans.combinationAvailableHint'
-    | 'plans.combinationAvailableLabel'
-    | 'plans.combinationCodeDuplicate'
-    | 'plans.combinationCodeHint'
-    | 'plans.combinationCodeLabel'
-    | 'plans.combinationCodeRequired'
     | 'plans.combinationCount'
-    | 'plans.combinationLabelLabel'
-    | 'plans.combinationLabelRequired'
-    | 'plans.combinationNumber'
-    | 'plans.combinationRemoved'
-    | 'plans.combinationUnavailable'
-    | 'plans.combinationsEmpty'
-    | 'plans.combinationsHelp'
-    | 'plans.combinationsSavedToast'
     | 'plans.confirmedPriceCount'
-    | 'plans.coordinateHint'
     | 'plans.coverage'
     | 'plans.create'
-    | 'plans.createFirst'
+    | 'plans.createChip'
+    | 'plans.createSummary'
     | 'plans.createTitle'
     | 'plans.createdToast'
-    | 'plans.cutOffHint'
     | 'plans.cutOffLabel'
     | 'plans.cutOffRequired'
     | 'plans.cutOffUnit'
     | 'plans.dayCount'
-    | 'plans.dayCountList'
     | 'plans.daysAbsentHint'
-    | 'plans.daysHint'
     | 'plans.daysLabel'
     | 'plans.daysNone'
     | 'plans.daysRequired'
     | 'plans.daysUnit'
     | 'plans.descriptionLabel'
     | 'plans.dietsLabel'
-    | 'plans.discountHint'
     | 'plans.discountInvalid'
     | 'plans.discountLabel'
     | 'plans.discountNotSet'
     | 'plans.discountNotSetExplainer'
     | 'plans.discountSetExplainer'
-    | 'plans.discountUnit'
-    | 'plans.discountValue'
     | 'plans.discountZeroExplainer'
     | 'plans.durationCount'
     | 'plans.durationDuplicate'
     | 'plans.durationMeaning'
-    | 'plans.durationNumber'
     | 'plans.durationRemoved'
     | 'plans.durationsEmpty'
     | 'plans.durationsHelp'
@@ -4239,11 +4211,9 @@ export interface NamespaceKeys {
     | 'plans.energyMinLabel'
     | 'plans.energyRequired'
     | 'plans.energyReversed'
-    | 'plans.energyUnit'
     | 'plans.filteredEmptyBody'
     | 'plans.filteredEmptyTitle'
     | 'plans.inactiveCount'
-    | 'plans.inconsistentDurationCount'
     | 'plans.kindFixedDays'
     | 'plans.kindLabel'
     | 'plans.kindOneOff'
@@ -4253,7 +4223,6 @@ export interface NamespaceKeys {
     | 'plans.matrixHelp'
     | 'plans.matrixRowHeader'
     | 'plans.matrixSaveError'
-    | 'plans.matrixTitle'
     | 'plans.mealsPerDayLabel'
     | 'plans.menuAddDish'
     | 'plans.menuAddedAnnouncement'
@@ -4309,13 +4278,11 @@ export interface NamespaceKeys {
     | 'plans.menuWithdrawTitle'
     | 'plans.menuWithdrawnToast'
     | 'plans.nameRequired'
-    | 'plans.newVariantName'
     | 'plans.noDurations'
-    | 'plans.noFixedDurations'
     | 'plans.noVariants'
     | 'plans.notFoundBody'
     | 'plans.notFoundTitle'
-    | 'plans.oneOffCount'
+    | 'plans.oneOffExplainer'
     | 'plans.openPriceLists'
     | 'plans.placeholderPriceCount'
     | 'plans.pricesHelp'
@@ -4330,7 +4297,6 @@ export interface NamespaceKeys {
     | 'plans.publishedBody'
     | 'plans.publishedTitle'
     | 'plans.publishedToast'
-    | 'plans.resultCount'
     | 'plans.retire'
     | 'plans.retireBody'
     | 'plans.retireConfirm'
@@ -4339,23 +4305,18 @@ export interface NamespaceKeys {
     | 'plans.retiredBody'
     | 'plans.retiredTitle'
     | 'plans.retiredToast'
-    | 'plans.rowUndeclared'
-    | 'plans.saveCombinations'
     | 'plans.saveDurations'
     | 'plans.saveMenu'
+    | 'plans.savePlan'
     | 'plans.saveVariants'
-    | 'plans.sectionCombinations'
     | 'plans.sectionDetails'
     | 'plans.sectionDurations'
-    | 'plans.sectionMatrix'
     | 'plans.sectionMenu'
     | 'plans.sectionPrices'
     | 'plans.servingsRequired'
     | 'plans.servingsSummary'
     | 'plans.snacksPerDayLabel'
     | 'plans.statDraftCaption'
-    | 'plans.statNoVariantsCaption'
-    | 'plans.statNothingPricedCaption'
     | 'plans.statPlansUnit'
     | 'plans.statPublishedCaption'
     | 'plans.subtitle'
@@ -4364,13 +4325,10 @@ export interface NamespaceKeys {
     | 'plans.tabVariants'
     | 'plans.tabsLabel'
     | 'plans.title'
-    | 'plans.undecidedDiscountCount'
-    | 'plans.unnamedCombination'
     | 'plans.unnamedDuration'
     | 'plans.unnamedVariant'
     | 'plans.unpricedCount'
     | 'plans.variantActive'
-    | 'plans.variantActiveHint'
     | 'plans.variantActiveLabel'
     | 'plans.variantCount'
     | 'plans.variantInactive'
@@ -4385,7 +4343,6 @@ export interface NamespaceKeys {
     | 'plans.viewCombinations'
     | 'plans.viewKind'
     | 'plans.viewPublic'
-    | 'plans.weekdaysHint'
     | 'plans.weekdaysLabel'
     | 'priceLists.addEntry'
     | 'priceLists.agreementBadge'
@@ -5024,12 +4981,21 @@ export interface NamespaceKeys {
     | 'windows.activeHint'
     | 'windows.activeLabel'
     | 'windows.add'
+    | 'windows.capacityColumn'
     | 'windows.capacityHint'
     | 'windows.capacityInvalid'
     | 'windows.capacityLabel'
+    | 'windows.capacityPlaceholder'
     | 'windows.capacityUncapped'
     | 'windows.count'
     | 'windows.coveredDayCount'
+    | 'windows.dayInitial.1'
+    | 'windows.dayInitial.2'
+    | 'windows.dayInitial.3'
+    | 'windows.dayInitial.4'
+    | 'windows.dayInitial.5'
+    | 'windows.dayInitial.6'
+    | 'windows.dayInitial.7'
     | 'windows.endBeforeStart'
     | 'windows.endInvalid'
     | 'windows.endsLabel'
@@ -5037,6 +5003,8 @@ export interface NamespaceKeys {
     | 'windows.labelField'
     | 'windows.labelRequired'
     | 'windows.none'
+    | 'windows.offeredColumn'
+    | 'windows.offeredYes'
     | 'windows.removed'
     | 'windows.rowTitle'
     | 'windows.save'
@@ -5060,6 +5028,7 @@ export interface NamespaceKeys {
     | 'zones.archivedToast'
     | 'zones.areaCount'
     | 'zones.areasIntro'
+    | 'zones.back'
     | 'zones.backToList'
     | 'zones.branchCount'
     | 'zones.branchesLabel'
@@ -5073,6 +5042,7 @@ export interface NamespaceKeys {
     | 'zones.coveredDayCount'
     | 'zones.create'
     | 'zones.createFirst'
+    | 'zones.createSummary'
     | 'zones.createTitle'
     | 'zones.createdToast'
     | 'zones.currencyCreateHint'
@@ -5104,8 +5074,10 @@ export interface NamespaceKeys {
     | 'zones.minimumStateZero'
     | 'zones.minimumValue'
     | 'zones.nameRequired'
+    | 'zones.next'
     | 'zones.noActiveWindows'
     | 'zones.noAreas'
+    | 'zones.noBranches'
     | 'zones.noEstimate'
     | 'zones.noFeeRecorded'
     | 'zones.noMinimum'
@@ -5114,6 +5086,7 @@ export interface NamespaceKeys {
     | 'zones.notFoundBody'
     | 'zones.notFoundTitle'
     | 'zones.resultCount'
+    | 'zones.saveZone'
     | 'zones.sectionAreas'
     | 'zones.sectionDetails'
     | 'zones.sectionWindows'
@@ -5122,6 +5095,7 @@ export interface NamespaceKeys {
     | 'zones.subtitle'
     | 'zones.tabsLabel'
     | 'zones.title'
+    | 'zones.titleChip'
     | 'zones.uncoveredDayCount'
     | 'zones.viewFee'
     | 'zones.viewKind'
@@ -9159,8 +9133,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.window.fieldAvgMinutes',
   'kitchen:analytics.window.kind',
   'kitchen:analytics.window.note',
+  'kitchen:areas.chosenCount',
   'kitchen:areas.groupLabel',
   'kitchen:areas.inactive',
+  'kitchen:areas.inactiveTag',
   'kitchen:areas.matchCount',
   'kitchen:areas.moreHidden',
   'kitchen:areas.noMatches',
@@ -11043,14 +11019,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:packaging.statUnpriced',
   'kitchen:packaging.statUnpricedCaption',
   'kitchen:packaging.viewKind',
-  'kitchen:plans.addCombination',
   'kitchen:plans.addDuration',
+  'kitchen:plans.addVariant',
   'kitchen:plans.backToList',
-  'kitchen:plans.bandAddAction',
-  'kitchen:plans.bandAddBody',
-  'kitchen:plans.bandAddIncomplete',
-  'kitchen:plans.bandAddReady',
-  'kitchen:plans.bandAddTitle',
   'kitchen:plans.bandRange',
   'kitchen:plans.blockDurations',
   'kitchen:plans.blockInconsistentDurations',
@@ -11060,70 +11031,45 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.blockUnsaved',
   'kitchen:plans.blockVariants',
   'kitchen:plans.caption',
-  'kitchen:plans.categoriesHint',
   'kitchen:plans.categoriesLabel',
-  'kitchen:plans.categoriesNone',
   'kitchen:plans.categoryAddAction',
-  'kitchen:plans.categoryAddHint',
   'kitchen:plans.categoryAddLabel',
   'kitchen:plans.cellLabel',
   'kitchen:plans.cellNotSold',
-  'kitchen:plans.cellRemoved',
   'kitchen:plans.cellSold',
   'kitchen:plans.cellVariantCount',
   'kitchen:plans.columnDurations',
   'kitchen:plans.columnName',
   'kitchen:plans.columnPrices',
   'kitchen:plans.columnVariants',
-  'kitchen:plans.combinationAvailableHint',
-  'kitchen:plans.combinationAvailableLabel',
-  'kitchen:plans.combinationCodeDuplicate',
-  'kitchen:plans.combinationCodeHint',
-  'kitchen:plans.combinationCodeLabel',
-  'kitchen:plans.combinationCodeRequired',
   'kitchen:plans.combinationCount',
-  'kitchen:plans.combinationLabelLabel',
-  'kitchen:plans.combinationLabelRequired',
-  'kitchen:plans.combinationNumber',
-  'kitchen:plans.combinationRemoved',
-  'kitchen:plans.combinationUnavailable',
-  'kitchen:plans.combinationsEmpty',
-  'kitchen:plans.combinationsHelp',
-  'kitchen:plans.combinationsSavedToast',
   'kitchen:plans.confirmedPriceCount',
-  'kitchen:plans.coordinateHint',
   'kitchen:plans.coverage',
   'kitchen:plans.create',
-  'kitchen:plans.createFirst',
+  'kitchen:plans.createChip',
+  'kitchen:plans.createSummary',
   'kitchen:plans.createTitle',
   'kitchen:plans.createdToast',
-  'kitchen:plans.cutOffHint',
   'kitchen:plans.cutOffLabel',
   'kitchen:plans.cutOffRequired',
   'kitchen:plans.cutOffUnit',
   'kitchen:plans.dayCount',
-  'kitchen:plans.dayCountList',
   'kitchen:plans.daysAbsentHint',
-  'kitchen:plans.daysHint',
   'kitchen:plans.daysLabel',
   'kitchen:plans.daysNone',
   'kitchen:plans.daysRequired',
   'kitchen:plans.daysUnit',
   'kitchen:plans.descriptionLabel',
   'kitchen:plans.dietsLabel',
-  'kitchen:plans.discountHint',
   'kitchen:plans.discountInvalid',
   'kitchen:plans.discountLabel',
   'kitchen:plans.discountNotSet',
   'kitchen:plans.discountNotSetExplainer',
   'kitchen:plans.discountSetExplainer',
-  'kitchen:plans.discountUnit',
-  'kitchen:plans.discountValue',
   'kitchen:plans.discountZeroExplainer',
   'kitchen:plans.durationCount',
   'kitchen:plans.durationDuplicate',
   'kitchen:plans.durationMeaning',
-  'kitchen:plans.durationNumber',
   'kitchen:plans.durationRemoved',
   'kitchen:plans.durationsEmpty',
   'kitchen:plans.durationsHelp',
@@ -11136,11 +11082,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.energyMinLabel',
   'kitchen:plans.energyRequired',
   'kitchen:plans.energyReversed',
-  'kitchen:plans.energyUnit',
   'kitchen:plans.filteredEmptyBody',
   'kitchen:plans.filteredEmptyTitle',
   'kitchen:plans.inactiveCount',
-  'kitchen:plans.inconsistentDurationCount',
   'kitchen:plans.kindFixedDays',
   'kitchen:plans.kindLabel',
   'kitchen:plans.kindOneOff',
@@ -11150,7 +11094,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.matrixHelp',
   'kitchen:plans.matrixRowHeader',
   'kitchen:plans.matrixSaveError',
-  'kitchen:plans.matrixTitle',
   'kitchen:plans.mealsPerDayLabel',
   'kitchen:plans.menuAddDish',
   'kitchen:plans.menuAddedAnnouncement',
@@ -11206,13 +11149,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.menuWithdrawTitle',
   'kitchen:plans.menuWithdrawnToast',
   'kitchen:plans.nameRequired',
-  'kitchen:plans.newVariantName',
   'kitchen:plans.noDurations',
-  'kitchen:plans.noFixedDurations',
   'kitchen:plans.noVariants',
   'kitchen:plans.notFoundBody',
   'kitchen:plans.notFoundTitle',
-  'kitchen:plans.oneOffCount',
+  'kitchen:plans.oneOffExplainer',
   'kitchen:plans.openPriceLists',
   'kitchen:plans.placeholderPriceCount',
   'kitchen:plans.pricesHelp',
@@ -11227,7 +11168,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.publishedBody',
   'kitchen:plans.publishedTitle',
   'kitchen:plans.publishedToast',
-  'kitchen:plans.resultCount',
   'kitchen:plans.retire',
   'kitchen:plans.retireBody',
   'kitchen:plans.retireConfirm',
@@ -11236,23 +11176,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.retiredBody',
   'kitchen:plans.retiredTitle',
   'kitchen:plans.retiredToast',
-  'kitchen:plans.rowUndeclared',
-  'kitchen:plans.saveCombinations',
   'kitchen:plans.saveDurations',
   'kitchen:plans.saveMenu',
+  'kitchen:plans.savePlan',
   'kitchen:plans.saveVariants',
-  'kitchen:plans.sectionCombinations',
   'kitchen:plans.sectionDetails',
   'kitchen:plans.sectionDurations',
-  'kitchen:plans.sectionMatrix',
   'kitchen:plans.sectionMenu',
   'kitchen:plans.sectionPrices',
   'kitchen:plans.servingsRequired',
   'kitchen:plans.servingsSummary',
   'kitchen:plans.snacksPerDayLabel',
   'kitchen:plans.statDraftCaption',
-  'kitchen:plans.statNoVariantsCaption',
-  'kitchen:plans.statNothingPricedCaption',
   'kitchen:plans.statPlansUnit',
   'kitchen:plans.statPublishedCaption',
   'kitchen:plans.subtitle',
@@ -11261,13 +11196,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.tabVariants',
   'kitchen:plans.tabsLabel',
   'kitchen:plans.title',
-  'kitchen:plans.undecidedDiscountCount',
-  'kitchen:plans.unnamedCombination',
   'kitchen:plans.unnamedDuration',
   'kitchen:plans.unnamedVariant',
   'kitchen:plans.unpricedCount',
   'kitchen:plans.variantActive',
-  'kitchen:plans.variantActiveHint',
   'kitchen:plans.variantActiveLabel',
   'kitchen:plans.variantCount',
   'kitchen:plans.variantInactive',
@@ -11282,7 +11214,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.viewCombinations',
   'kitchen:plans.viewKind',
   'kitchen:plans.viewPublic',
-  'kitchen:plans.weekdaysHint',
   'kitchen:plans.weekdaysLabel',
   'kitchen:priceLists.addEntry',
   'kitchen:priceLists.agreementBadge',
@@ -11921,12 +11852,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.activeHint',
   'kitchen:windows.activeLabel',
   'kitchen:windows.add',
+  'kitchen:windows.capacityColumn',
   'kitchen:windows.capacityHint',
   'kitchen:windows.capacityInvalid',
   'kitchen:windows.capacityLabel',
+  'kitchen:windows.capacityPlaceholder',
   'kitchen:windows.capacityUncapped',
   'kitchen:windows.count',
   'kitchen:windows.coveredDayCount',
+  'kitchen:windows.dayInitial.1',
+  'kitchen:windows.dayInitial.2',
+  'kitchen:windows.dayInitial.3',
+  'kitchen:windows.dayInitial.4',
+  'kitchen:windows.dayInitial.5',
+  'kitchen:windows.dayInitial.6',
+  'kitchen:windows.dayInitial.7',
   'kitchen:windows.endBeforeStart',
   'kitchen:windows.endInvalid',
   'kitchen:windows.endsLabel',
@@ -11934,6 +11874,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.labelField',
   'kitchen:windows.labelRequired',
   'kitchen:windows.none',
+  'kitchen:windows.offeredColumn',
+  'kitchen:windows.offeredYes',
   'kitchen:windows.removed',
   'kitchen:windows.rowTitle',
   'kitchen:windows.save',
@@ -11957,6 +11899,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.archivedToast',
   'kitchen:zones.areaCount',
   'kitchen:zones.areasIntro',
+  'kitchen:zones.back',
   'kitchen:zones.backToList',
   'kitchen:zones.branchCount',
   'kitchen:zones.branchesLabel',
@@ -11970,6 +11913,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.coveredDayCount',
   'kitchen:zones.create',
   'kitchen:zones.createFirst',
+  'kitchen:zones.createSummary',
   'kitchen:zones.createTitle',
   'kitchen:zones.createdToast',
   'kitchen:zones.currencyCreateHint',
@@ -12001,8 +11945,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.minimumStateZero',
   'kitchen:zones.minimumValue',
   'kitchen:zones.nameRequired',
+  'kitchen:zones.next',
   'kitchen:zones.noActiveWindows',
   'kitchen:zones.noAreas',
+  'kitchen:zones.noBranches',
   'kitchen:zones.noEstimate',
   'kitchen:zones.noFeeRecorded',
   'kitchen:zones.noMinimum',
@@ -12011,6 +11957,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.notFoundBody',
   'kitchen:zones.notFoundTitle',
   'kitchen:zones.resultCount',
+  'kitchen:zones.saveZone',
   'kitchen:zones.sectionAreas',
   'kitchen:zones.sectionDetails',
   'kitchen:zones.sectionWindows',
@@ -12019,6 +11966,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.subtitle',
   'kitchen:zones.tabsLabel',
   'kitchen:zones.title',
+  'kitchen:zones.titleChip',
   'kitchen:zones.uncoveredDayCount',
   'kitchen:zones.viewFee',
   'kitchen:zones.viewKind',

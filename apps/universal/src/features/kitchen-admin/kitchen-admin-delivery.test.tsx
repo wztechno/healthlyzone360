@@ -154,6 +154,15 @@ async function openZoneTab(tab: 'zone' | 'areas' | 'windows') {
     });
 }
 
+/** Walks to the last step and presses the one save the wizard has. */
+async function saveZone() {
+    await openZoneTab('windows');
+    await untilVisible('kitchen-zone-windows-save');
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-zone-windows-save'));
+    });
+}
+
 /** Waits for an element, with the same contention headroom the other kitchen suites document. */
 function untilVisible(testID: string) {
     return waitFor(
@@ -856,37 +865,27 @@ describe('the delivery-zone list', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the delivery-zone editor', () => {
-    it('says which of the three money states each field is holding', async () => {
+    it('refuses an amount the currency cannot hold, and blocks the step on it', async () => {
         await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
             session: kitchenSession(),
             repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
         });
         await untilVisible('kitchen-zone-editor-screen');
 
+        // A typo blocks the step rather than silently sending `null` and erasing the fee.
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '');
+            fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '12.505');
         });
-        expect(screen.getByTestId('kitchen-zone-fee-state')).toHaveTextContent(
-            /not the same as free/i,
+        expect(screen.getByTestId('kitchen-zone-details-next').props.accessibilityState).toEqual(
+            expect.objectContaining({ disabled: true }),
         );
-
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '0');
-        });
-        expect(screen.getByTestId('kitchen-zone-fee-state')).toHaveTextContent(/free delivery/i);
 
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '12.50');
         });
-        expect(screen.getByTestId('kitchen-zone-fee-state')).toHaveTextContent(/a charge/i);
-
-        // A typo blocks the save rather than silently sending `null` and erasing the fee.
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '12.505');
-        });
-        expect(
-            screen.getByTestId('kitchen-zone-editor-screen-save').props.accessibilityState,
-        ).toEqual(expect.objectContaining({ disabled: true }));
+        expect(screen.getByTestId('kitchen-zone-details-next').props.accessibilityState).toEqual(
+            expect.objectContaining({ disabled: false }),
+        );
     });
 
     it('writes an emptied fee back as null rather than as zero', async () => {
@@ -922,9 +921,7 @@ describe('the delivery-zone editor', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '');
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-editor-screen-save'));
-        });
+        await saveZone();
 
         await waitFor(() => {
             expect(repositories.kitchenAdmin.updateZone).toHaveBeenNthCalledWith(
@@ -940,13 +937,13 @@ describe('the delivery-zone editor', () => {
             expect(stored.deliveryFeeMinor).toBeNull();
         });
 
-        // And a typed zero is a zero, not another absence.
+        // And a typed zero is a zero, not another absence. The save left the wizard on its last
+        // step, so this walks back to the zone before typing it.
+        await openZoneTab('zone');
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '0');
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-editor-screen-save'));
-        });
+        await saveZone();
 
         await waitFor(() => {
             expect(stored.deliveryFeeMinor).toBe(0);
@@ -995,23 +992,21 @@ describe('the delivery-zone editor', () => {
                 screen.getByTestId(`kitchen-zone-area-picker-option-${String(target.id)}-control`),
             );
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-areas-save'));
-        });
+        await saveZone();
 
         await waitFor(() => {
             expect(stored.areas.map((area) => String(area.id))).toContain(String(target.id));
         });
 
-        // The chip is the other way out, and it removes what the checkbox added.
+        // The chip is the other way out, and it removes what the checkbox added. The save left the
+        // wizard on its last step, so this starts by walking back to the areas one.
+        await openZoneTab('areas');
         await act(async () => {
             fireEvent.press(
                 screen.getByTestId(`kitchen-zone-area-picker-chip-${String(target.id)}-remove`),
             );
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-areas-save'));
-        });
+        await saveZone();
 
         await waitFor(() => {
             expect(stored.areas.map((area) => String(area.id))).not.toContain(String(target.id));
@@ -1199,9 +1194,7 @@ describe('the delivery-zone editor', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-zone-name-en-input'), 'My version');
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-editor-screen-save'));
-        });
+        await saveZone();
 
         await untilVisible('kitchen-zone-editor-screen-conflict-dialog');
 
@@ -1209,31 +1202,6 @@ describe('the delivery-zone editor', () => {
         expect(repositories.kitchenAdmin.updateZone).toHaveBeenCalledTimes(1);
         expect(stored.name.en).toBe(SEEDED_ZONE.name.en);
         expect(stored.estimatedMinutes).toBe(99);
-    });
-
-    it('asks before leaving with unsaved changes', async () => {
-        await renderStubScreen(<DeliveryZoneEditScreen zone={String(SEEDED_ZONE.id)} />, {
-            session: kitchenSession(),
-            repositories: { kitchenAdmin: zoneEditorReads(() => SEEDED_ZONE) },
-        });
-        await untilVisible('kitchen-zone-editor-screen');
-
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-zone-name-en-input'), 'Half typed');
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-editor-screen-back'));
-        });
-
-        await untilVisible('kitchen-zone-editor-screen-unsaved-dialog');
-        expect(routerMock.__push).not.toHaveBeenCalled();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-zone-editor-screen-unsaved-discard'));
-        });
-        await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/delivery-zones');
-        });
     });
 
     it('states what archiving costs, counted from the record', async () => {
@@ -1254,7 +1222,7 @@ describe('the delivery-zone editor', () => {
         expect(screen.getByTestId('kitchen-zone-archive-windows')).toHaveTextContent(/2/);
     });
 
-    it('offers no area or window editor before the zone exists', async () => {
+    it('locks the later steps until the zone exists', async () => {
         await renderStubScreen(<DeliveryZoneEditScreen zone="new" />, {
             session: kitchenSession(),
             repositories: { kitchenAdmin: zonelessEditorReads() },
@@ -1263,10 +1231,16 @@ describe('the delivery-zone editor', () => {
 
         // The currency is chosen on the create form and stated afterwards.
         expect(screen.getByTestId('kitchen-zone-currency-select')).toBeTruthy();
+
+        for (const step of ['areas', 'windows'] as const) {
+            expect(screen.getByTestId(`kitchen-zone-tab-${step}`).props.accessibilityState).toEqual(
+                expect.objectContaining({ disabled: true }),
+            );
+        }
+
+        // Pressing one anyway leaves the form where it is.
         await openZoneTab('areas');
-        expect(screen.getByTestId('kitchen-zone-areas-unavailable')).toBeTruthy();
-        await openZoneTab('windows');
-        expect(screen.getByTestId('kitchen-zone-windows-unavailable')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-zone-details')).toBeTruthy();
     });
 
     it('renders the designed not-found state for a hand-typed identifier', async () => {
@@ -1307,17 +1281,17 @@ describe('the service-area picker at gazetteer scale', () => {
         });
         await untilVisible('picker-search');
 
-        // 125 rows, 40 drawn: the count is honest about both halves.
+        // 125 rows, 100 drawn: the count is honest about both halves.
         expect(screen.getByTestId('picker-count')).toHaveTextContent(/125 of 125/);
-        expect(screen.getByTestId('picker-more')).toHaveTextContent(/85/);
+        expect(screen.getByTestId('picker-more')).toHaveTextContent(/25/);
         expect(screen.queryByTestId('picker-option-area-0')).toBeTruthy();
-        expect(screen.queryByTestId('picker-option-area-100')).toBeNull();
+        expect(screen.queryByTestId('picker-option-area-124')).toBeNull();
 
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId('picker-search-input'), 'District 101');
+            fireEvent.changeText(screen.getByTestId('picker-search-input'), 'District 125');
         });
 
-        expect(screen.queryByTestId('picker-option-area-100')).toBeTruthy();
+        expect(screen.queryByTestId('picker-option-area-124')).toBeTruthy();
         expect(screen.queryByTestId('picker-more')).toBeNull();
     });
 

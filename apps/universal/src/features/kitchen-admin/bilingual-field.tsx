@@ -62,6 +62,7 @@ interface HalfProps {
     readonly disabled?: boolean | undefined;
     /** Renders a paragraph field instead of a single line. See the note on `BilingualFieldProps`. */
     readonly multiline?: boolean | undefined;
+    readonly labelHidden?: boolean | undefined;
 }
 
 function BilingualHalf({
@@ -76,6 +77,7 @@ function BilingualHalf({
     required = false,
     disabled = false,
     multiline = false,
+    labelHidden = false,
 }: HalfProps) {
     const [focused, setFocused] = useState(false);
     /*
@@ -94,6 +96,7 @@ function BilingualHalf({
             testID={testID}
             id={testID}
             label={label}
+            labelHidden={labelHidden}
             {...(hint === undefined ? {} : { hint })}
             required={required}
             disabled={disabled}
@@ -189,6 +192,11 @@ export interface BilingualFieldProps extends GridSpanProps {
      * restrained one. Nothing else on the page stretches, and no other editor opts in.
      */
     readonly layout?: 'stacked' | 'row' | 'fill' | undefined;
+    /**
+     * `fill` only: both halves keep their accessible names and draw no label — for a pair that sits
+     * under a table's column header (the delivery window table).
+     */
+    readonly labelHidden?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -201,6 +209,7 @@ export function BilingualField({
     multiline = false,
     disabled = false,
     layout = 'stacked',
+    labelHidden = false,
     testID,
 }: BilingualFieldProps) {
     const { t } = useTranslation();
@@ -209,11 +218,19 @@ export function BilingualField({
 
     if (layout === 'fill') {
         return (
-            <View testID={testID} className="z-auto flex-col gap-base md:flex-row">
+            <View
+                testID={testID}
+                className={
+                    labelHidden
+                        ? 'z-auto flex-row gap-tight'
+                        : 'z-auto flex-col gap-base md:flex-row'
+                }
+            >
                 <View className="z-auto min-w-0 flex-1">
                     <BilingualHalf
                         testID={`${testID}-en`}
                         label={fieldLabel}
+                        labelHidden={labelHidden}
                         value={value.en}
                         onChangeText={(next) => {
                             onChange({ ...value, en: next });
@@ -229,6 +246,7 @@ export function BilingualField({
                     <BilingualHalf
                         testID={`${testID}-ar`}
                         label={t('kitchen:bilingual.arabicLabel', { field: fieldLabel })}
+                        labelHidden={labelHidden}
                         value={value.ar}
                         onChangeText={(next) => {
                             onChange({ ...value, ar: next });

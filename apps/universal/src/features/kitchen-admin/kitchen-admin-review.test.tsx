@@ -758,10 +758,13 @@ describe('the review queue screen', () => {
 
     it('renders skeletons before the answer', async () => {
         // A visible latency, so the pending frame is deterministically observable rather than a
-        // race against a stub that resolves on a microtask.
+        // race against a stub that resolves on a microtask. It is 250ms rather than a few frames
+        // because the wait competes with every other worker for the machine: at 40ms a busy run
+        // resolved the query before this assertion looked, and the file failed only in the full
+        // suite. The test still finishes in well under a second.
         await renderStubScreen(<ReviewScreen />, {
             session: kitchenManagerSession(),
-            latencyMs: 40,
+            latencyMs: 250,
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
