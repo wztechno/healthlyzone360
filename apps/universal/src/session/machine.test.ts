@@ -245,6 +245,20 @@ describe('buildAccessState', () => {
         expect([...state.entitlements].every((key) => key.startsWith('feature.'))).toBe(true);
     });
 
+    it('carries the forced password change straight from /me onto the access state', () => {
+        // The landing resolver reads it here. A provisioned account whose flag never reached the
+        // state would be waved past the one screen it was minted to require.
+        const held = buildAccessState({
+            mode: 'staff',
+            phase: 'ready',
+            me: testMeResponse({ user: { mustChangePassword: true } }),
+        });
+        const free = buildAccessState({ mode: 'staff', phase: 'ready', me: testMeResponse() });
+
+        expect(held.mustChangePassword).toBe(true);
+        expect(free.mustChangePassword).toBe(false);
+    });
+
     it('marks a branch-scoped membership as needing a branch, and a single-branch one as not', () => {
         expect(CLINIC_MEMBERSHIP.branches).toHaveLength(2);
         expect(KITCHEN_MEMBERSHIP.branches).toHaveLength(1);

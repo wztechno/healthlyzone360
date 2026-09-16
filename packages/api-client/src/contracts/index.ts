@@ -72,6 +72,7 @@ export type {
     ResendVerificationResult,
     TwoFactorChallengeRequest,
     TwoFactorSetup,
+    UpdatePasswordRequest,
 } from './auth.ts';
 
 export { createMemoryTokenStore, createTokenListeners } from './session.ts';

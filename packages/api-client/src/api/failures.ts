@@ -83,6 +83,13 @@ function readCurrentLockVersion(details: unknown): number | undefined {
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
+/** `details.membership_count` → how many people still hold the role a delete was refused over. */
+function readMembershipCount(details: unknown): number | undefined {
+    if (!isRecord(details)) return undefined;
+    const value = details['membership_count'];
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
 /**
  * `details.attempts_remaining` → the number the panel prints after a wrong code.
  *
@@ -315,8 +322,10 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
 
     if (code === 'resource.conflict') {
         const currentLockVersion = readCurrentLockVersion(details);
+        const membershipCount = readMembershipCount(details);
         return conflictFailure({
             ...(currentLockVersion === undefined ? {} : { currentLockVersion }),
+            ...(membershipCount === undefined ? {} : { membershipCount }),
             message,
             correlationId,
         });

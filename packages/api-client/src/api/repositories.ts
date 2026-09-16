@@ -19,6 +19,7 @@ import type {
     ResendVerificationResult,
     TwoFactorChallengeRequest,
     TwoFactorSetup,
+    UpdatePasswordRequest,
 } from '../contracts/auth.ts';
 import { ApiError, apiFailure } from '../contracts/failure.ts';
 import type { Repositories } from '../contracts/index.ts';
@@ -301,6 +302,21 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
                 body: {
                     token: request.token,
                     email: request.email,
+                    password: request.password,
+                    password_confirmation: request.passwordConfirmation,
+                },
+            });
+        },
+
+        async updatePassword(request: UpdatePasswordRequest): Promise<void> {
+            // Not anonymous, and not a reset: Fortify replaces the password on the *authenticated*
+            // user and leaves the session standing, which is what lets a forced first change walk
+            // straight into the workspace instead of back to the sign-in form.
+            await transport.request({
+                method: 'PUT',
+                path: '/auth/user/password',
+                body: {
+                    current_password: request.currentPassword,
                     password: request.password,
                     password_confirmation: request.passwordConfirmation,
                 },

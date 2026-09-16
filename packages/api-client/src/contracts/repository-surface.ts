@@ -37,6 +37,7 @@ export const REPOSITORY_SURFACE = {
         'resendVerification',
         'resetPassword',
         'verifyEmailStatus',
+        'updatePassword',
     ],
     session: ['me'],
     context: ['setContext'],

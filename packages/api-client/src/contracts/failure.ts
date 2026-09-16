@@ -284,6 +284,15 @@ export type ApiFailure =
            * telling the person something the server never said.
            */
           readonly currentLockVersion?: number | undefined;
+          /**
+           * How many memberships still hold a role the caller asked to delete (AA1).
+           *
+           * Optional for the reason above, and present for a sharper one: deleting a role somebody
+           * holds is refused *because* `membership_roles` cascades and the database would take it
+           * away from six people without a word. A console that could only say "refused" would be
+           * withholding the one fact that makes the refusal actionable.
+           */
+          readonly membershipCount?: number | undefined;
       })
     | (ApiFailureBase & {
           readonly code: 'authz.permission_denied';
@@ -549,6 +558,8 @@ export function rateLimitFailure(
 export interface ConflictFailureOptions extends FailureOptions {
     /** Omit when the conflict is not a lock-versioned one. */
     readonly currentLockVersion?: number | undefined;
+    /** Omit unless the conflict is a role still held by somebody (AA1). */
+    readonly membershipCount?: number | undefined;
 }
 
 /**
@@ -563,6 +574,9 @@ export function conflictFailure(options: ConflictFailureOptions = {}): ApiFailur
         ...(options.currentLockVersion === undefined
             ? {}
             : { currentLockVersion: options.currentLockVersion }),
+        ...(options.membershipCount === undefined
+            ? {}
+            : { membershipCount: options.membershipCount }),
         message: options.message ?? FALLBACK_MESSAGES['resource.conflict'],
         correlationId: options.correlationId ?? null,
         retryable: options.retryable ?? false,

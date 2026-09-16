@@ -145,4 +145,19 @@ describe('every kitchen route is accounted for', () => {
 
         expect(orphans).toEqual([]);
     });
+
+    it('gives every family a route that exists', () => {
+        // The other direction, and the one that catches a card linking nowhere. A family is a rail
+        // entry and a hub card as well as a gate, so an href with no file behind it is a dead link
+        // in the one place a person looks to find a screen.
+        const routes = new Set(routePaths());
+
+        expect(ENTITY_FAMILIES.filter((family) => !routes.has(family.href))).toEqual([]);
+    });
+
+    it('gives every extra a route that exists', () => {
+        const routes = new Set(routePaths());
+
+        expect(PAGE_EXTRAS.filter((extra) => !routes.has(extra.href))).toEqual([]);
+    });
 });

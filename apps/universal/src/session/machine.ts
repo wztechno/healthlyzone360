@@ -110,6 +110,7 @@ export function buildAccessState({ mode, phase, me }: BuildAccessStateInput): Ac
         mode,
         session: toKernelSessionState(phase),
         emailVerified: me?.user.emailVerifiedAt != null,
+        mustChangePassword: me?.user.mustChangePassword === true,
         organisation,
         branch,
         hasActiveMembership: selectableMemberships(me?.memberships ?? []).length > 0,

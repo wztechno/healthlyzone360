@@ -93,7 +93,8 @@ export const zUser = z.object({
     id: zUuid,
     email: z.email(),
     email_verified: z.boolean(),
-    two_factor_enabled: z.boolean()
+    two_factor_enabled: z.boolean(),
+    must_change_password: z.boolean().optional()
 });
 
 /**

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7030 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7049 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -499,6 +499,18 @@ export interface NamespaceKeys {
     | 'branchPicker.openLabel'
     | 'branchPicker.subtitle'
     | 'branchPicker.title'
+    | 'changePassword.continueLabel'
+    | 'changePassword.currentHint'
+    | 'changePassword.currentLabel'
+    | 'changePassword.optionalSubtitle'
+    | 'changePassword.optionalTitle'
+    | 'changePassword.passwordConfirmationLabel'
+    | 'changePassword.passwordLabel'
+    | 'changePassword.submit'
+    | 'changePassword.subtitle'
+    | 'changePassword.successBody'
+    | 'changePassword.successTitle'
+    | 'changePassword.title'
     | 'devices.current'
     | 'devices.empty'
     | 'devices.emptyBody'
@@ -522,6 +534,9 @@ export interface NamespaceKeys {
     | 'forgotPassword.submit'
     | 'forgotPassword.subtitle'
     | 'forgotPassword.title'
+    | 'login.composedHint'
+    | 'login.domainFull'
+    | 'login.domainLabel'
     | 'login.emailLabel'
     | 'login.emailPlaceholder'
     | 'login.failed'
@@ -532,6 +547,8 @@ export interface NamespaceKeys {
     | 'login.registerLink'
     | 'login.registerPrompt'
     | 'login.rememberLabel'
+    | 'login.signInNameLabel'
+    | 'login.signInNamePlaceholder'
     | 'login.submit'
     | 'login.subtitle'
     | 'login.title'
@@ -545,6 +562,8 @@ export interface NamespaceKeys {
     | 'login.twoFactor.title'
     | 'login.twoFactor.useCode'
     | 'login.twoFactor.useRecovery'
+    | 'login.useFullEmail'
+    | 'login.useSignInName'
     | 'organisationPicker.branchCount'
     | 'organisationPicker.empty'
     | 'organisationPicker.emptyAction'
@@ -7557,6 +7576,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:branchPicker.openLabel',
   'auth:branchPicker.subtitle',
   'auth:branchPicker.title',
+  'auth:changePassword.continueLabel',
+  'auth:changePassword.currentHint',
+  'auth:changePassword.currentLabel',
+  'auth:changePassword.optionalSubtitle',
+  'auth:changePassword.optionalTitle',
+  'auth:changePassword.passwordConfirmationLabel',
+  'auth:changePassword.passwordLabel',
+  'auth:changePassword.submit',
+  'auth:changePassword.subtitle',
+  'auth:changePassword.successBody',
+  'auth:changePassword.successTitle',
+  'auth:changePassword.title',
   'auth:devices.current',
   'auth:devices.empty',
   'auth:devices.emptyBody',
@@ -7580,6 +7611,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:forgotPassword.submit',
   'auth:forgotPassword.subtitle',
   'auth:forgotPassword.title',
+  'auth:login.composedHint',
+  'auth:login.domainFull',
+  'auth:login.domainLabel',
   'auth:login.emailLabel',
   'auth:login.emailPlaceholder',
   'auth:login.failed',
@@ -7590,6 +7624,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.registerLink',
   'auth:login.registerPrompt',
   'auth:login.rememberLabel',
+  'auth:login.signInNameLabel',
+  'auth:login.signInNamePlaceholder',
   'auth:login.submit',
   'auth:login.subtitle',
   'auth:login.title',
@@ -7603,6 +7639,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.twoFactor.title',
   'auth:login.twoFactor.useCode',
   'auth:login.twoFactor.useRecovery',
+  'auth:login.useFullEmail',
+  'auth:login.useSignInName',
   'auth:organisationPicker.branchCount',
   'auth:organisationPicker.empty',
   'auth:organisationPicker.emptyAction',

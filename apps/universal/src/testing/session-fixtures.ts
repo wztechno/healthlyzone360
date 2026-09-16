@@ -298,6 +298,7 @@ export function testSessionUser(overrides: Partial<SessionUser> = {}): SessionUs
         email: 'test.person@example.test',
         emailVerifiedAt: '2026-08-01T09:00:00.000Z',
         twoFactorEnabled: false,
+        mustChangePassword: false,
         profile: testProfile(),
         createdAt: '2026-07-01T09:00:00.000Z',
         ...overrides,

@@ -8,6 +8,7 @@ import {
     Heading,
     Inline,
     PasswordInput,
+    Select,
     Stack,
     Text,
     TextInputField,
@@ -15,10 +16,11 @@ import {
 import { makeLoginSchema, toFormResolver } from '@healthy360/validation';
 import type { LoginInput, LoginValues } from '@healthy360/validation';
 import { Link, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
+import { useStaffSignInDomainsQuery } from '../data/access-admin-hooks.ts';
 import { toFailure, useLoginMutation, useTwoFactorChallengeMutation } from '../data/hooks.ts';
 import {
     applyServerFailure,
@@ -112,18 +114,9 @@ export function SignInScreen() {
                 control={form.control}
                 name="email"
                 render={({ field, fieldState }) => (
-                    <TextInputField
-                        testID="sign-in-email"
-                        id="sign-in-email"
-                        label={t('auth:login.emailLabel')}
-                        placeholder={t('auth:login.emailPlaceholder')}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoComplete="email"
-                        textContentType="emailAddress"
-                        required
+                    <SignInIdentityField
                         value={field.value}
-                        onChangeText={field.onChange}
+                        onChange={field.onChange}
                         onBlur={field.onBlur}
                         error={fieldState.error?.message}
                     />
@@ -201,6 +194,182 @@ export function SignInScreen() {
                     </Text>
                 </Link>
             </Inline>
+        </Stack>
+    );
+}
+
+/** The `Select` value that means "I am not staff — let me type the whole address." */
+const FULL_EMAIL = '__full__';
+
+/**
+ * Compose what a kitchen employee typed into the address Fortify will actually be asked about.
+ *
+ * Two rules, and the second is what keeps this screen usable by everybody:
+ *
+ * * an empty local part composes to nothing, so the field reads as empty rather than as `@kitchen`;
+ * * **a local part containing `@` is already an address and passes through untouched.** A consumer
+ *   who types `me@example.com` into a field captioned "Sign-in name" signs in, and the hint below
+ *   shows them the address that will be sent. Without this the picker would be a trap for the one
+ *   audience that has no kitchen to pick.
+ */
+export function composeSignInEmail(localPart: string, domain: string | null): string {
+    const typed = localPart.trim();
+    if (typed === '') return '';
+    if (domain === null || typed.includes('@')) return typed;
+    return `${typed}@${domain}`;
+}
+
+interface SignInIdentityFieldProps {
+    readonly value: string;
+    readonly onChange: (value: string) => void;
+    readonly onBlur: () => void;
+    readonly error?: string | undefined;
+}
+
+/**
+ * The email field, split in two when the deployment has staff domains to offer.
+ *
+ * A kitchen employee's address is `name@kitchen.healthy360.app`, and the half after the `@` is the
+ * same for everyone who works there. Making them type it is a spelling test they can fail at the
+ * one moment they need to get in. So the domain becomes a control the screen supplies and the
+ * person types only their name.
+ *
+ * What renders depends on how many domains exist, because a dropdown with one option is not a
+ * choice:
+ *
+ * * **none** — today's plain address field, untouched. A deployment with no staff domains sees no
+ *   change at all;
+ * * **one** — the name field with the domain fixed beside it, and an explicit way back to the full
+ *   address;
+ * * **two or more** — the name field with a picker, whose last option is that same way back.
+ *
+ * The composed address is always shown. Whatever the mode, the reader can see the exact string
+ * that will be submitted before they submit it.
+ */
+function SignInIdentityField({ value, onChange, onBlur, error }: SignInIdentityFieldProps) {
+    const { t } = useTranslation();
+    const domainsQuery = useStaffSignInDomainsQuery();
+    const domains = domainsQuery.data ?? [];
+
+    // One source of truth for what the person typed, whichever control they typed it into. Two
+    // states — a local part and an address — would drift the moment the query resolves under a
+    // half-typed field and swapped the control out from under it.
+    const [typed, setTyped] = useState('');
+    const [chosen, setChosen] = useState<string | null>(null);
+    const [touchedChoice, setTouchedChoice] = useState(false);
+
+    // The first domain is the default because a kitchen with one is the case this exists for; a
+    // consumer is not stranded by it, since typing an `@` opts out of composition on its own.
+    const domain = touchedChoice ? chosen : (domains[0]?.domain ?? null);
+    const composed = composeSignInEmail(typed, domain);
+
+    // The domain arrives from the network, so it can land after the first keystroke. Recomposing
+    // here is what keeps the submitted address equal to the one the hint is showing.
+    useEffect(() => {
+        if (composed !== value) onChange(composed);
+    }, [composed, onChange, value]);
+
+    const choose = (next: string | null) => {
+        setTouchedChoice(true);
+        setChosen(next);
+    };
+
+    if (domains.length === 0 || domain === null) {
+        return (
+            <Stack space="xs">
+                <TextInputField
+                    testID="sign-in-email"
+                    id="sign-in-email"
+                    label={t('auth:login.emailLabel')}
+                    placeholder={t('auth:login.emailPlaceholder')}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    required
+                    value={typed}
+                    onChangeText={setTyped}
+                    onBlur={onBlur}
+                    {...(error === undefined ? {} : { error })}
+                />
+                {domains.length === 0 ? null : (
+                    <Inline space="xs">
+                        <Button
+                            testID="sign-in-use-sign-in-name"
+                            variant="ghost"
+                            size="sm"
+                            label={t('auth:login.useSignInName')}
+                            onPress={() => {
+                                choose(domains[0]?.domain ?? null);
+                            }}
+                        />
+                    </Inline>
+                )}
+            </Stack>
+        );
+    }
+
+    return (
+        <Stack space="xs" testID="sign-in-identity">
+            <Inline space="sm" align="end" wrap>
+                <TextInputField
+                    testID="sign-in-local-part"
+                    id="sign-in-local-part"
+                    label={t('auth:login.signInNameLabel')}
+                    placeholder={t('auth:login.signInNamePlaceholder')}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    required
+                    value={typed}
+                    onChangeText={setTyped}
+                    onBlur={onBlur}
+                    {...(error === undefined ? {} : { error })}
+                />
+
+                {domains.length > 1 ? (
+                    <Select
+                        testID="sign-in-domain"
+                        label={t('auth:login.domainLabel')}
+                        options={[
+                            ...domains.map((entry) => ({
+                                value: entry.domain,
+                                label: `@${entry.domain}`,
+                                description: entry.organisationName,
+                            })),
+                            { value: FULL_EMAIL, label: t('auth:login.domainFull') },
+                        ]}
+                        value={domain}
+                        onChange={(next) => {
+                            choose(next === FULL_EMAIL ? null : next);
+                        }}
+                    />
+                ) : (
+                    <Text testID="sign-in-domain-fixed" tone="secondary">
+                        {`@${domain}`}
+                    </Text>
+                )}
+            </Inline>
+
+            {composed === '' ? null : (
+                <Text variant="caption" tone="secondary" testID="sign-in-composed">
+                    {t('auth:login.composedHint', { email: composed })}
+                </Text>
+            )}
+
+            {domains.length > 1 ? null : (
+                <Inline space="xs">
+                    <Button
+                        testID="sign-in-use-full-email"
+                        variant="ghost"
+                        size="sm"
+                        label={t('auth:login.useFullEmail')}
+                        onPress={() => {
+                            choose(null);
+                        }}
+                    />
+                </Inline>
+            )}
         </Stack>
     );
 }

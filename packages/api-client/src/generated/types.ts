@@ -57,6 +57,23 @@ export type User = {
      * True only once enrolment has been confirmed.
      */
     two_factor_enabled: boolean;
+    /**
+     * True for an account an administrator opened on somebody's behalf,
+     * until they replace the password they were handed. It sits here
+     * rather than in `active_context` because it is a fact about the
+     * identity: the same person is held on the change-password screen
+     * whichever workspace they were heading for.
+     *
+     * The client holds them there; the server does not enforce it. A flag
+     * that blocked every endpoint would block the one that clears it.
+     *
+     * Optional rather than required, although this API always sends it: an
+     * application build outlives a deployment, and a client reading it as
+     * "absent means no" keeps working against an API that predates AA1.
+     * There is nothing for a server without the column to hold anybody for.
+     *
+     */
+    must_change_password?: boolean;
 };
 
 /**
