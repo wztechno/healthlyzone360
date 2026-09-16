@@ -182,11 +182,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                     <CatalogueColumnHeader
                         label={column.label}
                         align={column.align}
-                        sections={
-                            items.length === 0
-                                ? []
-                                : [{ items }]
-                        }
+                        sections={items.length === 0 ? [] : [{ items }]}
                         filtered={current !== null}
                         testID={testID}
                     />

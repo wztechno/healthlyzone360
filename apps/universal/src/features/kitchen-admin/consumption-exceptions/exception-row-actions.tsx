@@ -21,7 +21,12 @@ export interface ExceptionRowActionsProps {
     readonly pendingId: string | null;
 }
 
-export function ExceptionRowActions({ row, onRetry, onResolve, pendingId }: ExceptionRowActionsProps) {
+export function ExceptionRowActions({
+    row,
+    onRetry,
+    onResolve,
+    pendingId,
+}: ExceptionRowActionsProps) {
     const { t } = useTranslation();
     if (row.resolved) return null;
 

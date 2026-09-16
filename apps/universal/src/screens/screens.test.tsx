@@ -635,8 +635,7 @@ describe('VerifyEmailScreen', () => {
             session: unverified(),
             repositories: {
                 verification: {
-                    verifyEmailPasscode: () =>
-                        Promise.reject(new ApiError(otpInvalidFailure(2))),
+                    verifyEmailPasscode: () => Promise.reject(new ApiError(otpInvalidFailure(2))),
                 },
             },
         });

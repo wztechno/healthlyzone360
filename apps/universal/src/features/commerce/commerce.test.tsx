@@ -1794,7 +1794,9 @@ describe('CheckoutScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-place-error-reason-account_not_ready')).toBeTruthy();
+            expect(
+                screen.getByTestId('checkout-place-error-reason-account_not_ready'),
+            ).toBeTruthy();
         });
 
         await act(async () => {
@@ -1802,7 +1804,6 @@ describe('CheckoutScreen', () => {
         });
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account');
     });
-
 });
 
 /* ══ screens: the configurator ═════════════════════════════════════════════════════════════════ */
