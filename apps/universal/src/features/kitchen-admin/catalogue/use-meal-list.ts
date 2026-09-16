@@ -19,6 +19,7 @@ import {
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
 import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
  * Everything `/kitchen/meals` knows that is not a pixel.
@@ -134,7 +135,6 @@ export function useMealList(): MealListState {
     const [sortKey, setSortKey] = useState<MealSortKey>('name');
     const [sortDirection, setSortDirection] = useState<MealSortDirection>('asc');
     const [viewing, setViewing] = useState<MealAdmin | null>(null);
-    const [retiring, setRetiring] = useState<MealAdmin | null>(null);
 
     const filter = useMemo(
         () => ({
@@ -149,7 +149,10 @@ export function useMealList(): MealListState {
     const [page, setPage] = useListPage(filter);
     const meals = useAdminMealPageQuery(filter, page);
     const allergenClasses = useAllergenClassesQuery();
-    const retire = useRetireMealMutation();
+    const retire = useDestructiveRow(useRetireMealMutation(), (row: MealAdmin) => ({
+        mealId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
 
     // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on every
     // render, which would re-run the sort below whether or not the data changed.
@@ -234,28 +237,11 @@ export function useMealList(): MealListState {
             setViewing(null);
         },
 
-        retiring,
-        askToRetire: setRetiring,
-        cancelRetire: () => {
-            setRetiring(null);
-        },
-        confirmRetire: (onRetired) => {
-            const row = retiring;
-            if (row === null) return;
-            retire.mutate(
-                {
-                    mealId: row.id,
-                    request: { lockVersion: row.meta.lockVersion },
-                },
-                {
-                    onSuccess: () => {
-                        setRetiring(null);
-                        onRetired(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        retiring: retire.target,
+        askToRetire: retire.ask,
+        cancelRetire: retire.cancel,
+        confirmRetire: retire.confirm,
         isRetirePending: retire.isPending,
-        retireFailure: toFailure(retire.error),
+        retireFailure: retire.failure,
     };
 }

@@ -22,6 +22,7 @@ import {
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
 import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
  * Everything `/kitchen/recipes` knows that is not a pixel — the recipe half of handoff §4.6.
@@ -170,7 +171,6 @@ export function useRecipeList(): RecipeListState {
     // that changes with the language.
     const [sortKey, setSortKey] = useState<RecipeSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<RecipeSortDirection>('asc');
-    const [archiving, setArchiving] = useState<RecipeAdminSummary | null>(null);
     const [viewing, setViewing] = useState<RecipeAdminSummary | null>(null);
     const [draftOpeningFor, setDraftOpeningFor] = useState<RecipeId | null>(null);
 
@@ -188,7 +188,10 @@ export function useRecipeList(): RecipeListState {
     const recipes = useRecipePageQuery(filter, page);
     const kitchens = useRecipeKitchensQuery();
     const allergenClasses = useAllergenClassesQuery();
-    const retire = useRetireRecipeMutation();
+    const retire = useDestructiveRow(useRetireRecipeMutation(), (row: RecipeAdminSummary) => ({
+        recipeId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
     const openDraft = useOpenRecipeDraftMutation();
 
     // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on every
@@ -310,27 +313,13 @@ export function useRecipeList(): RecipeListState {
         },
         draftOpeningFor,
 
-        archiving,
-        askToArchive: setArchiving,
-        cancelArchive: () => {
-            setArchiving(null);
-        },
+        archiving: retire.target,
+        askToArchive: retire.ask,
+        cancelArchive: retire.cancel,
         // Retiring *is* the archive: the contract has no `archiveRecipe`, and nothing is deleted
         // because meals, products and cost snapshots still point at the version.
-        confirmArchive: (onArchived) => {
-            const row = archiving;
-            if (row === null) return;
-            retire.mutate(
-                { recipeId: row.id, request: { lockVersion: row.meta.lockVersion } },
-                {
-                    onSuccess: () => {
-                        setArchiving(null);
-                        onArchived(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        confirmArchive: retire.confirm,
         isArchivePending: retire.isPending,
-        archiveFailure: toFailure(retire.error),
+        archiveFailure: retire.failure,
     };
 }

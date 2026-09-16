@@ -14,6 +14,7 @@ import type { ProductCategory } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
 import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
  * Everything `/kitchen/products` — and `/kitchen/sauces`, and `/kitchen/dressings` — knows that is
@@ -138,7 +139,6 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
     const [sortKey, setSortKey] = useState<ProductSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<ProductSortDirection>('asc');
     const [viewing, setViewing] = useState<ProductAdmin | null>(null);
-    const [archiving, setArchiving] = useState<ProductAdmin | null>(null);
 
     /*
      * The vocabulary is read before the filter is built, because the filter needs its ids.
@@ -165,7 +165,10 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
 
     const [page, setPage] = useListPage(filter);
     const products = useProductPageQuery(filter, page);
-    const archive = useArchiveProductMutation();
+    const archive = useDestructiveRow(useArchiveProductMutation(), (row: ProductAdmin) => ({
+        productId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
 
     // Left possibly-undefined rather than defaulted to `[]`: `?? []` is a fresh array on every
     // render, which would re-run the sort below whether or not the data changed.
@@ -252,28 +255,11 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
             setViewing(null);
         },
 
-        archiving,
-        askToArchive: setArchiving,
-        cancelArchive: () => {
-            setArchiving(null);
-        },
-        confirmArchive: (onArchived) => {
-            const row = archiving;
-            if (row === null) return;
-            archive.mutate(
-                {
-                    productId: row.id,
-                    request: { lockVersion: row.meta.lockVersion },
-                },
-                {
-                    onSuccess: () => {
-                        setArchiving(null);
-                        onArchived(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        archiving: archive.target,
+        askToArchive: archive.ask,
+        cancelArchive: archive.cancel,
+        confirmArchive: archive.confirm,
         isArchivePending: archive.isPending,
-        archiveFailure: toFailure(archive.error),
+        archiveFailure: archive.failure,
     };
 }

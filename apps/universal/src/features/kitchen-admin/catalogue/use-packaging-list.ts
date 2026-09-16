@@ -19,6 +19,7 @@ import { displayName } from '../format.ts';
 import { missingLast } from './catalogue-column-spec.ts';
 import { useListPage } from '../use-list-page.ts';
 import { useCatalogueFilters } from './use-catalogue-filters.ts';
+import { useDestructiveRow } from './use-destructive-row.ts';
 
 /**
  * The state behind `/kitchen/packaging`.
@@ -158,7 +159,6 @@ export function usePackagingList(): PackagingListState {
     const [sortKey, setSortKey] = useState<PackagingSortKey>('reference');
     const [sortDirection, setSortDirection] = useState<PackagingSortDirection>('asc');
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
-    const [archiving, setArchiving] = useState<IngredientAdmin | null>(null);
 
     const filter = useMemo(
         () => ({
@@ -172,7 +172,10 @@ export function usePackagingList(): PackagingListState {
     const [page, setPage] = useListPage(filter);
     const packaging = usePackagingPageQuery(filter, page);
     const categories = usePackagingCategoriesQuery();
-    const archive = useArchiveIngredientMutation();
+    const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
+        ingredientId: row.id,
+        request: { lockVersion: row.meta.lockVersion },
+    }));
 
     const rows = packaging.data?.items;
 
@@ -276,28 +279,11 @@ export function usePackagingList(): PackagingListState {
             setViewing(null);
         },
 
-        archiving,
-        askToArchive: setArchiving,
-        cancelArchive: () => {
-            setArchiving(null);
-        },
-        confirmArchive: (onArchived) => {
-            const row = archiving;
-            if (row === null) return;
-            archive.mutate(
-                {
-                    ingredientId: row.id,
-                    request: { lockVersion: row.meta.lockVersion },
-                },
-                {
-                    onSuccess: () => {
-                        setArchiving(null);
-                        onArchived(displayName(row.name, locale).value);
-                    },
-                },
-            );
-        },
+        archiving: archive.target,
+        askToArchive: archive.ask,
+        cancelArchive: archive.cancel,
+        confirmArchive: archive.confirm,
         isArchivePending: archive.isPending,
-        archiveFailure: toFailure(archive.error),
+        archiveFailure: archive.failure,
     };
 }
