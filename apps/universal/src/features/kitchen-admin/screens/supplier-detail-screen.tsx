@@ -3,10 +3,9 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     Dialog,
     ErrorState,
-    Heading,
+    FormSection,
     Inline,
     Select,
     Skeleton,
@@ -730,10 +729,12 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
         >
             <Stack space="lg">
                 {/* ── 1. the record ────────────────────────────────────────────────────────── */}
-                <Card testID="kitchen-supplier-details" padding="md">
+                <FormSection
+                    first
+                    testID="kitchen-supplier-details"
+                    title={t('kitchen:ops.suppliers.sectionDetails')}
+                >
                     <Stack space="md">
-                        <Heading level={2}>{t('kitchen:ops.suppliers.sectionDetails')}</Heading>
-
                         <BilingualField
                             testID="kitchen-supplier-name"
                             fieldLabel={t('kitchen:ops.suppliers.fieldName')}
@@ -855,7 +856,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                             }}
                         />
                     </Stack>
-                </Card>
+                </FormSection>
 
                 {/* ── 2. named contacts ────────────────────────────────────────────────────── */}
                 {isCreating ? (
@@ -867,32 +868,28 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                         body={t('kitchen:ops.suppliers.contactsAfterSaveBody')}
                     />
                 ) : (
-                    <Card testID="kitchen-supplier-contacts" padding="md">
+                    <FormSection
+                        testID="kitchen-supplier-contacts"
+                        title={t('kitchen:ops.suppliers.sectionContacts')}
+                        description={t('kitchen:ops.suppliers.contactsHint')}
+                        actions={
+                            editable ? (
+                                <Button
+                                    testID="kitchen-supplier-contacts-add"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.suppliers.addContact')}
+                                    onPress={() => {
+                                        editContacts([
+                                            ...contacts,
+                                            emptySupplierContact(takeKey()),
+                                        ]);
+                                    }}
+                                />
+                            ) : null
+                        }
+                    >
                         <Stack space="md">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2}>
-                                    {t('kitchen:ops.suppliers.sectionContacts')}
-                                </Heading>
-                                {editable ? (
-                                    <Button
-                                        testID="kitchen-supplier-contacts-add"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:ops.suppliers.addContact')}
-                                        onPress={() => {
-                                            editContacts([
-                                                ...contacts,
-                                                emptySupplierContact(takeKey()),
-                                            ]);
-                                        }}
-                                    />
-                                ) : null}
-                            </Inline>
-
-                            <Text tone="secondary" variant="caption">
-                                {t('kitchen:ops.suppliers.contactsHint')}
-                            </Text>
-
                             {contactsFailure === null ? null : (
                                 <Callout
                                     testID="kitchen-supplier-contacts-error"
@@ -965,15 +962,17 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 </Inline>
                             ) : null}
                         </Stack>
-                    </Card>
+                    </FormSection>
                 )}
 
                 {/* ── 3. what you buy here (SUP2) ──────────────────────────────────────────── */}
                 {isCreating ? null : (
-                    <Card testID="kitchen-supplier-supplied-items" padding="md">
-                        <Stack space="md">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2}>{t('kitchen:ops.suppliers.itemsTitle')}</Heading>
+                    <FormSection
+                        testID="kitchen-supplier-supplied-items"
+                        title={t('kitchen:ops.suppliers.itemsTitle')}
+                        description={t('kitchen:ops.suppliers.itemsHint')}
+                        actions={
+                            <>
                                 {/*
                                  * Behind the cost permission because the ledger it opens is: a
                                  * ghost button leading straight to a forbidden page would be a
@@ -992,12 +991,10 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                         }}
                                     />
                                 ) : null}
-                            </Inline>
-
-                            <Text tone="secondary" variant="caption">
-                                {t('kitchen:ops.suppliers.itemsHint')}
-                            </Text>
-
+                            </>
+                        }
+                    >
+                        <Stack space="md">
                             {linkFailure === null ? null : (
                                 <Callout
                                     testID="kitchen-supplier-items-error"
@@ -1077,7 +1074,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 </Inline>
                             ) : null}
                         </Stack>
-                    </Card>
+                    </FormSection>
                 )}
             </Stack>
 

@@ -1,4 +1,8 @@
-import type { GoodsReceipt, MeasurementUnitOption } from '@healthy360/api-client/contracts';
+import type {
+    GoodsReceipt,
+    MeasurementUnitOption,
+    ReceiptCostStatus,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -6,23 +10,24 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
     Icon,
     Inline,
+    RecordWindow,
     Select,
     Skeleton,
     Stack,
-    Table,
     Text,
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption, TableColumn } from '@healthy360/design-system';
+import type { MenuItem, SelectOption } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
+import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -35,6 +40,15 @@ import {
     useSuppliersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
+import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -53,12 +67,24 @@ import {
     stockItemLinesWellFormed,
 } from '../ops-line-editor.tsx';
 import type { StockItemLineDraft } from '../ops-line-editor.tsx';
-import { OpsPanel } from '../ops-panel.tsx';
-import type { OpsMetric } from '../ops-panel.tsx';
 import { todayIsoDate } from '../receive-delivery-model.ts';
 
 /**
  * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
+ *
+ * ```
+ * ┌ NO PRICES ┐ ┌ SOME PRICES ┐ ┌ PRICED ┐
+ * [ ⌕ supplier or reference ]  Prices [ All | No prices | Some prices | Priced ]  [Post receipt]
+ * RECEIVED      SUPPLIER      LINES  REFERENCES        TOTAL   PRICES      ⋯
+ * ```
+ *
+ * The Operations handoff's list on the Catalogue parts: stat cards counted over the receipts in
+ * hand, the toolbar with the price-completeness segments, `CatalogueList`, and the `RecordWindow`
+ * behind View. `listGoodsReceipts` takes no filter and publishes no page, so search and the
+ * segments narrow the rows already loaded and there is no pager. A posted receipt is immutable, so
+ * View is the only row action. "Post receipt" stays the dialog below rather than a routed editor:
+ * there is no `/kitchen/procurement/new` route, and an ordered delivery already has its full page at
+ * `/kitchen/procurement/receive`.
  *
  * This dialog is the **market purchase**: somebody bought something without an order, and the
  * quickest honest record of it is a supplier, a date and some lines. A delivery against an issued
@@ -117,6 +143,10 @@ export function ProcurementScreen() {
     );
 }
 
+/** The design's "Prices" segments — the receipt's cost status, a closed set of three. */
+const PRICE_SEGMENTS: readonly ReceiptCostStatus[] = ['unpriced', 'partial', 'complete'];
+type PriceSegmentValue = ReceiptCostStatus | 'all';
+
 function Procurement() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -134,6 +164,12 @@ function Procurement() {
     const reference = useProcurementReferenceQuery();
     const postReceipt = usePostGoodsReceiptMutation();
     const createSupplier = useCreateSupplierMutation();
+
+    // The list's own state: search and the price segment filter the receipts in hand (the endpoint
+    // takes no filter and publishes no page), and View opens the record window over a row.
+    const [query, setQuery] = useState('');
+    const [priceStatus, setPriceStatus] = useState<PriceSegmentValue>('all');
+    const [viewing, setViewing] = useState<GoodsReceipt | null>(null);
 
     const [posting, setPosting] = useState(false);
     const [lines, setLines] = useState<readonly StockItemLineDraft[]>([]);
@@ -154,9 +190,7 @@ function Procurement() {
     const [newSupplierEmail, setNewSupplierEmail] = useState('');
     const [newSupplierPhone, setNewSupplierPhone] = useState('');
 
-    const supplierRows = suppliers.data ?? [];
-    const receiptRows = receipts.data ?? [];
-    const totalLinesReceived = receiptRows.reduce((sum, receipt) => sum + receipt.lines.length, 0);
+    const receiptRows = useMemo(() => receipts.data ?? [], [receipts.data]);
 
     const referenceData = reference.data ?? null;
 
@@ -229,24 +263,6 @@ function Procurement() {
         }
         return itemOwnUnitCode(stockItemId) ?? '';
     }
-
-    const metrics: readonly OpsMetric[] = [
-        {
-            key: 'suppliers',
-            labelKey: 'kitchen:ops.procurement.metrics.suppliers',
-            value: suppliers.isPending ? null : supplierRows.length,
-        },
-        {
-            key: 'receipts',
-            labelKey: 'kitchen:ops.procurement.metrics.receipts',
-            value: receipts.isPending ? null : receiptRows.length,
-        },
-        {
-            key: 'lines',
-            labelKey: 'kitchen:ops.procurement.metrics.lines',
-            value: receipts.isPending ? null : totalLinesReceived,
-        },
-    ];
 
     /*
      * Mapped in the order the server gave them and **never re-sorted** (INV2.0). Stock items are
@@ -358,29 +374,77 @@ function Procurement() {
         );
     }
 
-    const receiptColumns: readonly TableColumn<GoodsReceipt>[] = [
+    const trimmed = query.trim().toLocaleLowerCase();
+    const filteredReceipts = useMemo(
+        () =>
+            receiptRows.filter((row) => {
+                if (priceStatus !== 'all' && row.costStatus !== priceStatus) return false;
+                if (trimmed === '') return true;
+                return [
+                    row.supplier?.nameEn,
+                    row.supplier?.code,
+                    row.documentRef,
+                    row.supplierInvoiceRef,
+                ]
+                    .filter((value): value is string => value !== null && value !== undefined)
+                    .some((value) => value.toLocaleLowerCase().includes(trimmed));
+            }),
+        [receiptRows, priceStatus, trimmed],
+    );
+
+    const receivedText = (row: GoodsReceipt): string =>
+        row.receivedOn !== null
+            ? formatter.formatDate(row.receivedOn, { dateStyle: 'medium' })
+            : row.receivedAt !== null
+              ? formatter.formatDate(row.receivedAt, { dateStyle: 'medium', timeStyle: 'short' })
+              : t('kitchen:ops.procurement.notYetReceived');
+
+    const totalText = (row: GoodsReceipt): string =>
+        row.receiptTotalAmount === null || row.currencyCode === null
+            ? row.costsRedacted
+                ? t('kitchen:ops.procurement.costsRedacted')
+                : '—'
+            : `${formatter.formatNumber(Number(row.receiptTotalAmount), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+              })} ${row.currencyCode}`;
+
+    const columns: readonly ControlledColumn<GoodsReceipt, CatalogueColumn<GoodsReceipt>>[] = [
         {
             key: 'receivedAt',
-            header: t('kitchen:ops.procurement.columnReceivedAt'),
-            rowHeader: true,
+            role: 'title',
+            label: t('kitchen:ops.procurement.columnReceivedAt'),
+            width: 190,
+            priority: 100,
+            value: receivedText,
+            sort: (left, right, direction) =>
+                compareText(
+                    left.receivedOn ?? left.receivedAt ?? '',
+                    right.receivedOn ?? right.receivedAt ?? '',
+                    direction,
+                ),
             render: (row) => (
-                <Text testID={`${goodsReceiptRowTestId(String(row.id))}-received-at`}>
-                    {row.receivedAt === null
-                        ? t('kitchen:ops.procurement.notYetReceived')
-                        : formatter.formatDate(row.receivedAt, {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                          })}
+                <Text
+                    variant="strong"
+                    numberOfLines={1}
+                    testID={`${goodsReceiptRowTestId(String(row.id))}-received-at`}
+                >
+                    {receivedText(row)}
                 </Text>
             ),
         },
         {
             key: 'supplier',
-            header: t('kitchen:ops.procurement.columnSupplier'),
+            label: t('kitchen:ops.procurement.columnSupplier'),
+            width: 200,
+            priority: 90,
+            value: (row) => row.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier'),
+            sort: (left, right, direction) =>
+                compareText(left.supplier?.nameEn ?? '', right.supplier?.nameEn ?? '', direction),
             render: (row) => (
                 <Text
-                    variant="caption"
                     tone="secondary"
+                    numberOfLines={1}
                     testID={`${goodsReceiptRowTestId(String(row.id))}-supplier`}
                 >
                     {row.supplier === null
@@ -391,24 +455,52 @@ function Procurement() {
         },
         {
             key: 'lines',
-            header: t('kitchen:ops.procurement.columnLines'),
-            flex: 2,
+            role: 'metric',
+            label: t('kitchen:ops.procurement.columnLines'),
+            width: 70,
+            priority: 70,
+            value: (row) => String(row.lines.length),
             render: (row) => (
-                <Stack space="none" testID={`${goodsReceiptRowTestId(String(row.id))}-lines`}>
-                    {row.lines.map((line) => (
-                        <Text key={line.stockItemId} variant="caption" tone="secondary">
-                            {formatter.formatNumber(Number(line.quantity))} ×{' '}
-                            {stockItemLabelById.get(String(line.stockItemId)) ?? line.stockItemId}
-                        </Text>
-                    ))}
-                </Stack>
+                <Text variant="mono" testID={`${goodsReceiptRowTestId(String(row.id))}-lines`}>
+                    {formatter.formatNumber(row.lines.length)}
+                </Text>
+            ),
+        },
+        {
+            key: 'refs',
+            role: 'meta',
+            label: t('kitchen:ops.procurement.columnRefs'),
+            width: 190,
+            priority: 60,
+            value: (row) => refsText(row, t),
+            render: (row) => (
+                <Text variant="mono" tone="secondary" numberOfLines={1}>
+                    {refsText(row, t)}
+                </Text>
+            ),
+        },
+        {
+            key: 'total',
+            role: 'metric',
+            label: t('kitchen:ops.procurement.columnTotal'),
+            width: 120,
+            priority: 50,
+            value: totalText,
+            render: (row) => (
+                <Text variant="mono" testID={`${goodsReceiptRowTestId(String(row.id))}-total`}>
+                    {totalText(row)}
+                </Text>
             ),
         },
         {
             key: 'costStatus',
-            header: t('kitchen:ops.procurement.columnCostStatus'),
+            role: 'status',
+            label: t('kitchen:ops.procurement.columnCostStatus'),
+            width: 120,
+            priority: 80,
+            value: (row) => t(receiptCostStatusKey(row.costStatus)),
             render: (row) => (
-                <Inline space="xs" align="center" wrap>
+                <View className="min-w-0 flex-row flex-wrap items-center gap-1.5">
                     <Badge
                         tone={receiptCostStatusTone(row.costStatus)}
                         testID={`${goodsReceiptRowTestId(String(row.id))}-cost-status`}
@@ -421,149 +513,215 @@ function Procurement() {
                             })}
                         </Text>
                     ) : null}
-                </Inline>
-            ),
-        },
-        {
-            key: 'total',
-            header: t('kitchen:ops.procurement.columnTotal'),
-            render: (row) => (
-                <Text
-                    variant="bodyStrong"
-                    tone="secondary"
-                    testID={`${goodsReceiptRowTestId(String(row.id))}-total`}
-                >
-                    {row.receiptTotalAmount === null || row.currencyCode === null
-                        ? row.costsRedacted
-                            ? t('kitchen:ops.procurement.costsRedacted')
-                            : '—'
-                        : `${formatter.formatNumber(Number(row.receiptTotalAmount), {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                          })} ${row.currencyCode}`}
-                </Text>
+                </View>
             ),
         },
     ];
 
-    const failure = toFailure(suppliers.error) ?? toFailure(receipts.error);
+    const controls = useColumnControls(filteredReceipts, columns, 'kitchen-procurement');
+    const failure = toFailure(receipts.error);
+    const unfiltered = trimmed === '' && priceStatus === 'all';
+
+    const priceSegments: readonly CatalogueStatusSegment<PriceSegmentValue>[] = [
+        { value: 'all', label: t('kitchen:toolbar.statusAll') },
+        ...PRICE_SEGMENTS.map((value) => ({ value, label: t(receiptCostStatusKey(value)) })),
+    ];
 
     return (
-        <Stack space="lg" testID="kitchen-procurement-screen">
-            <OpsPanel
-                testID="kitchen-procurement-panel"
-                titleKey="kitchen:ops.procurement.title"
-                subtitleKey="kitchen:ops.procurement.subtitle"
-                metrics={metrics}
-                emptyTitleKey="kitchen:ops.procurement.emptyTitle"
-                emptyBodyKey="kitchen:ops.procurement.emptyBody"
+        <Stack space="md" testID="kitchen-procurement-screen">
+            {receipts.isPending || failure !== null ? null : (
+                <CatalogueStatCards
+                    testID="kitchen-procurement-stats"
+                    cards={receiptStatCards(controls.rows, t)}
+                />
+            )}
+
+            <CatalogueToolbar<PriceSegmentValue>
+                testID="kitchen-procurement-toolbar"
+                search={query}
+                onSearchChange={(next) => {
+                    setQuery(next);
+                    setViewing(null);
+                }}
+                searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:ops.procurement.searchPlaceholder')}
+                statusLabel={t('kitchen:ops.procurement.columnCostStatus')}
+                statusSegments={priceSegments}
+                status={priceStatus}
+                onStatusChange={(next) => {
+                    setPriceStatus(next);
+                    setViewing(null);
+                }}
             >
-                {suppliers.isPending || receipts.isPending ? (
-                    <Stack space="sm" testID="kitchen-procurement-loading">
-                        {Array.from({ length: 3 }, (_, index) => (
-                            <Skeleton key={index} heightClassName="h-10" />
-                        ))}
-                    </Stack>
-                ) : failure !== null ? (
-                    <ErrorState
-                        testID="kitchen-procurement-error"
-                        failure={failure}
-                        onRetry={() => {
-                            void suppliers.refetch();
-                            void receipts.refetch();
+                {/*
+                 * Suppliers have their own screen (SUP1) and the unpriced queue is the cost
+                 * holder's; both stay one press from the receipts book, beside the one primary.
+                 */}
+                <Button
+                    testID="kitchen-procurement-manage-suppliers"
+                    size="sm"
+                    variant="ghost"
+                    label={t('kitchen:ops.procurement.manageSuppliers')}
+                    onPress={() => {
+                        router.push('/kitchen/suppliers' as never);
+                    }}
+                />
+                {canViewCosts ? (
+                    <Button
+                        testID="kitchen-procurement-unpriced-link"
+                        size="sm"
+                        variant="ghost"
+                        label={t('kitchen:ops.procurement.unpricedReceipts')}
+                        onPress={() => {
+                            router.push('/kitchen/procurement/unpriced-receipts' as never);
                         }}
-                        retrying={suppliers.isFetching || receipts.isFetching}
                     />
-                ) : (
-                    <Stack space="lg" testID="kitchen-procurement-content">
-                        {/*
-                         * A count and a way through, not a second supplier table (SUP1). Suppliers
-                         * have their own screen now — with contacts, an archive and a search — and
-                         * a read-only copy of their names here would be a list that could not do
-                         * any of it. The inline create inside the receipt dialog stays exactly
-                         * where it was: a kitchen with an empty book still must not be stuck at the
-                         * loading bay.
-                         */}
-                        <Stack space="sm" testID="kitchen-procurement-suppliers">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Stack space="none">
-                                    <Heading level={2} testID="kitchen-procurement-suppliers-title">
-                                        {t('kitchen:ops.procurement.suppliersTitle')}
-                                    </Heading>
-                                    <Text
-                                        tone="secondary"
-                                        variant="caption"
-                                        testID="kitchen-procurement-supplier-count"
-                                    >
-                                        {supplierRows.length === 0
-                                            ? t('kitchen:ops.procurement.noSuppliers')
-                                            : t('kitchen:ops.suppliers.supplierCount', {
-                                                  count: supplierRows.length,
-                                              })}
-                                    </Text>
-                                </Stack>
-                                <Button
-                                    testID="kitchen-procurement-manage-suppliers"
-                                    size="sm"
-                                    variant="ghost"
-                                    label={t('kitchen:ops.procurement.manageSuppliers')}
-                                    onPress={() => {
-                                        router.push('/kitchen/suppliers' as never);
-                                    }}
-                                />
-                            </Inline>
-                        </Stack>
+                ) : null}
+                {canManage ? (
+                    <Button
+                        testID="kitchen-procurement-post-receipt"
+                        label={t('kitchen:ops.procurement.postReceipt')}
+                        onPress={openPosting}
+                    />
+                ) : null}
+            </CatalogueToolbar>
 
-                        <Stack space="sm">
-                            <Inline space="sm" align="center" justify="between" wrap>
-                                <Heading level={2} testID="kitchen-procurement-receipts-title">
-                                    {t('kitchen:ops.procurement.receiptsTitle')}
-                                </Heading>
-                                <Inline space="xs" align="center" wrap>
-                                    {canViewCosts ? (
-                                        <Button
-                                            testID="kitchen-procurement-unpriced-link"
-                                            size="sm"
-                                            variant="ghost"
-                                            label={t('kitchen:ops.procurement.unpricedReceipts')}
-                                            onPress={() => {
-                                                router.push(
-                                                    '/kitchen/procurement/unpriced-receipts' as never,
-                                                );
-                                            }}
-                                        />
-                                    ) : null}
-                                    {canManage ? (
-                                        <Button
-                                            testID="kitchen-procurement-post-receipt"
-                                            size="sm"
-                                            label={t('kitchen:ops.procurement.postReceipt')}
-                                            onPress={openPosting}
-                                        />
-                                    ) : null}
-                                </Inline>
-                            </Inline>
+            {receipts.isPending ? (
+                <Stack space="xs" testID="kitchen-procurement-loading">
+                    {Array.from({ length: 5 }, (_, index) => (
+                        <Skeleton
+                            key={index}
+                            testID={`kitchen-procurement-skeleton-${String(index + 1)}`}
+                            heightClassName="h-row-sm"
+                        />
+                    ))}
+                </Stack>
+            ) : failure !== null ? (
+                <ErrorState
+                    testID="kitchen-procurement-error"
+                    failure={failure}
+                    onRetry={() => {
+                        void receipts.refetch();
+                    }}
+                    retrying={receipts.isFetching}
+                />
+            ) : controls.rows.length === 0 ? (
+                <EmptyState
+                    testID="kitchen-procurement-receipts-empty"
+                    title={
+                        unfiltered
+                            ? t('kitchen:ops.procurement.emptyTitle')
+                            : t('kitchen:list.filteredEmptyTitle')
+                    }
+                    body={
+                        unfiltered
+                            ? t('kitchen:ops.procurement.emptyBody')
+                            : t('kitchen:ops.procurement.filteredEmptyBody')
+                    }
+                />
+            ) : (
+                <Stack space="sm">
+                    <CatalogueList<GoodsReceipt>
+                        testID="kitchen-procurement-receipts-table"
+                        label={t('kitchen:ops.procurement.receiptsTitle')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        onRowPress={setViewing}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // View only: a posted receipt is immutable (§3.6). Its missing prices are
+                        // finished in the unpriced queue, which the View window links to.
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${goodsReceiptRowTestId(String(row.id))}-view`,
+                                onSelect: () => {
+                                    setViewing(row);
+                                },
+                            },
+                        ]}
+                    />
+                    <Text variant="caption" tone="secondary" testID="kitchen-procurement-foot">
+                        {`${t('kitchen:toolbar.showing', {
+                            shown: controls.rows.length,
+                            total: receiptRows.length,
+                        })} · ${t('kitchen:ops.procurement.listFoot')}`}
+                    </Text>
+                </Stack>
+            )}
 
-                            {receiptRows.length === 0 ? (
-                                <EmptyState
-                                    testID="kitchen-procurement-receipts-empty"
-                                    title={t('kitchen:ops.procurement.emptyTitle')}
-                                    body={t('kitchen:ops.procurement.emptyBody')}
-                                />
-                            ) : (
-                                <Table<GoodsReceipt>
-                                    testID="kitchen-procurement-receipts-table"
-                                    caption={t('kitchen:ops.procurement.receiptsTitle')}
-                                    captionHidden
-                                    columns={receiptColumns}
-                                    rows={receiptRows}
-                                    rowKey={(row) => String(row.id)}
-                                />
-                            )}
+            {viewing === null ? null : (
+                <RecordWindow
+                    testID="kitchen-procurement-view"
+                    open
+                    onClose={() => {
+                        setViewing(null);
+                    }}
+                    title={receivedText(viewing)}
+                    kind={t('kitchen:ops.procurement.viewKind')}
+                    status={{
+                        label: t(receiptCostStatusKey(viewing.costStatus)),
+                        tone: receiptCostStatusTone(viewing.costStatus),
+                    }}
+                    {...(viewing.costStatus === 'complete'
+                        ? {}
+                        : { note: t('kitchen:ops.procurement.viewUnpricedNote') })}
+                    fields={[
+                        {
+                            key: 'supplier',
+                            label: t('kitchen:ops.procurement.columnSupplier'),
+                            value:
+                                viewing.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier'),
+                        },
+                        {
+                            key: 'documentRef',
+                            label: t('kitchen:ops.procurement.fieldDocumentRef'),
+                            value: viewing.documentRef ?? '—',
+                            mono: true,
+                        },
+                        {
+                            key: 'invoiceRef',
+                            label: t('kitchen:ops.procurement.fieldInvoiceRef'),
+                            value: viewing.supplierInvoiceRef ?? '—',
+                            mono: true,
+                        },
+                        {
+                            key: 'total',
+                            label: t('kitchen:ops.procurement.columnTotal'),
+                            value: totalText(viewing),
+                            mono: true,
+                        },
+                    ]}
+                    lines={
+                        <Stack space="none" testID="kitchen-procurement-view-lines">
+                            {viewing.lines.map((line) => (
+                                <Text key={line.id} variant="caption" tone="secondary">
+                                    {formatter.formatNumber(Number(line.quantity))} ×{' '}
+                                    {stockItemLabelById.get(String(line.stockItemId)) ??
+                                        line.stockItemId}
+                                </Text>
+                            ))}
                         </Stack>
-                    </Stack>
-                )}
-            </OpsPanel>
+                    }
+                    footNote={t('kitchen:ops.procurement.listFoot')}
+                    {...(canViewCosts && viewing.costStatus !== 'complete'
+                        ? {
+                              primaryAction: {
+                                  label: t('kitchen:ops.procurement.unpricedReceipts'),
+                                  onPress: () => {
+                                      setViewing(null);
+                                      router.push(
+                                          '/kitchen/procurement/unpriced-receipts' as never,
+                                      );
+                                  },
+                              },
+                          }
+                        : {})}
+                />
+            )}
 
             <Dialog
                 testID="kitchen-procurement-post-dialog"
@@ -746,4 +904,50 @@ function Procurement() {
             </Dialog>
         </Stack>
     );
+}
+
+/** "DN-4471 · INV-8820" — the delivery note and the invoice number, or the words for none. */
+function refsText(row: GoodsReceipt, t: TFunction): string {
+    return `${row.documentRef ?? '—'} · ${
+        row.supplierInvoiceRef ?? t('kitchen:ops.unpricedReceipts.noInvoiceRef')
+    }`;
+}
+
+/** Counted over the receipts in hand, like the design's CARDS: one card per price state. */
+function receiptStatCards(
+    rows: readonly GoodsReceipt[],
+    t: TFunction,
+): readonly CatalogueStatCard[] {
+    const count = (status: ReceiptCostStatus) =>
+        rows.filter((row) => row.costStatus === status).length;
+    const unpriced = count('unpriced');
+    const partial = count('partial');
+    return [
+        {
+            key: 'unpriced',
+            label: t(receiptCostStatusKey('unpriced')),
+            value: String(unpriced),
+            unit: t('kitchen:ops.procurement.statReceiptsUnit'),
+            caption: t('kitchen:ops.procurement.statUnpricedCaption'),
+            mark: 'warning',
+            tone: unpriced === 0 ? 'default' : 'warning',
+        },
+        {
+            key: 'partial',
+            label: t(receiptCostStatusKey('partial')),
+            value: String(partial),
+            unit: t('kitchen:ops.procurement.statReceiptsUnit'),
+            caption: t('kitchen:ops.procurement.statPartialCaption'),
+            mark: 'warning',
+            tone: partial === 0 ? 'default' : 'warning',
+        },
+        {
+            key: 'complete',
+            label: t(receiptCostStatusKey('complete')),
+            value: String(count('complete')),
+            unit: t('kitchen:ops.procurement.statReceiptsUnit'),
+            caption: t('kitchen:ops.procurement.statCompleteCaption'),
+            mark: 'check',
+        },
+    ];
 }

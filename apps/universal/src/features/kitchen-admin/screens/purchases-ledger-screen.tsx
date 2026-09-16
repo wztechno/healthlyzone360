@@ -8,21 +8,22 @@ import { RECEIPT_COST_STATUSES } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
+    Callout,
     EmptyState,
     ErrorState,
     FilterChip,
     Inline,
-    SegmentedControl,
+    RecordWindow,
     Select,
     Skeleton,
     Stack,
-    Table,
     Text,
     TextInputField,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import type { BadgeTone, MenuItem } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -35,9 +36,17 @@ import {
     useStockItemsQuery,
     useSuppliersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
+import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
+import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
-import { OpsPanel } from '../ops-panel.tsx';
 import { receiptCostStatusKey } from '../ops-format.ts';
 
 /**
@@ -78,6 +87,13 @@ import { receiptCostStatusKey } from '../ops-format.ts';
  * and seed the state **once**, so the person who followed the link lands on the answer they asked
  * for and can then widen it — a filter driven by the URL for the life of the screen would be a page
  * they could not use.
+ *
+ * ## On the Catalogue list (Operations handoff)
+ *
+ * The cost note sits first, then stat cards counted over the lines in hand, then the toolbar whose
+ * segments are the three read-as modes. The server filters stay beneath it — they are the questions
+ * the endpoint can answer — and the search box narrows only the page in hand, because the endpoint
+ * has no text search. Read-only: View is the one row action, and it opens the record window.
  */
 
 /** Detail walks the lines; weekly and monthly total them. */
@@ -124,6 +140,8 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
     const [activeMode, setActiveMode] = useState<LedgerMode>(isLedgerMode(mode) ? mode : 'detail');
     const [cursor, setCursor] = useState<string | undefined>(undefined);
     const [expandedCharges, setExpandedCharges] = useState<readonly string[]>([]);
+    const [query, setQuery] = useState('');
+    const [viewing, setViewing] = useState<PurchaseLedgerLine | null>(null);
 
     const suppliers = useSuppliersQuery();
     const stockItems = useStockItemsQuery();
@@ -190,11 +208,27 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
 
     function resetCursor() {
         setCursor(undefined);
+        setViewing(null);
     }
 
-    const rows = ledger.data?.items ?? [];
+    const pageRows = useMemo(() => ledger.data?.items ?? [], [ledger.data]);
     const nextCursor = ledger.data?.nextCursor ?? null;
     const hasMore = (ledger.data?.hasMore ?? false) && nextCursor !== null;
+
+    // The endpoint has no text search, so the search box narrows the page in hand and says so in
+    // its placeholder; the filters below are the server-side questions.
+    const trimmed = query.trim().toLocaleLowerCase();
+    const rows = useMemo(
+        () =>
+            trimmed === ''
+                ? pageRows
+                : pageRows.filter((row) =>
+                      [row.itemNameEn, row.itemCode, row.supplier?.nameEn, row.documentRef]
+                          .filter((value): value is string => value !== null && value !== undefined)
+                          .some((value) => value.toLocaleLowerCase().includes(trimmed)),
+                  ),
+        [pageRows, trimmed],
+    );
 
     const money = (amount: string | null, currency: string | null): string => {
         if (amount === null || currency === null) return '—';
@@ -204,24 +238,47 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
         })} ${currency}`;
     };
 
-    const columns: readonly TableColumn<PurchaseLedgerLine>[] = [
+    const dateText = (row: PurchaseLedgerLine): string =>
+        row.receivedOn !== null
+            ? formatter.formatDate(row.receivedOn, { dateStyle: 'medium' })
+            : row.receivedAt === null
+              ? '—'
+              : formatter.formatDate(row.receivedAt, { dateStyle: 'medium' });
+
+    const itemTitle = (row: PurchaseLedgerLine): string => row.itemNameEn ?? row.stockItemId;
+
+    const columns: readonly ControlledColumn<
+        PurchaseLedgerLine,
+        CatalogueColumn<PurchaseLedgerLine>
+    >[] = [
         {
-            key: 'receivedAt',
-            header: t('kitchen:ops.ledger.columnDate'),
-            rowHeader: true,
+            key: 'item',
+            role: 'title',
+            label: t('kitchen:ops.ledger.columnItem'),
+            width: 240,
+            priority: 100,
+            value: itemTitle,
+            sort: (left, right, direction) =>
+                compareText(itemTitle(left), itemTitle(right), direction),
             render: (row) => (
-                <Text testID={`kitchen-ledger-${row.id}-date`}>
-                    {row.receivedAt === null
-                        ? '—'
-                        : formatter.formatDate(row.receivedAt, { dateStyle: 'medium' })}
-                </Text>
+                <View className="min-w-0">
+                    <Text variant="strong" numberOfLines={1}>
+                        {itemTitle(row)}
+                    </Text>
+                    <Text variant="caption" tone="secondary" numberOfLines={1}>
+                        {`${row.itemCode ?? '—'} · ${money(row.unitPriceAmount, row.costCurrencyCode)}`}
+                    </Text>
+                </View>
             ),
         },
         {
             key: 'supplier',
-            header: t('kitchen:ops.ledger.columnSupplier'),
+            label: t('kitchen:ops.ledger.columnSupplier'),
+            width: 180,
+            priority: 80,
+            value: (row) => row.supplier?.nameEn ?? t('kitchen:ops.ledger.noSupplier'),
             render: (row) => (
-                <Text variant="caption" tone="secondary">
+                <Text tone="secondary" numberOfLines={1}>
                     {row.supplier === null
                         ? t('kitchen:ops.ledger.noSupplier')
                         : row.supplier.nameEn}
@@ -229,36 +286,65 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             ),
         },
         {
-            key: 'item',
-            header: t('kitchen:ops.ledger.columnItem'),
-            flex: 2,
+            key: 'receivedAt',
+            label: t('kitchen:ops.ledger.columnDate'),
+            width: 110,
+            priority: 90,
+            value: dateText,
+            sort: (left, right, direction) =>
+                compareText(
+                    left.receivedOn ?? left.receivedAt ?? '',
+                    right.receivedOn ?? right.receivedAt ?? '',
+                    direction,
+                ),
             render: (row) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong">{row.itemNameEn ?? row.stockItemId}</Text>
-                    <Text variant="caption" tone="secondary">
-                        {formatter.formatNumber(Number(row.quantity))}
-                    </Text>
-                </Stack>
+                <Text variant="mono" testID={`kitchen-ledger-${row.id}-date`}>
+                    {dateText(row)}
+                </Text>
             ),
         },
         {
-            key: 'unitPrice',
-            header: t('kitchen:ops.ledger.columnUnitPrice'),
-            numeric: true,
-            render: (row) => <Text>{money(row.unitPriceAmount, row.costCurrencyCode)}</Text>,
+            key: 'quantity',
+            role: 'metric',
+            label: t('kitchen:ops.ledger.columnQuantity'),
+            width: 100,
+            priority: 70,
+            value: (row) => formatter.formatNumber(Number(row.quantity)),
+            render: (row) => (
+                <Text variant="mono">{formatter.formatNumber(Number(row.quantity))}</Text>
+            ),
         },
         {
             key: 'lineTotal',
-            header: t('kitchen:ops.ledger.columnLineTotal'),
-            numeric: true,
-            primary: true,
+            role: 'metric',
+            label: t('kitchen:ops.ledger.columnLineTotal'),
+            width: 120,
+            priority: 85,
+            value: (row) => money(row.lineTotalAmount, row.costCurrencyCode),
             render: (row) => (
-                <Text variant="bodyStrong" testID={`kitchen-ledger-${row.id}-total`}>
+                <Text variant="mono" testID={`kitchen-ledger-${row.id}-total`}>
                     {money(row.lineTotalAmount, row.costCurrencyCode)}
                 </Text>
             ),
         },
+        {
+            key: 'state',
+            role: 'status',
+            label: t('kitchen:ops.ledger.columnState'),
+            width: 110,
+            priority: 75,
+            value: (row) => t(LINE_STATE_KEYS[ledgerLineState(row)]),
+            render: (row) => (
+                <Badge
+                    testID={`kitchen-ledger-${row.id}-state`}
+                    tone={LINE_STATE_TONES[ledgerLineState(row)]}
+                    label={t(LINE_STATE_KEYS[ledgerLineState(row)])}
+                />
+            ),
+        },
     ];
+
+    const controls = useColumnControls(rows, columns, 'kitchen-purchases-ledger');
 
     const failure = toFailure(isDetail ? ledger.error : summary.error);
     const pending = isDetail ? ledger.isPending : summary.isPending;
@@ -270,197 +356,357 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
         );
     }
 
+    const modeSegments: readonly CatalogueStatusSegment<LedgerMode>[] = [
+        { value: 'detail', label: t('kitchen:ops.ledger.modeDetail') },
+        { value: 'weekly', label: t('kitchen:ops.ledger.modeWeekly') },
+        { value: 'monthly', label: t('kitchen:ops.ledger.modeMonthly') },
+    ];
+
+    const viewingState = viewing === null ? null : ledgerLineState(viewing);
+
     return (
-        <Stack space="lg" testID="kitchen-purchases-ledger-screen">
-            <OpsPanel
-                testID="kitchen-purchases-ledger-panel"
-                titleKey="kitchen:ops.ledger.title"
-                subtitleKey="kitchen:ops.ledger.subtitle"
-                metrics={[]}
-                emptyTitleKey="kitchen:ops.ledger.emptyTitle"
-                emptyBodyKey="kitchen:ops.ledger.emptyBody"
-            >
-                <Stack space="md" testID="kitchen-purchases-ledger-content">
-                    <SegmentedControl<LedgerMode>
-                        testID="kitchen-ledger-mode"
-                        label={t('kitchen:ops.ledger.modeLabel')}
-                        items={[
-                            {
-                                value: 'detail',
-                                label: t('kitchen:ops.ledger.modeDetail'),
-                                testID: 'kitchen-ledger-mode-detail',
-                            },
-                            {
-                                value: 'weekly',
-                                label: t('kitchen:ops.ledger.modeWeekly'),
-                                testID: 'kitchen-ledger-mode-weekly',
-                            },
-                            {
-                                value: 'monthly',
-                                label: t('kitchen:ops.ledger.modeMonthly'),
-                                testID: 'kitchen-ledger-mode-monthly',
-                            },
-                        ]}
-                        value={activeMode}
-                        onChange={setActiveMode}
-                        className="self-start"
-                    />
+        <Stack space="md" testID="kitchen-purchases-ledger-screen">
+            {/* §5: the ledger is the valuation, and the reader should know why they can see it. */}
+            <Callout
+                testID="kitchen-purchases-ledger-cost-note"
+                role="note"
+                tone="danger"
+                title={t('kitchen:ops.ledger.costNoteTitle')}
+                body={t('kitchen:ops.ledger.costNoteBody')}
+            />
 
-                    <Inline space="sm" align="end" wrap>
-                        <Select
-                            testID="kitchen-ledger-filter-supplier"
-                            label={t('kitchen:ops.ledger.filterSupplier')}
-                            options={supplierOptions}
-                            value={supplierId ?? ''}
-                            onChange={(value) => {
-                                setSupplierId(value === '' ? null : value);
-                                resetCursor();
-                            }}
-                            searchable
-                            className="min-w-[200px] flex-1"
-                        />
-                        <Select
-                            testID="kitchen-ledger-filter-item"
-                            label={t('kitchen:ops.ledger.filterItem')}
-                            options={stockItemOptions}
-                            value={stockItemId ?? ''}
-                            onChange={(value) => {
-                                setStockItemId(value === '' ? null : value);
-                                resetCursor();
-                            }}
-                            searchable
-                            className="min-w-[200px] flex-1"
-                        />
-                        <TextInputField
-                            testID="kitchen-ledger-filter-from"
-                            label={t('kitchen:ops.ledger.filterFrom')}
-                            value={from}
-                            onChangeText={(value) => {
-                                setFrom(value);
-                                resetCursor();
-                            }}
-                            placeholder="YYYY-MM-DD"
-                            className="w-40"
-                        />
-                        <TextInputField
-                            testID="kitchen-ledger-filter-to"
-                            label={t('kitchen:ops.ledger.filterTo')}
-                            value={to}
-                            onChangeText={(value) => {
-                                setTo(value);
-                                resetCursor();
-                            }}
-                            placeholder="YYYY-MM-DD"
-                            className="w-40"
-                        />
-                    </Inline>
+            {isDetail && !pending && failure === null ? (
+                <CatalogueStatCards
+                    testID="kitchen-purchases-ledger-stats"
+                    cards={ledgerStatCards(controls.rows, t)}
+                />
+            ) : null}
 
-                    {isDetail ? (
-                        <Stack space="xs" testID="kitchen-ledger-filter-cost-status">
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:ops.ledger.filterCostStatus')}
-                            </Text>
-                            <Inline space="xs" wrap>
-                                {RECEIPT_COST_STATUSES.map((status) => (
-                                    <FilterChip
-                                        key={status}
-                                        testID={`kitchen-ledger-cost-status-${status}`}
-                                        label={t(receiptCostStatusKey(status))}
-                                        selected={costStatus === status}
-                                        onChange={(selected) => {
-                                            // One state at a time: the endpoint takes a single
-                                            // `cost_status`, and a second selected chip would be a
-                                            // control promising a union it cannot ask for.
-                                            setCostStatus(selected ? status : null);
-                                            resetCursor();
-                                        }}
-                                    />
-                                ))}
-                            </Inline>
-                        </Stack>
-                    ) : null}
+            <CatalogueToolbar<LedgerMode>
+                testID="kitchen-ledger-toolbar"
+                search={query}
+                onSearchChange={(next) => {
+                    setQuery(next);
+                    setViewing(null);
+                }}
+                searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:ops.ledger.searchPlaceholder')}
+                statusLabel={t('kitchen:ops.ledger.modeLabel')}
+                statusSegments={modeSegments}
+                status={activeMode}
+                onStatusChange={(next) => {
+                    setActiveMode(next);
+                    setViewing(null);
+                }}
+            />
 
-                    {pending ? (
-                        <Stack space="sm" testID="kitchen-purchases-ledger-loading">
-                            {Array.from({ length: 4 }, (_, index) => (
-                                <Skeleton key={index} heightClassName="h-10" />
-                            ))}
-                        </Stack>
-                    ) : failure !== null ? (
-                        <ErrorState
-                            testID="kitchen-purchases-ledger-error"
-                            failure={failure}
-                            onRetry={() => {
-                                void (isDetail ? ledger.refetch() : summary.refetch());
+            <Inline space="sm" align="end" wrap testID="kitchen-ledger-filters">
+                <Select
+                    testID="kitchen-ledger-filter-supplier"
+                    label={t('kitchen:ops.ledger.filterSupplier')}
+                    options={supplierOptions}
+                    value={supplierId ?? ''}
+                    onChange={(value) => {
+                        setSupplierId(value === '' ? null : value);
+                        resetCursor();
+                    }}
+                    searchable
+                    className="min-w-[200px] flex-1"
+                />
+                <Select
+                    testID="kitchen-ledger-filter-item"
+                    label={t('kitchen:ops.ledger.filterItem')}
+                    options={stockItemOptions}
+                    value={stockItemId ?? ''}
+                    onChange={(value) => {
+                        setStockItemId(value === '' ? null : value);
+                        resetCursor();
+                    }}
+                    searchable
+                    className="min-w-[200px] flex-1"
+                />
+                <TextInputField
+                    testID="kitchen-ledger-filter-from"
+                    label={t('kitchen:ops.ledger.filterFrom')}
+                    value={from}
+                    onChangeText={(value) => {
+                        setFrom(value);
+                        resetCursor();
+                    }}
+                    placeholder="YYYY-MM-DD"
+                    className="w-40"
+                />
+                <TextInputField
+                    testID="kitchen-ledger-filter-to"
+                    label={t('kitchen:ops.ledger.filterTo')}
+                    value={to}
+                    onChangeText={(value) => {
+                        setTo(value);
+                        resetCursor();
+                    }}
+                    placeholder="YYYY-MM-DD"
+                    className="w-40"
+                />
+            </Inline>
+
+            {isDetail ? (
+                <Inline space="xs" align="center" wrap testID="kitchen-ledger-filter-cost-status">
+                    <Text variant="caption" tone="secondary">
+                        {t('kitchen:ops.ledger.filterCostStatus')}
+                    </Text>
+                    {RECEIPT_COST_STATUSES.map((status) => (
+                        <FilterChip
+                            key={status}
+                            testID={`kitchen-ledger-cost-status-${status}`}
+                            label={t(receiptCostStatusKey(status))}
+                            selected={costStatus === status}
+                            onChange={(selected) => {
+                                // One state at a time: the endpoint takes a single `cost_status`,
+                                // and a second selected chip would be a control promising a union
+                                // it cannot ask for.
+                                setCostStatus(selected ? status : null);
+                                resetCursor();
                             }}
-                            retrying={isDetail ? ledger.isFetching : summary.isFetching}
                         />
-                    ) : isDetail ? (
-                        rows.length === 0 ? (
-                            <EmptyState
-                                testID="kitchen-purchases-ledger-empty"
-                                title={t('kitchen:ops.ledger.emptyTitle')}
-                                body={t('kitchen:ops.ledger.emptyBody')}
-                            />
-                        ) : (
-                            <Stack space="sm">
-                                <Table<PurchaseLedgerLine>
-                                    testID="kitchen-purchases-ledger-table"
-                                    caption={t('kitchen:ops.ledger.title')}
-                                    captionHidden
-                                    columns={columns}
-                                    rows={rows}
-                                    rowKey={(row) => row.id}
-                                />
-                                {hasMore ? (
-                                    <Inline space="sm" justify="end">
-                                        <Button
-                                            testID="kitchen-purchases-ledger-next"
-                                            variant="secondary"
-                                            size="sm"
-                                            label={t('kitchen:ops.ledger.nextPage')}
-                                            onPress={() => {
-                                                setCursor(nextCursor ?? undefined);
-                                            }}
-                                        />
-                                    </Inline>
-                                ) : null}
-                            </Stack>
-                        )
-                    ) : periods.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-purchases-ledger-summary-empty"
-                            title={t('kitchen:ops.ledger.summaryEmptyTitle')}
-                            body={t('kitchen:ops.ledger.summaryEmptyBody')}
+                    ))}
+                </Inline>
+            ) : null}
+
+            {pending ? (
+                <Stack space="xs" testID="kitchen-purchases-ledger-loading">
+                    {Array.from({ length: 5 }, (_, index) => (
+                        <Skeleton
+                            key={index}
+                            testID={`kitchen-purchases-ledger-skeleton-${String(index + 1)}`}
+                            heightClassName="h-row-sm"
                         />
-                    ) : (
-                        <Stack space="md" testID="kitchen-purchases-ledger-summary">
-                            {summary.data === undefined ? null : (
-                                <Text
-                                    variant="caption"
-                                    tone="secondary"
-                                    testID="kitchen-ledger-summary-range"
-                                >
-                                    {t('kitchen:ops.ledger.summaryRange', {
-                                        from: summary.data.from,
-                                        to: summary.data.to,
-                                    })}
-                                </Text>
-                            )}
-                            {periods.map((period) => (
-                                <PeriodCard
-                                    key={period.period}
-                                    period={period}
-                                    expanded={expandedCharges}
-                                    onToggleCharges={toggleCharges}
-                                />
-                            ))}
-                        </Stack>
-                    )}
+                    ))}
                 </Stack>
-            </OpsPanel>
+            ) : failure !== null ? (
+                <ErrorState
+                    testID="kitchen-purchases-ledger-error"
+                    failure={failure}
+                    onRetry={() => {
+                        void (isDetail ? ledger.refetch() : summary.refetch());
+                    }}
+                    retrying={isDetail ? ledger.isFetching : summary.isFetching}
+                />
+            ) : isDetail ? (
+                controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-purchases-ledger-empty"
+                        title={t('kitchen:ops.ledger.emptyTitle')}
+                        body={t('kitchen:ops.ledger.emptyBody')}
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<PurchaseLedgerLine>
+                            testID="kitchen-purchases-ledger-table"
+                            label={t('kitchen:ops.ledger.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.id}
+                            density="sm"
+                            onRowPress={setViewing}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            // View only: there is nothing to write from a ledger.
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `kitchen-ledger-${row.id}-view`,
+                                    onSelect: () => {
+                                        setViewing(row);
+                                    },
+                                },
+                            ]}
+                        />
+                        <Inline space="sm" align="center" justify="between" wrap>
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID="kitchen-purchases-ledger-range"
+                            >
+                                {t('kitchen:toolbar.showing', {
+                                    shown: controls.rows.length,
+                                    total: pageRows.length,
+                                })}
+                            </Text>
+                            {hasMore ? (
+                                <Button
+                                    testID="kitchen-purchases-ledger-next"
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('kitchen:ops.ledger.nextPage')}
+                                    onPress={() => {
+                                        setCursor(nextCursor ?? undefined);
+                                        setViewing(null);
+                                    }}
+                                />
+                            ) : null}
+                        </Inline>
+                    </Stack>
+                )
+            ) : periods.length === 0 ? (
+                <EmptyState
+                    testID="kitchen-purchases-ledger-summary-empty"
+                    title={t('kitchen:ops.ledger.summaryEmptyTitle')}
+                    body={t('kitchen:ops.ledger.summaryEmptyBody')}
+                />
+            ) : (
+                <Stack space="md" testID="kitchen-purchases-ledger-summary">
+                    {summary.data === undefined ? null : (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-ledger-summary-range"
+                        >
+                            {t('kitchen:ops.ledger.summaryRange', {
+                                from: summary.data.from,
+                                to: summary.data.to,
+                            })}
+                        </Text>
+                    )}
+                    {periods.map((period) => (
+                        <PeriodCard
+                            key={period.period}
+                            period={period}
+                            expanded={expandedCharges}
+                            onToggleCharges={toggleCharges}
+                        />
+                    ))}
+                </Stack>
+            )}
+
+            {viewing === null || viewingState === null ? null : (
+                <RecordWindow
+                    testID="kitchen-purchases-ledger-view"
+                    open
+                    onClose={() => {
+                        setViewing(null);
+                    }}
+                    title={itemTitle(viewing)}
+                    kind={t('kitchen:ops.ledger.viewKind')}
+                    status={{
+                        label: t(LINE_STATE_KEYS[viewingState]),
+                        tone: LINE_STATE_TONES[viewingState],
+                    }}
+                    {...(viewingState === 'priced'
+                        ? {}
+                        : {
+                              note: t(
+                                  viewingState === 'pendingFx'
+                                      ? 'kitchen:ops.ledger.viewPendingFxNote'
+                                      : 'kitchen:ops.ledger.viewUnpricedNote',
+                              ),
+                          })}
+                    fields={[
+                        {
+                            key: 'supplier',
+                            label: t('kitchen:ops.ledger.columnSupplier'),
+                            value: viewing.supplier?.nameEn ?? t('kitchen:ops.ledger.noSupplier'),
+                        },
+                        {
+                            key: 'date',
+                            label: t('kitchen:ops.ledger.columnDate'),
+                            value: dateText(viewing),
+                            mono: true,
+                        },
+                        {
+                            key: 'documentRef',
+                            label: t('kitchen:ops.procurement.fieldDocumentRef'),
+                            value: viewing.documentRef ?? '—',
+                            mono: true,
+                        },
+                        {
+                            key: 'quantity',
+                            label: t('kitchen:ops.ledger.columnQuantity'),
+                            value: formatter.formatNumber(Number(viewing.quantity)),
+                            mono: true,
+                        },
+                        {
+                            key: 'unitPrice',
+                            label: t('kitchen:ops.ledger.columnUnitPrice'),
+                            value: money(viewing.unitPriceAmount, viewing.costCurrencyCode),
+                            mono: true,
+                        },
+                        {
+                            key: 'lineTotal',
+                            label: t('kitchen:ops.ledger.columnLineTotal'),
+                            value: money(viewing.lineTotalAmount, viewing.costCurrencyCode),
+                            mono: true,
+                        },
+                    ]}
+                    footNote={t('kitchen:ops.ledger.viewFoot')}
+                />
+            )}
         </Stack>
     );
+}
+
+/**
+ * A line's money state, in the design's three words.
+ *
+ * Pending FX is checked first: such a line *has* a recorded price, and calling it unpriced would
+ * send somebody to type in a figure that already exists.
+ */
+type LedgerLineState = 'unpriced' | 'pendingFx' | 'priced';
+
+function ledgerLineState(row: PurchaseLedgerLine): LedgerLineState {
+    if (row.valuationPendingFx) return 'pendingFx';
+    if (row.lineTotalAmount === null || row.unitPriceAmount === null) return 'unpriced';
+    return 'priced';
+}
+
+const LINE_STATE_KEYS: Readonly<Record<LedgerLineState, string>> = {
+    unpriced: 'kitchen:ops.ledger.stateUnpriced',
+    pendingFx: 'kitchen:ops.ledger.statePendingFx',
+    priced: 'kitchen:ops.ledger.statePriced',
+};
+
+const LINE_STATE_TONES: Readonly<Record<LedgerLineState, BadgeTone>> = {
+    unpriced: 'warning',
+    pendingFx: 'info',
+    priced: 'success',
+};
+
+/** Counted over the lines in hand, like the design's CARDS. */
+function ledgerStatCards(
+    rows: readonly PurchaseLedgerLine[],
+    t: TFunction,
+): readonly CatalogueStatCard[] {
+    const count = (state: LedgerLineState) =>
+        rows.filter((row) => ledgerLineState(row) === state).length;
+    const unpriced = count('unpriced');
+    const pendingFx = count('pendingFx');
+    return [
+        {
+            key: 'unpriced',
+            label: t('kitchen:ops.ledger.stateUnpriced'),
+            value: String(unpriced),
+            unit: t('kitchen:ops.ledger.statLinesUnit'),
+            caption: t('kitchen:ops.ledger.statUnpricedCaption'),
+            mark: 'warning',
+            tone: unpriced === 0 ? 'default' : 'warning',
+        },
+        {
+            key: 'pendingFx',
+            label: t('kitchen:ops.ledger.statePendingFx'),
+            value: String(pendingFx),
+            unit: t('kitchen:ops.ledger.statLinesUnit'),
+            caption: t('kitchen:ops.ledger.statPendingFxCaption'),
+            mark: 'clock',
+        },
+        {
+            key: 'priced',
+            label: t('kitchen:ops.ledger.statePriced'),
+            value: String(count('priced')),
+            unit: t('kitchen:ops.ledger.statLinesUnit'),
+            caption: t('kitchen:ops.ledger.statPricedCaption'),
+            mark: 'check',
+        },
+    ];
 }
 
 /**

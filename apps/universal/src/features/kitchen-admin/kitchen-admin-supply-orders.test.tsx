@@ -26,6 +26,17 @@ import { SupplyOrderBuilderScreen } from './screens/supply-order-builder-screen.
 import { SupplyOrderDetailScreen } from './screens/supply-order-detail-screen.tsx';
 import { SupplyOrdersScreen } from './screens/supply-orders-screen.tsx';
 
+
+/*
+ * The Operations lists are desk surfaces: at desk width a row draws every column the spec declares.
+ * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
+ * suites render at the width the screens are built for.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 /**
  * The supply-orders landing page, the builder and one order's own page (SUP3, SUP4), against a
  * world this file authors.
@@ -374,9 +385,9 @@ describe('supply orders landing', () => {
 
         // Two of the three numbers, never a third claiming a total: they partition the count.
         expect(
-            screen.getByTestId('kitchen-supply-orders-panel-metric-outOfStock'),
+            screen.getByTestId('kitchen-supply-orders-stats-outOfStock-value'),
         ).toHaveTextContent(/2/);
-        expect(screen.getByTestId('kitchen-supply-orders-panel-metric-low')).toHaveTextContent(/1/);
+        expect(screen.getByTestId('kitchen-supply-orders-stats-low-value')).toHaveTextContent(/1/);
 
         const both = supplyOrderRowTestId(String(OUT_AND_LOW.stockItemId));
         // Both rules at once is one row wearing the Out badge — the label the server chose.
@@ -411,9 +422,9 @@ describe('supply orders landing', () => {
 
         await untilVisible('kitchen-supply-orders-empty');
 
-        // A fully stocked kitchen is not a screen with no content. The primary Prepare button steps
-        // aside, because there is nothing to prepare — but the escape hatch stays.
-        expect(screen.queryByTestId('kitchen-supply-orders-prepare')).toBeNull();
+        // A fully stocked kitchen is not a screen with no content: the good-news state keeps its own
+        // way in beside the toolbar's Prepare order.
+        expect(screen.getByTestId('kitchen-supply-orders-prepare')).toBeTruthy();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supply-orders-order-anyway'));
@@ -872,9 +883,14 @@ describe('supply orders book', () => {
 
         await untilVisible('kitchen-supply-orders-book-empty');
 
-        // No "drafts" metric tile is derived from the page: the list is a keyset walk with a null
-        // total, so a count from the rows in hand would be right only on short lists.
-        expect(screen.queryByTestId('kitchen-supply-orders-panel-metric-drafts')).toBeNull();
+        // The draft card counts the rows in hand and says so — "on this page", never a kitchen-wide
+        // total, because the list is a keyset walk with a null total.
+        expect(screen.getByTestId('kitchen-supply-orders-stats-draft-value')).toHaveTextContent(
+            '0',
+        );
+        expect(screen.getByTestId('kitchen-supply-orders-stats-draft')).toHaveTextContent(
+            /on this page/,
+        );
     });
 });
 

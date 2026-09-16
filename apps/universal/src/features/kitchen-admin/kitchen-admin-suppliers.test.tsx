@@ -27,6 +27,17 @@ import {
 import { SupplierDetailScreen } from './screens/supplier-detail-screen.tsx';
 import { SuppliersScreen } from './screens/suppliers-screen.tsx';
 
+
+/*
+ * The Operations lists are desk surfaces: at desk width a row draws every column the spec declares.
+ * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
+ * suites render at the width the screens are built for.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 /**
  * The supplier book and the supplier record (SUP1), against a world this file authors.
  *
@@ -289,7 +300,7 @@ describe('suppliers list', () => {
         });
 
         await untilVisible('kitchen-suppliers-table');
-        const search = screen.getByTestId('kitchen-suppliers-search-input');
+        const search = screen.getByTestId('kitchen-suppliers-toolbar-search-input');
 
         await act(async () => {
             fireEvent.changeText(search, 'bekaa');
@@ -332,7 +343,7 @@ describe('suppliers list', () => {
         expect(repositories.kitchenOps.listSuppliers).toHaveBeenCalledWith({});
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-suppliers-archived-filter'));
+            fireEvent.press(screen.getByTestId('kitchen-suppliers-toolbar-status-withArchived'));
         });
 
         await waitFor(() => {

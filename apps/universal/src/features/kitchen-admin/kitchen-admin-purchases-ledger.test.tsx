@@ -188,6 +188,9 @@ describe('purchases ledger detail mode', () => {
         await untilVisible('kitchen-purchases-ledger-table');
 
         expect(harness.repositories.kitchenOps.getSpendSummary).not.toHaveBeenCalled();
+
+        // The ledger is the valuation, and says so above the figures.
+        expect(screen.getByTestId('kitchen-purchases-ledger-cost-note')).toBeTruthy();
     });
 
     it('offers a price-completeness chip per state and asks the server for exactly one', async () => {
@@ -228,7 +231,7 @@ describe('purchases ledger summary modes', () => {
         await untilVisible('kitchen-purchases-ledger-table');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-weekly'));
+            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-status-weekly'));
         });
 
         await untilVisible('kitchen-ledger-period-2026-W31');
@@ -263,7 +266,7 @@ describe('purchases ledger summary modes', () => {
         await untilVisible('kitchen-ledger-period-2026-W31-USD-charges');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-monthly'));
+            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-status-monthly'));
         });
 
         await waitFor(() => {

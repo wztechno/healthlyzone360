@@ -347,21 +347,16 @@ describe('kitchen orders', () => {
         );
 
         // Five orders authored above, across all four statuses: two placed, one confirmed.
-        expect(screen.getByTestId('kitchen-orders-panel-metric-loaded-value')).toHaveTextContent(
-            '5',
-        );
-        expect(screen.getByTestId('kitchen-orders-panel-metric-awaiting-value')).toHaveTextContent(
-            '2',
-        );
-        expect(screen.getByTestId('kitchen-orders-panel-metric-confirmed-value')).toHaveTextContent(
-            '1',
-        );
+        expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent('5');
+        expect(screen.getByTestId('kitchen-orders-stats-awaiting-value')).toHaveTextContent('2');
+        expect(screen.getByTestId('kitchen-orders-stats-confirmed-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-orders-stats-fulfilled-value')).toHaveTextContent('1');
 
         const newest = book.orders()[0];
         if (newest === undefined) throw new Error('this test authored no orders');
-        expect(screen.getByTestId(`kitchen-order-${String(newest.id)}-number`)).toHaveTextContent(
-            'VK-2026-0148',
-        );
+        expect(
+            screen.getByTestId(`kitchen-orders-table-row-${String(newest.id)}-title`),
+        ).toHaveTextContent('VK-2026-0148');
         expect(screen.getByTestId(`kitchen-order-${String(newest.id)}-status`)).toBeTruthy();
     });
 
@@ -373,13 +368,11 @@ describe('kitchen orders', () => {
             expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
         });
 
-        fireEvent.press(screen.getByTestId('kitchen-orders-status-fulfilled'));
+        fireEvent.press(screen.getByTestId('kitchen-orders-toolbar-status-fulfilled'));
 
         // One fulfilled order in the authored book, so the loaded count is the filter's own answer.
         await waitFor(() => {
-            expect(
-                screen.getByTestId('kitchen-orders-panel-metric-loaded-value'),
-            ).toHaveTextContent('1');
+            expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent('1');
         });
         // The narrowing is the endpoint's, not a client-side sieve over the whole page.
         expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith({
@@ -390,13 +383,13 @@ describe('kitchen orders', () => {
         expect(fulfilled).toHaveLength(1);
         const only = fulfilled[0];
         if (only === undefined) throw new Error('this test authored no fulfilled order');
-        expect(screen.getByTestId(`kitchen-order-${String(only.id)}-number`)).toBeTruthy();
-        expect(screen.getByTestId('kitchen-orders-panel-metric-awaiting-value')).toHaveTextContent(
-            '0',
-        );
+        expect(
+            screen.getByTestId(`kitchen-orders-table-row-${String(only.id)}-title`),
+        ).toBeTruthy();
+        expect(screen.getByTestId('kitchen-orders-stats-awaiting-value')).toHaveTextContent('0');
     });
 
-    it('opens the slide-in with the order lines and its totals breakdown', async () => {
+    it('opens the order record with the order lines and its totals breakdown', async () => {
         const book = createOrderBook();
         await renderOrders(book);
 
@@ -407,7 +400,7 @@ describe('kitchen orders', () => {
         const placed = book.orders().find((order) => order.status === 'placed');
         if (placed === undefined) throw new Error('this test authored no placed order');
 
-        fireEvent.press(screen.getByTestId(`kitchen-order-${String(placed.id)}-open`));
+        fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-detail-body')).toBeTruthy();
@@ -419,9 +412,15 @@ describe('kitchen orders', () => {
         expect(screen.getByTestId('kitchen-orders-detail-subtotal')).toHaveTextContent(
             'AED 145.00',
         );
+
+        // Back returns to the list the record was opened from, without re-reading it from scratch.
+        fireEvent.press(screen.getByTestId('kitchen-orders-detail-back'));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
+        });
     });
 
-    it('confirms a placed order and leaves the panel on the fresh record', async () => {
+    it('confirms a placed order and leaves the record on the fresh record', async () => {
         const book = createOrderBook();
         const { repositories } = await renderOrders(book);
 
@@ -432,7 +431,7 @@ describe('kitchen orders', () => {
         const placed = book.orders().find((order) => order.status === 'placed');
         if (placed === undefined) throw new Error('this test authored no placed order');
 
-        fireEvent.press(screen.getByTestId(`kitchen-order-${String(placed.id)}-open`));
+        fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-confirm')).toBeTruthy();
         });
@@ -472,7 +471,7 @@ describe('kitchen orders', () => {
         const placed = book.orders().find((order) => order.status === 'placed');
         if (placed === undefined) throw new Error('this test authored no placed order');
 
-        fireEvent.press(screen.getByTestId(`kitchen-order-${String(placed.id)}-open`));
+        fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
         });

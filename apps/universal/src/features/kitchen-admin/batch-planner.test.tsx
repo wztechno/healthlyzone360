@@ -1,5 +1,7 @@
 import type {
     AdminEntityMeta,
+    StockItem,
+    StockLevel,
     IngredientAdmin,
     RecipeAdmin,
     RecipeAdminSummary,
@@ -13,6 +15,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import {
+    TEST_BRANCH_ID,
     TEST_ORGANISATION_ID,
     kitchenManagerSession,
     testActiveContext,
@@ -33,6 +36,8 @@ import { BatchPlannerScreen } from './screens/batch-planner-screen.tsx';
  * 2. **Packaging rounds up and ingredients do not.** 0.4 of an egg is an instruction; 0.4 of a box
  *    is not something anybody can take off a shelf. Both appear in one run below, because the
  *    difference is invisible in either case alone.
+ * 3. **Short is stated against the shelf, in the line's own unit.** A branch holding 0.2 kg of a
+ *    line that needs 0.5 kg is 0.3 kg short, and the row says so.
  */
 
 jest.mock('expo-router', () => ({
@@ -240,9 +245,38 @@ function summaryOf(record: RecipeAdmin): RecipeAdminSummary {
     return summary;
 }
 
+const BURGHUL_SHELF: StockItem = {
+    id: 'stock-item-burghul' as StockItem['id'],
+    code: 'ING-001',
+    nameEn: 'Burghul',
+    unitCode: 'kg',
+    ingredientId: BURGHUL_ID,
+    catalogueItemId: null,
+    backing: 'ingredient',
+    isStocked: true,
+    hasHistory: true,
+};
+
+const BURGHUL_LEVEL: StockLevel = {
+    id: 'stock-level-burghul',
+    branchId: TEST_BRANCH_ID,
+    stockItemId: BURGHUL_SHELF.id,
+    quantity: '0.200',
+    reorderThreshold: null,
+    parLevel: null,
+    isLow: false,
+    itemCode: 'ING-001',
+    itemNameEn: 'Burghul',
+    ingredientId: BURGHUL_ID,
+};
+
 function batchRepositories() {
     const record = recipe();
     return {
+        kitchenOps: {
+            listStockItems: async () => [BURGHUL_SHELF],
+            listStockLevels: async () => [BURGHUL_LEVEL],
+        },
         kitchenAdmin: {
             listRecipes: async () => page([summaryOf(record)]),
             getRecipe: async () => record,
@@ -276,15 +310,21 @@ describe('the batch planner', () => {
         });
 
         await untilVisible('kitchen-batch-planner-screen');
-        // Nothing is scaled before a recipe is picked.
-        await untilVisible('kitchen-batch-planner-pick-recipe');
+        // Nothing is scaled on the list: it is the recipe book, and a sheet is opened from a row.
+        // The narrow row layout (the test viewport) draws the row's title, not the column cell.
+        await untilVisible(`kitchen-batch-planner-table-row-${String(RECIPE_ID)}-title`);
+        expect(screen.queryByTestId('kitchen-batch-ingredients')).toBeNull();
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
+            fireEvent.press(
+                screen.getByTestId(
+                    `kitchen-batch-planner-table-row-${String(RECIPE_ID)}-actions-trigger`,
+                ),
+            );
         });
-        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
+        await untilVisible(`kitchen-batch-recipe-${String(RECIPE_ID)}-open`);
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
+            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-${String(RECIPE_ID)}-open`));
         });
 
         // A recipe with no target is still not a batch.
@@ -312,6 +352,19 @@ describe('the batch planner', () => {
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
         ).toHaveTextContent('500');
+
+        // The branch holds 0.2 kg of the 0.5 kg the batch needs.
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-position`),
+                ).toHaveTextContent(/Short/);
+            },
+            { timeout: 10_000 },
+        );
+        expect(
+            screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-short`),
+        ).toHaveTextContent(/0\.3/);
 
         // 3 trays × 2.5 is 7.5, and half a tray is not a thing anybody can take off a shelf.
         expect(
