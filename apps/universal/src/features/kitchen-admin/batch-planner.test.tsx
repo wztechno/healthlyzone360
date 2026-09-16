@@ -187,6 +187,7 @@ function version(overrides: Partial<RecipeVersionAdmin> = {}): RecipeVersionAdmi
         yieldUnit: 'kg',
         yieldPieces: null,
         wastePercent: 3,
+        packagingWastePercent: 0,
         b2bPrice: null,
         b2cPrice: null,
         lines: [LINE],

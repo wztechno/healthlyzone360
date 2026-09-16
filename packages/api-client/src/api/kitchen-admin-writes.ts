@@ -825,6 +825,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(request.wastePercent === undefined
                         ? {}
                         : { waste_coefficient_percent: request.wastePercent }),
+                    ...(request.packagingWastePercent === undefined
+                        ? {}
+                        : { packaging_waste_percent: request.packagingWastePercent }),
                     ...priceFields(request.b2bPrice, request.b2cPrice, undefined),
                 },
             });
@@ -865,6 +868,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 versionBody.yield_piece_count = request.yieldPieces;
             if (request.wastePercent !== undefined) {
                 versionBody.waste_coefficient_percent = request.wastePercent;
+            }
+            if (request.packagingWastePercent !== undefined) {
+                versionBody.packaging_waste_percent = request.packagingWastePercent;
             }
 
             // On the version body and not the record's: the prices are stated against *this*

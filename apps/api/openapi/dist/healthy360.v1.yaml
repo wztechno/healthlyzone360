@@ -23038,6 +23038,7 @@ components:
         - status
         - completeness
         - waste_coefficient_percent
+        - packaging_waste_percent
         - derivation_state
         - lock_version
       description: |
@@ -23087,6 +23088,14 @@ components:
             allowance the source technical sheets apply across the board.
           examples:
             - '3.00'
+        packaging_waste_percent:
+          type: string
+          description: |
+            Packaging loss, applied to the packaging half of the cost alone and to
+            what a sale deducts from the packaging shelves. Decimal with two places,
+            as a string. Defaults to `0.00`.
+          examples:
+            - '5.00'
         b2b_price_amount:
           type:
             - string
@@ -23699,12 +23708,16 @@ components:
                 type: object
                 required:
                   - line_number
+                  - ingredient_id
                   - unit_cost_amount
                   - line_cost_amount
                 properties:
                   line_number:
                     type: integer
                     minimum: 1
+                  ingredient_id:
+                    type: string
+                    format: uuid
                   unit_cost_amount:
                     type:
                       - string
@@ -23762,12 +23775,16 @@ components:
                 type: object
                 required:
                   - line_number
+                  - ingredient_id
                   - unit_cost_amount
                   - line_cost_amount
                 properties:
                   line_number:
                     type: integer
                     minimum: 1
+                  ingredient_id:
+                    type: string
+                    format: uuid
                   unit_cost_amount:
                     type:
                       - string
@@ -23950,6 +23967,10 @@ components:
           type: number
           minimum: 0
           maximum: 999.99
+        packaging_waste_percent:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 100
         b2b_price_amount:
           type:
             - number

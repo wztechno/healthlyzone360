@@ -1,4 +1,10 @@
-import type { CostAmount, IngredientAdmin, LocalisedText } from '@healthy360/api-client/contracts';
+import type {
+    CostAmount,
+    IngredientAdmin,
+    LocalisedText,
+    RecipeCostHalf,
+    RecipeLineCost,
+} from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import {
     Icon,
@@ -7,7 +13,6 @@ import {
     inputControlClass,
     inputFrameClassName,
 } from '@healthy360/design-system';
-import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -15,14 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ingredientsFromPages, useIngredientsQuery } from '../../data/kitchen-admin-hooks.ts';
-import {
-    displayName,
-    formatMoney,
-    humaniseCode,
-    lineCost,
-    parseQuantity,
-    unitShortKey,
-} from './format.ts';
+import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
 
 /**
  * One row of a recipe's line table, as typed.
@@ -51,7 +49,11 @@ export interface PickerEntry {
     readonly name: LocalisedText;
     /** The unit a new line starts in, and the one {@link unitPrice} is quoted against. */
     readonly unit: MeasureUnit;
-    /** What one {@link unit} costs, for the row's own arithmetic. `null` where nothing is recorded. */
+    /**
+     * What one {@link unit} is listed at, drawn beside each option while picking. `null` where
+     * nothing is recorded. A drawn row never reads it: its figures are the server's (see
+     * {@link RecipeLineTableProps.costs}).
+     */
     readonly unitPrice: CostAmount | null;
     /**
      * How much product one item holds, in the recipe's own unit. `null` on everything but packaging
@@ -117,8 +119,8 @@ export interface LineDraft {
  * | Designation| the resolved ingredient                   | picker   |
  * | Unit       | `RecipeLine.unit`                         | no       |
  * | Qty        | `RecipeLine.quantity`                     | yes      |
- * | Unit price | the *entry's* `unitPrice`, per its `unit`  | no       |
- * | Total      | qty converted to that unit, × unit price   | derived  |
+ * | Unit price | the server's unit cost, per the line's unit | no       |
+ * | Total      | the server's line cost                     | derived  |
  * | Comments   | `RecipeLine.sourceDesignation`            | yes      |
  *
  * **Unit price is read, not typed**, and that is a contract fact rather than a design deviation.
@@ -127,6 +129,11 @@ export interface LineDraft {
  * because its prototype holds its own array, and typing into it here would edit a number that has
  * nowhere to be saved and would silently disagree with the ingredient record on the next reload.
  * So it renders as a figure on the sunken fill: same track, same alignment, no false affordance.
+ *
+ * **Both money columns are the server's figures, never this table's arithmetic.** They were computed
+ * here from the ingredient's list price while the Costing tab's totals came from its purchase price,
+ * so a row and the total it rolled into could disagree about what an ingredient costs. The server
+ * prices the draft once (`RecipeCostingService::lineCostsOf`) and this draws what it said.
  *
  * **The unit follows the ingredient.** A line's unit has to be convertible to the ingredient's own
  * dimension or the roll-up cannot resolve it, so picking an ingredient sets the unit from its
@@ -141,6 +148,19 @@ export interface LineDraft {
  * *Dried* there — a note about this line's use of the ingredient, kept verbatim beside the resolved
  * record. It is the field the import fills and the one thing on a row that cannot be re-derived.
  */
+
+/**
+ * Whether a row is complete enough to send: something picked, and a quantity that parses.
+ *
+ * One definition for the editor and this table, because the server numbers the lines it is sent from
+ * 1 in the order they arrive. A table matching those numbers back to rows has to skip exactly the
+ * rows the editor left out of the request, or every figure after an unfinished row lands one row low.
+ */
+export function isSendableLine(
+    row: LineDraft,
+): row is LineDraft & { readonly ingredientId: string } {
+    return row.ingredientId !== null && parseQuantity(row.quantity) !== null;
+}
 
 export interface RecipeLineTableProps {
     readonly rows: readonly LineDraft[];
@@ -166,6 +186,13 @@ export interface RecipeLineTableProps {
      * same piece of information rather than two lists a reader has to cross-reference.
      */
     readonly flaggedIngredientIds?: readonly string[] | undefined;
+    /**
+     * The server's figures for these rows — the half of the draft's `computedCost` this table lists.
+     *
+     * `null` draws a dash in every money cell: nothing costed yet, nothing to divide by, or costs this
+     * member may not see. A dash and not a zero, because a zero is a measurement.
+     */
+    readonly costs: RecipeCostHalf | null;
     readonly canManage: boolean;
     /** Mints a stable row key. The editor owns the counter so keys never collide across tables. */
     readonly nextKey: () => string;
@@ -255,6 +282,7 @@ export function RecipeLineTable({
     ingredients,
     source = 'ingredients',
     flaggedIngredientIds = [],
+    costs,
     canManage,
     nextKey,
     onChange,
@@ -327,39 +355,35 @@ export function RecipeLineTable({
         [wantsIngredients, search.data?.pages],
     );
 
-    const unitPriceOf = (row: LineDraft): CostAmount | null => {
-        if (row.ingredientId === null) return null;
-        return byId.get(String(row.ingredientId))?.unitPrice ?? null;
-    };
-
     /*
-     * Quantity converted into the unit the price is quoted against, *then* multiplied — see
-     * {@link lineCost}. A 300 g line against a per-kilogram price used to read as three hundred
-     * kilograms. `null` is an uncosted line and draws the dash, never a zero.
+     * Each row's figures, matched by line number *and* ingredient.
+     *
+     * The n-th sendable row is line n (see {@link isSendableLine}). The ingredient check covers the
+     * moment between an edit and its answer: remove row 2 and, until the refetch lands, line 2 is
+     * still the ingredient that was removed. A dash for that moment beats a neighbour's price.
      */
-    const lineTotal = (row: LineDraft): number | null => {
-        const quantity = parseQuantity(row.quantity);
-        const entry = row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
-        if (quantity === null || entry === undefined) return null;
-        return lineCost(quantity, row.unit, entry.unitPrice, entry.unit);
-    };
+    const figures = useMemo(() => {
+        const byKey = new Map<string, RecipeLineCost>();
+        if (costs === null) return byKey;
+        let lineNumber = 0;
+        for (const row of rows) {
+            if (!isSendableLine(row)) continue;
+            lineNumber += 1;
+            const figure = costs.lines.find((line) => line.lineNumber === lineNumber);
+            if (figure !== undefined && String(figure.ingredientId) === row.ingredientId) {
+                byKey.set(row.key, figure);
+            }
+        }
+        return byKey;
+    }, [rows, costs]);
 
     const totalQuantity = rows.reduce((sum, row) => sum + (parseQuantity(row.quantity) ?? 0), 0);
-    const totalCost = rows.reduce((sum, row) => sum + (lineTotal(row) ?? 0), 0);
 
-    /*
-     * The one currency every priced row is in, or `null`.
-     *
-     * A total only carries a currency mark when every figure under it is in that currency. Two rows
-     * priced in two currencies do not add up to either, so the sum renders as a bare number rather
-     * than claiming the currency of whichever row happened to be first.
-     */
-    const pricedCurrencies = new Set<CurrencyCode>();
-    for (const row of rows) {
-        const price = unitPriceOf(row);
-        if (price !== null) pricedCurrencies.add(price.currency);
-    }
-    const sharedCurrency = pricedCurrencies.size === 1 ? ([...pricedCurrencies][0] ?? null) : null;
+    const money = (amount: CostAmount | null, digits: Intl.NumberFormatOptions): string =>
+        amount === null
+            ? t('kitchen:list.noValue')
+            : // Each figure in its own currency: the server states one per amount.
+              formatMoney(formatter, amount.amount, amount.currency, digits);
 
     const add = (entry: PickerEntry) => {
         onChange([
@@ -421,8 +445,7 @@ export function RecipeLineTable({
                 {rows.map((row) => {
                     const entry =
                         row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
-                    const price = unitPriceOf(row);
-                    const total = lineTotal(row);
+                    const figure = figures.get(row.key);
                     const rowTestId = `${testID}-row-${row.key}`;
 
                     return (
@@ -489,20 +512,11 @@ export function RecipeLineTable({
                                 <Text
                                     variant="mono"
                                     align="start"
-                                    tone={price === null ? 'secondary' : 'primary'}
+                                    tone={figure?.unitCost == null ? 'secondary' : 'primary'}
                                     numberOfLines={1}
                                     testID={`${rowTestId}-unit-price`}
                                 >
-                                    {price === null
-                                        ? t('kitchen:list.noValue')
-                                        : // Each row in its **own** currency: the pool can hold two,
-                                          // and a mark borrowed from a neighbour is worse than none.
-                                          formatMoney(
-                                              formatter,
-                                              price.amount,
-                                              price.currency,
-                                              MONEY,
-                                          )}
+                                    {money(figure?.unitCost ?? null, UNIT_COST)}
                                 </Text>
                             </View>
 
@@ -513,10 +527,7 @@ export function RecipeLineTable({
                                     numberOfLines={1}
                                     testID={`${rowTestId}-total`}
                                 >
-                                    {total === null || price === null
-                                        ? t('kitchen:list.noValue')
-                                        : // In the row's own currency, like the unit price it multiplies.
-                                          formatMoney(formatter, total, price.currency, LINE_TOTAL)}
+                                    {money(figure?.lineCost ?? null, LINE_TOTAL)}
                                 </Text>
                             </View>
 
@@ -567,7 +578,7 @@ export function RecipeLineTable({
                         testID={`${testID}-totals`}
                         label={t('kitchen:recipes.sheetTotalRow')}
                         quantity={formatter.formatNumber(totalQuantity, LINE_TOTAL)}
-                        cost={formatMoney(formatter, totalCost, sharedCurrency, LINE_TOTAL)}
+                        cost={money(costs?.total ?? null, LINE_TOTAL)}
                     />
                 )}
             </View>
@@ -603,8 +614,13 @@ const TRACK = { unit: 52, qty: 68, unitPrice: 80, total: 80, action: 28 } as con
 const DESIGNATION_TRACK = { flexGrow: 1.7, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
 const COMMENTS_TRACK = { flexGrow: 1.3, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
 
-/** Unit prices read at two decimals; a line total at three — the source sheets' own precision. */
+/** A picker's list price reads at two decimals; a line total at three — the source sheets' own. */
 const MONEY: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+/**
+ * A row's unit cost, to four. It is per the *line's* unit, so a line written in grams against a
+ * per-kilogram price costs 0.0079 a gram — which two decimals would print as 0.01.
+ */
+const UNIT_COST: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 4 };
 const LINE_TOTAL: Intl.NumberFormatOptions = {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,

@@ -825,6 +825,7 @@ export const zComputedCost = z.object({
         is_complete: z.boolean(),
         lines: z.array(z.object({
             line_number: z.int().gte(1),
+            ingredient_id: z.uuid(),
             unit_cost_amount: z.string().nullable(),
             line_cost_amount: z.string().nullable()
         }))
@@ -838,6 +839,7 @@ export const zComputedCost = z.object({
         is_complete: z.boolean(),
         lines: z.array(z.object({
             line_number: z.int().gte(1),
+            ingredient_id: z.uuid(),
             unit_cost_amount: z.string().nullable(),
             line_cost_amount: z.string().nullable()
         }))
@@ -1476,6 +1478,7 @@ export const zAdminRecipeVersion = z.object({
     yield_piece_count: z.int().gte(1).nullish(),
     input_quantity_total: z.string().nullish(),
     waste_coefficient_percent: z.string(),
+    packaging_waste_percent: z.string(),
     b2b_price_amount: z.string().nullish(),
     b2c_price_amount: z.string().nullish(),
     price_currency_code: zCurrencyCode.nullish(),
@@ -1526,6 +1529,7 @@ export const zUpdateRecipeVersionRequest = z.object({
     yield_piece_count: z.int().gte(1).nullish(),
     input_quantity_total: z.number().gt(0).lte(99999999.9999).nullish(),
     waste_coefficient_percent: z.number().gte(0).lte(999.99).optional(),
+    packaging_waste_percent: z.number().gte(0).lt(100).optional(),
     b2b_price_amount: z.number().gte(0).lte(1000000000000).nullish(),
     b2c_price_amount: z.number().gte(0).lte(1000000000000).nullish(),
     price_currency_code: zCurrencyCode.nullish(),

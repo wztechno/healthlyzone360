@@ -629,6 +629,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                         status: 'draft',
                         completeness: 'indicative',
                         waste_coefficient_percent: '3.00',
+                        packaging_waste_percent: '0.00',
                         derivation_state: 'current',
                         lock_version: 1,
                     },

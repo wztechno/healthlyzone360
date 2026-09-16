@@ -983,6 +983,13 @@ export type AdminRecipeVersion = {
      */
     waste_coefficient_percent: string;
     /**
+     * Packaging loss, applied to the packaging half of the cost alone and to
+     * what a sale deducts from the packaging shelves. Decimal with two places,
+     * as a string. Defaults to `0.00`.
+     *
+     */
+    packaging_waste_percent: string;
+    /**
      * Trade list price for one unit of the yield, in **major** currency
      * units, as a string so no client rounds it. A list price and not a
      * cost: what the version is offered at to a kitchen or corporate
@@ -1351,6 +1358,7 @@ export type ComputedCost = {
          */
         lines: Array<{
             line_number: number;
+            ingredient_id: string;
             unit_cost_amount: string | null;
             line_cost_amount: string | null;
         }>;
@@ -1377,6 +1385,7 @@ export type ComputedCost = {
          */
         lines: Array<{
             line_number: number;
+            ingredient_id: string;
             unit_cost_amount: string | null;
             line_cost_amount: string | null;
         }>;
@@ -1465,6 +1474,7 @@ export type UpdateRecipeVersionRequest = {
     yield_piece_count?: number | null;
     input_quantity_total?: number | null;
     waste_coefficient_percent?: number;
+    packaging_waste_percent?: number;
     /**
      * Trade list price per unit of yield, in **major** currency units.
      * Zero is a real price — a staff meal, a component carried at cost —

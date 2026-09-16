@@ -4616,7 +4616,7 @@ export interface NamespaceKeys {
     | 'recipes.confidentialHint'
     | 'recipes.costCascadeHint'
     | 'recipes.costPackaging'
-    | 'recipes.costPerBatch'
+    | 'recipes.costPerPieceWithWaste'
     | 'recipes.costPerUnit'
     | 'recipes.costProduction'
     | 'recipes.costTotal'
@@ -4625,7 +4625,6 @@ export interface NamespaceKeys {
     | 'recipes.create'
     | 'recipes.createTitle'
     | 'recipes.createdToast'
-    | 'recipes.currencyMixed'
     | 'recipes.currentVersion'
     | 'recipes.descriptionLabel'
     | 'recipes.discard'
@@ -4675,6 +4674,7 @@ export interface NamespaceKeys {
     | 'recipes.outputsExplainerTitle'
     | 'recipes.packageCostLabel'
     | 'recipes.packageCostsHint'
+    | 'recipes.packageCostsIncomplete'
     | 'recipes.packageCostsNoLines'
     | 'recipes.packageCostsNoYield'
     | 'recipes.packageCostsNone'
@@ -11467,7 +11467,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.confidentialHint',
   'kitchen:recipes.costCascadeHint',
   'kitchen:recipes.costPackaging',
-  'kitchen:recipes.costPerBatch',
+  'kitchen:recipes.costPerPieceWithWaste',
   'kitchen:recipes.costPerUnit',
   'kitchen:recipes.costProduction',
   'kitchen:recipes.costTotal',
@@ -11476,7 +11476,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.create',
   'kitchen:recipes.createTitle',
   'kitchen:recipes.createdToast',
-  'kitchen:recipes.currencyMixed',
   'kitchen:recipes.currentVersion',
   'kitchen:recipes.descriptionLabel',
   'kitchen:recipes.discard',
@@ -11526,6 +11525,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.outputsExplainerTitle',
   'kitchen:recipes.packageCostLabel',
   'kitchen:recipes.packageCostsHint',
+  'kitchen:recipes.packageCostsIncomplete',
   'kitchen:recipes.packageCostsNoLines',
   'kitchen:recipes.packageCostsNoYield',
   'kitchen:recipes.packageCostsNone',

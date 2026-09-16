@@ -48,6 +48,12 @@ export const CATALOGUE_MANAGE_PERMISSION = 'catalogue.manage_organisation';
 export const CATALOGUE_PUBLISH_PERMISSION = 'catalogue.publish_organisation';
 export const RECIPE_VIEW_PERMISSION = 'recipe.view_organisation';
 export const RECIPE_MANAGE_PERMISSION = 'recipe.manage_organisation';
+/**
+ * What a recipe costs. The server withholds every recipe cost figure without it — the technical
+ * sheet's money, and the editor's `computedCost` — so a screen asks before drawing a cascade of
+ * dashes and says why instead.
+ */
+export const RECIPE_VIEW_COSTS_PERMISSION = 'recipe.view_costs_organisation';
 export const PRICE_LIST_VIEW_PERMISSION = 'price_list.view_organisation';
 export const PRICE_LIST_MANAGE_PERMISSION = 'price_list.manage_organisation';
 export const PLAN_MANAGE_PERMISSION = 'plan.manage_organisation';

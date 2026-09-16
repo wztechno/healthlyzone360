@@ -931,6 +931,7 @@ export function mapRecipeVersionAdmin(
         yieldUnit: measureUnitById(wire.yield_unit_id, units),
         yieldPieces: wire.yield_piece_count ?? null,
         wastePercent: parseDecimal(wire.waste_coefficient_percent, 3),
+        packagingWastePercent: parseDecimal(wire.packaging_waste_percent),
         // The two list prices share one currency by construction — the column CHECK refuses an
         // amount without one — so both read the same code rather than each carrying its own.
         b2bPrice: mapCostAmount(wire.b2b_price_amount, wire.price_currency_code),
@@ -1014,10 +1015,12 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
     const amount = (value: string | null): CostAmount | null => mapCostAmount(value, currency);
     const lineCostOf = (line: {
         readonly line_number: number;
+        readonly ingredient_id: string;
         readonly unit_cost_amount: string | null;
         readonly line_cost_amount: string | null;
     }) => ({
         lineNumber: line.line_number,
+        ingredientId: IngredientId.unsafe(line.ingredient_id),
         unitCost: amount(line.unit_cost_amount),
         lineCost: amount(line.line_cost_amount),
     });

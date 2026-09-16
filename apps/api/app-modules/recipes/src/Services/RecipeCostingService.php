@@ -332,8 +332,12 @@ final readonly class RecipeCostingService
      * resolved — the same resolution a save performs. A row nothing could price comes back with
      * nulls rather than zeroes: a zero is a measurement, and an unpriced line is not one.
      *
+     * Each entry names its ingredient as well as its line number, as `costPerPackage()` does. A
+     * client matches these to rows it is still editing, and a number alone cannot tell it that the
+     * row it is looking at is no longer the one that was priced.
+     *
      * @param  Collection<int, RecipeVersionLine>|Collection<int, RecipeVersionPackaging>  $rows
-     * @return list<array{line_number: int, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>
+     * @return list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>
      */
     public function lineCostsOf(Collection $rows): array
     {
@@ -342,6 +346,7 @@ final readonly class RecipeCostingService
         foreach ($rows->sortBy('line_number') as $row) {
             $out[] = [
                 'line_number' => (int) $row->line_number,
+                'ingredient_id' => (string) $row->ingredient_id,
                 'unit_cost_amount' => $row->unit_cost_amount === null ? null : $this->numeric((string) $row->unit_cost_amount),
                 'line_cost_amount' => $row->line_cost_amount === null ? null : $this->numeric((string) $row->line_cost_amount),
             ];

@@ -126,8 +126,8 @@ final class TechnicalSheetPresenter
      *
      *
      * @param  list<array{line_number: int, ingredient_id: string, cost_per_package_amount: string|null}>  $packages
-     * @param  list<array{line_number: int, unit_cost_amount: string|null, line_cost_amount: string|null}>  $productionLines
-     * @param  list<array{line_number: int, unit_cost_amount: string|null, line_cost_amount: string|null}>  $packagingLines
+     * @param  list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null}>  $productionLines
+     * @param  list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null}>  $packagingLines
      * @return array{
      *     currency_code: string|null,
      *     production: array{
@@ -139,7 +139,7 @@ final class TechnicalSheetPresenter
      *         waste_percent: string,
      *         uncosted_line_numbers: list<int>,
      *         is_complete: bool,
-     *         lines: list<array{line_number: int, unit_cost_amount: string|null, line_cost_amount: string|null}>
+     *         lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null}>
      *     },
      *     packaging: array{
      *         total_packaging_cost_amount: string,
@@ -148,7 +148,7 @@ final class TechnicalSheetPresenter
      *         waste_percent: string,
      *         uncosted_line_numbers: list<int>,
      *         is_complete: bool,
-     *         lines: list<array{line_number: int, unit_cost_amount: string|null, line_cost_amount: string|null}>
+     *         lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null}>
      *     },
      *     total_cost_per_yield_unit_amount: string|null,
      *     yield_unit_id: string|null,

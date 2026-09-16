@@ -664,8 +664,10 @@ it('states each line on the same basis as the totals under it', function (): voi
         ->and($computed['production']['lines'][0]['line_cost_amount'])->toBe('7.186000')
         ->and($computed['production']['total_input_cost_amount'])->toBe('7.186000');
 
-    // Two bottles at 0.25 is 0.50, and the packaging total is that line.
+    // Two bottles at 0.25 is 0.50, and the packaging total is that line. Each line names its item,
+    // so a client still editing the rows can tell a stale figure from the row it is drawn beside.
     expect($computed['packaging']['lines'])->toHaveCount(1)
+        ->and($computed['packaging']['lines'][0]['ingredient_id'])->toBe((string) $bottle->getKey())
         ->and($computed['packaging']['lines'][0]['unit_cost_amount'])->toBe('0.250000')
         ->and($computed['packaging']['lines'][0]['line_cost_amount'])->toBe('0.500000')
         ->and($computed['packaging']['total_packaging_cost_amount'])->toBe('0.500000');
