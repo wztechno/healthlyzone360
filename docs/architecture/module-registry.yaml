@@ -139,6 +139,27 @@ modules:
     description: Platform-level administration surface (kitchen tenant lifecycle, owner invitations, suspension; reference-data management); no broadly privileged runtime DB role.
     depends_on: [Support, Organisations, AccessControl, Features, Audit, B2B, Catalogues, Identity, Tenancy]
 
+  # AA1: a tenant's own access console — the other half of the sentence
+  # PlatformAdministration's entry writes above. That module is the platform
+  # administering somebody else's kitchen; this one is a kitchen administering
+  # itself.
+  #
+  # It could not go into AccessControl, and the reason is the one PA1 gives,
+  # pointed at a different edge. The console offers a staff account by
+  # invitation as well as by direct creation, so it reuses `InvitationService`
+  # — which lives in B2B, which already depends on AccessControl. Hosting the
+  # console in the kernel would close that edge into a cycle. Independently,
+  # AccessControl is the kernel twelve modules import, and it deliberately has
+  # no HTTP surface at all: giving it controllers would make every module that
+  # wants the permission checker carry them too.
+  #
+  # Nothing depends on this module, so the graph gains a sink and stays acyclic.
+  - name: AccessAdministration
+    status: active
+    phase: 1
+    description: A tenant's own access console — bespoke organisation roles and their permission grants, membership role assignment and branch scope, membership lifecycle, and staff account provisioning by invitation or by direct creation.
+    depends_on: [Support, Identity, Organisations, Tenancy, AccessControl, Audit, B2B]
+
   # ── Planned modules (documented only — no code, no directories) ───────────
   - name: Nutrition
     status: planned

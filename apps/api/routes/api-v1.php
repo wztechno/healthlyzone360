@@ -2,6 +2,20 @@
 
 declare(strict_types=1);
 
+use Healthy360\AccessAdministration\Http\Controllers\MembershipRoleReplaceController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipEndController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipIndexController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipReactivateController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipScopeUpdateController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipShowController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationMembershipSuspendController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleDeleteController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleIndexController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleShowController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleStoreController;
+use Healthy360\AccessAdministration\Http\Controllers\OrganisationRoleUpdateController;
+use Healthy360\AccessAdministration\Http\Controllers\PermissionCatalogueIndexController;
+use Healthy360\AccessAdministration\Http\Controllers\StaffAccountStoreController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassDeactivateController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassStoreController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassUpdateController;
@@ -2613,6 +2627,196 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::delete('/invitations/{invitation}', OrganisationInvitationRevokeController::class)
                 ->middleware('permission:membership.end_organisation')
                 ->name('organisations.invitations.revoke');
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Access administration — roles, memberships and staff (AA1)
+        |--------------------------------------------------------------------------
+        |
+        | The other half of the screen the invitation block above serves. That one
+        | offers somebody a place; this one says what a place *is* — which roles a
+        | kitchen has defined, what each one may reach, who holds which, and how a
+        | person comes to have a login at all. They are adjacent here because they
+        | are adjacent in the product: one console, two tabs.
+        |
+        | Middleware: auth:sanctum + db.context + device.touch + verified +
+        | org.context + permission. The `{organisation}` in the path is checked
+        | against the organisation `org.context` validated a membership against,
+        | and a mismatch is **404** — "no such organisation, as far as you are
+        | concerned", the same answer and the same reason as next door.
+        |
+        | **No `branch.context`, anywhere in this block.** Roles and memberships
+        | are organisation-wide. A membership's `branch_id` is data these endpoints
+        | *write* — it is how a kitchen says "this person works the airport branch"
+        | — not context they read, and requiring a selected branch to edit it would
+        | make the organisation-wide case unreachable from a branch-scoped session.
+        |
+        | **No `org.trading`, anywhere in this block, and that is deliberate.**
+        | A suspended kitchen may not sell: `org.trading` guards every catalogue
+        | and publication write for exactly that reason. It must still be able to
+        | take somebody's access away. A suspension is often the moment a kitchen
+        | most needs to remove a login, and a gate that switched this console off
+        | precisely then would be the one control that stops working when it is
+        | needed.
+        |
+        | Reads are gated on `role.view_organisation` and
+        | `membership.view_organisation`; writes on `role.manage_organisation`,
+        | `membership.update_organisation`, `membership.end_organisation` and
+        | `user.manage_organisation`. Every one of those codes has been registered
+        | since the foundation and granted to `organisation_owner` since P0; AA1 is
+        | the phase that gives them endpoints, which is why the registry needed no
+        | new code for any of this.
+        |
+        | `GET /permissions` is gated on `role.view_organisation` rather than a
+        | code of its own: reading the vocabulary a role is written in is reading
+        | roles, and a `permission.view_organisation` nobody could hold separately
+        | would be bookkeeping. It serves organisation codes only — the registry is
+        | split so that no organisation role can acquire a platform code, and a
+        | catalogue that offered one would be a form with a trap in it.
+        |
+        */
+        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+            Route::middleware('permission:role.view_organisation')->group(function (): void {
+                Route::get('/permissions', PermissionCatalogueIndexController::class)
+                    ->name('organisations.permissions.index');
+
+                Route::get('/roles', OrganisationRoleIndexController::class)
+                    ->name('organisations.roles.index');
+
+                // `visibleRole`, not `ownRole`: a platform template has to be
+                // readable, because Copy is the only supported way for a kitchen
+                // to change what one of them means inside its own walls.
+                Route::get('/roles/{role}', OrganisationRoleShowController::class)
+                    ->name('organisations.roles.show');
+            });
+
+            /*
+             * Role writes.
+             *
+             * No `idempotency` on the create, unlike the platform console's:
+             * a role has a natural key, and
+             * `roles_organisation_id_code_unique NULLS NOT DISTINCT` already
+             * turns a replayed create into a `resource.conflict` naming the
+             * field. Idempotency here would be machinery for a race the
+             * database settles with a better message.
+             *
+             * `precondition` on both writes, and it is not optional on this
+             * resource. Two administrators editing one role — one removing
+             * `order.manage_organisation` while the other adds a cost code — is
+             * the ordinary case on a console two people share, and
+             * last-write-wins would silently restore a permission somebody
+             * believes they revoked. DELETE carries it for the sharper version
+             * of the same problem: somebody may have granted the role to a new
+             * starter since the list was read.
+             *
+             * A platform template answers **404** here rather than 403 — from
+             * the writing side there is no role at that identifier belonging to
+             * you — and `RolePolicy` plus the `roles` RLS policy refuse it
+             * twice more behind that.
+             */
+            Route::middleware('permission:role.manage_organisation')->group(function (): void {
+                Route::post('/roles', OrganisationRoleStoreController::class)
+                    ->name('organisations.roles.store');
+
+                Route::patch('/roles/{role}', OrganisationRoleUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('organisations.roles.update');
+
+                Route::delete('/roles/{role}', OrganisationRoleDeleteController::class)
+                    ->middleware('precondition')
+                    ->name('organisations.roles.destroy');
+            });
+
+            Route::middleware('permission:membership.view_organisation')->group(function (): void {
+                Route::get('/memberships', OrganisationMembershipIndexController::class)
+                    ->name('organisations.memberships.index');
+
+                Route::get('/memberships/{membership}', OrganisationMembershipShowController::class)
+                    ->name('organisations.memberships.show');
+            });
+
+            /*
+             * Membership writes.
+             *
+             * **Lifecycle is verbs, never `PATCH {status}`.** One call taking a
+             * string would let a console ship a dropdown in which `ended` — the
+             * one irreversible act — sits beside three reversible ones, and
+             * would need a state machine in a validator to stop it. `PATCH`
+             * carries branch scope alone, because where somebody works is an
+             * ordinary attribute that moves both ways.
+             *
+             * Role assignment is gated on `role.manage_organisation`, not
+             * `membership.update_organisation`, because that code's own
+             * description reads "roles **and role assignments**". Changing
+             * where somebody works and changing what they may do are different
+             * authorities, and a kitchen may reasonably grant the first alone.
+             *
+             * `precondition` everywhere, reading `organisation_memberships.
+             * lock_version`, which has existed since the foundation. Two
+             * administrators on one console is the ordinary case, and one
+             * reactivating while the other suspends is a coin flip that
+             * last-write-wins would settle silently — on the question of
+             * whether somebody may sign in.
+             *
+             * Ending a membership shares `membership.end_organisation` with
+             * revoking an invitation next door: withdrawing an offer somebody
+             * has not yet accepted and removing somebody who has are the same
+             * decision taken at two moments.
+             */
+            Route::middleware(['permission:membership.update_organisation', 'precondition'])->group(function (): void {
+                Route::patch('/memberships/{membership}', OrganisationMembershipScopeUpdateController::class)
+                    ->name('organisations.memberships.update');
+
+                Route::post('/memberships/{membership}/suspend', OrganisationMembershipSuspendController::class)
+                    ->name('organisations.memberships.suspend');
+
+                Route::post('/memberships/{membership}/reactivate', OrganisationMembershipReactivateController::class)
+                    ->name('organisations.memberships.reactivate');
+            });
+
+            Route::post('/memberships/{membership}/end', OrganisationMembershipEndController::class)
+                ->middleware(['permission:membership.end_organisation', 'precondition'])
+                ->name('organisations.memberships.end');
+
+            Route::put('/memberships/{membership}/roles', MembershipRoleReplaceController::class)
+                ->middleware(['permission:role.manage_organisation', 'precondition'])
+                ->name('organisations.memberships.roles.replace');
+
+            /*
+             * Opening an account for somebody who cannot open one themselves.
+             *
+             * The invitation flow's sibling, not its replacement: a colleague
+             * with a mailbox should still be invited, because they choose a
+             * password nobody else ever knows. This is for the kitchen hand who
+             * has no mailbox, and whose alternative is no account at all.
+             *
+             * **Two authorities, stacked.** The route gate is
+             * `user.manage_organisation`; the controller additionally demands
+             * `membership.invite_organisation`, because minting a login and
+             * granting it a seat are two decisions and a kitchen may want
+             * somebody who can do the second without the first. The shape
+             * `PlatformKycDocumentReviewController` uses.
+             *
+             * `idempotency`, unlike the role create. A role has a natural key
+             * and a person does not, and an administrator who does not know
+             * whether a password was issued must either create a second account
+             * or leave somebody unable to sign in — both discovered by whoever
+             * is standing at the counter.
+             *
+             * `step-up`, joining device revocation and the primary-contact
+             * change as the third act of its kind on this platform: a hijacked
+             * session minting itself a second, permanently-privileged account
+             * is exactly what password re-confirmation exists for.
+             *
+             * The initial password is in the response **once**, on the
+             * `InvitationService::issue()` model — never stored readable, never
+             * audited, never in a log. `users.must_change_password` is what
+             * makes that defensible.
+             */
+            Route::post('/staff', StaffAccountStoreController::class)
+                ->middleware(['permission:user.manage_organisation', 'idempotency', 'step-up'])
+                ->name('organisations.staff.store');
         });
 
         /*

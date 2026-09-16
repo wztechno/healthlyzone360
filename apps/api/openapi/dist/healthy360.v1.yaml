@@ -311,6 +311,15 @@ tags:
       and every one of them requires `If-Match`. A quotation is a number
       somebody will be held to; two tabs must not be able to submit and
       re-price the same draft.
+  - name: Access administration
+    description: |
+      A kitchen administering itself: the roles it has defined, what each one
+      reaches, who holds which, and how somebody comes to have a login at all.
+
+      The other half of Invitations, and deliberately not Platform
+      administration — that tag is the platform managing *somebody else's*
+      tenant behind `platform.context`, and nothing here carries a platform
+      gate.
   - name: Invitations
     description: |
       Bringing a person into an organisation. The token is returned to nobody:
@@ -795,6 +804,134 @@ paths:
                     $ref: '#/components/schemas/Meta'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/user/password:
+    put:
+      operationId: updateOwnPassword
+      tags:
+        - Authentication
+      summary: Replace a password you already know
+      description: |
+        Fortify has shipped this controller since the beginning and this API has
+        never registered it, because until an administrator could open an
+        account on somebody else's behalf, every password on the platform was
+        chosen by the person who owned it and replaced through the emailed
+        reset link.
+
+        `POST /organisations/{organisation}/staff` changes that: it hands a
+        working credential to two people, and `must_change_password` on the new
+        account holds them here until this route clears it.
+
+        **`current_password` is required even on a forced first change**, and
+        the shortcut of waiving it — they have just signed in with it — is
+        deliberately not taken. A session is not a password: it survives on a
+        shared terminal and in an unlocked phone. The whole value of this route
+        is that it takes a credential away from whoever else holds it, and a
+        version exercisable from an abandoned session would hand it to the
+        wrong person instead.
+
+        **The session survives**, unlike a reset — which is what lets a forced
+        first change flow straight into the workspace rather than bouncing back
+        to a login form.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordRequest'
+      responses:
+        '200':
+          description: Replaced, and the obligation cleared.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - password_updated
+                      - must_change_password
+                    properties:
+                      password_updated:
+                        type: boolean
+                      must_change_password:
+                        type: boolean
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/staff-domains:
+    get:
+      operationId: listStaffSignInDomains
+      tags:
+        - Authentication
+      summary: The domains a member of staff signs in under
+      description: |
+        Anonymous by construction: the sign-in screen renders the domain picker
+        before anybody has signed in, so a guarded endpoint could not serve the
+        screen it exists for.
+
+        An anonymous list of tenant names looks inconsistent beside the
+        invitation endpoints, which go to deliberate lengths *not* to confirm
+        that a given organisation exists — so the difference is worth naming.
+        Nothing here is a secret: an organisation's name is already on the
+        public marketplace, and a staff domain is the right-hand side of every
+        address that organisation has ever issued.
+
+        It is narrow in the two ways that matter. Only organisations that have
+        **set** a domain appear, so listing is opt-in by a deliberate act; and
+        only **active** ones, because a suspended tenant's staff cannot sign in
+        and offering the option would be an invitation to a refusal.
+
+        A name and a domain, and nothing else — the picker needs a label and a
+        suffix. Ordered by name, because a picker whose options move is one
+        people mis-click.
+
+        A client renders the picker only when this returns **two or more**
+        entries. With one, the field takes a plain address and appends the
+        single domain when none is typed; with none, nothing about the sign-in
+        screen changes.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The organisations whose staff sign in with a name.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - domains
+                    properties:
+                      domains:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StaffSignInDomain'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /auth/email/verification-notification:
@@ -16926,6 +17063,784 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/staff:
+    post:
+      operationId: createStaffAccount
+      tags:
+        - Access administration
+      summary: Open an account for somebody who cannot open one themselves
+      description: |
+        The invitation flow's sibling, not its replacement. A colleague with a
+        mailbox should still be invited — they choose a password nobody else
+        ever knows. This is for the kitchen hand who has no mailbox, and whose
+        alternative is no account at all.
+
+        **Three departures from self-registration, each deliberate.** The
+        account is created **email-verified**, because a staff area demands a
+        verified address and a provisioned one frequently receives no mail — the
+        administrator standing in front of the person is the verification, the
+        same argument `order.create_on_behalf_organisation` already rests on. It
+        is created **obliged to change its password**, so what the
+        administrator knows is good for one sign-in. And it collects **no
+        consent and opens no customer account**: a kitchen cannot accept terms
+        on an employee's behalf, and a line cook is not a shopper.
+
+        **Two authorities.** `user.manage_organisation` on the route, plus
+        `membership.invite_organisation` checked in the handler — minting a
+        login and granting it a seat are two decisions.
+
+        **`Idempotency-Key` matters here** in a way it does not for a role. A
+        person has no natural key, and an administrator who does not know
+        whether a password was issued must either create a second account or
+        leave somebody unable to sign in.
+
+        **Step-up required**: a recent password confirmation at
+        `POST /auth/confirm-password`. A hijacked session minting itself a
+        second, permanently-privileged account is what that exists for.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStaffAccountRequest'
+      responses:
+        '201':
+          description: The new membership, and the password — once.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffAccountEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/permissions:
+    get:
+      operationId: listAssignablePermissions
+      tags:
+        - Access administration
+      summary: The vocabulary a role is written in
+      description: |
+        Every organisation-scoped, assignable permission code, grouped by
+        domain.
+
+        **Platform codes never appear here**, and that is a security property
+        rather than a filter. The registry is split in two so that no
+        organisation role can acquire a platform code, and an endpoint that
+        offered `reference.manage_platform` would be a form with a trap in it —
+        the person who ticked the box would rightly read the refusal as a bug.
+        Non-assignable codes are withheld for the neighbouring reason: the
+        permission checker drops them when it works out what somebody may do,
+        so granting one produces a role that reads as carrying an authority and
+        does not.
+
+        Unpaginated. Forty-odd codes, bounded by a constant in the source, read
+        in full by one screen that renders every one of them at once.
+
+        Requires `role.view_organisation` — reading the words a role can be
+        written in is reading roles.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The assignable catalogue, grouped by domain.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionCatalogueEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/roles:
+    get:
+      operationId: listOrganisationRoles
+      tags:
+        - Access administration
+      summary: The roles this kitchen can assign
+      description: |
+        Platform templates and the kitchen's own, in one list, distinguished by
+        `is_system`.
+
+        One list because from the **assigning** side they are one set: when an
+        administrator picks a role for somebody, a template and a bespoke role
+        are equally valid choices. The roles *screen* draws them as two
+        sections because they are edited differently — templates offer Copy,
+        never Edit — but the member editor draws one picker.
+
+        Templates first, then the kitchen's own by code: a person scanning this
+        is usually looking for the standard role.
+
+        Unpaginated, because every row is an option in a picker that has to be
+        complete to be usable.
+
+        Requires `role.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every role available in this organisation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganisationRoleSummary'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createOrganisationRole
+      tags:
+        - Access administration
+      summary: Define a role of this kitchen's own
+      description: |
+        **No `Idempotency-Key`**, unlike creating a kitchen on the platform
+        console. A role has a natural key —
+        `(organisation_id, code)`, unique with `NULLS NOT DISTINCT` — so a
+        replayed create hits the index and comes back as a `resource.conflict`
+        naming the field. Idempotency would be machinery for a race the
+        database already settles, and settles with a better message.
+
+        A role carrying a platform template's code is **permitted**, and
+        reported through `meta.shadows_template`. That is the mechanism Copy
+        relies on: acceptance prefers a tenant's own role over the template of
+        the same code, which is how a kitchen changes what a template means
+        inside its walls. Refusing it would break documented behaviour;
+        reporting it is how the form warns, because a kitchen that did it on
+        purpose and one that did it by accident type the same thing.
+
+        `is_system` is not a field. A tenant-created role is by definition not
+        platform-defined, and a body that could set the flag could create a
+        role its own author could never edit.
+
+        Requires `role.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WriteOrganisationRoleRequest'
+      responses:
+        '201':
+          description: The role, with its grants and its validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationRoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/roles/{role}:
+    get:
+      operationId: showOrganisationRole
+      tags:
+        - Access administration
+      summary: One role and everything it grants
+      description: |
+        A platform template is readable here, deliberately: Copy is "open
+        `kitchen_manager`, see its codes, save them as your own", and a read
+        that refused a template would make the only supported way of changing
+        one impossible.
+
+        The `ETag` is the role's `lock_version` and is what a later `PATCH`
+        must echo in `If-Match`. Served on a template too, where it is always
+        `0` and will never be checked — a client that had to branch on whether
+        a response carried a validator would branch wrongly once.
+
+        Requires `role.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/RolePath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The role.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationRoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateOrganisationRole
+      tags:
+        - Access administration
+      summary: Rename a role and replace what it grants
+      description: |
+        **`code` is not writable.** It is what an invitation's `role_code`
+        resolves against, so changing it would silently redirect every
+        outstanding offer naming the old one — and on a role shadowing a
+        template, would change which of the two an acceptance resolves to.
+        Neither is a consequence anybody editing a permission list expects from
+        a form that also has a Name field.
+
+        `permissions` is a **replacement**. An additive body could not express
+        "take this away", and a role editor whose whole job is taking things
+        away would need a second endpoint for the half that matters.
+
+        A platform template answers **404**: from the writing side there is no
+        role at that identifier belonging to you. `RolePolicy` and the `roles`
+        row-level-security policy refuse it twice more behind that.
+
+        `If-Match` is required. Two administrators editing one role — one
+        removing `order.manage_organisation` while the other adds a cost code —
+        is the ordinary case on a shared console, and last-write-wins would
+        silently restore a permission somebody believes they revoked.
+
+        **`access.self_lockout`** when the save would leave the caller without
+        `role.manage_organisation`, counting every other role they hold. There
+        is no way back from inside this console: the next request is refused by
+        the same middleware that would have let them undo it.
+
+        Requires `role.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/RolePath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WriteOrganisationRoleRequest'
+      responses:
+        '200':
+          description: The role as it now stands.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationRoleEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AccessWriteConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: deleteOrganisationRole
+      tags:
+        - Access administration
+      summary: Remove a role nobody holds
+      description: |
+        A real delete. There are no soft deletes on this platform, and a role
+        nobody holds that grants nothing to anybody is a row with no remaining
+        meaning — the history that matters lives in the audit trail and in the
+        memberships that carried it.
+
+        **Refused while anybody still holds it**, with the count and up to
+        twenty membership identifiers in `details`. `membership_roles` cascades
+        on delete, so the database would happily take a role away from six
+        people without a word — which is the silent revocation this console
+        exists to make impossible. Reassign, then delete.
+
+        `If-Match` for the sharper version of the update's problem: somebody
+        may have granted this role to a new starter since the list was read.
+
+        Requires `role.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/RolePath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: Deleted. Nothing to describe.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/RoleStillHeld'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/memberships:
+    get:
+      operationId: listOrganisationMemberships
+      tags:
+        - Access administration
+      summary: Who works here
+      description: |
+        Every membership by default — active, invited, suspended and ended —
+        and only the `status` filter narrows. Who *used* to have access is
+        exactly what an access review reads, and a screen that could not answer
+        "did she ever work here" would send somebody to the database. The
+        console defaults its own filter to the active ones because that is the
+        common question; the endpoint does not, because the uncommon one has
+        nowhere else to go.
+
+        Numbered pages rather than a cursor: a staff list is a table with a
+        page control under it, not a feed.
+
+        Requires `membership.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          required: false
+          description: Restrict to one membership status.
+          schema:
+            type: string
+            enum:
+              - invited
+              - active
+              - suspended
+              - ended
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of memberships.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TeamMemberSummary'
+                  meta:
+                    $ref: '#/components/schemas/NumberedPaginationMeta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/memberships/{membership}:
+    get:
+      operationId: showOrganisationMembership
+      tags:
+        - Access administration
+      summary: One person, their roles and what those add up to
+      description: |
+        `permissions` is the union of every code the assigned roles grant,
+        computed rather than implied: two roles overlapping is the ordinary
+        case, and a client left to work it out would be wrong quietly.
+
+        `meta.remaining_role_administrators` is served on the **read** as well
+        as the writes, so the page can warn before somebody presses End rather
+        than after. On your own row, zero means nobody else can administer
+        access — which is what you need to know before you go on holiday.
+
+        Requires `membership.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The membership.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateOrganisationMembershipScope
+      tags:
+        - Access administration
+      summary: Where this person works
+      description: |
+        The only `PATCH` on a membership, and the only part of one that is an
+        ordinary attribute rather than a lifecycle event: branch scope moves
+        both ways and carries no consequence beyond itself. Suspending and
+        ending do, so they are verbs with their own URLs — a single call taking
+        a status string would let a console ship a dropdown in which the one
+        irreversible act sits beside three reversible ones.
+
+        `branch_id: null` means organisation-wide.
+
+        Requires `membership.update_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMembershipScopeRequest'
+      responses:
+        '200':
+          description: The membership as it now stands.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/memberships/{membership}/roles:
+    put:
+      operationId: replaceMembershipRoles
+      tags:
+        - Access administration
+      summary: This person holds exactly these roles
+      description: |
+        `PUT` and the whole set, because that is the decision an administrator
+        actually makes. Expressed as add-and-remove it becomes three requests
+        with two intermediate states, one of which is "holds nothing" and
+        another "holds both the old role and the new" — and on a permission
+        table an intermediate state is not untidiness, it is authority nobody
+        granted.
+
+        `starts_at`/`expires_at` are written here and nowhere else: a role that
+        begins on Monday, a cover arrangement that ends on Friday. The
+        self-lockout guard deliberately **ignores** them — a guard that counted
+        only currently-effective roles would let an administrator schedule
+        their own to expire tonight.
+
+        `If-Match` carries the *membership's* version even though none of its
+        own columns change, because `membership_roles` is a child table with no
+        version to collide on.
+
+        Gated on `role.manage_organisation`, not
+        `membership.update_organisation`: that code's description reads "roles
+        **and role assignments**", and a kitchen may reasonably let somebody
+        move staff between branches without letting them decide what staff may
+        do.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceMembershipRolesRequest'
+      responses:
+        '200':
+          description: The membership, with its new roles and what they add up to.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AccessWriteConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/memberships/{membership}/suspend:
+    post:
+      operationId: suspendOrganisationMembership
+      tags:
+        - Access administration
+      summary: Stop somebody signing in, without ending their record
+      description: |
+        Reversible, and the pair of `reactivate`. Only an active or invited
+        membership can be suspended; `ended` is terminal and `suspended` is
+        already the destination, so either answers `resource.conflict` rather
+        than a stale-version error.
+
+        **`access.self_lockout` on your own membership.** The platform console
+        may revoke a kitchen's last owner because it acts from outside —
+        whatever it breaks it can reach in and fix. A tenant administrator is
+        inside the room they would be locking.
+
+        Requires `membership.update_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The suspended membership.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AccessWriteConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/memberships/{membership}/reactivate:
+    post:
+      operationId: reactivateOrganisationMembership
+      tags:
+        - Access administration
+      summary: Let a suspended member back in
+      description: |
+        Only from `suspended`. `ended` is terminal — somebody who left and came
+        back is a new invitation, not an undo — and `active` is already the
+        destination.
+
+        Alone among the three lifecycle verbs it needs no self-guard: giving
+        somebody their access back cannot take anybody else's away.
+
+        Requires `membership.update_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The reactivated membership.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /organisations/{organisation}/memberships/{membership}/end:
+    post:
+      operationId: endOrganisationMembership
+      tags:
+        - Access administration
+      summary: End somebody's place here
+      description: |
+        Terminal, and stamped rather than removed: the row survives because
+        orders, audit entries and recipe versions point at the person behind
+        it, and who used to have access is what an access review reads. The
+        same posture `DELETE /invitations/{invitation}` takes next door.
+
+        **`access.self_lockout` on your own membership**, and nothing else is
+        refused. Ending the last *other* administrator is permitted and merely
+        counted through `meta.remaining_role_administrators` — a console that
+        refused the thing an operator opened it to do is a control that has
+        made itself unusable.
+
+        Requires `membership.end_organisation`, shared with revoking an
+        invitation: withdrawing an offer somebody has not accepted and removing
+        somebody who has are the same decision taken at two moments.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The ended membership, and how many administrators remain.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AccessWriteConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /organisations/{organisation}/invitations:
     post:
       operationId: createOrganisationInvitation
@@ -19995,6 +20910,26 @@ components:
         confirming that another tenant exists is not something this API does.
       schema:
         $ref: '#/components/schemas/Uuid'
+    RolePath:
+      name: role
+      in: path
+      required: true
+      description: |
+        A role of this organisation, or a platform template. Reads accept
+        either; writes answer **404** for a template, because from the writing
+        side there is no role at that identifier belonging to you.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    MembershipPath:
+      name: membership
+      in: path
+      required: true
+      description: |
+        A membership of this organisation, in any status. An ended one resolves
+        deliberately — a detail page that 404'd on the row the list just showed
+        would be a list lying about what it links to.
+      schema:
+        $ref: '#/components/schemas/Uuid'
     OrganisationInvitationPath:
       name: invitation
       in: path
@@ -20465,6 +21400,65 @@ components:
                 required_headers:
                   - If-Match
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    AccessWriteConflict:
+      description: |
+        Either the validator is stale (`resource.conflict`), or the change
+        would have removed the caller's own access (`access.self_lockout`).
+
+        The two are one status and two codes because the remedies are
+        different: a stale validator means reload and reapply, and a
+        self-lockout means ask another administrator. `details.reason` names
+        which of the self-lockout cases fired.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            staleValidator:
+              summary: Somebody else saved first
+              value:
+                error:
+                  code: resource.conflict
+                  message: This resource changed since you last read it. Reload it and reapply your change.
+                  details:
+                    current_lock_version: 4
+                  correlation_id: 018f2b1c-0000-7000-8000-000000000001
+            selfLockout:
+              summary: The change would lock the caller out
+              value:
+                error:
+                  code: access.self_lockout
+                  message: This change would remove your own access to the administration console.
+                  details:
+                    reason: role_management_removed_from_own_role
+                  correlation_id: 018f2b1c-0000-7000-8000-000000000002
+    RoleStillHeld:
+      description: |
+        The role is still assigned to somebody. `membership_roles` cascades on
+        delete, so the database would take it away from them without a word —
+        which is the silent revocation this console exists to prevent. The
+        count and up to twenty identifiers come back so a screen can say
+        "reassign these six first" rather than "no".
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: This role is still assigned to people. Reassign them before deleting it.
+              details:
+                membership_count: 2
+                membership_ids:
+                  - 018f2b1c-0000-7000-8000-00000000a001
+                  - 018f2b1c-0000-7000-8000-00000000a002
+              correlation_id: 018f2b1c-0000-7000-8000-000000000003
     ResourceConflict:
       description: |
         The change conflicts with the current state. On a lock-versioned
@@ -21407,6 +22401,7 @@ components:
         - payment.refund_exceeds_capture
         - inventory.insufficient_stock
         - unit.conversion_unsupported
+        - access.self_lockout
         - rate_limit.exceeded
         - server.internal_error
     Error:
@@ -39273,6 +40268,540 @@ components:
               $ref: '#/components/schemas/B2bAgreement'
         meta:
           $ref: '#/components/schemas/Meta'
+    CreateStaffAccountRequest:
+      type: object
+      required:
+        - given_name
+        - family_name
+        - password
+        - role_ids
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          description: |
+            A full address. Mutually exclusive with `local_part` — a body
+            carrying both is a client that has not decided, and silently
+            preferring one would make the other look like it worked.
+        local_part:
+          type: string
+          pattern: ^[a-z0-9]+([._-][a-z0-9]+)*$
+          maxLength: 64
+          description: |
+            The left-hand side only. Composed against the organisation's
+            `staff_email_domain` into an ordinary address, so nothing in the
+            authentication pipeline learns that this form exists. Refused when
+            the organisation has no domain set: a generated address nobody
+            chose is one nobody can be told.
+        given_name:
+          type: string
+          maxLength: 255
+        family_name:
+          type: string
+          maxLength: 255
+        password:
+          type: string
+          description: |
+            Validated exactly as a self-chosen password, so a provisioned
+            account cannot be weaker than a registered one. Not confirmed —
+            confirmation catches a typo by somebody who cannot see what they
+            typed, and this is shown back to the administrator once before they
+            hand it over.
+        preferred_language_code:
+          type:
+            - string
+            - 'null'
+          minLength: 2
+          maxLength: 2
+        role_ids:
+          type: array
+          description: |
+            May be empty. Somebody can be given a login today and duties
+            tomorrow, which is the ordinary shape of a first morning.
+          items:
+            type: string
+            format: uuid
+        branch_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: Null means organisation-wide.
+    StaffAccountEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/TeamMemberEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - initial_password
+              properties:
+                initial_password:
+                  type: string
+                  description: |
+                    **Returned exactly once, here.** Never stored readable,
+                    never audited, never logged, and not on any later read —
+                    the model `InvitationService::issue()` uses for its token.
+                    `must_change_password` on the new account is what makes
+                    that defensible: what the administrator carries out of this
+                    response is a credential good for one sign-in.
+    StaffSignInDomain:
+      type: object
+      required:
+        - organisation_name
+        - domain
+      additionalProperties: false
+      properties:
+        organisation_name:
+          type: string
+          example: Verdant Kitchen
+        domain:
+          type: string
+          example: verdant.h360.app
+          description: The right-hand side of every staff address this organisation issues.
+    UpdatePasswordRequest:
+      type: object
+      required:
+        - current_password
+        - password
+        - password_confirmation
+      additionalProperties: false
+      properties:
+        current_password:
+          type: string
+          description: |
+            Required even on a forced first change. A session is not a
+            password: it survives on a shared terminal and in an unlocked
+            phone, and the value of this route is that it takes a credential
+            away from whoever else holds it.
+        password:
+          type: string
+        password_confirmation:
+          type: string
+    PermissionDefinition:
+      type: object
+      required:
+        - code
+        - description
+        - held_by_caller
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          example: order.view_organisation
+          description: |
+            `domain.action_scope`. Only organisation-scoped, assignable codes
+            ever appear here — the registry is split in two so that no
+            organisation role can hold a platform code, and a catalogue that
+            offered one would be a form with a trap in it.
+        description:
+          type: string
+          description: |
+            The seeded English description. Clients translate the code and fall
+            back to this when they have no string for it, so a code added on
+            the backend shows up in the editor rather than as a blank row.
+        held_by_caller:
+          type: boolean
+          description: |
+            Whether the caller holds this code themselves. Information, not a
+            gate: role management is total, so an administrator may grant an
+            authority they cannot exercise — this is how the editor marks it
+            instead of hiding it.
+    PermissionDomain:
+      type: object
+      required:
+        - domain
+        - permissions
+      additionalProperties: false
+      properties:
+        domain:
+          type: string
+          example: order
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionDefinition'
+    PermissionCatalogueEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - domains
+          properties:
+            domains:
+              type: array
+              items:
+                $ref: '#/components/schemas/PermissionDomain'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    OrganisationRoleSummary:
+      type: object
+      required:
+        - id
+        - code
+        - name_en
+        - name_ar
+        - description_en
+        - description_ar
+        - is_system
+        - holder_count
+        - permission_count
+        - lock_version
+        - updated_at
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: evening_counter
+          description: |
+            Lowercase words joined by single underscores. Immutable once set:
+            it is what an invitation's `role_code` resolves against, so
+            changing it would silently redirect every outstanding offer naming
+            the old one.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        description_en:
+          type:
+            - string
+            - 'null'
+        description_ar:
+          type:
+            - string
+            - 'null'
+        is_system:
+          type: boolean
+          description: |
+            A platform template: visible in every tenant, editable in none.
+            The console offers **Copy** on these rather than Edit — forking one
+            into a role of your own is how a kitchen changes what a template
+            means inside its walls, and `MembershipGranter` prefers the fork.
+        holder_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many memberships hold it. The number that says which roles are
+            real and which were defined and forgotten — and the one that
+            decides whether deletion will be refused.
+        permission_count:
+          type: integer
+          minimum: 0
+        lock_version:
+          type: integer
+          minimum: 0
+          description: Always `0` on a template, which is never written from here.
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    OrganisationRole:
+      allOf:
+        - $ref: '#/components/schemas/OrganisationRoleSummary'
+        - type: object
+          required:
+            - permissions
+            - updated_by_name
+          properties:
+            permissions:
+              type: array
+              description: |
+                Every code this role grants, in catalogue order rather than the
+                order they were submitted — so two saves that changed nothing
+                produce the same list.
+              items:
+                type: string
+            updated_by_name:
+              type:
+                - string
+                - 'null'
+              description: |
+                Who last changed what this role reaches. `created_by` cannot
+                answer that, and it is the one question an access review asks.
+    OrganisationRoleEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - role
+          properties:
+            role:
+              $ref: '#/components/schemas/OrganisationRole'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                shadows_template:
+                  type: boolean
+                  description: |
+                    Present on create. True when this kitchen has defined a role
+                    carrying a platform template's code. Permitted — it is the
+                    mechanism Copy relies on — and reported, because a kitchen
+                    that did it deliberately and one that did it by accident
+                    type exactly the same thing.
+    WriteOrganisationRoleRequest:
+      type: object
+      required:
+        - name_en
+        - name_ar
+        - permissions
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          pattern: ^[a-z][a-z0-9_]*$
+          maxLength: 64
+          description: Required on create, and absent from update — see `code` above.
+        name_en:
+          type: string
+          maxLength: 120
+        name_ar:
+          type: string
+          maxLength: 120
+        description_en:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+        description_ar:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+        permissions:
+          type: array
+          description: |
+            The codes this role should end up with. A **replacement**, not an
+            addition: an additive body could not express "take this away", and
+            taking things away is the half of a role editor that matters. An
+            empty array is valid — a role that grants nothing is a legitimate
+            thing to park.
+          items:
+            type: string
+    TeamMemberRole:
+      type: object
+      required:
+        - id
+        - code
+        - name_en
+        - name_ar
+        - is_system
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        is_system:
+          type: boolean
+    TeamMemberBranch:
+      type: object
+      required:
+        - id
+        - name
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    TeamMemberSummary:
+      type: object
+      required:
+        - membership_id
+        - user_id
+        - given_name
+        - family_name
+        - email
+        - status
+        - joined_at
+        - branch
+        - roles
+        - lock_version
+      additionalProperties: false
+      properties:
+        membership_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        given_name:
+          type:
+            - string
+            - 'null'
+        family_name:
+          type:
+            - string
+            - 'null'
+        email:
+          type:
+            - string
+            - 'null'
+          format: email
+          description: |
+            In full, unlike `Invitation.email_masked`. That one is read
+            anonymously, where the address would be a credential; this one is
+            read by a member of the organisation holding
+            `membership.view_organisation`, and it is the login identifier —
+            an administrator who cannot see it cannot tell two people with the
+            same name apart.
+        status:
+          type: string
+          enum:
+            - invited
+            - active
+            - suspended
+            - ended
+          description: |
+            All four, unlike `Membership.status` on `/me` — that one describes
+            the caller's own live memberships, and an ended one is not a
+            workspace they can enter. Here `ended` is listed, because who
+            *used* to have access is exactly what an access review reads, and a
+            console that could not answer "did she ever work here" would send
+            somebody to the database.
+        joined_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        branch:
+          oneOf:
+            - $ref: '#/components/schemas/TeamMemberBranch'
+            - type: 'null'
+          description: Null means organisation-wide, which is a value rather than an absence.
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMemberRole'
+        lock_version:
+          type: integer
+          minimum: 0
+    MembershipRoleAssignment:
+      type: object
+      required:
+        - role_id
+        - starts_at
+        - expires_at
+      additionalProperties: false
+      properties:
+        role_id:
+          type: string
+          format: uuid
+        starts_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    TeamMember:
+      allOf:
+        - $ref: '#/components/schemas/TeamMemberSummary'
+        - type: object
+          required:
+            - assignments
+            - permissions
+          properties:
+            assignments:
+              type: array
+              description: |
+                Every assignment including ones that have not started or have
+                expired. A console that hid a future assignment could not show
+                you what you scheduled, and the editor would drop it on the
+                next save — a `PUT` replaces what it was shown.
+              items:
+                $ref: '#/components/schemas/MembershipRoleAssignment'
+            permissions:
+              type: array
+              description: |
+                What the roles add up to. Computed rather than implied, because
+                two roles overlapping is the ordinary case and a client that
+                got the union wrong would be wrong quietly.
+              items:
+                type: string
+    TeamMemberEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - membership
+          properties:
+            membership:
+              $ref: '#/components/schemas/TeamMember'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - remaining_role_administrators
+              properties:
+                remaining_role_administrators:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    How many *other* active memberships could still administer
+                    access. Reported, never enforced: removing the last other
+                    administrator is permitted, because a console that refused
+                    the thing an operator opened it to do is a control that has
+                    made itself unusable. Zero on your own row means nobody
+                    else can.
+    ReplaceMembershipRolesRequest:
+      type: object
+      required:
+        - roles
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          description: |
+            The whole set. `[]` strips every role while leaving the person a
+            member — a real state, and not the same as ending their membership.
+          items:
+            $ref: '#/components/schemas/MembershipRoleAssignment'
+    UpdateMembershipScopeRequest:
+      type: object
+      required:
+        - branch_id
+      additionalProperties: false
+      properties:
+        branch_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: |
+            Null means organisation-wide. Required to be *present* rather than
+            non-null, because on a `PATCH` "make this person organisation-wide"
+            and "I forgot the field" are otherwise the same request.
     OrganisationInvitationEnvelope:
       type: object
       required:

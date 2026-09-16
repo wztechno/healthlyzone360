@@ -369,6 +369,28 @@ enum ErrorCode: string
      */
     case UnitConversionUnsupported = 'unit.conversion_unsupported';
 
+    /**
+     * An access change was refused because it would have locked the caller out
+     * of the console they are standing in (AA1) — removing
+     * `role.manage_organisation` from the only role they hold, or ending or
+     * suspending their own membership.
+     *
+     * A 409 rather than a 403, and the distinction carries the whole meaning.
+     * `authz.permission_denied` says the caller may not do this; this says they
+     * may, and that doing it to *themselves* would leave the organisation with
+     * one fewer way in than it needs. The remedy is to grant somebody else the
+     * authority first, which is a different next screen from "ask for
+     * permission".
+     *
+     * It is deliberately the *only* refusal of its kind. Removing the last
+     * **other** administrator is permitted and merely reported, through
+     * `meta.remaining_role_administrators` — the shape PA1's `remaining_owners`
+     * established, and for its reason: a console that refuses the one thing the
+     * operator opened it to do is a control that has made itself unusable.
+     * `details.reason` names which of the two cases fired.
+     */
+    case AccessSelfLockout = 'access.self_lockout';
+
     case RateLimitExceeded = 'rate_limit.exceeded';
 
     case ServerInternalError = 'server.internal_error';
@@ -410,7 +432,8 @@ enum ErrorCode: string
             self::OffboardingSettlementOutstanding,
             self::RecordExportUnavailable,
             self::PaymentRefundExceedsCapture,
-            self::InventoryInsufficientStock => 409,
+            self::InventoryInsufficientStock,
+            self::AccessSelfLockout => 409,
             self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
             self::ValidationFailed,
@@ -491,6 +514,7 @@ enum ErrorCode: string
             self::PaymentRefundExceedsCapture => 'This refund is larger than the amount still refundable on this payment.',
             self::InventoryInsufficientStock => 'There is not enough stock to record this consumption.',
             self::UnitConversionUnsupported => 'These measurement units cannot be converted between.',
+            self::AccessSelfLockout => 'This change would remove your own access to the administration console.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',
         };
