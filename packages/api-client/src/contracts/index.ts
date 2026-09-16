@@ -391,7 +391,6 @@ export {
     STOCK_MOVEMENT_REASONS,
 } from './kitchen-ops.ts';
 export type {
-    CompleteProductionOrderRequest,
     CompleteReceiptPriceLine,
     CompleteReceiptPricesRequest,
     ConsumptionException,
@@ -420,7 +419,6 @@ export type {
     OrderProposalOrigin,
     PostGoodsReceiptRequest,
     ProcurementReference,
-    ProductionMovementInput,
     ProductionOrder,
     ProductionOrderResult,
     ProductionOrderStatus,

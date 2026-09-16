@@ -151,18 +151,13 @@ final readonly class MealExplosion
         $failures = [];
 
         foreach ($byIngredient as $ingredientId => $ingredientLines) {
-            /** @var list<array{quantity: string|null, unit_id: string|null}> $measured */
-            $measured = $ingredientLines->map(static fn (RecipeVersionLine $line): array => [
-                'quantity' => $line->quantity === null ? null : (string) $line->quantity,
-                'unit_id' => $line->unit_id,
-            ])->values()->all();
-
             $this->explodeIngredient(
                 $organisationId,
-                $meal,
+                (string) $meal->getKey(),
+                (string) $meal->portion_factor,
                 $branchId,
                 (string) $ingredientId,
-                $measured,
+                $this->measuredLines($ingredientLines),
                 $pieceCountString,
                 $wasteFactor,
                 $orderQuantity,
@@ -173,16 +168,91 @@ final readonly class MealExplosion
 
         $this->explodePackaging(
             $organisationId,
-            $meal,
+            (string) $meal->getKey(),
+            (string) $meal->portion_factor,
             $branchId,
             $version,
             $pieceCountString,
+            $this->wasteFactor((string) $version->packaging_waste_percent),
             $orderQuantity,
             $rows,
             $failures,
         );
 
         return new MealExplosionResult($rows, $failures);
+    }
+
+    /**
+     * Explode a production batch into per-stock-item quantities: what a cook takes off the shelves
+     * to make `$batches` times what the version yields.
+     *
+     * The same grouping, conversion and rounding as {@see explode()}, so a batch and a sale can never
+     * disagree about what a kilogram of a line is. Three differences, and they are the difference
+     * between cooking to stock and selling a portion:
+     *
+     * - **No piece count and no portion factor.** A batch is the whole formulation scaled, not one
+     *   sold unit of it — which is also why a version that counts no pieces can still be cooked.
+     * - **No waste uplift on either half.** The kitchens' sheets state process loss on the output,
+     *   not on each input, and the batch planner the cook weighs from shows the lines without it.
+     *   What is booked is what the sheet told the cook to take.
+     * - **Counted packaging is rounded up.** A sale may take a fraction of a bottle because the
+     *   fractions sum to whole bottles across a batch's portions; a batch has nothing to sum across,
+     *   and half a box never left a shelf. Mass and volume stay exact.
+     *
+     * Failures name no catalogue item: a batch is cooked from a recipe, not sold as an item.
+     *
+     * @param  numeric-string  $batches
+     */
+    public function explodeBatch(string $organisationId, RecipeVersion $version, string $batches, ?string $branchId): MealExplosionResult
+    {
+        /** @var list<ExplodedIngredient> $rows */
+        $rows = [];
+
+        /** @var list<ConsumptionFailure> $failures */
+        $failures = [];
+
+        $lines = RecipeVersionLine::withoutTenancy()
+            ->where('recipe_version_id', $version->getKey())
+            ->get();
+
+        /** @var Collection<int, Collection<int, RecipeVersionLine>> $byIngredient */
+        $byIngredient = $lines->groupBy('ingredient_id');
+
+        foreach ($byIngredient as $ingredientId => $ingredientLines) {
+            $this->explodeIngredient($organisationId, null, '1', $branchId, (string) $ingredientId, $this->measuredLines($ingredientLines), '1', '1', $batches, $rows, $failures);
+        }
+
+        $formulationRows = count($rows);
+
+        $this->explodePackaging($organisationId, null, '1', $branchId, $version, '1', '1', $batches, $rows, $failures);
+
+        foreach ($rows as $index => $row) {
+            if ($index < $formulationRows) {
+                continue;
+            }
+
+            $unit = MeasurementUnit::query()->find($row['stock_unit_id']);
+
+            if ($unit instanceof MeasurementUnit && in_array($unit->dimension, ['count', 'package'], true)) {
+                $rows[$index]['quantity'] = $this->roundUp($row['quantity']);
+            }
+        }
+
+        return new MealExplosionResult($rows, $failures);
+    }
+
+    /**
+     * A version's lines for one ingredient, as the tuples {@see explodeIngredient()} sums.
+     *
+     * @param  Collection<int, RecipeVersionLine>  $lines
+     * @return list<array{quantity: string|null, unit_id: string|null}>
+     */
+    private function measuredLines(Collection $lines): array
+    {
+        return array_values($lines->map(static fn (RecipeVersionLine $line): array => [
+            'quantity' => $line->quantity === null ? null : (string) $line->quantity,
+            'unit_id' => $line->unit_id,
+        ])->all());
     }
 
     /**
@@ -217,22 +287,25 @@ final readonly class MealExplosion
      *
      * ## Waste is the packaging coefficient, not the production one
      *
-     * `packaging_waste_percent`, which is a separate column for a reason the schema states: process
-     * loss is sauce left in the pot, packaging loss is mis-fed labels and split film, and they are
-     * different numbers. It defaults to `0.00`, so a version nobody has thought about deducts
-     * exactly what its lines say.
+     * A sale passes `packaging_waste_percent`, which is a separate column for a reason the schema
+     * states: process loss is sauce left in the pot, packaging loss is mis-fed labels and split
+     * film, and they are different numbers. It defaults to `0.00`, so a version nobody has thought
+     * about deducts exactly what its lines say. A batch passes none (see {@see explodeBatch()}).
      *
      * @param  numeric-string  $pieceCount
+     * @param  numeric-string  $wasteFactor
      * @param  numeric-string  $orderQuantity
      * @param  list<ExplodedIngredient>  $rows
      * @param  list<ConsumptionFailure>  $failures
      */
     private function explodePackaging(
         string $organisationId,
-        CatalogueItem $meal,
+        ?string $catalogueItemId,
+        string $portionFactor,
         ?string $branchId,
         RecipeVersion $version,
         string $pieceCount,
+        string $wasteFactor,
         string $orderQuantity,
         array &$rows,
         array &$failures,
@@ -244,8 +317,6 @@ final readonly class MealExplosion
         if ($packaging->isEmpty()) {
             return;
         }
-
-        $wasteFactor = $this->wasteFactor((string) $version->packaging_waste_percent);
 
         /** @var Collection<int, Collection<int, RecipeVersionPackaging>> $byIngredient */
         $byIngredient = $packaging->groupBy('ingredient_id');
@@ -266,7 +337,8 @@ final readonly class MealExplosion
 
             $this->explodeIngredient(
                 $organisationId,
-                $meal,
+                $catalogueItemId,
+                $portionFactor,
                 $branchId,
                 (string) $ingredientId,
                 $measured,
@@ -340,6 +412,8 @@ final readonly class MealExplosion
      * same-unit lines sum before any rounding, converting once per group, then dividing by the piece
      * count — is worth having in one place rather than two that must agree.
      *
+     * @param  string|null  $catalogueItemId  the sold item a failure is about; null for a batch
+     * @param  string  $portionFactor  one sold unit's share of a yield piece; `1` for a batch
      * @param  list<array{quantity: string|null, unit_id: string|null}>  $measured
      * @param  numeric-string  $pieceCount
      * @param  numeric-string  $wasteFactor
@@ -349,7 +423,8 @@ final readonly class MealExplosion
      */
     private function explodeIngredient(
         string $organisationId,
-        CatalogueItem $meal,
+        ?string $catalogueItemId,
+        string $portionFactor,
         ?string $branchId,
         string $ingredientId,
         array $measured,
@@ -362,13 +437,13 @@ final readonly class MealExplosion
         $stockItem = $this->resolveStockItem($organisationId, $ingredientId, $branchId);
 
         if (! $stockItem instanceof StockItem) {
-            $failures[] = $this->failure((string) $meal->getKey(), 'no_stock_item', 'Ingredient '.$ingredientId.' has no stock item at the branch to deduct from.');
+            $failures[] = $this->failure($catalogueItemId, 'no_stock_item', 'Ingredient '.$ingredientId.' has no stock item at the branch to deduct from.');
 
             return;
         }
 
         if ($stockItem->unit_id === null) {
-            $failures[] = $this->failure((string) $meal->getKey(), 'no_stock_unit', 'Stock item '.$stockItem->getKey().' has no resolved unit to convert into.');
+            $failures[] = $this->failure($catalogueItemId, 'no_stock_unit', 'Stock item '.$stockItem->getKey().' has no resolved unit to convert into.');
 
             return;
         }
@@ -376,7 +451,7 @@ final readonly class MealExplosion
         $stockUnit = MeasurementUnit::query()->find($stockItem->unit_id);
 
         if (! $stockUnit instanceof MeasurementUnit) {
-            $failures[] = $this->failure((string) $meal->getKey(), 'no_stock_unit', 'Stock item '.$stockItem->getKey().' points at a unit that does not exist.');
+            $failures[] = $this->failure($catalogueItemId, 'no_stock_unit', 'Stock item '.$stockItem->getKey().' points at a unit that does not exist.');
 
             return;
         }
@@ -391,7 +466,7 @@ final readonly class MealExplosion
                 // A published recipe should carry quantities; an unquantified
                 // line is unresolvable, so the ingredient is skipped rather than
                 // summed as if the missing line were zero.
-                $failures[] = $this->failure((string) $meal->getKey(), 'unquantified_recipe_line', 'A recipe line for ingredient '.$ingredientId.' has no quantity or unit.');
+                $failures[] = $this->failure($catalogueItemId, 'unquantified_recipe_line', 'A recipe line for ingredient '.$ingredientId.' has no quantity or unit.');
 
                 return;
             }
@@ -405,7 +480,7 @@ final readonly class MealExplosion
             $lineUnit = MeasurementUnit::query()->find($unitId);
 
             if (! $lineUnit instanceof MeasurementUnit) {
-                $failures[] = $this->failure((string) $meal->getKey(), 'no_stock_unit', 'A recipe line for ingredient '.$ingredientId.' points at a unit that does not exist.');
+                $failures[] = $this->failure($catalogueItemId, 'no_stock_unit', 'A recipe line for ingredient '.$ingredientId.' points at a unit that does not exist.');
 
                 return;
             }
@@ -413,7 +488,7 @@ final readonly class MealExplosion
             try {
                 $converted = $this->conversion->convert($this->round($summedQuantity), $lineUnit, $stockUnit);
             } catch (UnitConversionUnsupported $exception) {
-                $failures[] = $this->failure((string) $meal->getKey(), 'unit_conversion_unsupported', 'Ingredient '.$ingredientId.': '.$exception->getMessage());
+                $failures[] = $this->failure($catalogueItemId, 'unit_conversion_unsupported', 'Ingredient '.$ingredientId.': '.$exception->getMessage());
 
                 return;
             }
@@ -427,7 +502,7 @@ final readonly class MealExplosion
         // half a portion of the same recipe takes half the ingredients.
         $perSoldUnit = bcmul(
             bcdiv($totalInStockUnit, $pieceCount, self::WORKING_SCALE),
-            $this->numeric((string) $meal->portion_factor),
+            $this->numeric($portionFactor),
             self::WORKING_SCALE,
         );
         $withWaste = bcmul($perSoldUnit, $wasteFactor, self::WORKING_SCALE);
@@ -471,6 +546,22 @@ final readonly class MealExplosion
         }
 
         return $value;
+    }
+
+    /**
+     * A non-negative quantity rounded up to a whole number, at the six places a stock column stores.
+     *
+     * In decimal rather than by casting to float and calling `ceil()`: 2.1 ÷ 0.7 × 3 is exactly 9 in
+     * decimal and 9.000000000000002 in IEEE 754, and the float route would book a tenth box.
+     *
+     * @param  numeric-string  $value
+     * @return numeric-string
+     */
+    private function roundUp(string $value): string
+    {
+        $whole = bcdiv($value, '1', 0);
+
+        return bcadd(bccomp($whole, $value, self::SCALE) === 0 ? $whole : bcadd($whole, '1', 0), '0', self::SCALE);
     }
 
     /**

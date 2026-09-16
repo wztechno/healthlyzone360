@@ -1,5 +1,4 @@
 import type {
-    CompleteProductionOrderRequest,
     CompleteReceiptPricesRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
@@ -946,10 +945,12 @@ export function useCreateProductionOrderMutation(): UseMutationResult<
 
 export interface CompleteProductionOrderVariables {
     readonly productionOrderId: ProductionOrderId;
-    readonly request: CompleteProductionOrderRequest;
 }
 
-/** States what an order consumed and yielded. Not a checklist — see the module note. */
+/**
+ * Books a planned batch. Nothing is sent: the server derives what it consumed and yielded from the
+ * recipe version and the planned yield. Not a checklist — see the module note.
+ */
 export function useCompleteProductionOrderMutation(): UseMutationResult<
     ProductionOrderResult,
     unknown,
@@ -959,8 +960,8 @@ export function useCompleteProductionOrderMutation(): UseMutationResult<
     const onWritten = useKitchenOpsWriteEffects();
 
     return useMutation({
-        mutationFn: ({ productionOrderId, request }: CompleteProductionOrderVariables) =>
-            repositories.kitchenOps.completeProductionOrder(productionOrderId, request),
+        mutationFn: ({ productionOrderId }: CompleteProductionOrderVariables) =>
+            repositories.kitchenOps.completeProductionOrder(productionOrderId),
         onSuccess: onWritten,
     });
 }

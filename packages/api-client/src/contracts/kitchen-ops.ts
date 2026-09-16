@@ -1522,19 +1522,18 @@ export interface CreateProductionOrderRequest {
     readonly plannedYield?: number | null | undefined;
 }
 
-export interface ProductionMovementInput {
-    readonly stockItemId: StockItemId;
-    readonly quantity: number;
-}
-
-export interface CompleteProductionOrderRequest {
-    readonly consumes?: readonly ProductionMovementInput[] | undefined;
-    readonly yields?: readonly ProductionMovementInput[] | undefined;
-}
-
 export interface ProductionOrderResult {
     readonly id: ProductionOrderId;
     readonly status: ProductionOrderStatus;
+    /**
+     * On a completion: whether the batch arrived on its shelf with a cost. `false` when an input had
+     * no moving average, so the made item's average was left alone rather than built on part of the
+     * batch's cost. `null` on a creation, which books nothing.
+     *
+     * A yes or no, never the figure: booking a batch needs `inventory.manage_organisation`, and what
+     * it cost is `inventory.view_costs_organisation`'s to see.
+     */
+    readonly yieldValued: boolean | null;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -1789,10 +1788,12 @@ export interface KitchenOpsRepository {
     /** The most recent fifty production orders, newest first. */
     listProductionOrders(): Promise<readonly ProductionOrder[]>;
     createProductionOrder(request: CreateProductionOrderRequest): Promise<ProductionOrderResult>;
-    completeProductionOrder(
-        productionOrderId: ProductionOrderId,
-        request: CompleteProductionOrderRequest,
-    ): Promise<ProductionOrderResult>;
+    /**
+     * Books a planned batch: its recipe version's lines and packaging leave their shelves, scaled to
+     * the planned yield, and what it makes arrives valued at their cost. Nothing is sent — the server
+     * derives every movement. All or nothing, and idempotent. Needs `inventory.manage_organisation`.
+     */
+    completeProductionOrder(productionOrderId: ProductionOrderId): Promise<ProductionOrderResult>;
 
     /** The most recent fifty checks, newest first, over both allow-listed subjects. */
     listQualityChecks(): Promise<readonly QualityCheck[]>;

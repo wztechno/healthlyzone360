@@ -15,7 +15,6 @@ import {
 
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
-    CompleteProductionOrderRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
     ConsumptionExceptionReasonCode,
@@ -1551,32 +1550,25 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return {
                 id: ProductionOrderId.unsafe(envelope.data.production_order.id),
                 status: envelope.data.production_order.status as ProductionOrderResult['status'],
+                yieldValued: null,
             };
         },
 
-        async completeProductionOrder(
-            productionOrderId,
-            request: CompleteProductionOrderRequest,
-        ): Promise<ProductionOrderResult> {
+        async completeProductionOrder(productionOrderId): Promise<ProductionOrderResult> {
             const envelope = await transport.requestEnvelope<{
-                readonly production_order: { readonly id: string; readonly status: string };
+                readonly production_order: {
+                    readonly id: string;
+                    readonly status: string;
+                    readonly yield_valued?: boolean;
+                };
             }>({
                 method: 'POST',
                 path: `/catalogue/production/orders/${encodeURIComponent(String(productionOrderId))}/complete`,
-                body: {
-                    consumes: (request.consumes ?? []).map((line) => ({
-                        stock_item_id: String(line.stockItemId),
-                        quantity: line.quantity,
-                    })),
-                    yields: (request.yields ?? []).map((line) => ({
-                        stock_item_id: String(line.stockItemId),
-                        quantity: line.quantity,
-                    })),
-                },
             });
             return {
                 id: ProductionOrderId.unsafe(envelope.data.production_order.id),
                 status: envelope.data.production_order.status as ProductionOrderResult['status'],
+                yieldValued: envelope.data.production_order.yield_valued ?? null,
             };
         },
 

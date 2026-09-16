@@ -306,8 +306,8 @@ modules:
   - name: Production
     status: foundation
     phase: 2
-    description: Production orders from recipe versions, tasks, and consume/yield movements into inventory.
-    depends_on: [Support, Organisations, Tenancy, AccessControl, Audit, Kitchens, Inventory, Recipes]
+    description: Production orders from recipe versions, tasks, and batches booked into inventory — inputs and packaging consumed at their moving average, the yield valued at their sum.
+    depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Kitchens, Ingredients, Inventory, Recipes, Catalogues, Procurement]
 
   - name: QualityControl
     status: foundation

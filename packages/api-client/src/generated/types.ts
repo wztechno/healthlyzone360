@@ -6470,30 +6470,18 @@ export type ProductionOrderEnvelope = {
         production_order: {
             id: Uuid;
             status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+            /**
+             * On a completion only: whether the batch arrived with a cost.
+             * False when any input had no moving average to be valued at.
+             * The cost itself is not here — booking a batch is
+             * `inventory.manage_organisation`, and what it cost is
+             * `inventory.view_costs_organisation`'s.
+             *
+             */
+            yield_valued?: boolean;
         };
     };
     meta: Meta;
-};
-
-export type ProductionMovementInput = {
-    stock_item_id: Uuid;
-    quantity: number;
-};
-
-/**
- * No production tasks here (O5) — completing an order is entirely
- * about the stock it consumed and yielded, not a checklist.
- *
- */
-export type CompleteProductionOrderRequest = {
-    /**
-     * Stock taken from the branch's inventory to run this order. Omitted or empty is legal.
-     */
-    consumes?: Array<ProductionMovementInput>;
-    /**
-     * Stock produced by this order and added back to inventory.
-     */
-    yields?: Array<ProductionMovementInput>;
 };
 
 /**
@@ -25103,7 +25091,7 @@ export type CreateProductionOrderResponses = {
 export type CreateProductionOrderResponse = CreateProductionOrderResponses[keyof CreateProductionOrderResponses];
 
 export type CompleteProductionOrderData = {
-    body?: CompleteProductionOrderRequest;
+    body?: never;
     headers: {
         /**
          * The active organisation. Never trusted without server-side validation
@@ -25145,6 +25133,14 @@ export type CompleteProductionOrderErrors = {
      * The resource does not exist, or is not the caller's to see.
      */
     404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
     /**
      * The submitted data is invalid.
      */

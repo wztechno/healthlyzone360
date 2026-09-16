@@ -4472,25 +4472,11 @@ export const zProductionOrderEnvelope = z.object({
                 'in_progress',
                 'completed',
                 'cancelled'
-            ])
+            ]),
+            yield_valued: z.boolean().optional()
         })
     }),
     meta: zMeta
-});
-
-export const zProductionMovementInput = z.object({
-    stock_item_id: zUuid,
-    quantity: z.number()
-});
-
-/**
- * No production tasks here (O5) — completing an order is entirely
- * about the stock it consumed and yielded, not a checklist.
- *
- */
-export const zCompleteProductionOrderRequest = z.object({
-    consumes: z.array(zProductionMovementInput).optional(),
-    yields: z.array(zProductionMovementInput).optional()
 });
 
 /**
@@ -11918,8 +11904,6 @@ export const zCreateProductionOrderHeaders = z.object({
  * The production order was planned.
  */
 export const zCreateProductionOrderResponse = zProductionOrderEnvelope;
-
-export const zCompleteProductionOrderBody = zCompleteProductionOrderRequest;
 
 export const zCompleteProductionOrderHeaders = z.object({
     'X-Organisation-Id': zUuid,

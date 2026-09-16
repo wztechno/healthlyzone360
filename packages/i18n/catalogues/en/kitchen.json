@@ -796,7 +796,7 @@
         },
         "production": {
             "title": "Production",
-            "subtitle": "Batch orders from recipe versions with consume and yield movements.",
+            "subtitle": "Batch orders from recipe versions. Completing one takes its recipe off the shelves and puts what it makes into stock.",
             "emptyTitle": "No production batches yet",
             "emptyBody": "Create a batch from a published recipe version. Completed batches show here with their status.",
             "metrics": {
@@ -813,7 +813,9 @@
             "createSubmit": "Create batch",
             "createFailed": "The batch could not be created.",
             "createdToast": "Production batch created.",
-            "completedToast": "Production batch marked complete.",
+            "completedToast": "Batch booked: its ingredients and packaging left the shelves, and what it made is in stock.",
+            "completedUnvaluedToast": "Batch booked, but not valued: an ingredient in it has no cost yet, so what it made carries none.",
+            "completeFailed": "The batch could not be booked.",
             "complete": "Complete",
             "versionLabel": "Recipe version id",
             "versionHint": "Paste the published version id from the recipe editor.",
@@ -1077,7 +1079,7 @@
         },
         "batch": {
             "title": "Batch planner",
-            "subtitle": "Pick a recipe, say how much to make, and read off what to weigh out and what to pack it in. Nothing here is ordered or booked.",
+            "subtitle": "Pick a recipe, say how much to make, and read off what to weigh out and what to pack it in.",
             "recipeLabel": "Recipe",
             "recipePlaceholder": "Search the recipe book",
             "modeLabel": "Plan by",
@@ -1111,7 +1113,9 @@
             "targetNeededBody": "A quantity greater than zero. Nothing is scaled until there is one.",
             "noPackaging": "This recipe records no packaging.",
             "loadErrorTitle": "This recipe could not be read",
-            "recipesErrorTitle": "The recipe book could not be read"
+            "recipesErrorTitle": "The recipe book could not be read",
+            "book": "Book this batch",
+            "bookHint": "Once it is cooked, book it: these quantities leave the shelves and what the recipe makes goes into stock, valued at what went in."
         }
     },
     "kds": {

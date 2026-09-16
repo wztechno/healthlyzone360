@@ -4,13 +4,11 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 /**
- * One draft row in a repeatable stock-item-and-quantity list — a goods receipt line, a production
- * order's consumed or yielded quantities. `key` is a client-only identity for React's list
- * reconciliation; it never reaches the wire (`GoodsReceiptLineInput` / `ProductionMovementInput`
- * carry only `stockItemId`, `quantity` and, for a receipt, an optional `unitPriceAmount`).
+ * One draft row in a repeatable stock-item-and-quantity list — a goods receipt line. `key` is a
+ * client-only identity for React's list reconciliation; it never reaches the wire
+ * (`GoodsReceiptLineInput` carries only `stockItemId`, `quantity` and an optional `unitPriceAmount`).
  *
- * `unitPrice` is captured only by the goods-receipt form (INV1.1), where `withCost` is set; the
- * production-order form leaves it untouched and never renders the column.
+ * `unitPrice` is captured only where `withCost` is set (INV1.1).
  */
 export interface StockItemLineDraft {
     readonly key: string;
@@ -60,10 +58,9 @@ export interface StockItemLineEditorProps {
 }
 
 /**
- * A repeatable stock-item + quantity list, shared between the goods-receipt form (O2) and the
- * production-order completion form (O5) — both send exactly this shape
- * (`GoodsReceiptLineInput[]` / `ProductionMovementInput[]`), so one editor covers both rather than
- * two screens each growing their own add/remove bookkeeping.
+ * A repeatable stock-item + quantity list for the goods-receipt form (O2). A production order used
+ * to be completed with one of these too; it no longer takes lines at all, because the server
+ * derives what a batch consumed and yielded from its recipe.
  */
 export function StockItemLineEditor({
     testID,

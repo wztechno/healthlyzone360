@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6833 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6837 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3179,6 +3179,8 @@ export interface NamespaceKeys {
     | 'ops.batch.basis.fills_yield'
     | 'ops.batch.basis.per_batch'
     | 'ops.batch.basis.per_container'
+    | 'ops.batch.book'
+    | 'ops.batch.bookHint'
     | 'ops.batch.columnBasis'
     | 'ops.batch.columnItem'
     | 'ops.batch.columnNote'
@@ -3502,7 +3504,9 @@ export interface NamespaceKeys {
     | 'ops.production.columnId'
     | 'ops.production.columnStatus'
     | 'ops.production.complete'
+    | 'ops.production.completeFailed'
     | 'ops.production.completedToast'
+    | 'ops.production.completedUnvaluedToast'
     | 'ops.production.create'
     | 'ops.production.createFailed'
     | 'ops.production.createSubmit'
@@ -10030,6 +10034,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.basis.fills_yield',
   'kitchen:ops.batch.basis.per_batch',
   'kitchen:ops.batch.basis.per_container',
+  'kitchen:ops.batch.book',
+  'kitchen:ops.batch.bookHint',
   'kitchen:ops.batch.columnBasis',
   'kitchen:ops.batch.columnItem',
   'kitchen:ops.batch.columnNote',
@@ -10353,7 +10359,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.columnId',
   'kitchen:ops.production.columnStatus',
   'kitchen:ops.production.complete',
+  'kitchen:ops.production.completeFailed',
   'kitchen:ops.production.completedToast',
+  'kitchen:ops.production.completedUnvaluedToast',
   'kitchen:ops.production.create',
   'kitchen:ops.production.createFailed',
   'kitchen:ops.production.createSubmit',

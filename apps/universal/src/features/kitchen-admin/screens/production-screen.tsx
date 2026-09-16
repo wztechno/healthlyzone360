@@ -29,6 +29,7 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
+    bookedToast,
     isProductionOrderOpen,
     productionOrderRowTestId,
     productionStatusKey,
@@ -40,8 +41,10 @@ import type { OpsMetric } from '../ops-panel.tsx';
 /**
  * `/kitchen/production` — batch orders from recipe versions (O5: no task UI).
  *
- * Create takes a published recipe-version id (from the recipe editor). Complete flips planned /
- * in_progress orders to completed with empty consume/yield lists when movements are not entered.
+ * Create takes a published recipe-version id (from the recipe editor). Complete books the batch:
+ * the server takes its recipe's lines and packaging off the shelves and puts what it makes into
+ * stock, valued at what went in — nothing is typed here. A refusal (not enough on a shelf, a recipe
+ * that makes nothing kept on one) is the server's sentence, shown as it came.
  */
 
 export function ProductionScreen() {
@@ -122,16 +125,17 @@ function Production() {
 
     function submitComplete(order: ProductionOrder) {
         completeOrder.mutate(
+            { productionOrderId: order.id },
             {
-                productionOrderId: order.id,
-                request: { consumes: [], yields: [] },
-            },
-            {
-                onSuccess: () => {
+                onSuccess: (result) => {
+                    toast.show(bookedToast(result.yieldValued, t));
+                },
+                onError: (error) => {
                     toast.show({
-                        testID: 'kitchen-production-completed-toast',
-                        tone: 'success',
-                        message: t('kitchen:ops.production.completedToast'),
+                        testID: 'kitchen-production-complete-error-toast',
+                        tone: 'danger',
+                        message:
+                            toFailure(error)?.message ?? t('kitchen:ops.production.completeFailed'),
                     });
                 },
             },

@@ -10,32 +10,28 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
+/**
+ * Book a planned batch. There is no body: what the batch consumed and yielded is derived from its
+ * recipe version and planned yield (see {@see ProductionService}), never typed.
+ */
 final class ProductionOrderCompleteController
 {
-    public function __invoke(Request $request, string $productionOrder, ProductionService $production): JsonResponse
+    public function __invoke(string $productionOrder, ProductionService $production): JsonResponse
     {
         $order = ProductionOrder::query()->whereKey($productionOrder)->first();
         if ($order === null) {
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
-        $validated = $request->validate([
-            'consumes' => ['array'],
-            'consumes.*.stock_item_id' => ['required', 'uuid'],
-            'consumes.*.quantity' => ['required', 'numeric'],
-            'yields' => ['array'],
-            'yields.*.stock_item_id' => ['required', 'uuid'],
-            'yields.*.quantity' => ['required', 'numeric'],
-        ]);
+        ['order' => $order, 'yield' => $yield] = $production->complete($order);
 
-        $order = $production->complete(
-            $order,
-            $validated['consumes'] ?? [],
-            $validated['yields'] ?? [],
-        );
-
-        return ApiResponse::data(['production_order' => ['id' => (string) $order->getKey(), 'status' => $order->status]]);
+        return ApiResponse::data(['production_order' => [
+            'id' => (string) $order->getKey(),
+            'status' => $order->status,
+            // Whether the batch arrived with a cost, and not the cost itself: booking a batch is
+            // `inventory.manage_organisation`, what it cost is `inventory.view_costs_organisation`.
+            'yield_valued' => $yield !== null && $yield->cost_amount !== null,
+        ]]);
     }
 }

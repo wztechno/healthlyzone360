@@ -10650,11 +10650,29 @@ paths:
         - Kitchen inventory & production
       summary: Complete a production order
       description: |
-        Records what the run actually consumed and yielded, one inventory
-        movement per line (`reason: consume` and `reason: yield`), and
-        moves the order to `completed` — all inside one transaction. Both
-        lists are optional: an order with nothing yet consumed is a legal
-        call, though an unusual one.
+        Books the batch into inventory and moves the order to `completed`, in
+        one transaction. There is no body: what the batch consumed and yielded
+        is derived from the order's recipe version and planned yield, never
+        typed.
+
+        - **Consumes.** The version's lines and packaging, scaled by planned ÷
+          stated yield (one batch when no yield is planned), with no waste
+          uplift — the source sheets state process loss on the output.
+          Counted packaging is rounded up to whole items. Each consume is
+          valued at the ingredient's moving average and carries
+          `reference_type: production_order`, which cost of goods does not
+          count.
+        - **Yield.** Onto the shelf of what the version makes: its primary
+          declared output, else the sauce or dressing sold from its recipe.
+          Valued at the inputs' total and blended into that item's moving
+          average — unless any input had no cost, in which case it arrives
+          unvalued and the average is untouched.
+
+        All or nothing: a line with no shelf, a unit that will not convert, a
+        recipe that makes nothing kept on a shelf (`409 resource.conflict`), or
+        a shelf holding too little (`409 inventory.insufficient_stock`, naming
+        it) refuses the whole batch and moves nothing. Completing an order that
+        is already completed books nothing and answers as it stands.
 
         Requires `inventory.manage_organisation`.
       parameters:
@@ -10666,12 +10684,6 @@ paths:
             $ref: '#/components/schemas/Uuid'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CompleteProductionOrderRequest'
       responses:
         '200':
           description: The production order is completed.
@@ -10688,6 +10700,8 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -32719,36 +32733,16 @@ components:
                     - in_progress
                     - completed
                     - cancelled
+                yield_valued:
+                  type: boolean
+                  description: |
+                    On a completion only: whether the batch arrived with a cost.
+                    False when any input had no moving average to be valued at.
+                    The cost itself is not here — booking a batch is
+                    `inventory.manage_organisation`, and what it cost is
+                    `inventory.view_costs_organisation`'s.
         meta:
           $ref: '#/components/schemas/Meta'
-    ProductionMovementInput:
-      type: object
-      required:
-        - stock_item_id
-        - quantity
-      properties:
-        stock_item_id:
-          $ref: '#/components/schemas/Uuid'
-        quantity:
-          type: number
-      additionalProperties: false
-    CompleteProductionOrderRequest:
-      type: object
-      description: |
-        No production tasks here (O5) — completing an order is entirely
-        about the stock it consumed and yielded, not a checklist.
-      properties:
-        consumes:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProductionMovementInput'
-          description: Stock taken from the branch's inventory to run this order. Omitted or empty is legal.
-        yields:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProductionMovementInput'
-          description: Stock produced by this order and added back to inventory.
-      additionalProperties: false
     QualityCheckSubjectType:
       type: string
       enum:

@@ -66,6 +66,30 @@ export function productionStatusTone(status: ProductionOrderStatus): BadgeTone {
     return PRODUCTION_STATUS_TONES[status];
 }
 
+/**
+ * What a booked batch says, shared with the batch planner so the two places a batch is booked
+ * cannot word it differently.
+ *
+ * An unvalued batch is a warning rather than a success: the stock is right, but what it made will
+ * sell at no cost until an ingredient behind it is priced, and nothing else on screen would say so.
+ */
+export function bookedToast(
+    yieldValued: boolean | null,
+    t: (key: string) => string,
+): { readonly testID: string; readonly tone: 'success' | 'warning'; readonly message: string } {
+    return yieldValued === false
+        ? {
+              testID: 'kitchen-production-completed-unvalued-toast',
+              tone: 'warning',
+              message: t('kitchen:ops.production.completedUnvaluedToast'),
+          }
+        : {
+              testID: 'kitchen-production-completed-toast',
+              tone: 'success',
+              message: t('kitchen:ops.production.completedToast'),
+          };
+}
+
 /** `true` for a status a "complete" action may still be sent for. */
 export function isProductionOrderOpen(status: ProductionOrderStatus): boolean {
     return status === 'planned' || status === 'in_progress';
