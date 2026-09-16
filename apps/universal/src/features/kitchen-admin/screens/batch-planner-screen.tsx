@@ -212,7 +212,9 @@ function BatchPlanner() {
             const booked = await completeOrder.mutateAsync({ productionOrderId: order.id });
             toast.show(bookedToast(booked.yieldValued, t));
         } catch (error) {
-            setBookingError(toFailure(error)?.message ?? t('kitchen:ops.production.completeFailed'));
+            setBookingError(
+                toFailure(error)?.message ?? t('kitchen:ops.production.completeFailed'),
+            );
         }
     };
 
