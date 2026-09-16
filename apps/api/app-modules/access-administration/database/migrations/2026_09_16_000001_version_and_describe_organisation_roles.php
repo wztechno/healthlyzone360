@@ -48,22 +48,27 @@ use Illuminate\Support\Facades\Schema;
  * `RolePolicy::additionalConditions`' braces, and it is why the console offers
  * Copy on a template rather than Edit.
  *
- * **`role_permissions` and `membership_roles` stay outside the policy set, and
- * this migration is where that is recorded rather than omitted.** AA1 makes
- * `role_permissions` tenant-*writable* for the first time — until now only
- * seeders wrote it — which is precisely the review trigger ADR-0007 asks for.
- * It is answered deliberately and in the negative, for two reasons. The first
- * is that isolation here is real without a policy: every read and write path
- * resolves its `role_id` through a `roles` row the policy above has already
- * admitted, and `PermissionChecker::calculatedPermissions()` reads both tables
- * through `withoutTenancy()` by design, so a policy would have to carve an
- * exception for the one caller that matters most. The second is that the
- * existing suite connects as the schema owner and bypasses RLS by ownership
- * (see `2026_08_16_003006_admit_staff_provisioned_consumer_accounts.php`), so
- * a policy added here would be a policy nothing can prove correct. Shipping an
- * untestable policy is worse than shipping a stated decision. Extending the
- * set is its own migration with its own test that reconnects as
- * `healthy360_test`.
+ * **`role_permissions` and `membership_roles` were left outside the policy set
+ * here, and this migration is where that was recorded rather than omitted.**
+ * AA1 makes `role_permissions` tenant-*writable* for the first time — until now
+ * only seeders wrote it — which is precisely the review trigger ADR-0007 asks
+ * for. Two reasons were given. The first was that isolation is already real
+ * without a policy: every read and write path resolves its `role_id` through a
+ * `roles` row the policy above has admitted. That was true and remains true —
+ * it is an argument that a policy is *redundant*, not that it is wrong. The
+ * second was load-bearing: the suite connects as the schema owner and bypasses
+ * RLS by ownership, so a policy added here would have been a policy nothing
+ * could prove correct.
+ *
+ * **`2026_09_16_000004` answers the second reason and adds the policy.**
+ * `Healthy360\Tenancy\Tests\Fixtures\RuntimeRole` runs a closure under
+ * `SET ROLE healthy360_test`, which is how `tenancy/tests/RlsTest.php` proves
+ * the six original tables; `RolePermissionRlsTest` uses it here, including a
+ * parity assertion that `PermissionChecker::calculatedPermissions()` returns
+ * the same codes under the runtime role as under the owner — the one failure a
+ * policy on this table could cause and nothing else would report.
+ * `membership_roles` is still outside the set, deliberately, and that
+ * migration's docblock says why.
  */
 return new class extends Migration
 {

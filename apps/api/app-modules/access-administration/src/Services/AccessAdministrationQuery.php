@@ -8,7 +8,9 @@ use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
+use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\MembershipStatus;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 
 /**
@@ -198,6 +200,43 @@ final readonly class AccessAdministrationQuery
                 static fn ($query) => $query->whereKeyNot($excludingMembershipId),
             )
             ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * The branches a membership may be scoped to, as the console's picker needs
+     * them.
+     *
+     * Served beside the record rather than from a resource of its own because
+     * the kitchen workspace has no way to list its own branches — there is a
+     * `getBranchOperating(branchId)` on the admin contract and no
+     * `listBranches` — and the session is no help either: a membership's own
+     * `branches` is *its* scope, and an organisation-wide membership has none.
+     * So the administrator most likely to be setting somebody else's scope is
+     * the one with the fewest names to offer, and the vocabulary has to come
+     * from the server.
+     *
+     * Deriving it from the team instead — the branches colleagues are already
+     * in — would hide a branch nobody works at yet, and a picker missing an
+     * option silently drops that option on the next save.
+     *
+     * Closed branches are excluded: scoping somebody to a branch that is shut
+     * is a way to take their access away that does not read like one.
+     *
+     * @return list<array{id: string, name: string}>
+     */
+    public function branchesOf(string $organisationId): array
+    {
+        /** @var list<array{id: string, name: string}> */
+        return OrganisationBranch::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->where('status', BranchStatus::Active)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(static fn (OrganisationBranch $branch): array => [
+                'id' => (string) $branch->getKey(),
+                'name' => (string) $branch->name,
+            ])
             ->all();
     }
 

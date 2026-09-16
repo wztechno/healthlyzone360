@@ -75,7 +75,16 @@ final class OrganisationMembershipShowController
 
         return ApiResponse::data(
             ['membership' => $detail],
-            ['remaining_role_administrators' => count($remaining)],
+            [
+                'remaining_role_administrators' => count($remaining),
+                // The scope picker's vocabulary, matching what
+                // `MembershipResponse` puts on the four writes. See
+                // `AccessAdministrationQuery::branchesOf()` for why the list
+                // has to come from the server: nothing else this console can
+                // reach lists a kitchen's branches, and a picker that cannot
+                // name one drops it on the next save.
+                'branches' => $this->query->branchesOf((string) $tenant->getKey()),
+            ],
         )->header('ETag', '"'.(int) $record->lock_version.'"');
     }
 

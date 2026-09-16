@@ -30,6 +30,7 @@ import { OpsRecordFrame } from '../ops-record-frame.tsx';
 import { toSavedCodes } from '../page-permissions.ts';
 import { RolePagesTab } from '../role-pages-tab.tsx';
 import { RolePermissionsTab } from '../role-permissions-tab.tsx';
+import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -133,6 +134,23 @@ function RoleEditor() {
         };
     }, [draft, record]);
 
+    /**
+     * The conflict dialog, wired to `update` alone.
+     *
+     * **`create` and `remove` are deliberately left out, and `remove` is the one that matters.**
+     * `capture()` fires on any `resource.conflict`, and a delete refused because six people still
+     * hold the role is a `resource.conflict` that is *not* a lost race — swallowing it would offer
+     * "somebody else saved, reload?" for "six people hold this". That refusal keeps the banner,
+     * which already names the count. `create` has no version to lose in the first place.
+     */
+    const concurrency = useOptimisticConcurrency({
+        onReload: () => {
+            setDraft(null);
+            guard.markClean();
+            void source.refetch();
+        },
+    });
+
     function edit(patch: Partial<Draft>) {
         setDraft({ ...current, ...patch });
         guard.markDirty();
@@ -140,7 +158,12 @@ function RoleEditor() {
 
     const loading = (sourceId !== undefined && source.isPending) || catalogue.isPending;
     const failure = toFailure(source.error) ?? toFailure(catalogue.error);
-    const writeFailure = toFailure(create.error) ?? toFailure(update.error) ?? toFailure(remove.error);
+    // The lost-race conflict belongs to the dialog once it has been captured; leaving it in the
+    // banner too would say the same thing twice, in two voices, one of which offers no way out.
+    const captured = concurrency.conflict !== null;
+    const writeFailure = captured
+        ? null
+        : (toFailure(create.error) ?? toFailure(update.error) ?? toFailure(remove.error));
 
     if (loading) {
         return (
@@ -227,6 +250,11 @@ function RoleEditor() {
                     setDraft(null);
                     toast.show({ message: t('accessAdmin:role.saved') });
                 },
+                onError: (error: unknown) => {
+                    // `true` means the dialog is open and has the question; anything else falls
+                    // through to the banner below, which is where the write failure is rendered.
+                    concurrency.capture(error);
+                },
             },
         );
     }
@@ -243,6 +271,7 @@ function RoleEditor() {
                     });
                 }}
                 backLabel={t('accessAdmin:role.back')}
+                concurrency={concurrency}
                 onSave={save}
                 saveLabel={t('accessAdmin:role.save')}
                 saving={create.isPending || update.isPending}

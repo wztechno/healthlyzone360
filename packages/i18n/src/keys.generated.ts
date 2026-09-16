@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7049 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7051 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -158,6 +158,8 @@ export interface NamespaceKeys {
     | 'member.saved'
     | 'member.scopeHeading'
     | 'member.scopeHint'
+    | 'member.scopeSingleBranch'
+    | 'member.scopeWholeKitchen'
     | 'member.selfLockout'
     | 'member.suspend'
     | 'member.suspended'
@@ -7237,6 +7239,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.saved',
   'accessAdmin:member.scopeHeading',
   'accessAdmin:member.scopeHint',
+  'accessAdmin:member.scopeSingleBranch',
+  'accessAdmin:member.scopeWholeKitchen',
   'accessAdmin:member.selfLockout',
   'accessAdmin:member.suspend',
   'accessAdmin:member.suspended',

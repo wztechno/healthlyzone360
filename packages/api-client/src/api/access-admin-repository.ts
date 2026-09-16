@@ -20,6 +20,7 @@ import type {
     StaffSignInDomain,
     TeamFilter,
     TeamMember,
+    TeamMemberBranch,
     TeamMemberResult,
     TeamMemberRole,
     TeamMemberStatus,
@@ -131,6 +132,37 @@ function mapMemberSummary(wire: WireTeamMemberSummary): TeamMemberSummary {
     };
 }
 
+/**
+ * The two facts every membership response carries beside the record.
+ *
+ * Read in one place because all six endpoints that answer with a membership — the read, the four
+ * writes and staff creation — are assembled by one class on the server for exactly this reason: six
+ * near-identical readers are six chances for one of them to drop a field and for a screen to quietly
+ * stop warning.
+ *
+ * Both defaults are the honest reading of an absent field rather than a guess. No count means nobody
+ * else is known to remain, which is the direction that warns. No branches means this response named
+ * none to offer, so the scope picker does not draw — better a missing control than one that cannot
+ * list an option and therefore drops it on the next save.
+ */
+function mapMemberMeta(meta: unknown): {
+    readonly remainingRoleAdministrators: number;
+    readonly organisationBranches: readonly TeamMemberBranch[];
+} {
+    const read = meta as {
+        readonly remaining_role_administrators?: number;
+        readonly branches?: readonly { readonly id: string; readonly name: string }[];
+    };
+
+    return {
+        remainingRoleAdministrators: read.remaining_role_administrators ?? 0,
+        organisationBranches: (read.branches ?? []).map((branch) => ({
+            id: BranchId.unsafe(branch.id),
+            name: branch.name,
+        })),
+    };
+}
+
 function mapAssignment(wire: WireAssignment): MembershipRoleAssignment {
     return {
         roleId: RoleId.unsafe(wire.role_id),
@@ -200,14 +232,9 @@ export function createApiAccessAdminRepository(transport: Transport): AccessAdmi
             ...(options.body === undefined ? {} : { body: options.body }),
         });
 
-        const meta = envelope.meta as { readonly remaining_role_administrators?: number };
-
         return {
             membership: mapMember(envelope.data.membership),
-            // Zero rather than undefined when the server omitted it: a console that could not read
-            // the count would silently stop warning, which is the failure this field exists to
-            // prevent. Zero is also the honest reading — nobody else is known to remain.
-            remainingRoleAdministrators: meta.remaining_role_administrators ?? 0,
+            ...mapMemberMeta(envelope.meta),
         };
     }
 
@@ -415,11 +442,9 @@ export function createApiAccessAdminRepository(transport: Transport): AccessAdmi
                 },
             });
 
-            const meta = envelope.meta as { readonly remaining_role_administrators?: number };
-
             return {
                 membership: mapMember(envelope.data.membership),
-                remainingRoleAdministrators: meta.remaining_role_administrators ?? 0,
+                ...mapMemberMeta(envelope.meta),
                 initialPassword: envelope.data.initial_password,
             };
         },

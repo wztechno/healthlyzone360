@@ -863,7 +863,7 @@ it('publishes every context change to the session, wherever it happens', functio
         ->and(RuntimeRole::setting('app.branch_id'))->toBe('');
 });
 
-it('protects exactly the eleven declared tables and no others', function (): void {
+it('protects exactly the twelve declared tables and no others', function (): void {
     $protected = DB::table('pg_tables')
         ->where('schemaname', 'public')
         ->where('rowsecurity', true)
@@ -872,13 +872,18 @@ it('protects exactly the eleven declared tables and no others', function (): voi
         ->all();
 
     // Six from the foundation, two from K1.2, one from K1.3, one from K1.5,
-    // one from J1. Pinned so that a new tenant-scoped table has to decide
-    // explicitly whether it joins the set (ADR-0007 review trigger) rather
-    // than inheriting a policy by accident — or, worse, quietly not having
-    // one. K1.4's nine catalogue tables decided *not* to join, and J1's four
-    // customer child tables decided not to either (they are reachable only
-    // through `customer_accounts`, which is here); the pin is what makes those
-    // decisions rather than omissions.
+    // one from J1, one from AA1. Pinned so that a new tenant-scoped table has
+    // to decide explicitly whether it joins the set (ADR-0007 review trigger)
+    // rather than inheriting a policy by accident — or, worse, quietly not
+    // having one. K1.4's nine catalogue tables decided *not* to join, and J1's
+    // four customer child tables decided not to either (they are reachable
+    // only through `customer_accounts`, which is here); the pin is what makes
+    // those decisions rather than omissions.
+    //
+    // AA1 brought `role_permissions` in when the access console made it
+    // tenant-writable for the first time. Its sibling `membership_roles` is
+    // still out, deliberately — `PermissionChecker` reads it on a hotter path,
+    // so it waits for its own migration and its own evidence.
     expect($protected)->toBe([
         'audit_logs',
         'consent_grants',
@@ -890,6 +895,7 @@ it('protects exactly the eleven declared tables and no others', function (): voi
         'recipe_cost_snapshots',
         'recipe_version_lines',
         'recipe_versions',
+        'role_permissions',
         'roles',
     ]);
 });

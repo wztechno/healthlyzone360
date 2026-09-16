@@ -7260,7 +7260,8 @@ export const zTeamMemberEnvelope = z.object({
         membership: zTeamMember
     }),
     meta: zMeta.and(z.object({
-        remaining_role_administrators: z.int().gte(0)
+        remaining_role_administrators: z.int().gte(0),
+        branches: z.array(zTeamMemberBranch)
     }))
 });
 

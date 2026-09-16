@@ -10,6 +10,7 @@ import {
     ErrorState,
     Heading,
     Inline,
+    Select,
     Skeleton,
     Stack,
     Text,
@@ -28,6 +29,7 @@ import {
     useOrganisationRolesQuery,
     useReactivateMemberMutation,
     useSetMemberRolesMutation,
+    useSetMemberScopeMutation,
     useSuspendMemberMutation,
     useTeamMemberQuery,
 } from '../../../data/access-admin-hooks.ts';
@@ -39,6 +41,7 @@ import {
     ROLE_MANAGE_PERMISSION,
 } from '../entity-registry.ts';
 import { OpsRecordFrame } from '../ops-record-frame.tsx';
+import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { memberDisplayName } from './team-screen.tsx';
 
@@ -68,6 +71,15 @@ import { memberDisplayName } from './team-screen.tsx';
  * presses End rather than after. Zero on your own row means nobody else can administer access —
  * which is the one thing worth knowing before you go on holiday.
  */
+
+/**
+ * The `Select` value standing in for "not one branch".
+ *
+ * A sentinel rather than `null`, because `Select`'s own `null` means "nothing chosen yet" and the
+ * whole kitchen is a choice somebody makes. It never leaves this file: `save()` turns it back into
+ * the `null` the API is documented to take.
+ */
+const WHOLE_KITCHEN = '__organisation__';
 
 export function TeamMemberScreen() {
     return (
@@ -109,14 +121,35 @@ function TeamMemberEditor() {
     const roles = useOrganisationRolesQuery();
 
     const setRoles = useSetMemberRolesMutation();
+    const scopeWrite = useSetMemberScopeMutation();
     const suspend = useSuspendMemberMutation();
     const reactivate = useReactivateMemberMutation();
     const end = useEndMemberMutation();
 
     const [selected, setSelected] = useState<ReadonlySet<string> | null>(null);
+    // `undefined` is untouched, `null` is the whole kitchen, a string is one branch. Three states
+    // because null is a real answer here, not the absence of one.
+    const [scope, setScope] = useState<string | null | undefined>(undefined);
     const [confirmingEnd, setConfirmingEnd] = useState(false);
 
     const guard = useUnsavedGuard({ message: t('kitchen:editor.unsavedMessage') });
+
+    /**
+     * The conflict dialog, wired to every write on this screen.
+     *
+     * Unlike the role editor — where a delete refused over its holders is a `resource.conflict` that
+     * is not a lost race — all five membership endpoints are versioned and a conflict from any of
+     * them means exactly one thing: somebody else changed this person while this screen was open.
+     * Reloading drops the local edits, which is the point of the button.
+     */
+    const concurrency = useOptimisticConcurrency({
+        onReload: () => {
+            setSelected(null);
+            setScope(undefined);
+            guard.markClean();
+            void member.refetch();
+        },
+    });
 
     const record = member.data?.membership;
     const remaining = member.data?.remainingRoleAdministrators ?? null;
@@ -136,12 +169,24 @@ function TeamMemberEditor() {
         return byRole;
     }, [record]);
 
+    const branches = member.data?.organisationBranches ?? [];
+    const savedScope = record?.branch === null || record?.branch === undefined
+        ? null
+        : String(record.branch.id);
+    const chosenScope = scope === undefined ? savedScope : scope;
+    const scopeMoved = scope !== undefined && scope !== savedScope;
+
     const failure = toFailure(member.error);
+    // A captured conflict belongs to the dialog; repeating it in the banner would state the same
+    // race twice, and the banner is the copy with no way out of it.
     const writeFailure =
-        toFailure(setRoles.error) ??
-        toFailure(suspend.error) ??
-        toFailure(reactivate.error) ??
-        toFailure(end.error);
+        concurrency.conflict !== null
+            ? null
+            : (toFailure(scopeWrite.error) ??
+              toFailure(setRoles.error) ??
+              toFailure(suspend.error) ??
+              toFailure(reactivate.error) ??
+              toFailure(end.error));
 
     if (member.isPending) {
         return (
@@ -181,13 +226,46 @@ function TeamMemberEditor() {
         guard.markDirty();
     }
 
+    /**
+     * One Save for both halves of the record.
+     *
+     * Scope and roles are two endpoints — a `PATCH` and a `PUT` — but two save buttons on one record
+     * is how a person saves half their change and walks away. So they go in sequence, and the roles
+     * write takes the lock version the scope write *returned*: the server bumps it on every write,
+     * so reusing the version this screen loaded with would make the second call lose to the first.
+     */
     function save() {
         if (membershipId === undefined || record === undefined) return;
+
+        if (scopeMoved) {
+            scopeWrite.mutate(
+                {
+                    membership: membershipId,
+                    lockVersion: record.lockVersion,
+                    branchId: chosenScope,
+                },
+                {
+                    onSuccess: (result) => {
+                        saveRoles(result.membership.lockVersion);
+                    },
+                    onError: (error: unknown) => {
+                        concurrency.capture(error);
+                    },
+                },
+            );
+            return;
+        }
+
+        saveRoles(record.lockVersion);
+    }
+
+    function saveRoles(lockVersion: number) {
+        if (membershipId === undefined) return;
 
         setRoles.mutate(
             {
                 membership: membershipId,
-                lockVersion: record.lockVersion,
+                lockVersion,
                 // The bounds ride along untouched. A `PUT` writes back what it was shown, so
                 // dropping them here would silently cancel a role somebody scheduled.
                 roles: [...held].map((roleId) => {
@@ -203,12 +281,16 @@ function TeamMemberEditor() {
                 onSuccess: (result) => {
                     guard.markClean();
                     setSelected(null);
+                    setScope(undefined);
                     toast.show({
                         message: t('accessAdmin:member.saved', {
                             name,
                             count: result.membership.roles.length,
                         }),
                     });
+                },
+                onError: (error: unknown) => {
+                    concurrency.capture(error);
                 },
             },
         );
@@ -227,6 +309,10 @@ function TeamMemberEditor() {
                 toast.show({ message: t(`accessAdmin:member.${action}d` as never, { name }) });
                 if (action === 'end') router.back();
             },
+            onError: (error: unknown) => {
+                setConfirmingEnd(false);
+                concurrency.capture(error);
+            },
         });
     }
 
@@ -242,9 +328,12 @@ function TeamMemberEditor() {
                     });
                 }}
                 backLabel={t('accessAdmin:member.back')}
+                concurrency={concurrency}
                 onSave={save}
                 saveLabel={t('accessAdmin:member.save')}
-                saving={setRoles.isPending}
+                // Both halves of the chain: a scope write still running is a save still running, and
+                // a button that came back to life between the two would take a second press.
+                saving={scopeWrite.isPending || setRoles.isPending}
                 hideSave={!canAssignRoles}
                 primaryAction={
                     <Inline space="xs" wrap justify="end">
@@ -354,6 +443,48 @@ function TeamMemberEditor() {
                                     );
                                 })}
                             </Stack>
+                        </Stack>
+                    </Card>
+
+                    <Card padding="md">
+                        <Stack space="sm" testID="kitchen-team-member-scope">
+                            <Heading level={2}>{t('accessAdmin:member.scopeHeading')}</Heading>
+                            <Text tone="secondary">{t('accessAdmin:member.scopeHint')}</Text>
+
+                            {/*
+                             * The vocabulary comes from `meta.branches` on the membership read and
+                             * from nowhere else: the kitchen workspace cannot list its own branches,
+                             * and the session is no help because an organisation-wide membership has
+                             * no branches of its own. With no options there is no decision, so the
+                             * control says so rather than drawing an empty picker.
+                             */}
+                            {branches.length === 0 ? (
+                                <Text tone="secondary" testID="kitchen-team-member-scope-single">
+                                    {t('accessAdmin:member.scopeSingleBranch')}
+                                </Text>
+                            ) : (
+                                <Select
+                                    testID="kitchen-team-member-scope-select"
+                                    label={t('accessAdmin:member.scopeHeading')}
+                                    labelHidden
+                                    disabled={!canUpdate}
+                                    options={[
+                                        {
+                                            value: WHOLE_KITCHEN,
+                                            label: t('accessAdmin:member.scopeWholeKitchen'),
+                                        },
+                                        ...branches.map((branch) => ({
+                                            value: String(branch.id),
+                                            label: branch.name,
+                                        })),
+                                    ]}
+                                    value={chosenScope ?? WHOLE_KITCHEN}
+                                    onChange={(next) => {
+                                        setScope(next === WHOLE_KITCHEN ? null : next);
+                                        guard.markDirty();
+                                    }}
+                                />
+                            )}
                         </Stack>
                     </Card>
 

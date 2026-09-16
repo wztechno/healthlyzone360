@@ -224,6 +224,67 @@ it('refuses role assignment to a caller who may edit memberships but not roles',
         ->assertJsonPath('data.membership.branch.id', (string) $branch->getKey());
 });
 
+it('serves the kitchen’s own branches as the scope picker’s vocabulary', function (): void {
+    // Without this the console cannot draw a scope control at all. Nothing else
+    // a kitchen can reach lists its branches — the admin contract has
+    // `getBranchOperating(branchId)` and no `listBranches` — and a membership's
+    // own `branches` is *its* scope, which is empty for the organisation-wide
+    // administrator most likely to be setting somebody else's.
+    $tenant = AccessWorld::kitchen('admin@verdant.test');
+    $cook = AccessWorld::colleague($tenant, 'cook@verdant.test', [], 'line_cook');
+
+    $hamra = OrganisationBranch::factory()->create([
+        'organisation_id' => $tenant->organisation->getKey(),
+        'country_code' => $tenant->organisation->country_code,
+        'name' => 'Hamra',
+    ]);
+
+    $stranger = AccessWorld::kitchen('admin@cedar.test');
+    $theirs = OrganisationBranch::factory()->create([
+        'organisation_id' => $stranger->organisation->getKey(),
+        'country_code' => $stranger->organisation->country_code,
+        'name' => 'Somebody else’s',
+    ]);
+
+    $response = $this->actingAs($tenant->user)
+        ->getJson(
+            "/api/v1/organisations/{$tenant->organisation->getKey()}/memberships/{$cook->membership->getKey()}",
+            AccessWorld::headers($tenant),
+        )
+        ->assertOk();
+
+    /** @var list<array{id: string, name: string}> $branches */
+    $branches = $response->json('meta.branches');
+    $ids = array_column($branches, 'id');
+
+    expect($ids)->toContain((string) $hamra->getKey())
+        ->and($ids)->not->toContain((string) $theirs->getKey());
+});
+
+it('serves the branches on a write too, so a save cannot empty the picker', function (): void {
+    // All five membership endpoints answer through one assembler and the client
+    // maps all five with one mapper. A field served on the read alone would come
+    // back empty from a save and take the picker with it, mid-edit.
+    $tenant = AccessWorld::kitchen('admin@verdant.test');
+    $cook = AccessWorld::colleague($tenant, 'cook@verdant.test', [], 'line_cook');
+
+    $branch = OrganisationBranch::factory()->create([
+        'organisation_id' => $tenant->organisation->getKey(),
+        'country_code' => $tenant->organisation->country_code,
+        'name' => 'Hamra',
+    ]);
+
+    $this->actingAs($tenant->user)
+        ->patchJson(
+            "/api/v1/organisations/{$tenant->organisation->getKey()}/memberships/{$cook->membership->getKey()}",
+            ['branch_id' => (string) $branch->getKey()],
+            AccessWorld::headers($tenant) + AccessWorld::ifMatch(0),
+        )
+        ->assertOk()
+        ->assertJsonPath('meta.branches.0.id', (string) $branch->getKey())
+        ->assertJsonPath('meta.branches.0.name', 'Hamra');
+});
+
 it('reaches the other person’s next request rather than their cached permission set', function (): void {
     // The test this file exists for. `PermissionCache` holds a calculated set
     // for five minutes keyed on a version counter; a bulk delete fires no model

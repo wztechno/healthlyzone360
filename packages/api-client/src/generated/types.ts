@@ -10587,6 +10587,23 @@ export type TeamMemberEnvelope = {
          *
          */
         remaining_role_administrators: number;
+        /**
+         * The organisation's open branches — the vocabulary the scope
+         * picker needs, served beside the record rather than from a
+         * resource of its own because nothing else a kitchen can
+         * reach lists its branches, and a picker that cannot name one
+         * would drop it on the next save.
+         *
+         * Present on the read *and* on all four writes, which share
+         * one assembler and one client mapper: a field served on only
+         * some of them comes back empty from a save and empties the
+         * picker mid-edit.
+         *
+         * Closed branches are excluded. Empty means a single-branch
+         * kitchen, where there is no scope decision to make.
+         *
+         */
+        branches: Array<TeamMemberBranch>;
     };
 };
 

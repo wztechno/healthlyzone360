@@ -18,7 +18,7 @@ use Illuminate\Http\JsonResponse;
  *
  * Five endpoints — role replacement, scope, suspend, reactivate, end — all
  * return the same membership detail, the same `ETag`, and the same
- * `remaining_role_administrators`. Factored here rather than repeated five
+ * `remaining_role_administrators` and `branches`. Factored here rather than repeated five
  * times because a console reads the response to redraw the row it just changed,
  * and five near-identical assemblies are five chances for one of them to drop
  * a field and for a screen to quietly stop updating.
@@ -68,7 +68,17 @@ final class MembershipResponse
             // a console refusing the thing an operator opened it to do is a
             // control that has made itself unusable — so this is how the screen
             // gets to warn.
-            ['remaining_role_administrators' => count($remaining)],
+            [
+                'remaining_role_administrators' => count($remaining),
+                // The scope picker's vocabulary, on every one of the five
+                // rather than on the read alone. All five answer through this
+                // assembler and the client maps all five with one mapper, so a
+                // read-only field would come back empty from a save and empty
+                // the picker the moment somebody used it. See
+                // `AccessAdministrationQuery::branchesOf()` for why the list
+                // has to come from the server at all.
+                'branches' => $query->branchesOf((string) $organisation->getKey()),
+            ],
             status: $status,
         )->header('ETag', '"'.(int) $membership->lock_version.'"');
     }

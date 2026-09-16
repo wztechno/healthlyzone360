@@ -40779,6 +40779,7 @@ components:
             - type: object
               required:
                 - remaining_role_administrators
+                - branches
               properties:
                 remaining_role_administrators:
                   type: integer
@@ -40790,6 +40791,24 @@ components:
                     the thing an operator opened it to do is a control that has
                     made itself unusable. Zero on your own row means nobody
                     else can.
+                branches:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TeamMemberBranch'
+                  description: |
+                    The organisation's open branches — the vocabulary the scope
+                    picker needs, served beside the record rather than from a
+                    resource of its own because nothing else a kitchen can
+                    reach lists its branches, and a picker that cannot name one
+                    would drop it on the next save.
+
+                    Present on the read *and* on all four writes, which share
+                    one assembler and one client mapper: a field served on only
+                    some of them comes back empty from a save and empties the
+                    picker mid-edit.
+
+                    Closed branches are excluded. Empty means a single-branch
+                    kitchen, where there is no scope decision to make.
     ReplaceMembershipRolesRequest:
       type: object
       required:

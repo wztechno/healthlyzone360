@@ -5,6 +5,7 @@ import type {
     StaffInvitation,
     TeamMemberSummary,
 } from '@healthy360/api-client/contracts';
+import { ApiError, apiFailure, conflictFailure } from '@healthy360/api-client/contracts';
 import { BranchId, MembershipId, RoleId, UserId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
@@ -15,6 +16,7 @@ import {
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { RoleEditorScreen } from './screens/role-editor-screen.tsx';
+import { TeamMemberScreen } from './screens/team-member-screen.tsx';
 import { RolesScreen } from './screens/roles-screen.tsx';
 import { StaffCreateScreen } from './screens/staff-create-screen.tsx';
 import { TeamScreen } from './screens/team-screen.tsx';
@@ -170,6 +172,17 @@ const CATALOGUE: readonly PermissionDomain[] = [
         ],
     },
 ];
+
+/** The role editor's world: one bespoke role and the vocabulary it is written in. */
+function editorRepositories(overrides: Record<string, unknown> = {}) {
+    return {
+        accessAdmin: {
+            getRole: jest.fn().mockResolvedValue(role()),
+            listPermissions: jest.fn().mockResolvedValue(CATALOGUE),
+            ...overrides,
+        },
+    };
+}
 
 /* ── the team list ────────────────────────────────────────────────────────────────────────────── */
 
@@ -373,16 +386,6 @@ describe('the roles list', () => {
 /* ── the role editor ──────────────────────────────────────────────────────────────────────────── */
 
 describe('the role editor', () => {
-    function editorRepositories(overrides: Record<string, unknown> = {}) {
-        return {
-            accessAdmin: {
-                getRole: jest.fn().mockResolvedValue(role()),
-                listPermissions: jest.fn().mockResolvedValue(CATALOGUE),
-                ...overrides,
-            },
-        };
-    }
-
     it('renders the pages grid at the levels the codes produce', async () => {
         setParams({ role: String(ROLE_ID) });
 
@@ -648,5 +651,398 @@ describe('adding a member of staff', () => {
 
         await untilVisible('kitchen-staff-create-email-input');
         expect(screen.queryByTestId('kitchen-staff-create-local-part-input')).toBeNull();
+    });
+});
+
+/* ── one person's record ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The screen with the most destructive controls on it, and until now the only one in this console
+ * with no test at all. Suspend and Remove take somebody's access away; the band above them is the
+ * only warning that nobody else will be able to give it back.
+ */
+describe('one member of staff', () => {
+    const BRANCHES = [
+        { id: BranchId.unsafe('01935f6c-0000-7000-8000-0000000000d1'), name: 'Hamra' },
+        { id: BranchId.unsafe('01935f6c-0000-7000-8000-0000000000d2'), name: 'Verdun' },
+    ];
+
+    function memberRepositories(overrides: Record<string, unknown> = {}) {
+        return {
+            accessAdmin: {
+                getTeamMember: jest.fn().mockResolvedValue({
+                    membership: {
+                        ...member(),
+                        assignments: [{ roleId: ROLE_ID, startsAt: null, expiresAt: null }],
+                        permissions: ['order.view_organisation'],
+                    },
+                    remainingRoleAdministrators: 2,
+                    organisationBranches: BRANCHES,
+                }),
+                listRoles: jest.fn().mockResolvedValue([roleSummary()]),
+                ...overrides,
+            },
+        };
+    }
+
+    beforeEach(() => {
+        setParams({ membership: String(MEMBERSHIP_ID) });
+    });
+
+    it('shows who they are, what they hold and where they work', async () => {
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories(),
+        });
+
+        await untilVisible('kitchen-team-member-roles');
+
+        expect(screen.getByTestId('kitchen-team-member-role-evening_counter')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-team-member-scope-select')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-team-member-status')).toBeTruthy();
+    });
+
+    it('says there is nothing to choose when the kitchen has one branch', async () => {
+        // The vocabulary comes from the server and nowhere else, so an empty list is the honest
+        // signal that this kitchen has no scope decision — not a reason to draw an empty picker.
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories({
+                getTeamMember: jest.fn().mockResolvedValue({
+                    membership: { ...member(), assignments: [], permissions: [] },
+                    remainingRoleAdministrators: 2,
+                    organisationBranches: [],
+                }),
+            }),
+        });
+
+        await untilVisible('kitchen-team-member-scope-single');
+        expect(screen.queryByTestId('kitchen-team-member-scope-select')).toBeNull();
+    });
+
+    it('saves a changed role set against the version it was shown', async () => {
+        const setMemberRoles = jest.fn().mockResolvedValue({
+            membership: { ...member(), assignments: [], permissions: [] },
+            remainingRoleAdministrators: 2,
+            organisationBranches: BRANCHES,
+        });
+
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories({ setMemberRoles }),
+        });
+
+        await untilVisible('kitchen-team-member-roles');
+
+        await act(async () => {
+            fireEvent(screen.getByTestId('kitchen-team-member-role-evening_counter'), 'change', false);
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
+        });
+
+        await waitFor(() => {
+            expect(setMemberRoles).toHaveBeenCalled();
+        });
+
+        const request = setMemberRoles.mock.calls[0]?.[2] as {
+            lockVersion: number;
+            roles: readonly unknown[];
+        };
+        expect(request.lockVersion).toBe(0);
+        expect(request.roles).toHaveLength(0);
+    });
+
+    it('writes the scope first and hands the roles write the version it got back', async () => {
+        // Two endpoints, one Save. The server bumps `lock_version` on every write, so a roles call
+        // reusing the version this screen loaded with would lose to the scope call that just ran.
+        const setMemberScope = jest.fn().mockResolvedValue({
+            membership: { ...member(), assignments: [], permissions: [], lockVersion: 7 },
+            remainingRoleAdministrators: 2,
+            organisationBranches: BRANCHES,
+        });
+        const setMemberRoles = jest.fn().mockResolvedValue({
+            membership: { ...member(), assignments: [], permissions: [] },
+            remainingRoleAdministrators: 2,
+            organisationBranches: BRANCHES,
+        });
+
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories({ setMemberScope, setMemberRoles }),
+        });
+
+        await untilVisible('kitchen-team-member-scope-select');
+
+        await act(async () => {
+            fireEvent(
+                screen.getByTestId('kitchen-team-member-scope-select'),
+                'change',
+                String(BRANCHES[1]?.id),
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
+        });
+
+        await waitFor(() => {
+            expect(setMemberRoles).toHaveBeenCalled();
+        });
+
+        expect(setMemberScope.mock.calls[0]?.[2]).toMatchObject({
+            lockVersion: 0,
+            branchId: String(BRANCHES[1]?.id),
+        });
+        expect(setMemberRoles.mock.calls[0]?.[2]).toMatchObject({ lockVersion: 7 });
+    });
+
+    it('sends the whole kitchen as a null rather than as a sentinel', async () => {
+        const setMemberScope = jest.fn().mockResolvedValue({
+            membership: { ...member(), assignments: [], permissions: [], lockVersion: 7 },
+            remainingRoleAdministrators: 2,
+            organisationBranches: BRANCHES,
+        });
+
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories({
+                setMemberScope,
+                setMemberRoles: jest.fn().mockResolvedValue({
+                    membership: { ...member(), assignments: [], permissions: [] },
+                    remainingRoleAdministrators: 2,
+                    organisationBranches: BRANCHES,
+                }),
+            }),
+        });
+
+        await untilVisible('kitchen-team-member-scope-select');
+
+        // The fixture member is scoped to Hamra, so "the whole kitchen" is a real change.
+        await act(async () => {
+            fireEvent(screen.getByTestId('kitchen-team-member-scope-select'), 'change', '__organisation__');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
+        });
+
+        await waitFor(() => {
+            expect(setMemberScope).toHaveBeenCalled();
+        });
+
+        expect(setMemberScope.mock.calls[0]?.[2]).toMatchObject({ branchId: null });
+    });
+
+    it('offers Suspend for somebody working and Reactivate for somebody suspended, never both', async () => {
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories(),
+        });
+
+        await untilVisible('kitchen-team-member-suspend');
+        expect(screen.queryByTestId('kitchen-team-member-reactivate')).toBeNull();
+    });
+
+    it('shows the other side of that for a suspended membership', async () => {
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories({
+                getTeamMember: jest.fn().mockResolvedValue({
+                    membership: {
+                        ...member({ status: 'suspended' }),
+                        assignments: [],
+                        permissions: [],
+                    },
+                    remainingRoleAdministrators: 2,
+                    organisationBranches: BRANCHES,
+                }),
+            }),
+        });
+
+        await untilVisible('kitchen-team-member-reactivate');
+        expect(screen.queryByTestId('kitchen-team-member-suspend')).toBeNull();
+    });
+
+    it('asks before removing somebody, rather than removing them on the press', async () => {
+        const endMember = jest.fn().mockResolvedValue({
+            membership: { ...member({ status: 'ended' }), assignments: [], permissions: [] },
+            remainingRoleAdministrators: 2,
+            organisationBranches: BRANCHES,
+        });
+
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories({ endMember }),
+        });
+
+        await untilVisible('kitchen-team-member-end');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-team-member-end'));
+        });
+
+        expect(endMember).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-team-member-end-confirm'));
+        });
+
+        await waitFor(() => {
+            expect(endMember).toHaveBeenCalled();
+        });
+    });
+
+    it('warns that nobody else can administer access, before anybody presses Remove', async () => {
+        // On the *read*, not on the refusal — the server reports the count and never enforces it,
+        // so a warning that only arrived after the fact would arrive after the access was gone.
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories({
+                getTeamMember: jest.fn().mockResolvedValue({
+                    membership: { ...member(), assignments: [], permissions: [] },
+                    remainingRoleAdministrators: 0,
+                    organisationBranches: BRANCHES,
+                }),
+            }),
+        });
+
+        await untilVisible('kitchen-team-member-last-administrator');
+    });
+
+    it('keeps the band away when somebody else could still do it', async () => {
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: memberRepositories(),
+        });
+
+        await untilVisible('kitchen-team-member-roles');
+        expect(screen.queryByTestId('kitchen-team-member-last-administrator')).toBeNull();
+    });
+});
+
+/* ── how a refusal reaches the reader ─────────────────────────────────────────────────────────── */
+
+describe('refusals that must not vanish', () => {
+    beforeEach(() => {
+        setParams({ membership: String(MEMBERSHIP_ID) });
+    });
+
+    const detail = {
+        membership: { ...member(), assignments: [], permissions: [] },
+        remainingRoleAdministrators: 2,
+        organisationBranches: [],
+    };
+
+    it('renders a self-lockout as a banner, never as a toast', async () => {
+        // A toast disappears. The one refusal somebody must read before trying again is the one
+        // telling them they are about to lock themselves out of the console they are standing in.
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: {
+                accessAdmin: {
+                    getTeamMember: jest.fn().mockResolvedValue(detail),
+                    listRoles: jest.fn().mockResolvedValue([roleSummary()]),
+                    setMemberRoles: jest
+                        .fn()
+                        .mockRejectedValue(new ApiError(apiFailure('access.self_lockout'))),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-team-member-roles');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
+        });
+
+        await untilVisible('kitchen-team-member-write-error');
+
+        expect(screen.getByTestId('toast-region-polite')).toBeEmptyElement();
+        expect(screen.getByTestId('toast-region-assertive')).toBeEmptyElement();
+    });
+
+    it('renders the same refusal on the role editor as a banner too', async () => {
+        setParams({ role: String(ROLE_ID) });
+
+        await renderStubScreen(<RoleEditorScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: editorRepositories({
+                updateRole: jest
+                    .fn()
+                    .mockRejectedValue(new ApiError(apiFailure('access.self_lockout'))),
+            }),
+        });
+
+        await untilVisible('kitchen-role-editor-save');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-role-editor-save'));
+        });
+
+        await untilVisible('kitchen-role-editor-write-error');
+
+        expect(screen.getByTestId('toast-region-polite')).toBeEmptyElement();
+        expect(screen.getByTestId('toast-region-assertive')).toBeEmptyElement();
+    });
+
+    it('offers to reload when somebody else saved first', async () => {
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: {
+                accessAdmin: {
+                    getTeamMember: jest.fn().mockResolvedValue(detail),
+                    listRoles: jest.fn().mockResolvedValue([roleSummary()]),
+                    setMemberRoles: jest
+                        .fn()
+                        .mockRejectedValue(new ApiError(conflictFailure({ currentLockVersion: 3 }))),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-team-member-roles');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
+        });
+
+        await untilVisible('kitchen-team-member-conflict-reload');
+
+        // The dialog owns the question; the banner saying the same thing with no way out of it
+        // would be the same race reported twice.
+        expect(screen.queryByTestId('kitchen-team-member-write-error')).toBeNull();
+    });
+
+    it('keeps a role still held on the banner, where the count is', async () => {
+        // **The distinction this pair exists for.** A delete refused because six people hold the
+        // role is a `resource.conflict` that is not a lost race, and `capture()` cannot tell them
+        // apart — so the delete path never calls it. Offering "somebody else saved, reload?" for
+        // "six people hold this" would answer a question nobody asked.
+        //
+        // The console hides Delete on a role anybody holds, so the only way to meet this refusal is
+        // the race it was written for: the role had no holders when this screen read it, and
+        // somebody assigned it before the delete landed.
+        setParams({ role: String(ROLE_ID) });
+
+        await renderStubScreen(<RoleEditorScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: editorRepositories({
+                getRole: jest.fn().mockResolvedValue(role({ holderCount: 0 })),
+                deleteRole: jest
+                    .fn()
+                    .mockRejectedValue(new ApiError(conflictFailure({ membershipCount: 6 }))),
+            }),
+        });
+
+        await untilVisible('kitchen-role-editor-delete');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-role-editor-delete'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-role-editor-delete-confirm'));
+        });
+
+        await untilVisible('kitchen-role-editor-write-error');
+
+        expect(screen.queryByTestId('kitchen-role-editor-conflict-dialog')).toBeNull();
     });
 });

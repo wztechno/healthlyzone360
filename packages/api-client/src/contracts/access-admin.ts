@@ -261,6 +261,23 @@ export interface TeamMember extends TeamMemberSummary {
 export interface TeamMemberResult {
     readonly membership: TeamMember;
     readonly remainingRoleAdministrators: number;
+    /**
+     * The organisation's open branches — the scope picker's vocabulary.
+     *
+     * Here rather than on `TeamMember` because it is a fact about the kitchen, not about the person;
+     * and served at all because **nothing else a kitchen can reach lists its own branches.** The
+     * admin contract has `getBranchOperating(branchId)` and no `listBranches`, and a membership's own
+     * `branches` is *its* scope — empty for the organisation-wide administrator most likely to be
+     * setting somebody else's. Deriving the list from colleagues' current branches would hide a
+     * branch nobody works at yet, and a picker missing an option drops it on the next save.
+     *
+     * Present on every read *and* every write, because all five endpoints answer through one
+     * assembler and this one mapper: served on the read alone it would come back empty from a save
+     * and take the picker with it, mid-edit.
+     *
+     * Empty means a single-branch kitchen, where there is no scope decision to make.
+     */
+    readonly organisationBranches: readonly TeamMemberBranch[];
 }
 
 /**

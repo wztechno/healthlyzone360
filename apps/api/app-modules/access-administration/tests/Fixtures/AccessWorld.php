@@ -160,6 +160,22 @@ final class AccessWorld
         return $role;
     }
 
+    /**
+     * Give an existing membership another role, template or bespoke.
+     *
+     * `kitchen()` and `colleague()` each build a membership with exactly one
+     * role; this is for the case where what is under test is somebody holding
+     * two at once — the two sides of the `roles` SELECT predicate, say.
+     */
+    public static function assign(object $tenant, Role $role): MembershipRole
+    {
+        return MembershipRole::factory()->create([
+            'organisation_id' => $tenant->organisation->getKey(),
+            'membership_id' => $tenant->membership->getKey(),
+            'role_id' => $role->getKey(),
+        ]);
+    }
+
     /** The platform template of a given code — seeded, `is_system`, never editable. */
     public static function template(string $code): Role
     {
