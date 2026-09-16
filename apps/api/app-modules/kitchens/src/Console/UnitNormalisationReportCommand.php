@@ -101,19 +101,26 @@ final class UnitNormalisationReportCommand extends Command
                 continue;
             }
 
-            $moving[(string) $ingredient->getKey()] = [
+            $row = [
                 'ref' => $ingredient->source_ref,
                 'name' => $ingredient->name_en,
                 'from' => $current instanceof MeasurementUnit ? $current->code : '(none)',
                 'purchase_from' => $purchase?->code,
                 'to' => $target,
-                'convertible' => $current instanceof MeasurementUnit
-                    && $conversion->canConvert($current, $byCode->get($target)),
+                'convertible' => false,
+                // Not printed: what `restatable()` weighs a unit with.
+                'default_unit' => $current,
+                'target_unit' => $byCode->get($target),
+                'grams_per_unit' => $ingredient->grams_per_unit === null ? null : (string) $ingredient->grams_per_unit,
             ];
+            $row['convertible'] = $current instanceof MeasurementUnit
+                && $this->restatable($current, $row, $conversion);
+
+            $moving[(string) $ingredient->getKey()] = $row;
         }
 
         $stranded = $moving === [] ? [] : $this->strandedCosts($moving, $units, $conversion);
-        $shelves = $moving === [] ? [] : $this->mismatchedShelves($moving, $units);
+        $shelves = $moving === [] ? [] : $this->mismatchedShelves($moving, $units, $conversion);
         $lines = $moving === []
             ? ['convertible' => 0, 'unresolvable' => 0, 'unresolvable_on_published_versions' => 0, 'examples' => []]
             : $this->affectedRecipeLines($moving, $units, $conversion);
@@ -128,7 +135,10 @@ final class UnitNormalisationReportCommand extends Command
          */
         if ($this->option('json')) {
             $this->line((string) json_encode([
-                'moving' => array_values($moving),
+                'moving' => array_values(array_map(
+                    static fn (array $row): array => array_diff_key($row, ['default_unit' => true, 'target_unit' => true, 'grams_per_unit' => true]),
+                    $moving,
+                )),
                 'stranded_costs' => $stranded,
                 'counted_shelves' => $shelves,
                 'recipe_lines' => $lines,
@@ -193,7 +203,7 @@ final class UnitNormalisationReportCommand extends Command
             if (bccomp((string) $cost->quantity_on_hand, '0', 6) === 0) {
                 continue;
             }
-            if ($conversion->canConvert($held, $target)) {
+            if ($this->restatable($held, $ingredient, $conversion)) {
                 continue;
             }
 
@@ -228,19 +238,26 @@ final class UnitNormalisationReportCommand extends Command
      * @param  Collection<string, MeasurementUnit>  $units
      * @return list<array<string, mixed>>
      */
-    private function mismatchedShelves(array $moving, $units): array
+    private function mismatchedShelves(array $moving, $units, UnitConversionService $conversion): array
     {
         $rows = [];
 
         foreach (
             StockItem::withoutTenancy()
                 ->whereIn('ingredient_id', array_keys($moving))
+                // A resold product's shelf measures itself in what the product is bought in.
+                ->whereNull('catalogue_item_id')
                 ->get() as $item
         ) {
             $ingredient = $moving[(string) $item->ingredient_id];
             $shelfUnit = $units->get((string) $item->unit_id);
 
             if ($shelfUnit?->code === $ingredient['to']) {
+                continue;
+            }
+
+            // Weighable in the new unit: the migration restates the shelf, count and all.
+            if ($shelfUnit instanceof MeasurementUnit && $this->restatable($shelfUnit, $ingredient, $conversion)) {
                 continue;
             }
 
@@ -312,7 +329,7 @@ final class UnitNormalisationReportCommand extends Command
             if (! $lineUnit instanceof MeasurementUnit || ! $target instanceof MeasurementUnit) {
                 continue;
             }
-            if ($conversion->canConvert($lineUnit, $target)) {
+            if ($this->restatable($lineUnit, $ingredient, $conversion)) {
                 $convertible++;
 
                 continue;
@@ -341,6 +358,34 @@ final class UnitNormalisationReportCommand extends Command
             'unresolvable_on_published_versions' => $publishedUnresolvable,
             'examples' => $examples,
         ];
+    }
+
+    /**
+     * Whether a figure in `$unit` can be stated in the ingredient's new unit, by the rule the migration
+     * applies: a real ratio within one dimension, or a mass target and the ingredient's own
+     * `grams_per_unit` weighing its old stock unit — ketchup's 1150 g a litre, an egg's 50 g. No weight
+     * is ever invented, so a can of tuna is not restatable.
+     *
+     * @param  array<string, mixed>  $ingredient
+     */
+    private function restatable(MeasurementUnit $unit, array $ingredient, UnitConversionService $conversion): bool
+    {
+        $target = $ingredient['target_unit'];
+        $default = $ingredient['default_unit'];
+
+        if (! $target instanceof MeasurementUnit) {
+            return false;
+        }
+
+        if ($conversion->canConvert($unit, $target)) {
+            return true;
+        }
+
+        return $target->dimension === 'mass'
+            && is_string($ingredient['grams_per_unit'])
+            && bccomp($ingredient['grams_per_unit'], '0', 4) > 0
+            && $default instanceof MeasurementUnit
+            && $conversion->canConvert($unit, $default);
     }
 
     /**
