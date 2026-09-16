@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6839 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6832 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3066,7 +3066,6 @@ export interface NamespaceKeys {
     | 'meals.allergensRailEmpty'
     | 'meals.allergensRailFrozen'
     | 'meals.allergensRailTitle'
-    | 'meals.backToList'
     | 'meals.blockDescription'
     | 'meals.blockMealTypes'
     | 'meals.blockName'
@@ -3081,8 +3080,6 @@ export interface NamespaceKeys {
     | 'meals.confidential'
     | 'meals.confidentialHint'
     | 'meals.create'
-    | 'meals.createTitle'
-    | 'meals.createdToast'
     | 'meals.descriptionLabel'
     | 'meals.dietsHint'
     | 'meals.dietsLabel'
@@ -3103,10 +3100,7 @@ export interface NamespaceKeys {
     | 'meals.mealTypesLabel'
     | 'meals.nameRequired'
     | 'meals.noChannels'
-    | 'meals.notFoundBody'
-    | 'meals.notFoundTitle'
     | 'meals.notVisibleToConsumers'
-    | 'meals.openRecipe'
     | 'meals.portionHint'
     | 'meals.portionInvalid'
     | 'meals.portionLabel'
@@ -3120,7 +3114,6 @@ export interface NamespaceKeys {
     | 'meals.publishedTitle'
     | 'meals.publishedToast'
     | 'meals.recipeHint'
-    | 'meals.recipeHintNone'
     | 'meals.recipeLabel'
     | 'meals.recipeNone'
     | 'meals.resultCount'
@@ -9923,7 +9916,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.allergensRailEmpty',
   'kitchen:meals.allergensRailFrozen',
   'kitchen:meals.allergensRailTitle',
-  'kitchen:meals.backToList',
   'kitchen:meals.blockDescription',
   'kitchen:meals.blockMealTypes',
   'kitchen:meals.blockName',
@@ -9938,8 +9930,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.confidential',
   'kitchen:meals.confidentialHint',
   'kitchen:meals.create',
-  'kitchen:meals.createTitle',
-  'kitchen:meals.createdToast',
   'kitchen:meals.descriptionLabel',
   'kitchen:meals.dietsHint',
   'kitchen:meals.dietsLabel',
@@ -9960,10 +9950,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.mealTypesLabel',
   'kitchen:meals.nameRequired',
   'kitchen:meals.noChannels',
-  'kitchen:meals.notFoundBody',
-  'kitchen:meals.notFoundTitle',
   'kitchen:meals.notVisibleToConsumers',
-  'kitchen:meals.openRecipe',
   'kitchen:meals.portionHint',
   'kitchen:meals.portionInvalid',
   'kitchen:meals.portionLabel',
@@ -9977,7 +9964,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.publishedTitle',
   'kitchen:meals.publishedToast',
   'kitchen:meals.recipeHint',
-  'kitchen:meals.recipeHintNone',
   'kitchen:meals.recipeLabel',
   'kitchen:meals.recipeNone',
   'kitchen:meals.resultCount',
