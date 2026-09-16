@@ -13,6 +13,7 @@ import {
 import type { ProductCategory } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { missingLast } from './catalogue-column-spec.ts';
 import { useCatalogueFilters } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 
@@ -178,12 +179,11 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         const factor = sortDirection === 'asc' ? 1 : -1;
         return [...(rows ?? [])].sort((left, right) => {
             if (sortKey === 'reference') {
-                // Missing last in both directions, so the unnumbered rows cluster at the end
-                // rather than at whichever end the direction happens to point.
-                if (left.reference === null && right.reference === null) return 0;
-                if (left.reference === null) return 1;
-                if (right.reference === null) return -1;
-                return factor * left.reference.localeCompare(right.reference);
+                return missingLast(
+                    left.reference,
+                    right.reference,
+                    (a, b) => factor * a.localeCompare(b),
+                );
             }
             if (sortKey === 'category') {
                 return factor * left.categoryCode.localeCompare(right.categoryCode, locale);
