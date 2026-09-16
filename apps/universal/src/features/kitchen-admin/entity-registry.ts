@@ -491,6 +491,20 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        key: 'frozenMeals',
+        kind: 'managed',
+        group: 'catalogue',
+        nameKey: 'kitchen:families.frozenMeals.name',
+        descriptionKey: 'kitchen:families.frozenMeals.description',
+        // The same packaged-goods rectangle sauces and dressings carry: a frozen
+        // meal sells as a packaged good and leaves the freezer as one unit, which
+        // is precisely what separates it from the meal family below.
+        icon: 'device',
+        href: '/kitchen/frozen-meals',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
         key: 'meals',
         kind: 'managed',
         group: 'catalogue',

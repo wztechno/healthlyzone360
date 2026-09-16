@@ -472,16 +472,26 @@ final readonly class RequirementForecast
                 continue;
             }
 
-            match ($item->item_type) {
-                CatalogueItemType::Meal => $this->requireMeal($organisationId, $branchId, $item, $entry, $required, $holes),
-                // A sauce or dressing forecasts like a product: its demand is
-                // its own shelf (via its ingredient link), not an exploded
-                // recipe — the v6 catalogue records no formulation lines.
-                CatalogueItemType::Product,
-                CatalogueItemType::Sauce,
-                CatalogueItemType::Dressing => $this->requireProduct($organisationId, $branchId, $item, $entry, $required, $holes),
-                CatalogueItemType::SubscriptionPlan => null,
-            };
+            if ($item->item_type === CatalogueItemType::SubscriptionPlan) {
+                continue;
+            }
+
+            /*
+             * The same predicate the deduction branches on (PROD1), for the same
+             * reason: a forecast that re-derived "is this made to stock?" with its
+             * own rule would drift from what the shelf actually loses, and the two
+             * would disagree on exactly the articles hardest to reason about.
+             *
+             * A thing made in advance demands its own shelf; a thing cooked when
+             * ordered demands the ingredients its recipe explodes into.
+             */
+            if ($item->sellsFromFinishedStock()) {
+                $this->requireProduct($organisationId, $branchId, $item, $entry, $required, $holes);
+
+                continue;
+            }
+
+            $this->requireMeal($organisationId, $branchId, $item, $entry, $required, $holes);
         }
 
         return $required;

@@ -78,9 +78,25 @@ import { RecipeEditScreen } from './recipe-edit-screen.tsx';
  */
 
 /** The catalogue-item category each route files into. `ProductCategorySeeder`'s own codes. */
+/**
+ * The cooked kinds this editor serves: things the kitchen makes and then sells as
+ * a packaged good. They share one form because they share one shape — a recipe
+ * behind a catalogue item — and differ only in what they are called and how they
+ * are numbered.
+ */
+export type CookedItemType = 'sauce' | 'dressing' | 'frozen_meal';
+
+/** The heading each kind files itself under. */
+const CATEGORY_LABEL_KEY = {
+    sauce: 'kitchen:sauces.title',
+    dressing: 'kitchen:dressings.title',
+    frozen_meal: 'kitchen:frozenMeals.title',
+} as const satisfies Record<CookedItemType, string>;
+
 const ITEM_CATEGORY = {
     sauce: 'sauce',
     dressing: 'dressing',
+    frozen_meal: 'frozen_meal',
 } as const;
 
 /**
@@ -93,7 +109,8 @@ const ITEM_CATEGORY = {
 const REFERENCE_SERIES = {
     sauce: 'SAC-',
     dressing: 'DRS-',
-} as const satisfies Record<'sauce' | 'dressing', ReferenceSeries>;
+    frozen_meal: 'FRZ-',
+} as const satisfies Record<CookedItemType, ReferenceSeries>;
 
 /**
  * The sub-category words, as the sauces sheet's own filter lists them.
@@ -102,8 +119,11 @@ const REFERENCE_SERIES = {
  * import already writes for every SC- row. Dressings have no list of their own: the sheets file all
  * fourteen alike, so the route states the category and asks nothing further.
  */
-function subcategoryOptions(itemType: 'sauce' | 'dressing', t: TFunction): readonly SelectOption[] {
-    if (itemType === 'dressing') return [];
+function subcategoryOptions(itemType: CookedItemType, t: TFunction): readonly SelectOption[] {
+    // Only sauces have the sheet's own sub-category list. A dressing and a frozen
+    // meal each file under one heading, so offering an empty select would be a
+    // control with nothing behind it.
+    if (itemType !== 'sauce') return [];
 
     return [
         { value: 'cold_sauce_dip', label: t('kitchen:sauces.kindColdSauce') },
@@ -116,8 +136,8 @@ function subcategoryOptions(itemType: 'sauce' | 'dressing', t: TFunction): reado
 export interface CookedItemEditScreenProps {
     /** The route parameter — a catalogue item id, or `new` for the create form. */
     readonly product: string | undefined;
-    readonly itemType: 'sauce' | 'dressing';
-    readonly routeBase: '/kitchen/sauces' | '/kitchen/dressings';
+    readonly itemType: CookedItemType;
+    readonly routeBase: '/kitchen/sauces' | '/kitchen/dressings' | '/kitchen/frozen-meals';
 }
 
 export function CookedItemEditScreen({ product, itemType, routeBase }: CookedItemEditScreenProps) {
@@ -165,7 +185,7 @@ function CookedItemEditor({ product, itemType, routeBase }: CookedItemEditScreen
     const linkRecipe = useUpdateProductMutation();
 
     const classification = {
-        categoryLabel: t(itemType === 'sauce' ? 'kitchen:sauces.title' : 'kitchen:dressings.title'),
+        categoryLabel: t(CATEGORY_LABEL_KEY[itemType]),
         subcategoryLabel: t('kitchen:fields.subcategory'),
         subcategoryPlaceholder: t('kitchen:fields.subcategoryPlaceholder'),
         options: subcategoryOptions(itemType, t),

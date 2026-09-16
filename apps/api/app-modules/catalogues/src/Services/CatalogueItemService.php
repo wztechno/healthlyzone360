@@ -16,7 +16,9 @@ use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Api\ErrorCode;
@@ -149,6 +151,11 @@ final readonly class CatalogueItemService
             // One sold unit is one yield piece unless the kitchen says
             // otherwise.
             $item->portion_factor = $this->portionFactor($attributes['portion_factor'] ?? '1');
+
+            $finished = $this->finishedStockDeclaration($type, $links, $attributes, $organisationId);
+            $item->sells_from_finished_stock = $finished['sells_from_finished_stock'];
+            $item->net_content_quantity = $finished['net_content_quantity'];
+            $item->net_content_unit_id = $finished['net_content_unit_id'];
             $item->status = CatalogueItemStatus::Draft;
             $item->image_placeholder_id = $this->trimmedOrNull($attributes['image_placeholder_id'] ?? null);
             $item->lock_version = 0;
@@ -238,6 +245,18 @@ final readonly class CatalogueItemService
             if (array_key_exists($field, $attributes)) {
                 $changes[$field] = $field === 'production_mode' ? $links[$field]?->value : $links[$field];
             }
+        }
+
+        // Re-checked on every edit rather than only on create: the flag can be set
+        // on an item that qualified and then have the production mode or the
+        // ingredient link changed underneath it. Validating the *resulting* state
+        // keeps the rule true rather than merely once-true.
+        if (array_intersect_key($attributes, array_flip(['sells_from_finished_stock', 'net_content_quantity', 'net_content_unit_id', 'production_mode', 'ingredient_id'])) !== []) {
+            $finished = $this->finishedStockDeclaration($item->item_type, $links, $attributes, (string) $item->organisation_id, $item);
+
+            $changes['sells_from_finished_stock'] = $finished['sells_from_finished_stock'];
+            $changes['net_content_quantity'] = $finished['net_content_quantity'];
+            $changes['net_content_unit_id'] = $finished['net_content_unit_id'];
         }
 
         if ($changes === []) {
@@ -721,5 +740,111 @@ final readonly class CatalogueItemService
             $message,
             ['fields' => [$field => [$message]]] + $extra,
         );
+    }
+
+    /**
+     * The finished-stock declaration on an item, validated (PROD1).
+     *
+     * Two fields and one rule between them.
+     *
+     * **The flag is refused unless the item is one the kitchen makes.** A meal
+     * flagged as selling from finished stock but produced by nobody would deduct
+     * from a shelf that does not exist, and the sale would fail at the counter
+     * rather than in the editor. So it requires a `production` or `both` mode and
+     * an `ingredient_id` that some published recipe version actually outputs.
+     *
+     * The types that always sell from finished stock — a product, a sauce, a
+     * dressing, a frozen meal — are not asked to set it. Their behaviour predates
+     * this column and is a property of what they are.
+     *
+     * **Net content is optional and all-or-nothing.** A quantity with no unit is
+     * not a quantity; the database CHECK says the same thing from its side.
+     *
+     * @param  array<string, mixed>  $links
+     * @param  array<string, mixed>  $attributes
+     * @return array{sells_from_finished_stock: bool, net_content_quantity: numeric-string|null, net_content_unit_id: string|null}
+     *
+     * @throws ApiException
+     */
+    private function finishedStockDeclaration(
+        CatalogueItemType $type,
+        array $links,
+        array $attributes,
+        string $organisationId,
+        ?CatalogueItem $existing = null,
+    ): array {
+        $flag = array_key_exists('sells_from_finished_stock', $attributes)
+            ? (bool) $attributes['sells_from_finished_stock']
+            : ($existing->sells_from_finished_stock ?? false);
+
+        $ingredientId = array_key_exists('ingredient_id', $links)
+            ? $links['ingredient_id']
+            : $existing?->ingredient_id;
+
+        $mode = array_key_exists('production_mode', $links)
+            ? $links['production_mode']
+            : $existing?->production_mode;
+
+        if ($flag && $type === CatalogueItemType::Meal) {
+            if (! in_array($mode, [ProductionMode::Production, ProductionMode::Both], true)) {
+                throw $this->invalid(
+                    'sells_from_finished_stock',
+                    'Only a meal this kitchen produces can sell from finished stock. Set its production mode first.',
+                );
+            }
+
+            if (! is_string($ingredientId) || ! $this->isProducedIngredient($organisationId, $ingredientId)) {
+                throw $this->invalid(
+                    'sells_from_finished_stock',
+                    'A meal that sells from finished stock must name an ingredient a published recipe produces, so there is a shelf to deduct from.',
+                );
+            }
+        }
+
+        $quantity = array_key_exists('net_content_quantity', $attributes)
+            ? $attributes['net_content_quantity']
+            : $existing?->net_content_quantity;
+
+        $unitId = array_key_exists('net_content_unit_id', $attributes)
+            ? $attributes['net_content_unit_id']
+            : $existing?->net_content_unit_id;
+
+        if ($quantity === null || $quantity === '' || $unitId === null || $unitId === '') {
+            return [
+                'sells_from_finished_stock' => $flag,
+                'net_content_quantity' => null,
+                'net_content_unit_id' => null,
+            ];
+        }
+
+        if (! is_numeric($quantity) || bccomp((string) $quantity, '0', 4) !== 1) {
+            throw $this->invalid('net_content_quantity', 'The net content of one sold unit must be a positive quantity.');
+        }
+
+        return [
+            'sells_from_finished_stock' => $flag,
+            'net_content_quantity' => (string) $quantity,
+            'net_content_unit_id' => (string) $unitId,
+        ];
+    }
+
+    /**
+     * Whether some published recipe version of this organisation outputs the
+     * named ingredient.
+     *
+     * Read through the outputs table rather than through
+     * `ingredients.nutrition_derived_from_version_id`: that column records which
+     * version *claimed the facts*, and a version can legitimately produce
+     * something whose nutrition was entered by hand. Production is the question
+     * here, so the outputs are what answers it.
+     */
+    private function isProducedIngredient(string $organisationId, string $ingredientId): bool
+    {
+        return RecipeVersionOutput::withoutTenancy()
+            ->join('recipe_versions', 'recipe_versions.id', '=', 'recipe_version_outputs.recipe_version_id')
+            ->where('recipe_version_outputs.organisation_id', $organisationId)
+            ->where('recipe_version_outputs.ingredient_id', $ingredientId)
+            ->where('recipe_versions.status', RecipeVersionStatus::Published->value)
+            ->exists();
     }
 }

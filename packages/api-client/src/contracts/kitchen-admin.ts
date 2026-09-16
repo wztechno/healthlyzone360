@@ -997,11 +997,12 @@ export interface TechnicalSheetAdmin {
 /**
  * The reference series a record is numbered in.
  *
- * `ING-` is the ingredient library's. The other three are the recipe table's: the library, sauces
- * and dressings are all recipes, read off different sheets and quoted by different handles, so they
- * number separately. A client names the series; the number in it is always the server's.
+ * `ING-` is the ingredient library's. The others are the recipe table's: the library, sauces,
+ * dressings and frozen meals are all recipes, read off different sheets and quoted by different
+ * handles, so they number separately. A client names the series; the number in it is always the
+ * server's.
  */
-export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-';
+export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-' | 'FRZ-';
 
 /*
  * Where each series is counted, which is the table its existing handles are in: `ING-` among the
@@ -1184,7 +1185,7 @@ export interface ProductAdmin {
      * kitchen screens list each kind on its own page via
      * {@link ProductAdminFilter.itemType}.
      */
-    readonly itemType: 'product' | 'sauce' | 'dressing';
+    readonly itemType: 'product' | 'sauce' | 'dressing' | 'frozen_meal';
     /**
      * The kitchen's own handle — `SAC-001`, `DRS-019`, `RSL-055`.
      *
@@ -1239,12 +1240,12 @@ export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest
     readonly categoryId?: string | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
     /** Which packaged kind to list. Defaults to `product`. */
-    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal' | undefined;
 }
 
 export interface CreateProductRequest {
     /** Defaults to `product`; the sauces and dressings screens pass their own. */
-    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal' | undefined;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;

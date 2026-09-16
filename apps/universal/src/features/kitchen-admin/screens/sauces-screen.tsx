@@ -1,4 +1,9 @@
-import { DRESSINGS_FAMILY, ProductsScreen, SAUCES_FAMILY } from './products-screen.tsx';
+import {
+    DRESSINGS_FAMILY,
+    FROZEN_MEALS_FAMILY,
+    ProductsScreen,
+    SAUCES_FAMILY,
+} from './products-screen.tsx';
 import { CookedItemEditScreen } from './sauce-edit-screen.tsx';
 
 /**
@@ -17,6 +22,20 @@ import { CookedItemEditScreen } from './sauce-edit-screen.tsx';
  */
 export function SaucesScreen() {
     return <ProductsScreen family={SAUCES_FAMILY} />;
+}
+
+export function FrozenMealsScreen() {
+    return <ProductsScreen family={FROZEN_MEALS_FAMILY} />;
+}
+
+export function FrozenMealEditScreen({ product }: { readonly product: string | undefined }) {
+    return (
+        <CookedItemEditScreen
+            product={product}
+            itemType="frozen_meal"
+            routeBase="/kitchen/frozen-meals"
+        />
+    );
 }
 
 export function DressingsScreen() {

@@ -196,7 +196,7 @@ export interface ProductEditScreenProps {
      * Which packaged kind a create makes and which list the screen returns to.
      * The sauces and dressings routes pass theirs; the default is products.
      */
-    readonly itemType?: 'product' | 'sauce' | 'dressing';
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal';
     readonly routeBase?: '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings';
 }
 

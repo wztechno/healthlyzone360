@@ -54,6 +54,8 @@ export { ProductsScreen } from './products-screen.tsx';
 export {
     DressingEditScreen,
     DressingsScreen,
+    FrozenMealEditScreen,
+    FrozenMealsScreen,
     SauceEditScreen,
     SaucesScreen,
 } from './sauces-screen.tsx';

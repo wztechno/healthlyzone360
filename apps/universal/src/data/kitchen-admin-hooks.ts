@@ -1169,7 +1169,7 @@ export interface ProductCategory {
  * that page's own rows carry.
  */
 export function useProductCategoriesQuery(
-    itemType: 'product' | 'sauce' | 'dressing' = 'product',
+    itemType: 'product' | 'sauce' | 'dressing' | 'frozen_meal' = 'product',
 ): UseQueryResult<readonly ProductCategory[]> {
     const { repositories } = useRepositoryContext();
 

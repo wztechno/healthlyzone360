@@ -1777,12 +1777,18 @@ export type UpdateAllergenClassRequest = {
 /**
  * Which kind of sellable thing an item is — the discriminator that lets
  * products, meals and subscription plans share one table, one price path,
- * one availability table and one publication gate. What genuinely differs
+ * one availability table and one publication gate.
+ *
+ * `frozen_meal` is a *type* and `sells_from_finished_stock` is a
+ * *behaviour*, and they answer different questions. A frozen meal is its
+ * own family and always sells from finished stock; a prepared salad made in
+ * advance sells the same way and is still a meal, so it sets the flag
+ * rather than acquiring a type. What genuinely differs
  * between them is nullable columns and child tables, not the apparatus
  * around them.
  *
  */
-export type CatalogueItemType = 'product' | 'meal' | 'subscription_plan' | 'sauce' | 'dressing';
+export type CatalogueItemType = 'product' | 'meal' | 'subscription_plan' | 'sauce' | 'dressing' | 'frozen_meal';
 
 /**
  * The publication lifecycle of a sellable item — the **same** four-state

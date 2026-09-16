@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7056 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7065 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3044,6 +3044,8 @@ export interface NamespaceKeys {
     | 'families.deliveryZones.name'
     | 'families.dressings.description'
     | 'families.dressings.name'
+    | 'families.frozenMeals.description'
+    | 'families.frozenMeals.name'
     | 'families.ingredients.description'
     | 'families.ingredients.name'
     | 'families.meals.description'
@@ -3126,6 +3128,13 @@ export interface NamespaceKeys {
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
     | 'fields.unitPricePlaceholder'
+    | 'frozenMeals.caption'
+    | 'frozenMeals.create'
+    | 'frozenMeals.emptyBody'
+    | 'frozenMeals.emptyTitle'
+    | 'frozenMeals.searchPlaceholder'
+    | 'frozenMeals.title'
+    | 'frozenMeals.viewKind'
     | 'hub.countUnavailable'
     | 'hub.draftCount'
     | 'hub.emptyBody'
@@ -10118,6 +10127,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.deliveryZones.name',
   'kitchen:families.dressings.description',
   'kitchen:families.dressings.name',
+  'kitchen:families.frozenMeals.description',
+  'kitchen:families.frozenMeals.name',
   'kitchen:families.ingredients.description',
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
@@ -10200,6 +10211,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
   'kitchen:fields.unitPricePlaceholder',
+  'kitchen:frozenMeals.caption',
+  'kitchen:frozenMeals.create',
+  'kitchen:frozenMeals.emptyBody',
+  'kitchen:frozenMeals.emptyTitle',
+  'kitchen:frozenMeals.searchPlaceholder',
+  'kitchen:frozenMeals.title',
+  'kitchen:frozenMeals.viewKind',
   'kitchen:hub.countUnavailable',
   'kitchen:hub.draftCount',
   'kitchen:hub.emptyBody',
