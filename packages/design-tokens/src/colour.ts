@@ -21,8 +21,8 @@ export const COLOUR_STOPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 95
 export type ColourStop = (typeof COLOUR_STOPS)[number];
 
 /** Brand — vital green: fresh lime at the light end (`300`), emerald in the middle (`500`, the mood
- * board's `#16a34a`), deep forest at the dark end. `brandSurface` sits below `500` so white text on it
- * clears AA. */
+ * board's `#16a34a`), deep forest at the dark end. `brandSurface` is `500` itself, the mood board's
+ * primary, with white text on it by choice — see `colour.test.ts`. */
 export const brand: ColourRamp = {
     50: '#f2fcf4',
     100: '#dcf7e1',
@@ -305,6 +305,19 @@ export interface ThemeColours {
      * 0.82–0.86.
      */
     readonly onCanopyMuted: string;
+    /**
+     * The app shell's sidebar — the panel the modules live in. The primary green in light mode, with
+     * white items on it and the active item as a white pill in green text.
+     */
+    readonly surfaceSidebar: string;
+    /** Item text on the sidebar. */
+    readonly onSidebar: string;
+    /** Group headings, icons and quiet controls on the sidebar. */
+    readonly onSidebarMuted: string;
+    /** The active item's pill. */
+    readonly sidebarActive: string;
+    /** The active item's text and icon. */
+    readonly onSidebarActive: string;
     /** Violet tint for AI surfaces. Pairs with `onAccentSubtle`, never with `textPrimary`. */
     readonly accentSubtle: string;
     readonly onAccentSubtle: string;
@@ -327,7 +340,9 @@ export const themeLight: ThemeColours = {
     borderDefault: '#aaddc0',
     borderStrong: '#5f8f76',
     focusRing: '#157043',
-    brandSurface: '#157043', // emerald — primary buttons, active nav (below brand.500 so white text clears AA)
+    // The mood board's primary, exactly: buttons, selected tabs, the active pill. White text on it is
+    // 3.05:1 — below AA for 12–14px labels, and a decision taken knowingly (see `colour.test.ts`).
+    brandSurface: '#16a34a',
     brandSurfaceSubtle: '#dcfce7', // soft green — panels, active pill
     onBrandSurfaceSubtle: '#14532d',
     accentSurface: '#6d28d9', // violet — the AI / premium accent, white-text-safe
@@ -336,6 +351,11 @@ export const themeLight: ThemeColours = {
     surfaceCanopyDeep: '#124f33', // gradient partner
     onCanopy: '#ffffff',
     onCanopyMuted: '#dcfce7',
+    surfaceSidebar: '#16a34a', // the primary green
+    onSidebar: '#ffffff', // 3.05:1 — see "brand green, as chosen" in colour.test.ts
+    onSidebarMuted: '#ffffff', // headings differ by weight and size, not by a fainter ink
+    sidebarActive: '#ffffff', // white pill
+    onSidebarActive: '#16a34a', // green text on it, 3.05:1
     accentSubtle: '#f1ebfd', // violet tint, AI surfaces
     onAccentSubtle: '#4c1d95',
     ratingStar: '#b57d0d', // gold, AA on mint and white
@@ -369,6 +389,11 @@ export const themeDark: ThemeColours = {
     // every role needs a value per theme, not because these two change.
     onCanopy: '#ffffff',
     onCanopyMuted: '#dcfce7',
+    surfaceSidebar: '#16241b',
+    onSidebar: '#bcc7be',
+    onSidebarMuted: '#8b968c',
+    sidebarActive: '#153a26',
+    onSidebarActive: '#86efac',
     accentSubtle: '#251b3d', // the pale violet tint inverts; a lavender panel on a dark page does not
     onAccentSubtle: '#cdbcf7',
     ratingStar: '#e0a92a', // gold, brighter for dark surfaces

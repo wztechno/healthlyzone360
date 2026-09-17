@@ -214,9 +214,8 @@ describe('AppShell — rail', () => {
 
         const sidebar = screen.getByTestId('shell-sidebar');
         expect(sidebar.props.className).toContain('w-[88px]');
-        // The rail is separated from the page by its own fill rather than by a hairline. A border
-        // on the canopy would be a second edge drawn over an edge that is already there.
-        expect(sidebar.props.className).toContain('bg-surface-canopy');
+        // The rail is separated from the page by its own green fill rather than by a hairline.
+        expect(sidebar.props.className).toContain('bg-surface-sidebar');
         expect(sidebar.props.className).not.toContain('border-e');
     });
 });
@@ -262,7 +261,7 @@ describe('AppShell — sidebar navigation', () => {
         }
     });
 
-    it('fills the active item rather than tinting it, because it carries white text', async () => {
+    it('draws the active item as the sidebar pill', async () => {
         setViewport(1280);
         await renderWithI18n(
             <AppShell testID="shell" variant="workspace" navigation={grouped}>
@@ -270,10 +269,10 @@ describe('AppShell — sidebar navigation', () => {
             </AppShell>,
         );
 
-        // `surface-brand` (#157043), never `brand-500` (#16A34A) — white on the latter is 3.05:1
-        // and this pill carries a 14px label (§1.3).
+        // The sidebar roles, not a raw ramp stop: the pill and its #16A34A text are theme tokens,
+        // so dark mode swaps both.
         const active = screen.getByTestId('nav-home');
-        expect(active.props.className).toContain('bg-surface-brand');
+        expect(active.props.className).toContain('bg-surface-sidebar-active');
         expect(active.props.className).not.toContain('bg-brand-500');
     });
 

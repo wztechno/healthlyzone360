@@ -90,9 +90,9 @@ html:lang(ar) * {
 /* ================================================================================================
    The workspace rail's own scrollbar.
 
-   The rail is a canopy panel and its navigation scrolls inside it — AppShell's sidebar ScrollView,
+   The rail is a green panel and its navigation scrolls inside it — AppShell's sidebar ScrollView,
    which carries the `…-sidebar-scroll` id. Left to the browser, that scroller wears the platform's
-   stock scrollbar: on Windows a light grey slab with arrow buttons, cut into a deep green panel.
+   stock scrollbar: on Windows a grey slab with arrow buttons, cut into the green panel.
 
    The standard properties thin it and paint it in the rail's own ink; the WebKit pseudo-elements do
    the same for engines that predate them (an engine that honours `scrollbar-color` ignores them).
@@ -108,7 +108,7 @@ html:lang(ar) * {
 
 [data-testid$='-sidebar-scroll']:hover,
 [data-testid$='-sidebar-scroll']:focus-within {
-    scrollbar-color: rgb(var(--h360-color-on-canopy-muted) / 0.45) transparent;
+    scrollbar-color: rgb(var(--h360-color-on-sidebar-muted) / 0.45) transparent;
 }
 
 [data-testid$='-sidebar-scroll']::-webkit-scrollbar {
@@ -126,7 +126,7 @@ html:lang(ar) * {
 
 [data-testid$='-sidebar-scroll']:hover::-webkit-scrollbar-thumb,
 [data-testid$='-sidebar-scroll']:focus-within::-webkit-scrollbar-thumb {
-    background: rgb(var(--h360-color-on-canopy-muted) / 0.45);
+    background: rgb(var(--h360-color-on-sidebar-muted) / 0.45);
 }
 
 /* ================================================================================================

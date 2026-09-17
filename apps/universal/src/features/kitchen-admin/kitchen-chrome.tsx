@@ -31,24 +31,6 @@ import { buildReviewQueue } from './review-queue.ts';
 export const KITCHEN_SIDEBAR_WIDTH = 232;
 
 /**
- * The canopy gradient behind the rail, over the shell's flat `surface-canopy`.
- *
- * Hexes in a prop, not a class, the same way `PageHero` and the marketplace brand mark carry
- * theirs — these are `surface-canopy` → `surface-canopy-deep` from the token set, which a
- * `LinearGradient` cannot read as classNames.
- */
-export function KitchenCanopyGradient() {
-    return (
-        <LinearGradient
-            colors={['#0b3b26', '#124f33']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={{ flex: 1 }}
-        />
-    );
-}
-
-/**
  * Brand block at the top of the rail: the violet-to-green mark the marketplace top bar uses, the
  * wordmark, and the area line under it. No branch name — the access state carries only branch ids,
  * and a made-up label would be worse than none.
@@ -73,13 +55,13 @@ export function KitchenBrandBlock() {
             <View className="min-w-0 flex-1">
                 <RNText
                     numberOfLines={1}
-                    className="text-base font-bold text-content-on-canopy text-start"
+                    className="text-base font-bold text-content-on-sidebar text-start"
                 >
                     {t('marketplace:brand.name')}
                 </RNText>
                 <RNText
                     numberOfLines={1}
-                    className="text-xs text-content-on-canopy-muted text-start"
+                    className="text-xs text-content-on-sidebar-muted text-start"
                 >
                     {t('kitchen:nav.railTitle')}
                 </RNText>

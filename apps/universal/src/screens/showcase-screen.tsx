@@ -2,6 +2,7 @@ import { apiFailure, rateLimitFailure, validationFailure } from '@healthy360/api
 import {
     Accordion,
     ActionSheet,
+    AppShell,
     Avatar,
     Badge,
     BADGE_TONES,
@@ -1627,6 +1628,60 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     status={toolbarStatus}
                     onStatusChange={setToolbarStatus}
                 />
+            </Stack>
+
+            {/*
+             * The workspace sidebar: the module panel filled with the primary green, white items,
+             * and the active item as a white pill in #16A34A text. Framed at a fixed height so the shell
+             * sits inside the page rather than taking it over; the sidebar itself appears from
+             * `lg` up, as it does in the product.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Workspace sidebar
+                </Text>
+                <View
+                    className="overflow-hidden rounded border border-stroke-subtle"
+                    style={{ height: 320 }}
+                >
+                    <AppShell
+                        testID={id('sidebar-shell')}
+                        variant="workspace"
+                        title="Kitchen workspace"
+                        navigation={[
+                            {
+                                key: 'home',
+                                label: 'Overview',
+                                icon: 'home',
+                                active: true,
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'ingredients',
+                                label: 'Ingredients',
+                                icon: 'basket',
+                                group: 'Catalogue',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'recipes',
+                                label: 'Recipes',
+                                icon: 'plate',
+                                group: 'Catalogue',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'batch',
+                                label: 'Batch planner',
+                                icon: 'calendar',
+                                group: 'Operations',
+                                onPress: () => undefined,
+                            },
+                        ]}
+                    >
+                        <Text tone="secondary">Page content</Text>
+                    </AppShell>
+                </View>
             </Stack>
 
             {/*

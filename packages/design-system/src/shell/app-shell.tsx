@@ -67,13 +67,13 @@ export interface AppShellProps {
      * and the suites that assert them — stay exactly as they are when this is not passed.
      */
     readonly sidebarWidth?: number | undefined;
-    /** Absolute-fill layer behind the sidebar's content — a gradient over the flat canopy. */
+    /** Absolute-fill layer behind the sidebar's content — drawn over the sidebar's flat fill. */
     readonly sidebarBackground?: ReactNode | undefined;
     /** Above the sidebar's navigation — a brand block. Sidebar only; the drawer has a title bar. */
     readonly sidebarStart?: ReactNode | undefined;
     /**
      * Pinned at the bottom of the sidebar — a sign-out control. Sidebar only: the drawer is a
-     * light overlay, and a canopy-styled control inside it would be mint on white. Below `lg`
+     * white overlay with its own title bar. Below `lg`
      * the caller keeps such a control in the top bar instead.
      */
     readonly sidebarEnd?: ReactNode | undefined;
@@ -291,16 +291,14 @@ export function AppShell({
     /**
      * The navigation list, in one of two tones.
      *
-     * `canopy` is the sidebar: a deep forest panel that reads as chrome rather than as content, so
-     * the eye goes to the page and not to the menu. `surface` is the drawer, which is a light
-     * overlay with its own light title bar — canopy items inside it would be mint-on-white.
-     *
-     * Both alphas clear the §1.3 floor: text on the canopy must be at least 0.62 opaque
-     * (`rgba(220,252,231,0.62)` is 5.42:1; 0.45 is 3.60:1 and fails). Items sit at 80 and headings
-     * at 65, which is the documented 0.74–0.78 band and the floor plus a little air.
+     * `sidebar` is the module panel (`surface-sidebar`, the primary green in light mode):
+     * `on-sidebar` item text, `on-sidebar-muted` headings and icons, and the active item a pill
+     * (`surface-sidebar-active`, white) in green text. `surface` is the drawer, a white overlay with
+     * its own title bar, where the active item takes the subtle green. Every pair is gated in
+     * `colour.test.ts`.
      */
-    const navigationList = (compact: boolean, tone: 'canopy' | 'surface' = 'surface') => {
-        const onCanopy = tone === 'canopy';
+    const navigationList = (compact: boolean, tone: 'sidebar' | 'surface' = 'surface') => {
+        const onSidebar = tone === 'sidebar';
 
         const renderItem = (item: NavigationItem) => (
             <Pressable
@@ -323,8 +321,8 @@ export function AppShell({
                         ? 'bg-transparent'
                         : // A filled `surface-brand` pill, not `brand-500`: this carries 14px
                           // white text, and white on brand-500 is 3.05:1 (§1.3).
-                          onCanopy
-                          ? 'bg-surface-brand'
+                          onSidebar
+                          ? 'bg-surface-sidebar-active'
                           : 'bg-surface-brand-subtle',
                 )}
             >
@@ -333,11 +331,11 @@ export function AppShell({
                         name={item.icon}
                         className={
                             item.active === true
-                                ? onCanopy
-                                    ? 'text-content-on-brand'
+                                ? onSidebar
+                                    ? 'text-content-on-sidebar-active'
                                     : 'text-content-on-brand-subtle'
-                                : onCanopy
-                                  ? 'text-content-on-canopy-muted'
+                                : onSidebar
+                                  ? 'text-content-on-sidebar-muted'
                                   : 'text-content-secondary'
                         }
                     />
@@ -348,11 +346,11 @@ export function AppShell({
                         className={cx(
                             'flex-1 text-sm text-start',
                             item.active === true
-                                ? onCanopy
-                                    ? 'text-content-on-brand font-bold'
+                                ? onSidebar
+                                    ? 'text-content-on-sidebar-active font-bold'
                                     : 'text-content-on-brand-subtle font-medium'
-                                : onCanopy
-                                  ? 'text-content-on-canopy-muted'
+                                : onSidebar
+                                  ? 'text-content-on-sidebar font-medium'
                                   : 'text-content-primary',
                         )}
                     >
@@ -401,8 +399,8 @@ export function AppShell({
                                       // the same demoted label in; the ramp carries the distinction
                                       // now, so the casing does not have to.
                                       'px-3 pb-1 pt-3 text-xs font-semibold text-start',
-                                      onCanopy
-                                          ? 'text-content-on-canopy-muted'
+                                      onSidebar
+                                          ? 'text-content-on-sidebar-muted'
                                           : 'text-content-secondary',
                                   )}
                               >
@@ -419,7 +417,8 @@ export function AppShell({
         <View
             testID={testID === undefined ? undefined : `${testID}-sidebar`}
             className={cx(
-                'h-full flex-col overflow-hidden bg-surface-canopy',
+                // The fill is the edge: a green panel against the page needs no hairline as well.
+                'h-full flex-col overflow-hidden bg-surface-sidebar',
                 variant === 'rail' ? 'w-[88px]' : 'w-[260px]',
             )}
             style={sidebarWidth === undefined ? undefined : { width: sidebarWidth }}
@@ -437,7 +436,7 @@ export function AppShell({
                 testID={testID === undefined ? undefined : `${testID}-sidebar-scroll`}
                 className="flex-1"
             >
-                {navigationList(variant === 'rail', 'canopy')}
+                {navigationList(variant === 'rail', 'sidebar')}
             </ScrollView>
             {sidebarEnd}
         </View>

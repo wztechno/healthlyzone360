@@ -64,7 +64,7 @@ export interface AreaShellProps {
     /**
      * Move Sign out from the top bar to the bottom of the sidebar (KITCHEN.md sidebar spec). Only
      * where the sidebar exists: below `lg` the top bar keeps it, because the drawer is a light
-     * overlay and a canopy-styled control inside it would be mint on white.
+     * overlay with its own title bar.
      */
     readonly signOutInSidebar?: boolean | undefined;
     /** `auth` variant only: the brand panel beside the card from `lg` up. */
@@ -185,11 +185,10 @@ function GuardedAreaShell({
             </Inline>
         );
 
-    // KITCHEN.md sidebar spec: quiet, translucent border, never filled. On the canopy the quiet
-    // button's white fill would glow, so this control states its own colours — the same
-    // translucent pair PageHero's chips use.
+    // KITCHEN.md sidebar spec: quiet, bordered, never filled — a filled button would compete with
+    // the active item.
     const sidebarSignOut = !sidebarPresent ? undefined : (
-        <View className="border-t border-content-on-canopy-muted/30 p-3">
+        <View className="border-t border-content-on-sidebar-muted/30 p-3">
             <Pressable
                 testID="sign-out"
                 role="button"
@@ -199,9 +198,9 @@ function GuardedAreaShell({
                 disabled={logout.isPending}
                 focusable
                 onPress={signOut}
-                className="min-h-touch items-center justify-center rounded-lg border border-content-on-canopy-muted/30"
+                className="min-h-touch items-center justify-center rounded-lg border border-content-on-sidebar-muted/60"
             >
-                <RNText className="text-sm font-semibold text-content-on-canopy-muted">
+                <RNText className="text-sm font-semibold text-content-on-sidebar">
                     {t('common:action.signOut')}
                 </RNText>
             </Pressable>
