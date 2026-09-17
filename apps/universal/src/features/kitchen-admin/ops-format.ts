@@ -766,8 +766,16 @@ export function goodsReceiptRowTestId(goodsReceiptId: string): string {
     return `kitchen-goods-receipt-${goodsReceiptId}`;
 }
 
-export function productionOrderRowTestId(productionOrderId: string): string {
-    return `kitchen-production-order-${productionOrderId}`;
+/**
+ * The stem every id on a batch row and on the batch screen is built from.
+ *
+ * One helper rather than a template literal per call site, for the reason its siblings exist: three
+ * surfaces render the same batch — the desk queue, the register and the batch screen — and a suite
+ * that pointed at two of the three spellings would go green while one of them had quietly stopped
+ * rendering.
+ */
+export function productionBatchTestId(productionOrderId: string): string {
+    return `kitchen-production-batch-${productionOrderId}`;
 }
 
 export function qualityCheckRowTestId(qualityCheckId: string): string {

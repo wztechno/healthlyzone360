@@ -65,6 +65,15 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     // renders the forbidden page instead of the thing under test. A suite proving the boundary
     // subtracts it explicitly.
     'inventory.order_supplies_organisation',
+    // PROD1. All three, matching `PermissionRegistry`: the backend grants the desk, the writes and
+    // the costs to `kitchen_manager`, and only the costs code is withheld from `kitchen_chef`. Added
+    // here the moment the production desk existed, which is exactly the drift this fixture's
+    // "mirrors the template roles" promise exists to prevent — a screen gated on a code the fixture
+    // lacks renders the forbidden page instead of the thing under test. A suite proving the cost
+    // boundary subtracts `production.view_costs_organisation` explicitly.
+    'production.view_organisation',
+    'production.manage_organisation',
+    'production.view_costs_organisation',
     // S1/C4. The backend has granted `subscription.view_organisation` to `kitchen_manager` since the
     // schedule projection landed, and it is deliberately *not* folded into `order.view_organisation`
     // there: a subscription is a standing commercial arrangement with a captured price, and reading
@@ -145,6 +154,11 @@ export const ORGANISATION_OWNER_PERMISSIONS: readonly string[] = [
     'inventory.manage_organisation',
     'inventory.view_costs_organisation',
     'inventory.order_supplies_organisation',
+    // PROD1. An owner holds every organisation-scoped code, which is what this list is defined as,
+    // so the three arrive here the moment the registry declares them.
+    'production.view_organisation',
+    'production.manage_organisation',
+    'production.view_costs_organisation',
 ];
 
 /**

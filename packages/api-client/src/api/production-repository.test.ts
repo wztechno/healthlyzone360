@@ -256,6 +256,9 @@ describe('production — the plan', () => {
                                 ingredient_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7701',
                                 line_kind: 'ingredient',
                                 unit_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7801',
+                                stock_item_code: 'FLOUR-00',
+                                stock_item_name_en: 'Flour, plain',
+                                unit_code: 'kg',
                                 required: '10.000000',
                                 on_hand: '10.0000',
                                 reserved: '8.0000',
@@ -287,6 +290,10 @@ describe('production — the plan', () => {
         expect(plan.isConfirmable).toBe(false);
         // Ten on the shelf, eight claimed by other batches, two free.
         expect(plan.ingredients[0]?.available).toBe('2.0000');
+        // The words on the shelf, carried beside the id. A plan rendered as a
+        // column of uuids is a plan nobody can shop from.
+        expect(plan.ingredients[0]?.stockItemNameEn).toBe('Flour, plain');
+        expect(plan.ingredients[0]?.unitCode).toBe('kg');
     });
 });
 

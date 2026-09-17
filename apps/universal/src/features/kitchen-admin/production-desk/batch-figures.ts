@@ -76,27 +76,3 @@ export function yieldSummary(order: ProductionOrder): string | null {
 
     return `${usable} / ${produced} ${unit}`.trim();
 }
-
-/**
- * Whether a batch is still somebody's work — what the desk shows by default.
- *
- * `draft` counts: a batch nobody has confirmed is still a decision waiting to be made, and leaving
- * it off the working surface is how a kitchen finds a fortnight-old draft in the register.
- */
-export function isOpenBatch(status: ProductionOrderStatus): boolean {
-    return status === 'draft' || status === 'confirmed' || status === 'in_production';
-}
-
-/**
- * The edge a batch takes next from a list row, or `null` when it needs a form or is finished.
- *
- * `in_production` is `null` here and **not** an oversight: completing a batch needs what actually
- * came out — produced, rejected, what went in the pot and what went on the floor — and a one-click
- * complete would have to invent a produced quantity. The detail screen asks.
- */
-export function quickEdge(status: ProductionOrderStatus): 'confirm' | 'start' | null {
-    if (status === 'draft') return 'confirm';
-    if (status === 'confirmed') return 'start';
-
-    return null;
-}

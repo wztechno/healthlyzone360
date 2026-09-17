@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { makeAccessState } from '@healthy360/testing';
@@ -39,12 +39,23 @@ function routePaths(directory: string = KITCHEN_ROUTES, prefix = '/kitchen'): re
         if (!entry.endsWith('.tsx')) continue;
         // `_layout` is chrome, not a destination.
         if (entry.startsWith('_')) continue;
+        // Nor is a redirect. A route that only forwards somewhere else has no gate, no registry
+        // family and nothing to permit — it exists so an old bookmark still lands. Counting it as
+        // a page would demand a card for a path nobody should arrive at twice.
+        if (isRedirectOnly(full)) continue;
 
         const name = entry.replace(/\.tsx$/, '');
         paths.push(name === 'index' ? prefix : `${prefix}/${name}`);
     }
 
     return paths;
+}
+
+/** A route file whose whole body is `<Redirect />` — see the walk above. */
+function isRedirectOnly(file: string): boolean {
+    const source = readFileSync(file, 'utf8');
+
+    return source.includes('<Redirect ') && !source.includes('lazyScreen(');
 }
 
 describe('the permission vocabulary', () => {

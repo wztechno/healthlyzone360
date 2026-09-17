@@ -1701,6 +1701,16 @@ export interface ProductionOrderLine {
     readonly ingredientId: string;
     readonly lineKind: ProductionLineKind;
     readonly unitId: string;
+    /**
+     * The shelf's own code and name, carried beside the id — a batch rendered as a column of uuids
+     * is a batch nobody can cook from. The **stock item's** name rather than the ingredient's,
+     * because a line is a claim on a shelf and the cook walks to the shelf. Null is "nobody can
+     * tell you" and renders as an em dash.
+     */
+    readonly stockItemCode: string | null;
+    readonly stockItemNameEn: string | null;
+    /** The unit's code, so a quantity renders as a quantity rather than a bare number. */
+    readonly unitCode: string | null;
     readonly requiredQuantity: string;
     /** What was actually claimed. Below `requiredQuantity` after a correction left the shelf short. */
     readonly reservedQuantity: string | null;
@@ -1728,6 +1738,16 @@ export interface ProductionPlanLine {
     readonly ingredientId: string;
     readonly lineKind: ProductionLineKind;
     readonly unitId: string;
+    /**
+     * The shelf's own code and name, carried beside the id — a batch rendered as a column of uuids
+     * is a batch nobody can cook from. The **stock item's** name rather than the ingredient's,
+     * because a line is a claim on a shelf and the cook walks to the shelf. Null is "nobody can
+     * tell you" and renders as an em dash.
+     */
+    readonly stockItemCode: string | null;
+    readonly stockItemNameEn: string | null;
+    /** The unit's code, so a quantity renders as a quantity rather than a bare number. */
+    readonly unitCode: string | null;
     readonly required: string;
     readonly onHand: string;
     readonly reserved: string;

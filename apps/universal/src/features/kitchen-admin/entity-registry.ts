@@ -757,14 +757,44 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     },
     {
         key: 'production',
+        // A family of records with a listing, a create control and a six-state lifecycle — the
+        // plainest `managed` in the workspace. Its three sibling routes (plan, batch, sheet) are
+        // nested under this href rather than families of their own, for the reason the order desk's
+        // siblings are: they are the same records seen closer, not a second book.
         kind: 'managed',
         group: 'operations',
         nameKey: 'kitchen:families.production.name',
         descriptionKey: 'kitchen:families.production.description',
         icon: 'calendar',
-        href: '/kitchen/production',
+        // `-desk`, and the old `/kitchen/production` redirects here. The suffix is not decoration:
+        // this is the internal counterpart of `/kitchen/order-desk`, and the two names being a pair
+        // is what tells a manager that one makes food and the other sells it.
+        href: '/kitchen/production-desk',
         permission: PRODUCTION_VIEW_PERMISSION,
         managePermission: PRODUCTION_MANAGE_PERMISSION,
+    },
+    {
+        key: 'production-batches',
+        // A view, not a family of records — the order calendar's reading exactly. It is the same
+        // book narrowed to the batches nobody has to move any more, with the expiry dates flagged,
+        // and nothing is created or written from it.
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.productionBatches.name',
+        descriptionKey: 'kitchen:families.productionBatches.description',
+        // `▤`, the ruled sheet — a register is a ruled book. The workspace-wide compromise applies
+        // unchanged: the icon set is a table of typographic characters, and a real icon set retires
+        // it.
+        icon: 'calendar',
+        // Nested under the desk, with the deliberate consequence the order desk's siblings record:
+        // `isKitchenNavActive` matches this against `/kitchen/production-desk` too, and the ops
+        // shell takes the **first** matching family — so the breadcrumb reads "Production" and
+        // leads back to the queue.
+        href: '/kitchen/production-desk/batches',
+        permission: PRODUCTION_VIEW_PERMISSION,
+        // Nothing is written from a register. Every edge a batch has — confirm, start, complete,
+        // abandon, call off — lives on the batch itself, which holds the lock version.
+        managePermission: null,
     },
     {
         key: 'qc',

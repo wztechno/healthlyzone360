@@ -8,6 +8,7 @@ use Healthy360\Production\Models\ProductionOrder;
 use Healthy360\Production\Models\ProductionOrderLine;
 use Healthy360\Production\Services\BatchPlan;
 use Healthy360\Production\Services\BatchPlanLine;
+use Healthy360\Production\Services\StockItemLabels;
 
 /**
  * A batch on the wire (PROD1).
@@ -33,8 +34,10 @@ use Healthy360\Production\Services\BatchPlanLine;
  * model computes them; this only spells them on the wire, so a client never has
  * to know which of "38 made, one rejected" is the number on the shelf.
  */
-final readonly class ProductionOrderPresenter
+final class ProductionOrderPresenter
 {
+    public function __construct(private readonly StockItemLabels $labels) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -97,6 +100,11 @@ final readonly class ProductionOrderPresenter
      */
     public function lines(array $lines, bool $withCosts): array
     {
+        $this->labels->prime(
+            array_values(array_map(static fn (ProductionOrderLine $line): string => (string) $line->stock_item_id, $lines)),
+            array_values(array_map(static fn (ProductionOrderLine $line): string => (string) $line->unit_id, $lines)),
+        );
+
         return array_values(array_map(fn (ProductionOrderLine $line): array => $this->line($line, $withCosts), $lines));
     }
 
@@ -111,6 +119,13 @@ final readonly class ProductionOrderPresenter
             'ingredient_id' => (string) $line->ingredient_id,
             'line_kind' => $line->line_kind,
             'unit_id' => (string) $line->unit_id,
+            // The shelf's own words, not the ingredient's: a line is a claim on a
+            // shelf, and the cook walks to the shelf. Null is "nobody can tell
+            // you" — a deleted row or one outside this tenant — and reads as an
+            // em dash rather than as an unnamed shelf.
+            'stock_item_code' => $this->labels->code((string) $line->stock_item_id),
+            'stock_item_name_en' => $this->labels->name((string) $line->stock_item_id),
+            'unit_code' => $this->labels->unitCode((string) $line->unit_id),
             'required_quantity' => (string) $line->required_quantity,
             'reserved_quantity' => $line->reserved_quantity === null ? null : (string) $line->reserved_quantity,
             'consumed_quantity' => $line->consumed_quantity === null ? null : (string) $line->consumed_quantity,
@@ -137,6 +152,13 @@ final readonly class ProductionOrderPresenter
      */
     public function plan(BatchPlan $plan, bool $withCosts): array
     {
+        $all = [...$plan->ingredients, ...$plan->packaging];
+
+        $this->labels->prime(
+            array_values(array_map(static fn (BatchPlanLine $line): string => $line->stockItemId, $all)),
+            array_values(array_map(static fn (BatchPlanLine $line): string => $line->unitId, $all)),
+        );
+
         $payload = [
             'batch_factor' => $plan->batchFactor,
             'ingredients' => $this->planLines($plan->ingredients, $withCosts),
@@ -222,12 +244,15 @@ final readonly class ProductionOrderPresenter
      */
     private function planLines(array $lines, bool $withCosts): array
     {
-        return array_values(array_map(static function (BatchPlanLine $line) use ($withCosts): array {
+        return array_values(array_map(function (BatchPlanLine $line) use ($withCosts): array {
             $payload = [
                 'stock_item_id' => $line->stockItemId,
                 'ingredient_id' => $line->ingredientId,
                 'line_kind' => $line->kind,
                 'unit_id' => $line->unitId,
+                'stock_item_code' => $this->labels->code($line->stockItemId),
+                'stock_item_name_en' => $this->labels->name($line->stockItemId),
+                'unit_code' => $this->labels->unitCode($line->unitId),
                 'required' => $line->required,
                 'on_hand' => $line->onHand,
                 'reserved' => $line->reserved,

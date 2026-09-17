@@ -6836,6 +6836,18 @@ export type ProductionOrderLine = {
     line_kind: ProductionLineKind;
     unit_id: Uuid;
     /**
+     * The shelf's own code. Null is a shelf that has been deleted or is outside this tenant — "nobody can tell you", which renders as an em dash.
+     */
+    stock_item_code: string | null;
+    /**
+     * The words on the shelf the cook walks to, carried beside the id so a batch never renders as a column of uuids. The stock item's name rather than the ingredient's, matching the buy list.
+     */
+    stock_item_name_en: string | null;
+    /**
+     * The unit's code, so a quantity renders as a quantity.
+     */
+    unit_code: string | null;
+    /**
      * The plan, in the stock item's own unit.
      */
     required_quantity: string;
@@ -6879,6 +6891,18 @@ export type ProductionPlanLine = {
     ingredient_id: Uuid;
     line_kind: ProductionLineKind;
     unit_id: Uuid;
+    /**
+     * The shelf's own code. Null is a shelf that has been deleted or is outside this tenant — "nobody can tell you", which renders as an em dash.
+     */
+    stock_item_code: string | null;
+    /**
+     * The words on the shelf the cook walks to, carried beside the id so a batch never renders as a column of uuids. The stock item's name rather than the ingredient's, matching the buy list.
+     */
+    stock_item_name_en: string | null;
+    /**
+     * The unit's code, so a quantity renders as a quantity.
+     */
+    unit_code: string | null;
     required: string;
     /**
      * What is physically there, before any claim.

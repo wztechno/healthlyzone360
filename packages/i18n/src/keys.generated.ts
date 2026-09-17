@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7077 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7212 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3070,6 +3070,8 @@ export interface NamespaceKeys {
     | 'families.procurement.name'
     | 'families.production.description'
     | 'families.production.name'
+    | 'families.productionBatches.description'
+    | 'families.productionBatches.name'
     | 'families.products.description'
     | 'families.products.name'
     | 'families.purchases.description'
@@ -3732,38 +3734,171 @@ export interface NamespaceKeys {
     | 'ops.procurement.suppliersTitle'
     | 'ops.procurement.title'
     | 'ops.procurement.unpricedReceipts'
-    | 'ops.production.columnActions'
-    | 'ops.production.columnId'
+    | 'ops.production.abandon'
+    | 'ops.production.abandonReasonHint'
+    | 'ops.production.abandonReasonLabel'
+    | 'ops.production.abandonReasonRequired'
+    | 'ops.production.abandonSubmit'
+    | 'ops.production.abandonSubtitle'
+    | 'ops.production.abandonTitle'
+    | 'ops.production.abandonedAtLabel'
+    | 'ops.production.abandonedToast'
+    | 'ops.production.actualCost'
+    | 'ops.production.actualCostCaption'
+    | 'ops.production.amountRequired'
+    | 'ops.production.asPlanned'
+    | 'ops.production.backToDesk'
+    | 'ops.production.batchFactorHint'
+    | 'ops.production.batchFactorLabel'
+    | 'ops.production.batchFallbackTitle'
+    | 'ops.production.batchReferenceLabel'
+    | 'ops.production.batchTitle'
+    | 'ops.production.cancelBatch'
+    | 'ops.production.cancelBlocked'
+    | 'ops.production.cancelBody'
+    | 'ops.production.cancelSubmit'
+    | 'ops.production.cancelTitle'
+    | 'ops.production.cancelledAtLabel'
+    | 'ops.production.cancelledToast'
+    | 'ops.production.columnBatch'
+    | 'ops.production.columnClaimed'
+    | 'ops.production.columnExpiry'
+    | 'ops.production.columnItem'
+    | 'ops.production.columnMade'
+    | 'ops.production.columnMakes'
     | 'ops.production.columnStatus'
+    | 'ops.production.columnStorage'
+    | 'ops.production.columnUnitCost'
+    | 'ops.production.columnUsed'
+    | 'ops.production.columnWasted'
+    | 'ops.production.columnYield'
+    | 'ops.production.complete'
+    | 'ops.production.completeSubmit'
+    | 'ops.production.completeSubtitle'
+    | 'ops.production.completeTitle'
+    | 'ops.production.completedAtLabel'
+    | 'ops.production.completedToast'
     | 'ops.production.confirm'
+    | 'ops.production.confirmedAtLabel'
     | 'ops.production.confirmedToast'
+    | 'ops.production.consumedHeading'
+    | 'ops.production.consumedHint'
+    | 'ops.production.costStatusPartial'
+    | 'ops.production.costStatusPartialBody'
+    | 'ops.production.costStatusUnvalued'
+    | 'ops.production.costStatusUnvaluedBody'
+    | 'ops.production.costWithheld'
+    | 'ops.production.costsHiddenBody'
+    | 'ops.production.costsHiddenTitle'
     | 'ops.production.create'
-    | 'ops.production.createFailed'
     | 'ops.production.createSubmit'
-    | 'ops.production.createTitle'
     | 'ops.production.createdToast'
+    | 'ops.production.currencyConflict'
     | 'ops.production.emptyBody'
     | 'ops.production.emptyTitle'
-    | 'ops.production.loadErrorBody'
+    | 'ops.production.estimatedCost'
+    | 'ops.production.estimatedCostCaption'
+    | 'ops.production.expiredBadge'
+    | 'ops.production.expiredNotice'
+    | 'ops.production.expiryDateLabel'
+    | 'ops.production.filterOpen'
+    | 'ops.production.filterStatus'
+    | 'ops.production.headingCost'
+    | 'ops.production.headingLines'
+    | 'ops.production.headingPlan'
+    | 'ops.production.headingRecord'
+    | 'ops.production.headingYield'
+    | 'ops.production.lineKindIngredient'
+    | 'ops.production.lineKindPackaging'
     | 'ops.production.loadErrorTitle'
-    | 'ops.production.metrics.batches'
-    | 'ops.production.metrics.inProgress'
-    | 'ops.production.metrics.yield'
+    | 'ops.production.newSubtitle'
+    | 'ops.production.newTitle'
+    | 'ops.production.nextPage'
     | 'ops.production.noBranchBody'
     | 'ops.production.noBranchTitle'
-    | 'ops.production.ordersHeading'
+    | 'ops.production.noExpiry'
+    | 'ops.production.notFoundBody'
+    | 'ops.production.notFoundTitle'
+    | 'ops.production.notesHint'
+    | 'ops.production.notesLabel'
+    | 'ops.production.openBatch'
+    | 'ops.production.planAvailable'
+    | 'ops.production.planHolesBody'
+    | 'ops.production.planHolesTitle'
+    | 'ops.production.planIngredientsHeading'
+    | 'ops.production.planMissing'
+    | 'ops.production.planOnHand'
+    | 'ops.production.planPackagingHeading'
+    | 'ops.production.planReady'
+    | 'ops.production.planRequired'
+    | 'ops.production.planReserved'
+    | 'ops.production.planShort'
+    | 'ops.production.plannedYieldHint'
+    | 'ops.production.plannedYieldLabel'
+    | 'ops.production.previousPage'
+    | 'ops.production.producedHint'
+    | 'ops.production.producedLabel'
+    | 'ops.production.producedRequired'
+    | 'ops.production.productionDateLabel'
+    | 'ops.production.registerEmptyBody'
+    | 'ops.production.registerEmptyTitle'
+    | 'ops.production.registerTitle'
+    | 'ops.production.rejectedHint'
+    | 'ops.production.rejectedLabel'
+    | 'ops.production.rejectedTooHigh'
+    | 'ops.production.scaleFactor'
+    | 'ops.production.scaleHint'
+    | 'ops.production.scaleLabel'
+    | 'ops.production.scaleYield'
+    | 'ops.production.sheetBasisHeading'
+    | 'ops.production.sheetLink'
+    | 'ops.production.sheetLive'
+    | 'ops.production.sheetNutritionEmpty'
+    | 'ops.production.sheetNutritionHeading'
+    | 'ops.production.sheetPublicationLabel'
+    | 'ops.production.sheetPublicationNone'
+    | 'ops.production.sheetSubtitle'
+    | 'ops.production.sheetTitle'
+    | 'ops.production.sheetUnconfirmedBody'
+    | 'ops.production.sheetUnconfirmedTitle'
+    | 'ops.production.sheetVersionLabel'
+    | 'ops.production.showingCount'
     | 'ops.production.start'
+    | 'ops.production.startedAtLabel'
     | 'ops.production.startedToast'
+    | 'ops.production.statCompletedCaption'
+    | 'ops.production.statConfirmedCaption'
+    | 'ops.production.statDraftCaption'
+    | 'ops.production.statExpired'
+    | 'ops.production.statExpiredCaption'
+    | 'ops.production.statInProductionCaption'
+    | 'ops.production.statUnit'
+    | 'ops.production.statUnvalued'
+    | 'ops.production.statUnvaluedCaption'
     | 'ops.production.status.abandoned'
     | 'ops.production.status.cancelled'
     | 'ops.production.status.completed'
     | 'ops.production.status.confirmed'
     | 'ops.production.status.draft'
     | 'ops.production.status.inProduction'
-    | 'ops.production.subtitle'
+    | 'ops.production.storageLocationLabel'
     | 'ops.production.title'
+    | 'ops.production.uncostedLines'
+    | 'ops.production.unitCostLabel'
+    | 'ops.production.unreferenced'
     | 'ops.production.versionHint'
     | 'ops.production.versionLabel'
+    | 'ops.production.versionRequired'
+    | 'ops.production.wasteHeading'
+    | 'ops.production.wasteHint'
+    | 'ops.production.yieldPlanned'
+    | 'ops.production.yieldProduced'
+    | 'ops.production.yieldRejected'
+    | 'ops.production.yieldRejectedCaption'
+    | 'ops.production.yieldUsable'
+    | 'ops.production.yieldVariance'
+    | 'ops.production.yieldVarianceLossCaption'
+    | 'ops.production.yieldVarianceOverCaption'
     | 'ops.qc.checksHeading'
     | 'ops.qc.columnActions'
     | 'ops.qc.columnStatus'
@@ -10165,6 +10300,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.procurement.name',
   'kitchen:families.production.description',
   'kitchen:families.production.name',
+  'kitchen:families.productionBatches.description',
+  'kitchen:families.productionBatches.name',
   'kitchen:families.products.description',
   'kitchen:families.products.name',
   'kitchen:families.purchases.description',
@@ -10827,38 +10964,171 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.suppliersTitle',
   'kitchen:ops.procurement.title',
   'kitchen:ops.procurement.unpricedReceipts',
-  'kitchen:ops.production.columnActions',
-  'kitchen:ops.production.columnId',
+  'kitchen:ops.production.abandon',
+  'kitchen:ops.production.abandonReasonHint',
+  'kitchen:ops.production.abandonReasonLabel',
+  'kitchen:ops.production.abandonReasonRequired',
+  'kitchen:ops.production.abandonSubmit',
+  'kitchen:ops.production.abandonSubtitle',
+  'kitchen:ops.production.abandonTitle',
+  'kitchen:ops.production.abandonedAtLabel',
+  'kitchen:ops.production.abandonedToast',
+  'kitchen:ops.production.actualCost',
+  'kitchen:ops.production.actualCostCaption',
+  'kitchen:ops.production.amountRequired',
+  'kitchen:ops.production.asPlanned',
+  'kitchen:ops.production.backToDesk',
+  'kitchen:ops.production.batchFactorHint',
+  'kitchen:ops.production.batchFactorLabel',
+  'kitchen:ops.production.batchFallbackTitle',
+  'kitchen:ops.production.batchReferenceLabel',
+  'kitchen:ops.production.batchTitle',
+  'kitchen:ops.production.cancelBatch',
+  'kitchen:ops.production.cancelBlocked',
+  'kitchen:ops.production.cancelBody',
+  'kitchen:ops.production.cancelSubmit',
+  'kitchen:ops.production.cancelTitle',
+  'kitchen:ops.production.cancelledAtLabel',
+  'kitchen:ops.production.cancelledToast',
+  'kitchen:ops.production.columnBatch',
+  'kitchen:ops.production.columnClaimed',
+  'kitchen:ops.production.columnExpiry',
+  'kitchen:ops.production.columnItem',
+  'kitchen:ops.production.columnMade',
+  'kitchen:ops.production.columnMakes',
   'kitchen:ops.production.columnStatus',
+  'kitchen:ops.production.columnStorage',
+  'kitchen:ops.production.columnUnitCost',
+  'kitchen:ops.production.columnUsed',
+  'kitchen:ops.production.columnWasted',
+  'kitchen:ops.production.columnYield',
+  'kitchen:ops.production.complete',
+  'kitchen:ops.production.completeSubmit',
+  'kitchen:ops.production.completeSubtitle',
+  'kitchen:ops.production.completeTitle',
+  'kitchen:ops.production.completedAtLabel',
+  'kitchen:ops.production.completedToast',
   'kitchen:ops.production.confirm',
+  'kitchen:ops.production.confirmedAtLabel',
   'kitchen:ops.production.confirmedToast',
+  'kitchen:ops.production.consumedHeading',
+  'kitchen:ops.production.consumedHint',
+  'kitchen:ops.production.costStatusPartial',
+  'kitchen:ops.production.costStatusPartialBody',
+  'kitchen:ops.production.costStatusUnvalued',
+  'kitchen:ops.production.costStatusUnvaluedBody',
+  'kitchen:ops.production.costWithheld',
+  'kitchen:ops.production.costsHiddenBody',
+  'kitchen:ops.production.costsHiddenTitle',
   'kitchen:ops.production.create',
-  'kitchen:ops.production.createFailed',
   'kitchen:ops.production.createSubmit',
-  'kitchen:ops.production.createTitle',
   'kitchen:ops.production.createdToast',
+  'kitchen:ops.production.currencyConflict',
   'kitchen:ops.production.emptyBody',
   'kitchen:ops.production.emptyTitle',
-  'kitchen:ops.production.loadErrorBody',
+  'kitchen:ops.production.estimatedCost',
+  'kitchen:ops.production.estimatedCostCaption',
+  'kitchen:ops.production.expiredBadge',
+  'kitchen:ops.production.expiredNotice',
+  'kitchen:ops.production.expiryDateLabel',
+  'kitchen:ops.production.filterOpen',
+  'kitchen:ops.production.filterStatus',
+  'kitchen:ops.production.headingCost',
+  'kitchen:ops.production.headingLines',
+  'kitchen:ops.production.headingPlan',
+  'kitchen:ops.production.headingRecord',
+  'kitchen:ops.production.headingYield',
+  'kitchen:ops.production.lineKindIngredient',
+  'kitchen:ops.production.lineKindPackaging',
   'kitchen:ops.production.loadErrorTitle',
-  'kitchen:ops.production.metrics.batches',
-  'kitchen:ops.production.metrics.inProgress',
-  'kitchen:ops.production.metrics.yield',
+  'kitchen:ops.production.newSubtitle',
+  'kitchen:ops.production.newTitle',
+  'kitchen:ops.production.nextPage',
   'kitchen:ops.production.noBranchBody',
   'kitchen:ops.production.noBranchTitle',
-  'kitchen:ops.production.ordersHeading',
+  'kitchen:ops.production.noExpiry',
+  'kitchen:ops.production.notFoundBody',
+  'kitchen:ops.production.notFoundTitle',
+  'kitchen:ops.production.notesHint',
+  'kitchen:ops.production.notesLabel',
+  'kitchen:ops.production.openBatch',
+  'kitchen:ops.production.planAvailable',
+  'kitchen:ops.production.planHolesBody',
+  'kitchen:ops.production.planHolesTitle',
+  'kitchen:ops.production.planIngredientsHeading',
+  'kitchen:ops.production.planMissing',
+  'kitchen:ops.production.planOnHand',
+  'kitchen:ops.production.planPackagingHeading',
+  'kitchen:ops.production.planReady',
+  'kitchen:ops.production.planRequired',
+  'kitchen:ops.production.planReserved',
+  'kitchen:ops.production.planShort',
+  'kitchen:ops.production.plannedYieldHint',
+  'kitchen:ops.production.plannedYieldLabel',
+  'kitchen:ops.production.previousPage',
+  'kitchen:ops.production.producedHint',
+  'kitchen:ops.production.producedLabel',
+  'kitchen:ops.production.producedRequired',
+  'kitchen:ops.production.productionDateLabel',
+  'kitchen:ops.production.registerEmptyBody',
+  'kitchen:ops.production.registerEmptyTitle',
+  'kitchen:ops.production.registerTitle',
+  'kitchen:ops.production.rejectedHint',
+  'kitchen:ops.production.rejectedLabel',
+  'kitchen:ops.production.rejectedTooHigh',
+  'kitchen:ops.production.scaleFactor',
+  'kitchen:ops.production.scaleHint',
+  'kitchen:ops.production.scaleLabel',
+  'kitchen:ops.production.scaleYield',
+  'kitchen:ops.production.sheetBasisHeading',
+  'kitchen:ops.production.sheetLink',
+  'kitchen:ops.production.sheetLive',
+  'kitchen:ops.production.sheetNutritionEmpty',
+  'kitchen:ops.production.sheetNutritionHeading',
+  'kitchen:ops.production.sheetPublicationLabel',
+  'kitchen:ops.production.sheetPublicationNone',
+  'kitchen:ops.production.sheetSubtitle',
+  'kitchen:ops.production.sheetTitle',
+  'kitchen:ops.production.sheetUnconfirmedBody',
+  'kitchen:ops.production.sheetUnconfirmedTitle',
+  'kitchen:ops.production.sheetVersionLabel',
+  'kitchen:ops.production.showingCount',
   'kitchen:ops.production.start',
+  'kitchen:ops.production.startedAtLabel',
   'kitchen:ops.production.startedToast',
+  'kitchen:ops.production.statCompletedCaption',
+  'kitchen:ops.production.statConfirmedCaption',
+  'kitchen:ops.production.statDraftCaption',
+  'kitchen:ops.production.statExpired',
+  'kitchen:ops.production.statExpiredCaption',
+  'kitchen:ops.production.statInProductionCaption',
+  'kitchen:ops.production.statUnit',
+  'kitchen:ops.production.statUnvalued',
+  'kitchen:ops.production.statUnvaluedCaption',
   'kitchen:ops.production.status.abandoned',
   'kitchen:ops.production.status.cancelled',
   'kitchen:ops.production.status.completed',
   'kitchen:ops.production.status.confirmed',
   'kitchen:ops.production.status.draft',
   'kitchen:ops.production.status.inProduction',
-  'kitchen:ops.production.subtitle',
+  'kitchen:ops.production.storageLocationLabel',
   'kitchen:ops.production.title',
+  'kitchen:ops.production.uncostedLines',
+  'kitchen:ops.production.unitCostLabel',
+  'kitchen:ops.production.unreferenced',
   'kitchen:ops.production.versionHint',
   'kitchen:ops.production.versionLabel',
+  'kitchen:ops.production.versionRequired',
+  'kitchen:ops.production.wasteHeading',
+  'kitchen:ops.production.wasteHint',
+  'kitchen:ops.production.yieldPlanned',
+  'kitchen:ops.production.yieldProduced',
+  'kitchen:ops.production.yieldRejected',
+  'kitchen:ops.production.yieldRejectedCaption',
+  'kitchen:ops.production.yieldUsable',
+  'kitchen:ops.production.yieldVariance',
+  'kitchen:ops.production.yieldVarianceLossCaption',
+  'kitchen:ops.production.yieldVarianceOverCaption',
   'kitchen:ops.qc.checksHeading',
   'kitchen:ops.qc.columnActions',
   'kitchen:ops.qc.columnStatus',

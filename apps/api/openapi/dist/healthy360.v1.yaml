@@ -34710,6 +34710,9 @@ components:
         - ingredient_id
         - line_kind
         - unit_id
+        - stock_item_code
+        - stock_item_name_en
+        - unit_code
         - required_quantity
         - reserved_quantity
         - consumed_quantity
@@ -34728,6 +34731,21 @@ components:
           $ref: '#/components/schemas/ProductionLineKind'
         unit_id:
           $ref: '#/components/schemas/Uuid'
+        stock_item_code:
+          type:
+            - string
+            - 'null'
+          description: The shelf's own code. Null is a shelf that has been deleted or is outside this tenant — "nobody can tell you", which renders as an em dash.
+        stock_item_name_en:
+          type:
+            - string
+            - 'null'
+          description: The words on the shelf the cook walks to, carried beside the id so a batch never renders as a column of uuids. The stock item's name rather than the ingredient's, matching the buy list.
+        unit_code:
+          type:
+            - string
+            - 'null'
+          description: The unit's code, so a quantity renders as a quantity.
         required_quantity:
           type: string
           description: The plan, in the stock item's own unit.
@@ -34789,6 +34807,9 @@ components:
         - ingredient_id
         - line_kind
         - unit_id
+        - stock_item_code
+        - stock_item_name_en
+        - unit_code
         - required
         - on_hand
         - reserved
@@ -34804,6 +34825,21 @@ components:
           $ref: '#/components/schemas/ProductionLineKind'
         unit_id:
           $ref: '#/components/schemas/Uuid'
+        stock_item_code:
+          type:
+            - string
+            - 'null'
+          description: The shelf's own code. Null is a shelf that has been deleted or is outside this tenant — "nobody can tell you", which renders as an em dash.
+        stock_item_name_en:
+          type:
+            - string
+            - 'null'
+          description: The words on the shelf the cook walks to, carried beside the id so a batch never renders as a column of uuids. The stock item's name rather than the ingredient's, matching the buy list.
+        unit_code:
+          type:
+            - string
+            - 'null'
+          description: The unit's code, so a quantity renders as a quantity.
         required:
           type: string
         on_hand:

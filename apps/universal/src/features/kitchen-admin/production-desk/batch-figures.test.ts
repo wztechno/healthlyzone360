@@ -1,13 +1,7 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
 
-import {
-    countByStatus,
-    countExpired,
-    countUnvalued,
-    isOpenBatch,
-    quickEdge,
-    yieldSummary,
-} from './batch-figures.ts';
+import { isProductionOrderOpen, nextProductionEdge } from '../ops-format.ts';
+import { countByStatus, countExpired, countUnvalued, yieldSummary } from './batch-figures.ts';
 
 /**
  * The desk's arithmetic (PROD1).
@@ -139,20 +133,20 @@ describe('the yield summary', () => {
 describe('what a row may do', () => {
     it('treats a draft as open work rather than filing it in the register', () => {
         // A batch nobody confirmed is still a decision waiting to be made.
-        expect(isOpenBatch('draft')).toBe(true);
-        expect(isOpenBatch('confirmed')).toBe(true);
-        expect(isOpenBatch('in_production')).toBe(true);
-        expect(isOpenBatch('completed')).toBe(false);
-        expect(isOpenBatch('cancelled')).toBe(false);
-        expect(isOpenBatch('abandoned')).toBe(false);
+        expect(isProductionOrderOpen('draft')).toBe(true);
+        expect(isProductionOrderOpen('confirmed')).toBe(true);
+        expect(isProductionOrderOpen('in_production')).toBe(true);
+        expect(isProductionOrderOpen('completed')).toBe(false);
+        expect(isProductionOrderOpen('cancelled')).toBe(false);
+        expect(isProductionOrderOpen('abandoned')).toBe(false);
     });
 
     it('offers no one-click complete, because completing needs what came out', () => {
-        expect(quickEdge('draft')).toBe('confirm');
-        expect(quickEdge('confirmed')).toBe('start');
+        expect(nextProductionEdge('draft')).toBe('confirm');
+        expect(nextProductionEdge('confirmed')).toBe('start');
         // A one-click complete would have to invent a produced quantity.
-        expect(quickEdge('in_production')).toBeNull();
-        expect(quickEdge('completed')).toBeNull();
+        expect(nextProductionEdge('in_production')).toBeNull();
+        expect(nextProductionEdge('completed')).toBeNull();
     });
 });
 
@@ -170,7 +164,7 @@ describe('the status vocabulary is complete', () => {
         // A seventh state added upstream must break here rather than silently
         // render as neither open nor closed.
         for (const status of all) {
-            expect(typeof isOpenBatch(status)).toBe('boolean');
+            expect(typeof isProductionOrderOpen(status)).toBe('boolean');
         }
     });
 });

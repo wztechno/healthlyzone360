@@ -14,7 +14,7 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
-import { hasPrivatePricing, minorUnitExponent } from '@healthy360/domain-types';
+import { hasPrivatePricing, isCurrencyCode, minorUnitExponent } from '@healthy360/domain-types';
 import type {
     CurrencyCode,
     DietClassification,
@@ -511,6 +511,19 @@ export function formatMoney(
     return currency === null
         ? formatter.formatNumber(value, options)
         : formatter.formatCurrency(value, currency, options);
+}
+
+/**
+ * A wire currency code narrowed to one this application can actually format, or `null`.
+ *
+ * The contracts type several money figures' codes as a bare `string`, because the server's column
+ * is a `char(3)` and a client that refused an unrecognised one would blank a page over a currency
+ * somebody added to the reference data this morning. {@link formatMoney} takes the narrowed type
+ * and renders `null` as a bare number, so an unknown code degrades to an honest figure without its
+ * mark rather than to a crash or to a silently wrong symbol.
+ */
+export function knownCurrency(code: string | null | undefined): CurrencyCode | null {
+    return isCurrencyCode(code) ? code : null;
 }
 
 /**
