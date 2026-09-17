@@ -3,6 +3,7 @@ import { Slot } from 'expo-router';
 import {
     KITCHEN_SIDEBAR_WIDTH,
     KitchenBrandBlock,
+    KitchenBrandMark,
     useKitchenNavigation,
 } from '../../src/features/kitchen-admin/kitchen-chrome.tsx';
 import { KitchenOpsShell } from '../../src/features/kitchen-admin/kitchen-ops-shell.tsx';
@@ -24,6 +25,7 @@ export default function KitchenLayout() {
             navigation={navigation}
             sidebarWidth={KITCHEN_SIDEBAR_WIDTH}
             sidebarStart={<KitchenBrandBlock />}
+            sidebarStartCollapsed={<KitchenBrandMark />}
             signOutInSidebar
         >
             <KitchenOpsShell>

@@ -1,5 +1,5 @@
 import { Badge } from '@healthy360/design-system';
-import type { NavigationItem } from '@healthy360/design-system';
+import type { IconName, NavigationItem } from '@healthy360/design-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -16,6 +16,7 @@ import {
     isKitchenNavActive,
     kitchenNavSections,
 } from './kitchen-nav.ts';
+import type { EntityGroup } from './entity-registry.ts';
 import { buildReviewQueue } from './review-queue.ts';
 
 /**
@@ -27,6 +28,18 @@ import { buildReviewQueue } from './review-queue.ts';
  * `app/kitchen/_layout.tsx` — the chrome ships with the kitchen area, not with the entry bundle.
  */
 
+/**
+ * Each module's glyph on the collapsed rail, where a group is drawn as one icon. From the icon set's
+ * own shapes, so every one renders as a symbol in both scripts.
+ */
+const GROUP_ICONS: Readonly<Record<EntityGroup, IconName>> = {
+    orderDesk: 'basket',
+    workbench: 'check',
+    catalogue: 'leaf',
+    commercial: 'organisation',
+    operations: 'calendar',
+};
+
 /** KITCHEN.md sidebar spec: the family rail is 232px. */
 export const KITCHEN_SIDEBAR_WIDTH = 232;
 
@@ -35,33 +48,50 @@ export const KITCHEN_SIDEBAR_WIDTH = 232;
  * wordmark, and the area line under it. No branch name — the access state carries only branch ids,
  * and a made-up label would be worse than none.
  */
+/** The gradient mark with the brand's initial — the brand block's glyph, and all of it when collapsed. */
+function BrandMark() {
+    const { t } = useTranslation();
+    return (
+        <LinearGradient
+            colors={['#6d28d9', '#16a34a']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ width: 32, height: 32, borderRadius: 8 }}
+        >
+            <View className="h-full w-full items-center justify-center">
+                <RNText className="text-base font-bold text-content-on-canopy">
+                    {t('marketplace:brand.name').slice(0, 1)}
+                </RNText>
+            </View>
+        </LinearGradient>
+    );
+}
+
+/** The brand block on the collapsed sidebar: the mark alone, centred over the module icons. */
+export function KitchenBrandMark() {
+    return (
+        <View testID="kitchen-rail-brand-mark" className="items-center pb-2 pt-4">
+            <BrandMark />
+        </View>
+    );
+}
+
 export function KitchenBrandBlock() {
     const { t } = useTranslation();
 
     return (
         <View testID="kitchen-rail-brand" className="flex-row items-center gap-2 px-4 pb-2 pt-4">
-            <LinearGradient
-                colors={['#6d28d9', '#16a34a']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ width: 32, height: 32, borderRadius: 8 }}
-            >
-                <View className="h-full w-full items-center justify-center">
-                    <RNText className="text-base font-bold text-content-on-canopy">
-                        {t('marketplace:brand.name').slice(0, 1)}
-                    </RNText>
-                </View>
-            </LinearGradient>
+            <BrandMark />
             <View className="min-w-0 flex-1">
                 <RNText
                     numberOfLines={1}
-                    className="text-base font-bold text-content-on-sidebar text-start"
+                    className="text-base font-bold text-content-primary text-start"
                 >
                     {t('marketplace:brand.name')}
                 </RNText>
                 <RNText
                     numberOfLines={1}
-                    className="text-xs text-content-on-sidebar-muted text-start"
+                    className="text-xs text-content-secondary text-start"
                 >
                     {t('kitchen:nav.railTitle')}
                 </RNText>
@@ -169,6 +199,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 section.items.map((item) => ({
                     ...familyItem(item),
                     group: t(section.labelKey),
+                    groupIcon: GROUP_ICONS[section.group],
                 })),
             ),
             ...permittedNavigation(state).map((item): NavigationItem => ({
@@ -176,6 +207,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 label: t(item.labelKey),
                 icon: item.icon,
                 group: t('kitchen:nav.groups.workspace'),
+                groupIcon: 'user',
                 active: pathname === item.href,
                 testID: `nav-${item.key}`,
                 onPress: () => {

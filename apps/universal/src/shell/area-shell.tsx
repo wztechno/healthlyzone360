@@ -1,6 +1,8 @@
 import {
     AppShell,
     Button,
+    Icon,
+    IconButton,
     Inline,
     OfflineIndicator,
     useBreakpoint,
@@ -61,6 +63,8 @@ export interface AreaShellProps {
     readonly sidebarWidth?: number | undefined;
     readonly sidebarBackground?: ReactNode | undefined;
     readonly sidebarStart?: ReactNode | undefined;
+    /** `sidebarStart` for the collapsed sidebar — the brand mark alone. */
+    readonly sidebarStartCollapsed?: ReactNode | undefined;
     /**
      * Move Sign out from the top bar to the bottom of the sidebar (KITCHEN.md sidebar spec). Only
      * where the sidebar exists: below `lg` the top bar keeps it, because the drawer is a light
@@ -102,6 +106,7 @@ function GuardedAreaShell({
     sidebarWidth,
     sidebarBackground,
     sidebarStart,
+    sidebarStartCollapsed,
     signOutInSidebar = false,
     authAside,
     testID = 'app-shell',
@@ -207,6 +212,19 @@ function GuardedAreaShell({
         </View>
     );
 
+    // The same control on the collapsed sidebar: its glyph, named on hover.
+    const sidebarSignOutCollapsed = !sidebarPresent ? undefined : (
+        <View className="items-center border-t border-content-on-sidebar-muted/30 py-3">
+            <IconButton
+                testID="sign-out-rail"
+                label={t('common:action.signOut')}
+                disabled={logout.isPending}
+                icon={<Icon name="signOut" className="text-content-on-sidebar" />}
+                onPress={signOut}
+            />
+        </View>
+    );
+
     const shell = (
         <AppShell
             testID={testID}
@@ -218,7 +236,11 @@ function GuardedAreaShell({
             {...(sidebarWidth === undefined ? {} : { sidebarWidth })}
             {...(sidebarBackground === undefined ? {} : { sidebarBackground })}
             {...(sidebarStart === undefined ? {} : { sidebarStart })}
+            {...(sidebarStartCollapsed === undefined ? {} : { sidebarStartCollapsed })}
             {...(sidebarSignOut === undefined ? {} : { sidebarEnd: sidebarSignOut })}
+            {...(sidebarSignOutCollapsed === undefined
+                ? {}
+                : { sidebarEndCollapsed: sidebarSignOutCollapsed })}
             {...(authAside === undefined ? {} : { authAside })}
         >
             {children}

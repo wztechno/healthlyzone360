@@ -121,7 +121,10 @@
     "shell": {
         "primaryNavigation": "Main navigation",
         "openNavigation": "Open the main navigation",
-        "skipToContent": "Skip to the main content"
+        "skipToContent": "Skip to the main content",
+        "hideNavigation": "Close the pages panel",
+        "showNavigation": "Open the pages panel",
+        "modules": "Modules"
     },
     "showcase": {
         "title": "Design system",
