@@ -613,6 +613,10 @@ export function mapProductAdminFromItem(
         isMarketPriced: wire.is_market_priced,
         isAssorted: wire.is_assorted,
         packVariants: options?.packVariants ?? [],
+        // The server's fixed-scale string, passed through: four places survive a
+        // round trip that way, and the editor holds the user's own text anyway.
+        netContentQuantity: wire.net_content_quantity ?? null,
+        netContentUnitId: wire.net_content_unit_id ?? null,
         channelAvailability: options?.channelAvailability ?? [],
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         dietClassifications: options?.dietClassifications ?? [],
@@ -659,6 +663,17 @@ export function mapMealAdminFromItem(
         // and NOT NULL in the database, and one piece per sold unit is exactly
         // what a row without the column meant.
         portionFactor: wire.portion_factor == null ? 1 : Number(wire.portion_factor),
+        productionMode: wire.production_mode ?? null,
+        ingredientId: wire.ingredient_id ?? null,
+        // The stored flag, passed through. A payload predating the column reads
+        // false, which is what the column's own default says and what every meal
+        // did before it existed.
+        sellsFromFinishedStock: wire.sells_from_finished_stock ?? false,
+        // Left as the server's fixed-scale string rather than parsed to a
+        // number: four places survive a round trip that way, and a form holds
+        // the user's own text regardless.
+        netContentQuantity: wire.net_content_quantity ?? null,
+        netContentUnitId: wire.net_content_unit_id ?? null,
         mealTypes: [],
         dietClassifications: options?.dietClassifications ?? [],
         allergens: options?.allergens ?? [],

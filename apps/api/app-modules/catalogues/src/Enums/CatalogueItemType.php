@@ -56,4 +56,29 @@ enum CatalogueItemType: string
             self::Meal => null,
         };
     }
+
+    /**
+     * Whether a sale of this type draws finished stock rather than exploding a
+     * recipe, given the item's own opt-in flag (PROD1).
+     *
+     * The type→behaviour half of the rule, kept here so the **validator** and the
+     * **model** read one copy of it. {@see CatalogueItem::sellsFromFinishedStock()}
+     * answers the same question about a hydrated row; this answers it about a
+     * type and a flag, which is what a write has in its hands before there is a
+     * row to ask.
+     *
+     * Products, sauces, dressings and frozen meals are always the second kind —
+     * what they were before the column existed, and why they are listed rather
+     * than made to carry a flag. A subscription plan is neither: its zero-food
+     * day line consumes nothing, and the real lines generated beside it do the
+     * consuming.
+     */
+    public function sellsFromFinishedStock(bool $flag): bool
+    {
+        return match ($this) {
+            self::Product, self::Sauce, self::Dressing, self::FrozenMeal => true,
+            self::SubscriptionPlan => false,
+            self::Meal => $flag,
+        };
+    }
 }

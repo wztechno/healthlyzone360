@@ -1,5 +1,10 @@
-import { isValidationFailure } from '@healthy360/api-client/contracts';
-import type { LocalisedText, MealAdmin } from '@healthy360/api-client/contracts';
+import { PRODUCTION_MODES, isValidationFailure } from '@healthy360/api-client/contracts';
+import type {
+    LocalisedText,
+    MealAdmin,
+    MeasurementUnitOption,
+    ProductionMode,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -13,6 +18,7 @@ import {
     Select,
     Skeleton,
     Stack,
+    Switch,
     Text,
     TextInputField,
     useToast,
@@ -29,15 +35,18 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    ingredientsFromPages,
     recipesFromPages,
     useAdminMealQuery,
     useCreateMealMutation,
+    useIngredientsQuery,
     usePublishMealMutation,
     useRecipesQuery,
     useRetireMealMutation,
     useSetMealAvailabilityMutation,
     useUpdateMealMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useProcurementReferenceQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import {
     MealAvailabilityEditor,
@@ -46,7 +55,11 @@ import {
 } from '../catalogue-row-editors.tsx';
 import type { AvailabilityDraft } from '../catalogue-row-editors.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
-import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    CATALOGUE_MANAGE_PERMISSION,
+    CATALOGUE_VIEW_PERMISSION,
+    INVENTORY_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { GateRailCard } from '../gate-rail-card.tsx';
 import {
     displayName,
@@ -55,6 +68,8 @@ import {
     parseClockTime,
     parseQuantity,
     parseWholeNumber,
+    unitDimension,
+    unitKey,
 } from '../format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -96,6 +111,24 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 /** The "bought in rather than cooked" answer of the recipe picker. Never a real identifier. */
 const NO_RECIPE = '__none__';
 
+/** The "no shelf of its own" answer of the produced-item picker. Never a real identifier. */
+const NO_INGREDIENT = '__none__';
+
+/** The "not stated" answer of the production-mode picker. `production_mode` is nullable. */
+const NO_MODE = '__unset__';
+
+/**
+ * The catalogue string each production mode is named by.
+ *
+ * A record rather than a template, for the reason `mealTypeKey` is a function in `format.ts`:
+ * `pnpm gen:i18n-keys` reads literal keys, and a key assembled by interpolation is invisible to it.
+ */
+const PRODUCTION_MODE_KEYS: Record<ProductionMode, string> = {
+    production: 'kitchen:meals.productionModeProduction',
+    supplier: 'kitchen:meals.productionModeSupplier',
+    both: 'kitchen:meals.productionModeBoth',
+};
+
 /**
  * Diet classifications are **not** here, and that is a scoping decision rather than an oversight.
  *
@@ -113,6 +146,19 @@ interface DetailsDraft {
     readonly description: LocalisedText;
     readonly recipeId: RecipeId | null;
     readonly portionFactor: string;
+    /**
+     * The finished-stock chain (PROD1), in the order the server checks it: a
+     * kitchen that produces the meal, an ingredient its batches make, the opt-in
+     * itself, and how much of that ingredient one sold unit is.
+     *
+     * `netContentQuantity` is the person's own text while they type, like
+     * `portionFactor` above — parsed once, on save.
+     */
+    readonly productionMode: ProductionMode | null;
+    readonly ingredientId: string | null;
+    readonly sellsFromFinishedStock: boolean;
+    readonly netContentQuantity: string;
+    readonly netContentUnitId: string | null;
     readonly mealTypes: readonly MealType[];
 }
 
@@ -121,6 +167,11 @@ const EMPTY_DETAILS: DetailsDraft = {
     description: { en: '', ar: '' },
     recipeId: null,
     portionFactor: '1',
+    productionMode: null,
+    ingredientId: null,
+    sellsFromFinishedStock: false,
+    netContentQuantity: '',
+    netContentUnitId: null,
     mealTypes: [],
 };
 
@@ -130,6 +181,11 @@ function detailsFrom(meal: MealAdmin): DetailsDraft {
         description: meal.description,
         recipeId: meal.recipeId,
         portionFactor: String(meal.portionFactor),
+        productionMode: meal.productionMode,
+        ingredientId: meal.ingredientId,
+        sellsFromFinishedStock: meal.sellsFromFinishedStock,
+        netContentQuantity: meal.netContentQuantity ?? '',
+        netContentUnitId: meal.netContentUnitId,
         mealTypes: meal.mealTypes,
     };
 }
@@ -288,6 +344,62 @@ function MealEditor({ meal }: MealEditScreenProps) {
 
     const linkedRecipe = recipeRows.find((row) => row.id === details.recipeId) ?? null;
 
+    /*
+     * The produced item is picked from the ingredient library, and only the library — a meal's
+     * shelf is an ingredient a published recipe outputs, and the server refuses anything else. One
+     * page of a hundred is what the recipe picker takes too; `searchable` filters within it.
+     */
+    const ingredients = useIngredientsQuery({ limit: 100 });
+    const ingredientRows = ingredientsFromPages(ingredients.data?.pages);
+    const ingredientOptions: readonly SelectOption[] = useMemo(
+        () => [
+            { value: NO_INGREDIENT, label: t('kitchen:meals.producedIngredientNone') },
+            ...ingredientRows.map((row) => ({
+                value: String(row.id),
+                label: displayName(row.name, locale).value,
+                description: t(unitKey(row.measurementUnit)),
+            })),
+        ],
+        [ingredientRows, locale, t],
+    );
+
+    const producedIngredient =
+        ingredientRows.find((row) => String(row.id) === details.ingredientId) ?? null;
+
+    /*
+     * Net content is stated against a measurement unit **identifier**, and the only read that
+     * carries one is the goods-receipt reference — `useUnitOptions` in `catalogue-row-editors.tsx`
+     * builds its options from `MeasureUnit` *codes*, which is what a pack variant stores and is not
+     * what this column holds. That read is behind `inventory.view_organisation`, so a
+     * catalogue-only role cannot fill this pair in. It is told so rather than shown an empty picker
+     * it would blame itself for: see `unitsUnavailable` below.
+     */
+    const canReadUnits = useCan(INVENTORY_VIEW_PERMISSION);
+    const reference = useProcurementReferenceQuery(canReadUnits);
+    const referenceUnits: readonly MeasurementUnitOption[] | undefined =
+        reference.data?.measurementUnits;
+    const unitOptions: readonly SelectOption[] = useMemo(
+        () =>
+            (referenceUnits ?? []).map((unit) => ({
+                value: unit.id,
+                label: unit.code,
+                description: unit.nameEn,
+            })),
+        [referenceUnits],
+    );
+    const unitsUnavailable = !canReadUnits;
+
+    const productionModeOptions: readonly SelectOption[] = useMemo(
+        () => [
+            { value: NO_MODE, label: t('kitchen:meals.productionModeUnset') },
+            ...PRODUCTION_MODES.map((mode) => ({
+                value: mode,
+                label: t(PRODUCTION_MODE_KEYS[mode]),
+            })),
+        ],
+        [t],
+    );
+
     /* ── validation ──────────────────────────────────────────────────────────────────────────── */
 
     const dayErrors = useMemo(
@@ -304,7 +416,61 @@ function MealEditor({ meal }: MealEditScreenProps) {
     const nameMissing = details.name.en.trim() === '';
     const portion = parseQuantity(details.portionFactor);
     const portionInvalid = portion === null || portion <= 0;
-    const detailsBlocked = nameMissing || portionInvalid;
+
+    /* ── the finished-stock chain ────────────────────────────────────────────────────────────── */
+
+    /**
+     * Why the toggle cannot be turned on yet, in the words the server would have refused with, or
+     * `null` when it can.
+     *
+     * Two preconditions, checked in the order `CatalogueItemService::finishedStockDeclaration()`
+     * checks them: a kitchen that produces the meal, then an ingredient its batches make. Naming
+     * the first one that fails rather than both is deliberate — they are sequential, and a person
+     * who has set neither is told to set the mode, which is the field above.
+     */
+    const finishedStockBlockedReason =
+        details.productionMode === 'production' || details.productionMode === 'both'
+            ? details.ingredientId === null
+                ? t('kitchen:meals.finishedStockBlockedIngredient')
+                : null
+            : t('kitchen:meals.finishedStockBlockedMode');
+
+    /**
+     * Whether the shelf behind this meal is counted by weight or volume, which is what makes net
+     * content compulsory rather than optional (PROD1).
+     *
+     * The same rule as `CatalogueItemService::requireNetContentOnAWeighedShelf()`, read one step
+     * earlier: the server asks the ingredient's default unit for its dimension, and
+     * {@link IngredientAdmin.measurementUnit} *is* that unit. `count`, `package` and `serving`
+     * shelves need none — `portionFactor` already means something there.
+     *
+     * `false` while the ingredient list is still loading, or when the chosen ingredient is on a
+     * page this screen has not fetched. Withholding the requirement is the honest failure: the
+     * server still refuses the save and says why, where guessing `true` would block a save that is
+     * in fact legal.
+     */
+    const producedShelfWeighed =
+        producedIngredient !== null &&
+        !['count', 'package', 'serving'].includes(unitDimension(producedIngredient.measurementUnit));
+
+    const netContentText = details.netContentQuantity.trim();
+    const netContent = netContentText === '' ? null : parseQuantity(netContentText);
+    const netContentInvalid = netContentText !== '' && (netContent === null || netContent <= 0);
+    /*
+     * A number with no unit is not half an answer the server keeps — it silently nulls both, to
+     * match the table's own CHECK. Blocking here is what turns that into something a person can
+     * see, rather than a figure that vanishes on save.
+     */
+    const netContentUnitMissing = netContentText !== '' && details.netContentUnitId === null;
+    const netContentRequired =
+        details.sellsFromFinishedStock && producedShelfWeighed && netContentText === '';
+
+    const detailsBlocked =
+        nameMissing ||
+        portionInvalid ||
+        netContentInvalid ||
+        netContentUnitMissing ||
+        netContentRequired;
 
     /**
      * Everything standing between this meal and a public listing.
@@ -366,6 +532,23 @@ function MealEditor({ meal }: MealEditScreenProps) {
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
+    /**
+     * The finished-stock chain as a request fragment, shared by the create and update branches.
+     *
+     * Every key is sent on every save, `null` included — these are not optional-on-the-wire fields
+     * being omitted, they are four settings whose cleared state is a real answer. Clearing the
+     * produced item must reach the server as `null`, or a meal could never be taken back off a
+     * shelf. The one asymmetry is the net-content pair: a quantity the person has half-typed goes
+     * as a pair or not at all, which is the all-or-nothing the column's own CHECK states.
+     */
+    const finishedStockRequest = {
+        productionMode: details.productionMode,
+        ingredientId: details.ingredientId,
+        sellsFromFinishedStock: details.sellsFromFinishedStock,
+        netContentQuantity: netContent === null || details.netContentUnitId === null ? null : netContent,
+        netContentUnitId: netContent === null ? null : details.netContentUnitId,
+    };
+
     const saveDetails = () => {
         if (detailsBlocked || portion === null) return;
         // Creating writes the days in the same gesture, so their errors block it like the record's.
@@ -381,6 +564,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                     // Not editable here — see the note on DetailsDraft. A new meal starts with none.
                     dietClassifications: [],
                     ...(details.recipeId === null ? {} : { recipeId: details.recipeId }),
+                    ...finishedStockRequest,
                 },
                 {
                     onSuccess: (created) => {
@@ -440,6 +624,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                     // Echoed back untouched so a save here cannot clear a classification set
                     // elsewhere — see the note on DetailsDraft.
                     dietClassifications: data.dietClassifications,
+                    ...finishedStockRequest,
                 },
             },
             {
@@ -897,6 +1082,156 @@ function MealEditor({ meal }: MealEditScreenProps) {
                                     }}
                                 />
                             </Inline>
+                        )}
+                    </Stack>
+                </FormSection>
+
+                {/* ── production and finished stock ────────────────────────────────────────── */}
+                {/*
+                 * The chain the server checks, in the order it checks it (PROD1). A meal sells one
+                 * of two ways: cooked when ordered, which explodes its recipe onto the raw-material
+                 * shelves, or made in advance, which draws the finished item's own shelf instead.
+                 * The second is what the toggle sets, and it is refused until the two fields above
+                 * it qualify — so they are here, above it, rather than in an API call.
+                 *
+                 * Nothing is cleared on switching off, for the reason the ingredient editor's sale
+                 * panel states: a meal taken off finished stock for a season keeps the item and the
+                 * net content it had, and putting it back is one switch rather than one switch and
+                 * two fields somebody has to find again.
+                 */}
+                <FormSection
+                    testID="kitchen-meal-production"
+                    title={t('kitchen:meals.sectionProduction')}
+                    aside={
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:meals.sectionProductionHint')}
+                        </Text>
+                    }
+                >
+                    <Stack space="md">
+                        <View className="z-auto flex-col gap-base md:flex-row">
+                            <View className="z-auto min-w-0 flex-1">
+                                <Select
+                                    testID="kitchen-meal-production-mode"
+                                    id="kitchen-meal-production-mode"
+                                    label={t('kitchen:meals.productionModeLabel')}
+                                    hint={t('kitchen:meals.productionModeHint')}
+                                    disabled={!canManage}
+                                    options={productionModeOptions}
+                                    value={details.productionMode ?? NO_MODE}
+                                    onChange={(next) => {
+                                        setDetails({
+                                            ...details,
+                                            productionMode:
+                                                next === NO_MODE ? null : (next as ProductionMode),
+                                        });
+                                        markDetailsDirty();
+                                    }}
+                                />
+                            </View>
+
+                            <View className="z-auto min-w-0 flex-1">
+                                <Select
+                                    testID="kitchen-meal-produced-ingredient"
+                                    id="kitchen-meal-produced-ingredient"
+                                    label={t('kitchen:meals.producedIngredientLabel')}
+                                    hint={t('kitchen:meals.producedIngredientHint')}
+                                    searchable
+                                    disabled={!canManage}
+                                    options={ingredientOptions}
+                                    value={details.ingredientId ?? NO_INGREDIENT}
+                                    onChange={(next) => {
+                                        setDetails({
+                                            ...details,
+                                            ingredientId: next === NO_INGREDIENT ? null : next,
+                                        });
+                                        markDetailsDirty();
+                                    }}
+                                />
+                            </View>
+                        </View>
+
+                        <Switch
+                            testID="kitchen-meal-finished-stock"
+                            id="kitchen-meal-finished-stock"
+                            label={t('kitchen:meals.finishedStockToggleLabel')}
+                            /*
+                             * When the chain is incomplete the state label says which link is
+                             * missing instead of which way the switch is set — the switch cannot be
+                             * set, and "Off" would be a true answer to a question nobody asked. The
+                             * wording is the server's own refusal, so pressing save later says the
+                             * same thing this said first.
+                             */
+                            stateLabel={
+                                finishedStockBlockedReason ??
+                                (details.sellsFromFinishedStock
+                                    ? t('kitchen:meals.finishedStockOn')
+                                    : t('kitchen:meals.finishedStockOff'))
+                            }
+                            checked={details.sellsFromFinishedStock}
+                            disabled={!canManage || finishedStockBlockedReason !== null}
+                            onChange={(next) => {
+                                setDetails({ ...details, sellsFromFinishedStock: next });
+                                markDetailsDirty();
+                            }}
+                        />
+
+                        {/*
+                         * Net content is asked only once the meal actually sells from a shelf — it
+                         * is the conversion between a sold unit and that shelf's unit, and there is
+                         * nothing to convert until there is a shelf. Same `sc-if` shape as the sale
+                         * prices in the ingredient editor, and the same refusal to clear on hiding.
+                         */}
+                        {!details.sellsFromFinishedStock ? null : unitsUnavailable ? (
+                            <Callout
+                                testID="kitchen-meal-net-content-unavailable"
+                                tone="info"
+                                title={t('kitchen:meals.netContentLabel')}
+                                body={t('kitchen:meals.netContentUnitsForbidden')}
+                            />
+                        ) : (
+                            <View className="z-auto flex-col gap-base md:flex-row">
+                                <View className="z-auto min-w-0 flex-1">
+                                    <TextInputField
+                                        testID="kitchen-meal-net-content"
+                                        id="kitchen-meal-net-content"
+                                        label={t('kitchen:meals.netContentLabel')}
+                                        hint={t('kitchen:meals.netContentHint')}
+                                        value={details.netContentQuantity}
+                                        inputMode="decimal"
+                                        required={producedShelfWeighed}
+                                        disabled={!canManage}
+                                        {...(netContentInvalid
+                                            ? { error: t('kitchen:meals.netContentInvalid') }
+                                            : netContentRequired
+                                              ? { error: t('kitchen:meals.netContentRequired') }
+                                              : {})}
+                                        onChangeText={(next) => {
+                                            setDetails({ ...details, netContentQuantity: next });
+                                            markDetailsDirty();
+                                        }}
+                                    />
+                                </View>
+
+                                <View className="z-auto min-w-0 flex-1">
+                                    <Select
+                                        testID="kitchen-meal-net-content-unit"
+                                        id="kitchen-meal-net-content-unit"
+                                        label={t('kitchen:meals.netContentUnitLabel')}
+                                        searchable
+                                        disabled={!canManage}
+                                        options={unitOptions}
+                                        value={details.netContentUnitId ?? ''}
+                                        {...(netContentUnitMissing
+                                            ? { error: t('kitchen:meals.netContentUnitMissing') }
+                                            : {})}
+                                        onChange={(next) => {
+                                            setDetails({ ...details, netContentUnitId: next });
+                                            markDetailsDirty();
+                                        }}
+                                    />
+                                </View>
+                            </View>
                         )}
                     </Stack>
                 </FormSection>

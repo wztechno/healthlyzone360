@@ -29,6 +29,7 @@ import type {
     PriceListAdmin,
     PriceListEntry,
     ProductAdmin,
+    ProductionMode,
     RecipeAdmin,
     RecipeRollupDraft,
     RecipeRollupPreview,
@@ -139,6 +140,37 @@ function descriptionWire(text: { readonly en: string; readonly ar?: string | und
     return {
         description_en: text.en,
         ...(text.ar === undefined || text.ar === '' ? {} : { description_ar: text.ar }),
+    };
+}
+
+/**
+ * The finished-stock half of a meal write (PROD1).
+ *
+ * Every key is omitted unless the caller said something about it, which is what
+ * lets one helper serve both the create — where an absent key takes the column
+ * default — and the patch, where an absent key means "leave it alone" and an
+ * explicit `null` means "clear it". Collapsing the two would make clearing a net
+ * content indistinguishable from not mentioning it.
+ */
+function finishedStockWire(request: {
+    readonly productionMode?: ProductionMode | null | undefined;
+    readonly ingredientId?: string | null | undefined;
+    readonly sellsFromFinishedStock?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
+}): Record<string, unknown> {
+    return {
+        ...(request.productionMode === undefined ? {} : { production_mode: request.productionMode }),
+        ...(request.ingredientId === undefined ? {} : { ingredient_id: request.ingredientId }),
+        ...(request.sellsFromFinishedStock === undefined
+            ? {}
+            : { sells_from_finished_stock: request.sellsFromFinishedStock }),
+        ...(request.netContentQuantity === undefined
+            ? {}
+            : { net_content_quantity: request.netContentQuantity }),
+        ...(request.netContentUnitId === undefined
+            ? {}
+            : { net_content_unit_id: request.netContentUnitId }),
     };
 }
 
@@ -1050,6 +1082,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ...(request.isAssorted === undefined
                             ? {}
                             : { is_assorted: request.isAssorted }),
+                        ...finishedStockWire(request),
                     },
                 },
             );
@@ -1094,6 +1127,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.isMarketPriced !== undefined)
                 body.is_market_priced = request.isMarketPriced;
             if (request.isAssorted !== undefined) body.is_assorted = request.isAssorted;
+            Object.assign(body, finishedStockWire(request));
 
             // One editor save, up to three lock-versioned writes. Each accepted
             // one bumps the item, so the second and third have to carry what the
@@ -1221,6 +1255,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ...(request.portionFactor === undefined
                             ? {}
                             : { portion_factor: request.portionFactor }),
+                        ...finishedStockWire(request),
                     },
                 },
             );
@@ -1252,6 +1287,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body.recipe_id = request.recipeId === null ? null : String(request.recipeId);
             }
             if (request.portionFactor !== undefined) body.portion_factor = request.portionFactor;
+            Object.assign(body, finishedStockWire(request));
 
             if (Object.keys(body).length > 0) {
                 await patchCatalogueItem(id, request.lockVersion, body);

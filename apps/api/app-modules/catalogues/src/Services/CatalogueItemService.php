@@ -16,6 +16,8 @@ use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Inventory\Services\OrderConsumptionService;
+use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
@@ -757,8 +759,15 @@ final readonly class CatalogueItemService
      * dressing, a frozen meal — are not asked to set it. Their behaviour predates
      * this column and is a property of what they are.
      *
-     * **Net content is optional and all-or-nothing.** A quantity with no unit is
-     * not a quantity; the database CHECK says the same thing from its side.
+     * **Net content is all-or-nothing, and required where the shelf is weighed.**
+     * A quantity with no unit is not a quantity; the database CHECK says the same
+     * thing from its side. And an item that sells from finished stock off a shelf
+     * counted in kilograms or litres *must* say what one sold unit is, because
+     * {@see OrderConsumptionService} refuses such
+     * a sale with `no_net_content` rather than guessing — so the write refuses
+     * exactly what the sale would, days earlier and in front of the person who
+     * can fix it. A shelf counted in pieces needs none: `portion_factor` already
+     * means something there.
      *
      * @param  array<string, mixed>  $links
      * @param  array<string, mixed>  $attributes
@@ -810,6 +819,8 @@ final readonly class CatalogueItemService
             : $existing?->net_content_unit_id;
 
         if ($quantity === null || $quantity === '' || $unitId === null || $unitId === '') {
+            $this->requireNetContentOnAWeighedShelf($type, $flag, $ingredientId);
+
             return [
                 'sells_from_finished_stock' => $flag,
                 'net_content_quantity' => null,
@@ -821,11 +832,66 @@ final readonly class CatalogueItemService
             throw $this->invalid('net_content_quantity', 'The net content of one sold unit must be a positive quantity.');
         }
 
+        // Checked here rather than with an `exists` rule, for the reason stated on
+        // every other identifier in this service: a bare rule would happily accept
+        // an identifier this organisation cannot use. Units are reference data and
+        // therefore shared, so the check is plain existence — but it belongs in the
+        // same layer as its siblings, and without it a mistyped uuid is a 500 off
+        // the foreign key rather than a 422 naming the field.
+        if (! MeasurementUnit::query()->whereKey($unitId)->exists()) {
+            throw $this->invalid('net_content_unit_id', 'This measurement unit does not exist.');
+        }
+
         return [
             'sells_from_finished_stock' => $flag,
             'net_content_quantity' => (string) $quantity,
             'net_content_unit_id' => (string) $unitId,
         ];
+    }
+
+    /**
+     * Refuse a finished-stock item that says nothing about how much one sold unit
+     * is, when its shelf is counted by weight or volume (PROD1).
+     *
+     * The shelf's unit is read off the ingredient's `default_unit_id`, which is
+     * what {@see StockItemDerivationService}
+     * gives the derived stock item. Reading the stock item itself would be the
+     * literal answer and would make Catalogues depend on Inventory for a guard;
+     * the ingredient is the same fact one step earlier, and the sale remains the
+     * authority if the two are ever moved apart by hand.
+     *
+     * Silent where the dimension is unknown — no ingredient, no default unit, a
+     * unit that has since gone. A write is not the place to refuse on a fact
+     * nobody can state, and the sale still records `no_net_content` if it comes
+     * to that.
+     *
+     * @throws ApiException
+     */
+    private function requireNetContentOnAWeighedShelf(
+        CatalogueItemType $type,
+        bool $flag,
+        mixed $ingredientId,
+    ): void {
+        if (! $type->sellsFromFinishedStock($flag) || ! is_string($ingredientId)) {
+            return;
+        }
+
+        $unit = MeasurementUnit::query()
+            ->whereKey(
+                Ingredient::withoutTenancy()->whereKey($ingredientId)->value('default_unit_id')
+            )
+            ->first(['code', 'dimension']);
+
+        // The sale's own test, from the other side: `count`, `package` and
+        // `serving` fall back to `portion_factor`; everything else refuses.
+        if ($unit === null || $unit->dimension === 'count' || $unit->dimension === 'package' || $unit->dimension === 'serving') {
+            return;
+        }
+
+        throw $this->invalid(
+            'net_content_quantity',
+            "This item sells from finished stock off a shelf counted in {$unit->code}, so it must say how much one sold unit is. Without it every sale is refused rather than guessed at.",
+        );
     }
 
     /**

@@ -208,14 +208,16 @@ class OpsDemoSeeder extends Seeder
         $parmesan = $this->productionIngredient($organisation, 'parmesan', 'Parmesan', 'kg', '22.000000');
         $pastaSheets = $this->productionIngredient($organisation, 'pasta-sheets', 'Pasta sheets', 'kg', '4.000000');
         $freezerTray = $this->productionIngredient($organisation, 'freezer-tray', 'Freezer tray, 1 portion', 'piece', '0.400000');
+        $lettuce = $this->productionIngredient($organisation, 'lettuce', 'Romaine lettuce', 'kg', '6.000000');
 
-        // The two produced items. They carry no purchase price on purpose: a
+        // The three produced items. They carry no purchase price on purpose: a
         // kitchen does not buy its own dressing, and a typed figure here would
         // be a fallback the estimator reached for instead of the batch cost.
         $dressing = $this->productionIngredient($organisation, 'caesar-dressing', 'Caesar dressing', 'l', null);
         $lasagne = $this->productionIngredient($organisation, 'frozen-lasagne', 'Frozen lasagne, single portion', 'piece', null);
+        $salad = $this->productionIngredient($organisation, 'prepared-caesar-salad', 'Prepared Caesar salad', 'kg', null);
 
-        $this->openingStock($branch, [$mayonnaise, $lemonJuice, $parmesan, $pastaSheets, $freezerTray]);
+        $this->openingStock($branch, [$mayonnaise, $lemonJuice, $parmesan, $pastaSheets, $freezerTray, $lettuce]);
 
         $this->productionRecipe(
             $organisation,
@@ -238,10 +240,48 @@ class OpsDemoSeeder extends Seeder
             [[$freezerTray, '40', 'piece']],
         );
 
-        $this->finishedStockItem($organisation, $lasagne, 'frozen-lasagne', 'Frozen lasagne, single portion');
+        /*
+         * The salad, and the second reason it is here: it puts the Caesar
+         * dressing inside another recipe. A batch of salad *draws on* the
+         * dressing's shelf rather than re-expanding mayonnaise, lemon juice and
+         * parmesan a second time — which is the whole point of an intermediate
+         * and is not visible while the dressing is only ever made.
+         */
+        $this->productionRecipe(
+            $organisation,
+            'prepared-caesar-salad',
+            'Prepared Caesar salad',
+            $salad,
+            '12',
+            'kg',
+            [[$lettuce, '9', 'kg'], [$dressing, '1.5', 'l'], [$parmesan, '0.6', 'kg']],
+        );
+
+        $this->finishedStockItem(
+            $organisation,
+            $lasagne,
+            'frozen-lasagne',
+            'Frozen lasagne, single portion',
+            CatalogueItemType::FrozenMeal,
+            '1',
+            'piece',
+        );
+
+        // 300 g off a shelf counted in kilograms: the conversion the net-content
+        // columns exist for, and the sale `OrderConsumptionService` would refuse
+        // with `no_net_content` if the pair were absent.
+        $this->finishedStockItem(
+            $organisation,
+            $salad,
+            'prepared-caesar-salad',
+            'Prepared Caesar salad, 300 g',
+            CatalogueItemType::Meal,
+            '0.3',
+            'kg',
+        );
 
         $this->demonstrationReceipts($organisation, $branch, $supplier, [
-            $mayonnaise, $lemonJuice, $parmesan, $pastaSheets, $freezerTray,
+            $mayonnaise, $lemonJuice, $parmesan, $pastaSheets, $freezerTray, $lettuce,
         ]);
     }
 
@@ -421,14 +461,36 @@ class OpsDemoSeeder extends Seeder
     /**
      * A catalogue item that sells a produced ingredient off its own shelf.
      *
-     * `frozen_meal` with `net_content` of one piece: the shelf counts in pieces,
-     * so one sold unit is one of them and the deduction needs no conversion. It
-     * is the case the net-content columns exist to make explicit rather than
-     * leave to `portion_factor`, which is dimensionless and could not express a
-     * 350 g pack against a kilogram shelf.
+     * The two callers are the two halves of the rule (PROD1), and they are
+     * deliberately different rather than one case seeded twice:
+     *
+     * - the **frozen lasagne** is a `frozen_meal`, a type that sells from
+     *   finished stock whatever its flag says, on a shelf counted in pieces. One
+     *   sold unit is one of them, so the deduction needs no conversion — and the
+     *   net content is stated anyway, because `portion_factor` is dimensionless
+     *   and stating it is what the columns are for;
+     * - the **prepared salad** is an ordinary `meal` that opts in, on a shelf
+     *   counted in kilograms, where 300 g per sold unit is a conversion nothing
+     *   else in the record could express. That is the case OQ-051 is about, and
+     *   the one the demo could not previously show.
+     *
+     * A `meal` that opts in has two preconditions the service enforces on any
+     * write — a production mode of `production` or `both`, and an ingredient a
+     * *published* recipe version outputs. This seeder writes the model directly,
+     * as it does for recipes, so it states a world that satisfies the rule rather
+     * than exercising it; `OpsDemoSeederIdempotencyTest` asserts the seeded salad
+     * passes the real predicate, so a tightened rule breaks the seed rather than
+     * quietly diverging from it.
      */
-    private function finishedStockItem(Organisation $organisation, Ingredient $ingredient, string $slug, string $nameEn): void
-    {
+    private function finishedStockItem(
+        Organisation $organisation,
+        Ingredient $ingredient,
+        string $slug,
+        string $nameEn,
+        CatalogueItemType $itemType,
+        string $netContentQuantity,
+        string $netContentUnitCode,
+    ): void {
         $catalogue = Catalogue::withoutTenancy()
             ->where('organisation_id', $organisation->getKey())
             ->first();
@@ -437,7 +499,7 @@ class OpsDemoSeeder extends Seeder
             return;
         }
 
-        $piece = MeasurementUnit::query()->where('code', 'piece')->first();
+        $netContentUnit = MeasurementUnit::query()->where('code', $netContentUnitCode)->first();
 
         CatalogueItem::withoutTenancy()->firstOrCreate(
             ['organisation_id' => $organisation->getKey(), 'ingredient_id' => (string) $ingredient->getKey()],
@@ -446,11 +508,16 @@ class OpsDemoSeeder extends Seeder
                 'slug' => $slug,
                 'name_en' => $nameEn,
                 'name_ar' => $nameEn,
-                'item_type' => CatalogueItemType::FrozenMeal,
+                'item_type' => $itemType,
                 'production_mode' => ProductionMode::Production,
+                // Redundant on a `frozen_meal` and load-bearing on a `meal`: the
+                // type answers for the first, the flag for the second. Set on
+                // both so the column reads the same way as the behaviour on
+                // every row this seeder writes.
+                'sells_from_finished_stock' => true,
                 'status' => CatalogueItemStatus::Published,
-                'net_content_quantity' => '1',
-                'net_content_unit_id' => $piece?->getKey(),
+                'net_content_quantity' => $netContentQuantity,
+                'net_content_unit_id' => $netContentUnit?->getKey(),
             ],
         );
     }

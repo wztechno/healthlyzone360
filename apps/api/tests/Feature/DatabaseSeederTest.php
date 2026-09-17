@@ -927,13 +927,23 @@ it('seeds Verdant sellable products alongside its published preview meals', func
         ->where('status', CatalogueItemStatus::Published->value)
         ->get();
 
-    // The three seeded demonstration meals plus the eleven photographed
-    // prototype meals the fixture assigns to *this* kitchen — fourteen, the
-    // same count MarketplaceReadTest pins from the public endpoint. The other
-    // twenty-six belong to the preview kitchens, which `DatabaseSeeder` keeps
-    // out of PHPUnit; `MarketplacePreviewWorldTest` seeds them and pins the
-    // forty-meal total there.
-    expect($published->where('item_type', CatalogueItemType::Meal)->count())->toBe(14)
+    // The three seeded demonstration meals, the eleven photographed prototype
+    // meals the fixture assigns to *this* kitchen, and — since PROD1 — the
+    // prepared Caesar salad: fifteen. The other twenty-six belong to the
+    // preview kitchens, which `DatabaseSeeder` keeps out of PHPUnit;
+    // `MarketplacePreviewWorldTest` seeds them and pins the forty-meal total
+    // there.
+    //
+    // `MarketplaceReadTest` still pins **fourteen** from the public endpoint,
+    // and the two are not in disagreement: this counts rows, and the
+    // marketplace counts what a customer can buy. The salad carries no price
+    // and no channel — a kitchen does not buy its own salad, and a typed figure
+    // would be a fallback the estimator reached for instead of the batch cost —
+    // and `MarketplaceMeals` excludes an unpriced item as a matter of contract
+    // rather than of filtering. It is in the catalogue so the finished-stock
+    // consumption path has something to sell; pricing it is the demonstrator's
+    // move, and the moment they make it the public count becomes fifteen too.
+    expect($published->where('item_type', CatalogueItemType::Meal)->count())->toBe(15)
         ->and($published->where('item_type', CatalogueItemType::Product)->count())->toBeGreaterThan(3)
         ->and(PriceList::withoutTenancy()
             ->where('organisation_id', $verdant->getKey())

@@ -9,15 +9,25 @@ import type {
     AllergenClass,
     ChannelAvailability,
     CursorPage,
+    IngredientAdmin,
     MealAdmin,
     MealAdminFilter,
+    ProcurementReference,
     ProductAdmin,
     ProductAdminFilter,
     ProductPackVariant,
     RecipeAdminSummary,
 } from '@healthy360/api-client/contracts';
-import { AllergenCode, KitchenId, MealId, ProductId, RoleId } from '@healthy360/domain-types';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import {
+    AllergenCode,
+    IngredientId,
+    KitchenId,
+    MealId,
+    ProductId,
+    RoleId,
+} from '@healthy360/domain-types';
+import type { MeasureUnit } from '@healthy360/nutrition';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
@@ -180,6 +190,8 @@ function product({ ordinal, name, overrides = {} }: ProductSeed): ProductAdmin {
         kitchenId: TEST_KITCHEN_ID,
         isMarketPriced: false,
         isAssorted: false,
+        netContentQuantity: null,
+        netContentUnitId: null,
         packVariants: [
             packVariant('JAR', { label: { en: 'Jar', ar: 'برطمان' } }),
             packVariant('TRAY', {
@@ -223,6 +235,11 @@ function meal({ ordinal, name, overrides = {} }: MealSeed): MealAdmin {
         kitchenId: TEST_KITCHEN_ID,
         recipeId: null,
         recipeVersionId: null,
+        productionMode: null,
+        ingredientId: null,
+        sellsFromFinishedStock: false,
+        netContentQuantity: null,
+        netContentUnitId: null,
         portionFactor: 1,
         mealTypes: ['lunch'],
         dietClassifications: [],
@@ -2132,5 +2149,219 @@ describe('publishing a meal', () => {
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-meal-view-public')).toBeNull();
         });
+    });
+});
+
+describe('converting a meal to sell from finished stock', () => {
+    /*
+     * The chain the server checks, on the one screen a kitchen manager can reach it from.
+     *
+     * Before this, `production_mode` and a meal's `ingredient_id` were settable from no screen at
+     * all — so the finished-stock flag would have been a control most meals could not legally use,
+     * refused for reasons pointing at fields nobody could edit. These tests are about the walk:
+     * disabled with the reason, then the two preconditions, then the toggle, then the save.
+     */
+    const SALAD_INGREDIENT = '019ffc6a-68d2-70d1-9f6c-6ddc160642c1';
+    const KILOGRAM = '019ffc6a-68d2-70d1-9f6c-6ddc160642c2';
+    const GRAM = '019ffc6a-68d2-70d1-9f6c-6ddc160642c3';
+
+    const producedIngredient = (unit: MeasureUnit = 'kg'): IngredientAdmin =>
+        ({
+            id: IngredientId.unsafe(SALAD_INGREDIENT),
+            meta: meta(),
+            name: { en: 'Prepared Caesar salad', ar: 'سلطة سيزر جاهزة' },
+            reference: 'IG-900',
+            categoryCode: 'prepared',
+            subcategoryCode: null,
+            measurementUnit: unit,
+            purchaseUnit: null,
+            composition: null,
+            itemsPerUnit: null,
+            gramsPerUnit: null,
+            unitPrice: null,
+            purchasePrice: null,
+            capacity: null,
+            status: 'published',
+            dataQualityFlags: [],
+        }) as unknown as IngredientAdmin;
+
+    const units = (): ProcurementReference => ({
+        currencies: [],
+        defaultCurrencyCode: 'AED',
+        measurementUnits: [
+            { id: KILOGRAM, code: 'kg', dimension: 'mass', nameEn: 'Kilogram' },
+            { id: GRAM, code: 'g', dimension: 'mass', nameEn: 'Gram' },
+        ],
+    });
+
+    const openEditor = async (stored: MealAdmin, unit: MeasureUnit = 'kg') =>
+        renderStubScreen(<MealEditScreen meal={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
+                    listIngredients: async () => page([producedIngredient(unit)]),
+                    updateMeal: async (_id, request) => ({
+                        ...stored,
+                        meta: meta({ lockVersion: request.lockVersion + 1 }),
+                    }),
+                },
+                kitchenOps: { getProcurementReference: async () => units() },
+            },
+        });
+
+    it('will not let a meal sell from a shelf until it says who fills it', async () => {
+        await openEditor(meal({ ordinal: 1, name: 'Caesar salad' }));
+        await untilVisible('kitchen-meal-finished-stock');
+
+        // Disabled, and saying which link is missing — in the words the server would have refused
+        // with. "Off" would be a true answer to a question nobody can ask yet.
+        expect(screen.getByTestId('kitchen-meal-finished-stock-control')).toBeDisabled();
+        expect(
+            within(screen.getByTestId('kitchen-meal-finished-stock')).getByText(
+                /Where it comes from/i,
+            ),
+        ).toBeTruthy();
+    });
+
+    it('names the missing produced item once the kitchen says it makes the meal', async () => {
+        await openEditor(
+            meal({ ordinal: 1, overrides: { productionMode: 'production' } }),
+        );
+        await untilVisible('kitchen-meal-finished-stock');
+
+        // Half the chain: the mode is right, so the reason moves on to the shelf.
+        expect(screen.getByTestId('kitchen-meal-finished-stock-control')).toBeDisabled();
+        expect(
+            within(screen.getByTestId('kitchen-meal-finished-stock')).getByText(
+                /Name a produced item first/i,
+            ),
+        ).toBeTruthy();
+    });
+
+    it('sends the whole chain when a kitchen converts an ordinary meal', async () => {
+        const stored = meal({ ordinal: 1, name: 'Caesar salad' });
+        const { repositories } = await openEditor(stored);
+        await untilVisible('kitchen-meal-production-mode-trigger');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-production-mode-trigger'));
+        });
+        await untilVisible('kitchen-meal-production-mode-option-production');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-production-mode-option-production'));
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-produced-ingredient-trigger'));
+        });
+        await untilVisible(`kitchen-meal-produced-ingredient-option-${SALAD_INGREDIENT}`);
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(`kitchen-meal-produced-ingredient-option-${SALAD_INGREDIENT}`),
+            );
+        });
+
+        // Both preconditions met — the toggle is now the kitchen's to set.
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-meal-finished-stock-control')).not.toBeDisabled();
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-finished-stock-control'));
+        });
+
+        // The shelf is counted in kilograms, so the net content is now compulsory and the save is
+        // held until it is stated — the same refusal the server would give, said first.
+        await untilVisible('kitchen-meal-net-content-input');
+        expect(screen.getByTestId('kitchen-meal-editor-screen-save')).toBeDisabled();
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-meal-net-content-input'), '0.3');
+        });
+
+        // A quantity with no unit is not half an answer the server keeps — it nulls both. So it is
+        // blocked here, where somebody can see it.
+        expect(screen.getByTestId('kitchen-meal-editor-screen-save')).toBeDisabled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-net-content-unit-trigger'));
+        });
+        await untilVisible(`kitchen-meal-net-content-unit-option-${KILOGRAM}`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-meal-net-content-unit-option-${KILOGRAM}`));
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateMeal).toHaveBeenCalledWith(
+                stored.id,
+                expect.objectContaining({
+                    productionMode: 'production',
+                    ingredientId: SALAD_INGREDIENT,
+                    sellsFromFinishedStock: true,
+                    netContentQuantity: 0.3,
+                    netContentUnitId: KILOGRAM,
+                }),
+            );
+        });
+    });
+
+    it('asks nothing about net content when the shelf is counted in pieces', async () => {
+        // `portionFactor` already means something on a counted shelf, so demanding a second answer
+        // there would be asking for the same fact twice.
+        const stored = meal({
+            ordinal: 1,
+            overrides: {
+                productionMode: 'production',
+                ingredientId: SALAD_INGREDIENT,
+                sellsFromFinishedStock: true,
+            },
+        });
+        const { repositories } = await openEditor(stored, 'piece');
+        await untilVisible('kitchen-meal-net-content-input');
+
+        expect(screen.getByTestId('kitchen-meal-editor-screen-save')).not.toBeDisabled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meal-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateMeal).toHaveBeenCalledWith(
+                stored.id,
+                expect.objectContaining({
+                    sellsFromFinishedStock: true,
+                    netContentQuantity: null,
+                    netContentUnitId: null,
+                }),
+            );
+        });
+    });
+
+    it('reads a configured meal back as configured', async () => {
+        await openEditor(
+            meal({
+                ordinal: 1,
+                overrides: {
+                    productionMode: 'production',
+                    ingredientId: SALAD_INGREDIENT,
+                    sellsFromFinishedStock: true,
+                    netContentQuantity: '0.3000',
+                    netContentUnitId: KILOGRAM,
+                },
+            }),
+        );
+        await untilVisible('kitchen-meal-net-content-input');
+
+        expect(screen.getByTestId('kitchen-meal-finished-stock-control')).not.toBeDisabled();
+        expect(screen.getByTestId('kitchen-meal-net-content-input').props.value).toBe('0.3000');
+        expect(
+            within(screen.getByTestId('kitchen-meal-net-content-unit')).getByText('kg'),
+        ).toBeTruthy();
     });
 });

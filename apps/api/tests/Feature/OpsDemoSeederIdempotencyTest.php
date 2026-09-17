@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Database\Seeders\OpsDemoSeeder;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\ProductionMode;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientCostEvent;
@@ -21,6 +23,8 @@ use Healthy360\Procurement\Models\SupplierStockItem;
 use Healthy360\Procurement\Services\IngredientCostService;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionLine;
+use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
@@ -303,4 +307,69 @@ it('never rewrites an ingredient cost the real purchasing path recorded', functi
         ->and($rows('ingredient_cost_events'))->toBe($eventsBefore)
         ->and(IngredientStockCost::withoutTenancy()->count())->toBe(count($costsBefore))
         ->and(IngredientCostEvent::withoutTenancy()->count())->toBe(count($eventsBefore));
+});
+
+it('seeds a prepared salad that really does sell from finished stock', function (): void {
+    // The case OQ-051 is about, and the one consumption path the demo could not
+    // previously show: an ordinary **meal** made in advance, sold by the unit
+    // off a shelf counted in kilograms.
+    //
+    // Asserted through the real predicate rather than by reading the column, so
+    // that a tightening of the rule breaks the seed rather than quietly
+    // diverging from it. This seeder writes the model directly — as it does for
+    // recipes — so it *states* a world the service would accept rather than
+    // exercising the service; this is what keeps that statement honest.
+    $world = verdantOps();
+
+    $salad = CatalogueItem::withoutTenancy()
+        ->where('organisation_id', $world->organisation->getKey())
+        ->where('slug', 'prepared-caesar-salad')
+        ->sole();
+
+    expect($salad->item_type)->toBe(CatalogueItemType::Meal)
+        ->and($salad->sellsFromFinishedStock())->toBeTrue()
+        ->and($salad->production_mode)->toBe(ProductionMode::Production)
+        // 300 g of a shelf counted in kilograms — the conversion the columns
+        // exist for, and the one `portion_factor` could never have expressed.
+        ->and($salad->net_content_quantity)->toBe('0.3000');
+
+    $shelfUnit = MeasurementUnit::query()
+        ->whereKey(Ingredient::withoutTenancy()->whereKey($salad->ingredient_id)->value('default_unit_id'))
+        ->sole();
+
+    expect($shelfUnit->code)->toBe('kg')
+        ->and(MeasurementUnit::query()->whereKey($salad->net_content_unit_id)->value('code'))->toBe('kg');
+
+    // And the two preconditions the service would have checked: a kitchen that
+    // produces it, and an ingredient a **published** recipe version outputs.
+    expect(RecipeVersionOutput::withoutTenancy()
+        ->join('recipe_versions', 'recipe_versions.id', '=', 'recipe_version_outputs.recipe_version_id')
+        ->where('recipe_version_outputs.ingredient_id', $salad->ingredient_id)
+        ->where('recipe_versions.status', 'published')
+        ->exists())->toBeTrue();
+});
+
+it('puts the Caesar dressing inside a second recipe rather than only making it', function (): void {
+    // An intermediate is only visibly an intermediate once something else draws
+    // on it. The salad lists the dressing at 1.5 l, so the demo shows a batch
+    // taking finished dressing off its shelf instead of re-expanding mayonnaise,
+    // lemon juice and parmesan a second time.
+    $world = verdantOps();
+
+    $dressing = Ingredient::withoutTenancy()
+        ->where('organisation_id', $world->organisation->getKey())
+        ->where('slug', 'caesar-dressing')
+        ->sole();
+
+    $saladVersion = RecipeVersion::withoutTenancy()
+        ->whereIn('recipe_id', Recipe::withoutTenancy()
+            ->where('organisation_id', $world->organisation->getKey())
+            ->where('slug', 'prepared-caesar-salad')
+            ->pluck('id'))
+        ->sole();
+
+    expect(RecipeVersionLine::withoutTenancy()
+        ->where('recipe_version_id', $saladVersion->getKey())
+        ->where('ingredient_id', $dressing->getKey())
+        ->value('quantity'))->toBe('1.5000');
 });

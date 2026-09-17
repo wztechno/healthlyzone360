@@ -150,18 +150,14 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
      */
     public function sellsFromFinishedStock(): bool
     {
-        return match ($this->item_type) {
-            CatalogueItemType::Product,
-            CatalogueItemType::Sauce,
-            CatalogueItemType::Dressing,
-            CatalogueItemType::FrozenMeal => true,
-            CatalogueItemType::SubscriptionPlan => false,
-            // Coalesced rather than read straight: the column is NOT NULL with a
-            // default, but a model hydrated from a partial select — or built by a
-            // factory that has not round-tripped that default — carries no
-            // attribute at all, and a sale is not the place to discover it.
-            CatalogueItemType::Meal => (bool) ($this->sells_from_finished_stock ?? false),
-        };
+        // The type→behaviour half lives on the enum, so the write validator and
+        // this row-level reader cannot drift apart about what a dressing does.
+        //
+        // The flag is coalesced rather than read straight: the column is NOT NULL
+        // with a default, but a model hydrated from a partial select — or built
+        // by a factory that has not round-tripped that default — carries no
+        // attribute at all, and a sale is not the place to discover it.
+        return $this->item_type->sellsFromFinishedStock((bool) ($this->sells_from_finished_stock ?? false));
     }
 
     /**

@@ -2003,6 +2003,35 @@ export type AdminCatalogueItem = {
      * The ingredient a resold raw good simply is.
      */
     ingredient_id?: Uuid | null;
+    /**
+     * Whether a sale of this item draws finished stock rather than
+     * exploding its recipe (PROD1).
+     *
+     * The **stored column**, not the derived answer. A product, sauce,
+     * dressing or frozen meal always sells from finished stock as a
+     * property of what it is, and reads `false` here unless somebody also
+     * ticked the box — an editor needs the choice a person made, or a save
+     * would write the type's own behaviour back as an explicit one.
+     *
+     */
+    sells_from_finished_stock: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is — a 350 g pack
+     * against a shelf counted in kilograms.
+     *
+     * A fixed-scale decimal string so four places survive the round trip.
+     * **Required in practice wherever the shelf is weighed**: a mass or
+     * volume shelf with no net content refuses every sale with
+     * `no_net_content` rather than guessing, and the write refuses it first.
+     * A shelf counted in pieces needs none — `portion_factor` already means
+     * something there.
+     *
+     */
+    net_content_quantity?: string | null;
+    /**
+     * The unit `net_content_quantity` is in. All-or-nothing with it, by database CHECK.
+     */
+    net_content_unit_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
     /**
@@ -2266,6 +2295,26 @@ export type CreateCatalogueItemRequest = {
      *
      */
     portion_factor?: number;
+    /**
+     * Opt a **meal** into selling from finished stock (PROD1). Refused
+     * unless the meal's `production_mode` is `production` or `both` and its
+     * `ingredient_id` names an ingredient a published recipe version
+     * outputs — there has to be a shelf to deduct from.
+     *
+     * Meaningless on the types that always sell that way; setting it there
+     * is accepted and changes nothing.
+     *
+     */
+    sells_from_finished_stock?: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is. **Required when
+     * the shelf is counted in mass or volume** — the write refuses without
+     * it, because the sale would refuse with `no_net_content` days later on
+     * a customer's order. All-or-nothing with the unit.
+     *
+     */
+    net_content_quantity?: number | null;
+    net_content_unit_id?: Uuid | null;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
@@ -2303,6 +2352,26 @@ export type UpdateCatalogueItemRequest = {
      *
      */
     portion_factor?: number;
+    /**
+     * Opt a **meal** into selling from finished stock (PROD1). Refused
+     * unless the meal's `production_mode` is `production` or `both` and its
+     * `ingredient_id` names an ingredient a published recipe version
+     * outputs — there has to be a shelf to deduct from.
+     *
+     * Meaningless on the types that always sell that way; setting it there
+     * is accepted and changes nothing.
+     *
+     */
+    sells_from_finished_stock?: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is. **Required when
+     * the shelf is counted in mass or volume** — the write refuses without
+     * it, because the sale would refuse with `no_net_content` days later on
+     * a customer's order. All-or-nothing with the unit.
+     *
+     */
+    net_content_quantity?: number | null;
+    net_content_unit_id?: Uuid | null;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;

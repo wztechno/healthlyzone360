@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7212 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7241 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3320,6 +3320,11 @@ export interface NamespaceKeys {
     | 'meals.emptyTitle'
     | 'meals.filteredEmptyBody'
     | 'meals.filteredEmptyTitle'
+    | 'meals.finishedStockBlockedIngredient'
+    | 'meals.finishedStockBlockedMode'
+    | 'meals.finishedStockOff'
+    | 'meals.finishedStockOn'
+    | 'meals.finishedStockToggleLabel'
     | 'meals.gateCheckName'
     | 'meals.gateCheckSaved'
     | 'meals.gateCheckServiceDays'
@@ -3331,6 +3336,13 @@ export interface NamespaceKeys {
     | 'meals.marginValue'
     | 'meals.mealTypesLabel'
     | 'meals.nameRequired'
+    | 'meals.netContentHint'
+    | 'meals.netContentInvalid'
+    | 'meals.netContentLabel'
+    | 'meals.netContentRequired'
+    | 'meals.netContentUnitLabel'
+    | 'meals.netContentUnitMissing'
+    | 'meals.netContentUnitsForbidden'
     | 'meals.noChannels'
     | 'meals.notFoundBody'
     | 'meals.notFoundTitle'
@@ -3339,6 +3351,15 @@ export interface NamespaceKeys {
     | 'meals.portionHint'
     | 'meals.portionInvalid'
     | 'meals.portionLabel'
+    | 'meals.producedIngredientHint'
+    | 'meals.producedIngredientLabel'
+    | 'meals.producedIngredientNone'
+    | 'meals.productionModeBoth'
+    | 'meals.productionModeHint'
+    | 'meals.productionModeLabel'
+    | 'meals.productionModeProduction'
+    | 'meals.productionModeSupplier'
+    | 'meals.productionModeUnset'
     | 'meals.publishAllergensNone'
     | 'meals.publishAllergensTitle'
     | 'meals.publishBlockedTitle'
@@ -3366,6 +3387,8 @@ export interface NamespaceKeys {
     | 'meals.sectionDetails'
     | 'meals.sectionIdentity'
     | 'meals.sectionMargin'
+    | 'meals.sectionProduction'
+    | 'meals.sectionProductionHint'
     | 'meals.sectionRecipe'
     | 'meals.sectionWhen'
     | 'meals.sectionWhenHint'
@@ -4873,6 +4896,12 @@ export interface NamespaceKeys {
     | 'products.marketPricedLabel'
     | 'products.marketPricedShort'
     | 'products.nameRequired'
+    | 'products.netContentHint'
+    | 'products.netContentInvalid'
+    | 'products.netContentLabel'
+    | 'products.netContentUnitLabel'
+    | 'products.netContentUnitMissing'
+    | 'products.netContentUnitsForbidden'
     | 'products.noChannels'
     | 'products.noPacks'
     | 'products.notFoundBody'
@@ -10550,6 +10579,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.emptyTitle',
   'kitchen:meals.filteredEmptyBody',
   'kitchen:meals.filteredEmptyTitle',
+  'kitchen:meals.finishedStockBlockedIngredient',
+  'kitchen:meals.finishedStockBlockedMode',
+  'kitchen:meals.finishedStockOff',
+  'kitchen:meals.finishedStockOn',
+  'kitchen:meals.finishedStockToggleLabel',
   'kitchen:meals.gateCheckName',
   'kitchen:meals.gateCheckSaved',
   'kitchen:meals.gateCheckServiceDays',
@@ -10561,6 +10595,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.marginValue',
   'kitchen:meals.mealTypesLabel',
   'kitchen:meals.nameRequired',
+  'kitchen:meals.netContentHint',
+  'kitchen:meals.netContentInvalid',
+  'kitchen:meals.netContentLabel',
+  'kitchen:meals.netContentRequired',
+  'kitchen:meals.netContentUnitLabel',
+  'kitchen:meals.netContentUnitMissing',
+  'kitchen:meals.netContentUnitsForbidden',
   'kitchen:meals.noChannels',
   'kitchen:meals.notFoundBody',
   'kitchen:meals.notFoundTitle',
@@ -10569,6 +10610,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.portionHint',
   'kitchen:meals.portionInvalid',
   'kitchen:meals.portionLabel',
+  'kitchen:meals.producedIngredientHint',
+  'kitchen:meals.producedIngredientLabel',
+  'kitchen:meals.producedIngredientNone',
+  'kitchen:meals.productionModeBoth',
+  'kitchen:meals.productionModeHint',
+  'kitchen:meals.productionModeLabel',
+  'kitchen:meals.productionModeProduction',
+  'kitchen:meals.productionModeSupplier',
+  'kitchen:meals.productionModeUnset',
   'kitchen:meals.publishAllergensNone',
   'kitchen:meals.publishAllergensTitle',
   'kitchen:meals.publishBlockedTitle',
@@ -10596,6 +10646,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.sectionDetails',
   'kitchen:meals.sectionIdentity',
   'kitchen:meals.sectionMargin',
+  'kitchen:meals.sectionProduction',
+  'kitchen:meals.sectionProductionHint',
   'kitchen:meals.sectionRecipe',
   'kitchen:meals.sectionWhen',
   'kitchen:meals.sectionWhenHint',
@@ -12103,6 +12155,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.marketPricedLabel',
   'kitchen:products.marketPricedShort',
   'kitchen:products.nameRequired',
+  'kitchen:products.netContentHint',
+  'kitchen:products.netContentInvalid',
+  'kitchen:products.netContentLabel',
+  'kitchen:products.netContentUnitLabel',
+  'kitchen:products.netContentUnitMissing',
+  'kitchen:products.netContentUnitsForbidden',
   'kitchen:products.noChannels',
   'kitchen:products.noPacks',
   'kitchen:products.notFoundBody',

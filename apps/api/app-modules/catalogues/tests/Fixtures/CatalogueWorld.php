@@ -15,12 +15,17 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\EnergyBand;
 use Healthy360\Catalogues\Models\MealCombinationOption;
 use Healthy360\Catalogues\Models\PlanDuration;
+use Healthy360\Catalogues\Services\CatalogueItemService;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
+use Healthy360\Recipes\Enums\RecipeVersionStatus;
+use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 
 /**
@@ -278,5 +283,59 @@ final class CatalogueWorld
         ]);
 
         return $item;
+    }
+
+    /**
+     * An ingredient a **published** recipe version outputs — the shelf a meal
+     * that sells from finished stock deducts from (PROD1).
+     *
+     * The published status is the point rather than a detail:
+     * `CatalogueItemService::isProducedIngredient()` joins to `recipe_versions`
+     * and asks for it, because a draft version is a plan and nothing has been
+     * made from it yet. `$status` is a parameter so the same helper can build
+     * the case where it is *not* published, which is what the publish re-check
+     * and the write refusal are both about.
+     *
+     * The unit is the ingredient's `default_unit_id`, which is what
+     * {@see CatalogueItemService} reads to
+     * decide whether the shelf is counted by weight — so `kg` here produces a
+     * weighed shelf and `piece` one that is counted.
+     */
+    public static function producedIngredient(
+        object $tenant,
+        string $nameEn = 'Prepared Caesar salad',
+        string $unitCode = 'kg',
+        RecipeVersionStatus $status = RecipeVersionStatus::Published,
+    ): Ingredient {
+        $ingredient = Ingredient::factory()->create([
+            'organisation_id' => $tenant->organisation->getKey(),
+            'name_en' => $nameEn,
+            'default_unit_id' => self::unit($unitCode),
+        ]);
+
+        $recipe = Recipe::factory()->create([
+            'organisation_id' => $tenant->organisation->getKey(),
+            'name_en' => $nameEn,
+        ]);
+
+        $version = RecipeVersion::factory()->create([
+            'organisation_id' => $tenant->organisation->getKey(),
+            'recipe_id' => $recipe->getKey(),
+            'status' => $status,
+            'published_at' => $status === RecipeVersionStatus::Published ? now() : null,
+            'yield_quantity' => '12.0000',
+            'yield_unit_id' => self::unit($unitCode),
+        ]);
+
+        RecipeVersionOutput::withoutTenancy()->create([
+            'organisation_id' => $tenant->organisation->getKey(),
+            'recipe_version_id' => $version->getKey(),
+            'ingredient_id' => $ingredient->getKey(),
+            'output_quantity' => '12.0000',
+            'unit_id' => self::unit($unitCode),
+            'is_primary' => true,
+        ]);
+
+        return $ingredient;
     }
 }

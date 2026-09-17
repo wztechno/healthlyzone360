@@ -1216,6 +1216,17 @@ export interface ProductAdmin {
     /** True for a row that stands for a mixed selection rather than one article. */
     readonly isAssorted: boolean;
     readonly packVariants: readonly ProductPackVariant[];
+    /**
+     * How much of the produced ingredient one sold unit is (PROD1).
+     *
+     * There is no `sellsFromFinishedStock` beside it: a product, sauce, dressing
+     * or frozen meal sells from finished stock as a property of what it is, so a
+     * flag here would be a control that changes nothing. The net content is a
+     * different matter — a frozen meal sold by weight off a shelf counted in
+     * kilograms needs it, or every sale refuses with `no_net_content`.
+     */
+    readonly netContentQuantity: string | null;
+    readonly netContentUnitId: string | null;
     readonly channelAvailability: readonly ChannelAvailability[];
     /** The recipe it is produced from, when it is produced rather than bought in. */
     readonly recipeId: RecipeId | null;
@@ -1252,6 +1263,8 @@ export interface CreateProductRequest {
     readonly recipeId?: RecipeId | undefined;
     readonly isMarketPriced?: boolean | undefined;
     readonly isAssorted?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly packVariants?: readonly ProductPackVariant[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1263,6 +1276,8 @@ export interface UpdateProductRequest extends LockedRequest {
     readonly recipeId?: RecipeId | null | undefined;
     readonly isMarketPriced?: boolean | undefined;
     readonly isAssorted?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly packVariants?: readonly ProductPackVariant[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1347,6 +1362,17 @@ export interface MealAvailabilityDay {
     readonly orderCutOffAt: string | null;
 }
 
+/**
+ * Where a sellable comes from: this kitchen's own production, a supplier, or both.
+ *
+ * It is the first of the two preconditions on selling from finished stock — a
+ * kitchen cannot deduct a shelf of something it does not make — which is why the
+ * meal editor can set it at all. Before PROD1 it reached no screen in the
+ * application and could only be set through the API.
+ */
+export const PRODUCTION_MODES = ['production', 'supplier', 'both'] as const;
+export type ProductionMode = (typeof PRODUCTION_MODES)[number];
+
 export interface MealAdmin {
     readonly id: MealId;
     readonly meta: AdminEntityMeta;
@@ -1363,6 +1389,36 @@ export interface MealAdmin {
     readonly recipeVersionId: RecipeVersionId | null;
     /** The portion sold, relative to one recipe serving. */
     readonly portionFactor: number;
+    /**
+     * What this kitchen does about the meal, and what a sale of it deducts (PROD1).
+     *
+     * `productionMode` and `ingredientId` are the two preconditions behind
+     * `sellsFromFinishedStock`: the server refuses the flag unless the kitchen
+     * *produces* the meal and the ingredient it names is one a published recipe
+     * version outputs. They are carried here so the editor can say which one is
+     * missing instead of discovering it from a refusal.
+     */
+    readonly productionMode: ProductionMode | null;
+    readonly ingredientId: string | null;
+    /**
+     * Made in advance: a sale draws the finished shelf rather than exploding the
+     * recipe. The **stored** flag, not the derived behaviour — a frozen meal
+     * sells that way by type and still reads false here, and writing the type's
+     * own behaviour back as an explicit choice is exactly the confusion the
+     * distinction exists to prevent.
+     */
+    readonly sellsFromFinishedStock: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is — a 350 g pack off a
+     * shelf counted in kilograms. A fixed-scale decimal string, so four places
+     * survive the round trip.
+     *
+     * Required in practice wherever the shelf is weighed: a mass or volume shelf
+     * with no net content refuses every sale with `no_net_content` rather than
+     * guessing. A shelf counted in pieces needs none.
+     */
+    readonly netContentQuantity: string | null;
+    readonly netContentUnitId: string | null;
     readonly mealTypes: readonly MealType[];
     readonly dietClassifications: readonly DietClassification[];
     /** Frozen at publication from the recipe version's declaration; never edited here directly. */
@@ -1402,6 +1458,11 @@ export interface CreateMealRequest {
     readonly description: LocalisedText;
     readonly recipeId?: RecipeId | undefined;
     readonly portionFactor?: number | undefined;
+    readonly productionMode?: ProductionMode | null | undefined;
+    readonly ingredientId?: string | null | undefined;
+    readonly sellsFromFinishedStock?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1411,6 +1472,11 @@ export interface UpdateMealRequest extends LockedRequest {
     readonly description?: LocalisedText | undefined;
     readonly recipeId?: RecipeId | null | undefined;
     readonly portionFactor?: number | undefined;
+    readonly productionMode?: ProductionMode | null | undefined;
+    readonly ingredientId?: string | null | undefined;
+    readonly sellsFromFinishedStock?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
