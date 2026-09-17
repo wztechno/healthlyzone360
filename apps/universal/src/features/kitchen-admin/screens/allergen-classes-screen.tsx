@@ -1,6 +1,5 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
     Callout,
     EmptyState,
@@ -31,8 +30,8 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { AllergenListState, AllergenStatusFilter } from '../catalogue/use-allergen-list.ts';
 import { useAllergenList } from '../catalogue/use-allergen-list.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -145,6 +144,30 @@ function AllergenClasses() {
         }),
     );
 
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    const viewing = list.viewing;
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-allergen-classes-view"
+                kind={t('kitchen:classes.viewKind')}
+                reference={String(viewing.code)}
+                title={displayName(viewing.name, locale).value}
+                status={{
+                    tone: viewing.isActive ? 'brand' : 'warning',
+                    label: viewing.isActive
+                        ? t('kitchen:classes.active')
+                        : t('kitchen:classes.withdrawn'),
+                }}
+                fields={viewFields(viewing, t, formatter, locale)}
+                onBack={list.closeView}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-allergen-classes-screen">
             {/*
@@ -248,34 +271,6 @@ function AllergenClasses() {
                     ]}
                 />
             )}
-
-            <CatalogueViewDrawer
-                testID="kitchen-allergen-classes-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:classes.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                {...(list.viewing === null
-                    ? { title: '' }
-                    : {
-                          reference: String(list.viewing.code),
-                          title: displayName(list.viewing.name, locale).value,
-                          status: (
-                              <Badge
-                                  testID="kitchen-allergen-classes-view-status"
-                                  tone={list.viewing.isActive ? 'brand' : 'warning'}
-                                  icon={list.viewing.isActive ? null : undefined}
-                                  label={
-                                      list.viewing.isActive
-                                          ? t('kitchen:classes.active')
-                                          : t('kitchen:classes.withdrawn')
-                                  }
-                              />
-                          ),
-                      })}
-                fields={list.viewing === null ? [] : viewFields(list.viewing, t, formatter, locale)}
-            />
         </Stack>
     );
 }

@@ -6,7 +6,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    RecordWindow,
     SegmentedControl,
     Skeleton,
     Stack,
@@ -34,6 +33,7 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
@@ -280,6 +280,84 @@ function ConsumptionExceptions() {
     const failure = toFailure(exceptions.error);
     const hasData = !exceptions.isPending && failure === null;
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-consumption-exceptions-window"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={t('kitchen:ops.exceptions.window.title', { order: orderLabel(viewing) })}
+                kind={t('kitchen:ops.exceptions.window.kind')}
+                status={
+                    viewing.resolved
+                        ? { label: t('kitchen:ops.exceptions.resolvedBadge'), tone: 'success' }
+                        : { label: t('kitchen:ops.exceptions.openBadge'), tone: 'danger' }
+                }
+                {...(viewing.resolved ? {} : { note: t('kitchen:ops.exceptions.window.openNote') })}
+                fields={[
+                    {
+                        key: 'item',
+                        label: t('kitchen:ops.exceptions.window.fieldItem'),
+                        value: itemLabel(viewing),
+                    },
+                    {
+                        key: 'branch',
+                        label: t('kitchen:ops.exceptions.columnBranch'),
+                        value: viewing.branchName ?? t('kitchen:list.noValue'),
+                    },
+                    {
+                        key: 'reason',
+                        label: t('kitchen:ops.exceptions.columnReason'),
+                        value: t(`kitchen:ops.exceptions.reasons.${viewing.reasonCode}`),
+                    },
+                    {
+                        key: 'raised',
+                        label: t('kitchen:ops.exceptions.columnRaised'),
+                        value: raisedLabel(viewing),
+                        mono: true,
+                    },
+                    ...(viewing.detail === null
+                        ? []
+                        : [
+                              {
+                                  key: 'detail',
+                                  label: t('kitchen:ops.exceptions.window.fieldDetail'),
+                                  value: viewing.detail,
+                              },
+                          ]),
+                    ...(viewing.resolutionNote === null
+                        ? []
+                        : [
+                              {
+                                  key: 'resolutionNote',
+                                  label: t('kitchen:ops.exceptions.window.fieldResolutionNote'),
+                                  value: viewing.resolutionNote,
+                              },
+                          ]),
+                    {
+                        key: 'money',
+                        label: t('kitchen:ops.exceptions.window.fieldMoney'),
+                        value: t('kitchen:ops.exceptions.window.moneyValue'),
+                    },
+                ]}
+                primaryAction={
+                    viewing.resolved || !canManage
+                        ? undefined
+                        : {
+                              label: t('kitchen:ops.exceptions.window.retry'),
+                              icon: 'refresh',
+                              onPress: () => {
+                                  const row = viewing;
+                                  setViewing(null);
+                                  runRetry(row);
+                              },
+                          }
+                }
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-consumption-exceptions-screen">
             {!hasData ? null : (
@@ -421,84 +499,6 @@ function ConsumptionExceptions() {
                         ) : null}
                     </View>
                 </View>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-consumption-exceptions-window"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={t('kitchen:ops.exceptions.window.title', { order: orderLabel(viewing) })}
-                    kind={t('kitchen:ops.exceptions.window.kind')}
-                    status={
-                        viewing.resolved
-                            ? { label: t('kitchen:ops.exceptions.resolvedBadge'), tone: 'success' }
-                            : { label: t('kitchen:ops.exceptions.openBadge'), tone: 'danger' }
-                    }
-                    {...(viewing.resolved
-                        ? {}
-                        : { note: t('kitchen:ops.exceptions.window.openNote') })}
-                    fields={[
-                        {
-                            key: 'item',
-                            label: t('kitchen:ops.exceptions.window.fieldItem'),
-                            value: itemLabel(viewing),
-                        },
-                        {
-                            key: 'branch',
-                            label: t('kitchen:ops.exceptions.columnBranch'),
-                            value: viewing.branchName ?? t('kitchen:list.noValue'),
-                        },
-                        {
-                            key: 'reason',
-                            label: t('kitchen:ops.exceptions.columnReason'),
-                            value: t(`kitchen:ops.exceptions.reasons.${viewing.reasonCode}`),
-                        },
-                        {
-                            key: 'raised',
-                            label: t('kitchen:ops.exceptions.columnRaised'),
-                            value: raisedLabel(viewing),
-                            mono: true,
-                        },
-                        ...(viewing.detail === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'detail',
-                                      label: t('kitchen:ops.exceptions.window.fieldDetail'),
-                                      value: viewing.detail,
-                                  },
-                              ]),
-                        ...(viewing.resolutionNote === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'resolutionNote',
-                                      label: t('kitchen:ops.exceptions.window.fieldResolutionNote'),
-                                      value: viewing.resolutionNote,
-                                  },
-                              ]),
-                        {
-                            key: 'money',
-                            label: t('kitchen:ops.exceptions.window.fieldMoney'),
-                            value: t('kitchen:ops.exceptions.window.moneyValue'),
-                        },
-                    ]}
-                    primaryAction={
-                        viewing.resolved || !canManage
-                            ? undefined
-                            : {
-                                  label: t('kitchen:ops.exceptions.window.retry'),
-                                  onPress: () => {
-                                      const row = viewing;
-                                      setViewing(null);
-                                      runRetry(row);
-                                  },
-                              }
-                    }
-                />
             )}
 
             <Dialog

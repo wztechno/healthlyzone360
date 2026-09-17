@@ -341,8 +341,9 @@ describe('the batch planner', () => {
 
         await untilVisible('kitchen-batch-ingredients');
 
-        // 10 kg of a 4 kg recipe is two and a half batches.
-        expect(screen.getByTestId('kitchen-batch-results-batches-value')).toHaveTextContent('2.5');
+        // 10 kg of a 4 kg recipe is two and a half batches, which a kitchen runs as three.
+        expect(screen.getByTestId('kitchen-batch-facts-batches-value')).toHaveTextContent('3');
+        expect(screen.getByTestId('kitchen-batch-factor')).toHaveTextContent(/×2\.5/);
 
         // The name can only have come from the ingredient record: the line carries none.
         await waitFor(
@@ -353,13 +354,13 @@ describe('the batch planner', () => {
             },
             { timeout: 10_000 },
         );
-        // 0.2 kg × 2.5 is half a kilogram, which the sheet reads as 500 g.
+        // 0.2 kg × 2.5 is half a kilogram — stated in kilograms, the one unit the row has.
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
-        ).toHaveTextContent('500');
+        ).toHaveTextContent('0.5');
 
         // The planner is a sheet, not a stock check: no shelf column is drawn.
-        expect(screen.queryByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-short`)).toBeNull();
+        expect(screen.queryByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-on-hand`)).toBeNull();
 
         // 3 trays × 2.5 is 7.5, and half a tray is not a thing anybody can take off a shelf.
         expect(

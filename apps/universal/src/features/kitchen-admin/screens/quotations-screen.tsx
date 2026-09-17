@@ -12,7 +12,6 @@ import {
     ErrorState,
     FormSection,
     Icon,
-    RecordWindow,
     RecordWindowFieldGrid,
     Skeleton,
     Stack,
@@ -57,6 +56,7 @@ import {
     kitchenQuotationStatusTone,
     kitchenQuotationTotalMinor,
 } from '../ops-format.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4), as
@@ -236,6 +236,33 @@ function Quotations() {
     const awaiting = all.filter((row) => row.status === 'submitted').length;
     const quoted = all.filter((row) => row.status === 'quoted').length;
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-quotations-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={viewing.reference}
+                kind={t('kitchen:ops.quotations.viewKind')}
+                status={{
+                    label: t(kitchenQuotationStatusKey(viewing.status)),
+                    tone: kitchenQuotationStatusTone(viewing.status),
+                }}
+                fields={requestFields(viewing, t, formatter)}
+                primaryAction={{
+                    label: t('kitchen:ops.quotations.open'),
+                    icon: null,
+                    onPress: () => {
+                        const id = viewing.id;
+                        setViewing(null);
+                        setOpenId(id);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-quotations-screen">
             {loaded === null || listFailure !== null ? null : (
@@ -378,31 +405,6 @@ function Quotations() {
                             },
                         },
                     ]}
-                />
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-quotations-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={viewing.reference}
-                    kind={t('kitchen:ops.quotations.viewKind')}
-                    status={{
-                        label: t(kitchenQuotationStatusKey(viewing.status)),
-                        tone: kitchenQuotationStatusTone(viewing.status),
-                    }}
-                    fields={requestFields(viewing, t, formatter)}
-                    primaryAction={{
-                        label: t('kitchen:ops.quotations.open'),
-                        onPress: () => {
-                            const id = viewing.id;
-                            setViewing(null);
-                            setOpenId(id);
-                        },
-                    }}
                 />
             )}
         </Stack>

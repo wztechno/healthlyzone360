@@ -4,7 +4,6 @@ import {
     Callout,
     EmptyState,
     ErrorState,
-    RecordWindow,
     Skeleton,
     Stack,
     Text,
@@ -41,6 +40,7 @@ import {
     summarisePriceEntries,
 } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/price-lists` — what this kitchen charges, and how much of it is actually decided
@@ -257,6 +257,33 @@ function PriceListsList() {
         ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
     ];
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-price-lists-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={displayName(viewing.name, locale).value}
+                kind={t('kitchen:priceLists.viewKind')}
+                status={{
+                    label: t(statusShortKey(viewing.meta.status)),
+                    tone: statusTone(viewing.meta.status),
+                }}
+                {...(isAgreementPriced(viewing.channels)
+                    ? { note: t('kitchen:priceLists.confidentialBody') }
+                    : {})}
+                fields={viewFields(viewing, t, formatter)}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    onPress: () => {
+                        openEditor(viewing);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-price-lists-screen">
             {priceLists.isPending || failure !== null ? null : (
@@ -378,32 +405,6 @@ function PriceListsList() {
                         label={t('kitchen:catalogue.pagerLabel')}
                     />
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-price-lists-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={displayName(viewing.name, locale).value}
-                    kind={t('kitchen:priceLists.viewKind')}
-                    status={{
-                        label: t(statusShortKey(viewing.meta.status)),
-                        tone: statusTone(viewing.meta.status),
-                    }}
-                    {...(isAgreementPriced(viewing.channels)
-                        ? { note: t('kitchen:priceLists.confidentialBody') }
-                        : {})}
-                    fields={viewFields(viewing, t, formatter)}
-                    primaryAction={{
-                        label: t('kitchen:catalogue.edit'),
-                        onPress: () => {
-                            openEditor(viewing);
-                        },
-                    }}
-                />
             )}
         </Stack>
     );

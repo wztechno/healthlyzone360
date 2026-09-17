@@ -1,5 +1,4 @@
 import {
-    Badge,
     Button,
     Dialog,
     EmptyState,
@@ -30,8 +29,8 @@ import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
@@ -178,6 +177,50 @@ function RecipesList() {
     const viewedAllergens =
         viewed === null ? [] : (detailOf(viewed)?.currentVersion.allergens ?? []);
 
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    if (viewed !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-recipes-view"
+                kind={t('kitchen:recipes.viewKind')}
+                reference={viewed.slug}
+                title={displayName(viewed.name, locale).value}
+                status={{
+                    tone: statusTone(viewed.meta.status),
+                    label: t(statusShortKey(viewed.meta.status)),
+                }}
+                fields={viewFields(viewed, list, t, formatter, kitchenName)}
+                onBack={list.closeView}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-recipes-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewed.id));
+                    },
+                }}
+                {...(viewedAllergens.length === 0
+                    ? {}
+                    : {
+                          chipsLabel: t('kitchen:recipes.columnAllergens'),
+                          chipsSourceBadge: t('kitchen:recipes.viewAllergensSource'),
+                          chipsCaption: t('kitchen:recipes.viewAllergensCaption'),
+                          chips: viewedAllergens.map((declaration) => ({
+                              key: declaration.allergenCode,
+                              label: declaration.allergenCode,
+                              tone:
+                                  declaration.containment === 'contains'
+                                      ? ('danger' as const)
+                                      : ('warning' as const),
+                          })),
+                      })}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-recipes-screen">
             {/*
@@ -298,48 +341,6 @@ function RecipesList() {
                     />
                 </Stack>
             )}
-
-            <CatalogueViewDrawer
-                testID="kitchen-recipes-view"
-                open={viewed !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:recipes.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
-                }}
-                {...(viewed === null ? {} : { reference: viewed.slug })}
-                title={viewed === null ? '' : displayName(viewed.name, locale).value}
-                status={
-                    viewed === null ? undefined : (
-                        <Badge
-                            tone={statusTone(viewed.meta.status)}
-                            label={t(statusShortKey(viewed.meta.status))}
-                        />
-                    )
-                }
-                fields={viewed === null ? [] : viewFields(viewed, list, t, formatter, kitchenName)}
-                {...(viewed === null || viewedAllergens.length === 0
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:recipes.columnAllergens'),
-                          chipsSource: t('kitchen:recipes.viewAllergensSource'),
-                          chipsCaption: t('kitchen:recipes.viewAllergensCaption'),
-                          chips: viewedAllergens.map((declaration) => (
-                              <Badge
-                                  key={declaration.allergenCode}
-                                  tone={
-                                      declaration.containment === 'contains' ? 'danger' : 'warning'
-                                  }
-                                  label={declaration.allergenCode}
-                              />
-                          )),
-                      })}
-            />
 
             {/*
              * Retiring *is* the archive: the contract has no `archiveRecipe`, and nothing is

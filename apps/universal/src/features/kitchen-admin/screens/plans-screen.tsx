@@ -4,7 +4,6 @@ import {
     Button,
     EmptyState,
     ErrorState,
-    RecordWindow,
     Skeleton,
     Stack,
     Text,
@@ -46,6 +45,7 @@ import {
 } from '../format.ts';
 import type { PlanPriceCoverage } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/plans` — the plans this kitchen sells, and how much of each is decided (Commercial §3.3).
@@ -329,6 +329,58 @@ function PlansList() {
         },
     ];
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-plans-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={displayName(viewing.name, locale).value}
+                kind={t('kitchen:plans.viewKind')}
+                status={{
+                    label: t(statusShortKey(viewing.meta.status)),
+                    tone: statusTone(viewing.meta.status),
+                }}
+                fields={[
+                    {
+                        key: 'variants',
+                        label: t('kitchen:plans.columnVariants'),
+                        value: variantsText(viewing, t),
+                    },
+                    {
+                        key: 'combinations',
+                        label: t('kitchen:plans.viewCombinations'),
+                        value: t('kitchen:plans.combinationCount', {
+                            count: summarisePlanMatrix(viewing).combinations,
+                        }),
+                    },
+                    {
+                        key: 'durations',
+                        label: t('kitchen:plans.columnDurations'),
+                        value: durationsText(viewing, t),
+                    },
+                    {
+                        key: 'prices',
+                        label: t('kitchen:plans.columnPrices'),
+                        value: pricesText(viewing),
+                    },
+                    {
+                        key: 'updated',
+                        label: t('kitchen:list.columnUpdated'),
+                        value: formatter.formatRelativeTime(viewing.meta.updatedAt),
+                    },
+                ]}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    onPress: () => {
+                        openEditor(viewing);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-plans-screen">
             {plans.isPending || failure !== null ? null : (
@@ -442,57 +494,6 @@ function PlansList() {
                         label={t('kitchen:catalogue.pagerLabel')}
                     />
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-plans-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={displayName(viewing.name, locale).value}
-                    kind={t('kitchen:plans.viewKind')}
-                    status={{
-                        label: t(statusShortKey(viewing.meta.status)),
-                        tone: statusTone(viewing.meta.status),
-                    }}
-                    fields={[
-                        {
-                            key: 'variants',
-                            label: t('kitchen:plans.columnVariants'),
-                            value: variantsText(viewing, t),
-                        },
-                        {
-                            key: 'combinations',
-                            label: t('kitchen:plans.viewCombinations'),
-                            value: t('kitchen:plans.combinationCount', {
-                                count: summarisePlanMatrix(viewing).combinations,
-                            }),
-                        },
-                        {
-                            key: 'durations',
-                            label: t('kitchen:plans.columnDurations'),
-                            value: durationsText(viewing, t),
-                        },
-                        {
-                            key: 'prices',
-                            label: t('kitchen:plans.columnPrices'),
-                            value: pricesText(viewing),
-                        },
-                        {
-                            key: 'updated',
-                            label: t('kitchen:list.columnUpdated'),
-                            value: formatter.formatRelativeTime(viewing.meta.updatedAt),
-                        },
-                    ]}
-                    primaryAction={{
-                        label: t('kitchen:catalogue.edit'),
-                        onPress: () => {
-                            openEditor(viewing);
-                        },
-                    }}
-                />
             )}
         </Stack>
     );

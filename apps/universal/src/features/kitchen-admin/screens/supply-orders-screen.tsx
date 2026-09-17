@@ -10,7 +10,6 @@ import {
     EmptyState,
     ErrorState,
     FormSection,
-    RecordWindow,
     Skeleton,
     Stack,
     Text,
@@ -52,6 +51,7 @@ import {
     purchaseOrderStatusTone,
     supplyOrderRowTestId,
 } from '../ops-format.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/supply-orders` — the order book, and what the branch is short of (SUP3), on the
@@ -402,6 +402,32 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
         );
     }
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-supply-orders-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={viewing.number}
+                kind={t('kitchen:ops.supplyOrders.viewKind')}
+                status={{
+                    label: t(purchaseOrderStatusKey(viewing.status)),
+                    tone: purchaseOrderStatusTone(viewing.status),
+                }}
+                fields={viewFields(viewing, t, locale, madeOn)}
+                footNote={t('kitchen:ops.supplyOrders.ordersFoot')}
+                primaryAction={{
+                    label: t('kitchen:list.open'),
+                    icon: null,
+                    onPress: () => {
+                        openOrder(viewing);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-supply-orders-screen">
             {createdIds.length === 0 ? null : (
@@ -610,30 +636,6 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                     </Stack>
                 )}
             </FormSection>
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-supply-orders-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={viewing.number}
-                    kind={t('kitchen:ops.supplyOrders.viewKind')}
-                    status={{
-                        label: t(purchaseOrderStatusKey(viewing.status)),
-                        tone: purchaseOrderStatusTone(viewing.status),
-                    }}
-                    fields={viewFields(viewing, t, locale, madeOn)}
-                    footNote={t('kitchen:ops.supplyOrders.ordersFoot')}
-                    primaryAction={{
-                        label: t('kitchen:list.open'),
-                        onPress: () => {
-                            openOrder(viewing);
-                        },
-                    }}
-                />
-            )}
         </Stack>
     );
 }

@@ -178,14 +178,16 @@ function IngredientsList() {
      * page, sort and filters on the way out. The cost is that the record is not deep-linkable — see
      * `ingredient-detail.tsx` for what that would take.
      */
-    if (list.viewing !== null) {
+    const viewing = list.viewing;
+    if (viewing !== null) {
         return (
             <Stack space="md" testID="kitchen-ingredients-screen">
                 <IngredientDetail
                     testID="kitchen-ingredients-detail"
-                    ingredient={list.viewing}
+                    ingredient={viewing}
                     categoryName={categoryName}
                     onBack={list.closeView}
+                    {...(canManage ? { onEdit: () => list.openEditor(String(viewing.id)) } : {})}
                 />
             </Stack>
         );

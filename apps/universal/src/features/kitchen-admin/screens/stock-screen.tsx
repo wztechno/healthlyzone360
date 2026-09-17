@@ -6,7 +6,6 @@ import {
     ErrorState,
     FormGrid,
     FormSection,
-    RecordWindow,
     SegmentedControl,
     Select,
     Skeleton,
@@ -58,6 +57,7 @@ import { parseQuantity } from '../format.ts';
 import { isOutOfStock, stockItemLabel, stockItemRowTestId } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/stock` — the inventory ledger (O1, reworked by INV2.0, rebuilt on the Operations
@@ -518,6 +518,72 @@ function Stock() {
         { value: 'ok', label: t('kitchen:ops.stock.inStockBadge') },
     ];
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-stock-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={viewing.item.nameEn}
+                kind={t('kitchen:ops.stock.viewKind')}
+                status={{
+                    label: t(STATE_LABEL[viewing.state]),
+                    tone: STATE_TONE[viewing.state],
+                }}
+                {...(viewing.state === 'ok'
+                    ? {}
+                    : {
+                          note: t(
+                              viewing.state === 'out'
+                                  ? 'kitchen:ops.stock.viewNoteEmpty'
+                                  : 'kitchen:ops.stock.viewNoteLow',
+                          ),
+                      })}
+                fields={[
+                    {
+                        key: 'code',
+                        label: t('kitchen:list.columnReference'),
+                        value: viewing.item.code,
+                        mono: true,
+                    },
+                    {
+                        key: 'quantity',
+                        label: t('kitchen:ops.stock.columnQuantity'),
+                        value: quantityText(viewing),
+                        mono: true,
+                    },
+                    {
+                        key: 'unit',
+                        label: t('kitchen:ops.stock.columnUnit'),
+                        value: viewing.item.unitCode,
+                    },
+                    {
+                        key: 'reorder',
+                        label: t('kitchen:ops.stock.columnReorderPar'),
+                        value: reorderText(viewing),
+                    },
+                    {
+                        key: 'lastPurchase',
+                        label: t('kitchen:ops.stock.columnLastPurchase'),
+                        value: lastPurchaseText(viewing),
+                    },
+                ]}
+                footNote={t('kitchen:ops.stock.ledgerNote')}
+                {...(canManage
+                    ? {
+                          primaryAction: {
+                              label: t('kitchen:ops.stock.adjust'),
+                              onPress: () => {
+                                  openEditor(viewing);
+                              },
+                          },
+                      }
+                    : {})}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-stock-screen">
             {pending || failure !== null ? null : (
@@ -644,71 +710,6 @@ function Stock() {
                         {t('kitchen:ops.stock.foot')}
                     </Text>
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-stock-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={viewing.item.nameEn}
-                    kind={t('kitchen:ops.stock.viewKind')}
-                    status={{
-                        label: t(STATE_LABEL[viewing.state]),
-                        tone: STATE_TONE[viewing.state],
-                    }}
-                    {...(viewing.state === 'ok'
-                        ? {}
-                        : {
-                              note: t(
-                                  viewing.state === 'out'
-                                      ? 'kitchen:ops.stock.viewNoteEmpty'
-                                      : 'kitchen:ops.stock.viewNoteLow',
-                              ),
-                          })}
-                    fields={[
-                        {
-                            key: 'code',
-                            label: t('kitchen:list.columnReference'),
-                            value: viewing.item.code,
-                            mono: true,
-                        },
-                        {
-                            key: 'quantity',
-                            label: t('kitchen:ops.stock.columnQuantity'),
-                            value: quantityText(viewing),
-                            mono: true,
-                        },
-                        {
-                            key: 'unit',
-                            label: t('kitchen:ops.stock.columnUnit'),
-                            value: viewing.item.unitCode,
-                        },
-                        {
-                            key: 'reorder',
-                            label: t('kitchen:ops.stock.columnReorderPar'),
-                            value: reorderText(viewing),
-                        },
-                        {
-                            key: 'lastPurchase',
-                            label: t('kitchen:ops.stock.columnLastPurchase'),
-                            value: lastPurchaseText(viewing),
-                        },
-                    ]}
-                    footNote={t('kitchen:ops.stock.ledgerNote')}
-                    {...(canManage
-                        ? {
-                              primaryAction: {
-                                  label: t('kitchen:ops.stock.adjust'),
-                                  onPress: () => {
-                                      openEditor(viewing);
-                                  },
-                              },
-                          }
-                        : {})}
-                />
             )}
         </Stack>
     );

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7013 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7000 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2951,44 +2951,27 @@ export interface NamespaceKeys {
     | 'hub.referenceOnly'
     | 'hub.subtitle'
     | 'hub.title'
-    | 'ingredientDetail.b2bValue'
-    | 'ingredientDetail.b2cValue'
-    | 'ingredientDetail.backToList'
-    | 'ingredientDetail.basisValue'
-    | 'ingredientDetail.fieldBasis'
+    | 'ingredientDetail.allergensDietsTitle'
+    | 'ingredientDetail.fieldCapacity'
+    | 'ingredientDetail.fieldCostPer100g'
     | 'ingredientDetail.fieldGramsPerUnit'
     | 'ingredientDetail.fieldItemsPerUnit'
-    | 'ingredientDetail.fieldLastChange'
+    | 'ingredientDetail.fieldOtherName'
     | 'ingredientDetail.fieldPackCost'
     | 'ingredientDetail.fieldSellable'
-    | 'ingredientDetail.historyBody'
-    | 'ingredientDetail.historyTitle'
-    | 'ingredientDetail.kpiB2bPrice'
-    | 'ingredientDetail.kpiMarginBasis'
+    | 'ingredientDetail.fieldWaste'
+    | 'ingredientDetail.identificationSubtitle'
+    | 'ingredientDetail.identificationTitle'
     | 'ingredientDetail.kpiMarginOnCost'
-    | 'ingredientDetail.kpiPurchasePack'
-    | 'ingredientDetail.kpiUnitPrice'
-    | 'ingredientDetail.marginValue'
-    | 'ingredientDetail.packCostValue'
-    | 'ingredientDetail.packSummary'
-    | 'ingredientDetail.purchaseUnitValue'
-    | 'ingredientDetail.sectionChangeHistory'
-    | 'ingredientDetail.sectionDefinition'
-    | 'ingredientDetail.sectionPackCost'
-    | 'ingredientDetail.sectionSoldAsIs'
-    | 'ingredientDetail.sectionSuppliers'
-    | 'ingredientDetail.sectionWhereUsed'
+    | 'ingredientDetail.nutrientValue'
+    | 'ingredientDetail.nutritionEmpty'
+    | 'ingredientDetail.nutritionSubtitle'
+    | 'ingredientDetail.perUnitValue'
     | 'ingredientDetail.sellableNo'
     | 'ingredientDetail.sellableYes'
-    | 'ingredientDetail.stockUnitValue'
-    | 'ingredientDetail.suppliersBody'
-    | 'ingredientDetail.suppliersTitle'
-    | 'ingredientDetail.tabComposition'
-    | 'ingredientDetail.tabHistory'
-    | 'ingredientDetail.tabOverview'
-    | 'ingredientDetail.tabPurchasing'
-    | 'ingredientDetail.tabSale'
-    | 'ingredientDetail.tabsLabel'
+    | 'ingredientDetail.sourcingTitle'
+    | 'ingredientDetail.usedInSubtitle'
+    | 'ingredientDetail.usedInTitle'
     | 'ingredientDetail.whereUsedBody'
     | 'ingredientDetail.whereUsedTitle'
     | 'kds.column.done'
@@ -3197,70 +3180,70 @@ export interface NamespaceKeys {
     | 'nutritionFacts.unitGrams'
     | 'nutritionFacts.unitKcal'
     | 'nutritionFacts.unitMilligrams'
+    | 'ops.batch.awaitingTarget'
+    | 'ops.batch.baseTimes'
     | 'ops.batch.basis.fills_yield'
     | 'ops.batch.basis.per_batch'
     | 'ops.batch.basis.per_container'
-    | 'ops.batch.batchesCaption'
+    | 'ops.batch.basisLabel'
+    | 'ops.batch.basisPortions'
+    | 'ops.batch.basisYield'
     | 'ops.batch.batchesUnit'
     | 'ops.batch.columnAvailable'
     | 'ops.batch.columnBasis'
+    | 'ops.batch.columnDesignation'
     | 'ops.batch.columnItem'
-    | 'ops.batch.columnNote'
+    | 'ops.batch.columnPerBatch'
     | 'ops.batch.columnPosition'
     | 'ops.batch.columnQuantity'
+    | 'ops.batch.columnRef'
     | 'ops.batch.columnRequired'
     | 'ops.batch.columnShort'
+    | 'ops.batch.columnToIssue'
     | 'ops.batch.columnUnit'
-    | 'ops.batch.columnVersion'
     | 'ops.batch.consumeBody'
     | 'ops.batch.consumeHeading'
-    | 'ops.batch.exactFoot'
-    | 'ops.batch.factPieces'
-    | 'ops.batch.factPiecesCaption'
+    | 'ops.batch.factBaseYield'
+    | 'ops.batch.factBatchesNeeded'
     | 'ops.batch.factPiecesNone'
-    | 'ops.batch.factWasteCaption'
-    | 'ops.batch.factYield'
+    | 'ops.batch.factPortionsPerBatch'
+    | 'ops.batch.factPortionsProduced'
+    | 'ops.batch.factVersion'
     | 'ops.batch.factYieldCaption'
-    | 'ops.batch.footNote'
+    | 'ops.batch.factorLine'
+    | 'ops.batch.factorNone'
     | 'ops.batch.fromDatabase'
     | 'ops.batch.ingredientsHeading'
     | 'ops.batch.lineCount'
     | 'ops.batch.loadErrorTitle'
     | 'ops.batch.loadingCaption'
-    | 'ops.batch.metrics.batches'
-    | 'ops.batch.metrics.pieces'
-    | 'ops.batch.metrics.quantity'
-    | 'ops.batch.metrics.waste'
-    | 'ops.batch.modeLabel'
-    | 'ops.batch.modePieces'
-    | 'ops.batch.modeYield'
     | 'ops.batch.noPackaging'
     | 'ops.batch.noPiecesHint'
     | 'ops.batch.noRecipeCaption'
     | 'ops.batch.noneRecorded'
-    | 'ops.batch.nothingBookedChip'
-    | 'ops.batch.nothingWrittenNote'
     | 'ops.batch.optionalBadge'
     | 'ops.batch.packagingHeading'
+    | 'ops.batch.packagingScaledHeading'
     | 'ops.batch.pickRecipeBody'
     | 'ops.batch.pickRecipeTitle'
-    | 'ops.batch.piecesCaption'
-    | 'ops.batch.piecesUnit'
+    | 'ops.batch.portionsUnit'
     | 'ops.batch.positionCovered'
     | 'ops.batch.positionShort'
-    | 'ops.batch.quantityCaption'
+    | 'ops.batch.printSheet'
+    | 'ops.batch.rawMaterialsHeading'
     | 'ops.batch.readOnlyChip'
     | 'ops.batch.recipeLabel'
     | 'ops.batch.recipePlaceholder'
     | 'ops.batch.recipesErrorTitle'
     | 'ops.batch.roundedFrom'
+    | 'ops.batch.roundedUpFrom'
     | 'ops.batch.roundingFoot'
-    | 'ops.batch.targetLabel'
     | 'ops.batch.targetNeededBody'
     | 'ops.batch.targetNeededTitle'
-    | 'ops.batch.title'
-    | 'ops.batch.unitsNote'
+    | 'ops.batch.targetPortionsLabel'
+    | 'ops.batch.targetQuantityLabel'
     | 'ops.batch.versionCell'
+    | 'ops.batch.wasteAppliesToCost'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.caption'
     | 'ops.cashReport.columnAgent'
@@ -4947,6 +4930,10 @@ export interface NamespaceKeys {
     | 'recipes.yieldFirstHint'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
+    | 'recordView.backToList'
+    | 'recordView.details'
+    | 'recordView.statusTitle'
+    | 'recordView.version'
     | 'review.blockedCount'
     | 'review.chip'
     | 'review.clearBadge'
@@ -9982,44 +9969,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.referenceOnly',
   'kitchen:hub.subtitle',
   'kitchen:hub.title',
-  'kitchen:ingredientDetail.b2bValue',
-  'kitchen:ingredientDetail.b2cValue',
-  'kitchen:ingredientDetail.backToList',
-  'kitchen:ingredientDetail.basisValue',
-  'kitchen:ingredientDetail.fieldBasis',
+  'kitchen:ingredientDetail.allergensDietsTitle',
+  'kitchen:ingredientDetail.fieldCapacity',
+  'kitchen:ingredientDetail.fieldCostPer100g',
   'kitchen:ingredientDetail.fieldGramsPerUnit',
   'kitchen:ingredientDetail.fieldItemsPerUnit',
-  'kitchen:ingredientDetail.fieldLastChange',
+  'kitchen:ingredientDetail.fieldOtherName',
   'kitchen:ingredientDetail.fieldPackCost',
   'kitchen:ingredientDetail.fieldSellable',
-  'kitchen:ingredientDetail.historyBody',
-  'kitchen:ingredientDetail.historyTitle',
-  'kitchen:ingredientDetail.kpiB2bPrice',
-  'kitchen:ingredientDetail.kpiMarginBasis',
+  'kitchen:ingredientDetail.fieldWaste',
+  'kitchen:ingredientDetail.identificationSubtitle',
+  'kitchen:ingredientDetail.identificationTitle',
   'kitchen:ingredientDetail.kpiMarginOnCost',
-  'kitchen:ingredientDetail.kpiPurchasePack',
-  'kitchen:ingredientDetail.kpiUnitPrice',
-  'kitchen:ingredientDetail.marginValue',
-  'kitchen:ingredientDetail.packCostValue',
-  'kitchen:ingredientDetail.packSummary',
-  'kitchen:ingredientDetail.purchaseUnitValue',
-  'kitchen:ingredientDetail.sectionChangeHistory',
-  'kitchen:ingredientDetail.sectionDefinition',
-  'kitchen:ingredientDetail.sectionPackCost',
-  'kitchen:ingredientDetail.sectionSoldAsIs',
-  'kitchen:ingredientDetail.sectionSuppliers',
-  'kitchen:ingredientDetail.sectionWhereUsed',
+  'kitchen:ingredientDetail.nutrientValue',
+  'kitchen:ingredientDetail.nutritionEmpty',
+  'kitchen:ingredientDetail.nutritionSubtitle',
+  'kitchen:ingredientDetail.perUnitValue',
   'kitchen:ingredientDetail.sellableNo',
   'kitchen:ingredientDetail.sellableYes',
-  'kitchen:ingredientDetail.stockUnitValue',
-  'kitchen:ingredientDetail.suppliersBody',
-  'kitchen:ingredientDetail.suppliersTitle',
-  'kitchen:ingredientDetail.tabComposition',
-  'kitchen:ingredientDetail.tabHistory',
-  'kitchen:ingredientDetail.tabOverview',
-  'kitchen:ingredientDetail.tabPurchasing',
-  'kitchen:ingredientDetail.tabSale',
-  'kitchen:ingredientDetail.tabsLabel',
+  'kitchen:ingredientDetail.sourcingTitle',
+  'kitchen:ingredientDetail.usedInSubtitle',
+  'kitchen:ingredientDetail.usedInTitle',
   'kitchen:ingredientDetail.whereUsedBody',
   'kitchen:ingredientDetail.whereUsedTitle',
   'kitchen:kds.column.done',
@@ -10228,70 +10198,70 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionFacts.unitGrams',
   'kitchen:nutritionFacts.unitKcal',
   'kitchen:nutritionFacts.unitMilligrams',
+  'kitchen:ops.batch.awaitingTarget',
+  'kitchen:ops.batch.baseTimes',
   'kitchen:ops.batch.basis.fills_yield',
   'kitchen:ops.batch.basis.per_batch',
   'kitchen:ops.batch.basis.per_container',
-  'kitchen:ops.batch.batchesCaption',
+  'kitchen:ops.batch.basisLabel',
+  'kitchen:ops.batch.basisPortions',
+  'kitchen:ops.batch.basisYield',
   'kitchen:ops.batch.batchesUnit',
   'kitchen:ops.batch.columnAvailable',
   'kitchen:ops.batch.columnBasis',
+  'kitchen:ops.batch.columnDesignation',
   'kitchen:ops.batch.columnItem',
-  'kitchen:ops.batch.columnNote',
+  'kitchen:ops.batch.columnPerBatch',
   'kitchen:ops.batch.columnPosition',
   'kitchen:ops.batch.columnQuantity',
+  'kitchen:ops.batch.columnRef',
   'kitchen:ops.batch.columnRequired',
   'kitchen:ops.batch.columnShort',
+  'kitchen:ops.batch.columnToIssue',
   'kitchen:ops.batch.columnUnit',
-  'kitchen:ops.batch.columnVersion',
   'kitchen:ops.batch.consumeBody',
   'kitchen:ops.batch.consumeHeading',
-  'kitchen:ops.batch.exactFoot',
-  'kitchen:ops.batch.factPieces',
-  'kitchen:ops.batch.factPiecesCaption',
+  'kitchen:ops.batch.factBaseYield',
+  'kitchen:ops.batch.factBatchesNeeded',
   'kitchen:ops.batch.factPiecesNone',
-  'kitchen:ops.batch.factWasteCaption',
-  'kitchen:ops.batch.factYield',
+  'kitchen:ops.batch.factPortionsPerBatch',
+  'kitchen:ops.batch.factPortionsProduced',
+  'kitchen:ops.batch.factVersion',
   'kitchen:ops.batch.factYieldCaption',
-  'kitchen:ops.batch.footNote',
+  'kitchen:ops.batch.factorLine',
+  'kitchen:ops.batch.factorNone',
   'kitchen:ops.batch.fromDatabase',
   'kitchen:ops.batch.ingredientsHeading',
   'kitchen:ops.batch.lineCount',
   'kitchen:ops.batch.loadErrorTitle',
   'kitchen:ops.batch.loadingCaption',
-  'kitchen:ops.batch.metrics.batches',
-  'kitchen:ops.batch.metrics.pieces',
-  'kitchen:ops.batch.metrics.quantity',
-  'kitchen:ops.batch.metrics.waste',
-  'kitchen:ops.batch.modeLabel',
-  'kitchen:ops.batch.modePieces',
-  'kitchen:ops.batch.modeYield',
   'kitchen:ops.batch.noPackaging',
   'kitchen:ops.batch.noPiecesHint',
   'kitchen:ops.batch.noRecipeCaption',
   'kitchen:ops.batch.noneRecorded',
-  'kitchen:ops.batch.nothingBookedChip',
-  'kitchen:ops.batch.nothingWrittenNote',
   'kitchen:ops.batch.optionalBadge',
   'kitchen:ops.batch.packagingHeading',
+  'kitchen:ops.batch.packagingScaledHeading',
   'kitchen:ops.batch.pickRecipeBody',
   'kitchen:ops.batch.pickRecipeTitle',
-  'kitchen:ops.batch.piecesCaption',
-  'kitchen:ops.batch.piecesUnit',
+  'kitchen:ops.batch.portionsUnit',
   'kitchen:ops.batch.positionCovered',
   'kitchen:ops.batch.positionShort',
-  'kitchen:ops.batch.quantityCaption',
+  'kitchen:ops.batch.printSheet',
+  'kitchen:ops.batch.rawMaterialsHeading',
   'kitchen:ops.batch.readOnlyChip',
   'kitchen:ops.batch.recipeLabel',
   'kitchen:ops.batch.recipePlaceholder',
   'kitchen:ops.batch.recipesErrorTitle',
   'kitchen:ops.batch.roundedFrom',
+  'kitchen:ops.batch.roundedUpFrom',
   'kitchen:ops.batch.roundingFoot',
-  'kitchen:ops.batch.targetLabel',
   'kitchen:ops.batch.targetNeededBody',
   'kitchen:ops.batch.targetNeededTitle',
-  'kitchen:ops.batch.title',
-  'kitchen:ops.batch.unitsNote',
+  'kitchen:ops.batch.targetPortionsLabel',
+  'kitchen:ops.batch.targetQuantityLabel',
   'kitchen:ops.batch.versionCell',
+  'kitchen:ops.batch.wasteAppliesToCost',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.caption',
   'kitchen:ops.cashReport.columnAgent',
@@ -11978,6 +11948,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldFirstHint',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
+  'kitchen:recordView.backToList',
+  'kitchen:recordView.details',
+  'kitchen:recordView.statusTitle',
+  'kitchen:recordView.version',
   'kitchen:review.blockedCount',
   'kitchen:review.chip',
   'kitchen:review.clearBadge',

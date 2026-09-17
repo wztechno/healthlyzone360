@@ -22,8 +22,8 @@ import { displayName, unitShortKey } from '../format.ts';
 
 /**
  * The batch sheet (Operations handoff `edProduction`) — what one version, scaled, will consume, set
- * against this branch's shelves. Shared by the batch planner (read only) and the production
- * editor (the batch being started).
+ * against this branch's shelves: the production editor's, for the batch being started. The batch
+ * planner draws its own read-only sheet and shares the hooks and the quantity format from here.
  *
  * ## Available is stated only when it can be stated honestly
  *
@@ -99,12 +99,8 @@ export interface BatchSheetProps {
     readonly version: RecipeVersionAdmin;
     readonly factor: number;
     readonly ingredients: Readonly<Record<string, IngredientAdmin>>;
-    /**
-     * This branch's shelves. Given, the sheet is the production editor's: Required / Available /
-     * Short / Position. Omitted, it is the batch planner's read-only sheet (Batch Planner handoff):
-     * Quantity / Unit / As written, and no shelf is asked about at all.
-     */
-    readonly availability?: ShelfAvailability | undefined;
+    /** This branch's shelves: Required / Available / Short / Position. */
+    readonly availability: ShelfAvailability;
     readonly first?: boolean | undefined;
 }
 
@@ -125,26 +121,10 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
     };
 
     const shortOf = (line: RecipeLine): { available: number | null; short: number | null } => {
-        if (availability === undefined) return { available: null, short: null };
         const available = availability(line.ingredientId, line.unit);
         if (available === null) return { available: null, short: null };
         const required = scaleLine(line.quantity, factor);
         return { available, short: Math.max(0, required - available) };
-    };
-
-    const noteColumn: TableColumn<RecipeLine> = {
-        key: 'note',
-        header: t('kitchen:ops.batch.columnNote'),
-        // The designation verbatim from the kitchen's own sheet — evidence, so never translated.
-        render: (line) => (
-            <Text
-                tone="secondary"
-                numberOfLines={1}
-                testID={`kitchen-batch-row-${String(line.ingredientId)}-note`}
-            >
-                {line.sourceDesignation ?? dash}
-            </Text>
-        ),
     };
 
     const shelfLineColumns: readonly TableColumn<RecipeLine>[] = [
@@ -174,10 +154,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
         {
             key: 'quantity',
-            header:
-                availability === undefined
-                    ? t('kitchen:ops.batch.columnQuantity')
-                    : t('kitchen:ops.batch.columnRequired'),
+            header: t('kitchen:ops.batch.columnRequired'),
             numeric: true,
             primary: true,
             render: (line) => (
@@ -264,12 +241,6 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         },
     ];
 
-    // Item, quantity and unit are common to both sheets; the planner swaps the shelf for the sheet.
-    const lineColumns =
-        availability === undefined
-            ? [...shelfLineColumns.slice(0, 3), noteColumn]
-            : shelfLineColumns;
-
     const packagingColumns: readonly TableColumn<RecipePackagingLine>[] = [
         {
             key: 'item',
@@ -353,26 +324,10 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
             <FormSection
                 first={first}
                 testID="kitchen-batch-consume"
-                title={
-                    availability === undefined
-                        ? t('kitchen:ops.batch.ingredientsHeading')
-                        : t('kitchen:ops.batch.consumeHeading')
-                }
-                description={
-                    availability === undefined ? undefined : t('kitchen:ops.batch.consumeBody')
-                }
+                title={t('kitchen:ops.batch.consumeHeading')}
+                description={t('kitchen:ops.batch.consumeBody')}
                 aside={
-                    availability === undefined ? (
-                        <Text variant="caption" tone="secondary" testID="kitchen-batch-line-count">
-                            {t('kitchen:ops.batch.lineCount', { count: version.lines.length })}
-                        </Text>
-                    ) : (
-                        <Badge
-                            tone="info"
-                            icon={null}
-                            label={t('kitchen:ops.batch.fromDatabase')}
-                        />
-                    )
+                    <Badge tone="info" icon={null} label={t('kitchen:ops.batch.fromDatabase')} />
                 }
             >
                 {/*
@@ -383,16 +338,11 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                     testID="kitchen-batch-ingredients"
                     caption={t('kitchen:ops.batch.ingredientsHeading')}
                     captionHidden
-                    columns={lineColumns}
+                    columns={shelfLineColumns}
                     rows={version.lines}
                     rowKey={(line) => String(line.ingredientId)}
                     rowSize="sm"
                 />
-                {availability === undefined ? (
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.batch.exactFoot')}
-                    </Text>
-                ) : null}
             </FormSection>
 
             <FormSection

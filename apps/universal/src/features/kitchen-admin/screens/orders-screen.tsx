@@ -19,7 +19,6 @@ import {
     FilterChip,
     FormSection,
     Inline,
-    RecordWindow,
     Skeleton,
     Stack,
     Table,
@@ -71,6 +70,7 @@ import {
 } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/orders` — the order book (O6), drawn as the Operations handoff draws it: the Catalogue
@@ -307,6 +307,36 @@ function Orders() {
         })),
     ];
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-orders-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={t('kitchen:ops.orders.detailTitle', { number: viewing.orderNumber })}
+                kind={t('kitchen:ops.orders.viewKind')}
+                status={{
+                    label: t(kitchenOrderStatusKey(viewing.status)),
+                    tone: kitchenOrderStatusTone(viewing.status),
+                }}
+                {...(viewing.status === 'placed'
+                    ? { note: t('kitchen:ops.orders.viewPlacedNote') }
+                    : {})}
+                fields={viewFields(viewing, t, formatter)}
+                lines={<OrderLinesTable order={viewing} testID="kitchen-orders-view-lines" />}
+                footNote={t('kitchen:ops.orders.cancelFinal')}
+                primaryAction={{
+                    label: t('kitchen:ops.orders.viewOpen'),
+                    icon: null,
+                    onPress: () => {
+                        openRecord(viewing);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-orders-screen">
             {orders.isPending && rows.length === 0 ? null : listFailure !== null ? null : (
@@ -450,34 +480,6 @@ function Orders() {
                         )}
                     </View>
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-orders-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={t('kitchen:ops.orders.detailTitle', { number: viewing.orderNumber })}
-                    kind={t('kitchen:ops.orders.viewKind')}
-                    status={{
-                        label: t(kitchenOrderStatusKey(viewing.status)),
-                        tone: kitchenOrderStatusTone(viewing.status),
-                    }}
-                    {...(viewing.status === 'placed'
-                        ? { note: t('kitchen:ops.orders.viewPlacedNote') }
-                        : {})}
-                    fields={viewFields(viewing, t, formatter)}
-                    lines={<OrderLinesTable order={viewing} testID="kitchen-orders-view-lines" />}
-                    footNote={t('kitchen:ops.orders.cancelFinal')}
-                    primaryAction={{
-                        label: t('kitchen:ops.orders.viewOpen'),
-                        onPress: () => {
-                            openRecord(viewing);
-                        },
-                    }}
-                />
             )}
         </Stack>
     );

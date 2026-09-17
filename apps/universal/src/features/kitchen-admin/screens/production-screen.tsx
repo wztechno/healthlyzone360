@@ -8,7 +8,6 @@ import {
     FormSection,
     Icon,
     QuantityInput,
-    RecordWindow,
     Select,
     Skeleton,
     Stack,
@@ -67,6 +66,7 @@ import {
 } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/production` — batch orders from recipe versions (Operations handoff, `production` +
@@ -261,6 +261,58 @@ function ProductionList({ onCreate }: { readonly onCreate: () => void }) {
 
     const canComplete = (row: ProductionOrder) => canManage && isProductionOrderOpen(row.status);
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-production-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={shortId(String(viewing.id))}
+                kind={t('kitchen:ops.production.viewKind')}
+                status={{
+                    label: t(productionStatusKey(viewing.status)),
+                    tone: productionStatusTone(viewing.status),
+                }}
+                {...(isProductionOrderOpen(viewing.status)
+                    ? { note: t('kitchen:ops.production.openNote') }
+                    : {})}
+                footNote={t('kitchen:ops.production.footNote')}
+                fields={[
+                    {
+                        key: 'id',
+                        label: t('kitchen:ops.production.columnId'),
+                        value: String(viewing.id),
+                        mono: true,
+                    },
+                    {
+                        key: 'version',
+                        label: t('kitchen:ops.production.columnVersion'),
+                        value: String(viewing.recipeVersionId),
+                        mono: true,
+                    },
+                    {
+                        key: 'branch',
+                        label: t('kitchen:ops.production.columnBranch'),
+                        value: branchText(viewing.branchId),
+                    },
+                ]}
+                {...(canComplete(viewing)
+                    ? {
+                          primaryAction: {
+                              label: t('kitchen:ops.production.complete'),
+                              icon: null,
+                              testID: 'kitchen-production-view-complete',
+                              onPress: () => {
+                                  submitComplete(viewing);
+                              },
+                          },
+                      }
+                    : {})}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-production-screen">
             {orders.isPending || failure !== null ? null : (
@@ -379,56 +431,6 @@ function ProductionList({ onCreate }: { readonly onCreate: () => void }) {
                         label={t('kitchen:catalogue.pagerLabel')}
                     />
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-production-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={shortId(String(viewing.id))}
-                    kind={t('kitchen:ops.production.viewKind')}
-                    status={{
-                        label: t(productionStatusKey(viewing.status)),
-                        tone: productionStatusTone(viewing.status),
-                    }}
-                    {...(isProductionOrderOpen(viewing.status)
-                        ? { note: t('kitchen:ops.production.openNote') }
-                        : {})}
-                    footNote={t('kitchen:ops.production.footNote')}
-                    fields={[
-                        {
-                            key: 'id',
-                            label: t('kitchen:ops.production.columnId'),
-                            value: String(viewing.id),
-                            mono: true,
-                        },
-                        {
-                            key: 'version',
-                            label: t('kitchen:ops.production.columnVersion'),
-                            value: String(viewing.recipeVersionId),
-                            mono: true,
-                        },
-                        {
-                            key: 'branch',
-                            label: t('kitchen:ops.production.columnBranch'),
-                            value: branchText(viewing.branchId),
-                        },
-                    ]}
-                    {...(canComplete(viewing)
-                        ? {
-                              primaryAction: {
-                                  label: t('kitchen:ops.production.complete'),
-                                  testID: 'kitchen-production-view-complete',
-                                  onPress: () => {
-                                      submitComplete(viewing);
-                                  },
-                              },
-                          }
-                        : {})}
-                />
             )}
         </Stack>
     );

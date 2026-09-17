@@ -12,7 +12,6 @@ import {
     ErrorState,
     FormSection,
     Icon,
-    RecordWindow,
     Select,
     Skeleton,
     Stack,
@@ -53,6 +52,7 @@ import {
 } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/qc` — quality checks on receipts and production batches (Operations handoff, `qc`).
@@ -254,6 +254,54 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
 
     const viewingAction = viewing === null ? null : lifecycleAction(viewing);
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-qc-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={t(qualityCheckSubjectKey(viewing.subjectType))}
+                kind={t('kitchen:ops.qc.viewKind')}
+                status={{
+                    label: t(qualityCheckStatusKey(viewing.status)),
+                    tone: qualityCheckStatusTone(viewing.status),
+                }}
+                {...(viewing.status === 'hold' ? { note: t('kitchen:ops.qc.holdNote') } : {})}
+                footNote={t('kitchen:ops.qc.footNote')}
+                fields={[
+                    {
+                        key: 'reference',
+                        label: t('kitchen:ops.qc.fieldReference'),
+                        value: String(viewing.id),
+                        mono: true,
+                    },
+                    {
+                        key: 'kind',
+                        label: t('kitchen:ops.qc.columnKind'),
+                        value: t(qualityCheckSubjectKey(viewing.subjectType)),
+                    },
+                    {
+                        key: 'subject',
+                        label: t('kitchen:ops.qc.subjectIdLabel'),
+                        value: viewing.subjectId,
+                        mono: true,
+                    },
+                ]}
+                {...(viewingAction === null
+                    ? {}
+                    : {
+                          primaryAction: {
+                              label: viewingAction.label,
+                              icon: null,
+                              testID: `kitchen-qc-view-${viewingAction.key}`,
+                              onPress: viewingAction.run,
+                          },
+                      })}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-qc-screen">
             {checks.isPending || failure !== null ? null : (
@@ -373,52 +421,6 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
                         label={t('kitchen:catalogue.pagerLabel')}
                     />
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-qc-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={t(qualityCheckSubjectKey(viewing.subjectType))}
-                    kind={t('kitchen:ops.qc.viewKind')}
-                    status={{
-                        label: t(qualityCheckStatusKey(viewing.status)),
-                        tone: qualityCheckStatusTone(viewing.status),
-                    }}
-                    {...(viewing.status === 'hold' ? { note: t('kitchen:ops.qc.holdNote') } : {})}
-                    footNote={t('kitchen:ops.qc.footNote')}
-                    fields={[
-                        {
-                            key: 'reference',
-                            label: t('kitchen:ops.qc.fieldReference'),
-                            value: String(viewing.id),
-                            mono: true,
-                        },
-                        {
-                            key: 'kind',
-                            label: t('kitchen:ops.qc.columnKind'),
-                            value: t(qualityCheckSubjectKey(viewing.subjectType)),
-                        },
-                        {
-                            key: 'subject',
-                            label: t('kitchen:ops.qc.subjectIdLabel'),
-                            value: viewing.subjectId,
-                            mono: true,
-                        },
-                    ]}
-                    {...(viewingAction === null
-                        ? {}
-                        : {
-                              primaryAction: {
-                                  label: viewingAction.label,
-                                  testID: `kitchen-qc-view-${viewingAction.key}`,
-                                  onPress: viewingAction.run,
-                              },
-                          })}
-                />
             )}
         </Stack>
     );

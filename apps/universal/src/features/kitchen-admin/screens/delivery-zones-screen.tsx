@@ -4,7 +4,6 @@ import {
     Button,
     EmptyState,
     ErrorState,
-    RecordWindow,
     Skeleton,
     Stack,
     Text,
@@ -35,6 +34,7 @@ import { summariseWindows } from '../delivery-model.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, statusShortKey, statusTone, zoneRowTestId } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/delivery-zones` — where this kitchen delivers, for how much, and when (Commercial §3.4).
@@ -306,6 +306,78 @@ function DeliveryZonesList() {
         },
     ];
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-zones-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={displayName(viewing.name, locale).value}
+                kind={t('kitchen:zones.viewKind')}
+                status={{
+                    label: t(statusShortKey(viewing.meta.status)),
+                    tone: statusTone(viewing.meta.status),
+                }}
+                fields={[
+                    {
+                        key: 'currency',
+                        label: t('kitchen:priceLists.columnCurrency'),
+                        value: viewing.currency,
+                        mono: true,
+                    },
+                    {
+                        key: 'estimated',
+                        label: t('kitchen:zones.columnEstimated'),
+                        value: estimatedText(viewing, t, formatter),
+                    },
+                    {
+                        key: 'fee',
+                        label: t('kitchen:zones.viewFee'),
+                        value: feeText(viewing, t, formatter),
+                    },
+                    {
+                        key: 'minimum',
+                        label: t('kitchen:zones.viewMinimum'),
+                        value: minimumText(viewing, t, formatter),
+                    },
+                    {
+                        key: 'windows',
+                        label: t('kitchen:zones.columnWindows'),
+                        value: windowsText(viewing, t),
+                    },
+                    {
+                        key: 'weekdays',
+                        label: t('kitchen:zones.viewWeekdays'),
+                        value: (() => {
+                            const days = summariseWindows(viewing.deliveryWindows).weekdays;
+                            return days.length === 0
+                                ? t('kitchen:zones.noActiveWindows')
+                                : days
+                                      .map((day) => t(weekdayKey(day)))
+                                      .join(t('kitchen:common.listSeparator'));
+                        })(),
+                    },
+                ]}
+                chipsLabel={t('kitchen:zones.columnAreas')}
+                chips={
+                    viewing.areas.length === 0
+                        ? [{ key: 'none', label: t('kitchen:zones.noAreas') }]
+                        : viewing.areas.map((area) => ({
+                              key: String(area.id),
+                              label: displayName(area.name, locale).value,
+                          }))
+                }
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    onPress: () => {
+                        openEditor(viewing);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-zones-screen">
             {zones.isPending || failure !== null ? null : (
@@ -419,77 +491,6 @@ function DeliveryZonesList() {
                         label={t('kitchen:catalogue.pagerLabel')}
                     />
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-zones-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={displayName(viewing.name, locale).value}
-                    kind={t('kitchen:zones.viewKind')}
-                    status={{
-                        label: t(statusShortKey(viewing.meta.status)),
-                        tone: statusTone(viewing.meta.status),
-                    }}
-                    fields={[
-                        {
-                            key: 'currency',
-                            label: t('kitchen:priceLists.columnCurrency'),
-                            value: viewing.currency,
-                            mono: true,
-                        },
-                        {
-                            key: 'estimated',
-                            label: t('kitchen:zones.columnEstimated'),
-                            value: estimatedText(viewing, t, formatter),
-                        },
-                        {
-                            key: 'fee',
-                            label: t('kitchen:zones.viewFee'),
-                            value: feeText(viewing, t, formatter),
-                        },
-                        {
-                            key: 'minimum',
-                            label: t('kitchen:zones.viewMinimum'),
-                            value: minimumText(viewing, t, formatter),
-                        },
-                        {
-                            key: 'windows',
-                            label: t('kitchen:zones.columnWindows'),
-                            value: windowsText(viewing, t),
-                        },
-                        {
-                            key: 'weekdays',
-                            label: t('kitchen:zones.viewWeekdays'),
-                            value: (() => {
-                                const days = summariseWindows(viewing.deliveryWindows).weekdays;
-                                return days.length === 0
-                                    ? t('kitchen:zones.noActiveWindows')
-                                    : days
-                                          .map((day) => t(weekdayKey(day)))
-                                          .join(t('kitchen:common.listSeparator'));
-                            })(),
-                        },
-                    ]}
-                    chipsLabel={t('kitchen:zones.columnAreas')}
-                    chips={
-                        viewing.areas.length === 0
-                            ? [{ key: 'none', label: t('kitchen:zones.noAreas') }]
-                            : viewing.areas.map((area) => ({
-                                  key: String(area.id),
-                                  label: displayName(area.name, locale).value,
-                              }))
-                    }
-                    primaryAction={{
-                        label: t('kitchen:catalogue.edit'),
-                        onPress: () => {
-                            openEditor(viewing);
-                        },
-                    }}
-                />
             )}
         </Stack>
     );

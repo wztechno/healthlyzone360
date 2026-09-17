@@ -6,7 +6,6 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
-    RecordWindow,
     Skeleton,
     Stack,
     Text,
@@ -33,6 +32,7 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
@@ -257,6 +257,75 @@ function CostReport() {
             share: Math.max(0, value) / total,
         }));
     })();
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-cost-report-window"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={viewing.month}
+                kind={t('kitchen:ops.costReport.window.kind')}
+                {...(viewing.hasDataQualityFlag
+                    ? {
+                          status: {
+                              label: t('kitchen:ops.costReport.flagged'),
+                              tone: 'warning' as const,
+                          },
+                          note: t('kitchen:ops.costReport.window.flaggedNote'),
+                      }
+                    : {})}
+                fields={[
+                    {
+                        key: 'spend',
+                        label: t('kitchen:ops.costReport.columnSpend'),
+                        value: withCode(viewing.spendAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'cogs',
+                        label: t('kitchen:ops.costReport.columnCogs'),
+                        value: withCode(viewing.cogsAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'revenue',
+                        label: t('kitchen:ops.costReport.columnRevenue'),
+                        value: withCode(viewing.revenueAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'margin',
+                        label: t('kitchen:ops.costReport.columnMargin'),
+                        value: withCode(viewing.grossMarginAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'marginPercent',
+                        label: t('kitchen:ops.costReport.columnMarginPercent'),
+                        value: percent(viewing.grossMarginPercent),
+                        mono: true,
+                    },
+                    {
+                        key: 'currency',
+                        label: t('kitchen:ops.costReport.currencyLabel'),
+                        value: t('kitchen:ops.costReport.window.currencyValue', {
+                            currency: viewing.currencyCode,
+                        }),
+                    },
+                ]}
+                primaryAction={{
+                    label: t('kitchen:ops.costReport.window.openLedger'),
+                    icon: null,
+                    onPress: () => {
+                        setViewing(null);
+                        router.push('/kitchen/purchases-ledger' as never);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-cost-report-screen">
             <View
@@ -427,72 +496,6 @@ function CostReport() {
                         rowActionsLabel={t('kitchen:list.rowActions')}
                     />
                 </Stack>
-            )}
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-cost-report-window"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={viewing.month}
-                    kind={t('kitchen:ops.costReport.window.kind')}
-                    {...(viewing.hasDataQualityFlag
-                        ? {
-                              status: {
-                                  label: t('kitchen:ops.costReport.flagged'),
-                                  tone: 'warning' as const,
-                              },
-                              note: t('kitchen:ops.costReport.window.flaggedNote'),
-                          }
-                        : {})}
-                    fields={[
-                        {
-                            key: 'spend',
-                            label: t('kitchen:ops.costReport.columnSpend'),
-                            value: withCode(viewing.spendAmount),
-                            mono: true,
-                        },
-                        {
-                            key: 'cogs',
-                            label: t('kitchen:ops.costReport.columnCogs'),
-                            value: withCode(viewing.cogsAmount),
-                            mono: true,
-                        },
-                        {
-                            key: 'revenue',
-                            label: t('kitchen:ops.costReport.columnRevenue'),
-                            value: withCode(viewing.revenueAmount),
-                            mono: true,
-                        },
-                        {
-                            key: 'margin',
-                            label: t('kitchen:ops.costReport.columnMargin'),
-                            value: withCode(viewing.grossMarginAmount),
-                            mono: true,
-                        },
-                        {
-                            key: 'marginPercent',
-                            label: t('kitchen:ops.costReport.columnMarginPercent'),
-                            value: percent(viewing.grossMarginPercent),
-                            mono: true,
-                        },
-                        {
-                            key: 'currency',
-                            label: t('kitchen:ops.costReport.currencyLabel'),
-                            value: t('kitchen:ops.costReport.window.currencyValue', {
-                                currency: viewing.currencyCode,
-                            }),
-                        },
-                    ]}
-                    primaryAction={{
-                        label: t('kitchen:ops.costReport.window.openLedger'),
-                        onPress: () => {
-                            setViewing(null);
-                            router.push('/kitchen/purchases-ledger' as never);
-                        },
-                    }}
-                />
             )}
         </Stack>
     );

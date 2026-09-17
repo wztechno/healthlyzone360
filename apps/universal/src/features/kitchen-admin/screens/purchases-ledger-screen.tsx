@@ -13,7 +13,6 @@ import {
     ErrorState,
     FilterChip,
     Inline,
-    RecordWindow,
     Select,
     Skeleton,
     Stack,
@@ -48,6 +47,7 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
@@ -364,6 +364,70 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
 
     const viewingState = viewing === null ? null : ledgerLineState(viewing);
 
+    if (viewing !== null && viewingState !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-purchases-ledger-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={itemTitle(viewing)}
+                kind={t('kitchen:ops.ledger.viewKind')}
+                status={{
+                    label: t(LINE_STATE_KEYS[viewingState]),
+                    tone: LINE_STATE_TONES[viewingState],
+                }}
+                {...(viewingState === 'priced'
+                    ? {}
+                    : {
+                          note: t(
+                              viewingState === 'pendingFx'
+                                  ? 'kitchen:ops.ledger.viewPendingFxNote'
+                                  : 'kitchen:ops.ledger.viewUnpricedNote',
+                          ),
+                      })}
+                fields={[
+                    {
+                        key: 'supplier',
+                        label: t('kitchen:ops.ledger.columnSupplier'),
+                        value: viewing.supplier?.nameEn ?? t('kitchen:ops.ledger.noSupplier'),
+                    },
+                    {
+                        key: 'date',
+                        label: t('kitchen:ops.ledger.columnDate'),
+                        value: dateText(viewing),
+                        mono: true,
+                    },
+                    {
+                        key: 'documentRef',
+                        label: t('kitchen:ops.procurement.fieldDocumentRef'),
+                        value: viewing.documentRef ?? '—',
+                        mono: true,
+                    },
+                    {
+                        key: 'quantity',
+                        label: t('kitchen:ops.ledger.columnQuantity'),
+                        value: formatter.formatNumber(Number(viewing.quantity)),
+                        mono: true,
+                    },
+                    {
+                        key: 'unitPrice',
+                        label: t('kitchen:ops.ledger.columnUnitPrice'),
+                        value: money(viewing.unitPriceAmount, viewing.costCurrencyCode),
+                        mono: true,
+                    },
+                    {
+                        key: 'lineTotal',
+                        label: t('kitchen:ops.ledger.columnLineTotal'),
+                        value: money(viewing.lineTotalAmount, viewing.costCurrencyCode),
+                        mono: true,
+                    },
+                ]}
+                footNote={t('kitchen:ops.ledger.viewFoot')}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-purchases-ledger-screen">
             {/* §5: the ledger is the valuation, and the reader should know why they can see it. */}
@@ -577,69 +641,6 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                         />
                     ))}
                 </Stack>
-            )}
-
-            {viewing === null || viewingState === null ? null : (
-                <RecordWindow
-                    testID="kitchen-purchases-ledger-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={itemTitle(viewing)}
-                    kind={t('kitchen:ops.ledger.viewKind')}
-                    status={{
-                        label: t(LINE_STATE_KEYS[viewingState]),
-                        tone: LINE_STATE_TONES[viewingState],
-                    }}
-                    {...(viewingState === 'priced'
-                        ? {}
-                        : {
-                              note: t(
-                                  viewingState === 'pendingFx'
-                                      ? 'kitchen:ops.ledger.viewPendingFxNote'
-                                      : 'kitchen:ops.ledger.viewUnpricedNote',
-                              ),
-                          })}
-                    fields={[
-                        {
-                            key: 'supplier',
-                            label: t('kitchen:ops.ledger.columnSupplier'),
-                            value: viewing.supplier?.nameEn ?? t('kitchen:ops.ledger.noSupplier'),
-                        },
-                        {
-                            key: 'date',
-                            label: t('kitchen:ops.ledger.columnDate'),
-                            value: dateText(viewing),
-                            mono: true,
-                        },
-                        {
-                            key: 'documentRef',
-                            label: t('kitchen:ops.procurement.fieldDocumentRef'),
-                            value: viewing.documentRef ?? '—',
-                            mono: true,
-                        },
-                        {
-                            key: 'quantity',
-                            label: t('kitchen:ops.ledger.columnQuantity'),
-                            value: formatter.formatNumber(Number(viewing.quantity)),
-                            mono: true,
-                        },
-                        {
-                            key: 'unitPrice',
-                            label: t('kitchen:ops.ledger.columnUnitPrice'),
-                            value: money(viewing.unitPriceAmount, viewing.costCurrencyCode),
-                            mono: true,
-                        },
-                        {
-                            key: 'lineTotal',
-                            label: t('kitchen:ops.ledger.columnLineTotal'),
-                            value: money(viewing.lineTotalAmount, viewing.costCurrencyCode),
-                            mono: true,
-                        },
-                    ]}
-                    footNote={t('kitchen:ops.ledger.viewFoot')}
-                />
             )}
         </Stack>
     );

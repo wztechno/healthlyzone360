@@ -1,11 +1,4 @@
-import {
-    Badge,
-    RecordWindow,
-    SegmentedControl,
-    Select,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Badge, SegmentedControl, Select, Stack, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -40,6 +33,7 @@ import {
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 /**
  * `/kitchen/analytics` — the sample-data dashboard, as `Workbench.dc.html` draws it (§3.3).
  *
@@ -207,6 +201,58 @@ function AnalyticsDashboard() {
         },
     ];
     const controls = useColumnControls(bundle.rows, columns, 'kitchen-analytics-table');
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-analytics-window"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={viewing.name}
+                kind={t('kitchen:analytics.window.kind')}
+                status={{
+                    label: t(statusKey(viewing.status)),
+                    tone: STATUS_TONE[viewing.status],
+                }}
+                note={t('kitchen:analytics.window.note')}
+                fields={[
+                    {
+                        key: 'segment',
+                        label: t('kitchen:analytics.table.segment'),
+                        value: t(`kitchen:analytics.segments.${viewing.segment}`),
+                    },
+                    {
+                        key: 'volume',
+                        label: t('kitchen:analytics.table.volume'),
+                        value: formatter.formatNumber(viewing.volume),
+                        mono: true,
+                    },
+                    {
+                        key: 'done',
+                        label: t('kitchen:analytics.table.completion'),
+                        value: formatter.formatNumber(viewing.completionPercent / 100, {
+                            style: 'percent',
+                        }),
+                        mono: true,
+                    },
+                    {
+                        key: 'avg',
+                        label: t('kitchen:analytics.window.fieldAvgMinutes'),
+                        value: formatter.formatNumber(viewing.avgMinutes),
+                        mono: true,
+                    },
+                    {
+                        key: 'updated',
+                        label: t('kitchen:analytics.table.updated'),
+                        value: viewing.updatedLabel,
+                    },
+                ]}
+                // No primary: a sample line item has no record to open, and a button that went
+                // nowhere would be the one dishonest control on an honestly labelled screen.
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-analytics-panel">
             {/* Every figure on this screen is `analytics-sample-data.ts` — the label says so first. */}
@@ -346,56 +392,6 @@ function AnalyticsDashboard() {
                     rowActionsLabel={t('kitchen:list.rowActions')}
                 />
             </View>
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-analytics-window"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={viewing.name}
-                    kind={t('kitchen:analytics.window.kind')}
-                    status={{
-                        label: t(statusKey(viewing.status)),
-                        tone: STATUS_TONE[viewing.status],
-                    }}
-                    note={t('kitchen:analytics.window.note')}
-                    fields={[
-                        {
-                            key: 'segment',
-                            label: t('kitchen:analytics.table.segment'),
-                            value: t(`kitchen:analytics.segments.${viewing.segment}`),
-                        },
-                        {
-                            key: 'volume',
-                            label: t('kitchen:analytics.table.volume'),
-                            value: formatter.formatNumber(viewing.volume),
-                            mono: true,
-                        },
-                        {
-                            key: 'done',
-                            label: t('kitchen:analytics.table.completion'),
-                            value: formatter.formatNumber(viewing.completionPercent / 100, {
-                                style: 'percent',
-                            }),
-                            mono: true,
-                        },
-                        {
-                            key: 'avg',
-                            label: t('kitchen:analytics.window.fieldAvgMinutes'),
-                            value: formatter.formatNumber(viewing.avgMinutes),
-                            mono: true,
-                        },
-                        {
-                            key: 'updated',
-                            label: t('kitchen:analytics.table.updated'),
-                            value: viewing.updatedLabel,
-                        },
-                    ]}
-                    // No primary: a sample line item has no record to open, and a button that went
-                    // nowhere would be the one dishonest control on an honestly labelled screen.
-                />
-            )}
         </Stack>
     );
 }

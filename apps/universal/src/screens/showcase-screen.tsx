@@ -25,6 +25,7 @@ import {
     ListSummaryCards,
     PickerField,
     RecordWindow,
+    RecordWindowFieldGrid,
     DensityProvider,
     Dialog,
     Drawer,
@@ -110,7 +111,7 @@ import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
-import { CatalogueViewDrawer } from '../features/kitchen-admin/catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
@@ -446,7 +447,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [segment, setSegment] = useState('all');
     const [toolbarSearch, setToolbarSearch] = useState('');
     const [toolbarStatus, setToolbarStatus] = useState('all');
-    const [viewOpen, setViewOpen] = useState(false);
     const [recordOpen, setRecordOpen] = useState(false);
     const [pickerMonth, setPickerMonth] = useState('2026-08');
     const [pickerDate, setPickerDate] = useState('2026-08-01');
@@ -1630,51 +1630,78 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             </Stack>
 
             {/*
-             * The read-only record panel behind a row's View action. The chip run stands in for
-             * the allergens an ingredient resolves from the database and cannot override here.
+             * The read-only record page behind every kitchen-admin row's View
+             * (`IngredientView.dc.html`): a main column of cards beside a status rail, which drops
+             * under the main column below `xl`. Back and Edit are inert here.
              */}
             <Stack space="xs">
                 <Text variant="section" tone="secondary">
-                    View drawer
+                    Record view page
                 </Text>
-                <Inline space="sm" align="center">
-                    <Button
-                        testID={id('view-drawer-open')}
-                        size="sm"
-                        variant="secondary"
-                        label="Open the view drawer"
-                        onPress={() => setViewOpen(true)}
-                    />
-                </Inline>
-                <CatalogueViewDrawer
-                    testID={id('view-drawer')}
-                    open={viewOpen}
-                    onClose={() => setViewOpen(false)}
-                    onEdit={() => setViewOpen(false)}
-                    kindLabel="Ingredient"
-                    fieldsLabel="Fields"
-                    closeLabel="Close"
-                    editLabel="Edit"
+                <RecordViewPage
+                    testID={id('record-view')}
+                    onBack={() => undefined}
+                    kind="Ingredient"
                     reference="ING-0142"
                     title="Tahini paste"
-                    status={<Badge tone="success" label="Live" />}
+                    status={{ label: 'Live', tone: 'success' }}
+                    fieldsTitle="Identification"
+                    fieldsSubtitle="Catalogue record and costing"
                     fields={[
                         { key: 'reference', label: 'Reference', value: 'ING-0142', mono: true },
-                        { key: 'category', label: 'Category', value: 'Condiments' },
+                        { key: 'name', label: 'Designation', value: 'Tahini paste' },
+                        { key: 'category', label: 'Category', value: 'Sauces' },
                         { key: 'unit', label: 'Unit', value: 'kg' },
-                        { key: 'price', label: 'Unit price', value: 'AED 7.80', mono: true },
-                        { key: 'status', label: 'Status', value: 'Live' },
-                        { key: 'updated', label: 'Updated', value: '8 days ago' },
+                        { key: 'cost', label: 'Unit cost', value: 'AED 4.57', mono: true },
+                        { key: 'sellable', label: 'Available for sale', value: 'No' },
                     ]}
-                    chipsLabel="Allergens"
-                    chipsSource="From database"
+                    sections={[
+                        {
+                            key: 'nutrition',
+                            title: 'Nutrition per 100 g',
+                            subtitle: 'Share of the adult reference intake, 2,000 kcal',
+                            content: (
+                                <Stack space="sm">
+                                    <MeterBar
+                                        label="Energy"
+                                        value={595}
+                                        target={2000}
+                                        unit="kcal"
+                                    />
+                                    <MeterBar label="Protein" value={17} target={50} unit="g" />
+                                    <MeterBar label="Fat" value={54} target={70} unit="g" />
+                                </Stack>
+                            ),
+                        },
+                    ]}
+                    statusLines={['Updated 3 days ago by Dina Haddad', 'Version 7']}
+                    chipsLabel="Allergens & diets"
+                    chipsSourceBadge="From database"
                     chipsCaption="Resolved from the ingredient database. Correct it on the record itself, not here."
-                    chips={
-                        <>
-                            <Badge tone="danger" label="Sesame" />
-                            <Badge tone="warning" label="Nuts" />
-                        </>
-                    }
+                    chips={[
+                        { key: 'sesame', label: 'Sesame', tone: 'danger' },
+                        { key: 'vegan', label: 'Vegan', tone: 'brand' },
+                    ]}
+                    rail={[
+                        {
+                            key: 'sourcing',
+                            title: 'Pack & sourcing',
+                            content: (
+                                <RecordWindowFieldGrid
+                                    fields={[
+                                        { key: 'purchase', label: 'Purchase unit', value: 'Tub' },
+                                        {
+                                            key: 'pack',
+                                            label: 'Pack contents',
+                                            value: '5 kg',
+                                            mono: true,
+                                        },
+                                    ]}
+                                />
+                            ),
+                        },
+                    ]}
+                    primaryAction={{ label: 'Edit ingredient', onPress: () => undefined }}
                 />
             </Stack>
 

@@ -1,13 +1,5 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    EmptyState,
-    ErrorState,
-    RecordWindow,
-    Skeleton,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Button, EmptyState, ErrorState, Skeleton, Stack, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -26,6 +18,7 @@ import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '.
 import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
@@ -55,7 +48,7 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
  *
  * ## Nothing is written from here
  *
- * No resolve, no publish-anyway, no bulk action. The row body opens a read-only `RecordWindow`, and
+ * No resolve, no publish-anyway, no bulk action. The row body opens the read-only record page, and
  * both its primary and the row's pen go to the family's own editor, where the lock version, the unsaved
  * guard and the publish confirmation already live.
  *
@@ -127,6 +120,18 @@ function ReviewQueueBody() {
         setViewing(null);
         router.push(item.href as never);
     };
+
+    if (viewing !== null) {
+        return (
+            <ReviewWindow
+                item={viewing.item}
+                onBack={() => {
+                    setViewing(null);
+                }}
+                onOpen={open}
+            />
+        );
+    }
 
     return (
         <Stack space="md" testID="kitchen-review-screen">
@@ -238,27 +243,17 @@ function ReviewQueueBody() {
                     )}
                 </Stack>
             )}
-
-            {viewing === null ? null : (
-                <ReviewWindow
-                    item={viewing.item}
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    onOpen={open}
-                />
-            )}
         </Stack>
     );
 }
 
 function ReviewWindow({
     item,
-    onClose,
+    onBack,
     onOpen,
 }: {
     readonly item: ReviewItem;
-    readonly onClose: () => void;
+    readonly onBack: () => void;
     readonly onOpen: (item: ReviewItem) => void;
 }) {
     const { t } = useTranslation();
@@ -267,10 +262,9 @@ function ReviewWindow({
     const blocked = isBlocked(item);
 
     return (
-        <RecordWindow
+        <RecordViewPage
             testID="kitchen-review-window"
-            open
-            onClose={onClose}
+            onBack={onBack}
             title={displayName(item.name, locale).value}
             kind={t(reviewFamilyKey(item.familyKey))}
             status={
@@ -319,6 +313,7 @@ function ReviewWindow({
             }))}
             primaryAction={{
                 label: t('kitchen:review.open'),
+                icon: null,
                 onPress: () => {
                     onOpen(item);
                 },

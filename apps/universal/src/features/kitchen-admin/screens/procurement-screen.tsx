@@ -12,7 +12,6 @@ import {
     ErrorState,
     Icon,
     Inline,
-    RecordWindow,
     Select,
     Skeleton,
     Stack,
@@ -68,6 +67,7 @@ import {
 } from '../ops-line-editor.tsx';
 import type { StockItemLineDraft } from '../ops-line-editor.tsx';
 import { todayIsoDate } from '../receive-delivery-model.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
@@ -527,6 +527,75 @@ function Procurement() {
         ...PRICE_SEGMENTS.map((value) => ({ value, label: t(receiptCostStatusKey(value)) })),
     ];
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-procurement-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={receivedText(viewing)}
+                kind={t('kitchen:ops.procurement.viewKind')}
+                status={{
+                    label: t(receiptCostStatusKey(viewing.costStatus)),
+                    tone: receiptCostStatusTone(viewing.costStatus),
+                }}
+                {...(viewing.costStatus === 'complete'
+                    ? {}
+                    : { note: t('kitchen:ops.procurement.viewUnpricedNote') })}
+                fields={[
+                    {
+                        key: 'supplier',
+                        label: t('kitchen:ops.procurement.columnSupplier'),
+                        value: viewing.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier'),
+                    },
+                    {
+                        key: 'documentRef',
+                        label: t('kitchen:ops.procurement.fieldDocumentRef'),
+                        value: viewing.documentRef ?? '—',
+                        mono: true,
+                    },
+                    {
+                        key: 'invoiceRef',
+                        label: t('kitchen:ops.procurement.fieldInvoiceRef'),
+                        value: viewing.supplierInvoiceRef ?? '—',
+                        mono: true,
+                    },
+                    {
+                        key: 'total',
+                        label: t('kitchen:ops.procurement.columnTotal'),
+                        value: totalText(viewing),
+                        mono: true,
+                    },
+                ]}
+                lines={
+                    <Stack space="none" testID="kitchen-procurement-view-lines">
+                        {viewing.lines.map((line) => (
+                            <Text key={line.id} variant="caption" tone="secondary">
+                                {formatter.formatNumber(Number(line.quantity))} ×{' '}
+                                {stockItemLabelById.get(String(line.stockItemId)) ??
+                                    line.stockItemId}
+                            </Text>
+                        ))}
+                    </Stack>
+                }
+                footNote={t('kitchen:ops.procurement.listFoot')}
+                {...(canViewCosts && viewing.costStatus !== 'complete'
+                    ? {
+                          primaryAction: {
+                              label: t('kitchen:ops.procurement.unpricedReceipts'),
+                              icon: null,
+                              onPress: () => {
+                                  setViewing(null);
+                                  router.push('/kitchen/procurement/unpriced-receipts' as never);
+                              },
+                          },
+                      }
+                    : {})}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-procurement-screen">
             {receipts.isPending || failure !== null ? null : (
@@ -651,76 +720,6 @@ function Procurement() {
                         })} · ${t('kitchen:ops.procurement.listFoot')}`}
                     </Text>
                 </Stack>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-procurement-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={receivedText(viewing)}
-                    kind={t('kitchen:ops.procurement.viewKind')}
-                    status={{
-                        label: t(receiptCostStatusKey(viewing.costStatus)),
-                        tone: receiptCostStatusTone(viewing.costStatus),
-                    }}
-                    {...(viewing.costStatus === 'complete'
-                        ? {}
-                        : { note: t('kitchen:ops.procurement.viewUnpricedNote') })}
-                    fields={[
-                        {
-                            key: 'supplier',
-                            label: t('kitchen:ops.procurement.columnSupplier'),
-                            value:
-                                viewing.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier'),
-                        },
-                        {
-                            key: 'documentRef',
-                            label: t('kitchen:ops.procurement.fieldDocumentRef'),
-                            value: viewing.documentRef ?? '—',
-                            mono: true,
-                        },
-                        {
-                            key: 'invoiceRef',
-                            label: t('kitchen:ops.procurement.fieldInvoiceRef'),
-                            value: viewing.supplierInvoiceRef ?? '—',
-                            mono: true,
-                        },
-                        {
-                            key: 'total',
-                            label: t('kitchen:ops.procurement.columnTotal'),
-                            value: totalText(viewing),
-                            mono: true,
-                        },
-                    ]}
-                    lines={
-                        <Stack space="none" testID="kitchen-procurement-view-lines">
-                            {viewing.lines.map((line) => (
-                                <Text key={line.id} variant="caption" tone="secondary">
-                                    {formatter.formatNumber(Number(line.quantity))} ×{' '}
-                                    {stockItemLabelById.get(String(line.stockItemId)) ??
-                                        line.stockItemId}
-                                </Text>
-                            ))}
-                        </Stack>
-                    }
-                    footNote={t('kitchen:ops.procurement.listFoot')}
-                    {...(canViewCosts && viewing.costStatus !== 'complete'
-                        ? {
-                              primaryAction: {
-                                  label: t('kitchen:ops.procurement.unpricedReceipts'),
-                                  onPress: () => {
-                                      setViewing(null);
-                                      router.push(
-                                          '/kitchen/procurement/unpriced-receipts' as never,
-                                      );
-                                  },
-                              },
-                          }
-                        : {})}
-                />
             )}
 
             <Dialog

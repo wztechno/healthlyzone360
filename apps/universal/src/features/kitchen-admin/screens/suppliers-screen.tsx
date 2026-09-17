@@ -4,7 +4,6 @@ import {
     Button,
     EmptyState,
     ErrorState,
-    RecordWindow,
     Skeleton,
     Stack,
     Text,
@@ -36,6 +35,7 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { supplierRowTestId } from '../ops-format.ts';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
 /**
  * `/kitchen/suppliers` — who this kitchen buys from (SUP1), on the Catalogue list (Operations
@@ -289,6 +289,64 @@ function SuppliersList() {
         { value: 'withArchived', label: t('kitchen:ops.suppliers.segmentWithArchived') },
     ];
 
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-suppliers-view"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={displayName(viewing.name, locale).value}
+                kind={t('kitchen:ops.suppliers.viewKind')}
+                status={
+                    viewing.archivedAt === null
+                        ? { label: t('kitchen:ops.suppliers.segmentActive'), tone: 'success' }
+                        : { label: t('kitchen:ops.suppliers.archivedBadge'), tone: 'neutral' }
+                }
+                {...(viewing.archivedAt === null
+                    ? {}
+                    : { note: t('kitchen:ops.suppliers.archivedBody') })}
+                fields={[
+                    {
+                        key: 'code',
+                        label: t('kitchen:ops.suppliers.fieldCode'),
+                        value: viewing.code,
+                        mono: true,
+                    },
+                    {
+                        key: 'contact',
+                        label: t('kitchen:ops.suppliers.columnContact'),
+                        value: contactText(viewing, t),
+                    },
+                    {
+                        key: 'terms',
+                        label: t('kitchen:ops.suppliers.columnTerms'),
+                        value: termsText(viewing, t),
+                    },
+                    {
+                        key: 'items',
+                        label: t('kitchen:ops.suppliers.columnItems'),
+                        value: itemsText(viewing, t),
+                    },
+                    {
+                        key: 'currency',
+                        label: t('kitchen:ops.suppliers.fieldCurrency'),
+                        value: viewing.currencyCode ?? t('kitchen:ops.suppliers.noCurrency'),
+                        mono: viewing.currencyCode !== null,
+                    },
+                ]}
+                footNote={t('kitchen:ops.suppliers.viewFoot')}
+                primaryAction={{
+                    label: t('kitchen:list.open'),
+                    icon: null,
+                    onPress: () => {
+                        openRecord(viewing);
+                    },
+                }}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-suppliers-screen">
             {suppliers.isPending || failure !== null ? null : (
@@ -393,62 +451,6 @@ function SuppliersList() {
                             },
                         },
                     ]}
-                />
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-suppliers-view"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={displayName(viewing.name, locale).value}
-                    kind={t('kitchen:ops.suppliers.viewKind')}
-                    status={
-                        viewing.archivedAt === null
-                            ? { label: t('kitchen:ops.suppliers.segmentActive'), tone: 'success' }
-                            : { label: t('kitchen:ops.suppliers.archivedBadge'), tone: 'neutral' }
-                    }
-                    {...(viewing.archivedAt === null
-                        ? {}
-                        : { note: t('kitchen:ops.suppliers.archivedBody') })}
-                    fields={[
-                        {
-                            key: 'code',
-                            label: t('kitchen:ops.suppliers.fieldCode'),
-                            value: viewing.code,
-                            mono: true,
-                        },
-                        {
-                            key: 'contact',
-                            label: t('kitchen:ops.suppliers.columnContact'),
-                            value: contactText(viewing, t),
-                        },
-                        {
-                            key: 'terms',
-                            label: t('kitchen:ops.suppliers.columnTerms'),
-                            value: termsText(viewing, t),
-                        },
-                        {
-                            key: 'items',
-                            label: t('kitchen:ops.suppliers.columnItems'),
-                            value: itemsText(viewing, t),
-                        },
-                        {
-                            key: 'currency',
-                            label: t('kitchen:ops.suppliers.fieldCurrency'),
-                            value: viewing.currencyCode ?? t('kitchen:ops.suppliers.noCurrency'),
-                            mono: viewing.currencyCode !== null,
-                        },
-                    ]}
-                    footNote={t('kitchen:ops.suppliers.viewFoot')}
-                    primaryAction={{
-                        label: t('kitchen:list.open'),
-                        onPress: () => {
-                            openRecord(viewing);
-                        },
-                    }}
                 />
             )}
         </Stack>

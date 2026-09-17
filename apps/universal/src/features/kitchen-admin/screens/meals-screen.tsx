@@ -1,6 +1,5 @@
 import type { MealAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
     Dialog,
     EmptyState,
@@ -32,8 +31,8 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { mealColumns } from '../catalogue/meal-columns.tsx';
 import type { MealListState, MealSortKey } from '../catalogue/use-meal-list.ts';
@@ -154,6 +153,56 @@ function MealsList() {
             label: t(statusShortKey(status)),
         })),
     ];
+
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    const viewing = list.viewing;
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-meals-view"
+                kind={t('kitchen:meals.viewKind')}
+                title={displayName(viewing.name, locale).value}
+                status={{
+                    tone: statusTone(viewing.meta.status),
+                    label: t(statusShortKey(viewing.meta.status)),
+                }}
+                fields={viewFields(viewing, t, formatter)}
+                onBack={list.closeView}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-meals-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewing.id));
+                    },
+                }}
+                /*
+                 * Drawn even when the set is empty. The label is frozen from the recipe version at
+                 * publication and cannot be edited on a meal, so an empty set here is a real
+                 * declaration — and on the one field a kitchen reads for safety, "this meal declares
+                 * none" and "nobody has looked" are the two answers that most need telling apart.
+                 */
+                chipsLabel={t('kitchen:meals.columnAllergens')}
+                chipsSourceBadge={t('kitchen:meals.viewAllergensSource')}
+                chipsCaption={t('kitchen:meals.viewAllergensCaption')}
+                chips={viewing.allergens.map((code) => ({
+                    key: String(code),
+                    label: String(code),
+                    tone: 'danger' as const,
+                }))}
+                {...(viewing.allergens.length === 0
+                    ? {
+                          chipsContent: (
+                              <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
+                          ),
+                      }
+                    : {})}
+            />
+        );
+    }
 
     return (
         <Stack space="md" testID="kitchen-meals-screen">
@@ -315,57 +364,6 @@ function MealsList() {
                     />
                 </Stack>
             )}
-
-            <CatalogueViewDrawer
-                testID="kitchen-meals-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:meals.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    const viewed = list.viewing;
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
-                }}
-                title={list.viewing === null ? '' : displayName(list.viewing.name, locale).value}
-                status={
-                    list.viewing === null ? undefined : (
-                        <Badge
-                            tone={statusTone(list.viewing.meta.status)}
-                            label={t(statusShortKey(list.viewing.meta.status))}
-                        />
-                    )
-                }
-                fields={list.viewing === null ? [] : viewFields(list.viewing, t, formatter)}
-                /*
-                 * Drawn even when the set is empty. The label is frozen from the recipe version at
-                 * publication and cannot be edited on a meal, so an empty set here is a real
-                 * declaration — and on the one field a kitchen reads for safety, "this meal declares
-                 * none" and "nobody has looked" are the two answers that most need telling apart.
-                 */
-                {...(list.viewing === null
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:meals.columnAllergens'),
-                          chipsSource: t('kitchen:meals.viewAllergensSource'),
-                          chipsCaption: t('kitchen:meals.viewAllergensCaption'),
-                          chips:
-                              list.viewing.allergens.length === 0 ? (
-                                  <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
-                              ) : (
-                                  list.viewing.allergens.map((code) => (
-                                      <Badge
-                                          key={String(code)}
-                                          tone="danger"
-                                          label={String(code)}
-                                      />
-                                  ))
-                              ),
-                      })}
-            />
 
             {/*
              * Withdrawing is what removes a meal from every consumer surface. The dialog says exactly

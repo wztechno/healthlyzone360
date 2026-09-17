@@ -522,7 +522,7 @@ describe('the packaging list', () => {
         expect(screen.queryByTestId(`${base}-archive`)).toBeNull();
     });
 
-    it('reads the whole record in the View panel, and edits it from the panel footer', async () => {
+    it('reads the whole record on the View page, and edits it from the page header', async () => {
         const row = item({ ordinal: 1, name: 'Kraft lunch box' });
 
         await renderStubScreen(<PackagingScreen />, {
