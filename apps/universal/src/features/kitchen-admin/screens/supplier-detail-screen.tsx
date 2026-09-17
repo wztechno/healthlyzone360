@@ -45,6 +45,7 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { OpsRecordFrame } from '../ops-record-frame.tsx';
 import { suppliedItemRowTestId } from '../ops-format.ts';
 import {
@@ -208,6 +209,15 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
     const form = useFormSteps(isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS);
+
+    // The page draws no heading, so the top bar's trail is where the supplier is named.
+    useKitchenTrailLeaf(
+        isCreating
+            ? t('kitchen:ops.suppliers.createTitle')
+            : record.data === undefined
+              ? null
+              : displayName(record.data.name, locale).value,
+    );
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
@@ -681,6 +691,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     return (
         <OpsRecordFrame
             testID="kitchen-supplier-screen"
+            hideTitle
             title={
                 isCreating
                     ? t('kitchen:ops.suppliers.createTitle')

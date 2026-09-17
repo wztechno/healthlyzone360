@@ -1247,8 +1247,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             <Stack space="xs">
                 <CataloguePageHeader
                     testID="kitchen-ingredient-editor-screen-header"
-                    titleTestID="kitchen-ingredient-editor-screen-title"
-                    title={title}
+                    // No heading: the top bar's trail names the page ("New ingredient" or the
+                    // record), and the progress line opens the form.
                     primaryAction={
                         <Inline space="xs" align="center">
                             {/*

@@ -46,8 +46,12 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -460,6 +464,8 @@ function Procurement() {
             width: 70,
             priority: 70,
             value: (row) => String(row.lines.length),
+            sort: (left, right, direction) =>
+                compareNumber(left.lines.length, right.lines.length, direction),
             render: (row) => (
                 <Text variant="mono" testID={`${goodsReceiptRowTestId(String(row.id))}-lines`}>
                     {formatter.formatNumber(row.lines.length)}
@@ -473,6 +479,13 @@ function Procurement() {
             width: 190,
             priority: 60,
             value: (row) => refsText(row, t),
+            // The delivery note first, then the invoice number — the order the cell reads in.
+            sort: (left, right, direction) => {
+                const byNote = compareText(left.documentRef, right.documentRef, direction);
+                return byNote !== 0
+                    ? byNote
+                    : compareText(left.supplierInvoiceRef, right.supplierInvoiceRef, direction);
+            },
             render: (row) => (
                 <Text variant="mono" tone="secondary" numberOfLines={1}>
                     {refsText(row, t)}
@@ -486,6 +499,8 @@ function Procurement() {
             width: 120,
             priority: 50,
             value: totalText,
+            sort: (left, right, direction) =>
+                compareAmount(left.receiptTotalAmount, right.receiptTotalAmount, direction),
             render: (row) => (
                 <Text variant="mono" testID={`${goodsReceiptRowTestId(String(row.id))}-total`}>
                     {totalText(row)}
@@ -499,6 +514,22 @@ function Procurement() {
             width: 120,
             priority: 80,
             value: (row) => t(receiptCostStatusKey(row.costStatus)),
+            // The same state the toolbar's Prices segments hold, so the header and the segments
+            // can never disagree about which receipts are showing.
+            filter: {
+                values: () =>
+                    PRICE_SEGMENTS.map((value) => ({
+                        key: value,
+                        label: t(receiptCostStatusKey(value)),
+                    })),
+                external: {
+                    value: priceStatus === 'all' ? null : priceStatus,
+                    onChange: (next) => {
+                        setPriceStatus(PRICE_SEGMENTS.find((value) => value === next) ?? 'all');
+                        setViewing(null);
+                    },
+                },
+            },
             render: (row) => (
                 <View className="min-w-0 flex-row flex-wrap items-center gap-1.5">
                     <Badge
@@ -903,6 +934,16 @@ function Procurement() {
             </Dialog>
         </Stack>
     );
+}
+
+/** A money amount as the wire sends it, in `direction`, with no amount (redacted, unpriced) last. */
+function compareAmount(
+    left: string | null,
+    right: string | null,
+    direction: SortDirection,
+): number {
+    if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
+    return compareNumber(Number(left), Number(right), direction);
 }
 
 /** "DN-4471 · INV-8820" — the delivery note and the invoice number, or the words for none. */

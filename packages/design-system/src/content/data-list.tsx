@@ -12,18 +12,18 @@ import { GRID_CONTENT_ATTR } from '../overlays/anchored-surface.ts';
  *
  * Ingredients, Recipes and Sauces differ by an array and nothing else (§4.1). That is the whole
  * design goal: a new entity is a spec, not a screen. What this component owns is the geometry those
- * specs share — the track widths, the hairline, the hover tint, the row height, and the two things
+ * specs share — the track widths, the header rule, the hover tint, the row height, and the two things
  * below that are easy to get wrong.
  *
- * **No card, no panel outline, no vertical rules, no zebra** (§4.1). The only line is the row's
- * bottom hairline. A list of 25 rows is already a grid to the eye; drawing that grid a second time
- * in ink is what made the previous tables feel like spreadsheets.
+ * **No vertical rules, no zebra, no rule between rows** (§4.1). The only line is the header's
+ * bottom rule. A list of 25 rows is already a grid to the eye; drawing that grid a second time
+ * in ink is what made the previous tables feel like spreadsheets. A caller may frame the list in a
+ * panel (`framed`), as the Catalogue does.
  *
  * ## The row box must be as wide as the tracks, not as wide as the port
  *
  * Rows carry an explicit minimum width equal to the sum of their tracks — the `min-width:
- * max-content` the handoff calls for, stated as the number it resolves to. Without it the hairline,
- * the hover tint and the overflow menu's anchor all stop at the scroll port's edge while the cells
+ * max-content` the handoff calls for, stated as the number it resolves to. Without it the hover tint and the overflow menu's anchor all stop at the scroll port's edge while the cells
  * carry on past it: you hover a row and the highlight ends mid-record.
  *
  * Stating the sum rather than the keyword is not a compromise. Every track here is a fixed number,
@@ -224,8 +224,7 @@ export interface DataListProps<Row> {
     /**
      * The list sits inside a `rounded-panel` frame drawn by the caller. The header takes the frame's
      * top corners and the last row its bottom ones, so neither the header's ground nor a hover tint
-     * squares off the curve, and the last row drops its hairline because the frame's border is
-     * already there. The frame itself stays with the caller: a border on this root would be inside
+     * squares off the curve. The frame itself stays with the caller: a border on this root would be inside
      * the box the port is measured from, and the tracks would overrun it by two pixels.
      */
     readonly framed?: boolean | undefined;
@@ -482,10 +481,17 @@ export function DataList<Row>({
                           ));
 
                           const last = index === rows.length - 1;
+                          /*
+                           * No hairline between rows — the header's rule is the table's one line.
+                           * The rows are told apart by their height and the hover tint, and a rule
+                           * under every one of them striped a dense page into a ledger. The last
+                           * row of a framed list takes the frame's bottom corners, so its tint does
+                           * not square them off.
+                           */
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
                               'flex-row items-center',
-                              framed && last ? 'rounded-b-panel' : 'border-b border-stroke-subtle',
+                              framed && last ? 'rounded-b-panel' : null,
                           );
 
                           if (onRowPress === undefined) {

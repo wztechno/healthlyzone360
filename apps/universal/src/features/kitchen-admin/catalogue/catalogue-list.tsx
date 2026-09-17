@@ -21,7 +21,7 @@ const FRAME_CLASS =
  * Part five (§4.1): the list.
  *
  * ```
- * 10px upper column labels · 32px rows · border-b hairline · hover tint
+ * 10px upper column labels · a rule under the header · 32px rows · hover tint
  * ```
  *
  * **Ingredients, Recipes and Sauces differ by `columns` and nothing else.** Everything a spec could

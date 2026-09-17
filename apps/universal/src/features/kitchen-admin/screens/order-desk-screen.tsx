@@ -1853,7 +1853,7 @@ function OrderDeskQueueList() {
              */}
             <View
                 testID="kitchen-order-desk-toolbar"
-                className="z-tooltip min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                className="z-tooltip min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
             >
                 {/* eslint-disable-next-line no-restricted-syntax -- the search takes the row's leftover width. */}
                 <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
@@ -2032,8 +2032,8 @@ function OrderDeskQueueList() {
                     ) : null}
 
                     {/*
-                     * Opens on the server's due-time order. Order, Customer, Telephone, Due and
-                     * Total sort on a press; Kind, Delivery and Payment filter from their menus.
+                     * Opens on the server's due-time order. Order, Customer, Telephone, Due,
+                     * Ageing and Total sort on a press; Kind and Payment filter from their menus.
                      */}
                     <CatalogueList<OrderDeskQueueRow>
                         testID="kitchen-order-desk-table"

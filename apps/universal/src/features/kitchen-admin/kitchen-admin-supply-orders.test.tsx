@@ -347,6 +347,8 @@ function landingOverrides(
             countSupplyNeeds: async () => counts(items),
             getOrderProposal: async () => proposal(items),
             listPurchaseOrders: async () => page(orders),
+            // The Supplier header's values are the supplier book.
+            listSuppliers: async () => [supplierRecord(1), supplierRecord(2)],
         },
     };
 }

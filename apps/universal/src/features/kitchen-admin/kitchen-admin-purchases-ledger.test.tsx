@@ -9,6 +9,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { GoodsReceiptId, StockItemId, SupplierId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
@@ -213,6 +214,65 @@ describe('purchases ledger detail mode', () => {
         await waitFor(() => {
             expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
                 expect.objectContaining({ costStatus: 'unpriced' }),
+            );
+        });
+    });
+});
+
+describe('purchases ledger column headers', () => {
+    // Above `md` the Catalogue draws tracks with headers; Jest's default 750px window is below it.
+    const narrowWindow = Dimensions.get('window');
+    const narrowScreen = Dimensions.get('screen');
+
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...narrowWindow, width: 1440, height: 900 },
+            screen: { ...narrowScreen, width: 1440, height: 900 },
+        });
+    });
+
+    afterAll(() => {
+        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+    });
+
+    it('sends the Supplier and State header filters with the request, since the ledger is paged', async () => {
+        const harness = await renderStubScreen(<PurchasesLedgerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: overrides(),
+        });
+
+        await untilVisible('kitchen-purchases-ledger-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-supplier-trigger'));
+        });
+        await untilVisible(`kitchen-purchases-ledger-column-supplier-${String(SUPPLIER_A)}`);
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(
+                    `kitchen-purchases-ledger-column-supplier-${String(SUPPLIER_A)}`,
+                ),
+            );
+        });
+
+        await waitFor(() => {
+            expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
+                expect.objectContaining({ supplierId: SUPPLIER_A }),
+            );
+        });
+
+        await untilVisible('kitchen-purchases-ledger-column-state-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-state-trigger'));
+        });
+        await untilVisible('kitchen-purchases-ledger-column-state-partial');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-purchases-ledger-column-state-partial'));
+        });
+
+        await waitFor(() => {
+            expect(harness.repositories.kitchenOps.listPurchasesLedger).toHaveBeenCalledWith(
+                expect.objectContaining({ supplierId: SUPPLIER_A, costStatus: 'partial' }),
             );
         });
     });

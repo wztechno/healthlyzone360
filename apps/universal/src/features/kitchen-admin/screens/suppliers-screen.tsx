@@ -31,7 +31,7 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { supplierRowTestId } from '../ops-format.ts';
@@ -128,6 +128,21 @@ function contactText(row: Supplier, t: TFunction): string {
     return `${contact.name} · ${contact.phone ?? t('kitchen:ops.suppliers.noContactPhone')}`;
 }
 
+/** What the Contact column orders by: the named person, else the general line, else nothing. */
+function contactSortKey(row: Supplier): string | null {
+    return row.primaryContact?.name ?? row.contactPhone ?? row.contactEmail;
+}
+
+/** Lead times in `direction`, an unrecorded one last both ways. */
+function compareLeadTime(
+    left: number | null,
+    right: number | null,
+    direction: SortDirection,
+): number {
+    if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
+    return compareNumber(left, right, direction);
+}
+
 /** "net 30 · 2 days lead time" — the two facts, or the words for none. */
 function termsText(row: Supplier, t: TFunction): string {
     return `${row.paymentTerms ?? t('kitchen:ops.suppliers.noTerms')} · ${
@@ -220,6 +235,10 @@ function SuppliersList() {
             width: 230,
             priority: 88,
             value: (row) => contactText(row, t),
+            // By who the cell names first — the person, else the office line. A supplier with
+            // neither sorts last both ways rather than at the top of an ascending list.
+            sort: (left, right, direction) =>
+                compareText(contactSortKey(left), contactSortKey(right), direction),
             render: (row) => <ContactCell row={row} />,
         },
         {
@@ -228,6 +247,10 @@ function SuppliersList() {
             width: 190,
             priority: 60,
             value: (row) => termsText(row, t),
+            // The cell's own order: payment terms, then lead time. Either one unset sorts last.
+            sort: (left, right, direction) =>
+                compareText(left.paymentTerms, right.paymentTerms, direction) ||
+                compareLeadTime(left.leadTimeDays, right.leadTimeDays, direction),
             render: (row) => (
                 <Text
                     tone="secondary"
@@ -282,7 +305,7 @@ function SuppliersList() {
 
     const controls = useColumnControls(searched, columns, 'kitchen-suppliers');
     const failure = toFailure(suppliers.error);
-    const unfiltered = trimmed === '' && segment === 'active';
+    const unfiltered = trimmed === '' && segment === 'active' && !controls.filtered;
 
     const segments: readonly CatalogueStatusSegment<ArchiveSegment>[] = [
         { value: 'active', label: t('kitchen:ops.suppliers.segmentActive') },
@@ -355,6 +378,7 @@ function SuppliersList() {
                     cards={statCards(controls.rows, unfiltered, t, () => {
                         setQuery('');
                         setSegment('active');
+                        controls.clearFilters();
                     })}
                 />
             )}

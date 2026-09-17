@@ -13,8 +13,9 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
+import { SupplierId } from '@healthy360/domain-types';
 import type { GoodsReceiptId } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +26,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     useCompleteReceiptPricesMutation,
     useGoodsReceiptQuery,
+    useSuppliersQuery,
     useUnpricedReceiptsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -37,6 +39,7 @@ import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx'
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
+import { displayName } from '../format.ts';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { readAmount } from '../receive-delivery-model.ts';
 
@@ -71,6 +74,13 @@ import { readAmount } from '../receive-delivery-model.ts';
  * line waiting on an exchange rate is shown with the reason it cannot be finished here. Behind
  * `inventory.view_costs_organisation` (§5): the receiver enters prices at the door, the cost holder
  * goes back over the money afterwards.
+ *
+ * ## Which headers act, and why the rest do not
+ *
+ * The queue is a keyset page, so a header control is only honest where the request carries it.
+ * Supplier does — `UnpricedReceiptFilter.supplierId` — and filters through it. References, To price
+ * and State are plain labels: the filter has no sort parameter and no cost-status parameter, and
+ * ordering or narrowing the page in hand would misreport every receipt past it.
  */
 export function UnpricedReceiptsScreen() {
     return (
@@ -90,15 +100,27 @@ const RECEIPT_CURRENCY = 'USD';
 const STATE_SEGMENTS: readonly ReceiptCostStatus[] = ['unpriced', 'partial'];
 type StateSegmentValue = ReceiptCostStatus | 'all';
 
+/** The whole supplier book, archived included — a receipt outlives the supplier it came from. */
+const SUPPLIER_BOOK = { includeArchived: true } as const;
+
 function UnpricedReceipts() {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const { locale } = useLocale();
     const toast = useToast();
 
-    const queue = useUnpricedReceiptsQuery();
     const [openReceiptId, setOpenReceiptId] = useState<GoodsReceiptId | null>(null);
     const [query, setQuery] = useState('');
     const [state, setState] = useState<StateSegmentValue>('all');
+    /** The Supplier header's choice, sent with the request — `UnpricedReceiptFilter.supplierId`. */
+    const [supplier, setSupplier] = useState<string | null>(null);
+
+    const queueFilter = useMemo(
+        () => (supplier === null ? {} : { supplierId: SupplierId.unsafe(supplier) }),
+        [supplier],
+    );
+    const queue = useUnpricedReceiptsQuery(queueFilter);
+    const supplierBook = useSuppliersQuery(SUPPLIER_BOOK);
     const [prices, setPrices] = useState<Readonly<Record<string, string>>>({});
 
     const receipt = useGoodsReceiptQuery(openReceiptId);
@@ -216,6 +238,27 @@ function UnpricedReceipts() {
                 width: 200,
                 priority: 90,
                 value: (row) => row.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier'),
+                // Sent with the request: the queue is a keyset page, and matching the rows in hand
+                // would hide that supplier's receipts past it. The values are the supplier book,
+                // plus any supplier a receipt names that the book did not answer.
+                filter: {
+                    values: (loaded) => {
+                        const seen = new Map<string, string>();
+                        for (const entry of supplierBook.data ?? []) {
+                            seen.set(String(entry.id), displayName(entry.name, locale).value);
+                        }
+                        for (const row of loaded) {
+                            if (row.supplier !== null && !seen.has(String(row.supplier.id))) {
+                                seen.set(String(row.supplier.id), row.supplier.nameEn);
+                            }
+                        }
+                        return [...seen].map(([key, label]) => ({ key, label }));
+                    },
+                    external: {
+                        value: supplier,
+                        onChange: setSupplier,
+                    },
+                },
                 render: (row) => (
                     <Text tone="secondary" numberOfLines={1}>
                         {row.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier')}
@@ -288,7 +331,7 @@ function UnpricedReceipts() {
 
     const controls = useColumnControls(filtered, columns, 'kitchen-unpriced-receipts');
     const failure = toFailure(queue.error);
-    const unfiltered = trimmed === '' && state === 'all';
+    const unfiltered = trimmed === '' && state === 'all' && supplier === null;
 
     const segments: readonly CatalogueStatusSegment<StateSegmentValue>[] = [
         { value: 'all', label: t('kitchen:toolbar.statusAll') },
@@ -347,6 +390,23 @@ function UnpricedReceipts() {
                         unfiltered
                             ? t('kitchen:ops.unpricedReceipts.emptyBody')
                             : t('kitchen:ops.procurement.filteredEmptyBody')
+                    }
+                    // The table — and the Supplier header that narrowed it — is gone in this state,
+                    // so the way back has to be here.
+                    actions={
+                        unfiltered ? undefined : (
+                            <Button
+                                testID="kitchen-unpriced-clear"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:toolbar.clearFilters')}
+                                onPress={() => {
+                                    setQuery('');
+                                    setState('all');
+                                    setSupplier(null);
+                                }}
+                            />
+                        )
                     }
                 />
             ) : (

@@ -15,6 +15,7 @@ import {
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
+import { SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -27,6 +28,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     useOrderProposalQuery,
     usePurchaseOrdersQuery,
+    useSuppliersQuery,
     useSupplyNeedsCountQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
@@ -42,7 +44,7 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import {
@@ -79,13 +81,19 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
  * segments fold *partly received* into Issued; the filter takes one status, so each of the five is
  * its own segment rather than an "Issued" that quietly hides the half-delivered orders.
  *
+ * The Status and Supplier headers filter through the same request — `PurchaseOrderFilter` carries a
+ * status and a `supplierId` — so either narrows the whole book, not the page in hand. Order, Made on
+ * and Items sort the loaded page only: the filter has no sort parameter, and the keyset answers
+ * newest first.
+ *
  * The design's "Their reference" column is omitted: an order carries no supplier reference.
  *
  * ## The preview is a preview, not the builder
  *
  * Eight rows of the proposal and a count of the rest, under the book — enough to tell *four things*
  * from *forty*. No quantity boxes and no supplier pickers: a half-usable builder here would be a
- * second place to do the same job. An empty queue is good news and is dressed as one, with a way in
+ * second place to do the same job. It opens in the server's order; Item and Reorder at sort and On
+ * hand filters by its badge, over the whole proposal before it is cut to eight. An empty queue is good news and is dressed as one, with a way in
  * that stays so a manager can order ahead of a busy weekend.
  *
  * ## The batch that was just created gets a standing notice, not a toast action (SUP7)
@@ -100,6 +108,9 @@ const PREVIEW_ROWS = 8;
 
 const EM_DASH = '—';
 
+/** A stable empty queue, so the preview's controls are not handed a fresh array per render. */
+const NO_PROPOSAL_ITEMS: readonly OrderProposalItem[] = [];
+
 type StatusSegmentValue = PurchaseOrderStatus | 'all';
 
 const SEGMENT_STATUSES: readonly PurchaseOrderStatus[] = [
@@ -109,6 +120,30 @@ const SEGMENT_STATUSES: readonly PurchaseOrderStatus[] = [
     'received',
     'cancelled',
 ];
+
+/**
+ * The whole supplier book, archived included, for the Supplier column's values: an order raised
+ * against a supplier the kitchen has since retired is still in the book and still findable.
+ */
+const SUPPLIER_BOOK = { includeArchived: true } as const;
+
+/** The two shortage states the On hand badge draws, in its own precedence — Out wins. */
+type ShortageState = 'out' | 'low';
+
+function shortageState(row: OrderProposalItem): ShortageState | null {
+    if (row.isOutOfStock) return 'out';
+    return row.isLow ? 'low' : null;
+}
+
+/** Decimal strings in `direction`, an unset figure last both ways. */
+function compareDecimal(
+    left: string | null,
+    right: string | null,
+    direction: SortDirection,
+): number {
+    if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
+    return compareNumber(Number(left), Number(right), direction);
+}
 
 export interface SupplyOrdersScreenProps {
     /**
@@ -149,6 +184,8 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
 
     const [query, setQuery] = useState('');
     const [status, setStatus] = useState<StatusSegmentValue>('all');
+    /** The Supplier header's choice. Sent with the request — `PurchaseOrderFilter.supplierId`. */
+    const [supplier, setSupplier] = useState<string | null>(null);
     const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
 
     const needs = useSupplyNeedsCountQuery(branchId);
@@ -158,8 +195,15 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
      * meaning. Held back until a branch is resolved only because the body is replaced by the
      * choose-a-branch state without one.
      */
-    const bookFilter = useMemo(() => (status === 'all' ? {} : { status }), [status]);
+    const bookFilter = useMemo(
+        () => ({
+            ...(status === 'all' ? {} : { status }),
+            ...(supplier === null ? {} : { supplierId: SupplierId.unsafe(supplier) }),
+        }),
+        [status, supplier],
+    );
     const orders = usePurchaseOrdersQuery(bookFilter, branchId !== null);
+    const supplierBook = useSuppliersQuery(SUPPLIER_BOOK, branchId !== null);
 
     const trimmed = query.trim().toLocaleLowerCase(locale);
     const searched = useMemo(() => {
@@ -172,9 +216,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
         );
     }, [orders.data, trimmed, locale]);
 
-    const shortage = proposal.data?.items ?? [];
-    const preview = shortage.slice(0, PREVIEW_ROWS);
-    const remaining = Math.max(shortage.length - preview.length, 0);
+    const shortage = proposal.data?.items ?? NO_PROPOSAL_ITEMS;
     const shortageFailure = toFailure(needs.error ?? proposal.error);
     const shortagePending = needs.isPending || proposal.isPending;
     const queueEmpty = !shortagePending && shortageFailure === null && shortage.length === 0;
@@ -226,18 +268,30 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                 width: 210,
                 priority: 90,
                 value: (row) => supplierName(row, locale),
+                // Sent with the request rather than matched against the page: the book is a keyset
+                // page, and narrowing the rows in hand would hide every order past it. The values
+                // are the supplier book, so a supplier with no order on this page is still offered,
+                // plus any supplier an order names that the book did not answer.
                 filter: {
                     values: (rows) => {
                         const seen = new Map<string, string>();
+                        for (const entry of supplierBook.data ?? []) {
+                            seen.set(String(entry.id), displayName(entry.name, locale).value);
+                        }
                         for (const row of rows) {
-                            if (row.supplier !== null) {
+                            if (row.supplier !== null && !seen.has(String(row.supplier.id))) {
                                 seen.set(String(row.supplier.id), supplierName(row, locale));
                             }
                         }
                         return [...seen].map(([key, label]) => ({ key, label }));
                     },
-                    match: (row, value) =>
-                        row.supplier !== null && String(row.supplier.id) === value,
+                    external: {
+                        value: supplier,
+                        onChange: (next) => {
+                            setSupplier(next);
+                            setViewing(null);
+                        },
+                    },
                 },
                 render: (row) => (
                     <Text
@@ -290,6 +344,22 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                 width: 140,
                 priority: 88,
                 value: (row) => t(purchaseOrderStatusKey(row.status)),
+                // The segments' own state, so the header and the toolbar can never disagree — and
+                // a server filter, because `PurchaseOrderFilter` takes one status.
+                filter: {
+                    values: () =>
+                        SEGMENT_STATUSES.map((value) => ({
+                            key: value,
+                            label: t(purchaseOrderStatusKey(value)),
+                        })),
+                    external: {
+                        value: status === 'all' ? null : status,
+                        onChange: (next) => {
+                            setStatus(SEGMENT_STATUSES.find((value) => value === next) ?? 'all');
+                            setViewing(null);
+                        },
+                    },
+                },
                 render: (row) => (
                     <Badge
                         testID={`${purchaseOrderRowTestId(String(row.id))}-status`}
@@ -300,7 +370,10 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             },
         ];
 
-    const previewColumns: readonly CatalogueColumn<OrderProposalItem>[] = [
+    const previewColumns: readonly ControlledColumn<
+        OrderProposalItem,
+        CatalogueColumn<OrderProposalItem>
+    >[] = [
         {
             key: 'item',
             role: 'title',
@@ -308,6 +381,9 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             width: 260,
             priority: 100,
             value: (row) => row.itemNameEn,
+            sort: (left, right, direction) =>
+                compareText(left.itemNameEn, right.itemNameEn, direction) ||
+                compareText(left.itemCode, right.itemCode, direction),
             render: (row) => {
                 const testID = supplyOrderRowTestId(String(row.stockItemId));
                 return (
@@ -329,6 +405,25 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             width: 180,
             priority: 90,
             value: (row) => `${formatter.formatNumber(Number(row.quantityOnHand))} ${row.unitCode}`,
+            // Filters by the badge rather than sorting the figure: the quantities are in each
+            // shelf's own unit, so 2 kg against 40 pieces orders nothing a reader could use. The
+            // states offered are the ones the queue holds.
+            filter: {
+                values: (rows) => {
+                    const present = new Set(rows.map(shortageState));
+                    return (['out', 'low'] as const)
+                        .filter((state) => present.has(state))
+                        .map((state) => ({
+                            key: state,
+                            label: t(
+                                state === 'out'
+                                    ? 'kitchen:ops.supplyOrders.outBadge'
+                                    : 'kitchen:ops.supplyOrders.lowBadge',
+                            ),
+                        }));
+                },
+                match: (row, value) => shortageState(row) === value,
+            },
             render: (row) => {
                 const testID = supplyOrderRowTestId(String(row.stockItemId));
                 return (
@@ -364,6 +459,8 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                 row.reorderThreshold === null
                     ? EM_DASH
                     : formatter.formatNumber(Number(row.reorderThreshold)),
+            sort: (left, right, direction) =>
+                compareDecimal(left.reorderThreshold, right.reorderThreshold, direction),
             render: (row) => (
                 <Text
                     variant="mono"
@@ -379,7 +476,17 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
     ];
 
     const controls = useColumnControls(searched, orderColumns, 'kitchen-supply-orders');
-    const unfiltered = trimmed === '' && status === 'all';
+    const unfiltered = trimmed === '' && status === 'all' && supplier === null;
+
+    // Over the whole proposal, then cut to the preview — so a sort or a filter chooses which eight
+    // are shown and "and N more" counts what it left out, rather than reordering the first eight.
+    const previewControls = useColumnControls(
+        shortage,
+        previewColumns,
+        'kitchen-supply-orders-preview',
+    );
+    const preview = previewControls.rows.slice(0, PREVIEW_ROWS);
+    const remaining = Math.max(previewControls.rows.length - preview.length, 0);
 
     const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
         { value: 'all', label: t('kitchen:toolbar.statusAll') },
@@ -528,6 +635,24 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                             ? t('kitchen:ops.supplyOrders.ordersEmptyBody')
                             : t('kitchen:ops.supplyOrders.ordersFilteredEmptyBody')
                     }
+                    // The table — and the headers that narrowed it — is gone in this state, so the
+                    // way back has to be here.
+                    actions={
+                        unfiltered ? undefined : (
+                            <Button
+                                testID="kitchen-supply-orders-book-clear"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:toolbar.clearFilters')}
+                                onPress={() => {
+                                    setQuery('');
+                                    setStatus('all');
+                                    setSupplier(null);
+                                    setViewing(null);
+                                }}
+                            />
+                        )
+                    }
                 />
             ) : (
                 <Stack space="sm">
@@ -618,7 +743,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                         <CatalogueList<OrderProposalItem>
                             testID="kitchen-supply-orders-preview"
                             label={t('kitchen:ops.supplyOrders.previewCaption')}
-                            columns={previewColumns}
+                            columns={previewControls.columns}
                             rows={preview}
                             rowKey={(row) => String(row.stockItemId)}
                             density="sm"

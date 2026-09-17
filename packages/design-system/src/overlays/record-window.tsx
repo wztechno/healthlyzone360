@@ -254,6 +254,11 @@ const FIELD_TRACK = 280;
  * Two 280px tracks that do not stretch: the design's `repeat(2, minmax(0, 280px)); justify-content:
  * start`. A wrapping row of fixed cells is that grid in flexbox — a narrow window drops to one column
  * rather than squeezing two.
+ *
+ * The label outranks the value: `strong` (13px, 600, primary ink) over a 12px value, so a reader
+ * scanning the record finds "Name" first and "Tomato" under it. It used to be the other way round —
+ * a 10px secondary label under a larger value — which made a page of pairs read as a column of
+ * loose values with captions nobody could find.
  */
 export function RecordWindowFieldGrid({
     fields,
@@ -271,7 +276,10 @@ export function RecordWindowFieldGrid({
                     className="min-w-0 flex-col gap-0.5"
                     style={{ width: FIELD_TRACK, maxWidth: '100%' }}
                 >
-                    <Text variant="micro" tone="secondary">
+                    <Text
+                        variant="strong"
+                        testID={testID === undefined ? undefined : `${testID}-${field.key}-label`}
+                    >
                         {field.label}
                     </Text>
                     <Text

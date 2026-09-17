@@ -18,8 +18,8 @@ import { displayName } from '../format.ts';
  *
  * This collection is different in the one way that matters: `listAllergenClasses()` takes no filter
  * and returns **all fourteen**, always. There is no second page for a client-side narrowing to be
- * wrong about, so search, sort and the status filter run here — and `shown of total` is a true
- * statement rather than a page-local one.
+ * wrong about, so search, sort, the status filter and the Markets header's filter run here — and
+ * `shown of total` is a true statement rather than a page-local one.
  *
  * If the platform ever pages this resource, the filters move to the request and this note is the
  * reason they have to.
@@ -30,6 +30,12 @@ export type AllergenSortDirection = 'asc' | 'desc';
 
 /** `all` is every class; the other two are the `isActive` split. */
 export type AllergenStatusFilter = 'all' | 'active' | 'withdrawn';
+
+/**
+ * The Markets header's value for a class no market in the list requires. Market codes are the
+ * platform's upper-case regime codes (`EU`, `GCC`), so a lower-case word cannot collide with one.
+ */
+export const NO_MARKET = 'none';
 
 export interface AllergenListState {
     readonly rows: readonly AllergenClass[];
@@ -42,6 +48,13 @@ export interface AllergenListState {
     readonly setQuery: (query: string) => void;
     readonly status: AllergenStatusFilter;
     readonly setStatus: (status: AllergenStatusFilter) => void;
+    /** A market code, {@link NO_MARKET}, or `null` for every market — the Markets header's cut. */
+    readonly market: string | null;
+    readonly setMarket: (market: string | null) => void;
+    /** Every market code any class names, sorted — what the Markets header offers. */
+    readonly markets: readonly string[];
+    /** Whether any class names no market at all, so {@link NO_MARKET} is worth offering. */
+    readonly hasUnmarketed: boolean;
     /** True when nothing is narrowing the list — what the Shown card's caption reads from. */
     readonly isUnfiltered: boolean;
     readonly clearFilters: () => void;
@@ -68,6 +81,7 @@ export function useAllergenList(): AllergenListState {
 
     const [query, setQuery] = useState('');
     const [status, setStatus] = useState<AllergenStatusFilter>('all');
+    const [market, setMarket] = useState<string | null>(null);
     // Code ascending, the call every Catalogue list now makes about its identifier column: it is
     // the one order that does not change with the reader's language.
     const [sortKey, setSortKey] = useState<AllergenSortKey>('code');
@@ -82,6 +96,10 @@ export function useAllergenList(): AllergenListState {
         const narrowed = all.filter((entry) => {
             if (status === 'active' && !entry.isActive) return false;
             if (status === 'withdrawn' && entry.isActive) return false;
+            if (market === NO_MARKET && entry.markets.length > 0) return false;
+            if (market !== null && market !== NO_MARKET && !entry.markets.includes(market)) {
+                return false;
+            }
             if (needle === '') return true;
             // The code and the regulation are searched alongside the name, because those are what a
             // reader has in front of them: a label cites `EU 1169/2011`, and an ingredient's own
@@ -119,7 +137,12 @@ export function useAllergenList(): AllergenListState {
             }
             return factor * String(left.code).localeCompare(String(right.code));
         });
-    }, [all, query, status, sortKey, sortDirection, locale]);
+    }, [all, query, status, market, sortKey, sortDirection, locale]);
+
+    const markets = useMemo(
+        () => [...new Set(all.flatMap((entry) => entry.markets))].sort(),
+        [all],
+    );
 
     return {
         rows,
@@ -134,10 +157,15 @@ export function useAllergenList(): AllergenListState {
         setQuery,
         status,
         setStatus,
-        isUnfiltered: query.trim() === '' && status === 'all',
+        market,
+        setMarket,
+        markets,
+        hasUnmarketed: all.some((entry) => entry.markets.length === 0),
+        isUnfiltered: query.trim() === '' && status === 'all' && market === null,
         clearFilters: () => {
             setQuery('');
             setStatus('all');
+            setMarket(null);
         },
 
         sortKey,

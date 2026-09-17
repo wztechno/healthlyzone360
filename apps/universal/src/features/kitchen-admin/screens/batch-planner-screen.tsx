@@ -19,7 +19,7 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
-import type { DataListColumn, SelectOption } from '@healthy360/design-system';
+import type { SelectOption } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -39,6 +39,12 @@ import type { BatchMode } from '../batch-scaling.ts';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, parseQuantity, statusShortKey, unitShortKey } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT, useBatchIngredients } from '../operations/batch-sheet.tsx';
@@ -436,14 +442,43 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         return ingredient === undefined ? dash : displayName(ingredient.name, locale).value;
     };
     const referenceOf = (id: RecipeLine['ingredientId']): string => found(id)?.reference ?? dash;
+    // Blank rather than the dash, so a line with no reference sorts last rather than among the Rs.
+    const sortReference = (id: RecipeLine['ingredientId']): string | null =>
+        found(id)?.reference ?? null;
+    const sortName = (id: RecipeLine['ingredientId']): string | null => {
+        const ingredient = found(id);
+        return ingredient === undefined ? null : displayName(ingredient.name, locale).value;
+    };
 
-    const lineColumns: readonly DataListColumn<RecipeLine>[] = [
+    /*
+     * Every header sorts or filters, in memory: both tables are the whole of one version's lines,
+     * not a page of them. Unit filters, because a sheet's units are a handful of codes; the rest
+     * sort. Before any header is pressed the rows keep the version's own order.
+     */
+    function unitFilter<Row extends { readonly unit: RecipeLine['unit'] }>(): ColumnFilter<Row> {
+        return {
+            values: (loaded) =>
+                [...new Set(loaded.map((row) => row.unit))].map((unit) => ({
+                    key: unit,
+                    label: t(unitShortKey(unit)),
+                })),
+            match: (row, value) => row.unit === value,
+        };
+    }
+
+    const lineColumns: readonly ControlledColumn<RecipeLine>[] = [
         {
             key: 'reference',
             label: t('kitchen:ops.batch.columnRef'),
             width: 96,
             priority: 70,
             mono: true,
+            sort: (left, right, direction) =>
+                compareText(
+                    sortReference(left.ingredientId),
+                    sortReference(right.ingredientId),
+                    direction,
+                ),
             render: (line) => (
                 <Text
                     variant="mono"
@@ -459,6 +494,8 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnDesignation'),
             width: 200,
             priority: 100,
+            sort: (left, right, direction) =>
+                compareText(sortName(left.ingredientId), sortName(right.ingredientId), direction),
             render: (line) => (
                 <Inline space="xs" align="center" wrap>
                     <Text variant="bodyStrong" testID={`${rowId(line.ingredientId)}-name`}>
@@ -481,6 +518,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             width: 64,
             priority: 60,
             align: 'center',
+            filter: unitFilter<RecipeLine>(),
             value: (line) => t(unitShortKey(line.unit)),
         },
         {
@@ -490,6 +528,8 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             priority: 50,
             align: 'end',
             mono: true,
+            sort: (left, right, direction) =>
+                compareNumber(left.quantity, right.quantity, direction),
             render: (line) => (
                 <Text variant="mono" tone="secondary" testID={`${rowId(line.ingredientId)}-base`}>
                     {number(line.quantity)}
@@ -503,6 +543,12 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             priority: 90,
             align: 'end',
             mono: true,
+            sort: (left, right, direction) =>
+                compareNumber(
+                    scaleLine(left.quantity, factor),
+                    scaleLine(right.quantity, factor),
+                    direction,
+                ),
             render: (line) => (
                 <Text variant="mono" testID={`${rowId(line.ingredientId)}-quantity`}>
                     {number(scaleLine(line.quantity, factor))}
@@ -511,13 +557,19 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
     ];
 
-    const packagingColumns: readonly DataListColumn<RecipePackagingLine>[] = [
+    const packagingColumns: readonly ControlledColumn<RecipePackagingLine>[] = [
         {
             key: 'reference',
             label: t('kitchen:ops.batch.columnRef'),
             width: 96,
             priority: 70,
             mono: true,
+            sort: (left, right, direction) =>
+                compareText(
+                    sortReference(left.ingredientId),
+                    sortReference(right.ingredientId),
+                    direction,
+                ),
             value: (row) => referenceOf(row.ingredientId),
         },
         {
@@ -525,6 +577,8 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             label: t('kitchen:ops.batch.columnDesignation'),
             width: 200,
             priority: 100,
+            sort: (left, right, direction) =>
+                compareText(sortName(left.ingredientId), sortName(right.ingredientId), direction),
             render: (row) => (
                 <Text variant="bodyStrong" testID={`${rowId(row.ingredientId)}-name`}>
                     {nameOf(row.ingredientId)}
@@ -537,6 +591,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             width: 64,
             priority: 60,
             align: 'center',
+            filter: unitFilter<RecipePackagingLine>(),
             value: (row) => t(unitShortKey(row.unit)),
         },
         {
@@ -546,6 +601,8 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             priority: 50,
             align: 'end',
             mono: true,
+            sort: (left, right, direction) =>
+                compareNumber(left.quantity, right.quantity, direction),
             value: (row) => number(row.quantity),
         },
         {
@@ -555,6 +612,13 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             priority: 90,
             align: 'end',
             mono: true,
+            // By what is issued, the rounded-up count: the figure the cell leads with.
+            sort: (left, right, direction) =>
+                compareNumber(
+                    scalePackaging(left.quantity, factor, left.unit),
+                    scalePackaging(right.quantity, factor, right.unit),
+                    direction,
+                ),
             render: (row) => {
                 const applied = scalePackaging(row.quantity, factor, row.unit);
                 const exact = scaleLine(row.quantity, factor);
@@ -578,6 +642,13 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
     ];
 
+    const lineControls = useColumnControls(version.lines, lineColumns, 'kitchen-batch-ingredients');
+    const packagingControls = useColumnControls(
+        version.packaging,
+        packagingColumns,
+        'kitchen-batch-packaging',
+    );
+
     return (
         <Stack space="md">
             <FormSection
@@ -597,8 +668,8 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                 <DataList<RecipeLine>
                     testID="kitchen-batch-ingredients"
                     label={t('kitchen:ops.batch.rawMaterialsHeading')}
-                    columns={lineColumns}
-                    rows={version.lines}
+                    columns={lineControls.columns}
+                    rows={lineControls.rows}
                     rowKey={(line) => String(line.ingredientId)}
                     density="sm"
                 />
@@ -626,8 +697,8 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                         <DataList<RecipePackagingLine>
                             testID="kitchen-batch-packaging"
                             label={t('kitchen:ops.batch.packagingScaledHeading')}
-                            columns={packagingColumns}
-                            rows={version.packaging}
+                            columns={packagingControls.columns}
+                            rows={packagingControls.rows}
                             rowKey={(row) => String(row.ingredientId)}
                             density="sm"
                         />

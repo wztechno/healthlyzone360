@@ -33,7 +33,7 @@ import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx'
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { AllergenListState, AllergenStatusFilter } from '../catalogue/use-allergen-list.ts';
-import { useAllergenList } from '../catalogue/use-allergen-list.ts';
+import { NO_MARKET, useAllergenList } from '../catalogue/use-allergen-list.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 
@@ -119,7 +119,7 @@ function AllergenClasses() {
 
     const controls = useColumnControls<AllergenClass, CatalogueColumn<AllergenClass>>(
         list.rows,
-        columns.map((column) => ({ ...column, ...columnControl(column.key) })),
+        columns.map((column) => ({ ...column, ...columnControl(column.key, list, t) })),
         'kitchen-allergen-classes',
         {
             sort: {
@@ -384,11 +384,33 @@ function viewFields(
 /**
  * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Sort only. The one cut this list makes, Active / Withdrawn, is on the toolbar where a reader
- * meets it first; a Status menu offering the same two would be that control drawn twice. Markets
- * would be a real second cut, and is not offered: the request carries no market parameter.
+ * Every column but Markets sorts. Status sorts rather than filters: the one lifecycle cut, Active /
+ * Withdrawn, is on the toolbar where a reader meets it first, and a Status menu offering the same
+ * two would be that control drawn twice.
+ *
+ * Markets filters — a class belongs to several markets, so there is no order to put them in, and
+ * "what does the GCC require" is the question the column is asked. The request carries no market
+ * parameter, and does not need one: the resource is all fourteen classes, unpaged, so the list hook
+ * narrows the whole answer rather than a page of it, and Shown stays a true count.
  */
-function columnControl(key: string): ColumnControl<AllergenClass> {
+function columnControl(
+    key: string,
+    list: AllergenListState,
+    t: TFunction,
+): ColumnControl<AllergenClass> {
+    if (key === 'markets') {
+        return {
+            filter: {
+                values: () => [
+                    ...list.markets.map((market) => ({ key: market, label: market })),
+                    ...(list.hasUnmarketed
+                        ? [{ key: NO_MARKET, label: t('kitchen:classes.noMarkets') }]
+                        : []),
+                ],
+                external: { value: list.market, onChange: list.setMarket },
+            },
+        };
+    }
     return isAllergenClassSortKey(key) ? { sort: 'external' } : {};
 }
 

@@ -899,6 +899,58 @@ describe('the meal list', () => {
             ),
         ).toBe(true);
     });
+
+    it('puts a sort or a filter on every column header, and Channels sorts', async () => {
+        const one = meal({ ordinal: 1, name: 'Alpha bowl' });
+        const two = meal({
+            ordinal: 2,
+            name: 'Beta wrap',
+            overrides: {
+                channelAvailability: [channel('b2c', true), channel('marketplace', true)],
+            },
+        });
+        const none = meal({
+            ordinal: 3,
+            name: 'Gamma salad',
+            overrides: { channelAvailability: [] },
+        });
+
+        await renderStubScreen(<MealsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listMeals: mealListing(() => [one, two, none]),
+                    listAllergenClasses: async () => MEAL_ALLERGEN_CLASSES,
+                },
+            },
+        });
+        await untilVisible('kitchen-meals-table');
+
+        for (const key of ['name', 'channels', 'mealTypes', 'category', 'allergens', 'status']) {
+            expect(screen.getByTestId(`kitchen-meals-column-${key}-trigger`)).toBeTruthy();
+        }
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-meal-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        // `MealAdminFilter` has no channel parameter, so the header orders by how many channels
+        // sell the meal rather than narrowing one page.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-column-channels-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Gamma salad', 'Alpha bowl', 'Beta wrap']);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-column-channels-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Beta wrap', 'Alpha bowl', 'Gamma salad']);
+        });
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------

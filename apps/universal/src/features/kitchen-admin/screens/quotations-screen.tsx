@@ -1,3 +1,4 @@
+import { KITCHEN_QUOTATION_STATUSES } from '@healthy360/api-client/contracts';
 import type {
     KitchenQuotation,
     KitchenQuotationLine,
@@ -92,6 +93,9 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
  *
  * `GET /b2b/kitchen/quotations` takes no parameters and no cursor, so the segments and the search
  * narrow rows already held, and there is no pager — there is no next page (§6.5).
+ *
+ * The same is what makes every header honest in memory: Reference and Submitted sort, Currency and
+ * Status filter, and all four act on the whole queue because the whole queue is what was answered.
  */
 
 const NO_QUOTATIONS: readonly KitchenQuotation[] = [];
@@ -170,6 +174,16 @@ function Quotations() {
             width: 90,
             priority: 70,
             value: (row) => row.currencyCode,
+            // The currencies the queue actually carries: a code is its own label, and offering
+            // one no quotation is in would be a choice that can only ever empty the list.
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.currencyCode))].map((code) => ({
+                        key: code,
+                        label: code,
+                    })),
+                match: (row, value) => row.currencyCode === value,
+            },
             render: (row) => (
                 <Text
                     variant="mono"
@@ -205,6 +219,16 @@ function Quotations() {
             width: 120,
             priority: 85,
             value: (row) => t(kitchenQuotationStatusKey(row.status)),
+            // One status at a time, all five — the segments fold three of them into Closed, and
+            // this is where "only the declined ones" is asked.
+            filter: {
+                values: () =>
+                    KITCHEN_QUOTATION_STATUSES.map((status) => ({
+                        key: status,
+                        label: t(kitchenQuotationStatusKey(status)),
+                    })),
+                match: (row, value) => row.status === value,
+            },
             render: (row) => (
                 <Badge
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-status`}
@@ -217,6 +241,14 @@ function Quotations() {
 
     const controls = useColumnControls(rows, columns, 'kitchen-quotations');
     const listFailure = toFailure(quotations.error);
+    // The segment, the search and the header filters all narrow the same held rows, so "unfiltered"
+    // and Clear have to answer for all three.
+    const unfiltered = filter === 'all' && search === '' && !controls.filtered;
+    const clearFilters = () => {
+        setFilter('all');
+        setSearch('');
+        controls.clearFilters();
+    };
 
     if (openId !== null) {
         return (
@@ -277,10 +309,7 @@ function Quotations() {
                             caption: t('kitchen:ops.quotations.statLoadedCaption'),
                             mark: 'calendar',
                             tone: 'brand',
-                            onPress: () => {
-                                setFilter('all');
-                                setSearch('');
-                            },
+                            onPress: clearFilters,
                             accessibilityLabel: t('kitchen:ops.quotations.clearFilter'),
                         },
                         {
@@ -349,26 +378,23 @@ function Quotations() {
                 <EmptyState
                     testID="kitchen-quotations-empty"
                     title={t(
-                        filter === 'all' && search === ''
+                        unfiltered
                             ? 'kitchen:ops.quotations.emptyTitle'
                             : 'kitchen:ops.quotations.filteredEmptyTitle',
                     )}
                     body={t(
-                        filter === 'all' && search === ''
+                        unfiltered
                             ? 'kitchen:ops.quotations.emptyBody'
                             : 'kitchen:ops.quotations.filteredEmptyBody',
                     )}
                     actions={
-                        filter === 'all' && search === '' ? undefined : (
+                        unfiltered ? undefined : (
                             <Button
                                 testID="kitchen-quotations-clear"
                                 variant="secondary"
                                 size="sm"
                                 label={t('kitchen:ops.quotations.clearFilter')}
-                                onPress={() => {
-                                    setFilter('all');
-                                    setSearch('');
-                                }}
+                                onPress={clearFilters}
                             />
                         )
                     }
@@ -462,6 +488,8 @@ function QuotationPricing({
             quote.reset();
         },
     });
+    // The detail read carries every line, so sorting them here is the whole answer.
+    const lineControls = useColumnControls(lines, lineColumns, 'kitchen-quotations-detail-lines');
 
     // While editing, the total follows what is typed; otherwise it is the record's own sum.
     const total = editable
@@ -608,8 +636,8 @@ function QuotationPricing({
                             <DataList<KitchenQuotationLine>
                                 testID="kitchen-quotations-detail-lines"
                                 label={t('kitchen:ops.quotations.linesHeading')}
-                                columns={lineColumns}
-                                rows={lines}
+                                columns={lineControls.columns}
+                                rows={lineControls.rows}
                                 rowKey={(line) => line.id}
                             />
                         )}

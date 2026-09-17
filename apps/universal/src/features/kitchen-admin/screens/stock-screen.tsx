@@ -46,7 +46,7 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
@@ -139,6 +139,19 @@ const STATE_LABEL: Readonly<Record<LevelState, string>> = {
     ok: 'kitchen:ops.stock.inStockBadge',
 };
 
+/** The Status column's filter values, in the order the badge escalates. */
+const LEVEL_STATES: readonly LevelState[] = ['ok', 'low', 'out'];
+
+/** Decimal strings in `direction`, an unset figure last both ways. */
+function compareDecimal(
+    left: string | null,
+    right: string | null,
+    direction: SortDirection,
+): number {
+    if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
+    return compareNumber(Number(left), Number(right), direction);
+}
+
 function Stock() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -152,7 +165,14 @@ function Stock() {
     const [query, setQuery] = useState('');
     const [kind, setKind] = useState<Kind>('ingredients');
     const [segment, setSegment] = useState<LevelSegment>('all');
-    const [page, setPage] = useState(1);
+    /**
+     * The page, remembered against the header filters it was chosen under — so narrowing a column
+     * lands on page one without an effect. `null` is "page one, whatever the filters".
+     */
+    const [paging, setPaging] = useState<{ readonly key: object | null; readonly page: number }>({
+        key: null,
+        page: 1,
+    });
     const [viewing, setViewing] = useState<StockRow | null>(null);
     const [editing, setEditing] = useState<StockRow | null>(null);
 
@@ -196,7 +216,7 @@ function Stock() {
     );
 
     const resetPage = () => {
-        setPage(1);
+        setPaging({ key: null, page: 1 });
         setViewing(null);
     };
 
@@ -273,6 +293,16 @@ function Stock() {
             width: 80,
             priority: 60,
             value: (row) => row.item.unitCode,
+            // The units this book actually counts in. A code is its own label — it is what the
+            // cell prints.
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((row) => row.item.unitCode))].map((code) => ({
+                        key: code,
+                        label: code,
+                    })),
+                match: (row, value) => row.item.unitCode === value,
+            },
             render: (row) => <Text tone="secondary">{row.item.unitCode}</Text>,
         },
         {
@@ -281,6 +311,19 @@ function Stock() {
             width: 130,
             priority: 50,
             value: reorderText,
+            // By the threshold, the figure that raises the alarm; par breaks a tie. A shelf with no
+            // threshold sorts last both ways — it is unset, not zero.
+            sort: (left, right, direction) =>
+                compareDecimal(
+                    left.level?.reorderThreshold ?? null,
+                    right.level?.reorderThreshold ?? null,
+                    direction,
+                ) ||
+                compareDecimal(
+                    left.level?.parLevel ?? null,
+                    right.level?.parLevel ?? null,
+                    direction,
+                ),
             render: (row) => (
                 <Text
                     variant={(row.level?.reorderThreshold ?? null) === null ? 'body' : 'mono'}
@@ -297,6 +340,10 @@ function Stock() {
             width: 210,
             priority: 40,
             value: (row) => lastPurchaseText(row),
+            // No header control, deliberately. The purchase is read for the visible page only (the
+            // `414` above), so ordering or narrowing the book by it would act on 25 shelves and
+            // shuffle the other pages by what had not been read. It needs the latest purchase on
+            // the stock read itself, or a purchase read that is not keyed by a list of ids.
             render: (row) => renderLastPurchase(row),
         },
         {
@@ -306,6 +353,11 @@ function Stock() {
             width: 96,
             priority: 80,
             value: (row) => t(STATE_LABEL[row.state]),
+            filter: {
+                values: () =>
+                    LEVEL_STATES.map((state) => ({ key: state, label: t(STATE_LABEL[state]) })),
+                match: (row, value) => row.state === value,
+            },
             render: (row) => (
                 <Badge
                     testID={`${stockItemRowTestId(String(row.item.id))}-status`}
@@ -318,7 +370,7 @@ function Stock() {
 
     const controls = useColumnControls(filteredRows, columns, 'kitchen-stock');
     const totalPages = Math.max(1, Math.ceil(controls.rows.length / PAGE_SIZE));
-    const currentPage = Math.min(page, totalPages);
+    const currentPage = paging.key === controls.key ? Math.min(paging.page, totalPages) : 1;
     const from = (currentPage - 1) * PAGE_SIZE;
     const visible = controls.rows.slice(from, from + PAGE_SIZE);
 
@@ -700,7 +752,7 @@ function Stock() {
                         page={currentPage}
                         totalPages={totalPages}
                         onPageChange={(next) => {
-                            setPage(next);
+                            setPaging({ key: controls.key, page: next });
                             setViewing(null);
                         }}
                         label={t('kitchen:catalogue.pagerLabel')}

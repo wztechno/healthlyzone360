@@ -193,6 +193,10 @@ function AnalyticsDashboard() {
             label: t('kitchen:analytics.table.updated'),
             width: 110,
             priority: 20,
+            // Oldest first when ascending, as a timestamp sorts: the label is "5h ago", so the
+            // larger the hours, the earlier the change.
+            sort: (left, right, direction) =>
+                compareNumber(right.updatedHoursAgo, left.updatedHoursAgo, direction),
             render: (row) => (
                 <Text variant="caption" tone="secondary" numberOfLines={1}>
                     {row.updatedLabel}

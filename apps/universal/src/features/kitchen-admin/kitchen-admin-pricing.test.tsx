@@ -250,21 +250,25 @@ const UNPRICED_LIST: PriceListAdmin = {
 /**
  * The price-list listing, answering the filters the list screen actually sends.
  *
- * `query` and `statuses` are real server filters (`PriceListAdminFilter`), and the search box and
- * the status chips both depend on them behaving. Reading a getter rather than a captured array is
- * what lets a test move the world on mid-flight and assert the refetch.
+ * `query`, `statuses` and `channels` are real server filters (`PriceListAdminFilter`), and the
+ * search box, the status chips and the Channels header all depend on them behaving. Reading a
+ * getter rather than a captured array is what lets a test move the world on mid-flight and assert
+ * the refetch.
  */
 function priceListListing(
     read: () => readonly PriceListAdmin[],
 ): (filter?: PriceListAdminFilter) => Promise<CursorPage<PriceListAdmin>> {
     return async (filter) => {
         const statuses = filter?.statuses;
+        const channels = filter?.channels;
         const needle = filter?.query?.trim().toLocaleLowerCase() ?? '';
 
         return page(
             read().filter(
                 (row) =>
                     (statuses === undefined || statuses.includes(row.meta.status)) &&
+                    (channels === undefined ||
+                        row.channels.some((channel) => channels.includes(channel))) &&
                     (needle === '' ||
                         row.name.en.toLocaleLowerCase().includes(needle) ||
                         row.name.ar.includes(needle)),
@@ -608,6 +612,92 @@ describe('the price-list list', () => {
         expect(
             screen.queryByTestId(`kitchen-price-list-${String(CONFIRMED_LIST.id)}-agreement`),
         ).toBeNull();
+    });
+
+    it('puts a sort or a filter on every column header', async () => {
+        await renderStubScreen(<PriceListsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listPriceLists: priceListListing(() => [CONFIRMED_LIST, UNPRICED_LIST]),
+                },
+            },
+        });
+        await untilVisible('kitchen-price-lists-table');
+
+        for (const key of ['name', 'currency', 'channels', 'entries', 'status', 'updatedAt']) {
+            expect(screen.getByTestId(`kitchen-price-lists-column-${key}-trigger`)).toBeTruthy();
+        }
+    });
+
+    it('filters by channel from the Channels header, through the request', async () => {
+        const listPriceLists = jest.fn(priceListListing(() => [CONFIRMED_LIST, UNPRICED_LIST]));
+        await renderStubScreen(<PriceListsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listPriceLists } },
+        });
+        await untilVisible('kitchen-price-lists-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-price-lists-column-channels-trigger'));
+        });
+        // Every channel the platform declares, not only the three on the loaded page.
+        await untilVisible('kitchen-price-lists-column-channels-pos');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-price-lists-column-channels-b2b'));
+        });
+
+        await waitFor(() => {
+            // `some`: the earlier, unfiltered query key is still live and may refetch.
+            expect(
+                listPriceLists.mock.calls.some(
+                    ([sent]) => sent?.channels?.includes('b2b') === true,
+                ),
+            ).toBe(true);
+        });
+        // One wait for both: the refetch passes through a loading frame with no rows at all.
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByTestId(`kitchen-price-list-${String(UNPRICED_LIST.id)}-name`),
+                ).toBeTruthy();
+                expect(
+                    screen.queryByTestId(`kitchen-price-list-${String(CONFIRMED_LIST.id)}-name`),
+                ).toBeNull();
+            },
+            { timeout: 10_000 },
+        );
+    });
+
+    it('sorts by confirmed prices from the Entries header', async () => {
+        await renderStubScreen(<PriceListsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listPriceLists: priceListListing(() => [CONFIRMED_LIST, UNPRICED_LIST]),
+                },
+            },
+        });
+        await untilVisible('kitchen-price-lists-table');
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-price-list-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-price-lists-column-entries-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual([UNPRICED_LIST.name.en, CONFIRMED_LIST.name.en]);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-price-lists-column-entries-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual([CONFIRMED_LIST.name.en, UNPRICED_LIST.name.en]);
+        });
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {

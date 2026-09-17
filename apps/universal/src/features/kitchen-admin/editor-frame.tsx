@@ -181,7 +181,9 @@ export function EditorFrame({
                         <CataloguePageHeader
                             testID={`${testID}-header`}
                             titleTestID={`${testID}-title`}
-                            title={hideTitle ? undefined : title}
+                            // A stepped form draws no heading: the top bar's trail already names
+                            // the page, and the progress line is what opens the form.
+                            title={hideTitle || steps !== undefined ? undefined : title}
                             titleAside={
                                 titleChip === undefined ? undefined : (
                                     <Badge

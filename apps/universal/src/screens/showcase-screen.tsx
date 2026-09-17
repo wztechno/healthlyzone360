@@ -1939,7 +1939,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 </Text>
                 {/*
                  * The Catalogue's frame, as `CatalogueList` draws it: the header takes the top
-                 * corners, the last row the bottom ones and loses its hairline to the border.
+                 * corners and the last row the bottom ones; no row draws a rule of its own.
                  */}
                 <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
                     <DataList

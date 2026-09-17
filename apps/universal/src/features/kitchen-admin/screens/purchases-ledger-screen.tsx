@@ -277,6 +277,23 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             width: 180,
             priority: 80,
             value: (row) => row.supplier?.nameEn ?? t('kitchen:ops.ledger.noSupplier'),
+            // The ledger is cursor-paged, so the supplier travels with the request — the same
+            // `supplierId` the Supplier select below holds, so the two always agree. Every supplier
+            // in the book is offered, not only those on the loaded page.
+            filter: {
+                values: () =>
+                    (suppliers.data ?? []).map((entry) => ({
+                        key: String(entry.id),
+                        label: displayName(entry.name, locale).value,
+                    })),
+                external: {
+                    value: supplierId,
+                    onChange: (next) => {
+                        setSupplierId(next);
+                        resetCursor();
+                    },
+                },
+            },
             render: (row) => (
                 <Text tone="secondary" numberOfLines={1}>
                     {row.supplier === null
@@ -334,6 +351,30 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             width: 110,
             priority: 75,
             value: (row) => t(LINE_STATE_KEYS[ledgerLineState(row)]),
+            /*
+             * Filtered by the receipt's costing state, because that is the question the endpoint
+             * can answer (`cost_status`) and the page is one of many. The badge is the *line's*
+             * state, so the values are named in the receipt's words — No prices · Some prices ·
+             * Priced — rather than the badge's, and "Some prices" honestly shows priced and unpriced
+             * lines side by side. Narrowing the loaded page by the line state instead would misreport
+             * every page after it. Shares `costStatus` with the chips below.
+             */
+            filter: {
+                values: () =>
+                    RECEIPT_COST_STATUSES.map((status) => ({
+                        key: status,
+                        label: t(receiptCostStatusKey(status)),
+                    })),
+                external: {
+                    value: costStatus,
+                    onChange: (next) => {
+                        setCostStatus(
+                            RECEIPT_COST_STATUSES.find((status) => status === next) ?? null,
+                        );
+                        resetCursor();
+                    },
+                },
+            },
             render: (row) => (
                 <Badge
                     testID={`kitchen-ledger-${row.id}-state`}

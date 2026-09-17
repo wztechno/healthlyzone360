@@ -3,7 +3,10 @@ import type {
     QualityCheckStatus,
     QualityCheckSubjectType,
 } from '@healthy360/api-client/contracts';
-import { QUALITY_CHECK_SUBJECT_TYPES } from '@healthy360/api-client/contracts';
+import {
+    QUALITY_CHECK_STATUSES,
+    QUALITY_CHECK_SUBJECT_TYPES,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -216,6 +219,15 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
             width: 190,
             priority: 80,
             value: (row) => t(qualityCheckSubjectKey(row.subjectType)),
+            // A closed set of two, and the list is the whole answer, so it narrows in memory.
+            filter: {
+                values: () =>
+                    QUALITY_CHECK_SUBJECT_TYPES.map((value) => ({
+                        key: value,
+                        label: t(qualityCheckSubjectKey(value)),
+                    })),
+                match: (row, value) => row.subjectType === value,
+            },
             render: (row) => (
                 <Text tone="secondary" testID={`${qualityCheckRowTestId(String(row.id))}-kind`}>
                     {t(qualityCheckSubjectKey(row.subjectType))}
@@ -229,6 +241,22 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
             width: 110,
             priority: 90,
             value: (row) => t(qualityCheckStatusKey(row.status)),
+            // The toolbar segments' own state, so the two never disagree. The header offers all
+            // four, Passed included, which is what lets the segments name only three.
+            filter: {
+                values: () =>
+                    QUALITY_CHECK_STATUSES.map((value) => ({
+                        key: value,
+                        label: t(qualityCheckStatusKey(value)),
+                    })),
+                external: {
+                    value: status === 'all' ? null : status,
+                    onChange: (next) => {
+                        setStatus(QUALITY_CHECK_STATUSES.find((value) => value === next) ?? 'all');
+                        setViewing(null);
+                    },
+                },
+            },
             render: (row) => (
                 <Badge
                     testID={`${qualityCheckRowTestId(String(row.id))}-status`}
@@ -245,7 +273,7 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
     const currentPage = Math.min(page, totalPages);
     const pageRows = controls.rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
     const failure = toFailure(checks.error);
-    const unfiltered = trimmed === '' && status === 'all';
+    const unfiltered = trimmed === '' && status === 'all' && !controls.filtered;
 
     const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
         { value: 'all', label: t('kitchen:toolbar.statusAll') },

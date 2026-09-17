@@ -610,7 +610,7 @@ describe('the review queue screen', () => {
         });
 
         await untilVisible('kitchen-review-screen');
-        await untilVisible('kitchen-review-section-ingredients');
+        await untilVisible('kitchen-review-table-list');
 
         const row = reviewRowTestId('ingredients', String(QUARANTINED_INGREDIENT.id));
         await untilVisible(row);
@@ -715,12 +715,18 @@ describe('the review queue screen', () => {
 
     /**
      * Aggregation across families, authored rather than assumed: two quarantined ingredients and a
-     * quarantined recipe, so both sections must render and the ingredient heading must count two.
+     * quarantined recipe, all in the one table and told apart by the ID column.
      */
-    it('aggregates several families at once, each under its own heading', async () => {
+    it('puts every family in one table and tells them apart by the ID column', async () => {
         const second = ingredient({
             id: IngredientId.unsafe('01935f6d-0000-7000-8000-00000000a0c2'),
+            reference: 'ING-0042',
             name: { en: 'Pita', ar: 'خبز' },
+            meta: meta({ status: 'review_required' }),
+        });
+        const quarantinedRecipe = recipe({
+            // An imported recipe's reference names its source file; only what follows `#` is shown.
+            reference: 'v6-recipes.json#bbq-sauce-dip',
             meta: meta({ status: 'review_required' }),
         });
 
@@ -728,17 +734,66 @@ describe('the review queue screen', () => {
             session: kitchenManagerSession(),
             repositories: reviewRepositories({
                 ingredients: [QUARANTINED_INGREDIENT, second],
-                quarantinedRecipes: [recipe({ meta: meta({ status: 'review_required' }) })],
+                quarantinedRecipes: [quarantinedRecipe],
             }),
         });
 
-        await untilVisible('kitchen-review-section-ingredients');
-        await untilVisible('kitchen-review-section-recipes');
+        await untilVisible('kitchen-review-table-list');
 
-        // Both authored ingredients land under one heading, and the heading says how many.
-        expect(screen.getByTestId('kitchen-review-section-ingredients-count')).toHaveTextContent(
-            /2 records/,
+        const secondRow = reviewRowTestId('ingredients', String(second.id));
+        const recipeRow = reviewRowTestId('recipes', String(quarantinedRecipe.id));
+        await untilVisible(secondRow);
+        await untilVisible(recipeRow);
+
+        // One table: no per-family headings.
+        expect(screen.queryByTestId('kitchen-review-section-ingredients')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-section-recipes')).toBeNull();
+
+        // The ID column is the record's own reference — and the family's name where it has none.
+        expect(screen.getByTestId(`${secondRow}-reference`)).toHaveTextContent('ING-0042');
+        expect(screen.getByTestId(`${recipeRow}-reference`)).toHaveTextContent(/^bbq-sauce-dip$/);
+        expect(
+            screen.getByTestId(
+                `${reviewRowTestId('ingredients', String(QUARANTINED_INGREDIENT.id))}-reference`,
+            ),
+        ).toHaveTextContent('Ingredients');
+    });
+
+    it('pages the table at 18 rows and turns to the rest', async () => {
+        const many = Array.from({ length: 19 }, (_, index) =>
+            ingredient({
+                id: IngredientId.unsafe(
+                    `01935f6d-0000-7000-8000-0000000b${String(index).padStart(4, '0')}`,
+                ),
+                name: { en: `Queued ${String(index + 1)}`, ar: `صف ${String(index + 1)}` },
+                meta: meta({ status: 'review_required' }),
+            }),
         );
+
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: many }),
+        });
+
+        await untilVisible('kitchen-review-table-pagination');
+        expect(screen.getByTestId('kitchen-review-table-pagination-range')).toHaveTextContent(
+            /18.*19/,
+        );
+
+        const shownFirst = many.filter((row) =>
+            screen.queryByTestId(reviewRowTestId('ingredients', String(row.id))),
+        );
+        expect(shownFirst).toHaveLength(18);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-review-table-pagination-pages-next'));
+        });
+
+        // The one row the first page could not hold, and none of the eighteen before it.
+        const shownSecond = many.filter((row) =>
+            screen.queryByTestId(reviewRowTestId('ingredients', String(row.id))),
+        );
+        expect(shownSecond).toHaveLength(1);
     });
 
     it('celebrates an all-clear queue only alongside what it measured', async () => {
@@ -753,7 +808,7 @@ describe('the review queue screen', () => {
         expect(screen.getByTestId('kitchen-review-clear')).toHaveTextContent(
             /Nothing is waiting for review/,
         );
-        expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-table-list')).toBeNull();
     });
 
     it('renders skeletons before the answer', async () => {
@@ -770,7 +825,7 @@ describe('the review queue screen', () => {
 
         await untilVisible('kitchen-review-loading');
         await untilVisible('kitchen-review-screen');
-        await untilVisible('kitchen-review-section-ingredients');
+        await untilVisible('kitchen-review-table-list');
     });
 
     it('offers a retry rather than a dead end when the queue cannot be read', async () => {
@@ -789,7 +844,7 @@ describe('the review queue screen', () => {
         });
 
         await untilVisible('kitchen-review-error');
-        expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-table-list')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
     });
 
@@ -799,7 +854,7 @@ describe('the review queue screen', () => {
 
         await untilVisible('kitchen-review-forbidden');
         expect(screen.queryByTestId('kitchen-review-screen')).toBeNull();
-        expect(screen.queryByTestId('kitchen-review-sections')).toBeNull();
+        expect(screen.queryByTestId('kitchen-review-table-list')).toBeNull();
     });
 });
 

@@ -31,10 +31,15 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
+    PLAN_STATUS_FILTERS,
     displayName,
     planRowTestId,
     statusShortKey,
@@ -187,6 +192,12 @@ function PlansList() {
             width: 200,
             priority: 85,
             value: (row) => variantsText(row, t),
+            sort: (left, right, direction) =>
+                compareNumber(
+                    summarisePlanMatrix(left).variants,
+                    summarisePlanMatrix(right).variants,
+                    direction,
+                ),
             render: (row) => (
                 <Text
                     tone={summarisePlanMatrix(row).variants === 0 ? 'secondary' : 'primary'}
@@ -202,6 +213,12 @@ function PlansList() {
             width: 130,
             priority: 60,
             value: (row) => durationsText(row, t),
+            sort: (left, right, direction) =>
+                compareNumber(
+                    summarisePlanDurations(left.durations).total,
+                    summarisePlanDurations(right.durations).total,
+                    direction,
+                ),
             render: (row) => (
                 <Text
                     tone={row.durations.length === 0 ? 'secondary' : 'primary'}
@@ -217,6 +234,16 @@ function PlansList() {
             width: 150,
             priority: 80,
             value: pricesText,
+            // By how much is confirmed. A plan still "checking" is not "nothing priced", so while
+            // the price lists are loading it sorts last either way rather than as a zero.
+            sort: (left, right, direction) => {
+                const a = coverage.get(String(left.id));
+                const b = coverage.get(String(right.id));
+                if (a === undefined || b === undefined) {
+                    return a === b ? 0 : a === undefined ? 1 : -1;
+                }
+                return compareNumber(a.confirmed, b.confirmed, direction);
+            },
             render: (row) => {
                 const found = coverage.get(String(row.id));
                 return (
@@ -242,6 +269,22 @@ function PlansList() {
             width: 96,
             priority: 70,
             value: (row) => t(statusShortKey(row.meta.status)),
+            // The status the request already carries — the segments' own filter, so Archived is
+            // reachable here without spending a segment on it.
+            filter: {
+                values: () =>
+                    PLAN_STATUS_FILTERS.map((value) => ({
+                        key: value,
+                        label: t(statusShortKey(value)),
+                    })),
+                external: {
+                    value: status === 'all' ? null : status,
+                    onChange: (next) => {
+                        setStatus(next === null ? 'all' : (next as PublishableStatus));
+                        setViewing(null);
+                    },
+                },
+            },
             render: (row) => (
                 <Badge
                     testID={`${planRowTestId(String(row.id))}-status`}
@@ -397,7 +440,9 @@ function PlansList() {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
                 statusSegments={statusSegments}
-                status={status}
+                // Archived, reached from the Status column's own filter, has no segment — the set
+                // reads "all" rather than lighting nothing.
+                status={status === 'all' || SEGMENT_STATUSES.includes(status) ? status : 'all'}
                 onStatusChange={(next) => {
                     setStatus(next);
                     setViewing(null);

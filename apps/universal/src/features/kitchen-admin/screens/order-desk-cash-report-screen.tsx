@@ -243,7 +243,7 @@ function OrderDeskCashReport() {
             {/* One 28px row: the day, and the clock it was cut on. */}
             <View
                 testID="kitchen-order-desk-cash-report-toolbar"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
+                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
             >
                 <DatePickerButton
                     testID="kitchen-order-desk-cash-report-date"

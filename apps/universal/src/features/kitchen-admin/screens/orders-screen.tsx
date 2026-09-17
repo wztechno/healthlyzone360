@@ -140,6 +140,8 @@ function Orders() {
     const formatter = useFormatter();
 
     const [status, setStatus] = useState<StatusFilter>('all');
+    /** The requested delivery day the Delivery header narrows to — sent as `requestedDeliveryDate`. */
+    const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
     const [query, setQuery] = useState('');
     const [cursor, setCursor] = useState<string | null>(null);
     /** The pages already read for the active filter. The current page is appended at render. */
@@ -152,10 +154,11 @@ function Orders() {
     const filters = useMemo<KitchenOrderFilters>(
         () => ({
             ...(status === 'all' ? {} : { status }),
+            ...(deliveryDate === null ? {} : { requestedDeliveryDate: deliveryDate }),
             ...(trimmed === '' ? {} : { query: trimmed }),
             ...(cursor === null ? {} : { cursor }),
         }),
-        [status, trimmed, cursor],
+        [status, deliveryDate, trimmed, cursor],
     );
 
     const orders = useKitchenOrdersQuery(filters);
@@ -165,6 +168,13 @@ function Orders() {
     /** A filter change is a new list: the cursor and everything carried under the old one go. */
     function changeStatus(next: StatusFilter) {
         setStatus(next);
+        setCursor(null);
+        setCarried([]);
+        setViewing(null);
+    }
+
+    function changeDeliveryDate(next: string | null) {
+        setDeliveryDate(next);
         setCursor(null);
         setCarried([]);
         setViewing(null);
@@ -220,6 +230,23 @@ function Orders() {
             width: 190,
             priority: 60,
             value: (row) => deliveryText(row, t, formatter),
+            // Screen-owned: the day travels as `requestedDeliveryDate`, so the whole book narrows
+            // rather than the pages already loaded. The days offered are the ones in hand, plus
+            // the chosen one so it can always be unticked.
+            filter: {
+                values: (loaded) =>
+                    [
+                        ...new Set([
+                            ...(deliveryDate === null ? [] : [deliveryDate]),
+                            ...loaded
+                                .map((row) => row.delivery.requestedDate)
+                                .filter((day): day is string => day !== null),
+                        ]),
+                    ]
+                        .sort((left, right) => left.localeCompare(right))
+                        .map((day) => ({ key: day, label: formatter.formatDate(day) })),
+                external: { value: deliveryDate, onChange: changeDeliveryDate },
+            },
             render: (row) => (
                 <Stack space="none">
                     <Text
@@ -273,6 +300,22 @@ function Orders() {
             width: 100,
             priority: 80,
             value: (row) => t(kitchenOrderStatusKey(row.status)),
+            // The same server-side status the toolbar's segments send, reached from the column.
+            filter: {
+                values: () =>
+                    KITCHEN_ORDER_STATUSES.map((value) => ({
+                        key: value,
+                        label: t(kitchenOrderStatusKey(value)),
+                    })),
+                external: {
+                    value: status === 'all' ? null : status,
+                    onChange: (next) => {
+                        changeStatus(
+                            KITCHEN_ORDER_STATUSES.find((value) => value === next) ?? 'all',
+                        );
+                    },
+                },
+            },
             render: (row) => (
                 <Badge
                     testID={`${kitchenOrderRowTestId(String(row.id))}-status`}
@@ -297,7 +340,7 @@ function Orders() {
     }
 
     const listFailure = toFailure(orders.error);
-    const unfiltered = status === 'all' && trimmed === '';
+    const unfiltered = status === 'all' && deliveryDate === null && trimmed === '';
 
     const statusSegments: readonly CatalogueStatusSegment<StatusFilter>[] = [
         { value: 'all', label: t('kitchen:ops.orders.filterAll') },
@@ -344,6 +387,7 @@ function Orders() {
                     testID="kitchen-orders-stats"
                     cards={statCards(rows, unfiltered, t, changeStatus, () => {
                         setQuery('');
+                        setDeliveryDate(null);
                         changeStatus('all');
                     })}
                 />
@@ -408,6 +452,7 @@ function Orders() {
                                 label={t('kitchen:ops.orders.clearFilters')}
                                 onPress={() => {
                                     setQuery('');
+                                    setDeliveryDate(null);
                                     changeStatus('all');
                                     controls.clearFilters();
                                 }}

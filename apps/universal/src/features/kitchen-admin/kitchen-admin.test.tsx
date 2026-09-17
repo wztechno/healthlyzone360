@@ -1631,4 +1631,56 @@ describe('the allergen class reference', () => {
             screen.queryByTestId(`kitchen-allergen-class-${String(first?.code)}-archive`),
         ).toBeNull();
     });
+
+    it('narrows to one market from the Markets header, and counts what it narrowed to', async () => {
+        // Lupin is the one class only the EU requires; molluscs are required by no market at all.
+        const classes = ALLERGEN_CLASSES.map((entry) =>
+            String(entry.code) === 'lupin'
+                ? { ...entry, markets: ['EU'] }
+                : String(entry.code) === 'molluscs'
+                  ? { ...entry, markets: [] }
+                  : entry,
+        );
+        await renderStubScreen(<AllergenClassesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listAllergenClasses: async () => classes } },
+        });
+        await untilVisible('kitchen-allergen-classes-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-trigger'));
+        });
+        await untilVisible('kitchen-allergen-classes-column-markets-GCC');
+        expect(screen.getByTestId('kitchen-allergen-classes-column-markets-EU')).toBeTruthy();
+        // "No market requires it" is offered because a class really is in that position.
+        expect(screen.getByTestId('kitchen-allergen-classes-column-markets-none')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-GCC'));
+        });
+
+        // Every class but the EU-only one and the unregulated one: twelve, and Shown says twelve.
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-allergen-class-lupin-name')).toBeNull();
+        });
+        expect(screen.queryByTestId('kitchen-allergen-class-molluscs-name')).toBeNull();
+        expect(screen.getByTestId('kitchen-allergen-class-gluten-name')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
+            /^12$/,
+        );
+
+        // A filter value leaves the menu open, so the next market is one press away.
+        await untilVisible('kitchen-allergen-classes-column-markets-none');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-none'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-allergen-class-molluscs-name')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-allergen-class-gluten-name')).toBeNull();
+        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
+            /^1$/,
+        );
+    });
 });

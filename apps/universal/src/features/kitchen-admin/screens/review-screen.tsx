@@ -13,7 +13,7 @@ import { useReviewQueueQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, statusKey } from '../format.ts';
-import { ReviewFamilySection } from '../review/review-family-section.tsx';
+import { ReviewTable } from '../review/review-table.tsx';
 import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '../review-queue.ts';
 import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
@@ -27,17 +27,17 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
  * Needs review  [ READ ONLY ]
  * ┌ SHOWN ┐ ┌ BLOCKED ┐ ┌ TO FINISH ┐
  * [ ⌕ Designation or name ]  [ All | Blocked | To finish ]
- * ── INGREDIENTS  3 records  [ 1 BLOCKED ] ─────────────────────────
- * DESIGNATION         WHY IT IS HERE          LAST CHANGED          ◉ ✎
- * ── RECIPES … ─────────────────────────────────────────────────────
- * Checked: …   Not checked here: …
+ * ID        DESIGNATION         WHY IT IS HERE          LAST CHANGED          ◉ ✎
+ * ING-0142  …
+ * RC-0007   …
  * ```
  *
  * ## The one screen in this workspace that is not about a family
  *
  * Every other kitchen screen answers "show me the ingredients". This one answers **what is stopping
- * anything from going out?** — a question across six families at once, which is why it is a section
- * per family, and why a family with nothing to report gets no heading at all.
+ * anything from going out?** — a question across six families at once. They share one table, and
+ * the ID column (`ING-`, `RC-`, `RSL-`, or the family's name where it has no series) says which
+ * family a row is; its header filters by family.
  *
  * ## It states what it checked, and it never claims more
  *
@@ -106,6 +106,8 @@ function ReviewQueueBody() {
         () => (queue === null ? [] : narrow(queue, search, scope, locale)),
         [queue, search, scope, locale],
     );
+    /** One list for the one table, memoised so the table's page survives an unrelated render. */
+    const items = useMemo(() => sections.flatMap((section) => section.items), [sections]);
 
     /**
      * Derived from `isError`, not from `toFailure` alone: an unclassifiable rejection would otherwise
@@ -228,18 +230,14 @@ function ReviewQueueBody() {
                             }
                         />
                     ) : (
-                        <View testID="kitchen-review-sections" className="flex-col gap-base">
-                            {sections.map((section) => (
-                                <ReviewFamilySection
-                                    key={section.familyKey}
-                                    section={section}
-                                    onView={(item) => {
-                                        setViewing({ item });
-                                    }}
-                                    onOpen={open}
-                                />
-                            ))}
-                        </View>
+                        <ReviewTable
+                            testID="kitchen-review-table"
+                            items={items}
+                            onView={(item) => {
+                                setViewing({ item });
+                            }}
+                            onOpen={open}
+                        />
                     )}
                 </Stack>
             )}

@@ -160,6 +160,8 @@ export function packagingColumns({
             min: 64,
             priority: CATALOGUE_PRIORITY.unit,
             align: 'center',
+            sortable: true,
+            sortType: 'text',
             value: (row) => (row.purchaseUnit === null ? dash : t(unitShortKey(row.purchaseUnit))),
         },
         {
@@ -171,6 +173,8 @@ export function packagingColumns({
             priority: CATALOGUE_PRIORITY.unit,
             align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             value: (row) =>
                 row.itemsPerUnit === null ? dash : formatter.formatNumber(row.itemsPerUnit),
         },
@@ -220,6 +224,8 @@ export function packagingColumns({
             priority: CATALOGUE_PRIORITY.metric,
             align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             value: (row) =>
                 row.capacity === null
                     ? dash
@@ -233,6 +239,8 @@ export function packagingColumns({
             priority: CATALOGUE_PRIORITY.updated,
             align: 'center',
             mono: true,
+            sortable: true,
+            sortType: 'number',
             // `0` and `null` are different answers — "none is thrown away" against "nobody has
             // measured" — so the dash is reserved for the second.
             value: (row) =>

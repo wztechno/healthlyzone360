@@ -1,4 +1,5 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
+import { PRODUCTION_ORDER_STATUSES } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -16,7 +17,6 @@ import {
 } from '@healthy360/design-system';
 import type { MenuItem, SelectOption } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
-import type { BranchId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -159,7 +159,7 @@ function ProductionList({ onCreate }: { readonly onCreate: () => void }) {
         setPage(1);
     }
 
-    const branchText = (branchId: BranchId): string =>
+    const branchText = (branchId: string): string =>
         activeBranch !== null && String(branchId) === String(activeBranch)
             ? t('kitchen:ops.production.thisBranch')
             : shortId(String(branchId));
@@ -211,6 +211,12 @@ function ProductionList({ onCreate }: { readonly onCreate: () => void }) {
                 width: 200,
                 priority: 70,
                 value: (row) => String(row.recipeVersionId),
+                sort: (left, right, direction) =>
+                    compareText(
+                        String(left.recipeVersionId),
+                        String(right.recipeVersionId),
+                        direction,
+                    ),
                 render: (row) => (
                     <Text variant="mono" tone="secondary" numberOfLines={1}>
                         {shortId(String(row.recipeVersionId))}
@@ -223,6 +229,16 @@ function ProductionList({ onCreate }: { readonly onCreate: () => void }) {
                 width: 130,
                 priority: 40,
                 value: (row) => branchText(row.branchId),
+                // The branches the orders in hand carry — the list is the whole answer, so a branch
+                // no order names has nothing to match and is not offered.
+                filter: {
+                    values: (rows) =>
+                        [...new Set(rows.map((row) => String(row.branchId)))].map((branchId) => ({
+                            key: branchId,
+                            label: branchText(branchId),
+                        })),
+                    match: (row, value) => String(row.branchId) === value,
+                },
                 render: (row) => (
                     <Text tone="secondary" numberOfLines={1}>
                         {branchText(row.branchId)}
@@ -236,6 +252,24 @@ function ProductionList({ onCreate }: { readonly onCreate: () => void }) {
                 width: 110,
                 priority: 80,
                 value: (row) => t(productionStatusKey(row.status)),
+                // The toolbar segments' own state, so the two never disagree. The header offers all
+                // four, Cancelled included, which is what lets the segments name only three.
+                filter: {
+                    values: () =>
+                        PRODUCTION_ORDER_STATUSES.map((value) => ({
+                            key: value,
+                            label: t(productionStatusKey(value)),
+                        })),
+                    external: {
+                        value: status === 'all' ? null : status,
+                        onChange: (next) => {
+                            setStatus(
+                                PRODUCTION_ORDER_STATUSES.find((value) => value === next) ?? 'all',
+                            );
+                            setViewing(null);
+                        },
+                    },
+                },
                 render: (row) => (
                     <Badge
                         testID={`${productionOrderRowTestId(String(row.id))}-status`}
@@ -252,7 +286,7 @@ function ProductionList({ onCreate }: { readonly onCreate: () => void }) {
     const currentPage = Math.min(page, totalPages);
     const pageRows = controls.rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
     const failure = toFailure(orders.error);
-    const unfiltered = trimmed === '' && status === 'all';
+    const unfiltered = trimmed === '' && status === 'all' && !controls.filtered;
 
     const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
         { value: 'all', label: t('kitchen:toolbar.statusAll') },

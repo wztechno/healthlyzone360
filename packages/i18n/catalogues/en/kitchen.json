@@ -1851,8 +1851,6 @@
         "summaryBlocked_one": "One of them cannot be published at all until the reason is resolved.",
         "summaryBlocked_other": "{{count}} of them cannot be published at all until the reasons are resolved.",
         "summaryUnblocked": "None of them is blocked outright — this is work to finish, not a wall.",
-        "sectionCount_one": "{{count}} record",
-        "sectionCount_other": "{{count}} records",
         "open": "Open the record",
         "updatedBy": "Last changed {{when}} by {{name}}",
         "updatedBySeed": "Last changed {{when}} by the import",

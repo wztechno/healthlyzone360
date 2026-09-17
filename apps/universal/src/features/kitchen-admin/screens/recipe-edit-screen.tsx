@@ -1455,8 +1455,8 @@ function RecipeEditor({
             <Stack space="xs">
                 <CataloguePageHeader
                     testID="kitchen-recipe-editor-screen-header"
-                    titleTestID="kitchen-recipe-editor-screen-title"
-                    title={title}
+                    // No heading: the top bar's trail names the page, and the progress line
+                    // opens the form.
                     titleAside={
                         <Inline space="xs" align="center" wrap>
                             {isCreating ? (

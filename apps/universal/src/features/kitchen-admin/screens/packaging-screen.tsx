@@ -489,7 +489,8 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
  *
  * Two columns filter, the two `PackagingAdminFilter` carries: Status, and Category through its
  * `categoryCode`. Category offers *sub-categories* on purpose — the branch is the same on every
- * row here, so offering it would narrow nothing. Unit, capacity and waste do neither.
+ * row here, so offering it would narrow nothing. Every other column sorts through the list hook:
+ * the pack unit is a closed set, but the filter has no parameter for it, so it sorts too.
  */
 function columnControl(
     key: string,
@@ -535,7 +536,16 @@ function columnControl(
 }
 
 function isIngredientAdminSortKey(key: string): key is PackagingSortKey {
-    return key === 'reference' || key === 'name' || key === 'category' || key === 'purchasePrice';
+    return (
+        key === 'reference' ||
+        key === 'name' ||
+        key === 'category' ||
+        key === 'purchaseUnit' ||
+        key === 'itemsPerUnit' ||
+        key === 'purchasePrice' ||
+        key === 'capacity' ||
+        key === 'waste'
+    );
 }
 
 /**

@@ -33,6 +33,8 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
 export interface OpsRecordFrameProps {
     readonly title: string;
+    /** Draw no heading — a stepped form, whose name is the top bar's trail. */
+    readonly hideTitle?: boolean | undefined;
     readonly guard: UnsavedGuard;
     readonly onSave: () => void;
     readonly saveLabel: string;
@@ -52,6 +54,7 @@ export interface OpsRecordFrameProps {
 
 export function OpsRecordFrame({
     title,
+    hideTitle = false,
     guard,
     onSave,
     saveLabel,
@@ -74,6 +77,7 @@ export function OpsRecordFrame({
                     testID={`${testID}-header`}
                     variant="band"
                     title={title}
+                    hideTitle={hideTitle}
                     titleTestID={`${testID}-title`}
                     back={
                         <View className="flex-row">

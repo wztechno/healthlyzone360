@@ -9,6 +9,8 @@ import {
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
+import { SALES_CHANNELS } from '@healthy360/domain-types';
+import type { SalesChannel } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -27,10 +29,15 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
+    PRICE_LIST_STATUS_FILTERS,
     channelKey,
     displayName,
     isAgreementPriced,
@@ -96,6 +103,7 @@ function PriceListsList() {
 
     const [query, setQuery] = useState('');
     const [status, setStatus] = useState<StatusSegmentValue>('all');
+    const [channel, setChannel] = useState<SalesChannel | null>(null);
     const [viewing, setViewing] = useState<PriceListAdmin | null>(null);
 
     const trimmed = query.trim();
@@ -103,8 +111,9 @@ function PriceListsList() {
         () => ({
             ...(trimmed === '' ? {} : { query: trimmed }),
             ...(status === 'all' ? {} : { statuses: [status] }),
+            ...(channel === null ? {} : { channels: [channel] }),
         }),
-        [trimmed, status],
+        [trimmed, status, channel],
     );
     const [page, setPage] = useListPage(filter);
     const priceLists = usePriceListPageQuery(filter, page);
@@ -180,6 +189,19 @@ function PriceListsList() {
             width: 160,
             priority: 60,
             value: (row) => channelsText(row, t),
+            // `PriceListAdminFilter.channels`, sent with the request: every channel the platform
+            // declares, not only those on the loaded page, which would hide the rest.
+            filter: {
+                values: () =>
+                    SALES_CHANNELS.map((value) => ({ key: value, label: t(channelKey(value)) })),
+                external: {
+                    value: channel,
+                    onChange: (next) => {
+                        setChannel(SALES_CHANNELS.find((value) => value === next) ?? null);
+                        setViewing(null);
+                    },
+                },
+            },
             render: (row) => (
                 <Text tone="secondary" numberOfLines={2}>
                     {channelsText(row, t)}
@@ -193,6 +215,16 @@ function PriceListsList() {
             width: 180,
             priority: 85,
             value: (row) => entriesText(row, t),
+            // By confirmed prices, then by entries — a list of forty rows with three confirmed
+            // is not ahead of one with ten.
+            sort: (left, right, direction) => {
+                const a = summarisePriceEntries(left.entries);
+                const b = summarisePriceEntries(right.entries);
+                return (
+                    compareNumber(a.confirmed, b.confirmed, direction) ||
+                    compareNumber(a.total, b.total, direction)
+                );
+            },
             render: (row) => {
                 const testID = priceListRowTestId(String(row.id));
                 const summary = summarisePriceEntries(row.entries);
@@ -223,6 +255,20 @@ function PriceListsList() {
             width: 96,
             priority: 80,
             value: (row) => t(statusShortKey(row.meta.status)),
+            filter: {
+                values: () =>
+                    PRICE_LIST_STATUS_FILTERS.map((value) => ({
+                        key: value,
+                        label: t(statusShortKey(value)),
+                    })),
+                external: {
+                    value: status === 'all' ? null : status,
+                    onChange: (next) => {
+                        setStatus(next === null ? 'all' : (next as PublishableStatus));
+                        setViewing(null);
+                    },
+                },
+            },
             render: (row) => (
                 <Badge
                     testID={`${priceListRowTestId(String(row.id))}-status`}
@@ -249,7 +295,7 @@ function PriceListsList() {
 
     const controls = useColumnControls(rows, columns, 'kitchen-price-lists');
     const failure = toFailure(priceLists.error);
-    const unfiltered = trimmed === '' && status === 'all';
+    const unfiltered = trimmed === '' && status === 'all' && channel === null;
     const anyConfidential = controls.rows.some((row) => isAgreementPriced(row.channels));
 
     const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
@@ -292,6 +338,7 @@ function PriceListsList() {
                     cards={statCards(controls.rows, total, unfiltered, t, () => {
                         setQuery('');
                         setStatus('all');
+                        setChannel(null);
                     })}
                 />
             )}
@@ -306,7 +353,9 @@ function PriceListsList() {
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}
                 statusSegments={statusSegments}
-                status={status}
+                // Archived, reached from the Status column's own filter, has no segment — the set
+                // reads "all" rather than lighting nothing.
+                status={status === 'all' || SEGMENT_STATUSES.includes(status) ? status : 'all'}
                 onStatusChange={(next) => {
                     setStatus(next);
                     setViewing(null);

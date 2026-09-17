@@ -567,8 +567,8 @@ function viewFields(
 /**
  * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Only what `MealAdminFilter` carries — `statuses`, `mealTypes`, `allergenCodes` — all sent with
- * the request. Channels and the filing pair have no parameter, so their headers stay plain:
+ * Filters are only what `MealAdminFilter` carries — `statuses`, `mealTypes`, `allergenCodes` — all
+ * sent with the request. Channels and the filing pair have no parameter, so they sort instead:
  * narrowing one loaded page would misreport every page after it. The allergen filter has to be
  * the server's: a meal's label is derived at read time, so nothing on the row could be matched.
  */
@@ -637,5 +637,11 @@ function columnControl(
 }
 
 function isMealAdminSortKey(key: string): key is MealSortKey {
-    return key === 'name' || key === 'category' || key === 'status' || key === 'updatedAt';
+    return (
+        key === 'name' ||
+        key === 'channels' ||
+        key === 'category' ||
+        key === 'status' ||
+        key === 'updatedAt'
+    );
 }

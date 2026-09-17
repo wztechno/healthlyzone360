@@ -1113,6 +1113,78 @@ describe('the plan list', () => {
         ).toBeTruthy();
     });
 
+    it('puts a sort or a filter on every column header', async () => {
+        await renderStubScreen(<PlansScreen />, {
+            session: kitchenManagerSession(),
+            repositories: listRepositories([spreadPlan(), stackedPlan()]),
+        });
+        await untilVisible('kitchen-plans-table');
+
+        for (const key of ['name', 'variants', 'durations', 'prices', 'status', 'updatedAt']) {
+            expect(screen.getByTestId(`kitchen-plans-column-${key}-trigger`)).toBeTruthy();
+        }
+    });
+
+    it('sorts by the number of configurations from its header', async () => {
+        const empty = spreadPlan({
+            id: planIdentifier(3),
+            name: { en: 'Empty shell', ar: 'هيكل فارغ' },
+            variants: [],
+        });
+        await renderStubScreen(<PlansScreen />, {
+            session: kitchenManagerSession(),
+            repositories: listRepositories([spreadPlan(), empty, stackedPlan()]),
+        });
+        await untilVisible('kitchen-plans-table');
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-plan-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plans-column-variants-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()[0]).toBe('Empty shell');
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plans-column-variants-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()[2]).toBe('Empty shell');
+        });
+    });
+
+    it('reaches Archived from the Status header, which the segments do not offer', async () => {
+        const retired = stackedPlan({ meta: meta({ status: 'retired' }) });
+        await renderStubScreen(<PlansScreen />, {
+            session: kitchenManagerSession(),
+            repositories: listRepositories([spreadPlan(), retired]),
+        });
+        await untilVisible('kitchen-plans-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plans-column-status-trigger'));
+        });
+        await untilVisible('kitchen-plans-column-status-retired');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plans-column-status-retired'));
+        });
+
+        // One wait for both: the refetch passes through a loading frame with no rows at all.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`kitchen-plan-${String(retired.id)}-name`)).toBeTruthy();
+                expect(
+                    screen.queryByTestId(`kitchen-plan-${String(spreadPlan().id)}-name`),
+                ).toBeNull();
+            },
+            { timeout: 10_000 },
+        );
+    });
+
     it('answers a search nothing matches with the filtered empty state', async () => {
         await renderStubScreen(<PlansScreen />, {
             session: kitchenManagerSession(),

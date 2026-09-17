@@ -248,6 +248,27 @@ function ConsumptionExceptions() {
             label: t('kitchen:ops.exceptions.columnStatus'),
             width: 190,
             priority: 95,
+            /*
+             * The toolbar's status cut, offered again where the column is: the same state, so the
+             * two never disagree, and sent with the request as `resolved` — the list is cursor-paged,
+             * and narrowing the page in hand would misreport every page after it.
+             */
+            filter: {
+                values: () =>
+                    (
+                        [
+                            ['unresolved', 'kitchen:ops.exceptions.filterUnresolved'],
+                            ['resolved', 'kitchen:ops.exceptions.filterResolved'],
+                        ] as const
+                    ).map(([key, labelKey]) => ({ key, label: t(labelKey) })),
+                external: {
+                    value: status === 'all' ? null : status,
+                    onChange: (next) => {
+                        setStatus(next === 'resolved' || next === 'unresolved' ? next : 'all');
+                        refilter();
+                    },
+                },
+            },
             render: (row) => (
                 <View className="flex-row flex-wrap items-center gap-1.5">
                     {row.resolved ? (

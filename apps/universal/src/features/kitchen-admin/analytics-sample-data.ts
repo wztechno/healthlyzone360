@@ -42,6 +42,8 @@ export interface AnalyticsTableRow {
     readonly completionPercent: number;
     readonly avgMinutes: number;
     readonly updatedLabel: string;
+    /** How long ago, in whole hours, `updatedLabel` says — what the Updated column sorts by. */
+    readonly updatedHoursAgo: number;
 }
 
 export interface KitchenAnalyticsBundle {
@@ -271,6 +273,7 @@ export function buildKitchenAnalytics(
             ),
             avgMinutes: Math.round(18 + rand() * 36),
             updatedLabel: hoursAgo < 1 ? 'Just now' : `${hoursAgo}h ago`,
+            updatedHoursAgo: hoursAgo,
         };
     });
 

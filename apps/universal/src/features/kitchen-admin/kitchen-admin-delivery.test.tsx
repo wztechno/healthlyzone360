@@ -816,6 +816,87 @@ describe('the delivery-zone list', () => {
         expect(screen.getByTestId(`${row}-fee`)).not.toHaveTextContent(/no fee recorded/i);
     });
 
+    it('puts a sort or a filter on every column header', async () => {
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { listZones: zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]) },
+            },
+        });
+        await untilVisible('kitchen-zones-table');
+
+        for (const key of ['name', 'areas', 'charges', 'windows', 'estimated', 'status']) {
+            expect(screen.getByTestId(`kitchen-zones-column-${key}-trigger`)).toBeTruthy();
+        }
+    });
+
+    it('sorts by the fee from its header, with an unrecorded fee last both ways', async () => {
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listZones: zoneListing(() => [UNDECIDED_ZONE, SEEDED_ZONE, FREE_ZONE]),
+                },
+            },
+        });
+        await untilVisible('kitchen-zones-table');
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-zone-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-zones-column-charges-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Free ring', 'Marina ring', 'Undecided ring']);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-zones-column-charges-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Marina ring', 'Free ring', 'Undecided ring']);
+        });
+    });
+
+    it('filters by status from the Status header, through the request', async () => {
+        const listZones = jest.fn(zoneListing(() => [SEEDED_ZONE, UNDECIDED_ZONE]));
+        await renderStubScreen(<DeliveryZonesScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { listZones } },
+        });
+        await untilVisible('kitchen-zones-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-zones-column-status-trigger'));
+        });
+        await untilVisible('kitchen-zones-column-status-draft');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-zones-column-status-draft'));
+        });
+
+        await waitFor(() => {
+            // `some`: the earlier, unfiltered query key is still live and may refetch.
+            expect(
+                listZones.mock.calls.some(([sent]) => sent?.statuses?.includes('draft') === true),
+            ).toBe(true);
+        });
+        // One wait for both: the refetch passes through a loading frame with no rows at all.
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByTestId(`${zoneRowTestId(String(UNDECIDED_ZONE.id))}-name`),
+                ).toBeTruthy();
+                expect(
+                    screen.queryByTestId(`${zoneRowTestId(String(SEEDED_ZONE.id))}-name`),
+                ).toBeNull();
+            },
+            { timeout: 10_000 },
+        );
+    });
+
     it('separates a filtered empty result from an empty kitchen', async () => {
         await renderStubScreen(<DeliveryZonesScreen />, {
             session: kitchenSession(),

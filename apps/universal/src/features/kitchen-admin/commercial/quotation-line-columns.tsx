@@ -1,12 +1,13 @@
 import type { KitchenQuotationLine } from '@healthy360/api-client/contracts';
 import { Text, TextInputField } from '@healthy360/design-system';
-import type { DataListColumn } from '@healthy360/design-system';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
 
 import { formatMoney } from '../../marketplace/format.ts';
+import { compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { parseMinorAmount } from '../format.ts';
 
 /**
@@ -22,7 +23,28 @@ import { parseMinorAmount } from '../format.ts';
  * While editing, a line with no parseable price carries the input's error state and its total reads
  * `Not priced`. The total is derived from what is typed — quantity × unit, in minor units — so the
  * reader sees the consequence of the figure before sending it. Zero is a price; empty is not.
+ *
+ * ## Every header sorts, and the money sorts by what is on record
+ *
+ * The lines are the whole quotation — the detail read answers every one — so sorting them in memory
+ * is the complete answer. Line sorts by the buyer's note, the only readable thing on a line;
+ * Quantity by its number.
+ *
+ * Unit price and Line total sort by the **recorded** figures, not by what is being typed. A sort that
+ * followed the inputs would move a row out from under the cursor on every keystroke; while a
+ * quotation is still being priced nothing is on record, so those two headers leave the buyer's order
+ * alone until it is. An unpriced line sorts last either way — it is not a zero.
  */
+
+/** Minor-unit amounts in `direction`, `null` (not priced) last both ways. */
+function compareAmount(
+    left: number | null,
+    right: number | null,
+    direction: SortDirection,
+): number {
+    if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
+    return compareNumber(left, right, direction);
+}
 export interface QuotationLineColumnDeps {
     readonly t: TFunction;
     readonly formatter: Formatter;
@@ -38,7 +60,7 @@ export function quotationLineColumns({
     currency,
     prices,
     onPrice,
-}: QuotationLineColumnDeps): readonly DataListColumn<KitchenQuotationLine>[] {
+}: QuotationLineColumnDeps): readonly ControlledColumn<KitchenQuotationLine>[] {
     const editing = prices !== undefined;
 
     const typedMinor = (line: KitchenQuotationLine): number | null => {
@@ -52,6 +74,7 @@ export function quotationLineColumns({
             label: t('kitchen:ops.quotations.lineColumn'),
             width: 220,
             priority: 100,
+            sort: (left, right, direction) => compareText(left.note, right.note, direction),
             render: (line) => (
                 <View className="min-w-0 flex-col py-1">
                     <Text
@@ -74,6 +97,8 @@ export function quotationLineColumns({
             priority: 80,
             align: 'end',
             grow: false,
+            sort: (left, right, direction) =>
+                compareNumber(Number(left.quantity), Number(right.quantity), direction),
             render: (line) => (
                 <Text variant="mono" testID={`kitchen-quotation-line-${line.id}-quantity`}>
                     {formatter.formatNumber(Number(line.quantity))}
@@ -87,6 +112,8 @@ export function quotationLineColumns({
             priority: 95,
             align: 'end',
             grow: false,
+            sort: (left, right, direction) =>
+                compareAmount(left.unitAmountMinor, right.unitAmountMinor, direction),
             render: (line) => {
                 if (!editing) {
                     return (
@@ -137,6 +164,8 @@ export function quotationLineColumns({
             priority: 90,
             align: 'end',
             grow: false,
+            sort: (left, right, direction) =>
+                compareAmount(left.lineTotalMinor, right.lineTotalMinor, direction),
             render: (line) => {
                 const unit = editing ? typedMinor(line) : line.unitAmountMinor;
                 const totalMinor =

@@ -270,8 +270,7 @@ const BURGHUL_LEVEL: StockLevel = {
     ingredientId: BURGHUL_ID,
 };
 
-function batchRepositories() {
-    const record = recipe();
+function batchRepositories(record: RecipeAdmin = recipe()) {
     return {
         kitchenOps: {
             listStockItems: async () => [BURGHUL_SHELF],
@@ -372,6 +371,71 @@ describe('the batch planner', () => {
         expect(screen.getByTestId(`kitchen-batch-row-${String(TRAY_ID)}-name`)).toHaveTextContent(
             'Gastronorm tray',
         );
+    });
+
+    it('sorts the scaled sheet from its headers and filters it by unit', async () => {
+        // Tray first in the version's own order, in grams, so a sort by name has something to move.
+        const trayLine: RecipeLine = { ...LINE, ingredientId: TRAY_ID, quantity: 150, unit: 'g' };
+        const record = recipe({
+            currentVersion: version({ lines: [trayLine, LINE], packaging: [] }),
+        });
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: batchRepositories(record),
+        });
+
+        await untilVisible('kitchen-batch-recipe-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
+        });
+        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
+        });
+        await untilVisible('kitchen-batch-target-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '10');
+        });
+        await untilVisible('kitchen-batch-ingredients-column-name-trigger');
+
+        const burghulRow = `kitchen-batch-ingredients-row-${String(BURGHUL_ID)}`;
+        const trayRow = `kitchen-batch-ingredients-row-${String(TRAY_ID)}`;
+        const rowOrder = () =>
+            screen
+                .getAllByTestId(/^kitchen-batch-ingredients-row-[0-9a-f-]+$/)
+                .map((row) => String(row.props.testID));
+
+        expect(rowOrder()).toEqual([trayRow, burghulRow]);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-column-name-trigger'));
+        });
+        await waitFor(
+            () => {
+                expect(rowOrder()).toEqual([burghulRow, trayRow]);
+            },
+            { timeout: 10_000 },
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-column-name-trigger'));
+        });
+        await waitFor(() => {
+            expect(rowOrder()).toEqual([trayRow, burghulRow]);
+        });
+
+        // Unit filters rather than sorts: its menu offers the units on the sheet.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-column-unit-trigger'));
+        });
+        await untilVisible('kitchen-batch-ingredients-column-unit-kg');
+        expect(screen.getByTestId('kitchen-batch-ingredients-column-unit-g')).toBeTruthy();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-ingredients-column-unit-kg'));
+        });
+        await waitFor(() => {
+            expect(rowOrder()).toEqual([burghulRow]);
+        });
     });
 
     it('refuses a reader who may see recipes but not the catalogue behind their names', async () => {

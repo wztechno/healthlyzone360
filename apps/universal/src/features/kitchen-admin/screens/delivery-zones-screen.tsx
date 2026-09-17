@@ -28,11 +28,21 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
+import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { summariseWindows } from '../delivery-model.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
-import { displayName, statusShortKey, statusTone, zoneRowTestId } from '../format.ts';
+import {
+    ZONE_STATUS_FILTERS,
+    displayName,
+    statusShortKey,
+    statusTone,
+    zoneRowTestId,
+} from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 
@@ -146,6 +156,8 @@ function DeliveryZonesList() {
             width: 150,
             priority: 80,
             value: (row) => areasText(row, t),
+            sort: (left, right, direction) =>
+                compareNumber(left.areas.length, right.areas.length, direction),
             render: (row) => {
                 const testID = zoneRowTestId(String(row.id));
                 const inactive = row.areas.filter((area) => !area.isActive).length;
@@ -178,6 +190,11 @@ function DeliveryZonesList() {
             width: 200,
             priority: 85,
             value: (row) => `${feeText(row, t, formatter)} · ${minimumText(row, t, formatter)}`,
+            // By the fee, then the minimum — the order the cell states them in. A zone with no
+            // fee recorded sorts last both ways rather than passing for a free one.
+            sort: (left, right, direction) =>
+                compareMissingLast(left.deliveryFeeMinor, right.deliveryFeeMinor, direction) ||
+                compareMissingLast(left.minimumOrderMinor, right.minimumOrderMinor, direction),
             render: (row) => {
                 const testID = zoneRowTestId(String(row.id));
                 return (
@@ -197,6 +214,15 @@ function DeliveryZonesList() {
             width: 190,
             priority: 70,
             value: (row) => windowsText(row, t),
+            // Coverage first — the days reached are what the cell is read for — then the count.
+            sort: (left, right, direction) => {
+                const a = summariseWindows(left.deliveryWindows);
+                const b = summariseWindows(right.deliveryWindows);
+                return (
+                    compareNumber(a.weekdays.length, b.weekdays.length, direction) ||
+                    compareNumber(a.total, b.total, direction)
+                );
+            },
             render: (row) => {
                 const testID = zoneRowTestId(String(row.id));
                 const coverage = summariseWindows(row.deliveryWindows);
@@ -230,6 +256,8 @@ function DeliveryZonesList() {
             width: 110,
             priority: 40,
             value: (row) => estimatedText(row, t, formatter),
+            sort: (left, right, direction) =>
+                compareMissingLast(left.estimatedMinutes, right.estimatedMinutes, direction),
             render: (row) => (
                 <Text
                     tone={row.estimatedMinutes === null ? 'secondary' : 'primary'}
@@ -246,6 +274,22 @@ function DeliveryZonesList() {
             width: 96,
             priority: 75,
             value: (row) => t(statusShortKey(row.meta.status)),
+            // The status the request already carries, so the header and the segments are one
+            // filter: narrowing the loaded page instead would misreport every page after it.
+            filter: {
+                values: () =>
+                    ZONE_STATUS_FILTERS.map((value) => ({
+                        key: value,
+                        label: t(statusShortKey(value)),
+                    })),
+                external: {
+                    value: status === 'all' ? null : status,
+                    onChange: (next) => {
+                        setStatus(next === null ? 'all' : (next as PublishableStatus));
+                        setViewing(null);
+                    },
+                },
+            },
             render: (row) => (
                 <Badge
                     testID={`${zoneRowTestId(String(row.id))}-status`}
@@ -494,6 +538,18 @@ function DeliveryZonesList() {
             )}
         </Stack>
     );
+}
+
+/** Numbers in `direction`, with an unrecorded value last either way. */
+function compareMissingLast(
+    left: number | null,
+    right: number | null,
+    direction: SortDirection,
+): number {
+    if (left === null || right === null) {
+        return left === right ? 0 : left === null ? 1 : -1;
+    }
+    return compareNumber(left, right, direction);
 }
 
 /** An amount, the decided-zero word, or the no-record words — never one for another. */
