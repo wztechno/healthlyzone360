@@ -1016,6 +1016,10 @@ describe('creating and editing a product', () => {
                     unitsPerPack: 1,
                 },
             ],
+            // What one sold unit takes off the shelf (PROD1), sent as a cleared pair rather than
+            // omitted: a row taken off a weighed shelf has to be able to drop it.
+            netContentQuantity: null,
+            netContentUnitId: null,
         });
     });
 
@@ -1817,6 +1821,16 @@ describe('creating a meal', () => {
             portionFactor: 1,
             mealTypes: ['lunch'],
             dietClassifications: [],
+            // The finished-stock chain, stated rather than omitted (PROD1). A new meal is cooked
+            // when it is ordered until somebody says otherwise, and these four say so explicitly:
+            // a cleared produced item has to reach the server as `null` or a meal could never be
+            // taken back off a shelf, and an exact-match assertion is what keeps the create
+            // payload honest about carrying them.
+            productionMode: null,
+            ingredientId: null,
+            sellsFromFinishedStock: false,
+            netContentQuantity: null,
+            netContentUnitId: null,
         });
         // Created as a draft, and moved onto its own address — the editor cannot go on calling
         // itself "New meal" over a record that exists.
