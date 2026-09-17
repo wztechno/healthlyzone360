@@ -100,6 +100,11 @@ export interface RecordViewPageProps {
     readonly statusLines?: readonly string[] | undefined;
     /** One caption at the foot of the status card. */
     readonly footNote?: string | undefined;
+    /**
+     * Anything the status card says that is not a caption line — a fact the action depends on, or
+     * the action's own refusal — drawn above its button, where the reader is about to press.
+     */
+    readonly statusContent?: ReactNode | undefined;
     /** Rail cards after status and chips. */
     readonly rail?: readonly RecordViewSection[] | undefined;
     /** The page's one way into the editor. Omit on a record nobody may change here. */
@@ -111,6 +116,9 @@ export interface RecordViewPageProps {
               readonly icon?: IconName | null | undefined;
               /** Overrides `{testID}-primary`, for a caller whose suite already names the action. */
               readonly testID?: string | undefined;
+              /** For an action that writes: both copies spin and neither can be pressed twice. */
+              readonly loading?: boolean | undefined;
+              readonly disabled?: boolean | undefined;
           }
         | undefined;
     readonly testID: string;
@@ -137,6 +145,7 @@ export function RecordViewPage({
     chipsSourceBadge,
     statusLines = [],
     footNote,
+    statusContent,
     rail = [],
     primaryAction,
     testID,
@@ -151,6 +160,7 @@ export function RecordViewPage({
         status !== undefined ||
         statusLines.length > 0 ||
         footNote !== undefined ||
+        statusContent !== undefined ||
         primaryAction !== undefined;
 
     return (
@@ -207,6 +217,8 @@ export function RecordViewPage({
                                                   />
                                               ),
                                           })}
+                                    loading={primaryAction.loading}
+                                    disabled={primaryAction.disabled}
                                     onPress={primaryAction.onPress}
                                 />
                             )}
@@ -287,6 +299,7 @@ export function RecordViewPage({
                                             {footNote}
                                         </Text>
                                     )}
+                                    {statusContent}
                                     {primaryAction === undefined ? null : (
                                         <Button
                                             testID={`${testID}-rail-edit`}
@@ -294,6 +307,8 @@ export function RecordViewPage({
                                             size="sm"
                                             block
                                             label={primaryAction.label}
+                                            loading={primaryAction.loading}
+                                            disabled={primaryAction.disabled}
                                             onPress={primaryAction.onPress}
                                         />
                                     )}

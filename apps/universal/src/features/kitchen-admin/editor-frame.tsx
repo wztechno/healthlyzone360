@@ -17,6 +17,8 @@ import type { BadgeTone } from '@healthy360/design-system';
 
 import { statusKey, statusTone } from './format.ts';
 import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
+import { EditorStepNavigation, EditorStepProgress } from './editor-steps.tsx';
+import type { EditorStepsProps } from './editor-steps.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
@@ -110,6 +112,12 @@ export interface EditorFrameProps {
      * Stacks after the form below `lg`, so the reading order is the same at every width.
      */
     readonly rail?: ReactNode | undefined;
+    /**
+     * Draw the form as steps: the progress row under the header, the step footer under the form.
+     * `children` is then the open step only. The last step's commit defaults to this frame's own
+     * Save (`{testID}-steps-save`); pass `finalAction` to draw something else there.
+     */
+    readonly steps?: Omit<EditorStepsProps<string>, 'testID'> | undefined;
     readonly children: ReactNode;
     readonly testID: string;
 }
@@ -136,6 +144,7 @@ export function EditorFrame({
     actionsPlacement = 'footer',
     headerVariant = 'band',
     rail,
+    steps,
     children,
     testID,
 }: EditorFrameProps) {
@@ -250,6 +259,14 @@ export function EditorFrame({
                     </Stack>
                 )}
 
+                {steps === undefined ? null : (
+                    <EditorStepProgress
+                        form={steps.form}
+                        steps={steps.steps}
+                        testID={`${testID}-steps`}
+                    />
+                )}
+
                 {banner}
 
                 {/*
@@ -266,6 +283,26 @@ export function EditorFrame({
                             {rail}
                         </View>
                     </View>
+                )}
+
+                {steps === undefined ? null : (
+                    <EditorStepNavigation
+                        form={steps.form}
+                        steps={steps.steps}
+                        testID={`${testID}-steps`}
+                        finalAction={
+                            steps.finalAction ??
+                            (hideSave ? null : (
+                                <Button
+                                    testID={`${testID}-steps-save`}
+                                    label={saveLabel}
+                                    loading={saving}
+                                    disabled={saveDisabled || saving}
+                                    onPress={onSaveDraft}
+                                />
+                            ))
+                        }
+                    />
                 )}
 
                 <Dialog

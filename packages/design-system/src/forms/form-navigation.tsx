@@ -4,6 +4,7 @@ import { Text as RNText, View } from 'react-native';
 import { Button } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { ShellDock, useShellDockAvailable } from '../shell/shell-dock.tsx';
 
 export interface FormNavigationProps {
     readonly previousLabel: string;
@@ -18,8 +19,10 @@ export interface FormNavigationProps {
      */
     readonly actions: ReactNode;
     /**
-     * Pin the row to the bottom of the scroll port on the web, so the step controls stay in reach
-     * under a long line table. `web:` because it is a CSS behaviour with no native counterpart.
+     * Dock the row to the bottom edge of the page, where it stays put: drawn by the shell below its
+     * scroll port (`ShellDock`), so nothing scrolls under it and it never rides up with the end of a
+     * form. With no shell around — a screen in a unit test — it falls back to `web:sticky` in place,
+     * on its own `z-sticky` layer so a line table passes under it rather than over it.
      */
     readonly sticky?: boolean | undefined;
     readonly previousTestID?: string | undefined;
@@ -50,12 +53,14 @@ export function FormNavigation({
     className,
     testID,
 }: FormNavigationProps) {
-    return (
+    const docked = useShellDockAvailable();
+
+    const bar = (
         <View
             testID={testID}
             className={cx(
                 'flex-row items-center gap-snug border-t border-stroke-subtle bg-surface-raised px-base py-tight',
-                sticky ? 'web:sticky web:bottom-0' : null,
+                sticky && !docked ? 'z-sticky mt-auto web:sticky web:bottom-0' : null,
                 className,
             )}
         >
@@ -77,4 +82,6 @@ export function FormNavigation({
             <View className="flex-row items-center gap-tight">{actions}</View>
         </View>
     );
+
+    return sticky ? <ShellDock>{bar}</ShellDock> : bar;
 }

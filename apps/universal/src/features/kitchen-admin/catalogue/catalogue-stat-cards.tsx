@@ -82,12 +82,6 @@ const CAPTION_TONE: Readonly<Record<CatalogueStatTone, TextTone>> = {
 };
 
 /**
- * Fill. Only `warning` takes one — see the note above on spending the fill once.
- *
- * `raised` rather than `default`: in the compact ladder `raised` is the white card on the page's
- * off-white ground and casts no shadow, which is the flat elevation §1.3 allows.
- */
-/**
  * Ink for the corner mark.
  *
  * `className`, not a `tone` prop: an icon here is a typographic glyph on React Native's own `Text`,
@@ -102,6 +96,12 @@ const MARK_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
     danger: 'text-danger-strong',
 };
 
+/**
+ * Fill. Only `warning` takes one — see the note above on spending the fill once.
+ *
+ * `raised` rather than `default`: in the compact ladder `raised` is the white card on the page's
+ * off-white ground with the card cast, where `default` is the ground itself and stays flat.
+ */
 const CARD_TONE: Readonly<Record<CatalogueStatTone, CardTone>> = {
     default: 'raised',
     brand: 'raised',

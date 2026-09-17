@@ -110,15 +110,24 @@ describe('compact density', () => {
         expect(panel).not.toContain('rounded-xl');
     });
 
-    it('leaves a card flat — the admin has no card elevation', async () => {
+    it('casts the card shadow in the admin, but does not lift on hover', async () => {
         await renderCompact(
-            <Card testID="panel" tone="raised" interactive onPress={jest.fn()}>
-                <Text>Body</Text>
-            </Card>,
+            <>
+                <Card testID="panel" tone="raised" interactive onPress={jest.fn()}>
+                    <Text>Body</Text>
+                </Card>
+                <Card testID="well" tone="sunken">
+                    <Text>Body</Text>
+                </Card>
+            </>,
         );
         const classes: string = screen.getByTestId('panel').props.className;
 
-        expect(classes).not.toContain('shadow-elevation');
+        expect(classes).toContain('shadow-elevation-card');
+        expect(classes).not.toContain('hover:shadow-elevation-card-hover');
+        expect(classes).not.toContain('hover:-translate-y-1');
+        // An inset well is the page's ground, not an object on it.
+        expect(screen.getByTestId('well').props.className).not.toContain('shadow-elevation');
     });
 
     it('sizes a tab on the ladder', async () => {

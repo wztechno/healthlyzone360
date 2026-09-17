@@ -163,8 +163,9 @@ input[data-picker-field]::-webkit-clear-button {
    and cannot be renamed silently. The ids are the real ones:
 
      kitchen-shell-topbar / -sidebar / -navigation / -drawer  →  AppShell (variant `workspace`)
+     kitchen-shell-dock                                       →  AppShell's docked bar (form steps)
      offline-indicator                                        →  AreaShell's banner
-     kitchen-breadcrumbs                                      →  KitchenOpsShell
+     kitchen-breadcrumbs                                      →  KitchenTrail, in the top bar
      toast-region-polite / -assertive                         →  ToastProvider
      kitchen-supply-print-toolbar                             →  the print screen's own controls
      kitchen-supply-print-sheets                              →  the box holding one sheet per order
@@ -244,6 +245,7 @@ input[data-picker-field]::-webkit-clear-button {
     [data-testid='kitchen-shell-sidebar'],
     [data-testid='kitchen-shell-navigation'],
     [data-testid='kitchen-shell-drawer'],
+    [data-testid='kitchen-shell-dock'],
     [data-testid='kitchen-breadcrumbs'],
     [data-testid='offline-indicator'],
     [data-testid='toast-region-polite'],

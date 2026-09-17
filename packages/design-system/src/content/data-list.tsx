@@ -221,6 +221,14 @@ export interface DataListProps<Row> {
     /** Opens the editor. The row body's behaviour is unchanged from today's list (§4.1). */
     readonly onRowPress?: ((row: Row) => void) | undefined;
     readonly emptyState?: ReactNode | undefined;
+    /**
+     * The list sits inside a `rounded-panel` frame drawn by the caller. The header takes the frame's
+     * top corners and the last row its bottom ones, so neither the header's ground nor a hover tint
+     * squares off the curve, and the last row drops its hairline because the frame's border is
+     * already there. The frame itself stays with the caller: a border on this root would be inside
+     * the box the port is measured from, and the tracks would overrun it by two pixels.
+     */
+    readonly framed?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -268,6 +276,7 @@ export function DataList<Row>({
     density = 'md',
     onRowPress,
     emptyState,
+    framed = false,
     className,
     testID,
 }: DataListProps<Row>) {
@@ -398,6 +407,7 @@ export function DataList<Row>({
                     className={cx(
                         'min-h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
                         'bg-surface-base web:sticky web:top-0',
+                        framed ? 'rounded-t-panel' : null,
                     )}
                 >
                     {visible.map((column) => (
@@ -440,7 +450,7 @@ export function DataList<Row>({
 
                 {rows.length === 0
                     ? null
-                    : rows.map((row) => {
+                    : rows.map((row, index) => {
                           const key = rowKey(row);
                           const cells = visible.map((column) => (
                               <View
@@ -471,9 +481,11 @@ export function DataList<Row>({
                               </View>
                           ));
 
+                          const last = index === rows.length - 1;
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
-                              'flex-row items-center border-b border-stroke-subtle',
+                              'flex-row items-center',
+                              framed && last ? 'rounded-b-panel' : 'border-b border-stroke-subtle',
                           );
 
                           if (onRowPress === undefined) {

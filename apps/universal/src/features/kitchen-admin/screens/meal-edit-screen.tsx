@@ -15,6 +15,7 @@ import {
     Stack,
     Text,
     TextInputField,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
@@ -95,6 +96,22 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /** The "bought in rather than cooked" answer of the recipe picker. Never a real identifier. */
 const NO_RECIPE = '__none__';
+
+type MealStep = 'identity' | 'when' | 'composition' | 'serviceDays';
+
+/** One step per section, in the order the form has always drawn them. */
+const MEAL_STEPS: readonly MealStep[] = ['identity', 'when', 'composition', 'serviceDays'];
+const MEAL_STEP_LABEL_KEYS: Readonly<Record<MealStep, string>> = {
+    identity: 'kitchen:meals.sectionIdentity',
+    when: 'kitchen:meals.sectionWhen',
+    composition: 'kitchen:fields.composition',
+    serviceDays: 'kitchen:availability.sectionServiceDays',
+};
+
+/** A meal with no source transcription — every new one — has no Composition step. */
+const MEAL_STEPS_WITHOUT_COMPOSITION: readonly MealStep[] = MEAL_STEPS.filter(
+    (key) => key !== 'composition',
+);
 
 /**
  * Diet classifications are **not** here, and that is a scoping decision rather than an oversight.
@@ -228,6 +245,12 @@ function MealEditor({ meal }: MealEditScreenProps) {
     const data = record.data;
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
+
+    const stepKeys =
+        data?.composition != null || data?.kitchenCategory != null
+            ? MEAL_STEPS
+            : MEAL_STEPS_WITHOUT_COMPOSITION;
+    const form = useFormSteps(stepKeys);
 
     if (data !== undefined && serverKey !== detailsKey && !detailsDirty) {
         setDetailsKey(serverKey);
@@ -564,6 +587,10 @@ function MealEditor({ meal }: MealEditScreenProps) {
             }}
             actionsPlacement="header"
             headerVariant="plain"
+            steps={{
+                form,
+                steps: stepKeys.map((key) => ({ key, label: t(MEAL_STEP_LABEL_KEYS[key]) })),
+            }}
             rail={
                 /*
                  * Three cards, in the order the handoff stacks them: what stops publication, what
@@ -663,18 +690,13 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         </Inline>
 
                         {data?.marginPercent == null ? (
-                            <>
-                                <Text
-                                    testID="kitchen-meal-margin-unknown"
-                                    variant="bodyStrong"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:meals.marginEmpty')}
-                                </Text>
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:meals.marginUnknown')}
-                                </Text>
-                            </>
+                            <Text
+                                testID="kitchen-meal-margin-unknown"
+                                variant="bodyStrong"
+                                tone="secondary"
+                            >
+                                {t('kitchen:meals.marginEmpty')}
+                            </Text>
                         ) : (
                             <Text testID="kitchen-meal-margin" variant="bodyStrong">
                                 {t('kitchen:meals.marginValue', { percent: data.marginPercent })}
@@ -740,16 +762,6 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         />
                     ) : null}
 
-                    {data?.meta.status === 'retired' ? (
-                        <Callout
-                            testID="kitchen-meal-retired"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:meals.retiredTitle')}
-                            body={t('kitchen:meals.retiredBody')}
-                        />
-                    ) : null}
-
                     {saveFailure === null ? null : (
                         <Callout
                             testID="kitchen-meal-save-error"
@@ -762,22 +774,8 @@ function MealEditor({ meal }: MealEditScreenProps) {
                 </Stack>
             }
         >
-            {/*
-             * One panel, three ruled sections — not four stacked cards.
-             *
-             * `EditorFrame` already draws the panel around these children, so every `Card` in here
-             * was a second rectangle inside the first. `FormSection` is the treatment the handoff
-             * asks for and the one the Catalogue already standardised on: a title, a
-             * hairline, and the fields. See `forms/form-section.tsx` for why that beats a panel.
-             */}
-            {/*
-             * 12px, not 24. `FormSection` already draws 24px under its own hairline and 12px under
-             * its title, so a `loose` container gap on top of that put 48px of nothing between a
-             * chip row and the rule below it — a third of the panel spent on separation. This is
-             * the space above each rule only; the section owns everything after it.
-             */}
-            <View className="z-auto flex-col gap-snug">
-                {/* ── identity ─────────────────────────────────────────────────────────────── */}
+            {/* ── identity ─────────────────────────────────────────────────────────────────── */}
+            {form.current === 'identity' ? (
                 <FormSection
                     first
                     testID="kitchen-meal-details"
@@ -824,16 +822,6 @@ function MealEditor({ meal }: MealEditScreenProps) {
                                     testID="kitchen-meal-recipe-select"
                                     id="kitchen-meal-recipe-select"
                                     label={t('kitchen:meals.recipeLabel')}
-                                    /*
-                                     * One line, and only in the state that needs it. With a recipe
-                                     * chosen the field's own value says where the meal comes from,
-                                     * and three lines of prose under it pushed the next section off
-                                     * the fold; with none, "nothing is derived" is not visible
-                                     * anywhere else on the page, so that one stays.
-                                     */
-                                    {...(details.recipeId === null
-                                        ? { hint: t('kitchen:meals.recipeHintNone') }
-                                        : {})}
                                     searchable
                                     disabled={!canManage}
                                     options={recipeOptions}
@@ -858,7 +846,6 @@ function MealEditor({ meal }: MealEditScreenProps) {
                                     testID="kitchen-meal-portion"
                                     id="kitchen-meal-portion"
                                     label={t('kitchen:meals.portionLabel')}
-                                    hint={t('kitchen:meals.portionHint')}
                                     value={details.portionFactor}
                                     inputMode="decimal"
                                     required
@@ -900,23 +887,21 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         )}
                     </Stack>
                 </FormSection>
+            ) : null}
 
-                {/* ── where it sits in the day ──────────────────────────────────────────────── */}
-                {/*
-                 * Chips rather than a multi-select: the vocabulary is a short, closed platform enum
-                 * and every value is worth seeing at once — "is this a snack as well as a lunch?" is
-                 * answered by looking, not by opening a dialog. `Select` in this design system is a
-                 * single-answer modal radio group, so it could not express this without being made
-                 * to lie about the interaction.
-                 */}
+            {/* ── where it sits in the day ─────────────────────────────────────────────────── */}
+            {/*
+             * Chips rather than a multi-select: the vocabulary is a short, closed platform enum and
+             * every value is worth seeing at once — "is this a snack as well as a lunch?" is answered
+             * by looking, not by opening a dialog. `Select` in this design system is a single-answer
+             * modal radio group, so it could not express this without being made to lie about the
+             * interaction.
+             */}
+            {form.current === 'when' ? (
                 <FormSection
+                    first
                     testID="kitchen-meal-types-section"
                     title={t('kitchen:meals.sectionWhen')}
-                    aside={
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:meals.sectionWhenHint')}
-                        </Text>
-                    }
                 >
                     <Inline space="xs" wrap testID="kitchen-meal-types">
                         {MEAL_TYPES.map((type) => (
@@ -940,49 +925,40 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         ))}
                     </Inline>
                 </FormSection>
+            ) : null}
 
-                {/* ── source transcription ──────────────────────────────────────────────────── */}
-                {data?.composition == null && data?.kitchenCategory == null ? null : (
-                    <FormSection
-                        testID="kitchen-meal-composition"
-                        title={t('kitchen:fields.composition')}
-                    >
-                        <Stack space="xs">
-                            {data.kitchenCategory === null ? null : (
-                                <Text
-                                    testID="kitchen-meal-composition-category"
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {data.kitchenSubcategory === null
-                                        ? data.kitchenCategory
-                                        : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
-                                </Text>
-                            )}
-                            {data.composition === null ? null : (
-                                <Text testID="kitchen-meal-composition-text">
-                                    {data.composition}
-                                </Text>
-                            )}
-                        </Stack>
-                    </FormSection>
-                )}
-
-                {/* ── service days ──────────────────────────────────────────────────────────── */}
+            {/* ── source transcription ─────────────────────────────────────────────────────── */}
+            {form.current === 'composition' && data !== undefined ? (
                 <FormSection
+                    first
+                    testID="kitchen-meal-composition"
+                    title={t('kitchen:fields.composition')}
+                >
+                    <Stack space="xs">
+                        {data.kitchenCategory === null ? null : (
+                            <Text
+                                testID="kitchen-meal-composition-category"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {data.kitchenSubcategory === null
+                                    ? data.kitchenCategory
+                                    : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
+                            </Text>
+                        )}
+                        {data.composition === null ? null : (
+                            <Text testID="kitchen-meal-composition-text">{data.composition}</Text>
+                        )}
+                    </Stack>
+                </FormSection>
+            ) : null}
+
+            {/* ── service days ─────────────────────────────────────────────────────────────── */}
+            {form.current === 'serviceDays' ? (
+                <FormSection
+                    first
                     testID="kitchen-meal-availability"
                     title={t('kitchen:availability.sectionServiceDays')}
-                    aside={
-                        <Text
-                            testID="kitchen-meal-availability-count"
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {days.length === 0
-                                ? t('kitchen:availability.noneYet')
-                                : t('kitchen:availability.dayCount', { count: days.length })}
-                        </Text>
-                    }
                     actions={
                         /*
                          * Available while creating too. The rows are held in local state and written
@@ -1018,7 +994,6 @@ function MealEditor({ meal }: MealEditScreenProps) {
                             <EmptyState
                                 testID="kitchen-meal-availability-empty"
                                 title={t('kitchen:availability.emptyTitle')}
-                                body={t('kitchen:availability.emptyBody')}
                             />
                         ) : (
                             <MealAvailabilityEditor
@@ -1052,7 +1027,7 @@ function MealEditor({ meal }: MealEditScreenProps) {
                         )}
                     </Stack>
                 </FormSection>
-            </View>
+            ) : null}
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog

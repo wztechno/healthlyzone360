@@ -116,6 +116,17 @@ function untilVisible(testID: string) {
     );
 }
 
+/**
+ * Opens one step of the ingredient editor. The editor is a multi-step form that opens on Identity, so
+ * a field on any later section is one press on the step row away.
+ */
+async function openIngredientStep(key: string) {
+    await untilVisible(`kitchen-ingredient-steps-${key}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`kitchen-ingredient-steps-${key}`));
+    });
+}
+
 /* ------------------------------------------------------------------------------------------------
  * The world this file authors
  *
@@ -810,6 +821,26 @@ describe('the ingredient editor', () => {
         });
     });
 
+    it('opens the step holding a missing required field when Save is pressed from another', async () => {
+        const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+
+        await openIngredientStep('measurement');
+        await untilVisible('kitchen-ingredient-items-per-unit-input');
+        expect(screen.queryByTestId('kitchen-ingredient-name-en-input')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        // The name is required and lives on Identity: the press opens that step rather than
+        // doing nothing, and writes nothing.
+        await untilVisible('kitchen-ingredient-name-en-input');
+        expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+    });
+
     it('keeps a platform-library record read-only and offers the fork as the writable path', async () => {
         const record = platformIngredient(5, {
             meta: meta({ status: 'published' }),
@@ -841,6 +872,9 @@ describe('the ingredient editor', () => {
          * the banner above.
          */
         await untilVisible('kitchen-ingredient-fork');
+        await openIngredientStep('allergens');
+        // The last step draws no Save either: the footer mirrors the header.
+        expect(screen.queryByTestId('kitchen-ingredient-editor-screen-steps-save')).toBeNull();
         // The determination is still *shown*, as a chip on the read-only panel — read-only is not
         // the same as hidden, and a kitchen deciding whether to fork needs to see what it is
         // forking.
@@ -1054,6 +1088,7 @@ describe('the ingredient editor', () => {
             },
         });
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-grams-per-unit-input');
         expect(screen.getByTestId('kitchen-ingredient-grams-per-unit-input').props.value).toBe(
             '1080',
@@ -1073,6 +1108,7 @@ describe('the ingredient editor', () => {
             },
         });
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-items-per-unit-input');
         expect(screen.queryByTestId('kitchen-ingredient-grams-per-unit')).toBeNull();
     });
@@ -1097,6 +1133,7 @@ describe('the ingredient editor', () => {
             },
         );
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-grams-per-unit-input');
 
         await act(async () => {
@@ -1165,6 +1202,7 @@ describe('nutrition per 100 g', () => {
             },
         });
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrient-energy-input');
 
         expect(screen.getByTestId('kitchen-ingredient-nutrient-energy-input').props.value).toBe(
@@ -1200,6 +1238,7 @@ describe('nutrition per 100 g', () => {
             },
         );
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrient-energy-input');
 
         await act(async () => {
@@ -1271,6 +1310,7 @@ describe('nutrition per 100 g', () => {
             },
         );
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrient-fibre-input');
 
         // One figure emptied out of seven. The roll-up would read the gap as nothing at all rather
@@ -1327,6 +1367,7 @@ describe('nutrition per 100 g', () => {
             },
         );
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrition-panel');
 
         // Not "the inputs are disabled" — they are not rendered, which is the difference between a
@@ -1396,6 +1437,7 @@ describe('composition and allergens, read-only', () => {
             },
         );
 
+        await openIngredientStep('allergens');
         await untilVisible('kitchen-ingredient-composition');
 
         // Both claims are drawn. `contains` and `may_contain` are two different statements and

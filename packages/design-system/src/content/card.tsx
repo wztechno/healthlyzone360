@@ -18,19 +18,24 @@ const COMFORTABLE_TONE_CLASS: Readonly<Record<CardTone, string>> = {
 };
 
 /**
- * The admin has two elevations, and a card is the flat one.
+ * The admin's cards sit on the page with the same card cast as its panels.
  *
- * The handoff allows exactly flat and the popover shadow, so `raised` keeps its lighter fill and
- * loses its cast: on a dense list page a shadow per card is what turns a screen of records into a
- * screen of objects, and the Catalogue's separation comes from the hairline instead.
+ * Every surface the admin draws by hand — KPI tiles, the toolbar, the page header's summary strip,
+ * `OpsPanel` — already carries `shadow-elevation-card`, so a flat `Card` beside them read as a
+ * different kind of object. The cast is on every tone that is a card *on* the page, status tones
+ * included, so a row of stat cards where one is `warning` does not have one box sitting lower than
+ * the rest. `default` and `sunken` stay flat: they are the page's own ground and an inset well, and
+ * a shadow on either would contradict the fill.
+ *
+ * It does not lift on hover — see `interactive` below.
  */
 const COMPACT_TONE_CLASS: Readonly<Record<CardTone, string>> = {
     default: 'bg-surface-base border-stroke-subtle',
-    raised: 'bg-surface-raised border-stroke-subtle',
+    raised: 'bg-surface-raised border-stroke-subtle shadow-elevation-card',
     sunken: 'bg-surface-sunken border-stroke-subtle',
-    brand: 'bg-surface-brand-subtle border-transparent',
-    warning: 'bg-warning-subtle border-warning-border',
-    danger: 'bg-danger-subtle border-danger-border',
+    brand: 'bg-surface-brand-subtle border-transparent shadow-elevation-card',
+    warning: 'bg-warning-subtle border-warning-border shadow-elevation-card',
+    danger: 'bg-danger-subtle border-danger-border shadow-elevation-card',
 };
 
 const TONE_CLASS: Readonly<Record<Density, Readonly<Record<CardTone, string>>>> = {
@@ -210,7 +215,7 @@ export function Card({
         PADDING_CLASS[density][padding],
         // The lift is a customer affordance. In the admin `interactive` still marks the card as a
         // target — it takes a hover tint, matching the Catalogue's list rows — but it does not
-        // float, because the compact ladder has no second elevation to float to.
+        // float: a dense page of cards that jump under the pointer is noise, not affordance.
         interactive
             ? density === 'compact'
                 ? 'transition duration-normal ease-standard hover:bg-surface-sunken'

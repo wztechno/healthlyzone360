@@ -32,6 +32,7 @@ import {
     Text,
     TextInputField,
     cx,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import type { CardTone, SelectOption, TagTone } from '@healthy360/design-system';
@@ -388,6 +389,27 @@ function useDebouncedRollupDraft(draft: RecipeRollupDraft | null): RecipeRollupD
  */
 type RecipeTab = 'description' | 'production' | 'packaging' | 'costing' | 'sheet';
 
+/** The design's five, in its order. Module constants, so the step list is one array per route. */
+const RECIPE_STEPS: readonly RecipeTab[] = [
+    'description',
+    'production',
+    'packaging',
+    'costing',
+    'sheet',
+];
+const RECIPE_STEP_LABEL_KEYS: Readonly<Record<RecipeTab, string>> = {
+    description: 'kitchen:recipes.tabDescription',
+    production: 'kitchen:recipes.tabProduction',
+    packaging: 'kitchen:recipes.tabPackaging',
+    costing: 'kitchen:recipes.tabCosting',
+    sheet: 'kitchen:recipes.tabSheet',
+};
+
+/** The sauce and dressing routes, which have no Packaging step. */
+const RECIPE_STEPS_WITHOUT_PACKAGING: readonly RecipeTab[] = RECIPE_STEPS.filter(
+    (key) => key !== 'packaging',
+);
+
 /* ------------------------------------------------------------------------------------------------
  * Screen
  * ---------------------------------------------------------------------------------------------- */
@@ -499,12 +521,8 @@ function RecipeEditor({
 
     const print = usePrintSheet();
 
-    /*
-     * The step being shown, and the steps that have been left. An index rather than a key: the
-     * sauce routes draw four steps, and the render clamps this against whichever list it built.
-     */
-    const [step, setStep] = useState(0);
-    const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set());
+    /** The step being shown, and the steps that have been left — see `useFormSteps`. */
+    const form = useFormSteps(withoutPackaging ? RECIPE_STEPS_WITHOUT_PACKAGING : RECIPE_STEPS);
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [lines, setLinesDraft] = useState<readonly LineDraft[]>([]);
@@ -1188,29 +1206,13 @@ function RecipeEditor({
     /* ── the steps ───────────────────────────────────────────────────────────────────────────── */
 
     /*
-     * The design's five, in its order — four on the sauce routes, which drop Packaging. The step
-     * index is clamped here rather than trusted, so a list that lost an entry can never leave the
-     * editor pointing past its own end.
+     * The design's five, in its order — four on the sauce routes, which drop Packaging. A step is
+     * complete once it has been left; the publish checks are the gate, not the dots.
      */
-    const stepItems: readonly { readonly key: RecipeTab; readonly label: string }[] = [
-        { key: 'description', label: t('kitchen:recipes.tabDescription') },
-        { key: 'production', label: t('kitchen:recipes.tabProduction') },
-        ...(withoutPackaging
-            ? []
-            : [{ key: 'packaging' as const, label: t('kitchen:recipes.tabPackaging') }]),
-        { key: 'costing', label: t('kitchen:recipes.tabCosting') },
-        { key: 'sheet', label: t('kitchen:recipes.tabSheet') },
-    ];
-    const lastStep = stepItems.length - 1;
-    const at = Math.min(Math.max(step, 0), lastStep);
-    const tab: RecipeTab = stepItems[at]?.key ?? 'description';
-
-    /** A step is complete once it has been left — the publish checks are the gate, not this. */
-    const goToStep = (index: number) => {
-        if (index < 0 || index > lastStep || index === at) return;
-        setVisited((previous) => new Set(previous).add(at));
-        setStep(index);
-    };
+    const stepItems: readonly { readonly key: RecipeTab; readonly label: string }[] = (
+        withoutPackaging ? RECIPE_STEPS_WITHOUT_PACKAGING : RECIPE_STEPS
+    ).map((key) => ({ key, label: t(RECIPE_STEP_LABEL_KEYS[key]) }));
+    const tab: RecipeTab = form.current;
 
     /*
      * Save and publish, as one press.
@@ -1545,10 +1547,10 @@ function RecipeEditor({
                     label: item.label,
                     testID: `kitchen-recipe-tab-${item.key}`,
                 }))}
-                current={at}
-                completed={visited}
-                onSelect={goToStep}
-                className="border-b border-stroke-subtle pb-snug"
+                current={form.index}
+                completed={form.completed}
+                onSelect={form.goToIndex}
+                divided
             />
 
             {quarantined ? (
@@ -2447,14 +2449,12 @@ function RecipeEditor({
                 testID="kitchen-recipe-tab-steps"
                 previousTestID="kitchen-recipe-tab-previous"
                 previousLabel={t('kitchen:recipes.tabPrevious')}
-                previousDisabled={at === 0}
-                onPrevious={() => {
-                    goToStep(at - 1);
-                }}
+                previousDisabled={form.isFirst}
+                onPrevious={form.previous}
                 counter={t('kitchen:recipes.stepCounter', {
-                    current: at + 1,
-                    total: stepItems.length,
-                    label: stepItems[at]?.label ?? '',
+                    current: form.index + 1,
+                    total: form.total,
+                    label: stepItems[form.index]?.label ?? '',
                 })}
                 sticky
                 actions={
@@ -2469,14 +2469,12 @@ function RecipeEditor({
                                 saveAll();
                             }}
                         />
-                        {at < lastStep ? (
+                        {!form.isLast ? (
                             <Button
                                 testID="kitchen-recipe-tab-next"
                                 iconEnd={<Icon name="chevronEnd" size="sm" />}
                                 label={t('kitchen:recipes.tabNext')}
-                                onPress={() => {
-                                    goToStep(at + 1);
-                                }}
+                                onPress={form.next}
                             />
                         ) : isCreating ? (
                             <Button
@@ -3072,7 +3070,7 @@ function CostLedger({
     return (
         <View
             testID={testID}
-            className="max-w-2xl flex-col overflow-hidden rounded-lg border border-stroke-subtle bg-surface-raised"
+            className="max-w-2xl flex-col overflow-hidden rounded-lg border border-stroke-subtle bg-surface-raised shadow-elevation-card"
         >
             {rows.map((row, index) => (
                 <View

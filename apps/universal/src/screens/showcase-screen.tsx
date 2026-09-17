@@ -89,6 +89,7 @@ import {
     TextInputField,
     UNDROPPABLE_PRIORITY,
     useAnimatedNumber,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import type {
@@ -351,30 +352,27 @@ function SwitchStory({ prefix }: { readonly prefix: string }) {
 }
 
 /**
- * The multi-step form's two parts — `StepProgress` in its four states, then `FormNavigation`.
+ * The multi-step form's three parts — `useFormSteps` for the state, `StepProgress` in its states, then
+ * `FormNavigation`. The interactive pair at the bottom is the reference wiring for any "New …" form.
  *
  * What to check: the track runs dot-centre to dot-centre and fills to the current dot; a completed
  * dot carries a check, the current one a brand ring, a future one a neutral ring; labels drop below
  * `sm`; in Arabic the fill grows from the right. The interactive row walks the same five steps the
  * recipe editor draws, with Previous disabled on the first and Next swapped out on the last.
  */
+const STORY_STEPS = [
+    { key: 'description', label: 'Description' },
+    { key: 'production', label: 'Production' },
+    { key: 'packaging', label: 'Packaging' },
+    { key: 'costing', label: 'Costing' },
+    { key: 'sheet', label: 'Technical sheet' },
+] as const;
+const STORY_STEP_KEYS = STORY_STEPS.map((step) => step.key);
+
 function StepsStory({ prefix }: { readonly prefix: string }) {
-    const [current, setCurrent] = useState(1);
-    const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([0]));
+    const form = useFormSteps(STORY_STEP_KEYS, { initial: 'production' });
     const id = (suffix: string) => `${prefix}-${suffix}`;
-    const steps = [
-        { key: 'description', label: 'Description' },
-        { key: 'production', label: 'Production' },
-        { key: 'packaging', label: 'Packaging' },
-        { key: 'costing', label: 'Costing' },
-        { key: 'sheet', label: 'Technical sheet' },
-    ];
-    const go = (index: number) => {
-        if (index < 0 || index >= steps.length) return;
-        setVisited((previous) => new Set(previous).add(current));
-        setCurrent(index);
-    };
-    const last = current === steps.length - 1;
+    const steps = STORY_STEPS;
 
     return (
         <Stack space="sm">
@@ -399,23 +397,31 @@ function StepsStory({ prefix }: { readonly prefix: string }) {
                 current={4}
                 completed={new Set([0, 1, 2, 3])}
             />
+            {/* A step ahead of an unpassed check: drawn, not reachable — the New sale's rule. */}
+            <StepProgress
+                testID={id('step-progress-gated')}
+                label="Gated"
+                steps={steps.map((step, index) => ({ ...step, disabled: index > 2 }))}
+                current={2}
+                completed={new Set([0, 1])}
+                onSelect={() => undefined}
+            />
             <StepProgress
                 testID={id('step-progress-live')}
                 label="Interactive"
                 steps={steps}
-                current={current}
-                completed={visited}
-                onSelect={go}
+                current={form.index}
+                completed={form.completed}
+                onSelect={form.goToIndex}
+                divided
             />
             <FormNavigation
                 testID={id('form-navigation')}
                 previousTestID={id('form-navigation-previous')}
                 previousLabel="Previous"
-                previousDisabled={current === 0}
-                onPrevious={() => {
-                    go(current - 1);
-                }}
-                counter={`Step ${String(current + 1)} of ${String(steps.length)} · ${steps[current]?.label ?? ''}`}
+                previousDisabled={form.isFirst}
+                onPrevious={form.previous}
+                counter={`Step ${String(form.index + 1)} of ${String(form.total)} · ${steps[form.index]?.label ?? ''}`}
                 actions={
                     <>
                         <Button
@@ -426,11 +432,11 @@ function StepsStory({ prefix }: { readonly prefix: string }) {
                         />
                         <Button
                             testID={id('form-navigation-next')}
-                            label={last ? 'Save and publish' : 'Next'}
-                            {...(last ? {} : { iconEnd: <Icon name="chevronEnd" size="sm" /> })}
-                            onPress={() => {
-                                if (!last) go(current + 1);
-                            }}
+                            label={form.isLast ? 'Save and publish' : 'Next'}
+                            {...(form.isLast
+                                ? {}
+                                : { iconEnd: <Icon name="chevronEnd" size="sm" /> })}
+                            onPress={form.next}
                         />
                     </>
                 }
@@ -1730,6 +1736,13 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         },
                     ]}
                     statusLines={['Updated 3 days ago by Dina Haddad', 'Version 7']}
+                    // `statusContent` — a node above the action, as the order desk draws its
+                    // driver's word beside Fulfil.
+                    statusContent={
+                        <Text variant="caption" tone="primary">
+                            Two open recipes use this ingredient.
+                        </Text>
+                    }
                     chipsLabel="Allergens & diets"
                     chipsSourceBadge="From database"
                     chipsCaption="Resolved from the ingredient database. Correct it on the record itself, not here."
@@ -1921,6 +1934,24 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         />
                     </Stack>
                 ))}
+                <Text variant="caption" tone="secondary">
+                    framed
+                </Text>
+                {/*
+                 * The Catalogue's frame, as `CatalogueList` draws it: the header takes the top
+                 * corners, the last row the bottom ones and loses its hairline to the border.
+                 */}
+                <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
+                    <DataList
+                        testID={id('data-list-framed')}
+                        label="Ingredients, framed"
+                        framed
+                        columns={catalogueColumns('list-framed')}
+                        rows={CATALOGUE_ROWS}
+                        rowKey={(row) => row.key}
+                        onRowPress={(row) => setPressedRow(row.key)}
+                    />
+                </View>
                 <Text testID={id('data-list-pressed')} variant="caption" tone="secondary">
                     Last row pressed: {pressedRow ?? 'none'}
                 </Text>

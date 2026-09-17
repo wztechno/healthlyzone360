@@ -17,6 +17,7 @@ import {
     Stack,
     Text,
     TextInputField,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
@@ -97,6 +98,22 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /** The "bought in rather than cooked" answer of the recipe picker. Never a real identifier. */
 const NO_RECIPE = '__none__';
+
+type ProductStep = 'identity' | 'packs' | 'composition' | 'channels';
+
+/** One step per section, in the order the form has always drawn them. */
+const PRODUCT_STEPS: readonly ProductStep[] = ['identity', 'packs', 'composition', 'channels'];
+const PRODUCT_STEP_LABEL_KEYS: Readonly<Record<ProductStep, string>> = {
+    identity: 'kitchen:products.sectionIdentity',
+    packs: 'kitchen:products.sectionPacks',
+    composition: 'kitchen:fields.composition',
+    channels: 'kitchen:channels.sectionTitle',
+};
+
+/** A product with no source transcription — every new one — has no Composition step. */
+const PRODUCT_STEPS_WITHOUT_COMPOSITION: readonly ProductStep[] = PRODUCT_STEPS.filter(
+    (key) => key !== 'composition',
+);
 
 interface DetailsDraft {
     readonly name: LocalisedText;
@@ -239,6 +256,12 @@ function ProductEditor({
     const data = record.data;
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
+
+    const stepKeys =
+        data?.composition != null || data?.kitchenCategory != null
+            ? PRODUCT_STEPS
+            : PRODUCT_STEPS_WITHOUT_COMPOSITION;
+    const form = useFormSteps(stepKeys);
 
     // Adjusting state during render is React's sanctioned answer to "derive from new props": an
     // effect would render one frame with the previous record's values still in the form.
@@ -567,6 +590,10 @@ function ProductEditor({
             }}
             actionsPlacement="header"
             headerVariant="plain"
+            steps={{
+                form,
+                steps: stepKeys.map((key) => ({ key, label: t(PRODUCT_STEP_LABEL_KEYS[key]) })),
+            }}
             rail={
                 <Stack space="md">
                     <GateRailCard
@@ -616,10 +643,6 @@ function ProductEditor({
                                 ))}
                             </Inline>
                         )}
-
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:products.dietsProvenance')}
-                        </Text>
                     </View>
                 </Stack>
             }
@@ -641,7 +664,7 @@ function ProductEditor({
                      * A quarantine is rendered, never resolved from here: `review_required` blocks
                      * publication structurally (plan §4.7) and is cleared by fixing the allergen
                      * determination it came from, on the ingredient. This product family has no
-                     * publish action at all, so the notice explains rather than offering a way out.
+                     * publish action at all, so the notice offers no way out.
                      */}
                     {data === undefined || data.dataQualityFlags.length === 0 ? null : (
                         <Callout
@@ -649,7 +672,6 @@ function ProductEditor({
                             role="note"
                             tone="warning"
                             title={t('kitchen:products.dataQualityTitle')}
-                            body={t('kitchen:products.dataQualityBody')}
                         >
                             <Inline space="xs" wrap>
                                 {data.dataQualityFlags.map((flag) => (
@@ -673,15 +695,6 @@ function ProductEditor({
                             body={t('kitchen:products.quarantineBody')}
                         />
                     ) : null}
-                    {data?.meta.status === 'retired' ? (
-                        <Callout
-                            testID="kitchen-product-archived"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:products.archivedTitle')}
-                            body={t('kitchen:products.archivedBody')}
-                        />
-                    ) : null}
                     {saveFailure === null ? null : (
                         <Callout
                             testID="kitchen-product-save-error"
@@ -694,21 +707,8 @@ function ProductEditor({
                 </Stack>
             }
         >
-            {/*
-             * 12px between sections, not 24. `FormSection` already draws 24px under its own
-             * hairline and 12px under its title; a `loose` container gap on top of that spends a
-             * third of the panel on separation. This is the space above each rule only.
-             */}
-            <View className="z-auto flex-col gap-snug">
-                {/* ── the record ───────────────────────────────────────────────────────────────── */}
-                {/*
-                 * `FormSection`, not a `Card` with a `Heading` — the shape every Catalogue editor
-                 * takes, and the reason a reader moving between them meets one form rather than
-                 * several.
-                 *
-                 * The field layout is stated row by row rather than left to `FormGrid`; see the
-                 * note on the rows themselves for why a bilingual pair cannot be auto-placed.
-                 */}
+            {/* ── the record ───────────────────────────────────────────────────────────────── */}
+            {form.current === 'identity' ? (
                 <FormSection
                     first
                     testID="kitchen-product-details"
@@ -775,8 +775,7 @@ function ProductEditor({
 
                         {/*
                          * "What is it filed under" and "where does it come from" are asked of a new
-                         * resale item in the same breath, so they share a row. The recipe hint answers
-                         * the state the field is in: with no recipe there is nothing to derive.
+                         * resale item in the same breath, so they share a row.
                          */}
                         <View className="z-auto flex-col gap-base md:flex-row">
                             <View className="z-auto min-w-0 flex-1">
@@ -816,9 +815,6 @@ function ProductEditor({
                                             ? NO_RECIPE
                                             : String(details.recipeId)
                                     }
-                                    {...(details.recipeId === null
-                                        ? { hint: t('kitchen:products.recipeHintNone') }
-                                        : {})}
                                     onChange={(next) => {
                                         setDetails({
                                             ...details,
@@ -837,9 +833,7 @@ function ProductEditor({
                          * records that absence as `market_priced` with a NULL amount rather than a
                          * number nobody agreed. `isAssorted` says the row stands for a mixed selection,
                          * which is how the source material's "assorted" lines survive without being
-                         * invented into articles that do not exist. Both sentences moved to the label's
-                         * own hint rather than a paragraph under each box: side by side, two
-                         * three-line explanations were taller than the form above them.
+                         * invented into articles that do not exist.
                          */}
                         <Inline space="md" wrap>
                             <Checkbox
@@ -893,26 +887,14 @@ function ProductEditor({
                         )}
                     </Stack>
                 </FormSection>
+            ) : null}
 
-                {/* ── packs ────────────────────────────────────────────────────────────────────── */}
-                {/*
-                 * `actions` rather than an `Inline … justify="between"` of my own: the section already
-                 * owns that row, and hand-rolling it put the Add button on a different baseline from
-                 * every other section header in the workspace. `description` likewise replaces the
-                 * caption `Text` under the title.
-                 */}
+            {/* ── packs ────────────────────────────────────────────────────────────────────── */}
+            {form.current === 'packs' ? (
                 <FormSection
+                    first
                     testID="kitchen-product-packs"
                     title={t('kitchen:products.sectionPacks')}
-                    aside={
-                        <Text
-                            testID="kitchen-product-packs-count"
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {t('kitchen:products.packCount', { count: details.packs.length })}
-                        </Text>
-                    }
                     actions={
                         canManage ? (
                             <Button
@@ -931,62 +913,59 @@ function ProductEditor({
                         ) : undefined
                     }
                 >
-                    <Stack space="md">
-                        <PackVariantEditor
-                            testID="kitchen-product-pack-editor"
-                            rows={details.packs}
-                            errors={packRowErrors}
-                            canManage={canManage}
-                            onChange={(next) => {
-                                setDetails({ ...details, packs: next });
-                                markDetailsDirty();
-                            }}
-                        />
+                    <PackVariantEditor
+                        testID="kitchen-product-pack-editor"
+                        rows={details.packs}
+                        errors={packRowErrors}
+                        canManage={canManage}
+                        onChange={(next) => {
+                            setDetails({ ...details, packs: next });
+                            markDetailsDirty();
+                        }}
+                    />
+                </FormSection>
+            ) : null}
+
+            {/* ── source transcription ─────────────────────────────────────────────────────── */}
+            {form.current === 'composition' && data !== undefined ? (
+                <FormSection
+                    first
+                    testID="kitchen-product-composition"
+                    title={t('kitchen:fields.composition')}
+                >
+                    <Stack space="sm">
+                        {data.kitchenCategory === null ? null : (
+                            <Text
+                                testID="kitchen-product-composition-category"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {data.kitchenSubcategory === null
+                                    ? data.kitchenCategory
+                                    : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
+                            </Text>
+                        )}
+                        {data.composition === null ? null : (
+                            <Text testID="kitchen-product-composition-text">
+                                {data.composition}
+                            </Text>
+                        )}
                     </Stack>
                 </FormSection>
+            ) : null}
 
-                {/* ── source transcription ─────────────────────────────────────────────────────── */}
-                {data?.composition == null && data?.kitchenCategory == null ? null : (
-                    <FormSection
-                        testID="kitchen-product-composition"
-                        title={t('kitchen:fields.composition')}
-                    >
-                        <Stack space="sm">
-                            {data.kitchenCategory === null ? null : (
-                                <Text
-                                    testID="kitchen-product-composition-category"
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {data.kitchenSubcategory === null
-                                        ? data.kitchenCategory
-                                        : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
-                                </Text>
-                            )}
-                            {data.composition === null ? null : (
-                                <Text testID="kitchen-product-composition-text">
-                                    {data.composition}
-                                </Text>
-                            )}
-                        </Stack>
-                    </FormSection>
-                )}
-
-                {/* ── channels ─────────────────────────────────────────────────────────────────── */}
-                {/*
-                 * Ticked before the record exists, not after it. The rows are held in local state and
-                 * written by the create branch the moment the product has an id - see `saveDetails`.
-                 * That is also why the aside says the section saves separately: it is a different
-                 * endpoint against a different lock, which is the contract's split, not a UI choice.
-                 */}
+            {/* ── channels ─────────────────────────────────────────────────────────────────── */}
+            {/*
+             * Ticked before the record exists, not after it. The rows are held in local state and
+             * written by the create branch the moment the product has an id - see `saveDetails`. It
+             * is a different endpoint against a different lock, which is the contract's split, not a
+             * UI choice.
+             */}
+            {form.current === 'channels' ? (
                 <FormSection
+                    first
                     testID="kitchen-product-channels"
                     title={t('kitchen:channels.sectionTitle')}
-                    aside={
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:channels.savedSeparately')}
-                        </Text>
-                    }
                 >
                     <Stack space="md">
                         {channelFailure === null ? null : (
@@ -1029,7 +1008,7 @@ function ProductEditor({
                         )}
                     </Stack>
                 </FormSection>
-            </View>
+            ) : null}
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
             <Dialog

@@ -11,6 +11,7 @@ import {
     Skeleton,
     Stack,
     Text,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import { PriceListId } from '@healthy360/domain-types';
@@ -97,6 +98,15 @@ function todayIso(): string {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * Steps
+ * ---------------------------------------------------------------------------------------------- */
+
+/** One step per section: the read-only facts, then the entries and their publication. */
+type PriceListStep = 'facts' | 'entries';
+
+const PRICE_LIST_STEPS: readonly PriceListStep[] = ['facts', 'entries'];
+
+/* ------------------------------------------------------------------------------------------------
  * Screen
  * ---------------------------------------------------------------------------------------------- */
 
@@ -135,6 +145,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
     const publish = usePublishPriceListMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+    const form = useFormSteps(PRICE_LIST_STEPS);
 
     const [entries, setEntries] = useState<readonly PriceEntryDraft[]>([]);
     const [entriesKey, setEntriesKey] = useState<string | null>(null);
@@ -430,6 +441,13 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
             onBack={() => {
                 router.push('/kitchen/price-lists' as never);
             }}
+            steps={{
+                form,
+                steps: [
+                    { key: 'facts', label: t('kitchen:priceLists.factsTitle') },
+                    { key: 'entries', label: t('kitchen:priceLists.entriesTitle') },
+                ],
+            }}
             banner={
                 <Stack space="sm">
                     {quarantined ? (
@@ -452,6 +470,16 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                         />
                     ) : null}
 
+                    {confidential ? (
+                        <Callout
+                            testID="kitchen-price-list-confidential"
+                            role="note"
+                            tone="warning"
+                            title={t('kitchen:priceLists.confidentialTitle')}
+                            body={t('kitchen:priceLists.confidentialBody')}
+                        />
+                    ) : null}
+
                     {saveFailure === null ? null : (
                         <Callout
                             testID="kitchen-price-list-save-error"
@@ -465,134 +493,129 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
             }
         >
             {/* ── the facts the contract makes read-only, on the sunken fill ─────────────────── */}
-            <FormSection
-                first
-                testID="kitchen-price-list-facts"
-                title={t('kitchen:priceLists.factsTitle')}
-                description={t('kitchen:priceLists.readOnlyNote')}
-            >
-                <View className="rounded border border-stroke-subtle bg-surface-sunken px-snug py-2.5">
-                    <RecordWindowFieldGrid
-                        testID="kitchen-price-list-fact"
-                        fields={[
-                            {
-                                key: 'name',
-                                label: t('kitchen:priceLists.columnName'),
-                                value: displayName(data.name, locale).value,
-                            },
-                            {
-                                key: 'currency',
-                                label: t('kitchen:priceLists.currencyLabel'),
-                                value: data.currency,
-                                mono: true,
-                            },
-                            {
-                                key: 'channels',
-                                label: t('kitchen:priceLists.channelsLabel'),
-                                value:
-                                    data.channels.length === 0
-                                        ? t('kitchen:priceLists.noChannels')
-                                        : data.channels
-                                              .map((channel) => t(channelKey(channel)))
-                                              .join(', '),
-                            },
-                        ]}
-                    />
-                </View>
-            </FormSection>
-
-            {confidential ? (
-                <Callout
-                    testID="kitchen-price-list-confidential"
-                    role="note"
-                    tone="warning"
-                    title={t('kitchen:priceLists.confidentialTitle')}
-                    body={t('kitchen:priceLists.confidentialBody')}
-                />
-            ) : null}
-
-            {/* ── entries ──────────────────────────────────────────────────────────────────── */}
-            <FormSection
-                testID="kitchen-price-list-entries-card"
-                title={t('kitchen:priceLists.entriesTitle')}
-                description={t('kitchen:priceLists.entriesHelp')}
-            >
-                <Stack space="md">
-                    <Inline space="xs" wrap testID="kitchen-price-list-draft-summary">
-                        <Badge
-                            testID="kitchen-price-list-draft-confirmed"
-                            tone={draftSummary.confirmed === 0 ? 'neutral' : 'success'}
-                            label={t('kitchen:priceLists.confirmedCount', {
-                                count: draftSummary.confirmed,
-                            })}
+            {form.current !== 'facts' ? null : (
+                <FormSection
+                    first
+                    testID="kitchen-price-list-facts"
+                    title={t('kitchen:priceLists.factsTitle')}
+                >
+                    <View className="rounded border border-stroke-subtle bg-surface-sunken px-snug py-2.5">
+                        <RecordWindowFieldGrid
+                            testID="kitchen-price-list-fact"
+                            fields={[
+                                {
+                                    key: 'name',
+                                    label: t('kitchen:priceLists.columnName'),
+                                    value: displayName(data.name, locale).value,
+                                },
+                                {
+                                    key: 'currency',
+                                    label: t('kitchen:priceLists.currencyLabel'),
+                                    value: data.currency,
+                                    mono: true,
+                                },
+                                {
+                                    key: 'channels',
+                                    label: t('kitchen:priceLists.channelsLabel'),
+                                    value:
+                                        data.channels.length === 0
+                                            ? t('kitchen:priceLists.noChannels')
+                                            : data.channels
+                                                  .map((channel) => t(channelKey(channel)))
+                                                  .join(', '),
+                                },
+                            ]}
                         />
-                        <Badge
-                            testID="kitchen-price-list-draft-placeholder"
-                            tone={draftSummary.placeholder === 0 ? 'neutral' : 'warning'}
-                            label={t('kitchen:priceLists.placeholderCount', {
-                                count: draftSummary.placeholder,
-                            })}
-                        />
-                        <Badge
-                            testID="kitchen-price-list-draft-market"
-                            tone="info"
-                            label={t('kitchen:priceLists.marketCount', {
-                                count: draftSummary.marketPriced,
-                            })}
-                        />
-                    </Inline>
+                    </View>
+                </FormSection>
+            )}
 
-                    <PriceEntryEditor
-                        testID="kitchen-price-list-entries"
-                        rows={entries}
-                        errors={rowErrors}
-                        options={itemOptions}
-                        currency={data.currency}
-                        canManage={canManage}
-                        onChange={(next) => {
-                            setEntries(next);
-                            markDirty();
-                        }}
-                    />
+            {/* ── entries, and the publication they feed ───────────────────────────────────── */}
+            {form.current !== 'entries' ? null : (
+                <>
+                    <FormSection
+                        first
+                        testID="kitchen-price-list-entries-card"
+                        title={t('kitchen:priceLists.entriesTitle')}
+                    >
+                        <Stack space="md">
+                            <Inline space="xs" wrap testID="kitchen-price-list-draft-summary">
+                                <Badge
+                                    testID="kitchen-price-list-draft-confirmed"
+                                    tone={draftSummary.confirmed === 0 ? 'neutral' : 'success'}
+                                    label={t('kitchen:priceLists.confirmedCount', {
+                                        count: draftSummary.confirmed,
+                                    })}
+                                />
+                                <Badge
+                                    testID="kitchen-price-list-draft-placeholder"
+                                    tone={draftSummary.placeholder === 0 ? 'neutral' : 'warning'}
+                                    label={t('kitchen:priceLists.placeholderCount', {
+                                        count: draftSummary.placeholder,
+                                    })}
+                                />
+                                <Badge
+                                    testID="kitchen-price-list-draft-market"
+                                    tone="info"
+                                    label={t('kitchen:priceLists.marketCount', {
+                                        count: draftSummary.marketPriced,
+                                    })}
+                                />
+                            </Inline>
 
-                    {canManage ? (
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID="kitchen-price-list-add-entry"
-                                variant="secondary"
-                                label={t('kitchen:priceLists.addEntry')}
-                                onPress={() => {
-                                    setEntries([
-                                        ...entries,
-                                        emptyPriceEntry(takeEntryKey(), todayIso()),
-                                    ]);
+                            <PriceEntryEditor
+                                testID="kitchen-price-list-entries"
+                                rows={entries}
+                                errors={rowErrors}
+                                options={itemOptions}
+                                currency={data.currency}
+                                canManage={canManage}
+                                onChange={(next) => {
+                                    setEntries(next);
                                     markDirty();
                                 }}
                             />
-                        </Inline>
-                    ) : null}
-                </Stack>
-            </FormSection>
 
-            <PublishGate
-                testID="kitchen-price-list-publish"
-                title={t('kitchen:priceLists.publicationTitle')}
-                canManage={canManage}
-                blockers={
-                    quarantined
-                        ? [t('kitchen:publish.quarantineTitle'), ...publishBlockers]
-                        : publishBlockers
-                }
-                blockedTitle={t('kitchen:priceLists.publishBlockedTitle')}
-                excluded={t('kitchen:priceLists.publishExcludedBody', {
-                    placeholders: savedSummary?.placeholder ?? 0,
-                    market: savedSummary?.marketPriced ?? 0,
-                })}
-                published={isPublished ? t('kitchen:priceLists.publishedBody') : undefined}
-                onPublish={() => {
-                    setShowPublish(true);
-                }}
-            />
+                            {canManage ? (
+                                <Inline space="sm" wrap>
+                                    <Button
+                                        testID="kitchen-price-list-add-entry"
+                                        variant="secondary"
+                                        label={t('kitchen:priceLists.addEntry')}
+                                        onPress={() => {
+                                            setEntries([
+                                                ...entries,
+                                                emptyPriceEntry(takeEntryKey(), todayIso()),
+                                            ]);
+                                            markDirty();
+                                        }}
+                                    />
+                                </Inline>
+                            ) : null}
+                        </Stack>
+                    </FormSection>
+
+                    <PublishGate
+                        testID="kitchen-price-list-publish"
+                        title={t('kitchen:priceLists.publicationTitle')}
+                        canManage={canManage}
+                        blockers={
+                            quarantined
+                                ? [t('kitchen:publish.quarantineTitle'), ...publishBlockers]
+                                : publishBlockers
+                        }
+                        blockedTitle={t('kitchen:priceLists.publishBlockedTitle')}
+                        excluded={t('kitchen:priceLists.publishExcludedBody', {
+                            placeholders: savedSummary?.placeholder ?? 0,
+                            market: savedSummary?.marketPriced ?? 0,
+                        })}
+                        published={isPublished ? t('kitchen:priceLists.publishedBody') : undefined}
+                        onPublish={() => {
+                            setShowPublish(true);
+                        }}
+                    />
+                </>
+            )}
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog

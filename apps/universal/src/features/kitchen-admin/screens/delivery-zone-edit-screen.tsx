@@ -1,5 +1,6 @@
 import type { DeliveryZoneAdmin, LocalisedText } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     Callout,
     FormGrid,
@@ -10,9 +11,9 @@ import {
     Skeleton,
     Stack,
     TagRow,
-    Tabs,
     Text,
     TextInputField,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import { CURRENCY_CODES, DeliveryZoneId } from '@healthy360/domain-types';
@@ -54,7 +55,7 @@ import type { DeliveryWindowDraft } from '../delivery-model.ts';
 import { DeliveryWindowRows, ServiceAreaPicker } from '../delivery-row-editors.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
-import { displayName, minorAmountToInput } from '../format.ts';
+import { displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -137,7 +138,7 @@ export interface DeliveryZoneEditScreenProps {
     readonly zone: string | undefined;
 }
 
-type ZoneTab = 'zone' | 'areas' | 'windows';
+const ZONE_STEPS = ['zone', 'areas', 'windows'] as const;
 
 export function DeliveryZoneEditScreen({ zone }: DeliveryZoneEditScreenProps) {
     return (
@@ -238,7 +239,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
-    const [tab, setTab] = useState<ZoneTab>('zone');
+    const form = useFormSteps(ZONE_STEPS);
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
     const [detailsDirty, setDetailsDirty] = useState(false);
@@ -369,11 +370,6 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
      * Delivery windows are editable on a zone that does not exist yet.
      */
     const stepsUnlocked = !detailsBlocked;
-
-    const goTo = (next: ZoneTab) => {
-        if (next !== 'zone' && !stepsUnlocked) return;
-        setTab(next);
-    };
 
     /**
      * The one save, at the end of the walk: the record, then its areas, then its windows.
@@ -531,11 +527,36 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     return (
         <EditorFrame
             testID="kitchen-zone-editor-screen"
-            // The wizard owns its own controls (Next · Next · Save the zone, below the form) and
-            // the breadcrumb already names the record, so the frame draws no header of its own.
+            // The step footer carries the wizard's controls and the breadcrumb already names the
+            // record, so the frame draws no header of its own.
             chromeless
             hideBack
             hideSave
+            steps={{
+                form,
+                steps: [
+                    { key: 'zone', label: t('kitchen:zones.sectionDetails') },
+                    {
+                        key: 'areas',
+                        label: t('kitchen:zones.sectionAreas'),
+                        disabled: !stepsUnlocked,
+                    },
+                    {
+                        key: 'windows',
+                        label: t('kitchen:zones.sectionWindows'),
+                        disabled: !stepsUnlocked,
+                    },
+                ],
+                finalAction: canManage ? (
+                    <Button
+                        testID="kitchen-zone-windows-save"
+                        label={t('kitchen:zones.saveZone')}
+                        loading={saving}
+                        disabled={detailsBlocked || windowRowErrors.size > 0 || saving}
+                        onPress={finish}
+                    />
+                ) : null,
+            }}
             title={
                 isCreating
                     ? t('kitchen:zones.createTitle')
@@ -555,13 +576,13 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
             banner={
                 <Stack space="sm">
                     {isRetired ? (
-                        <Callout
-                            testID="kitchen-zone-archived"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:zones.archivedTitle')}
-                            body={t('kitchen:zones.archivedBody')}
-                        />
+                        <Inline space="xs">
+                            <Badge
+                                testID="kitchen-zone-archived"
+                                tone={statusTone('retired')}
+                                label={t(statusKey('retired'))}
+                            />
+                        </Inline>
                     ) : null}
 
                     {saveFailure === null ? null : (
@@ -576,41 +597,9 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 </Stack>
             }
         >
-            {/*
-             * Three steps rather than three free tabs: the zone has to exist before an area or a
-             * window can be written against it, so Areas and Delivery windows stay unreachable
-             * until the record is saved and its details are valid. The step buttons under each
-             * panel are the way forward; the tabs are how you return to one already passed.
-             */}
-            <Tabs<ZoneTab>
-                testID="kitchen-zone-tabs"
-                label={t('kitchen:zones.tabsLabel')}
-                value={tab}
-                onChange={goTo}
-                items={[
-                    {
-                        value: 'zone',
-                        label: t('kitchen:zones.sectionDetails'),
-                        testID: 'kitchen-zone-tab-zone',
-                    },
-                    {
-                        value: 'areas',
-                        label: t('kitchen:zones.sectionAreas'),
-                        testID: 'kitchen-zone-tab-areas',
-                        disabled: !stepsUnlocked,
-                    },
-                    {
-                        value: 'windows',
-                        label: t('kitchen:zones.sectionWindows'),
-                        testID: 'kitchen-zone-tab-windows',
-                        disabled: !stepsUnlocked,
-                    },
-                ]}
-            />
-
             {/* ── the record ───────────────────────────────────────────────────────────────── */}
-            {tab !== 'zone' ? null : (
-                <View testID="kitchen-zone-details" className="flex-col gap-loose pt-base">
+            {form.current !== 'zone' ? null : (
+                <View testID="kitchen-zone-details" className="flex-col gap-loose">
                     {/*
                      * The design's 280px tracks. The name pair takes two of them, so the Arabic
                      * name sits beside the English one rather than under it.
@@ -761,16 +750,8 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                         </ReadOnlyCell>
                     </FormGrid>
 
-                    <Inline space="sm" wrap testID="kitchen-zone-details-actions">
-                        <Button
-                            testID="kitchen-zone-details-next"
-                            label={t('kitchen:zones.next')}
-                            disabled={!canManage || detailsBlocked}
-                            onPress={() => {
-                                goTo('areas');
-                            }}
-                        />
-                        {isCreating || !canManage || isRetired ? null : (
+                    {isCreating || !canManage || isRetired ? null : (
+                        <Inline space="sm" wrap testID="kitchen-zone-details-actions">
                             <Button
                                 testID="kitchen-zone-archive"
                                 variant="secondary"
@@ -779,14 +760,14 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                     setShowArchive(true);
                                 }}
                             />
-                        )}
-                    </Inline>
+                        </Inline>
+                    )}
                 </View>
             )}
 
             {/* ── areas ────────────────────────────────────────────────────────────────────── */}
-            {tab !== 'areas' ? null : (
-                <View testID="kitchen-zone-areas" className="pt-base">
+            {form.current !== 'areas' ? null : (
+                <View testID="kitchen-zone-areas">
                     <Stack space="md">
                         {gazetteer.isPending ? (
                             <Skeleton testID="kitchen-zone-areas-loading" heightClassName="h-24" />
@@ -825,31 +806,13 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                 body={areasFailure.message}
                             />
                         )}
-
-                        <Inline space="sm" wrap testID="kitchen-zone-areas-actions">
-                            <Button
-                                testID="kitchen-zone-areas-back"
-                                variant="secondary"
-                                label={t('kitchen:zones.back')}
-                                onPress={() => {
-                                    goTo('zone');
-                                }}
-                            />
-                            <Button
-                                testID="kitchen-zone-areas-next"
-                                label={t('kitchen:zones.next')}
-                                onPress={() => {
-                                    goTo('windows');
-                                }}
-                            />
-                        </Inline>
                     </Stack>
                 </View>
             )}
 
             {/* ── delivery windows ─────────────────────────────────────────────────────────── */}
-            {tab !== 'windows' ? null : (
-                <View testID="kitchen-zone-windows" className="pt-base">
+            {form.current !== 'windows' ? null : (
+                <View testID="kitchen-zone-windows">
                     <Stack space="md">
                         <DeliveryWindowRows
                             testID="kitchen-zone-window-rows"
@@ -879,26 +842,6 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                 body={windowsFailure.message}
                             />
                         )}
-
-                        <Inline space="sm" wrap testID="kitchen-zone-windows-actions">
-                            <Button
-                                testID="kitchen-zone-windows-back"
-                                variant="secondary"
-                                label={t('kitchen:zones.back')}
-                                onPress={() => {
-                                    goTo('areas');
-                                }}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-zone-windows-save"
-                                    label={t('kitchen:zones.saveZone')}
-                                    loading={saving}
-                                    disabled={detailsBlocked || windowRowErrors.size > 0 || saving}
-                                    onPress={finish}
-                                />
-                            ) : null}
-                        </Inline>
                     </Stack>
                 </View>
             )}

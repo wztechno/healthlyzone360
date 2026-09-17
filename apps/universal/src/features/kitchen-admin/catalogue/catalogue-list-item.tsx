@@ -61,6 +61,8 @@ export interface CatalogueListItemProps {
     readonly actionsLabel: string;
     /** Opens the editor, matching the wide row's body press. */
     readonly onPress?: (() => void) | undefined;
+    /** The row's bottom hairline; off for the last row inside the list's frame. */
+    readonly divider?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -72,6 +74,7 @@ export function CatalogueListItem({
     actions,
     actionsLabel,
     onPress,
+    divider,
     testID,
 }: CatalogueListItemProps) {
     const overflow =
@@ -99,6 +102,7 @@ export function CatalogueListItem({
         <ListItem
             title={title}
             onPress={onPress}
+            divider={divider}
             testID={testID}
             trailing={
                 <View className="flex-row items-center gap-tight">

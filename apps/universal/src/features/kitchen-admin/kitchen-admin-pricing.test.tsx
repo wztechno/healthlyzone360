@@ -49,7 +49,6 @@ import type { PriceEntryDraft } from './price-row-editors.tsx';
 import { PriceListEditScreen } from './screens/price-list-edit-screen.tsx';
 import { PriceListsScreen } from './screens/price-lists-screen.tsx';
 
-
 /*
  * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
  * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
@@ -125,6 +124,17 @@ function untilVisible(testID: string) {
         },
         { timeout: 20_000 },
     );
+}
+
+/**
+ * Opens the price list editor's Entries step. The editor is a two-step form and opens on Facts, so
+ * the entries, their controls and the publication gate are one press on the step row away.
+ */
+async function openEntriesStep() {
+    await untilVisible('kitchen-price-list-editor-screen-steps-entries');
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-price-list-editor-screen-steps-entries'));
+    });
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -680,9 +690,6 @@ describe('editing a price list', () => {
         expect(screen.getByTestId('kitchen-price-list-fact-currency-value')).toHaveTextContent(
             new RegExp(CONFIRMED_LIST.currency),
         );
-        expect(screen.getByTestId('kitchen-price-list-facts')).toHaveTextContent(
-            /cannot be changed here/,
-        );
         expect(screen.queryByTestId('kitchen-price-list-currency-trigger')).toBeNull();
     });
 
@@ -702,6 +709,7 @@ describe('editing a price list', () => {
             session: kitchenManagerSession(),
             repositories: editorReads(() => CONFIRMED_LIST),
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         const first = CONFIRMED_LIST.entries[0]!;
@@ -718,6 +726,7 @@ describe('editing a price list', () => {
             session: kitchenManagerSession(),
             repositories: editorReads(() => CONFIRMED_LIST),
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         const first = CONFIRMED_LIST.entries[0]!;
@@ -751,6 +760,7 @@ describe('editing a price list', () => {
             session: kitchenManagerSession(),
             repositories: editorReads(() => CONFIRMED_LIST),
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         const first = CONFIRMED_LIST.entries[0]!;
@@ -806,6 +816,7 @@ describe('editing a price list', () => {
                 },
             },
         );
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         const first = CONFIRMED_LIST.entries[0]!;
@@ -859,6 +870,7 @@ describe('editing a price list', () => {
                 },
             },
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         const first = CONFIRMED_LIST.entries[0]!;
@@ -886,6 +898,7 @@ describe('editing a price list', () => {
             session: kitchenManagerSession(),
             repositories: editorReads(() => CONFIRMED_LIST),
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-add-entry');
 
         const first = CONFIRMED_LIST.entries[0]!;
@@ -959,6 +972,7 @@ describe('editing a price list', () => {
                 },
             },
         );
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         const first = CONFIRMED_LIST.entries[0]!;
@@ -1006,6 +1020,7 @@ describe('editing a price list', () => {
             session: kitchenManagerSession(),
             repositories: editorReads(() => CONFIRMED_LIST),
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-add-entry');
 
         await act(async () => {
@@ -1037,6 +1052,7 @@ describe('publishing a price list', () => {
             session: kitchenManagerSession(),
             repositories: editorReads(() => UNPRICED_LIST),
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         await act(async () => {
@@ -1059,6 +1075,7 @@ describe('publishing a price list', () => {
             session: kitchenManagerSession(),
             repositories: editorReads(() => UNPRICED_LIST),
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-add-entry');
 
         await act(async () => {
@@ -1097,6 +1114,7 @@ describe('publishing a price list', () => {
                 },
             },
         );
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         await act(async () => {
@@ -1140,6 +1158,7 @@ describe('publishing a price list', () => {
                 },
             },
         });
+        await openEntriesStep();
         await untilVisible('kitchen-price-list-entries');
 
         await act(async () => {

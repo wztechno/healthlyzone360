@@ -1,6 +1,7 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { useWindowDimensions } from 'react-native';
 
+import { FormNavigation } from '../forms/form-navigation.tsx';
 import { Text } from '../primitives/text.tsx';
 import { OfflineIndicator } from '../status/offline-indicator.tsx';
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
@@ -712,5 +713,50 @@ describe('AppShell — consumer', () => {
 
         expect(screen.queryByTestId('shell-sidebar')).toBeNull();
         expect(screen.queryByTestId('shell-tabs')).toBeNull();
+    });
+});
+
+describe('AppShell — the docked bar', () => {
+    it('draws a sticky form footer on its own bottom edge, outside the scroll port', async () => {
+        await renderWithI18n(
+            <AppShell testID="shell" variant="workspace" title="Healthy360" navigation={navigation}>
+                <Text testID="content">Body</Text>
+                <FormNavigation
+                    testID="steps"
+                    previousLabel="Previous"
+                    onPrevious={jest.fn()}
+                    counter="Step 1 of 3"
+                    actions={null}
+                    sticky
+                />
+            </AppShell>,
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('shell-dock')).toBeTruthy();
+        });
+        const dock = screen.getByTestId('shell-dock');
+        const content = screen.getByTestId('shell-content');
+
+        expect(screen.getByTestId('steps')).toBeTruthy();
+        expect(within(dock).getByTestId('steps')).toBeTruthy();
+        expect(within(content).queryByTestId('steps')).toBeNull();
+        // Docked, so none of the in-place sticky fallback.
+        expect(screen.getByTestId('steps').props.className).not.toContain('web:sticky');
+    });
+
+    it('renders the footer in place when there is no shell to dock into', async () => {
+        await renderWithI18n(
+            <FormNavigation
+                testID="steps"
+                previousLabel="Previous"
+                onPrevious={jest.fn()}
+                counter="Step 1 of 3"
+                actions={null}
+                sticky
+            />,
+        );
+
+        expect(screen.getByTestId('steps').props.className).toContain('web:sticky');
     });
 });

@@ -65,6 +65,8 @@ export interface AreaShellProps {
     readonly sidebarStart?: ReactNode | undefined;
     /** `sidebarStart` for the collapsed sidebar — the brand mark alone. */
     readonly sidebarStartCollapsed?: ReactNode | undefined;
+    /** Drawn in the top bar in place of the area title — the kitchen's breadcrumb trail. */
+    readonly topbarTitle?: ReactNode | undefined;
     /**
      * Move Sign out from the top bar to the bottom of the sidebar (KITCHEN.md sidebar spec). Only
      * where the sidebar exists: below `lg` the top bar keeps it, because the drawer is a light
@@ -107,6 +109,7 @@ function GuardedAreaShell({
     sidebarBackground,
     sidebarStart,
     sidebarStartCollapsed,
+    topbarTitle,
     signOutInSidebar = false,
     authAside,
     testID = 'app-shell',
@@ -233,6 +236,7 @@ function GuardedAreaShell({
             navigation={navigation}
             banner={banner}
             topbarEnd={topbarEnd}
+            {...(topbarTitle === undefined ? {} : { topbarTitle })}
             {...(sidebarWidth === undefined ? {} : { sidebarWidth })}
             {...(sidebarBackground === undefined ? {} : { sidebarBackground })}
             {...(sidebarStart === undefined ? {} : { sidebarStart })}

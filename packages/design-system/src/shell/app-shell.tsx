@@ -11,6 +11,7 @@ import type { IconName } from '../icons/icon.tsx';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { cx } from '../internal/class-names.ts';
 import { Drawer } from '../overlays/drawer.tsx';
+import { ShellDockHost } from './shell-dock.tsx';
 
 export const APP_SHELL_VARIANTS = [
     'public',
@@ -64,6 +65,12 @@ export interface AppShellProps {
     readonly navigation?: readonly NavigationItem[] | undefined;
     /** Leading topbar slot — brand, back control. */
     readonly topbarStart?: ReactNode | undefined;
+    /**
+     * Replaces the top bar's title text — a breadcrumb trail that already names the page. Omit, or
+     * pass `undefined` on a page the trail has nothing to say about, and `title` is drawn instead.
+     * Not used by the `marketplace` bar, which draws no title.
+     */
+    readonly topbarTitle?: ReactNode | undefined;
     /** Trailing topbar slot — locale switch, avatar, sign out. */
     readonly topbarEnd?: ReactNode | undefined;
     /** Full-width strip above everything: offline indicator, mock-data banner. */
@@ -126,12 +133,29 @@ export interface AppShellProps {
  * belong under the thumb, which is the same bottom bar the `driver` variant uses — and it is
  * literally the same code, so the two cannot drift.
  */
-export function AppShell({
+export function AppShell(props: AppShellProps) {
+    /*
+     * The bar a page docks to the content column's bottom edge (`ShellDock`) — the multi-step
+     * form's Previous / Next. Held in this thin wrapper so the layout below re-renders to draw it
+     * while the page element it was handed as `children` stays the same one.
+     */
+    const [dock, setDock] = useState<ReactNode>(null);
+
+    return (
+        <ShellDockHost value={setDock}>
+            <AppShellLayout {...props} dock={dock} />
+        </ShellDockHost>
+    );
+}
+
+function AppShellLayout({
+    dock,
     variant,
     children,
     title,
     navigation = [],
     topbarStart,
+    topbarTitle,
     topbarEnd,
     banner,
     footer,
@@ -144,7 +168,7 @@ export function AppShell({
     authAside,
     contentClassName,
     testID,
-}: AppShellProps) {
+}: AppShellProps & { readonly dock: ReactNode }) {
     const { t } = useTranslation();
     const { atLeast } = useBreakpoint();
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -332,6 +356,12 @@ export function AppShell({
         );
     }
 
+    /** The docked bar, on the content column's bottom edge and outside its scroll port. */
+    const dockBar =
+        dock === null ? null : (
+            <View testID={testID === undefined ? undefined : `${testID}-dock`}>{dock}</View>
+        );
+
     const topBar = (
         <View
             testID={testID === undefined ? undefined : `${testID}-topbar`}
@@ -364,15 +394,21 @@ export function AppShell({
                 />
             ) : null}
             {topbarStart}
-            <RNText
-                testID={testID === undefined ? undefined : `${testID}-title`}
-                accessibilityRole="header"
-                aria-level={1}
-                numberOfLines={1}
-                className="flex-1 text-base font-semibold text-content-primary text-start"
-            >
-                {title ?? t('common:app.name')}
-            </RNText>
+            {topbarTitle === undefined ? (
+                <RNText
+                    testID={testID === undefined ? undefined : `${testID}-title`}
+                    accessibilityRole="header"
+                    aria-level={1}
+                    numberOfLines={1}
+                    className="flex-1 text-base font-semibold text-content-primary text-start"
+                >
+                    {title ?? t('common:app.name')}
+                </RNText>
+            ) : (
+                // `flex-1` as the text title has it: the trail's column pushes the trailing controls
+                // to the inline end, and `min-w-0` lets a long trail wrap rather than shove them off.
+                <View className="min-w-0 flex-1 flex-row items-center">{topbarTitle}</View>
+            )}
             {topbarEnd}
         </View>
     );
@@ -871,6 +907,7 @@ export function AppShell({
                     </ScrollView>
                 </View>
 
+                {dockBar}
                 {showTabs ? tabBar : null}
             </View>
         );
@@ -963,6 +1000,7 @@ export function AppShell({
                         {children}
                         {footer}
                     </ScrollView>
+                    {dockBar}
                 </View>
             </View>
         );
@@ -988,6 +1026,8 @@ export function AppShell({
                     {footer}
                 </ScrollView>
             </View>
+
+            {dockBar}
 
             {variant === 'workspace' && !wideEnoughForSidebar && navigation.length > 0
                 ? navigationDrawer

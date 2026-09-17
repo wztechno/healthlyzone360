@@ -26,7 +26,6 @@ import { SupplyOrderBuilderScreen } from './screens/supply-order-builder-screen.
 import { SupplyOrderDetailScreen } from './screens/supply-order-detail-screen.tsx';
 import { SupplyOrdersScreen } from './screens/supply-orders-screen.tsx';
 
-
 /*
  * The Operations lists are desk surfaces: at desk width a row draws every column the spec declares.
  * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
@@ -116,6 +115,15 @@ function untilVisible(testID: string) {
         },
         { timeout: 10_000 },
     );
+}
+
+/** The builder is a multi-step form: a later region is only drawn once its step is opened. */
+async function openBuilderStep(step: 'needs' | 'unlinked' | 'review') {
+    const testID = `kitchen-supply-order-builder-screen-steps-${step}`;
+    await untilVisible(testID);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(testID));
+    });
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -525,6 +533,7 @@ describe('supply order builder', () => {
             repositories: builderOverrides([LOW_ONLY, unlinked, archived]),
         });
 
+        await openBuilderStep('unlinked');
         await untilVisible('kitchen-supply-order-unlinked');
 
         // Different problems, different fixes — one empty dropdown for both would leave the person
@@ -556,6 +565,7 @@ describe('supply order builder', () => {
             repositories: builderOverrides([unlinked], { upsertSupplierLink }),
         });
 
+        await openBuilderStep('unlinked');
         await untilVisible('kitchen-supply-order-unlinked');
 
         const testID = supplyOrderRowTestId(String(unlinked.stockItemId));
@@ -614,6 +624,7 @@ describe('supply order builder', () => {
             repositories: builderOverrides([LOW_ONLY, OUT_ONLY, unlinked]),
         });
 
+        await openBuilderStep('review');
         await untilVisible('kitchen-supply-order-preview');
 
         // The suggested row is already in the preview: it opened with a quantity and a supplier.
@@ -625,6 +636,8 @@ describe('supply order builder', () => {
         expect(screen.queryByTestId('kitchen-supply-order-unassigned-warning')).toBeNull();
 
         // Typing a quantity on a row with nobody to buy it from moves it into the warning.
+        await openBuilderStep('unlinked');
+        await untilVisible(`${supplyOrderRowTestId(String(unlinked.stockItemId))}-quantity-input`);
         await act(async () => {
             fireEvent.changeText(
                 screen.getByTestId(
@@ -634,6 +647,7 @@ describe('supply order builder', () => {
             );
         });
 
+        await openBuilderStep('review');
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-supply-order-unassigned-warning')).toHaveTextContent(
                 /1/,
@@ -698,6 +712,7 @@ describe('supply order builder', () => {
             }),
         });
 
+        await openBuilderStep('review');
         await untilVisible('kitchen-supply-order-commit');
 
         // One supplier, one line — LOW_ONLY opened with a suggestion and a preferred supplier, and
@@ -758,8 +773,10 @@ describe('supply order builder', () => {
             repositories: builderOverrides([LOW_ONLY], { createPurchaseOrders }),
         });
 
+        await openBuilderStep('review');
         await untilVisible('kitchen-supply-order-commit');
 
+        // Create lives in the step footer, on the last step.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supply-order-create'));
         });

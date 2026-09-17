@@ -7,6 +7,11 @@ import { cx } from '../internal/class-names.ts';
 export interface StepProgressItem {
     readonly key: string;
     readonly label: string;
+    /**
+     * Not reachable from the row — a step ahead of one whose checks have not passed. Still drawn:
+     * the row says how long the form is.
+     */
+    readonly disabled?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -23,6 +28,11 @@ export interface StepProgressProps {
     readonly completed: ReadonlySet<number>;
     /** Every step stays reachable. Omit for a read-only indicator. */
     readonly onSelect?: ((index: number) => void) | undefined;
+    /**
+     * Close the form's opening with a hairline under the row. On for a form's own progress row —
+     * it is what separates "where you are" from the step you are on — off where the row stands alone.
+     */
+    readonly divided?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -49,6 +59,12 @@ export interface StepProgressProps {
  *
  * Below `sm` the labels drop and the numbers carry the sequence; the counter in the form's footer
  * still names the step.
+ *
+ * ## One of three parts
+ *
+ * A multi-step form is `useFormSteps` for the state, this row, and `FormNavigation` for the footer.
+ * `useFormSteps`'s `index`, `completed` and `goToIndex` are this component's `current`, `completed`
+ * and `onSelect`, so wiring the two is three props.
  */
 export function StepProgress({
     label,
@@ -56,6 +72,7 @@ export function StepProgress({
     current,
     completed,
     onSelect,
+    divided = false,
     className,
     testID,
 }: StepProgressProps) {
@@ -72,7 +89,11 @@ export function StepProgress({
             role="list"
             aria-label={label}
             accessibilityLabel={label}
-            className={cx('relative flex-row items-start', className)}
+            className={cx(
+                'relative flex-row items-start',
+                divided ? 'border-b border-stroke-subtle pb-snug' : null,
+                className,
+            )}
         >
             <View
                 aria-hidden
@@ -99,6 +120,7 @@ export function StepProgress({
                 const isCurrent = index === at;
                 const isDone = !isCurrent && completed.has(index);
                 const number = String(index + 1);
+                const unreachable = onSelect === undefined || step.disabled === true;
                 const accessibilityLabel = t(
                     isDone
                         ? 'designSystem:stepProgress.stepDone'
@@ -116,9 +138,9 @@ export function StepProgress({
                         aria-current={isCurrent ? 'step' : undefined}
                         accessibilityState={{
                             selected: isCurrent,
-                            disabled: onSelect === undefined,
+                            disabled: unreachable,
                         }}
-                        disabled={onSelect === undefined}
+                        disabled={unreachable}
                         onPress={() => {
                             onSelect?.(index);
                         }}

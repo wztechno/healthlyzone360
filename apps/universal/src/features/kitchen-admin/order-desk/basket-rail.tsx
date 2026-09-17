@@ -98,7 +98,7 @@ export function BasketRail({
             role="complementary"
             aria-label={t('kitchen:desk.sale.basketTitle')}
             style={{ width: RAIL_WIDTH }}
-            className="flex-col rounded border border-stroke bg-surface-raised"
+            className="flex-col rounded border border-stroke bg-surface-raised shadow-elevation-card"
         >
             <View className="flex-col gap-hair px-snug pb-tight pt-tight">
                 <DeskSectionHeading

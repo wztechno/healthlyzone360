@@ -218,6 +218,8 @@ export type { SegmentedControlProps, TabItem, TabsProps, TabsVariant } from './n
 export { Stepper } from './navigation/stepper.tsx';
 export { StepProgress } from './navigation/step-progress.tsx';
 export type { StepProgressItem, StepProgressProps } from './navigation/step-progress.tsx';
+export { useFormSteps } from './navigation/use-form-steps.ts';
+export type { FormSteps, FormStepsOptions } from './navigation/use-form-steps.ts';
 export type { StepperProps } from './navigation/stepper.tsx';
 export { BREADCRUMB_TONES, Breadcrumbs } from './navigation/breadcrumbs.tsx';
 export type {

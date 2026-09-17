@@ -14,9 +14,9 @@ import {
     spanWidth,
     Skeleton,
     Stack,
-    Tabs,
     Text,
     TextInputField,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import { DIET_CLASSIFICATIONS, SubscriptionPlanId } from '@healthy360/domain-types';
@@ -24,7 +24,6 @@ import type { DietClassification } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -60,7 +59,6 @@ import {
     humaniseCode,
     isTranslationIncomplete,
     summarisePlanDurations,
-    summarisePlanMatrix,
     summarisePlanPrices,
 } from '../format.ts';
 import {
@@ -81,7 +79,6 @@ import { PlanMenuDays } from '../plan-menu-row-editors.tsx';
 import { PlanDurationRows, PlanVariantRows } from '../plan-row-editors.tsx';
 import {
     combinationDraft,
-    combinationRequest,
     durationDraft,
     durationErrors,
     durationRequest,
@@ -182,40 +179,31 @@ function detailsFrom(plan: PlanAdmin): DetailsDraft {
     };
 }
 
-/* ------------------------------------------------------------------------------------------------
- * Tab panel
- * ---------------------------------------------------------------------------------------------- */
-
-/**
- * A tab's content with no heading of its own. The tab rail already names it, so a `FormSection`
- * title would print "Durations" twice; what is left is the one line of explanation and its count.
- */
-function TabPanel({
-    testID,
-    description,
-    aside,
-    children,
-}: {
-    readonly testID: string;
-    readonly description: string;
-    readonly aside?: ReactNode | undefined;
-    readonly children: ReactNode;
-}) {
-    return (
-        <View testID={testID} className="z-auto flex-col gap-snug">
-            <View className="flex-col gap-hair">
-                {aside}
-                <Text variant="caption" tone="secondary">
-                    {description}
-                </Text>
-            </View>
-            {children}
-        </View>
-    );
-}
-
 /** Seven 34px day squares and their hairline gaps, the delivery zones' weekday track. */
 const WEEKDAYS_TRACK = 260;
+
+/* ------------------------------------------------------------------------------------------------
+ * Steps
+ * ---------------------------------------------------------------------------------------------- */
+
+/*
+ * Configurations · Matrix · Durations, the design's three (Commercial §3.3), then the two subjects
+ * the design does not draw — the plan's own details and its fixed menu. A new plan walks the same
+ * steps, because the design's `New plan` is the same editor with nothing in it. Only the menu waits
+ * for the record: it is written against published dishes and its first save is a cutover, neither
+ * of which means anything before a plan exists.
+ */
+const PLAN_STEPS = ['variants', 'matrix', 'durations', 'plan', 'menu'] as const;
+type PlanStep = (typeof PLAN_STEPS)[number];
+const NEW_PLAN_STEPS: readonly PlanStep[] = ['variants', 'matrix', 'durations', 'plan'];
+
+const PLAN_STEP_LABELS: Record<PlanStep, string> = {
+    variants: 'kitchen:plans.tabVariants',
+    matrix: 'kitchen:plans.tabMatrix',
+    durations: 'kitchen:plans.sectionDurations',
+    plan: 'kitchen:plans.sectionDetails',
+    menu: 'kitchen:plans.sectionMenu',
+};
 
 /* ------------------------------------------------------------------------------------------------
  * Screen
@@ -238,8 +226,6 @@ export function PlanEditScreen({ plan }: PlanEditScreenProps) {
     );
 }
 
-type PlanTab = 'variants' | 'matrix' | 'durations' | 'plan' | 'menu';
-
 function PlanEditor({ plan }: PlanEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
@@ -249,7 +235,8 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     const isCreating = plan === undefined || plan === 'new';
     // Every plan, new or saved, opens on its configurations: the matrix only reads what they say.
-    const [tab, setTab] = useState<PlanTab>('variants');
+    const planSteps: readonly PlanStep[] = isCreating ? NEW_PLAN_STEPS : PLAN_STEPS;
+    const form = useFormSteps(planSteps);
     /*
      * The record a create has already minted, held while the sections after it are still being
      * written. If one of those writes fails the screen is still at `/new`, and without this a second
@@ -817,25 +804,11 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const publishRefusedByPrice = Object.keys(publishFields).includes('price');
     const quarantined = data?.meta.status === 'review_required';
     const isPublished = data?.meta.status === 'published';
-    /*
-     * The live summary of what is on screen — not of what the server holds. The counts are how a
-     * person checks their own work before saving, so they are computed from the draft, put through
-     * the same request builders the save uses so the two can never disagree.
-     */
-    const matrixSummary = summarisePlanMatrix({
-        variants: variantRequest(variants),
-        combinations: combinationRequest(combinations),
-    });
-    const draftDurations = summarisePlanDurations(durationRequest(durations));
 
-    const inactiveVariants = variants.filter((variant) => !variant.isActive).length;
-    const variantsAside =
-        inactiveVariants === 0
-            ? t('kitchen:plans.variantCount', { count: variants.length })
-            : `${t('kitchen:plans.variantCount', { count: variants.length })} · ${t(
-                  'kitchen:plans.inactiveCount',
-                  { count: inactiveVariants },
-              )}`;
+    const stepItems = planSteps.map((key) => ({
+        key,
+        label: t(PLAN_STEP_LABELS[key]),
+    }));
 
     return (
         <EditorFrame
@@ -865,19 +838,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 detailsBlocked ||
                 (isCreating && (variantRowErrors.size > 0 || durationRowErrors.size > 0))
             }
-            {...(isCreating
-                ? {
-                      summary: (
-                          <Text
-                              testID="kitchen-plan-create-summary"
-                              variant="caption"
-                              tone="secondary"
-                          >
-                              {t('kitchen:plans.createSummary')}
-                          </Text>
-                      ),
-                  }
-                : {})}
+            steps={{ form, steps: stepItems }}
             backLabel={t('kitchen:plans.backToList')}
             onBack={() => {
                 router.push('/kitchen/plans' as never);
@@ -942,16 +903,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                         />
                     ) : null}
 
-                    {data?.meta.status === 'retired' ? (
-                        <Callout
-                            testID="kitchen-plan-retired"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:plans.retiredTitle')}
-                            body={t('kitchen:plans.retiredBody')}
-                        />
-                    ) : null}
-
                     {saveFailure === null ? null : (
                         <Callout
                             testID="kitchen-plan-save-error"
@@ -964,63 +915,14 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 </Stack>
             }
         >
-            {/*
-             * Tabs (Commercial §3.3): Matrix · Configurations · Durations, the design's three, first
-             * and in its order. The editor holds two subjects the design does not draw — the plan's
-             * own details and its fixed menu — so they follow as tabs of their own rather than being
-             * dropped. Combinations sit under the matrix they are the rows of (§6.2).
-             *
-             * A new plan draws the same tabs, because the design's `New plan` is the same editor with
-             * nothing in it. Only the menu waits for the record: it is written against published
-             * dishes and its first save is a cutover, neither of which means anything before a plan
-             * exists.
-             */}
-            <Tabs<PlanTab>
-                testID="kitchen-plan-tabs"
-                label={t('kitchen:plans.tabsLabel')}
-                value={tab}
-                onChange={setTab}
-                items={[
-                    {
-                        value: 'variants',
-                        label: t('kitchen:plans.tabVariants'),
-                        testID: 'kitchen-plan-tab-variants',
-                    },
-                    {
-                        value: 'matrix',
-                        label: t('kitchen:plans.tabMatrix'),
-                        testID: 'kitchen-plan-tab-matrix',
-                    },
-                    {
-                        value: 'durations',
-                        label: t('kitchen:plans.sectionDurations'),
-                        testID: 'kitchen-plan-tab-durations',
-                    },
-                    {
-                        value: 'plan',
-                        label: t('kitchen:plans.sectionDetails'),
-                        testID: 'kitchen-plan-tab-plan',
-                    },
-                    ...(isCreating
-                        ? []
-                        : [
-                              {
-                                  value: 'menu' as const,
-                                  label: t('kitchen:plans.sectionMenu'),
-                                  testID: 'kitchen-plan-tab-menu',
-                              },
-                          ]),
-                ]}
-            />
-
             {/* ── the plan itself ──────────────────────────────────────────────────────────── */}
             {/*
-             * Its own tab, and drawn the way the product and meal editors draw a record: each
+             * Its own step, and drawn the way the product and meal editors draw a record: each
              * bilingual pair fills the panel as one answer in two boxes, the short answers sit on the
-             * 280px track, and nothing carries a paragraph of hint. The tab names it, so no heading.
+             * 280px track, and nothing carries a paragraph of hint. The step names it, so no heading.
              */}
-            {tab !== 'plan' ? null : (
-                <View testID="kitchen-plan-details" className="z-auto flex-col gap-base pt-snug">
+            {form.current !== 'plan' ? null : (
+                <View testID="kitchen-plan-details" className="z-auto flex-col gap-base">
                     <BilingualField
                         testID="kitchen-plan-name"
                         layout="fill"
@@ -1196,60 +1098,37 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 </View>
             )}
 
-            <View className="flex-col pt-snug">
+            <View className="flex-col">
                 {/* ── the matrix ───────────────────────────────────────────────────────── */}
-                {tab !== 'matrix' ? null : (
-                    <>
-                        <TabPanel
-                            testID="kitchen-plan-matrix"
-                            description={t('kitchen:plans.matrixHelp')}
-                            aside={
-                                <Text
-                                    testID="kitchen-plan-matrix-coverage"
-                                    variant="caption"
-                                    tone={matrixSummary.filled === 0 ? 'warning' : 'secondary'}
-                                >
-                                    {t('kitchen:plans.coverage', {
-                                        filled: matrixSummary.filled,
-                                        cells: matrixSummary.cells,
-                                    })}
-                                </Text>
-                            }
-                        >
-                            <Stack space="md">
-                                {matrixFailure === null ? null : (
-                                    <Callout
-                                        testID="kitchen-plan-matrix-error"
-                                        role="alert"
-                                        tone="danger"
-                                        title={t('kitchen:plans.matrixSaveError')}
-                                        body={matrixFailure.message}
-                                    />
-                                )}
-
-                                <PlanMatrixGrid
-                                    testID="kitchen-plan-matrix-grid"
-                                    rows={rows}
-                                    bands={bands}
-                                    variants={variants}
+                {form.current !== 'matrix' ? null : (
+                    <View testID="kitchen-plan-matrix" className="z-auto flex-col">
+                        <Stack space="md">
+                            {matrixFailure === null ? null : (
+                                <Callout
+                                    testID="kitchen-plan-matrix-error"
+                                    role="alert"
+                                    tone="danger"
+                                    title={t('kitchen:plans.matrixSaveError')}
+                                    body={matrixFailure.message}
                                 />
-                            </Stack>
-                        </TabPanel>
-                    </>
+                            )}
+
+                            <PlanMatrixGrid
+                                testID="kitchen-plan-matrix-grid"
+                                rows={rows}
+                                bands={bands}
+                                variants={variants}
+                            />
+                        </Stack>
+                    </View>
                 )}
 
                 {/* ── every configuration in full ──────────────────────────────────────── */}
-                {tab !== 'variants' ? null : (
+                {form.current !== 'variants' ? null : (
                     <FormSection
                         first
                         testID="kitchen-plan-variants-section"
                         title={t('kitchen:plans.variantsTitle')}
-                        description={t('kitchen:plans.variantsHelp')}
-                        aside={
-                            <Text variant="caption" tone="secondary">
-                                {variantsAside}
-                            </Text>
-                        }
                     >
                         <Stack space="md">
                             <PlanVariantRows
@@ -1302,22 +1181,8 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 )}
 
                 {/* ── durations ────────────────────────────────────────────────────────── */}
-                {tab !== 'durations' ? null : (
-                    <TabPanel
-                        testID="kitchen-plan-durations"
-                        description={t('kitchen:plans.durationsHelp')}
-                        aside={
-                            <Text
-                                testID="kitchen-plan-durations-count"
-                                variant="caption"
-                                tone="secondary"
-                            >
-                                {t('kitchen:plans.durationCount', {
-                                    count: draftDurations.total,
-                                })}
-                            </Text>
-                        }
-                    >
+                {form.current !== 'durations' ? null : (
+                    <View testID="kitchen-plan-durations" className="z-auto flex-col">
                         <Stack space="md">
                             {durationsFailure === null ? null : (
                                 <Callout
@@ -1423,12 +1288,12 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 </Inline>
                             ) : null}
                         </Stack>
-                    </TabPanel>
+                    </View>
                 )}
 
                 {/* ── the fixed menu ───────────────────────────────────────────────────── */}
-                {tab !== 'menu' || isCreating ? null : (
-                    <TabPanel testID="kitchen-plan-menu" description={t('kitchen:plans.menuHelp')}>
+                {form.current !== 'menu' || isCreating ? null : (
+                    <View testID="kitchen-plan-menu" className="z-auto flex-col">
                         <Stack space="md">
                             {menuRecord.isPending ? (
                                 <Skeleton
@@ -1479,7 +1344,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                             testID="kitchen-plan-menu-cycle-days"
                                             id="kitchen-plan-menu-cycle-days"
                                             label={t('kitchen:plans.menuCycleDaysLabel')}
-                                            hint={t('kitchen:plans.menuCycleDaysHint')}
                                             unit={t('kitchen:plans.daysUnit')}
                                             min={1}
                                             max={MENU_CYCLE_DAY_MAX}
@@ -1496,7 +1360,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                             testID="kitchen-plan-menu-anchor"
                                             id="kitchen-plan-menu-anchor"
                                             label={t('kitchen:plans.menuAnchorLabel')}
-                                            hint={t('kitchen:plans.menuAnchorHint')}
                                             disabled={!canManage}
                                             value={menu.anchorDate}
                                             onChange={(next) => {
@@ -1572,15 +1435,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                                         setShowWithdrawMenu(true);
                                                     }}
                                                 />
-                                            ) : (
-                                                <Text
-                                                    testID="kitchen-plan-menu-no-withdrawal"
-                                                    variant="caption"
-                                                    tone="secondary"
-                                                >
-                                                    {t('kitchen:plans.menuNothingToWithdraw')}
-                                                </Text>
-                                            )}
+                                            ) : null}
                                             <Button
                                                 testID="kitchen-plan-menu-save"
                                                 variant="secondary"
@@ -1606,15 +1461,14 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 </>
                             )}
                         </Stack>
-                    </TabPanel>
+                    </View>
                 )}
 
                 {/* ── prices, stated rather than edited ────────────────────────────────── */}
-                {tab !== 'plan' || isCreating ? null : (
+                {form.current !== 'plan' || isCreating ? null : (
                     <FormSection
                         testID="kitchen-plan-prices"
                         title={t('kitchen:plans.sectionPrices')}
-                        description={t('kitchen:plans.pricesHelp')}
                     >
                         <Stack space="sm">
                             {coverage === null ? (
