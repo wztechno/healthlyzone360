@@ -159,7 +159,7 @@ export function ReviewFamilySection({ section, onView, onOpen }: ReviewFamilySec
                             testID={`${id}-view`}
                             variant="ghost"
                             size="sm"
-                            label={t('kitchen:review.view')}
+                            label={t('kitchen:list.view')}
                             icon={<Icon name="eye" size="sm" />}
                             onPress={() => {
                                 onView(item);
@@ -169,7 +169,7 @@ export function ReviewFamilySection({ section, onView, onOpen }: ReviewFamilySec
                             testID={`${id}-open`}
                             variant="ghost"
                             size="sm"
-                            label={t('kitchen:review.open')}
+                            label={t('kitchen:catalogue.edit')}
                             icon={<Icon name="pen" size="sm" />}
                             onPress={() => {
                                 onOpen(item);

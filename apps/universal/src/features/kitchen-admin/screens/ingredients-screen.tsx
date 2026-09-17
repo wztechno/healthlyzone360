@@ -323,7 +323,7 @@ function IngredientsList() {
                             },
                             {
                                 key: 'edit',
-                                label: t('kitchen:list.open'),
+                                label: t('kitchen:catalogue.edit'),
                                 icon: CATALOGUE_ROW_ICONS.edit,
                                 testID: `${ingredientRowTestId(row.id)}-open`,
                                 onSelect: () => {

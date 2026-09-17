@@ -397,7 +397,7 @@ function Quotations() {
                         },
                         {
                             key: 'edit',
-                            label: t('kitchen:ops.quotations.price'),
+                            label: t('kitchen:catalogue.edit'),
                             icon: CATALOGUE_ROW_ICONS.edit,
                             testID: `${kitchenQuotationRowTestId(String(row.id))}-open`,
                             onSelect: () => {

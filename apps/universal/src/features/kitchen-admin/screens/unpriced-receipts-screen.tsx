@@ -363,7 +363,7 @@ function UnpricedReceipts() {
                     rowActions={(row): readonly MenuItem[] => [
                         {
                             key: 'open',
-                            label: t('kitchen:ops.unpricedReceipts.openLabel'),
+                            label: t('kitchen:catalogue.edit'),
                             icon: CATALOGUE_ROW_ICONS.edit,
                             testID: `kitchen-unpriced-${String(row.id)}-open`,
                             onSelect: () => {

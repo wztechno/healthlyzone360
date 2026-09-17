@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 7000 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6995 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3494,7 +3494,6 @@ export interface NamespaceKeys {
     | 'ops.orders.noAllergens'
     | 'ops.orders.noDeliveryFee'
     | 'ops.orders.nothingToDo'
-    | 'ops.orders.open'
     | 'ops.orders.placedAt'
     | 'ops.orders.reason.addressUnreachable'
     | 'ops.orders.reason.customerRequested'
@@ -3705,7 +3704,6 @@ export interface NamespaceKeys {
     | 'ops.quotations.notPricedYet'
     | 'ops.quotations.notes'
     | 'ops.quotations.open'
-    | 'ops.quotations.price'
     | 'ops.quotations.programme'
     | 'ops.quotations.quotedAt'
     | 'ops.quotations.quotedToast'
@@ -4232,7 +4230,6 @@ export interface NamespaceKeys {
     | 'ops.unpricedReceipts.linesToPrice'
     | 'ops.unpricedReceipts.metrics.receipts'
     | 'ops.unpricedReceipts.noInvoiceRef'
-    | 'ops.unpricedReceipts.openLabel'
     | 'ops.unpricedReceipts.pendingFxBadge'
     | 'ops.unpricedReceipts.pendingFxBody'
     | 'ops.unpricedReceipts.pendingFxTitle'
@@ -4789,7 +4786,6 @@ export interface NamespaceKeys {
     | 'recipes.noAllergens'
     | 'recipes.notFoundBody'
     | 'recipes.notFoundTitle'
-    | 'recipes.open'
     | 'recipes.optional'
     | 'recipes.outputCount'
     | 'recipes.outputIngredient'
@@ -4976,7 +4972,6 @@ export interface NamespaceKeys {
     | 'review.truncatedTitle'
     | 'review.updatedBy'
     | 'review.updatedBySeed'
-    | 'review.view'
     | 'review.waitingCount'
     | 'review.window.chipsCaption'
     | 'review.window.fieldFamily'
@@ -10512,7 +10507,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.noAllergens',
   'kitchen:ops.orders.noDeliveryFee',
   'kitchen:ops.orders.nothingToDo',
-  'kitchen:ops.orders.open',
   'kitchen:ops.orders.placedAt',
   'kitchen:ops.orders.reason.addressUnreachable',
   'kitchen:ops.orders.reason.customerRequested',
@@ -10723,7 +10717,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.notPricedYet',
   'kitchen:ops.quotations.notes',
   'kitchen:ops.quotations.open',
-  'kitchen:ops.quotations.price',
   'kitchen:ops.quotations.programme',
   'kitchen:ops.quotations.quotedAt',
   'kitchen:ops.quotations.quotedToast',
@@ -11250,7 +11243,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.unpricedReceipts.linesToPrice',
   'kitchen:ops.unpricedReceipts.metrics.receipts',
   'kitchen:ops.unpricedReceipts.noInvoiceRef',
-  'kitchen:ops.unpricedReceipts.openLabel',
   'kitchen:ops.unpricedReceipts.pendingFxBadge',
   'kitchen:ops.unpricedReceipts.pendingFxBody',
   'kitchen:ops.unpricedReceipts.pendingFxTitle',
@@ -11807,7 +11799,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.noAllergens',
   'kitchen:recipes.notFoundBody',
   'kitchen:recipes.notFoundTitle',
-  'kitchen:recipes.open',
   'kitchen:recipes.optional',
   'kitchen:recipes.outputCount',
   'kitchen:recipes.outputIngredient',
@@ -11994,7 +11985,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:review.truncatedTitle',
   'kitchen:review.updatedBy',
   'kitchen:review.updatedBySeed',
-  'kitchen:review.view',
   'kitchen:review.waitingCount',
   'kitchen:review.window.chipsCaption',
   'kitchen:review.window.fieldFamily',

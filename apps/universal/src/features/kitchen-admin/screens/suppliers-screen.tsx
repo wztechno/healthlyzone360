@@ -443,7 +443,7 @@ function SuppliersList() {
                         },
                         {
                             key: 'open',
-                            label: t('kitchen:list.open'),
+                            label: t('kitchen:catalogue.edit'),
                             icon: CATALOGUE_ROW_ICONS.edit,
                             testID: `${supplierRowTestId(String(row.id))}-open`,
                             onSelect: () => {

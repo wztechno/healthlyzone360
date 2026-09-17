@@ -311,7 +311,7 @@ function MealsList() {
                             },
                             {
                                 key: 'edit',
-                                label: t('kitchen:list.open'),
+                                label: t('kitchen:catalogue.edit'),
                                 icon: CATALOGUE_ROW_ICONS.edit,
                                 testID: `${mealRowTestId(String(row.id))}-open`,
                                 onSelect: () => {

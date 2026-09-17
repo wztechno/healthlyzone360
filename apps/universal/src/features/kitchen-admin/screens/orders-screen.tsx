@@ -438,7 +438,7 @@ function Orders() {
                             },
                             {
                                 key: 'open',
-                                label: t('kitchen:ops.orders.open'),
+                                label: t('kitchen:catalogue.edit'),
                                 icon: CATALOGUE_ROW_ICONS.edit,
                                 testID: `${kitchenOrderRowTestId(String(row.id))}-open`,
                                 onSelect: () => {

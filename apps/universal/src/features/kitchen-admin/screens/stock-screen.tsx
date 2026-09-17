@@ -455,7 +455,7 @@ function Stock() {
                 ? [
                       {
                           key: 'adjust',
-                          label: t('kitchen:ops.stock.adjust'),
+                          label: t('kitchen:catalogue.edit'),
                           icon: CATALOGUE_ROW_ICONS.edit,
                           testID: `${testID}-adjust`,
                           onSelect: () => {

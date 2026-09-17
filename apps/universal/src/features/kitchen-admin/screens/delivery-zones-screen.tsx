@@ -467,7 +467,7 @@ function DeliveryZonesList() {
                             },
                             {
                                 key: 'edit',
-                                label: t('kitchen:list.open'),
+                                label: t('kitchen:catalogue.edit'),
                                 icon: CATALOGUE_ROW_ICONS.edit,
                                 testID: `${zoneRowTestId(String(row.id))}-open`,
                                 onSelect: () => {

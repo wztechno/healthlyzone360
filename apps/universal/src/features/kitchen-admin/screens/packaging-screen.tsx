@@ -338,7 +338,7 @@ function PackagingList() {
                             // family's series, category and back-link.
                             {
                                 key: 'edit',
-                                label: t('kitchen:list.open'),
+                                label: t('kitchen:catalogue.edit'),
                                 icon: CATALOGUE_ROW_ICONS.edit,
                                 testID: `${packagingRowTestId(row.id)}-open`,
                                 onSelect: () => {
