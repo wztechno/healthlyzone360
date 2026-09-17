@@ -69,6 +69,10 @@
   "stepper": {
     "progress": "[[Šţéþ {{current}} óƒ {{total}} āēīōūāēīōūāē]]"
   },
+  "stepProgress": {
+    "step": "[[Šţéþ {{current}} óƒ {{total}}: {{label}} āēīōūāēīōūāēīōūā]]",
+    "stepDone": "[[Šţéþ {{current}} óƒ {{total}}: {{label}}, çóɱþłéţéð āēīōūāēīōūāēīōūāēīōūā]]"
+  },
   "numberStepper": {
     "increase": "[[Íñçŕéášé {{label}} āēīōūāēī]]",
     "decrease": "[[Ðéçŕéášé {{label}} āēīōūāēī]]"

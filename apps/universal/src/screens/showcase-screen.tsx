@@ -36,6 +36,7 @@ import {
     FilterChip,
     FormField,
     FormGrid,
+    FormNavigation,
     FormSection,
     Heading,
     Icon,
@@ -70,6 +71,7 @@ import {
     Spinner,
     Stack,
     StatusBadge,
+    StepProgress,
     Stepper,
     Switch,
     Table,
@@ -341,6 +343,95 @@ function SwitchStory({ prefix }: { readonly prefix: string }) {
                 checked
                 disabled
                 onChange={() => undefined}
+            />
+        </Stack>
+    );
+}
+
+/**
+ * The multi-step form's two parts — `StepProgress` in its four states, then `FormNavigation`.
+ *
+ * What to check: the track runs dot-centre to dot-centre and fills to the current dot; a completed
+ * dot carries a check, the current one a brand ring, a future one a neutral ring; labels drop below
+ * `sm`; in Arabic the fill grows from the right. The interactive row walks the same five steps the
+ * recipe editor draws, with Previous disabled on the first and Next swapped out on the last.
+ */
+function StepsStory({ prefix }: { readonly prefix: string }) {
+    const [current, setCurrent] = useState(1);
+    const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([0]));
+    const id = (suffix: string) => `${prefix}-${suffix}`;
+    const steps = [
+        { key: 'description', label: 'Description' },
+        { key: 'production', label: 'Production' },
+        { key: 'packaging', label: 'Packaging' },
+        { key: 'costing', label: 'Costing' },
+        { key: 'sheet', label: 'Technical sheet' },
+    ];
+    const go = (index: number) => {
+        if (index < 0 || index >= steps.length) return;
+        setVisited((previous) => new Set(previous).add(current));
+        setCurrent(index);
+    };
+    const last = current === steps.length - 1;
+
+    return (
+        <Stack space="sm">
+            <StepProgress
+                testID={id('step-progress-first')}
+                label="First step"
+                steps={steps}
+                current={0}
+                completed={new Set()}
+            />
+            <StepProgress
+                testID={id('step-progress-middle')}
+                label="Middle step"
+                steps={steps}
+                current={2}
+                completed={new Set([0, 1])}
+            />
+            <StepProgress
+                testID={id('step-progress-last')}
+                label="Last step"
+                steps={steps}
+                current={4}
+                completed={new Set([0, 1, 2, 3])}
+            />
+            <StepProgress
+                testID={id('step-progress-live')}
+                label="Interactive"
+                steps={steps}
+                current={current}
+                completed={visited}
+                onSelect={go}
+            />
+            <FormNavigation
+                testID={id('form-navigation')}
+                previousTestID={id('form-navigation-previous')}
+                previousLabel="Previous"
+                previousDisabled={current === 0}
+                onPrevious={() => {
+                    go(current - 1);
+                }}
+                counter={`Step ${String(current + 1)} of ${String(steps.length)} · ${steps[current]?.label ?? ''}`}
+                actions={
+                    <>
+                        <Button
+                            testID={id('form-navigation-draft')}
+                            variant="secondary"
+                            label="Save draft"
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID={id('form-navigation-next')}
+                            label={last ? 'Save and publish' : 'Next'}
+                            {...(last ? {} : { iconEnd: <Icon name="chevronEnd" size="sm" /> })}
+                            onPress={() => {
+                                if (!last) go(current + 1);
+                            }}
+                        />
+                    </>
+                }
             />
         </Stack>
     );
@@ -1102,6 +1193,14 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         Section title, hairline, no card.
                     </Text>
                 </FormSection>
+            </Stack>
+
+            {/* The multi-step form: step progress in four states, and the footer that walks it. */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Step progress
+                </Text>
+                <StepsStory prefix={prefix} />
             </Stack>
 
             {/*

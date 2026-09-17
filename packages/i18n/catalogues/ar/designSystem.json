@@ -73,6 +73,10 @@
     "stepper": {
         "progress": "الخطوة {{current}} من {{total}}"
     },
+    "stepProgress": {
+        "step": "الخطوة {{current}} من {{total}}: {{label}}",
+        "stepDone": "الخطوة {{current}} من {{total}}: {{label}}، مكتملة"
+    },
     "numberStepper": {
         "increase": "زيادة {{label}}",
         "decrease": "إنقاص {{label}}"

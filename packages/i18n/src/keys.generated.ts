@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6983 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7013 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1911,6 +1911,8 @@ export interface NamespaceKeys {
     | 'spike.subtitle'
     | 'spike.title'
     | 'spike.typography.description'
+    | 'stepProgress.step'
+    | 'stepProgress.stepDone'
     | 'stepper.progress'
     | 'swatch.contrast'
     | 'table.empty'
@@ -4728,7 +4730,25 @@ export interface NamespaceKeys {
     | 'recipes.backToCurrentVersion'
     | 'recipes.backToList'
     | 'recipes.caption'
-    | 'recipes.coefficientsHint'
+    | 'recipes.cascadePackagingLines'
+    | 'recipes.cascadePackagingPerUnit'
+    | 'recipes.cascadePackagingWithWaste'
+    | 'recipes.cascadeProductionLines'
+    | 'recipes.cascadeProductionPerUnit'
+    | 'recipes.cascadeProductionWithWaste'
+    | 'recipes.cascadeTotal'
+    | 'recipes.checkAllergens'
+    | 'recipes.checkAllergensOk'
+    | 'recipes.checkAllergensUnmapped'
+    | 'recipes.checkCosted'
+    | 'recipes.checkCostedOk'
+    | 'recipes.checkLanguages'
+    | 'recipes.checkLanguagesMissing'
+    | 'recipes.checkLanguagesOk'
+    | 'recipes.checkNoLines'
+    | 'recipes.checkYield'
+    | 'recipes.checkYieldMissing'
+    | 'recipes.checkYieldOk'
     | 'recipes.columnAllergens'
     | 'recipes.columnKitchen'
     | 'recipes.columnName'
@@ -4741,25 +4761,19 @@ export interface NamespaceKeys {
     | 'recipes.confidential'
     | 'recipes.confidentialHint'
     | 'recipes.costCascadeHint'
-    | 'recipes.costPackaging'
-    | 'recipes.costPerBatch'
-    | 'recipes.costPerUnit'
-    | 'recipes.costProduction'
-    | 'recipes.costTotal'
-    | 'recipes.costTotalCard'
-    | 'recipes.costWithWaste'
     | 'recipes.create'
+    | 'recipes.createAction'
     | 'recipes.createTitle'
     | 'recipes.createdToast'
     | 'recipes.currencyMixed'
     | 'recipes.currentVersion'
     | 'recipes.descriptionLabel'
-    | 'recipes.discard'
     | 'recipes.draftOpenedToast'
     | 'recipes.emptyBody'
     | 'recipes.emptyTitle'
     | 'recipes.filteredEmptyBody'
     | 'recipes.filteredEmptyTitle'
+    | 'recipes.formSubtitle'
     | 'recipes.grossMargin'
     | 'recipes.identityDescription'
     | 'recipes.immutableBody'
@@ -4785,6 +4799,7 @@ export interface NamespaceKeys {
     | 'recipes.marginNoBasis'
     | 'recipes.markOptional'
     | 'recipes.markRequired'
+    | 'recipes.modeNew'
     | 'recipes.nameRequired'
     | 'recipes.newDraft'
     | 'recipes.newDraftFromVersion'
@@ -4809,16 +4824,21 @@ export interface NamespaceKeys {
     | 'recipes.packageInBatch'
     | 'recipes.packagingHint'
     | 'recipes.packagingPlaceholder'
-    | 'recipes.packagingWasteHint'
+    | 'recipes.packagingWasteHelp'
     | 'recipes.packagingWastePercent'
     | 'recipes.pickerNoMatch'
     | 'recipes.pickerSearching'
+    | 'recipes.portionsPerBatch'
     | 'recipes.primaryOutput'
     | 'recipes.primaryOutputHint'
     | 'recipes.primaryOutputLabel'
     | 'recipes.primaryOutputPlaceholder'
     | 'recipes.primaryOutputRequired'
+    | 'recipes.print'
+    | 'recipes.productionWasteHelp'
     | 'recipes.productionWastePercent'
+    | 'recipes.publishChecksTitle'
+    | 'recipes.quantityProduced'
     | 'recipes.quarantined'
     | 'recipes.recipeCount'
     | 'recipes.removeLine'
@@ -4827,9 +4847,9 @@ export interface NamespaceKeys {
     | 'recipes.retire'
     | 'recipes.saveErrorTitle'
     | 'recipes.saveFailed'
+    | 'recipes.savePublish'
     | 'recipes.savedToast'
     | 'recipes.sectionAllergenClasses'
-    | 'recipes.sectionCoefficients'
     | 'recipes.sectionCostCascade'
     | 'recipes.sectionDetails'
     | 'recipes.sectionIdentity'
@@ -4837,13 +4857,17 @@ export interface NamespaceKeys {
     | 'recipes.sectionOutputs'
     | 'recipes.sectionPackageCosts'
     | 'recipes.sectionPackaging'
-    | 'recipes.sectionPackagingWaste'
     | 'recipes.sectionRawMaterials'
+    | 'recipes.sectionSellingPrice'
     | 'recipes.sectionSteps'
     | 'recipes.sectionVersions'
+    | 'recipes.sectionWaste'
     | 'recipes.sectionYield'
-    | 'recipes.sectionYieldWaste'
+    | 'recipes.sectionYieldOnly'
+    | 'recipes.sellingPriceHint'
+    | 'recipes.sellingPriceHintNoPackaging'
     | 'recipes.sheetAfterSave'
+    | 'recipes.sheetAllergensDerived'
     | 'recipes.sheetBasisMismatch'
     | 'recipes.sheetColComments'
     | 'recipes.sheetColDesignation'
@@ -4865,17 +4889,23 @@ export interface NamespaceKeys {
     | 'recipes.sheetKind'
     | 'recipes.sheetKindUnstated'
     | 'recipes.sheetNoLines'
+    | 'recipes.sheetPackagingAfterWaste'
     | 'recipes.sheetPrintHint'
+    | 'recipes.sheetPrintTitle'
+    | 'recipes.sheetProductionAfterWaste'
     | 'recipes.sheetQuantityProduced'
     | 'recipes.sheetQuantityWithPieces'
     | 'recipes.sheetRawMaterial'
+    | 'recipes.sheetRestrictedValue'
     | 'recipes.sheetTitle'
     | 'recipes.sheetTotalRow'
+    | 'recipes.sheetYieldWithPortions'
     | 'recipes.sourceKindLabel'
     | 'recipes.statReview'
     | 'recipes.statReviewAction'
     | 'recipes.statReviewCaption'
     | 'recipes.stepCount'
+    | 'recipes.stepCounter'
     | 'recipes.stepInstruction'
     | 'recipes.stepMinutes'
     | 'recipes.stepMinutesHint'
@@ -4910,11 +4940,11 @@ export interface NamespaceKeys {
     | 'recipes.viewAllergensCaption'
     | 'recipes.viewAllergensSource'
     | 'recipes.viewKind'
+    | 'recipes.wasteHint'
     | 'recipes.wastePercent'
     | 'recipes.wastePercentHint'
     | 'recipes.yieldDescription'
-    | 'recipes.yieldPieces'
-    | 'recipes.yieldQuantity'
+    | 'recipes.yieldFirstHint'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
     | 'review.blockedCount'
@@ -8916,6 +8946,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:spike.subtitle',
   'designSystem:spike.title',
   'designSystem:spike.typography.description',
+  'designSystem:stepProgress.step',
+  'designSystem:stepProgress.stepDone',
   'designSystem:stepper.progress',
   'designSystem:swatch.contrast',
   'designSystem:table.empty',
@@ -11729,7 +11761,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.backToCurrentVersion',
   'kitchen:recipes.backToList',
   'kitchen:recipes.caption',
-  'kitchen:recipes.coefficientsHint',
+  'kitchen:recipes.cascadePackagingLines',
+  'kitchen:recipes.cascadePackagingPerUnit',
+  'kitchen:recipes.cascadePackagingWithWaste',
+  'kitchen:recipes.cascadeProductionLines',
+  'kitchen:recipes.cascadeProductionPerUnit',
+  'kitchen:recipes.cascadeProductionWithWaste',
+  'kitchen:recipes.cascadeTotal',
+  'kitchen:recipes.checkAllergens',
+  'kitchen:recipes.checkAllergensOk',
+  'kitchen:recipes.checkAllergensUnmapped',
+  'kitchen:recipes.checkCosted',
+  'kitchen:recipes.checkCostedOk',
+  'kitchen:recipes.checkLanguages',
+  'kitchen:recipes.checkLanguagesMissing',
+  'kitchen:recipes.checkLanguagesOk',
+  'kitchen:recipes.checkNoLines',
+  'kitchen:recipes.checkYield',
+  'kitchen:recipes.checkYieldMissing',
+  'kitchen:recipes.checkYieldOk',
   'kitchen:recipes.columnAllergens',
   'kitchen:recipes.columnKitchen',
   'kitchen:recipes.columnName',
@@ -11742,25 +11792,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.confidential',
   'kitchen:recipes.confidentialHint',
   'kitchen:recipes.costCascadeHint',
-  'kitchen:recipes.costPackaging',
-  'kitchen:recipes.costPerBatch',
-  'kitchen:recipes.costPerUnit',
-  'kitchen:recipes.costProduction',
-  'kitchen:recipes.costTotal',
-  'kitchen:recipes.costTotalCard',
-  'kitchen:recipes.costWithWaste',
   'kitchen:recipes.create',
+  'kitchen:recipes.createAction',
   'kitchen:recipes.createTitle',
   'kitchen:recipes.createdToast',
   'kitchen:recipes.currencyMixed',
   'kitchen:recipes.currentVersion',
   'kitchen:recipes.descriptionLabel',
-  'kitchen:recipes.discard',
   'kitchen:recipes.draftOpenedToast',
   'kitchen:recipes.emptyBody',
   'kitchen:recipes.emptyTitle',
   'kitchen:recipes.filteredEmptyBody',
   'kitchen:recipes.filteredEmptyTitle',
+  'kitchen:recipes.formSubtitle',
   'kitchen:recipes.grossMargin',
   'kitchen:recipes.identityDescription',
   'kitchen:recipes.immutableBody',
@@ -11786,6 +11830,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.marginNoBasis',
   'kitchen:recipes.markOptional',
   'kitchen:recipes.markRequired',
+  'kitchen:recipes.modeNew',
   'kitchen:recipes.nameRequired',
   'kitchen:recipes.newDraft',
   'kitchen:recipes.newDraftFromVersion',
@@ -11810,16 +11855,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.packageInBatch',
   'kitchen:recipes.packagingHint',
   'kitchen:recipes.packagingPlaceholder',
-  'kitchen:recipes.packagingWasteHint',
+  'kitchen:recipes.packagingWasteHelp',
   'kitchen:recipes.packagingWastePercent',
   'kitchen:recipes.pickerNoMatch',
   'kitchen:recipes.pickerSearching',
+  'kitchen:recipes.portionsPerBatch',
   'kitchen:recipes.primaryOutput',
   'kitchen:recipes.primaryOutputHint',
   'kitchen:recipes.primaryOutputLabel',
   'kitchen:recipes.primaryOutputPlaceholder',
   'kitchen:recipes.primaryOutputRequired',
+  'kitchen:recipes.print',
+  'kitchen:recipes.productionWasteHelp',
   'kitchen:recipes.productionWastePercent',
+  'kitchen:recipes.publishChecksTitle',
+  'kitchen:recipes.quantityProduced',
   'kitchen:recipes.quarantined',
   'kitchen:recipes.recipeCount',
   'kitchen:recipes.removeLine',
@@ -11828,9 +11878,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.retire',
   'kitchen:recipes.saveErrorTitle',
   'kitchen:recipes.saveFailed',
+  'kitchen:recipes.savePublish',
   'kitchen:recipes.savedToast',
   'kitchen:recipes.sectionAllergenClasses',
-  'kitchen:recipes.sectionCoefficients',
   'kitchen:recipes.sectionCostCascade',
   'kitchen:recipes.sectionDetails',
   'kitchen:recipes.sectionIdentity',
@@ -11838,13 +11888,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sectionOutputs',
   'kitchen:recipes.sectionPackageCosts',
   'kitchen:recipes.sectionPackaging',
-  'kitchen:recipes.sectionPackagingWaste',
   'kitchen:recipes.sectionRawMaterials',
+  'kitchen:recipes.sectionSellingPrice',
   'kitchen:recipes.sectionSteps',
   'kitchen:recipes.sectionVersions',
+  'kitchen:recipes.sectionWaste',
   'kitchen:recipes.sectionYield',
-  'kitchen:recipes.sectionYieldWaste',
+  'kitchen:recipes.sectionYieldOnly',
+  'kitchen:recipes.sellingPriceHint',
+  'kitchen:recipes.sellingPriceHintNoPackaging',
   'kitchen:recipes.sheetAfterSave',
+  'kitchen:recipes.sheetAllergensDerived',
   'kitchen:recipes.sheetBasisMismatch',
   'kitchen:recipes.sheetColComments',
   'kitchen:recipes.sheetColDesignation',
@@ -11866,17 +11920,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetKind',
   'kitchen:recipes.sheetKindUnstated',
   'kitchen:recipes.sheetNoLines',
+  'kitchen:recipes.sheetPackagingAfterWaste',
   'kitchen:recipes.sheetPrintHint',
+  'kitchen:recipes.sheetPrintTitle',
+  'kitchen:recipes.sheetProductionAfterWaste',
   'kitchen:recipes.sheetQuantityProduced',
   'kitchen:recipes.sheetQuantityWithPieces',
   'kitchen:recipes.sheetRawMaterial',
+  'kitchen:recipes.sheetRestrictedValue',
   'kitchen:recipes.sheetTitle',
   'kitchen:recipes.sheetTotalRow',
+  'kitchen:recipes.sheetYieldWithPortions',
   'kitchen:recipes.sourceKindLabel',
   'kitchen:recipes.statReview',
   'kitchen:recipes.statReviewAction',
   'kitchen:recipes.statReviewCaption',
   'kitchen:recipes.stepCount',
+  'kitchen:recipes.stepCounter',
   'kitchen:recipes.stepInstruction',
   'kitchen:recipes.stepMinutes',
   'kitchen:recipes.stepMinutesHint',
@@ -11911,11 +11971,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.viewAllergensCaption',
   'kitchen:recipes.viewAllergensSource',
   'kitchen:recipes.viewKind',
+  'kitchen:recipes.wasteHint',
   'kitchen:recipes.wastePercent',
   'kitchen:recipes.wastePercentHint',
   'kitchen:recipes.yieldDescription',
-  'kitchen:recipes.yieldPieces',
-  'kitchen:recipes.yieldQuantity',
+  'kitchen:recipes.yieldFirstHint',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
   'kitchen:review.blockedCount',

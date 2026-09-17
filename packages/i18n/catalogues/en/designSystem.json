@@ -69,6 +69,10 @@
     "stepper": {
         "progress": "Step {{current}} of {{total}}"
     },
+    "stepProgress": {
+        "step": "Step {{current}} of {{total}}: {{label}}",
+        "stepDone": "Step {{current}} of {{total}}: {{label}}, completed"
+    },
     "numberStepper": {
         "increase": "Increase {{label}}",
         "decrease": "Decrease {{label}}"
