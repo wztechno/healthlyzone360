@@ -10261,6 +10261,130 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/procurement/weekly-prices:
+    get:
+      operationId: listWeeklyPrices
+      tags: [Kitchen inventory & production]
+      summary: What a week's purchases averaged to
+      description: |
+        The weighted-average purchase price per ingredient, published every
+        Monday from the previous completed Monday–Sunday week in the kitchen's
+        own timezone (PROD1).
+
+        Without `publication_id`, the **standing** row per ingredient: what the
+        batch estimator is using right now, which is the question a manager asks
+        when an estimate looks wrong. With one, every row that publication
+        carried — the historical record, which does not move, because the table
+        is append-only and a recompute publishes a superseding run rather than
+        correcting rows in place.
+
+        **Unpriced rows are included and are the point.** An ingredient nobody
+        could price this week arrives with `average_unit_amount: null` and
+        `source: unpriced` — the requirement's "flag ingredients with no purchase
+        history". Reading that null as zero would price food at nothing; omitting
+        the row would say the list is complete.
+
+        **A carried row says where it came from and why.** The four
+        `carry_reason` values are different problems with different fixes —
+        nothing was bought, the week's purchases were in two currencies, every
+        line was unpriced, or the ingredient's unit changed to one the old price
+        cannot convert into.
+
+        Requires `inventory.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - name: publication_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Uuid'
+          description: One publishing run's rows. Omit for the standing price per ingredient.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: The published weekly prices.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyPriceEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/weekly-prices/publications:
+    get:
+      operationId: listWeeklyPricePublications
+      tags: [Kitchen inventory & production]
+      summary: The weekly price publishing history
+      description: |
+        A row per publishing run, newest week first (PROD1). The job runs hourly
+        and catches up every completed-but-unpublished week oldest-first, bounded
+        to the last eight weeks, so after an outage this is where a manager sees
+        which weeks were published and what each one found.
+
+        `has_late_receipts` is the one worth reading twice. A published row is
+        never rewritten, so a receipt priced after the week closed cannot move
+        that week's average; the flag says the basis has since moved, which is
+        the honest half of that promise. A deliberate recompute publishes a new
+        run with `supersedes_id` pointing at the one it replaces.
+
+        `timezone` is published rather than implied: "the week of the 14th" spans
+        different instants in Beirut and Dubai, and a reader reconciling a total
+        needs to know which clock drew the boundary.
+
+        Requires `inventory.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: The publishing runs.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyPricePublicationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/reports/inventory-value:
     get:
       operationId: showInventoryValue
@@ -31804,6 +31928,186 @@ components:
         valued_item_count:
           type: integer
           description: Ingredients contributing to this currency's figure.
+
+    WeeklyPrice:
+      type: object
+      description: |
+        One ingredient's published weekly price (PROD1).
+
+        `average_unit_amount = total_cost_amount ÷ total_quantity`, in
+        `currency_code` per `unit_id`, over every **priced** receipt line for that
+        ingredient in the purchase week. Header discount, tax, delivery and other
+        charges stay out of it and keep being reported separately — they are not
+        part of what a kilogram of flour cost.
+
+        Null amount is never zero: it is `source: unpriced`, an ingredient nobody
+        could price, and it is published as a row so a buyer can act on it.
+      required:
+        [id, ingredient_id, ingredient_name_en, weekly_price_publication_id,
+         purchase_week_start_date, purchase_week_end_date, effective_from_date,
+         unit_id, unit_code, average_unit_amount, currency_code, total_quantity,
+         total_cost_amount, receipt_line_count, unpriced_line_count,
+         has_unpriced_lines, source, carry_reason, carried_from_week_start_date]
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_name_en:
+          type: [string, 'null']
+        weekly_price_publication_id:
+          $ref: '#/components/schemas/Uuid'
+        purchase_week_start_date:
+          type: string
+          format: date
+          description: Monday of the week whose purchases were averaged, organisation-local.
+        purchase_week_end_date:
+          type: string
+          format: date
+        effective_from_date:
+          type: string
+          format: date
+          description: The Monday these prices take effect — the week *after* the one they average.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The unit the average is per. Null only on an unpriced row.
+        unit_code:
+          type: [string, 'null']
+        average_unit_amount:
+          type: [string, 'null']
+          description: Major currency units. Null is "nobody could price this", never zero.
+        currency_code:
+          type: [string, 'null']
+        total_quantity:
+          type: [string, 'null']
+          description: The average's denominator, normalised into `unit_id`.
+        total_cost_amount:
+          type: [string, 'null']
+          description: The average's numerator — the sum of the week's priced line totals.
+        receipt_line_count:
+          type: integer
+        unpriced_line_count:
+          type: integer
+          description: Lines excluded from the average because nobody had entered a price.
+        has_unpriced_lines:
+          type: boolean
+          description: The average stands on part of the week only, so the estimate is visibly provisional.
+        source:
+          type: string
+          enum: [computed, carried_forward, unpriced]
+        carry_reason:
+          type: [string, 'null']
+          enum: [no_purchases, mixed_currency, all_lines_unpriced, not_convertible, null]
+          description: Why this row carries last week's price rather than computing one.
+        carried_from_week_start_date:
+          type: [string, 'null']
+          format: date
+
+    WeeklyPricePublication:
+      type: object
+      description: |
+        One publishing run (PROD1) — a week's prices and the header committed with
+        them in a single transaction.
+      required:
+        [id, purchase_week_start_date, purchase_week_end_date, effective_from_date,
+         timezone, published_at, ingredient_count, computed_count, carried_count,
+         unpriced_count, late_line_count, has_late_receipts, supersedes_id]
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        purchase_week_start_date:
+          type: string
+          format: date
+        purchase_week_end_date:
+          type: string
+          format: date
+        effective_from_date:
+          type: string
+          format: date
+        timezone:
+          type: string
+          description: The clock the week boundaries were resolved in.
+        published_at:
+          type: string
+          format: date-time
+        ingredient_count:
+          type: integer
+        computed_count:
+          type: integer
+        carried_count:
+          type: integer
+        unpriced_count:
+          type: integer
+        late_line_count:
+          type: integer
+          description: Receipt lines priced after this week was published, which the published rows do not reflect.
+        has_late_receipts:
+          type: boolean
+        supersedes_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Set on a recompute — the run this one replaces. The replaced rows are never edited.
+
+    WeeklyPriceEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [weekly_prices]
+          additionalProperties: false
+          properties:
+            weekly_prices:
+              type: array
+              items:
+                $ref: '#/components/schemas/WeeklyPrice'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                page:
+                  type: integer
+                per_page:
+                  type: integer
+                has_more:
+                  type: boolean
+                  description: Stated rather than inferred from a short page.
+                is_standing:
+                  type: boolean
+                  description: True when no publication was named — the prices in force now.
+
+    WeeklyPricePublicationEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [publications]
+          additionalProperties: false
+          properties:
+            publications:
+              type: array
+              items:
+                $ref: '#/components/schemas/WeeklyPricePublication'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                page:
+                  type: integer
+                per_page:
+                  type: integer
+                has_more:
+                  type: boolean
 
     InventoryValueEnvelope:
       type: object

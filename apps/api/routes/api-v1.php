@@ -265,6 +265,8 @@ use Healthy360\Procurement\Http\Controllers\SupplierStoreController;
 use Healthy360\Procurement\Http\Controllers\SupplierUpdateController;
 use Healthy360\Procurement\Http\Controllers\SupplyNeedsCountController;
 use Healthy360\Procurement\Http\Controllers\UnpricedReceiptIndexController;
+use Healthy360\Procurement\Http\Controllers\WeeklyPriceIndexController;
+use Healthy360\Procurement\Http\Controllers\WeeklyPricePublicationIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderIndexController;
 use Healthy360\Production\Http\Controllers\ProductionOrderPlanController;
 use Healthy360\Production\Http\Controllers\ProductionOrderShowController;
@@ -1711,6 +1713,21 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 | surfaces cannot disagree about a month's spend.
                 */
                 Route::get('/procurement/spend-summary', ProcurementSpendSummaryController::class)->name('catalogue.procurement.spend-summary.index');
+
+                /*
+                | What a week's purchases averaged to, and the runs that
+                | published them (PROD1). The basis every batch estimate stands
+                | on, so it sits with the ledger it is computed from rather than
+                | with the production desk that consumes it — every row is a
+                | price, and there is nothing a redaction could usefully leave
+                | behind.
+                |
+                | The publications route is declared **before** the collection
+                | one so `/weekly-prices/publications` is never read as a price
+                | identifier.
+                */
+                Route::get('/procurement/weekly-prices/publications', WeeklyPricePublicationIndexController::class)->name('catalogue.procurement.weekly-prices.publications.index');
+                Route::get('/procurement/weekly-prices', WeeklyPriceIndexController::class)->name('catalogue.procurement.weekly-prices.index');
 
                 /*
                 | The monthly cost report (INV1.4) sits beside the ledger on the

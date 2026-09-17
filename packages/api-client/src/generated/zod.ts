@@ -4402,6 +4402,94 @@ export const zInventoryValueRow = z.object({
     valued_item_count: z.int()
 });
 
+/**
+ * One ingredient's published weekly price (PROD1).
+ *
+ * `average_unit_amount = total_cost_amount ÷ total_quantity`, in
+ * `currency_code` per `unit_id`, over every **priced** receipt line for that
+ * ingredient in the purchase week. Header discount, tax, delivery and other
+ * charges stay out of it and keep being reported separately — they are not
+ * part of what a kilogram of flour cost.
+ *
+ * Null amount is never zero: it is `source: unpriced`, an ingredient nobody
+ * could price, and it is published as a row so a buyer can act on it.
+ *
+ */
+export const zWeeklyPrice = z.object({
+    id: zUuid,
+    ingredient_id: zUuid,
+    ingredient_name_en: z.string().nullable(),
+    weekly_price_publication_id: zUuid,
+    purchase_week_start_date: z.iso.date(),
+    purchase_week_end_date: z.iso.date(),
+    effective_from_date: z.iso.date(),
+    unit_id: zUuid.nullable(),
+    unit_code: z.string().nullable(),
+    average_unit_amount: z.string().nullable(),
+    currency_code: z.string().nullable(),
+    total_quantity: z.string().nullable(),
+    total_cost_amount: z.string().nullable(),
+    receipt_line_count: z.int(),
+    unpriced_line_count: z.int(),
+    has_unpriced_lines: z.boolean(),
+    source: z.enum([
+        'computed',
+        'carried_forward',
+        'unpriced'
+    ]),
+    carry_reason: z.enum([
+        'no_purchases',
+        'mixed_currency',
+        'all_lines_unpriced',
+        'not_convertible'
+    ]).nullable(),
+    carried_from_week_start_date: z.iso.date().nullable()
+});
+
+/**
+ * One publishing run (PROD1) — a week's prices and the header committed with
+ * them in a single transaction.
+ *
+ */
+export const zWeeklyPricePublication = z.object({
+    id: zUuid,
+    purchase_week_start_date: z.iso.date(),
+    purchase_week_end_date: z.iso.date(),
+    effective_from_date: z.iso.date(),
+    timezone: z.string(),
+    published_at: z.iso.datetime({ offset: true }),
+    ingredient_count: z.int(),
+    computed_count: z.int(),
+    carried_count: z.int(),
+    unpriced_count: z.int(),
+    late_line_count: z.int(),
+    has_late_receipts: z.boolean(),
+    supersedes_id: zUuid.nullable()
+});
+
+export const zWeeklyPriceEnvelope = z.object({
+    data: z.object({
+        weekly_prices: z.array(zWeeklyPrice)
+    }),
+    meta: zMeta.and(z.object({
+        page: z.int().optional(),
+        per_page: z.int().optional(),
+        has_more: z.boolean().optional(),
+        is_standing: z.boolean().optional()
+    }))
+});
+
+export const zWeeklyPricePublicationEnvelope = z.object({
+    data: z.object({
+        publications: z.array(zWeeklyPricePublication)
+    }),
+    meta: zMeta.and(z.object({
+        page: z.int().optional(),
+        per_page: z.int().optional(),
+        has_more: z.boolean().optional()
+    }))
+});
+
 export const zInventoryValueEnvelope = z.object({
     data: z.object({
         inventory_value: z.array(zInventoryValueRow)
@@ -12488,6 +12576,37 @@ export const zGetMonthlyCostReportQuery = z.object({
  * The monthly cost report, newest month first.
  */
 export const zGetMonthlyCostReportResponse = zMonthlyCostReportCollection;
+
+export const zListWeeklyPricesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListWeeklyPricesQuery = z.object({
+    publication_id: zUuid.optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(200).optional()
+});
+
+/**
+ * The published weekly prices.
+ */
+export const zListWeeklyPricesResponse = zWeeklyPriceEnvelope;
+
+export const zListWeeklyPricePublicationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListWeeklyPricePublicationsQuery = z.object({
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional()
+});
+
+/**
+ * The publishing runs.
+ */
+export const zListWeeklyPricePublicationsResponse = zWeeklyPricePublicationEnvelope;
 
 export const zShowInventoryValueHeaders = z.object({
     'X-Organisation-Id': zUuid,

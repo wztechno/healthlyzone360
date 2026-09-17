@@ -1454,8 +1454,16 @@ it('sets the demonstration kitchen up to be bought for, without buying anything 
         ->and($level('olive-oil')->reorder_threshold)->toBe('25.0000')
         ->and($level('olive-oil')->par_level)->toBeNull();
 
-    expect(GoodsReceipt::withoutTenancy()->count())->toBe(0)
-        ->and(PurchaseOrder::withoutTenancy()->count())->toBe(0);
+    // Bought *for*, not bought *from*: no purchase order, because a prebuilt
+    // order is a document nobody issued. The two receipts are the exception
+    // PROD1 made and argued for (D-121) — posted through `GoodsReceiptService`,
+    // because they are the only thing that can give the demonstration a weekly
+    // average price, and a demo whose every batch estimate is withheld for want
+    // of a figure demonstrates nothing except the absence.
+    expect(PurchaseOrder::withoutTenancy()->count())->toBe(0)
+        ->and(GoodsReceipt::withoutTenancy()->count())->toBe(2)
+        ->and(GoodsReceipt::withoutTenancy()->orderBy('document_ref')->pluck('document_ref')->all())
+        ->toBe(['DEMO-PROD-W1', 'DEMO-PROD-W2']);
 });
 
 it('converges instead of duplicating when run a second time', function (): void {

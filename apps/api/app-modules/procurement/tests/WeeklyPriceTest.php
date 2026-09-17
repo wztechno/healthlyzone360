@@ -459,3 +459,124 @@ it('writes a publication with one insert and never updates it', function (): voi
         ->and($publication->computed_count)->toBe(1)
         ->and($publication->ingredient_count)->toBe(1);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Reading what was published
+|--------------------------------------------------------------------------
+|
+| Two endpoints, behind `inventory.view_costs_organisation` because every row
+| they carry is a price. What the assertions below pin is the one way these
+| reads can be wrong while looking right: the unpriced rows.
+|
+| `WeeklyPriceLookup` filters them out and is right to — a row saying nobody
+| could price an ingredient is evidence, not a price, and it must never leave as
+| one. `WeeklyPriceQuery` keeps them, because "flag the ingredients with no
+| purchase history" is the requirement, and a surface that inherited the
+| lookup's filter would show a clean list and hide the thing it was built for.
+|
+*/
+
+it('publishes the unpriced rows the lookup deliberately hides', function (): void {
+    [$bought, $boughtItem] = weeklyIngredient('FLR', $this->kg);
+    // Delivered, and the invoice has not arrived. **Not** an ingredient nobody
+    // ever bought: those have no row anywhere, by the publisher's own design —
+    // a publication says what a week found, and a week finds nothing to say
+    // about a library entry the kitchen has never ordered.
+    [$unpriced, $unpricedItem] = weeklyIngredient('SFN', $this->kg);
+
+    weeklyReceipt([['stock_item_id' => (string) $boughtItem->getKey(), 'quantity' => '10', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => '2.00', 'cost_currency_code' => 'USD']], '2026-09-01');
+    weeklyReceipt([['stock_item_id' => (string) $unpricedItem->getKey(), 'quantity' => '4', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => null, 'cost_currency_code' => null]], '2026-09-02');
+
+    $this->publisher->publishWeek((string) $this->organisation->getKey(), $this->weekStart);
+
+    $this->actingAs($this->tenant->user);
+
+    $response = $this->getJson('/api/v1/catalogue/procurement/weekly-prices', PricingWorld::headers($this->tenant))
+        ->assertOk()
+        ->assertJsonPath('meta.is_standing', true)
+        ->assertJsonPath('meta.has_more', false);
+
+    /** @var list<array<string, mixed>> $rows */
+    $rows = $response->json('data.weekly_prices');
+    $byIngredient = array_column($rows, null, 'ingredient_id');
+
+    // The lookup would hand back one price; this hands back two rows, and the
+    // second is the one somebody has to act on.
+    expect($byIngredient)->toHaveCount(2)
+        ->and($byIngredient[(string) $bought->getKey()]['average_unit_amount'])->toBe('2.000000')
+        ->and($byIngredient[(string) $bought->getKey()]['source'])->toBe('computed')
+        // Null, never zero. An ingredient nobody could price and a free one must
+        // not read the same on a screen somebody prices food from.
+        ->and($byIngredient[(string) $unpriced->getKey()]['average_unit_amount'])->toBeNull()
+        ->and($byIngredient[(string) $unpriced->getKey()]['source'])->toBe('unpriced')
+        ->and($byIngredient[(string) $unpriced->getKey()]['ingredient_name_en'])->not->toBeNull();
+});
+
+it('answers one publication with what that publication said, not with what is standing now', function (): void {
+    [$ingredient, $item] = weeklyIngredient('FLR', $this->kg);
+
+    weeklyReceipt([['stock_item_id' => (string) $item->getKey(), 'quantity' => '10', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => '2.00', 'cost_currency_code' => 'USD']], '2026-09-01');
+    $first = $this->publisher->publishWeek((string) $this->organisation->getKey(), $this->weekStart);
+
+    weeklyReceipt([['stock_item_id' => (string) $item->getKey(), 'quantity' => '10', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => '8.00', 'cost_currency_code' => 'USD']], '2026-09-08');
+    $this->publisher->publishWeek((string) $this->organisation->getKey(), $this->weekStart->addWeek());
+
+    $this->actingAs($this->tenant->user);
+    $headers = PricingWorld::headers($this->tenant);
+
+    // Standing is the newer week.
+    $this->getJson('/api/v1/catalogue/procurement/weekly-prices', $headers)
+        ->assertOk()
+        ->assertJsonPath('data.weekly_prices.0.average_unit_amount', '8.000000');
+
+    // The older publication still says what it said. A published row is never
+    // rewritten, so history is readable rather than reconstructable.
+    $this->getJson('/api/v1/catalogue/procurement/weekly-prices?publication_id='.(string) $first->getKey(), $headers)
+        ->assertOk()
+        ->assertJsonPath('meta.is_standing', false)
+        ->assertJsonPath('data.weekly_prices.0.ingredient_id', (string) $ingredient->getKey())
+        ->assertJsonPath('data.weekly_prices.0.average_unit_amount', '2.000000');
+});
+
+it('lists the publishing runs newest week first, with the clock that drew the boundary', function (): void {
+    [, $item] = weeklyIngredient('FLR', $this->kg);
+
+    // A purchase in each week: a week with no receipts at all has no ingredient
+    // to say anything about, so it publishes nothing and there would be one run
+    // here rather than two.
+    weeklyReceipt([['stock_item_id' => (string) $item->getKey(), 'quantity' => '10', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => '2.00', 'cost_currency_code' => 'USD']], '2026-09-01');
+    weeklyReceipt([['stock_item_id' => (string) $item->getKey(), 'quantity' => '10', 'unit_id' => (string) $this->kg->getKey(), 'unit_price_amount' => '3.00', 'cost_currency_code' => 'USD']], '2026-09-08');
+
+    $this->publisher->publishWeek((string) $this->organisation->getKey(), $this->weekStart);
+    $this->publisher->publishWeek((string) $this->organisation->getKey(), $this->weekStart->addWeek());
+
+    $this->actingAs($this->tenant->user);
+
+    $this->getJson('/api/v1/catalogue/procurement/weekly-prices/publications', PricingWorld::headers($this->tenant))
+        ->assertOk()
+        ->assertJsonPath('meta.has_more', false)
+        ->assertJsonPath('data.publications.0.purchase_week_start_date', $this->weekStart->addWeek()->toDateString())
+        ->assertJsonPath('data.publications.1.purchase_week_start_date', $this->weekStart->toDateString())
+        // "The week of the 31st" spans different instants in Beirut and Dubai,
+        // and a reader reconciling a total needs to know which clock drew it.
+        ->assertJsonPath('data.publications.0.timezone', 'Asia/Beirut')
+        ->assertJsonPath('data.publications.0.has_late_receipts', false);
+});
+
+it('refuses both reads to a caller who may count stock but not read its cost', function (): void {
+    $tenant = PricingWorld::kitchen('weekly-nocosts@kitchen.test', [
+        'organisation.view_current',
+        'branch.view_current',
+        'inventory.view_organisation',
+        'inventory.manage_organisation',
+    ]);
+
+    $this->actingAs($tenant->user);
+    $headers = PricingWorld::headers($tenant);
+
+    // A weekly average is what the kitchen paid. Counting flour is not a reason
+    // to know what it cost.
+    $this->getJson('/api/v1/catalogue/procurement/weekly-prices', $headers)->assertForbidden();
+    $this->getJson('/api/v1/catalogue/procurement/weekly-prices/publications', $headers)->assertForbidden();
+});

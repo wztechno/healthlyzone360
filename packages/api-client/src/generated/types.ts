@@ -6374,6 +6374,127 @@ export type InventoryValueRow = {
     valued_item_count: number;
 };
 
+/**
+ * One ingredient's published weekly price (PROD1).
+ *
+ * `average_unit_amount = total_cost_amount ÷ total_quantity`, in
+ * `currency_code` per `unit_id`, over every **priced** receipt line for that
+ * ingredient in the purchase week. Header discount, tax, delivery and other
+ * charges stay out of it and keep being reported separately — they are not
+ * part of what a kilogram of flour cost.
+ *
+ * Null amount is never zero: it is `source: unpriced`, an ingredient nobody
+ * could price, and it is published as a row so a buyer can act on it.
+ *
+ */
+export type WeeklyPrice = {
+    id: Uuid;
+    ingredient_id: Uuid;
+    ingredient_name_en: string | null;
+    weekly_price_publication_id: Uuid;
+    /**
+     * Monday of the week whose purchases were averaged, organisation-local.
+     */
+    purchase_week_start_date: string;
+    purchase_week_end_date: string;
+    /**
+     * The Monday these prices take effect — the week *after* the one they average.
+     */
+    effective_from_date: string;
+    /**
+     * The unit the average is per. Null only on an unpriced row.
+     */
+    unit_id: Uuid | null;
+    unit_code: string | null;
+    /**
+     * Major currency units. Null is "nobody could price this", never zero.
+     */
+    average_unit_amount: string | null;
+    currency_code: string | null;
+    /**
+     * The average's denominator, normalised into `unit_id`.
+     */
+    total_quantity: string | null;
+    /**
+     * The average's numerator — the sum of the week's priced line totals.
+     */
+    total_cost_amount: string | null;
+    receipt_line_count: number;
+    /**
+     * Lines excluded from the average because nobody had entered a price.
+     */
+    unpriced_line_count: number;
+    /**
+     * The average stands on part of the week only, so the estimate is visibly provisional.
+     */
+    has_unpriced_lines: boolean;
+    source: 'computed' | 'carried_forward' | 'unpriced';
+    /**
+     * Why this row carries last week's price rather than computing one.
+     */
+    carry_reason: 'no_purchases' | 'mixed_currency' | 'all_lines_unpriced' | 'not_convertible' | null;
+    carried_from_week_start_date: string | null;
+};
+
+/**
+ * One publishing run (PROD1) — a week's prices and the header committed with
+ * them in a single transaction.
+ *
+ */
+export type WeeklyPricePublication = {
+    id: Uuid;
+    purchase_week_start_date: string;
+    purchase_week_end_date: string;
+    effective_from_date: string;
+    /**
+     * The clock the week boundaries were resolved in.
+     */
+    timezone: string;
+    published_at: string;
+    ingredient_count: number;
+    computed_count: number;
+    carried_count: number;
+    unpriced_count: number;
+    /**
+     * Receipt lines priced after this week was published, which the published rows do not reflect.
+     */
+    late_line_count: number;
+    has_late_receipts: boolean;
+    /**
+     * Set on a recompute — the run this one replaces. The replaced rows are never edited.
+     */
+    supersedes_id: Uuid | null;
+};
+
+export type WeeklyPriceEnvelope = {
+    data: {
+        weekly_prices: Array<WeeklyPrice>;
+    };
+    meta: Meta & {
+        page?: number;
+        per_page?: number;
+        /**
+         * Stated rather than inferred from a short page.
+         */
+        has_more?: boolean;
+        /**
+         * True when no publication was named — the prices in force now.
+         */
+        is_standing?: boolean;
+    };
+};
+
+export type WeeklyPricePublicationEnvelope = {
+    data: {
+        publications: Array<WeeklyPricePublication>;
+    };
+    meta: Meta & {
+        page?: number;
+        per_page?: number;
+        has_more?: boolean;
+    };
+};
+
 export type InventoryValueEnvelope = {
     data: {
         inventory_value: Array<InventoryValueRow>;
@@ -25869,6 +25990,118 @@ export type GetMonthlyCostReportResponses = {
 };
 
 export type GetMonthlyCostReportResponse = GetMonthlyCostReportResponses[keyof GetMonthlyCostReportResponses];
+
+export type ListWeeklyPricesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * One publishing run's rows. Omit for the standing price per ingredient.
+         */
+        publication_id?: Uuid;
+        page?: number;
+        per_page?: number;
+    };
+    url: '/catalogue/procurement/weekly-prices';
+};
+
+export type ListWeeklyPricesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListWeeklyPricesError = ListWeeklyPricesErrors[keyof ListWeeklyPricesErrors];
+
+export type ListWeeklyPricesResponses = {
+    /**
+     * The published weekly prices.
+     */
+    200: WeeklyPriceEnvelope;
+};
+
+export type ListWeeklyPricesResponse = ListWeeklyPricesResponses[keyof ListWeeklyPricesResponses];
+
+export type ListWeeklyPricePublicationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        page?: number;
+        per_page?: number;
+    };
+    url: '/catalogue/procurement/weekly-prices/publications';
+};
+
+export type ListWeeklyPricePublicationsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListWeeklyPricePublicationsError = ListWeeklyPricePublicationsErrors[keyof ListWeeklyPricePublicationsErrors];
+
+export type ListWeeklyPricePublicationsResponses = {
+    /**
+     * The publishing runs.
+     */
+    200: WeeklyPricePublicationEnvelope;
+};
+
+export type ListWeeklyPricePublicationsResponse = ListWeeklyPricePublicationsResponses[keyof ListWeeklyPricePublicationsResponses];
 
 export type ShowInventoryValueData = {
     body?: never;
