@@ -430,11 +430,10 @@ export function DataList<Row>({
                                  */
                                 <RNText
                                     className={cx(
-                                        // `label`, not `micro`: the same 12px the cells under it
-                                        // take, one weight heavier. A header two steps smaller
-                                        // than its own column reads as a footnote to the data
-                                        // rather than as its name.
-                                        'text-role-label text-content-secondary',
+                                        // `strong`: a step larger and heavier than the 12px cells
+                                        // under it, so the header reads as the column's name — the
+                                        // same role the sort and filter headers draw with.
+                                        'text-role-strong text-content-secondary',
                                         TEXT_ALIGN_CLASS[column.align ?? 'start'],
                                     )}
                                 >

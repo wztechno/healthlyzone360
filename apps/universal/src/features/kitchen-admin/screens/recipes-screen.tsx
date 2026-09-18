@@ -642,6 +642,7 @@ function columnControl(
     }
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     RECIPE_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -659,6 +660,7 @@ function columnControl(
     }
     if (key === 'kitchen') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     list.kitchens.map((entry) => ({

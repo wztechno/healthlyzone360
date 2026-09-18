@@ -512,6 +512,7 @@ function columnControl(
 ): ColumnControl<IngredientAdmin> {
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     INGREDIENT_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -553,6 +554,7 @@ function columnControl(
 
     if (key === 'category') {
         return {
+            sort: 'external',
             filter: {
                 // The catalogue's own names now that the tree is on the contract — `humaniseCode`
                 // renders `baking-starch` as "Baking Starch" where the category is "Baking & Starch".

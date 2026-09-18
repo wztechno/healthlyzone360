@@ -517,6 +517,7 @@ function columnControl(
     }
     if (key === 'category') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     list.categories.map((entry) => ({

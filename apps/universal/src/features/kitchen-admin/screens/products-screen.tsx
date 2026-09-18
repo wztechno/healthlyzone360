@@ -685,6 +685,7 @@ function columnControl(
 ): ColumnControl<ProductAdmin> {
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     PRODUCT_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -702,6 +703,7 @@ function columnControl(
     }
     if (key === 'category') {
         return {
+            sort: 'external',
             filter: {
                 // A value with no id is not offered: the endpoint narrows by id, so a code the read
                 // could not pair with one would send no constraint while the header claimed a filter.

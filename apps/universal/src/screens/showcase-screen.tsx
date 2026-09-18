@@ -460,6 +460,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [pickerTime, setPickerTime] = useState('08:30');
     const [pressedRow, setPressedRow] = useState<string | null>(null);
     const [kinds, setKinds] = useState<readonly string[]>(['paste']);
+    const [kindSort, setKindSort] = useState<'asc' | 'desc' | null>(null);
 
     const id = (name: string) => `${prefix}-${name}`;
 
@@ -475,34 +476,20 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
      * the three density copies of the list below — the menu is the same menu in each.
      */
     /*
-     * A column header with its sort-and-filter menu, in the shape every Catalogue list now draws.
-     * `kinds` is the filter, so pressing a value here flips the header from its idle `⌄` to the
-     * filter mark — which is the whole point of the component and the thing the previous header
-     * had no way of saying.
+     * A column header that filters and sorts, in the shape every Catalogue list now draws: the
+     * label opens the values, the arrow beside it flips the order. `kinds` is the filter, so
+     * pressing a value adds the filter mark beside the label.
      */
     const columnMenu = (scope: string) => (
         <CatalogueColumnHeader
             label="Kind"
-            sortDirection={null}
+            sortDirection={kindSort}
+            onToggleSort={() => {
+                setKindSort((current) => (current === 'asc' ? 'desc' : 'asc'));
+            }}
             filtered={kinds.length > 0}
             testID={id(`${scope}-column-menu`)}
             sections={[
-                {
-                    items: [
-                        {
-                            key: 'asc',
-                            label: 'Sort ascending',
-                            icon: 'chevronUp',
-                            onSelect: () => undefined,
-                        },
-                        {
-                            key: 'desc',
-                            label: 'Sort descending',
-                            icon: 'chevronDown',
-                            onSelect: () => undefined,
-                        },
-                    ],
-                },
                 {
                     label: 'Kind',
                     items: [

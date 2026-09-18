@@ -1944,6 +1944,8 @@
         "title": "Catalogue",
         "columnUpdated": "Updated",
         "close": "Close",
+        "columnFilter": "Filter by {{column}}",
+        "columnFiltered": "Filtered",
         "columnSort": "Sort by {{column}}"
     },
     "toolbar": {

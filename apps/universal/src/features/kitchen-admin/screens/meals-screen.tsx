@@ -580,6 +580,7 @@ function columnControl(
 ): ColumnControl<MealAdmin> {
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     MEAL_STATUS_FILTERS.map((status: PublishableStatus) => ({
