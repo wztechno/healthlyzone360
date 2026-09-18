@@ -67,11 +67,14 @@ function BrandMark() {
     );
 }
 
-/** The brand block on the collapsed sidebar: the mark alone, centred over the module icons. */
-export function KitchenBrandMark() {
+/**
+ * The top of the green module rail: empty. The logo lives once, in the white panel's brand block;
+ * this keeps the block's height so the rail's module icons start where they did.
+ */
+export function KitchenRailTop() {
     return (
-        <View testID="kitchen-rail-brand-mark" className="items-center pb-2 pt-4">
-            <BrandMark />
+        <View testID="kitchen-rail-top" className="pb-2 pt-4">
+            <View className="h-8" />
         </View>
     );
 }
@@ -89,10 +92,7 @@ export function KitchenBrandBlock() {
                 >
                     {t('marketplace:brand.name')}
                 </RNText>
-                <RNText
-                    numberOfLines={1}
-                    className="text-xs text-content-secondary text-start"
-                >
+                <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
                     {t('kitchen:nav.railTitle')}
                 </RNText>
             </View>

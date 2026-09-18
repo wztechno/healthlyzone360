@@ -3,7 +3,7 @@ import { Slot } from 'expo-router';
 import {
     KITCHEN_SIDEBAR_WIDTH,
     KitchenBrandBlock,
-    KitchenBrandMark,
+    KitchenRailTop,
     useKitchenNavigation,
 } from '../../src/features/kitchen-admin/kitchen-chrome.tsx';
 import {
@@ -43,7 +43,7 @@ function KitchenAreaShell() {
             navigation={navigation}
             sidebarWidth={KITCHEN_SIDEBAR_WIDTH}
             sidebarStart={<KitchenBrandBlock />}
-            sidebarStartCollapsed={<KitchenBrandMark />}
+            sidebarStartCollapsed={<KitchenRailTop />}
             topbarTitle={crumbs.length === 0 ? undefined : <KitchenTrail crumbs={crumbs} />}
             signOutInSidebar
         >
