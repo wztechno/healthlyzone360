@@ -57,22 +57,25 @@ final class PermissionCataloguePresenter
     {
         $held = array_flip($callerCodes);
 
-        return $permissions
+        return array_values($permissions
             ->sortBy('code')
             ->groupBy('domain')
             ->map(static fn (Collection $group, string $domain): array => [
                 'domain' => $domain,
-                'permissions' => $group
-                    ->map(static fn (Permission $permission): array => [
-                        'code' => (string) $permission->code,
-                        'description' => (string) $permission->description,
-                        'held_by_caller' => isset($held[(string) $permission->code]),
-                    ])
-                    ->values()
-                    ->all(),
+                // `all()` hands back a keyed array whatever `values()` did to the collection, so
+                // `array_values()` is what states these are the lists the signature promises.
+                'permissions' => array_values(
+                    $group
+                        ->map(static fn (Permission $permission): array => [
+                            'code' => (string) $permission->code,
+                            'description' => (string) $permission->description,
+                            'held_by_caller' => isset($held[(string) $permission->code]),
+                        ])
+                        ->all(),
+                ),
             ])
             ->sortKeys()
             ->values()
-            ->all();
+            ->all());
     }
 }

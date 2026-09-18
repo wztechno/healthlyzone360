@@ -23,8 +23,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $code
  * @property string $name_en
  * @property string $name_ar
+ * @property string|null $description_en
+ * @property string|null $description_ar
  * @property bool $is_system
  * @property string|null $created_by
+ * @property string|null $updated_by
+ * @property int $lock_version
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */

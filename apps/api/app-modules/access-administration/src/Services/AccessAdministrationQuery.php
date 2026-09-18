@@ -102,7 +102,7 @@ final readonly class AccessAdministrationQuery
      */
     public function assignmentsFor(string $membershipId): array
     {
-        return MembershipRole::withoutTenancy()
+        return array_values(MembershipRole::withoutTenancy()
             ->where('membership_id', $membershipId)
             ->orderBy('created_at')
             ->get()
@@ -111,7 +111,7 @@ final readonly class AccessAdministrationQuery
                 'starts_at' => $assignment->starts_at?->toIso8601String(),
                 'expires_at' => $assignment->expires_at?->toIso8601String(),
             ])
-            ->all();
+            ->all());
     }
 
     /**
@@ -147,7 +147,11 @@ final readonly class AccessAdministrationQuery
             ->all();
     }
 
-    /** The codes a membership holds as things stand. */
+    /**
+     * The codes a membership holds as things stand.
+     *
+     * @return list<string>
+     */
     public function codesForMembership(string $membershipId): array
     {
         return $this->codesForRoleSet(

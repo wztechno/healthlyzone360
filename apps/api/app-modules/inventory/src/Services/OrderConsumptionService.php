@@ -89,6 +89,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 {
     private const int SCALE = 6;
 
+    /** Multiply at twelve and round to six once, the rule the rest of the stock arithmetic follows. */
+    private const int WORKING_SCALE = 12;
+
     /**
      * The reference_type stamped on a consume movement, so its cost and quantity
      * can be read back for the monthly report and for reversal.

@@ -36,7 +36,6 @@ use Healthy360\AccessControl\Models\Role;
 final class OrganisationRolePresenter
 {
     /**
-     * @param  list<string>  $permissionCodes
      * @return array<string, mixed>
      */
     public function summary(Role $role, int $holderCount, int $permissionCount): array

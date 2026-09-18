@@ -110,8 +110,6 @@ final readonly class GrantBoundary
      *
      * @param  list<string>  $codes
      * @param  list<string>  $actorCodes
-     *
-     * @throws ApiException
      */
     public function assertMayGrant(array $codes, User $actor, array $actorCodes): void
     {
