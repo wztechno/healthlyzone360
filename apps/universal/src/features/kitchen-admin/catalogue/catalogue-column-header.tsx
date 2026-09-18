@@ -198,7 +198,9 @@ export function CatalogueColumnHeader({
                     role="button"
                     accessibilityRole="button"
                     accessibilityLabel={t('kitchen:catalogue.columnSort', { column: label })}
-                    aria-sort={active ? (sortDirection === 'desc' ? 'descending' : 'ascending') : 'none'}
+                    aria-sort={
+                        active ? (sortDirection === 'desc' ? 'descending' : 'ascending') : 'none'
+                    }
                     onPress={onToggleSort}
                     testID={`${testID}-sort`}
                     className="items-center justify-center"

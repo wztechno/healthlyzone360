@@ -72,6 +72,7 @@ import {
 import type { StockItemLineDraft } from '../ops-line-editor.tsx';
 import { todayIsoDate } from '../receive-delivery-model.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
@@ -653,6 +654,7 @@ function Procurement() {
                     setViewing(null);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {/*
                  * Suppliers have their own screen (SUP1) and the unpriced queue is the cost
                  * holder's; both stay one press from the receipts book, beside the one primary.

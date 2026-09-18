@@ -54,6 +54,7 @@ import {
     supplyOrderRowTestId,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/supply-orders` — the order book, and what the branch is short of (SUP3), on the
@@ -595,6 +596,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                     setViewing(null);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 <Button
                     testID="kitchen-supply-orders-prepare"
                     label={t('kitchen:ops.supplyOrders.prepare')}
@@ -740,15 +742,17 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<OrderProposalItem>
-                            testID="kitchen-supply-orders-preview"
-                            label={t('kitchen:ops.supplyOrders.previewCaption')}
-                            columns={previewControls.columns}
-                            rows={preview}
-                            rowKey={(row) => String(row.stockItemId)}
-                            density="sm"
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
+                        <WithColumnPicker picker={previewControls.picker}>
+                            <CatalogueList<OrderProposalItem>
+                                testID="kitchen-supply-orders-preview"
+                                label={t('kitchen:ops.supplyOrders.previewCaption')}
+                                columns={previewControls.columns}
+                                rows={preview}
+                                rowKey={(row) => String(row.stockItemId)}
+                                density="sm"
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                            />
+                        </WithColumnPicker>
                         {remaining === 0 ? null : (
                             <Text
                                 tone="secondary"

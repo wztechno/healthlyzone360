@@ -89,6 +89,7 @@ import {
 } from '../ops-format.ts';
 import { DeskAmount, DeskFact } from '../order-desk/desk-parts.tsx';
 import { DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/order-desk` — the open order book in the order somebody at a desk has to work it.
@@ -2035,30 +2036,32 @@ function OrderDeskQueueList() {
                      * Opens on the server's due-time order. Order, Customer, Telephone, Due,
                      * Ageing and Total sort on a press; Kind and Payment filter from their menus.
                      */}
-                    <CatalogueList<OrderDeskQueueRow>
-                        testID="kitchen-order-desk-table"
-                        label={t('kitchen:desk.caption')}
-                        columns={controls.columns}
-                        rows={pageRows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        onRowPress={openDetail}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        // The row itself opens the order; this is the same action as a named,
-                        // focusable control — the eye every kitchen list draws for View — so a
-                        // keyboard user has a target that says what pressing it does.
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${orderDeskRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    openDetail(row);
+                    <WithColumnPicker picker={controls.picker}>
+                        <CatalogueList<OrderDeskQueueRow>
+                            testID="kitchen-order-desk-table"
+                            label={t('kitchen:desk.caption')}
+                            columns={controls.columns}
+                            rows={pageRows}
+                            rowKey={(row) => String(row.id)}
+                            density="sm"
+                            onRowPress={openDetail}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            // The row itself opens the order; this is the same action as a named,
+                            // focusable control — the eye every kitchen list draws for View — so a
+                            // keyboard user has a target that says what pressing it does.
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `${orderDeskRowTestId(String(row.id))}-view`,
+                                    onSelect: () => {
+                                        openDetail(row);
+                                    },
                                 },
-                            },
-                        ]}
-                    />
+                            ]}
+                        />
+                    </WithColumnPicker>
 
                     <CataloguePager
                         testID="kitchen-order-desk-pagination"

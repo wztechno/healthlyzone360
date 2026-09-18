@@ -45,6 +45,7 @@ import {
     statusShortKey,
     statusTone,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/recipes` — the recipe list, drawn the way `/kitchen/ingredients` is.
@@ -250,6 +251,7 @@ function RecipesList() {
                     list.setStatuses(status === 'all' ? [] : [status]);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-recipes-toolbar" />

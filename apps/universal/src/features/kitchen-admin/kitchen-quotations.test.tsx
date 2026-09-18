@@ -11,7 +11,6 @@ import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { QuotationsScreen } from './screens/quotations-screen.tsx';
 
-
 /*
  * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
  * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these

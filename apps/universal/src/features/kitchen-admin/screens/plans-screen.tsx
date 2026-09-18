@@ -51,6 +51,7 @@ import {
 import type { PlanPriceCoverage } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/plans` — the plans this kitchen sells, and how much of each is decided (Commercial §3.3).
@@ -448,6 +449,7 @@ function PlansList() {
                     setViewing(null);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Button
                         testID="kitchen-plans-toolbar-create"

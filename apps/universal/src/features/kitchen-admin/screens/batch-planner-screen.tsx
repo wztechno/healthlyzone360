@@ -49,6 +49,7 @@ import { CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-reg
 import { displayName, parseQuantity, statusShortKey, unitShortKey } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT, useBatchIngredients } from '../operations/batch-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/batch` — one recipe, one target, and the sheet it scales to (`HealthZone Admin.dc.html`,
@@ -665,14 +666,16 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                  * ponytail: rows are keyed by ingredient id. A sheet that lists one ingredient twice
                  * gives the two rows one key — index the rows if a kitchen hits it.
                  */}
-                <DataList<RecipeLine>
-                    testID="kitchen-batch-ingredients"
-                    label={t('kitchen:ops.batch.rawMaterialsHeading')}
-                    columns={lineControls.columns}
-                    rows={lineControls.rows}
-                    rowKey={(line) => String(line.ingredientId)}
-                    density="sm"
-                />
+                <WithColumnPicker picker={lineControls.picker}>
+                    <DataList<RecipeLine>
+                        testID="kitchen-batch-ingredients"
+                        label={t('kitchen:ops.batch.rawMaterialsHeading')}
+                        columns={lineControls.columns}
+                        rows={lineControls.rows}
+                        rowKey={(line) => String(line.ingredientId)}
+                        density="sm"
+                    />
+                </WithColumnPicker>
             </FormSection>
 
             <FormSection
@@ -694,14 +697,16 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                     </Text>
                 ) : (
                     <Stack space="xs">
-                        <DataList<RecipePackagingLine>
-                            testID="kitchen-batch-packaging"
-                            label={t('kitchen:ops.batch.packagingScaledHeading')}
-                            columns={packagingControls.columns}
-                            rows={packagingControls.rows}
-                            rowKey={(row) => String(row.ingredientId)}
-                            density="sm"
-                        />
+                        <WithColumnPicker picker={packagingControls.picker}>
+                            <DataList<RecipePackagingLine>
+                                testID="kitchen-batch-packaging"
+                                label={t('kitchen:ops.batch.packagingScaledHeading')}
+                                columns={packagingControls.columns}
+                                rows={packagingControls.rows}
+                                rowKey={(row) => String(row.ingredientId)}
+                                density="sm"
+                            />
+                        </WithColumnPicker>
                         <Text variant="caption" tone="secondary">
                             {t('kitchen:ops.batch.roundingFoot')}
                         </Text>

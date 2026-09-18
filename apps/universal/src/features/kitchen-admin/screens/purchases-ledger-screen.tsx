@@ -48,6 +48,7 @@ import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
@@ -503,7 +504,9 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                     setActiveMode(next);
                     setViewing(null);
                 }}
-            />
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
 
             <Inline space="sm" align="end" wrap testID="kitchen-ledger-filters">
                 <Select

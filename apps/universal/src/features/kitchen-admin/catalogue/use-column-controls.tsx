@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CatalogueColumnHeader } from './catalogue-column-header.tsx';
+import { MAX_VISIBLE_COLUMNS, useColumnVisibility } from './column-picker.tsx';
+import type { ColumnPickerProps } from './column-picker.tsx';
 
 /**
  * Sort-on-press and filter-from-menu headers for any kitchen table, declared on the column.
@@ -35,6 +37,15 @@ import { CatalogueColumnHeader } from './catalogue-column-header.tsx';
  * label opens the values and the arrow sorts. A column that does neither gets no `renderHeader`,
  * which is what tells `DataList` to draw a plain label rather than a focusable trigger that does
  * nothing.
+ *
+ * ## Which columns are drawn
+ *
+ * Every table built on this draws at most {@link MAX_VISIBLE_COLUMNS} columns, and the reader picks
+ * which: the hook returns `picker`, which the screen renders as a `ColumnPicker` in its toolbar (or
+ * above the table where it has none). The six highest-`priority` columns are the default, the title column —
+ * `role: 'title'` where the spec states one, otherwise the first — is locked on, and the choice is
+ * remembered under the table's `testIDPrefix`. Hiding a column that is filtering clears its filter,
+ * so a list is never narrowed by a header the reader can no longer see.
  *
  * An in-memory filter column that names no comparator still sorts — by the label of the value each
  * row matches, which is the text the column shows. On a table whose sort the screen owns, a filter
@@ -90,6 +101,13 @@ export interface ExternalSort {
 export interface ColumnControlsOptions {
     /** Present when the screen owns sorting (a server-sorted list). */
     readonly sort?: ExternalSort | undefined;
+    /** Which columns a first visit draws, and which cannot be dropped. See the module docs. */
+    readonly picker?:
+        | {
+              readonly defaults?: readonly string[] | undefined;
+              readonly locked?: readonly string[] | undefined;
+          }
+        | undefined;
 }
 
 export interface ColumnControls<Row, Base extends DataListColumn<Row>> {
@@ -102,15 +120,40 @@ export interface ColumnControls<Row, Base extends DataListColumn<Row>> {
     /** Changes whenever the in-memory filters do, so a pager can land on page one. */
     readonly key: object;
     readonly clearFilters: () => void;
+    /** The column picker's props — spread onto `ColumnPicker`. */
+    readonly picker: ColumnPickerProps;
 }
 
 export function useColumnControls<Row, Base extends DataListColumn<Row> = DataListColumn<Row>>(
     rows: readonly Row[],
-    columns: readonly ControlledColumn<Row, Base>[],
+    allColumns: readonly ControlledColumn<Row, Base>[],
     testIDPrefix: string,
     options: ColumnControlsOptions = {},
 ): ColumnControls<Row, Base> {
     const { t } = useTranslation();
+
+    const statedLocked = options.picker?.locked;
+    const statedDefaults = options.picker?.defaults;
+    const locked = useMemo(() => {
+        if (statedLocked !== undefined) return statedLocked;
+        const title =
+            allColumns.find((column) => (column as { role?: string }).role === 'title') ??
+            allColumns[0];
+        return title === undefined ? [] : [title.key];
+    }, [statedLocked, allColumns]);
+    // The six the design ranks highest — `priority` is the same ladder the fitter drops columns by
+    // at narrow widths — with the locked column always among them. Drawn in the table's own order.
+    const defaults = useMemo(() => {
+        if (statedDefaults !== undefined) return statedDefaults;
+        const ranked = [...allColumns].sort((left, right) => right.priority - left.priority);
+        return [...new Set([...locked, ...ranked.map((column) => column.key)])].slice(
+            0,
+            MAX_VISIBLE_COLUMNS,
+        );
+    }, [statedDefaults, allColumns, locked]);
+    const visibility = useColumnVisibility(testIDPrefix, allColumns, { defaults, locked });
+    const columns = visibility.visible;
+
     const external = options.sort;
     const [localSort, setLocalSort] = useState<{
         readonly key: string;
@@ -175,12 +218,14 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
 
         const sorter = sorters.get(column.key);
         const sortActive = sorter !== undefined && activeSort?.key === column.key;
-        const direction = sorter === undefined ? undefined : sortActive ? activeSort.direction : null;
+        const direction =
+            sorter === undefined ? undefined : sortActive ? activeSort.direction : null;
         const toggleSort =
             sorter === undefined
                 ? undefined
                 : () => {
-                      const next: SortDirection = sortActive && direction === 'asc' ? 'desc' : 'asc';
+                      const next: SortDirection =
+                          sortActive && direction === 'asc' ? 'desc' : 'asc';
                       if (external === undefined) {
                           setLocalSort({ key: column.key, direction: next });
                       } else {
@@ -230,11 +275,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                     <CatalogueColumnHeader
                         label={column.label}
                         align={column.align}
-                        sections={
-                            items.length === 0
-                                ? []
-                                : [{ items }]
-                        }
+                        sections={items.length === 0 ? [] : [{ items }]}
                         filtered={current !== null}
                         sortDirection={direction}
                         onToggleSort={toggleSort}
@@ -270,6 +311,24 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
         key,
         clearFilters: () => {
             setFilters({});
+        },
+        picker: {
+            ...visibility.picker,
+            onToggle: (key) => {
+                const hiding = columns.find((column) => column.key === key);
+                const filter = hiding?.filter;
+                if (filter !== undefined) {
+                    if ('external' in filter) {
+                        if (filter.external.value !== null) filter.external.onChange(null);
+                    } else if (filters[key] !== undefined) {
+                        setFilters((existing) => {
+                            const { [key]: _dropped, ...others } = existing;
+                            return others;
+                        });
+                    }
+                }
+                visibility.picker.onToggle(key);
+            },
         },
     };
 }

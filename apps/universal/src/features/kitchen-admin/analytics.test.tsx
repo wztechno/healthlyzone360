@@ -5,6 +5,11 @@ import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { buildKitchenAnalytics } from './analytics-sample-data.ts';
 import { AnalyticsScreen } from './screens/analytics-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
+
+afterEach(() => {
+    forgetColumnChoice('kitchen-analytics-table');
+});
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -81,6 +86,15 @@ describe('kitchen analytics line items at desk width', () => {
             .map((row) => String(row.props.testID));
 
     it('sorts by Updated on a press, oldest first, and flips on the next', async () => {
+        // Updated ranks lowest of the seven, so it is one pick away; the reader has picked it.
+        rememberColumnChoice('kitchen-analytics-table', [
+            'name',
+            'segment',
+            'status',
+            'volume',
+            'done',
+            'updated',
+        ]);
         await renderStubScreen(<AnalyticsScreen />, { session: kitchenManagerSession() });
         await waitFor(() => {
             expect(

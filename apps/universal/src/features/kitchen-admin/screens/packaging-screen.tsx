@@ -33,6 +33,7 @@ import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx'
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import {
+    PACKAGING_DEFAULT_COLUMNS,
     packagingColumns,
     packagingRowTestId,
     packagingStatusKey,
@@ -43,6 +44,7 @@ import type { PackagingListState, PackagingSortKey } from '../catalogue/use-pack
 import { usePackagingList } from '../catalogue/use-packaging-list.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, humaniseCode, unitShortKey } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/packaging` — bags, boxes, lids, cutlery and labels, and what each costs.
@@ -168,6 +170,7 @@ function PackagingList() {
                     if (isIngredientAdminSortKey(key)) list.setSort(key, direction);
                 },
             },
+            picker: { defaults: PACKAGING_DEFAULT_COLUMNS },
         },
     );
 
@@ -239,6 +242,7 @@ function PackagingList() {
                     list.setStatuses(status === 'all' ? [] : [status]);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-packaging-toolbar" />

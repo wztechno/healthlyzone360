@@ -84,6 +84,7 @@ import {
     withCustomer,
     withFulfilmentType,
 } from '../order-desk/steps.ts';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, pickup or telephone sale.
@@ -1460,15 +1461,17 @@ function BasketStep({
                     />
                 ) : (
                     <View testID="kitchen-order-desk-sale-picker-rows">
-                        <CatalogueList
-                            testID="kitchen-order-desk-sale-picker-table"
-                            label={t('kitchen:desk.sale.pickerSearchLabel')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => `${row.kind}-${row.id}`}
-                            density="sm"
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
+                        <WithColumnPicker picker={controls.picker}>
+                            <CatalogueList
+                                testID="kitchen-order-desk-sale-picker-table"
+                                label={t('kitchen:desk.sale.pickerSearchLabel')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => `${row.kind}-${row.id}`}
+                                density="sm"
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                            />
+                        </WithColumnPicker>
                     </View>
                 )}
             </View>

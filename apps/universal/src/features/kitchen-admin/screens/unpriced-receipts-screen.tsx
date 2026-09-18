@@ -42,6 +42,7 @@ import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { readAmount } from '../receive-delivery-model.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/procurement/unpriced-receipts` — the work queue (SUP5, §3.6, §7).
@@ -357,7 +358,9 @@ function UnpricedReceipts() {
                 statusSegments={segments}
                 status={state}
                 onStatusChange={setState}
-            />
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
 
             {queue.isPending ? (
                 <Stack space="xs" testID="kitchen-unpriced-loading">

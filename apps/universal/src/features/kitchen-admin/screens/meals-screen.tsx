@@ -48,6 +48,7 @@ import {
     statusShortKey,
     statusTone,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/meals` — the dishes this kitchen sells, and which of them a shopper can see.
@@ -225,6 +226,7 @@ function MealsList() {
                     list.setStatuses(status === 'all' ? [] : [status]);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-meals-toolbar" />

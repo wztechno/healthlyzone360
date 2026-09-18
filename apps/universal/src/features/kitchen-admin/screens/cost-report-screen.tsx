@@ -33,6 +33,7 @@ import {
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
@@ -486,15 +487,17 @@ function CostReport() {
                             </View>
                         )}
                     </View>
-                    <CatalogueList<MonthlyCostReportRow>
-                        testID="kitchen-cost-report-table"
-                        label={t('kitchen:ops.costReport.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => `${row.month}-${row.currencyCode}`}
-                        onRowPress={setViewing}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
+                    <WithColumnPicker picker={controls.picker}>
+                        <CatalogueList<MonthlyCostReportRow>
+                            testID="kitchen-cost-report-table"
+                            label={t('kitchen:ops.costReport.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => `${row.month}-${row.currencyCode}`}
+                            onRowPress={setViewing}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    </WithColumnPicker>
                 </Stack>
             )}
         </Stack>

@@ -36,6 +36,7 @@ import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entit
 import { displayName } from '../format.ts';
 import { supplierRowTestId } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/suppliers` — who this kitchen buys from (SUP1), on the Catalogue list (Operations
@@ -400,6 +401,7 @@ function SuppliersList() {
                     setViewing(null);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Button
                         testID="kitchen-suppliers-toolbar-create"

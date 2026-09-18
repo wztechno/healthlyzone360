@@ -58,6 +58,7 @@ import { isOutOfStock, stockItemLabel, stockItemRowTestId } from '../ops-format.
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/stock` — the inventory ledger (O1, reworked by INV2.0, rebuilt on the Operations
@@ -662,6 +663,7 @@ function Stock() {
                     resetPage();
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 <SegmentedControl
                     testID="kitchen-stock-kind"
                     label={t('kitchen:ops.stock.kindLabel')}

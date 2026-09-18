@@ -71,6 +71,7 @@ import {
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/orders` — the order book (O6), drawn as the Operations handoff draws it: the Catalogue
@@ -408,7 +409,9 @@ function Orders() {
                 statusSegments={statusSegments}
                 status={status}
                 onStatusChange={changeStatus}
-            />
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
 
             {orders.isPending && rows.length === 0 ? (
                 <Stack space="xs" testID="kitchen-orders-loading">

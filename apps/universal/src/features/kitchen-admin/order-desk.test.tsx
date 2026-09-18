@@ -21,6 +21,7 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { KDS_LATE_MINUTES, KDS_WARNING_MINUTES } from '../kds/kds-board.ts';
 import { minutesPastDue, orderDeskDeliveryState, orderDeskDueTone } from './ops-format.ts';
 import { OrderDeskScreen } from './screens/order-desk-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { Dimensions } from 'react-native';
 
 /**
@@ -436,7 +437,20 @@ describe('order desk queue — ageing against the due instant', () => {
 });
 
 describe('order desk queue — the customer column', () => {
+    afterEach(() => {
+        forgetColumnChoice('kitchen-order-desk');
+    });
+
     it('renders an em dash when the field is absent and when the name is null', async () => {
+        // Phone ranks below the six a first visit draws; the reader has picked it.
+        rememberColumnChoice('kitchen-order-desk', [
+            'number',
+            'customer',
+            'phone',
+            'due',
+            'ageing',
+            'total',
+        ]);
         await renderDesk(async () => queue(seedQueue()));
 
         await waitFor(

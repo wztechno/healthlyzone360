@@ -54,6 +54,7 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/products` — what this kitchen sells as goods rather than as a dish on a menu — and the
@@ -316,6 +317,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                     list.setStatuses(status === 'all' ? [] : [status]);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-products-toolbar" />

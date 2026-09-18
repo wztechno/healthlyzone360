@@ -34,6 +34,7 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
@@ -493,15 +494,17 @@ function ConsumptionExceptions() {
                 />
             ) : (
                 <View className="flex-col gap-2.5">
-                    <CatalogueList<ConsumptionException>
-                        testID="kitchen-consumption-exceptions-table"
-                        label={t('kitchen:ops.exceptions.title')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => row.id}
-                        onRowPress={setViewing}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
+                    <WithColumnPicker picker={controls.picker}>
+                        <CatalogueList<ConsumptionException>
+                            testID="kitchen-consumption-exceptions-table"
+                            label={t('kitchen:ops.exceptions.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.id}
+                            onRowPress={setViewing}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    </WithColumnPicker>
                     <View className="flex-row flex-wrap items-center justify-between gap-snug">
                         <Text variant="caption" tone="secondary">
                             {t('kitchen:ops.exceptions.showingCount', { count: rows.length })}

@@ -34,6 +34,7 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 /**
  * `/kitchen/analytics` — the sample-data dashboard, as `Workbench.dc.html` draws it (§3.3).
  *
@@ -386,15 +387,17 @@ function AnalyticsDashboard() {
                     title={t('kitchen:analytics.table.title')}
                     aside={t('kitchen:analytics.table.sampleNote')}
                 />
-                <CatalogueList<AnalyticsTableRow>
-                    testID="kitchen-analytics-table"
-                    label={t('kitchen:analytics.table.caption')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => row.id}
-                    onRowPress={setViewing}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                />
+                <WithColumnPicker picker={controls.picker}>
+                    <CatalogueList<AnalyticsTableRow>
+                        testID="kitchen-analytics-table"
+                        label={t('kitchen:analytics.table.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => row.id}
+                        onRowPress={setViewing}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                    />
+                </WithColumnPicker>
             </View>
         </Stack>
     );

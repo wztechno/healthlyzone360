@@ -67,6 +67,7 @@ import {
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/production` — batch orders from recipe versions (Operations handoff, `production` +
@@ -373,6 +374,7 @@ function ProductionList({ onCreate }: { readonly onCreate: () => void }) {
                     setViewing(null);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Button
                         testID="kitchen-production-create"

@@ -1,6 +1,8 @@
 import { Button, Icon, Menu } from '@healthy360/design-system';
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { createKeyValueStore } from '../../../session/storage.ts';
 
@@ -51,6 +53,11 @@ const store = createKeyValueStore();
 /** Forgets a table's stored choice. For tests, which share the module's in-memory store. */
 export function forgetColumnChoice(tableId: string): void {
     store.remove(`${STORAGE_PREFIX}${tableId}`);
+}
+
+/** Stores a table's choice as if the reader had made it. For tests that need a given column on. */
+export function rememberColumnChoice(tableId: string, keys: readonly string[]): void {
+    store.set(`${STORAGE_PREFIX}${tableId}`, JSON.stringify(keys));
 }
 
 interface PickableColumn {
@@ -179,7 +186,6 @@ export function ColumnPicker({ options, shown, onToggle, onReset, testID }: Colu
             label={t('kitchen:catalogue.columnsLabel')}
             align="end"
             className="z-sticky"
-            maxHeight={420}
             sections={[
                 {
                     label: t('kitchen:catalogue.columnsHeading', { max: MAX_VISIBLE_COLUMNS }),
@@ -218,5 +224,26 @@ export function ColumnPicker({ options, shown, onToggle, onReset, testID }: Colu
                 />
             )}
         />
+    );
+}
+
+/**
+ * A table with its column picker right-aligned above it — for tables with no `CatalogueToolbar` to
+ * hold the button, such as the order desk and the report tables.
+ */
+export function WithColumnPicker({
+    picker,
+    children,
+}: {
+    readonly picker: ColumnPickerProps;
+    readonly children: ReactNode;
+}) {
+    return (
+        <View className="flex-col gap-tight">
+            <View className="flex-row justify-end">
+                <ColumnPicker {...picker} />
+            </View>
+            {children}
+        </View>
     );
 }

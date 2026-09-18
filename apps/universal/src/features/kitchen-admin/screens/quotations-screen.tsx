@@ -58,6 +58,7 @@ import {
     kitchenQuotationTotalMinor,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker, WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4), as
@@ -356,7 +357,9 @@ function Quotations() {
                     setFilter(next);
                     setViewing(null);
                 }}
-            />
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
 
             {quotations.isPending ? (
                 <Stack space="xs" testID="kitchen-quotations-loading">
@@ -633,13 +636,15 @@ function QuotationPricing({
                                 {t('kitchen:ops.quotations.noLines')}
                             </Text>
                         ) : (
-                            <DataList<KitchenQuotationLine>
-                                testID="kitchen-quotations-detail-lines"
-                                label={t('kitchen:ops.quotations.linesHeading')}
-                                columns={lineControls.columns}
-                                rows={lineControls.rows}
-                                rowKey={(line) => line.id}
-                            />
+                            <WithColumnPicker picker={lineControls.picker}>
+                                <DataList<KitchenQuotationLine>
+                                    testID="kitchen-quotations-detail-lines"
+                                    label={t('kitchen:ops.quotations.linesHeading')}
+                                    columns={lineControls.columns}
+                                    rows={lineControls.rows}
+                                    rowKey={(line) => line.id}
+                                />
+                            </WithColumnPicker>
                         )}
                         <View
                             testID="kitchen-quotations-detail-totals"

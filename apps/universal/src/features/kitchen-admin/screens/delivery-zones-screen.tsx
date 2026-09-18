@@ -45,6 +45,7 @@ import {
 } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/delivery-zones` — where this kitchen delivers, for how much, and when (Commercial §3.4).
@@ -444,6 +445,7 @@ function DeliveryZonesList() {
                     setViewing(null);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Button
                         testID="kitchen-zones-toolbar-create"

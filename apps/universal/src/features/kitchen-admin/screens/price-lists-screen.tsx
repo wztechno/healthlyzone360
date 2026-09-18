@@ -48,6 +48,7 @@ import {
 } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/price-lists` — what this kitchen charges, and how much of it is actually decided
@@ -360,7 +361,9 @@ function PriceListsList() {
                     setStatus(next);
                     setViewing(null);
                 }}
-            />
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
 
             {priceLists.isPending ? (
                 <Stack space="xs" testID="kitchen-price-lists-loading">

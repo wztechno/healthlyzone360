@@ -56,6 +56,7 @@ import {
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/qc` — quality checks on receipts and production batches (Operations handoff, `qc`).
@@ -353,6 +354,7 @@ function QualityCheckList({ onCreate }: { readonly onCreate: () => void }) {
                     setViewing(null);
                 }}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Button
                         testID="kitchen-qc-create"

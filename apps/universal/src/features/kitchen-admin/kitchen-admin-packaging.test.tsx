@@ -23,6 +23,11 @@ import {
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { PackagingScreen } from './screens/packaging-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
+
+afterEach(() => {
+    forgetColumnChoice('kitchen-packaging');
+});
 
 /**
  * `/kitchen/packaging`, against a world this file authors.
@@ -353,6 +358,14 @@ describe('the packaging list', () => {
     });
 
     it('draws a sort arrow on every column that sorts, and a filter mark once one is applied', async () => {
+        // Six columns are drawn at most; these are the ones this test reads, Item being locked on.
+        rememberColumnChoice('kitchen-packaging', [
+            'reference',
+            'purchaseUnit',
+            'itemsPerUnit',
+            'capacity',
+            'status',
+        ]);
         await renderStubScreen(<PackagingScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -386,7 +399,7 @@ describe('the packaging list', () => {
         expect(
             screen.getByTestId('kitchen-packaging-column-reference-sorted', hidden),
         ).toBeTruthy();
-        for (const key of ['name', 'purchaseUnit', 'itemsPerUnit', 'capacity', 'waste']) {
+        for (const key of ['name', 'purchaseUnit', 'itemsPerUnit', 'capacity']) {
             expect(
                 screen.getByTestId(`kitchen-packaging-column-${key}-affordance`, hidden),
             ).toBeTruthy();

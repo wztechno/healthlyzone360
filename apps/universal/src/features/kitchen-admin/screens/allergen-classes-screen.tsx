@@ -36,6 +36,7 @@ import type { AllergenListState, AllergenStatusFilter } from '../catalogue/use-a
 import { NO_MARKET, useAllergenList } from '../catalogue/use-allergen-list.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/allergen-classes` — the fourteen regulatory classes, read only.
@@ -200,7 +201,9 @@ function AllergenClasses() {
                 statusSegments={statusSegments}
                 status={list.status}
                 onStatusChange={list.setStatus}
-            />
+            >
+                <ColumnPicker {...controls.picker} />
+            </CatalogueToolbar>
 
             {list.isPending ? (
                 <Stack space="xs" testID="kitchen-allergen-classes-loading">

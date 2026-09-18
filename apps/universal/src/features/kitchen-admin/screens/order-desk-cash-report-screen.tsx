@@ -32,6 +32,7 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/order-desk/cash-report` — who took what, on one day.
@@ -326,14 +327,16 @@ function OrderDeskCashReport() {
                         ]}
                     />
 
-                    <CatalogueList<OrderDeskCashReportRow>
-                        testID="kitchen-order-desk-cash-report-table"
-                        label={t('kitchen:ops.cashReport.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={rowTestId}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
+                    <WithColumnPicker picker={controls.picker}>
+                        <CatalogueList<OrderDeskCashReportRow>
+                            testID="kitchen-order-desk-cash-report-table"
+                            label={t('kitchen:ops.cashReport.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={rowTestId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    </WithColumnPicker>
 
                     {/*
                      * The totals, as a panel of labelled pairs rather than a footer row of the list

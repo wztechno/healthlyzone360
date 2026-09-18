@@ -60,6 +60,19 @@ const PRICE_DIGITS: Intl.NumberFormatOptions = {
     maximumFractionDigits: 2,
 };
 
+/**
+ * The six a first visit draws. Stated rather than left to `priority`, which ranks Category below the
+ * two pack-size columns — and Category is the column this list filters by, as on Ingredients.
+ */
+export const PACKAGING_DEFAULT_COLUMNS: readonly string[] = [
+    'reference',
+    'name',
+    'category',
+    'purchasePrice',
+    'capacity',
+    'status',
+];
+
 export function packagingColumns({
     t,
     locale,
