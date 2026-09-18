@@ -1924,6 +1924,10 @@
         "retired": "Archived"
     },
     "catalogue": {
+        "columnsButton": "Columns {{shown}}/{{max}}",
+        "columnsLabel": "Choose the columns to show",
+        "columnsHeading": "Show up to {{max}} columns",
+        "columnsReset": "Reset to default",
         "navToggle": "Show or hide the navigation",
         "rowActions": "Row actions",
         "view": "View",
@@ -1978,6 +1982,14 @@
         "createRecipe": "New recipe"
     },
     "list": {
+        "columnSubcategory": "Sub-category",
+        "columnPurchaseUnit": "Purchase unit",
+        "columnItemsPerUnit": "Items / pack",
+        "columnGramsPerUnit": "Grams / unit",
+        "columnCostPer100g": "Cost / 100 g",
+        "columnB2bPrice": "B2B price",
+        "columnB2cPrice": "B2C price",
+        "columnComposition": "Composition",
         "title": "Ingredients",
         "subtitle": "The shared library plus everything this kitchen has added or changed.",
         "caption": "Ingredients",

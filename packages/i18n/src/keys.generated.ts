@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6937 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 6949 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2412,6 +2412,10 @@ export interface NamespaceKeys {
     | 'catalogue.columnMenu'
     | 'catalogue.columnSort'
     | 'catalogue.columnUpdated'
+    | 'catalogue.columnsButton'
+    | 'catalogue.columnsHeading'
+    | 'catalogue.columnsLabel'
+    | 'catalogue.columnsReset'
     | 'catalogue.edit'
     | 'catalogue.fields'
     | 'catalogue.filter'
@@ -3003,11 +3007,19 @@ export interface NamespaceKeys {
     | 'list.archivedToast'
     | 'list.caption'
     | 'list.columnAllergens'
+    | 'list.columnB2bPrice'
+    | 'list.columnB2cPrice'
     | 'list.columnCategory'
+    | 'list.columnComposition'
+    | 'list.columnCostPer100g'
+    | 'list.columnGramsPerUnit'
     | 'list.columnItem'
+    | 'list.columnItemsPerUnit'
     | 'list.columnName'
+    | 'list.columnPurchaseUnit'
     | 'list.columnReference'
     | 'list.columnStatus'
+    | 'list.columnSubcategory'
     | 'list.columnUnit'
     | 'list.columnUnitPrice'
     | 'list.columnUpdated'
@@ -9367,6 +9379,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.columnMenu',
   'kitchen:catalogue.columnSort',
   'kitchen:catalogue.columnUpdated',
+  'kitchen:catalogue.columnsButton',
+  'kitchen:catalogue.columnsHeading',
+  'kitchen:catalogue.columnsLabel',
+  'kitchen:catalogue.columnsReset',
   'kitchen:catalogue.edit',
   'kitchen:catalogue.fields',
   'kitchen:catalogue.filter',
@@ -9958,11 +9974,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.archivedToast',
   'kitchen:list.caption',
   'kitchen:list.columnAllergens',
+  'kitchen:list.columnB2bPrice',
+  'kitchen:list.columnB2cPrice',
   'kitchen:list.columnCategory',
+  'kitchen:list.columnComposition',
+  'kitchen:list.columnCostPer100g',
+  'kitchen:list.columnGramsPerUnit',
   'kitchen:list.columnItem',
+  'kitchen:list.columnItemsPerUnit',
   'kitchen:list.columnName',
+  'kitchen:list.columnPurchaseUnit',
   'kitchen:list.columnReference',
   'kitchen:list.columnStatus',
+  'kitchen:list.columnSubcategory',
   'kitchen:list.columnUnit',
   'kitchen:list.columnUnitPrice',
   'kitchen:list.columnUpdated',

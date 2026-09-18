@@ -2180,6 +2180,10 @@
         "retired": "مؤرشف"
     },
     "catalogue": {
+        "columnsButton": "الأعمدة {{shown}}/{{max}}",
+        "columnsLabel": "اختر الأعمدة المعروضة",
+        "columnsHeading": "اعرض حتى {{max}} أعمدة",
+        "columnsReset": "استعادة الافتراضي",
         "navToggle": "إظهار التنقل أو إخفاؤه",
         "rowActions": "إجراءات الصف",
         "view": "عرض",
@@ -2238,6 +2242,14 @@
         "createRecipe": "وصفة جديدة"
     },
     "list": {
+        "columnSubcategory": "الفئة الفرعية",
+        "columnPurchaseUnit": "وحدة الشراء",
+        "columnItemsPerUnit": "القطع / العبوة",
+        "columnGramsPerUnit": "غرام / وحدة",
+        "columnCostPer100g": "التكلفة / 100 غ",
+        "columnB2bPrice": "سعر الشركات",
+        "columnB2cPrice": "سعر المستهلك",
+        "columnComposition": "التركيب",
         "title": "المكوّنات",
         "subtitle": "المكتبة المشتركة إضافةً إلى كل ما أضافه هذا المطبخ أو غيّره.",
         "caption": "المكوّنات",

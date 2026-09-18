@@ -29,7 +29,12 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { ingredientColumns } from '../catalogue/ingredient-columns.tsx';
+import {
+    INGREDIENT_DEFAULT_COLUMNS,
+    INGREDIENT_LOCKED_COLUMNS,
+    ingredientColumns,
+} from '../catalogue/ingredient-columns.tsx';
+import { ColumnPicker, useColumnVisibility } from '../catalogue/column-picker.tsx';
 import type { IngredientListState, IngredientSortKey } from '../catalogue/use-ingredient-list.ts';
 import { useIngredientList } from '../catalogue/use-ingredient-list.ts';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
@@ -140,9 +145,18 @@ function IngredientsList() {
         [t, locale, formatter, categoryName],
     );
 
+    // Every field is a column; the reader keeps up to six of them.
+    const visibility = useColumnVisibility('kitchen-ingredients', columns, {
+        defaults: INGREDIENT_DEFAULT_COLUMNS,
+        locked: INGREDIENT_LOCKED_COLUMNS,
+    });
+
     const controls = useColumnControls<IngredientAdmin, CatalogueColumn<IngredientAdmin>>(
         list.rows,
-        columns.map((column) => ({ ...column, ...columnControl(column.key, list, t, locale) })),
+        visibility.visible.map((column) => ({
+            ...column,
+            ...columnControl(column.key, list, t, locale),
+        })),
         'kitchen-ingredients',
         {
             sort: {
@@ -232,6 +246,7 @@ function IngredientsList() {
                 }}
             >
                 <Inline space="xs" align="center">
+                    <ColumnPicker {...visibility.picker} />
                     {canManage ? (
                         <CatalogueTransferActions testID="kitchen-ingredients-toolbar" />
                     ) : null}

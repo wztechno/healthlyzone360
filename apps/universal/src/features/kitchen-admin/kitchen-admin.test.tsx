@@ -40,6 +40,7 @@ import { ENTITY_FAMILIES, WORKSPACE_PERMISSIONS, permittedFamilies } from './ent
 import { AllergenClassesScreen } from './screens/allergen-classes-screen.tsx';
 import { IngredientEditScreen } from './screens/ingredient-edit-screen.tsx';
 import { IngredientsScreen } from './screens/ingredients-screen.tsx';
+import { forgetColumnChoice } from './catalogue/column-picker.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 
 /**
@@ -633,6 +634,59 @@ describe('the ingredient list at desk width', () => {
 });
 
 describe('the ingredient list', () => {
+    beforeEach(() => {
+        forgetColumnChoice('kitchen-ingredients');
+    });
+
+    it('lets the reader choose up to six columns, keeping Item', async () => {
+        const row = ingredient(1);
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { listIngredients: ingredientListing(() => [row]) },
+            },
+        });
+        await untilVisible('kitchen-ingredients-table');
+        const cell = (suffix: string) => `kitchen-ingredient-${String(row.id)}-${suffix}`;
+
+        // The six defaults: Allergens in, Unit one pick away.
+        expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
+        expect(screen.queryByTestId(cell('unit'))).toBeNull();
+        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(/6\/6/);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-trigger'));
+        });
+        await untilVisible('kitchen-ingredients-columns-unit');
+
+        // Full: an unticked column cannot be added, and Item can never be dropped.
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true, checked: false }));
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-name').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true, checked: true }));
+
+        // Drop Allergens, which frees the slot Unit then takes.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens'));
+        });
+        expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: false }));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit'));
+        });
+        expect(screen.getByTestId(cell('unit'))).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-reset'));
+        });
+        expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
+        expect(screen.queryByTestId(cell('unit'))).toBeNull();
+    });
+
     it('answers a search nothing matches with the filtered empty state', async () => {
         await renderStubScreen(<IngredientsScreen />, {
             session: kitchenManagerSession(),
