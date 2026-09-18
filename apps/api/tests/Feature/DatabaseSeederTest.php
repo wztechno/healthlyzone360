@@ -362,7 +362,7 @@ it('writes every nutrition envelope on the per-100 g basis with the seven canoni
     expect($offenders)->toBe([]);
 });
 
-it('seeds a density for twenty rows: nineteen by volume, one by the piece', function (): void {
+it('seeds a density for the thirteen rows stocked by the litre, and for nothing else', function (): void {
     $withDensity = Ingredient::withoutTenancy()
         ->whereNull('organisation_id')
         ->whereNotNull('grams_per_unit')
@@ -375,20 +375,26 @@ it('seeds a density for twenty rows: nineteen by volume, one by the piece', func
         ->sortKeys()
         ->all();
 
-    // Eggs are the one row that is counted rather than poured: every technical
-    // sheet states them in pieces, so the library stocks them that way and the
-    // density is the mass of one egg rather than of one litre.
-    expect($withDensity)->toHaveCount(20)
-        ->and($byUnit)->toBe(['l' => 19, 'piece' => 1])
-        ->and($withDensity->firstWhere('source_ref', 'ING-026')?->grams_per_unit)->toBe('1080.0000')
-        ->and($withDensity->firstWhere('source_ref', 'ING-207')?->grams_per_unit)->toBe('50.0000');
+    // Thirteen, all poured. The owner's September unit table put every platform
+    // ingredient on kilograms or litres, and a density is only ever asked of the
+    // thirteen the kitchen pours — a mass row converts arithmetically, so a
+    // density on one would be a second, redundant and silently disagreeing
+    // source of truth.
+    //
+    // There is no longer a row counted by the piece. Eggs were the only one, and
+    // their 50 g USDA figure was not lost when they moved to mass: it is what the
+    // migration converts existing `4 piece` recipe lines with.
+    expect($withDensity)->toHaveCount(13)
+        ->and($byUnit)->toBe(['l' => 13])
+        ->and($withDensity->firstWhere('source_ref', 'ING-026')?->grams_per_unit)->toBe('1080.0000');
 
-    // A mass unit converts arithmetically, so a density on one would be a
-    // second, redundant and silently disagreeing source of truth. The other 14
-    // piece rows are left for a kitchen to weigh.
-    $piece = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
+    // The count above is the coarse half of this. `PlatformUnitNormalisationTest`
+    // holds the rule it stands for — every `l` row carries a density and every
+    // `kg` row carries none — which is count-free and so cannot go stale the way
+    // a hard-coded twenty did.
+    $mass = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
 
-    expect($piece->grams_per_unit)->toBeNull();
+    expect($mass->grams_per_unit)->toBeNull();
 });
 
 it('stamps every seeded row with a fingerprint of the figures it wrote', function (): void {
@@ -456,8 +462,8 @@ it('keeps the nutrition document and the ingredient library in step', function (
 
         // The density is stated against a named unit, and the seeder writes it
         // only while the row still stocks in that unit. If the document and
-        // the library disagreed on all nineteen, the seeder would be a silent
-        // no-op rather than a failure.
+        // the library disagreed on every one of the thirteen, the seeder would be
+        // a silent no-op rather than a failure.
         if (isset($row['grams_per_unit_of']) && $ingredient->defaultUnit?->code !== $row['grams_per_unit_of']) {
             $mismatches[] = $row['source_ref'].': unit';
         }
@@ -649,7 +655,11 @@ it('seeds the platform template roles with the expected grants', function (strin
         ->and(RolePermission::withoutTenancy()->where('role_id', $role->getKey())->count())->toBe($expectedGrants);
 })->with([
     'organisation owner grants every organisation permission' => ['organisation_owner', 46],
-    'organisation administrator cannot manage roles' => ['organisation_admin', 45],
+    // Forty-five either way, which is why this row stayed green through AA1 while
+    // its name stopped being true: the console swapped `role.manage_organisation`
+    // in and `organisation.update_current` out, one for one. The count is the
+    // weakest half of the pin; the test below names which code is missing.
+    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 45],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
     'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 31],
@@ -666,6 +676,12 @@ it('seeds the platform template roles with the expected grants', function (strin
     // still not deciding it — the manage and publish codes stay absent, which
     // is the half of this row the name is about.
     'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 8],
+    // AA1's two. They were absent from this dataset for a day after the console
+    // shipped — and a dataset only asserts about the rows it lists, so their
+    // absence was silent rather than red, which is how the role *count* three
+    // tests below was the only thing that noticed them.
+    'purchasing manager spends the kitchen money without seeing what it charges' => ['procurement_manager', 7],
+    'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
 ]);
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
@@ -717,10 +733,17 @@ it('gives the plan authority to the two commercial roles and to neither the chef
     }
 });
 
-it('withholds cost visibility from kitchen staff and from nobody else in the kitchen', function (): void {
+it('withholds cost visibility from kitchen staff, and gives it to finance', function (): void {
     // The split appendix C asks for, asserted where it is actually decided.
     // A line cook reading the method to make the dish must not thereby read
     // the margin on it, and a docblock is not a mechanism.
+    //
+    // `finance_manager` joined the holders with AA1's access console, and it is
+    // the one role here that reads a cost without being able to move a dish:
+    // finance is who knows what a thing cost, and six of the reports in
+    // `report-catalogue.md` are unopenable without the cost codes. The rule this
+    // test protects is about the line cook, and it is unchanged — the list grew
+    // at the other end.
     $costs = Permission::query()->where('code', 'recipe.view_costs_organisation')->sole();
 
     $holders = Role::withoutTenancy()
@@ -730,7 +753,8 @@ it('withholds cost visibility from kitchen staff and from nobody else in the kit
         ->all();
 
     expect($holders)->toEqualCanonicalizing([
-        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'kitchen_chef', 'commercial_manager',
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'kitchen_chef',
+        'commercial_manager', 'finance_manager',
     ]);
 });
 
@@ -777,19 +801,28 @@ it('keeps price visibility away from the chef and the kitchen staff entirely', f
     // quietly undone K1.3's cost split too, since a margin is reconstructable
     // from a cost and a price. Note the chef holds the *cost* permission and
     // neither price code: those are different questions with different answers.
-    foreach (['price_list.view_organisation', 'price_list.manage_organisation'] as $code) {
-        $permission = Permission::query()->where('code', $code)->sole();
+    //
+    // The two codes no longer have the same holders, and the difference is K1.5's
+    // split doing the work it was made for: `finance_manager` reads the tariff
+    // and cannot set one. A finance manager who cannot see a price cannot
+    // reconcile a total; deciding the price is the commercial manager's. Asserted
+    // as two lists rather than one loop precisely so that widening the read can
+    // never quietly widen the write.
+    $holdersOf = static fn (string $code): array => Role::withoutTenancy()
+        ->whereNull('organisation_id')
+        ->whereIn('id', RolePermission::withoutTenancy()
+            ->where('permission_id', Permission::query()->where('code', $code)->sole()->getKey())
+            ->select('role_id'))
+        ->pluck('code')
+        ->all();
 
-        $holders = Role::withoutTenancy()
-            ->whereNull('organisation_id')
-            ->whereIn('id', RolePermission::withoutTenancy()->where('permission_id', $permission->getKey())->select('role_id'))
-            ->pluck('code')
-            ->all();
-
-        expect($holders)->toEqualCanonicalizing([
+    expect($holdersOf('price_list.view_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
+        'finance_manager',
+    ], 'Unexpected holders of price_list.view_organisation.')
+        ->and($holdersOf('price_list.manage_organisation'))->toEqualCanonicalizing([
             'organisation_owner', 'organisation_admin', 'kitchen_manager', 'commercial_manager',
-        ], "Unexpected holders of {$code}.");
-    }
+        ], 'Unexpected holders of price_list.manage_organisation.');
 });
 
 /**
@@ -1143,12 +1176,22 @@ it('seeds two delivery windows, one of them restricted to some weekdays', functi
         ->and($windows->firstWhere('code', 'evening')?->weekdays)->toBe([1, 2, 3, 4]);
 });
 
-it('seeds the nine platform template roles plus the platform operators bespoke role', function (): void {
-    // Nine since C2. `order_desk_agent` is the first template that describes a
+it('seeds the eleven platform template roles plus the platform operators bespoke role', function (): void {
+    // Nine at C2. `order_desk_agent` was the first template that described a
     // shift rather than a discipline — who is standing at the counter, not what
     // they are responsible for — and it is still organisation-scoped like the
     // eight before it.
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(9);
+    //
+    // Eleven since AA1's access console added `procurement_manager` and
+    // `finance_manager` — the buyer who spends the kitchen's money, and the
+    // reader who reconciles what it took.
+    //
+    // This is the *third* holder of that pin, not the second. `RlsTest` and
+    // `PermissionRegistryTest` hold the other two and say "both halves"; the
+    // console updated one, a follow-up commit updated another, and this file sat
+    // red for a day because nothing named it. All three exist so that adding a
+    // template role has to be a deliberate act in every layer it reaches.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(11);
 
     // The one organisation-scoped role the demo seeds: platform permissions
     // are granted deliberately, inside a platform-operator organisation, and
@@ -1221,7 +1264,21 @@ it('grants the platform permissions only inside the platform operator organisati
         ->toBeTrue();
 });
 
-it('withholds role management from the organisation administrator template', function (): void {
+it('withholds the legal identity of the business from the organisation administrator template', function (): void {
+    // The swap AA1 made, and the direction matters.
+    //
+    // This role used to be the owner minus `role.manage_organisation`, which
+    // described an administrator who could do everything except administer. That
+    // was defensible while a kitchen's roles were fixed templates nobody could
+    // edit — there was nothing to administer — and stopped being defensible the
+    // moment roles and memberships became a console.
+    //
+    // What leaves in its place is `organisation.update_current`: the name, the
+    // country, the default currency, the facts on an invoice. An administrator
+    // runs the organisation; the owner decides what the organisation *is*. The
+    // exchange is also what keeps the two roles distinguishable — granting the
+    // role code without taking something back would make this list byte-identical
+    // to `organisation_owner`.
     $admin = Role::withoutTenancy()->whereNull('organisation_id')->where('code', 'organisation_admin')->sole();
 
     $codes = Permission::query()
@@ -1229,7 +1286,8 @@ it('withholds role management from the organisation administrator template', fun
         ->pluck('code')
         ->all();
 
-    expect($codes)->not->toContain('role.manage_organisation')
+    expect($codes)->not->toContain('organisation.update_current')
+        ->and($codes)->toContain('role.manage_organisation')
         ->and($codes)->toContain('role.view_organisation');
 });
 
@@ -1557,7 +1615,7 @@ it('leaves curated ingredient nutrition and densities alone on a re-run', functi
     $soySauce->grams_per_unit = '999';
     $soySauce->save();
 
-    // A piece row the document has no density for: the kitchen put it there.
+    // A mass row the document has no density for: the kitchen put it there.
     $croutons = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'ING-007')->sole();
     $croutons->grams_per_unit = '42';
     $croutons->save();
