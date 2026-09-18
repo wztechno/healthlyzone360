@@ -5,14 +5,17 @@ declare(strict_types=1);
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\ProductionMode;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Recipes\Enums\AllergenDerivation;
+use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
+use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
 /*
@@ -447,4 +450,82 @@ it('refuses to publish an item that is already published', function (): void {
         ->json('error.details.reasons');
 
     expect(collect($reasons)->firstWhere('reason', 'item_not_a_draft')['status'])->toBe('published');
+});
+
+it('refuses to publish a finished-stock meal until a published recipe fills its shelf', function (): void {
+    // The window this re-check closes. The rule is enforced when the flag is
+    // set, but the world moves underneath it: the version backing the shelf can
+    // be withdrawn — or never published in the first place — between the day
+    // somebody ticked the box and the day the listing goes on sale. Publishing
+    // is the last moment before a customer can order a thing off a shelf
+    // nothing fills.
+    $ingredient = CatalogueWorld::producedIngredient(
+        $this->a,
+        'Prepared Caesar salad',
+        'kg',
+        RecipeVersionStatus::Draft,
+    );
+
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    $item = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Prepared Caesar salad',
+        'name_ar' => 'سلطة سيزر جاهزة',
+        'production_mode' => ProductionMode::Production,
+        'ingredient_id' => $ingredient->getKey(),
+        'sells_from_finished_stock' => true,
+        'net_content_quantity' => '0.3000',
+        'net_content_unit_id' => CatalogueWorld::unit('kg'),
+        'recipe_id' => $recipe->getKey(),
+    ]);
+
+    // The allergen basis the meal gate needs, so the only refusal left is the
+    // one under test. A different recipe from the one producing the shelf,
+    // which is the ordinary shape: the salad's own formulation, and the batch
+    // recipe that fills the tub it is portioned from.
+    RecipeVersion::factory()->published()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'recipe_id' => $recipe->getKey(),
+    ]);
+
+    $this->actingAs($this->a->user);
+    $url = '/api/v1/catalogue/items/'.$item->getKey().'/publish';
+    $headers = CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'];
+
+    $reasons = $this->postJson($url, [], $headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'catalogue.publish_blocked')
+        ->json('error.details.reasons');
+
+    expect(collect($reasons)->firstWhere('reason', 'finished_stock_not_produced'))->not->toBeNull()
+        ->and(CatalogueItem::withoutTenancy()->whereKey($item->getKey())->value('status'))
+        ->toBe(CatalogueItemStatus::Draft);
+
+    // Publish the version that outputs the ingredient, and the same listing goes
+    // through untouched — the blocker was the shelf, and the shelf now exists.
+    RecipeVersion::withoutTenancy()
+        ->whereIn('id', RecipeVersionOutput::withoutTenancy()
+            ->where('ingredient_id', $ingredient->getKey())
+            ->pluck('recipe_version_id'))
+        ->update(['status' => RecipeVersionStatus::Published->value, 'published_at' => now()]);
+
+    $this->postJson($url, [], $headers)
+        ->assertOk()
+        ->assertJsonPath('data.item.status', 'published');
+});
+
+it('asks nothing of a resold product about who produces its shelf', function (): void {
+    // A product, a sauce, a dressing and a frozen meal all sell from finished
+    // stock *by type*, and their shelf is derived from the item rather than
+    // produced by a recipe. Asking them this question would block every resold
+    // good in the catalogue behind a recipe nobody was ever going to write.
+    $item = CatalogueWorld::publishableProduct($this->a, 'Bought-in harissa');
+
+    $this->actingAs($this->a->user);
+
+    $this->postJson('/api/v1/catalogue/items/'.$item->getKey().'/publish', [], CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.item.status', 'published');
 });

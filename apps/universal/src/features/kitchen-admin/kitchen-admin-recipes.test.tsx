@@ -33,7 +33,7 @@ import type { ReactNode } from 'react';
 import { recipeRollupHash } from '../../data/kitchen-admin-hooks.ts';
 import {
     KITCHEN_MANAGER_PERMISSIONS,
-    ORGANISATION_OWNER_PERMISSIONS,
+    MEMBER_PERMISSIONS,
     TEST_ORGANISATION_ID,
     kitchenManagerSession,
     testActiveContext,
@@ -665,8 +665,15 @@ function editorReads(record: () => RecipeAdmin) {
     };
 }
 
-/** An organisation owner: an organisation, a branch, and no catalogue permission at all. */
-function organisationOwnerSession() {
+/**
+ * Somebody who belongs to an organisation and may do nothing in it — the registry's `member` role.
+ *
+ * This was `organisationOwnerSession`, built from a nine-code `ORGANISATION_OWNER_PERMISSIONS` that
+ * happened to lack every catalogue code. An owner holds all forty-three, so the fixture was wrong
+ * and the refusal it proved was an accident of the wrongness. `member` is the role that genuinely
+ * cannot open a kitchen screen, which is what these tests were always reaching for.
+ */
+function organisationMemberSession() {
     return testMeResponse({
         memberships: [
             testMembership({
@@ -678,13 +685,13 @@ function organisationOwnerSession() {
                 roles: [
                     {
                         id: RoleId.unsafe('test-0000-role-0002'),
-                        key: 'organisation_owner',
-                        name: 'Owner',
+                        key: 'member',
+                        name: 'Member',
                     },
                 ],
             }),
         ],
-        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+        activeContext: testActiveContext({ permissions: MEMBER_PERMISSIONS }),
     });
 }
 
@@ -935,7 +942,7 @@ describe('the recipe list', () => {
     it('refuses a role with no recipe permission', async () => {
         // No repository overrides at all: the gate refuses before the table can ask for anything, so
         // a screen that fetched here would fail loudly with StubNotConfiguredError.
-        await renderStubScreen(<RecipesScreen />, { session: organisationOwnerSession() });
+        await renderStubScreen(<RecipesScreen />, { session: organisationMemberSession() });
 
         await untilVisible('kitchen-recipes-forbidden');
         expect(screen.queryByTestId('kitchen-recipes-table')).toBeNull();
@@ -2710,6 +2717,42 @@ describe('the technical sheet', () => {
                 },
                 totalCostPerYieldUnit: money(7.2),
                 packages: [],
+            },
+
+            /*
+             * The weekly block, empty. This fixture is about the *live* block being
+             * read when no snapshot exists, so the estimating figures are deliberately
+             * absent rather than invented — a stub that quietly priced everything would
+             * make the assertions below pass for the wrong reason.
+             */
+            weekly: {
+                currency: null,
+                production: {
+                    total: null,
+                    costPerYieldUnit: null,
+                    costPerYieldUnitWithWaste: null,
+                    costPerPiece: null,
+                    costPerPieceWithWaste: null,
+                    wastePercent: 3,
+                    uncostedLineNumbers: [],
+                    isComplete: false,
+                    lines: [],
+                },
+                packaging: {
+                    total: null,
+                    costPerYieldUnit: null,
+                    costPerYieldUnitWithWaste: null,
+                    wastePercent: 2,
+                    uncostedLineNumbers: [],
+                    isComplete: false,
+                    lines: [],
+                },
+                totalCostPerYieldUnit: null,
+                packages: [],
+                weeklyPricePublicationId: null,
+                hasCarriedForwardPrices: false,
+                ingredientsNeedingInitialPrice: [],
+                lineSources: [],
             },
         };
     }

@@ -11,11 +11,14 @@ use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Inventory\Models\OrderConsumptionException;
+use Healthy360\Inventory\Models\OrderLineEstimatedCost;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
+use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\OrderConsumptionService;
+use Healthy360\Inventory\Services\ReservationService;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Models\Order;
@@ -465,6 +468,76 @@ it('records an exception instead of hard-failing when there is not enough stock'
         ->and(levelOf($flour))->toBe('0.0100')
         ->and(consumeMovements($order)->count())->toBe(0)
         ->and(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('insufficient_stock');
+});
+
+it('freezes what a line was expected to cost, and does not move it afterwards', function (): void {
+    // Two dollars a kilo typed on the ingredient, 0.05 kg per portion: the line
+    // was expected to cost ten cents.
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+
+    Ingredient::withoutTenancy()->whereKey($flour->ingredient_id)->update([
+        'purchase_price_amount' => '2.000000',
+        'purchase_price_currency' => 'USD',
+        'purchase_unit_id' => (string) $this->kg->getKey(),
+    ]);
+
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    $estimate = OrderLineEstimatedCost::withoutTenancy()->sole();
+
+    expect((string) $estimate->estimated_cost_amount)->toBe('0.100000')
+        ->and($estimate->currency_code)->toBe('USD');
+
+    // The ingredient's price triples afterwards. Last month's estimated margin
+    // must not move — which is the entire reason this is a stored figure rather
+    // than one the report recomputes.
+    Ingredient::withoutTenancy()->whereKey($flour->ingredient_id)->update([
+        'purchase_price_amount' => '6.000000',
+    ]);
+
+    expect((string) OrderLineEstimatedCost::withoutTenancy()->sole()->estimated_cost_amount)->toBe('0.100000');
+});
+
+it('writes no estimate at all for a line it cannot price, rather than a zero', function (): void {
+    // No typed price and no weekly price: the line has no estimate. A zero here
+    // would make the month's estimated margin read high and complete.
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    expect(OrderLineEstimatedCost::withoutTenancy()->count())->toBe(0);
+});
+
+it('records a reservation block as its own reason, not as an empty shelf', function (): void {
+    // The flour is on the shelf and the meal needs a fraction of it. What stops
+    // the deduction is a confirmed batch that has claimed the lot (PROD1), and
+    // that is a different problem with a different remedy — talk to the kitchen,
+    // or release the claim — so it gets a reason of its own.
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+
+    app(ReservationService::class)->open(
+        (string) $this->organisation->getKey(),
+        (string) $this->branch->getKey(),
+        StockReservation::HOLDER_PRODUCTION_ORDER,
+        '01a0b000-0000-7000-8000-0000000000c1',
+        [(string) $flour->getKey() => '100'],
+    );
+
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    // The confirm still stands — a kitchen has committed to cook — and nothing
+    // came off a shelf somebody else is counting on.
+    expect($order->refresh()->status->value)->toBe('confirmed')
+        ->and(levelOf($flour))->toBe('100.0000')
+        ->and(consumeMovements($order)->count())->toBe(0)
+        ->and(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('reserved_for_production');
 });
 
 it('retries a blocked line once the stock item exists, deducting and auto-resolving, and is idempotent', function (): void {

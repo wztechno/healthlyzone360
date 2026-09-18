@@ -65,6 +65,15 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     // renders the forbidden page instead of the thing under test. A suite proving the boundary
     // subtracts it explicitly.
     'inventory.order_supplies_organisation',
+    // PROD1. All three, matching `PermissionRegistry`: the backend grants the desk, the writes and
+    // the costs to `kitchen_manager`, and only the costs code is withheld from `kitchen_chef`. Added
+    // here the moment the production desk existed, which is exactly the drift this fixture's
+    // "mirrors the template roles" promise exists to prevent — a screen gated on a code the fixture
+    // lacks renders the forbidden page instead of the thing under test. A suite proving the cost
+    // boundary subtracts `production.view_costs_organisation` explicitly.
+    'production.view_organisation',
+    'production.manage_organisation',
+    'production.view_costs_organisation',
     // S1/C4. The backend has granted `subscription.view_organisation` to `kitchen_manager` since the
     // schedule projection landed, and it is deliberately *not* folded into `order.view_organisation`
     // there: a subscription is a standing commercial arrangement with a captured price, and reading
@@ -73,20 +82,198 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     // because two of its three bases are subscription arithmetic — which is exactly the drift this
     // fixture's "mirrors the template roles" promise exists to prevent.
     'subscription.view_organisation',
+    // AA1. Two more the registry has always granted `kitchen_manager` and this list omitted, found
+    // by diffing the two rather than by a screen going missing: a manager reads the staff list, and
+    // holds the plan publish code beside the plan manage code that was already here.
+    'membership.view_organisation',
+    'plan.publish_organisation',
+    // **A deliberate deviation, recorded rather than quietly kept.** The registry grants these two
+    // own-scope codes to `member` and to `organisation_owner`, and not to `kitchen_manager`. They
+    // stay here because every kitchen suite renders through this session inside the app shell, whose
+    // workspace navigation gates the Devices entry on `device.manage_own` — so a fixture faithful on
+    // this point would make thirty suites assert against a rail that a real kitchen manager does see
+    // (they hold `member` as well, in every deployment that seeds one). A suite proving the boundary
+    // subtracts them explicitly.
     'device.manage_own',
     'session.revoke_own',
 ];
 
+/**
+ * Every organisation-scoped code, which is what `organisation_owner` is defined as.
+ *
+ * It held nine codes until AA1, one of which — `organisation.manage_current` — is not a permission
+ * this platform has ever registered: the real code is `organisation.update_current`. So a fixture
+ * whose whole promise is that it mirrors `PermissionRegistry` was granting an owner a fiction and
+ * withholding thirty-five real codes, and every suite that used it was testing a narrower person
+ * than the one it named.
+ *
+ * Listed in the registry's own order rather than sorted, so a diff against
+ * `PermissionRegistry::organisationPermissions()` reads straight down.
+ */
 export const ORGANISATION_OWNER_PERMISSIONS: readonly string[] = [
     'organisation.view_current',
-    'organisation.manage_current',
+    'organisation.update_current',
     'branch.view_current',
     'branch.manage_current',
     'membership.view_organisation',
     'membership.invite_organisation',
+    'membership.update_organisation',
+    'membership.end_organisation',
+    'role.view_organisation',
+    'role.manage_organisation',
     'user.manage_organisation',
-    'device.manage_own',
     'session.revoke_own',
+    'device.manage_own',
+    'profile.view_own',
+    'profile.update_own',
+    'consent.view_own',
+    'consent.manage_own',
+    'entitlement.view_organisation',
+    'subscription.view_organisation',
+    'audit.view_organisation',
+    'catalogue.view_organisation',
+    'catalogue.manage_organisation',
+    'recipe.view_organisation',
+    'recipe.manage_organisation',
+    'recipe.publish_organisation',
+    'recipe.view_costs_organisation',
+    'catalogue.publish_organisation',
+    'price_list.view_organisation',
+    'price_list.manage_organisation',
+    'plan.manage_organisation',
+    'plan.publish_organisation',
+    'delivery_zone.manage_organisation',
+    'order.view_organisation',
+    'order.manage_organisation',
+    'order.view_customer_contact_organisation',
+    'order.create_on_behalf_organisation',
+    'customer.create_on_behalf_organisation',
+    'b2b_quotation.view_organisation',
+    'b2b_quotation.quote_organisation',
+    'inventory.view_organisation',
+    'inventory.manage_organisation',
+    'inventory.view_costs_organisation',
+    'inventory.order_supplies_organisation',
+    // PROD1. An owner holds every organisation-scoped code, which is what this list is defined as,
+    // so the three arrive here the moment the registry declares them.
+    'production.view_organisation',
+    'production.manage_organisation',
+    'production.view_costs_organisation',
+];
+
+/**
+ * `organisation_admin` — the permissions administrator (AA1).
+ *
+ * Every organisation code except `organisation.update_current`, which is the swap that makes the
+ * name true: the role gained `role.manage_organisation`, because an administrator who could not
+ * administer access was a name with nothing behind it, and gave up the legal identity of the
+ * business in exchange. Without the trade it would be `organisation_owner` spelled differently.
+ */
+export const PERMISSIONS_ADMINISTRATOR_PERMISSIONS: readonly string[] = [
+    'organisation.view_current',
+    'branch.view_current',
+    'branch.manage_current',
+    'membership.view_organisation',
+    'membership.invite_organisation',
+    'membership.update_organisation',
+    'membership.end_organisation',
+    'role.view_organisation',
+    'role.manage_organisation',
+    'user.manage_organisation',
+    'session.revoke_own',
+    'device.manage_own',
+    'profile.view_own',
+    'profile.update_own',
+    'consent.view_own',
+    'consent.manage_own',
+    'entitlement.view_organisation',
+    'subscription.view_organisation',
+    'audit.view_organisation',
+    'catalogue.view_organisation',
+    'catalogue.manage_organisation',
+    'recipe.view_organisation',
+    'recipe.manage_organisation',
+    'recipe.publish_organisation',
+    'recipe.view_costs_organisation',
+    'catalogue.publish_organisation',
+    'price_list.view_organisation',
+    'price_list.manage_organisation',
+    'plan.manage_organisation',
+    'plan.publish_organisation',
+    'delivery_zone.manage_organisation',
+    'order.view_organisation',
+    'order.manage_organisation',
+    'order.view_customer_contact_organisation',
+    'order.create_on_behalf_organisation',
+    'customer.create_on_behalf_organisation',
+    'b2b_quotation.view_organisation',
+    'b2b_quotation.quote_organisation',
+    'inventory.view_organisation',
+    'inventory.manage_organisation',
+    'inventory.view_costs_organisation',
+    'inventory.order_supplies_organisation',
+];
+
+/**
+ * `procurement_manager` — purchasing (AA1).
+ *
+ * The narrowest useful test of the cost line: it crosses INV1's split, because a buyer who cannot
+ * see what the last crate cost is guessing — and it holds neither `price_list` code, because what
+ * the kitchen *charges* is the commercial side's.
+ */
+export const PROCUREMENT_MANAGER_PERMISSIONS: readonly string[] = [
+    'organisation.view_current',
+    'branch.view_current',
+    'catalogue.view_organisation',
+    'inventory.view_organisation',
+    'inventory.manage_organisation',
+    'inventory.view_costs_organisation',
+    'inventory.order_supplies_organisation',
+];
+
+/**
+ * `finance_manager` — finance (AA1).
+ *
+ * Almost entirely reads. `order.manage_organisation` is absent deliberately, which is why this role
+ * cannot open the order desk's cash report — a fact worth having a fixture for, because it is the
+ * one visible cost of the line the registry draws there.
+ */
+export const FINANCE_MANAGER_PERMISSIONS: readonly string[] = [
+    'organisation.view_current',
+    'branch.view_current',
+    'catalogue.view_organisation',
+    'recipe.view_organisation',
+    'recipe.view_costs_organisation',
+    'price_list.view_organisation',
+    'order.view_organisation',
+    'subscription.view_organisation',
+    'b2b_quotation.view_organisation',
+    'inventory.view_organisation',
+    'inventory.view_costs_organisation',
+    'audit.view_organisation',
+];
+
+/**
+ * `member` — somebody who belongs to an organisation and can do nothing in it.
+ *
+ * The registry's own floor: see the organisation, manage your own profile, devices, sessions and
+ * consents, and nothing else. Every kitchen screen refuses this person, which is exactly what makes
+ * it the right fixture for a suite proving that a gate refuses.
+ *
+ * Seven kitchen suites used to reach for `ORGANISATION_OWNER_PERMISSIONS` for that job, under a
+ * local helper whose docstring read "an organisation owner … and no catalogue permission at all".
+ * That was true only of the nine-code fixture, and false of the role it named: an owner holds every
+ * organisation code there is. Correcting the owner set turned seven refusal tests into seven tests
+ * of nothing, which is how the drift was found.
+ */
+export const MEMBER_PERMISSIONS: readonly string[] = [
+    'organisation.view_current',
+    'session.revoke_own',
+    'device.manage_own',
+    'profile.view_own',
+    'profile.update_own',
+    'consent.view_own',
+    'consent.manage_own',
 ];
 
 export const PLATFORM_ADMINISTRATOR_PERMISSIONS: readonly string[] = [
@@ -125,6 +312,7 @@ export function testSessionUser(overrides: Partial<SessionUser> = {}): SessionUs
         email: 'test.person@example.test',
         emailVerifiedAt: '2026-08-01T09:00:00.000Z',
         twoFactorEnabled: false,
+        mustChangePassword: false,
         profile: testProfile(),
         createdAt: '2026-07-01T09:00:00.000Z',
         ...overrides,
@@ -215,6 +403,25 @@ export function testMeResponse(overrides: TestMeResponseOverrides = {}): MeRespo
                 : overrides.activeContext,
         pendingConsents: overrides.pendingConsents ?? [],
     };
+}
+
+/**
+ * A permissions administrator at the test kitchen — the session the access console suites need.
+ *
+ * Its own builder rather than `kitchenManagerSession` with an override, because the point of the
+ * console suites is *which* codes open which screens, and a session assembled at the call site is
+ * one a later edit can quietly widen.
+ */
+export function permissionsAdministratorSession(
+    overrides: TestMeResponseOverrides = {},
+): MeResponse {
+    return testMeResponse({
+        memberships: [testMembership()],
+        activeContext: testActiveContext({
+            permissions: PERMISSIONS_ADMINISTRATOR_PERMISSIONS,
+        }),
+        ...overrides,
+    });
 }
 
 /** A kitchen manager working at the test kitchen — the session most workspace suites need. */

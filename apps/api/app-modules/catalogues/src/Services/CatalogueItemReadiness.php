@@ -16,6 +16,7 @@ use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionOutput;
 
 /**
  * Why a catalogue item is not ready to be published — as a list, computed, and
@@ -50,6 +51,13 @@ use Healthy360\Recipes\Models\RecipeVersion;
  *   somebody works out whether the burghul contains gluten" is no.
  * - **Plans only** (K1.6): terms, a matrix, a run, and a confirmed price on
  *   every active configuration.
+ * - **A shelf to sell off** (PROD1): a **meal** opted into selling from finished
+ *   stock must still name an ingredient a published recipe version outputs. The
+ *   rule is enforced when the flag is set, but the world moves underneath it —
+ *   the backing version can be superseded or withdrawn between the day somebody
+ *   ticked the box and the day the listing goes on sale — and publishing is the
+ *   last moment before a customer can order the thing. Resold goods are not
+ *   asked: their shelf is derived from the item, not produced by a recipe.
  *
  * Each reason is `{code, detail, context}`: a stable machine key, a sentence a
  * human can act on, and whatever identifies the offending rows. The context is
@@ -125,6 +133,23 @@ final readonly class CatalogueItemReadiness
                 'code' => 'no_allergen_basis',
                 'detail' => 'A meal, sauce or dressing must link a recipe with a published version, list its own ingredients, or be exactly one ingredient. An item that can answer none of these cannot say what is in it, and silence is not a statement of absence.',
                 'context' => [],
+            ];
+        }
+
+        // The **flag**, not the derived behaviour. A product, sauce or dressing
+        // sells from finished stock as a property of what it is, and its shelf
+        // comes from stock derivation rather than from a recipe output — asking
+        // those for a published version that produces them would block every
+        // resold good in the catalogue. The opt-in meal is the only case where
+        // the ingredient must be output-backed, which is exactly the condition
+        // {@see CatalogueItemService::finishedStockDeclaration()} gates on.
+        if ($item->item_type === CatalogueItemType::Meal
+            && (bool) ($item->sells_from_finished_stock ?? false)
+            && ! $this->hasProducedShelf($item)) {
+            $reasons[] = [
+                'code' => 'finished_stock_not_produced',
+                'detail' => 'This listing sells from finished stock, so it must name an ingredient a published recipe version produces. Without one there is no shelf to deduct from, and every sale would be refused at the counter.',
+                'context' => ['ingredient_id' => $item->ingredient_id],
             ];
         }
 
@@ -252,6 +277,31 @@ final readonly class CatalogueItemReadiness
 
         return CatalogueItemIngredient::withoutTenancy()
             ->where('catalogue_item_id', $item->getKey())
+            ->exists();
+    }
+
+    /**
+     * Whether this item's ingredient is one a published recipe version outputs.
+     *
+     * The same question {@see CatalogueItemService} asks when the flag is set,
+     * asked again at the door. It is deliberately a second evaluation rather
+     * than a stored verdict: what makes it true is a recipe version's *status*,
+     * and nothing notifies a catalogue listing when a version it never
+     * referenced is withdrawn.
+     */
+    private function hasProducedShelf(CatalogueItem $item): bool
+    {
+        $ingredientId = $item->ingredient_id;
+
+        if (! is_string($ingredientId) || $ingredientId === '') {
+            return false;
+        }
+
+        return RecipeVersionOutput::withoutTenancy()
+            ->join('recipe_versions', 'recipe_versions.id', '=', 'recipe_version_outputs.recipe_version_id')
+            ->where('recipe_version_outputs.organisation_id', $item->organisation_id)
+            ->where('recipe_version_outputs.ingredient_id', $ingredientId)
+            ->where('recipe_versions.status', RecipeVersionStatus::Published->value)
             ->exists();
     }
 

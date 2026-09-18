@@ -45,6 +45,12 @@ function organisationTemplateRoleCodes(): array
         // — a desk agent is somebody's employee working somebody's counter, and
         // there is no cross-tenant reading of any kind behind the role.
         'order_desk_agent',
+
+        // AA1: purchasing and finance. Organisation-scoped for the reason every
+        // other kitchen role is — both describe a job inside one kitchen, and
+        // neither reads across a tenant boundary. Both are assembled entirely
+        // from codes that already existed.
+        'procurement_manager', 'finance_manager',
     ];
 }
 
@@ -156,5 +162,117 @@ it('lets the order desk read the range it sells without deciding it', function (
         'inventory.view_costs_organisation',
     ] as $withheld) {
         expect($desk)->not->toContain($withheld);
+    }
+});
+
+it('separates the administrator from the owner by the identity of the business', function (): void {
+    // The one pin standing between a deliberate distinction and an accidental
+    // duplicate. AA1 gave `organisation_admin` the `role.manage_organisation`
+    // it had always been denied — an administrator who could not administer
+    // access was a name with nothing behind it — and took
+    // `organisation.update_current` in exchange.
+    //
+    // Without the exchange this role would be `$all`, which is exactly what
+    // `organisation_owner` holds: two template roles the seeder writes, the
+    // console offers and nobody can tell apart. The assertion is therefore in
+    // two halves, and both matter. The first says the two roles differ. The
+    // second says *how* — an administrator runs the organisation; the owner
+    // decides what the organisation is.
+    $templates = PermissionRegistry::templateRoles();
+    $owner = $templates['organisation_owner']['permissions'];
+    $admin = $templates['organisation_admin']['permissions'];
+
+    expect($admin)->not->toEqualCanonicalizing($owner)
+        ->and(array_values(array_diff($owner, $admin)))->toBe(['organisation.update_current'])
+        ->and(array_diff($admin, $owner))->toBe([])
+        ->and($admin)->toContain('role.manage_organisation');
+});
+
+it('lets the buyer spend the kitchen\'s money without seeing what it charges', function (): void {
+    // Pinned as a set for the `order_desk_agent` reason: what is interesting
+    // about this role is which side of each pair it sits on.
+    //
+    // It is the first operating role to hold `inventory.order_supplies_
+    // organisation` other than the kitchen manager, and the first outside the
+    // commercial pair to cross INV1's cost line — a buyer who cannot see what
+    // the last crate cost is guessing.
+    $buyer = PermissionRegistry::templateRoles()['procurement_manager']['permissions'];
+
+    expect($buyer)->toEqualCanonicalizing([
+        'organisation.view_current',
+        'branch.view_current',
+        'catalogue.view_organisation',
+        'inventory.view_organisation',
+        'inventory.manage_organisation',
+        'inventory.view_costs_organisation',
+        'inventory.order_supplies_organisation',
+    ]);
+
+    foreach ([
+        // The sharpest line the role draws. A buyer names what the kitchen
+        // pays; what it charges is the commercial side's, and a role holding
+        // both could reconstruct the margin on every dish from the purchase
+        // ledger — K1.3's cost split undone from the other direction.
+        'price_list.view_organisation',
+        'price_list.manage_organisation',
+
+        // A dish's cost, not a crate's.
+        'recipe.view_costs_organisation',
+
+        // A buyer reads the shortage, not the customers behind it.
+        'order.view_organisation',
+        'order.manage_organisation',
+
+        // Buying is not renaming the food, nor deciding what is sold.
+        'catalogue.manage_organisation',
+        'catalogue.publish_organisation',
+    ] as $withheld) {
+        expect($buyer)->not->toContain($withheld);
+    }
+});
+
+it('gives finance every number and no way to change one', function (): void {
+    // Almost entirely reads, and the single exception is the point:
+    // `recipe.view_costs_organisation` gates the read *and* the write of line
+    // unit costs by design (K1.3), and finance is who knows what a thing cost.
+    $finance = PermissionRegistry::templateRoles()['finance_manager']['permissions'];
+
+    expect($finance)->toEqualCanonicalizing([
+        'organisation.view_current',
+        'branch.view_current',
+        'catalogue.view_organisation',
+        'recipe.view_organisation',
+        'recipe.view_costs_organisation',
+        'price_list.view_organisation',
+        'order.view_organisation',
+        'subscription.view_organisation',
+        'b2b_quotation.view_organisation',
+        'inventory.view_organisation',
+        'inventory.view_costs_organisation',
+        'audit.view_organisation',
+    ]);
+
+    foreach ([
+        // Every write on every surface it reads. Reading a formulation is not
+        // deciding it; seeing a tariff is not setting one; reading the order
+        // book is not cancelling somebody's dinner.
+        'catalogue.manage_organisation',
+        'catalogue.publish_organisation',
+        'recipe.manage_organisation',
+        'recipe.publish_organisation',
+        'price_list.manage_organisation',
+        'plan.manage_organisation',
+        'plan.publish_organisation',
+        'order.manage_organisation',
+        'inventory.manage_organisation',
+        'inventory.order_supplies_organisation',
+        'b2b_quotation.quote_organisation',
+
+        // Money is not access.
+        'membership.view_organisation',
+        'role.manage_organisation',
+        'user.manage_organisation',
+    ] as $withheld) {
+        expect($finance)->not->toContain($withheld);
     }
 });

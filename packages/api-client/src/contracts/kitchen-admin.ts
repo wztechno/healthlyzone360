@@ -956,6 +956,49 @@ export interface RecipePackageCost {
     readonly cost: CostAmount | null;
 }
 
+/** Where one formulation line's weekly estimate came from. */
+export type WeeklyCostSource = 'weekly' | 'component_recipe' | 'ingredient_fallback' | 'none';
+
+/**
+ * CONFIDENTIAL — the provenance of one line's weekly estimate.
+ *
+ * The four sources are not interchangeable and a reader has to be able to tell them apart.
+ * `component_recipe` is the one that matters most: the line names something the kitchen makes, so
+ * the figure is that recipe's own cost per unit of what it produces — which is what stops a
+ * dressing's olive oil being counted inside the dressing and again inside the salad.
+ *
+ * `none` means the line is uncosted and the total is withheld. It is never a zero: a free
+ * ingredient and an unpriced one must not cost a recipe the same thing.
+ */
+export interface WeeklyCostLineSource {
+    readonly lineNumber: number;
+    readonly ingredientId: IngredientId;
+    readonly source: WeeklyCostSource;
+    readonly unitCost: CostAmount | null;
+    /** The Monday this price took effect, `YYYY-MM-DD`; null on a typed or missing price. */
+    readonly effectiveFrom: string | null;
+    readonly sourceRecipeVersionId: RecipeVersionId | null;
+    /** Whether the figure is an older week's, carried because this one could not be averaged. */
+    readonly carriedForward: boolean;
+}
+
+/**
+ * CONFIDENTIAL — what the version costs at the published weekly average of what was really paid.
+ *
+ * Beside {@link RecipeComputedCost}, never instead of it. One answers "what did we say this cost
+ * when we costed it" and this answers "what does it cost at what we are actually paying now"; a
+ * screen showing only one of the two has quietly told the reader that it is the cost.
+ */
+export interface RecipeWeeklyCost extends RecipeComputedCost {
+    /** The publication these figures were read from; null means the standing prices. */
+    readonly weeklyPricePublicationId: string | null;
+    readonly hasCarriedForwardPrices: boolean;
+    /** Ingredients with no published price behind them — the initial-price-entry list. */
+    readonly ingredientsNeedingInitialPrice: readonly IngredientId[];
+    /** Every line, including the ones that could not be costed. */
+    readonly lineSources: readonly WeeklyCostLineSource[];
+}
+
 /**
  * CONFIDENTIAL — the technical sheet of one recipe version: the costed lines
  * and the latest snapshot per basis. `null` from the repository means the
@@ -985,16 +1028,25 @@ export interface TechnicalSheetAdmin {
      * computation refuses outright rather than blending at a rate this system does not have.
      */
     readonly computed: RecipeComputedCost | null;
+    /**
+     * The same formulation at this week's **published** prices — what the kitchen is actually
+     * paying, rather than what the lines were frozen at.
+     *
+     * Always present, even when nothing could be costed: `lineSources` names the lines that have no
+     * price, and `ingredientsNeedingInitialPrice` is what an "enter a price for these" prompt reads.
+     */
+    readonly weekly: RecipeWeeklyCost;
 }
 
 /**
  * The reference series a record is numbered in.
  *
- * `ING-` is the ingredient library's. The other three are the recipe table's: the library, sauces
- * and dressings are all recipes, read off different sheets and quoted by different handles, so they
- * number separately. A client names the series; the number in it is always the server's.
+ * `ING-` is the ingredient library's. The others are the recipe table's: the library, sauces,
+ * dressings and frozen meals are all recipes, read off different sheets and quoted by different
+ * handles, so they number separately. A client names the series; the number in it is always the
+ * server's.
  */
-export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-';
+export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-' | 'FRZ-';
 
 /*
  * Where each series is counted, which is the table its existing handles are in: `ING-` among the
@@ -1180,7 +1232,7 @@ export interface ProductAdmin {
      * kitchen screens list each kind on its own page via
      * {@link ProductAdminFilter.itemType}.
      */
-    readonly itemType: 'product' | 'sauce' | 'dressing';
+    readonly itemType: 'product' | 'sauce' | 'dressing' | 'frozen_meal';
     /**
      * The kitchen's own handle — `SAC-001`, `DRS-019`, `RSL-055`.
      *
@@ -1211,6 +1263,17 @@ export interface ProductAdmin {
     /** True for a row that stands for a mixed selection rather than one article. */
     readonly isAssorted: boolean;
     readonly packVariants: readonly ProductPackVariant[];
+    /**
+     * How much of the produced ingredient one sold unit is (PROD1).
+     *
+     * There is no `sellsFromFinishedStock` beside it: a product, sauce, dressing
+     * or frozen meal sells from finished stock as a property of what it is, so a
+     * flag here would be a control that changes nothing. The net content is a
+     * different matter — a frozen meal sold by weight off a shelf counted in
+     * kilograms needs it, or every sale refuses with `no_net_content`.
+     */
+    readonly netContentQuantity: string | null;
+    readonly netContentUnitId: string | null;
     readonly channelAvailability: readonly ChannelAvailability[];
     /** The recipe it is produced from, when it is produced rather than bought in. */
     readonly recipeId: RecipeId | null;
@@ -1235,18 +1298,20 @@ export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest
     readonly categoryId?: string | undefined;
     readonly channels?: readonly SalesChannel[] | undefined;
     /** Which packaged kind to list. Defaults to `product`. */
-    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal' | undefined;
 }
 
 export interface CreateProductRequest {
     /** Defaults to `product`; the sauces and dressings screens pass their own. */
-    readonly itemType?: 'product' | 'sauce' | 'dressing' | undefined;
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal' | undefined;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;
     readonly recipeId?: RecipeId | undefined;
     readonly isMarketPriced?: boolean | undefined;
     readonly isAssorted?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly packVariants?: readonly ProductPackVariant[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1258,6 +1323,8 @@ export interface UpdateProductRequest extends LockedRequest {
     readonly recipeId?: RecipeId | null | undefined;
     readonly isMarketPriced?: boolean | undefined;
     readonly isAssorted?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly packVariants?: readonly ProductPackVariant[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1342,6 +1409,17 @@ export interface MealAvailabilityDay {
     readonly orderCutOffAt: string | null;
 }
 
+/**
+ * Where a sellable comes from: this kitchen's own production, a supplier, or both.
+ *
+ * It is the first of the two preconditions on selling from finished stock — a
+ * kitchen cannot deduct a shelf of something it does not make — which is why the
+ * meal editor can set it at all. Before PROD1 it reached no screen in the
+ * application and could only be set through the API.
+ */
+export const PRODUCTION_MODES = ['production', 'supplier', 'both'] as const;
+export type ProductionMode = (typeof PRODUCTION_MODES)[number];
+
 export interface MealAdmin {
     readonly id: MealId;
     readonly meta: AdminEntityMeta;
@@ -1358,6 +1436,36 @@ export interface MealAdmin {
     readonly recipeVersionId: RecipeVersionId | null;
     /** The portion sold, relative to one recipe serving. */
     readonly portionFactor: number;
+    /**
+     * What this kitchen does about the meal, and what a sale of it deducts (PROD1).
+     *
+     * `productionMode` and `ingredientId` are the two preconditions behind
+     * `sellsFromFinishedStock`: the server refuses the flag unless the kitchen
+     * *produces* the meal and the ingredient it names is one a published recipe
+     * version outputs. They are carried here so the editor can say which one is
+     * missing instead of discovering it from a refusal.
+     */
+    readonly productionMode: ProductionMode | null;
+    readonly ingredientId: string | null;
+    /**
+     * Made in advance: a sale draws the finished shelf rather than exploding the
+     * recipe. The **stored** flag, not the derived behaviour — a frozen meal
+     * sells that way by type and still reads false here, and writing the type's
+     * own behaviour back as an explicit choice is exactly the confusion the
+     * distinction exists to prevent.
+     */
+    readonly sellsFromFinishedStock: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is — a 350 g pack off a
+     * shelf counted in kilograms. A fixed-scale decimal string, so four places
+     * survive the round trip.
+     *
+     * Required in practice wherever the shelf is weighed: a mass or volume shelf
+     * with no net content refuses every sale with `no_net_content` rather than
+     * guessing. A shelf counted in pieces needs none.
+     */
+    readonly netContentQuantity: string | null;
+    readonly netContentUnitId: string | null;
     readonly mealTypes: readonly MealType[];
     readonly dietClassifications: readonly DietClassification[];
     /** Frozen at publication from the recipe version's declaration; never edited here directly. */
@@ -1397,6 +1505,11 @@ export interface CreateMealRequest {
     readonly description: LocalisedText;
     readonly recipeId?: RecipeId | undefined;
     readonly portionFactor?: number | undefined;
+    readonly productionMode?: ProductionMode | null | undefined;
+    readonly ingredientId?: string | null | undefined;
+    readonly sellsFromFinishedStock?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }
@@ -1406,6 +1519,11 @@ export interface UpdateMealRequest extends LockedRequest {
     readonly description?: LocalisedText | undefined;
     readonly recipeId?: RecipeId | null | undefined;
     readonly portionFactor?: number | undefined;
+    readonly productionMode?: ProductionMode | null | undefined;
+    readonly ingredientId?: string | null | undefined;
+    readonly sellsFromFinishedStock?: boolean | undefined;
+    readonly netContentQuantity?: number | null | undefined;
+    readonly netContentUnitId?: string | null | undefined;
     readonly mealTypes?: readonly MealType[] | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
 }

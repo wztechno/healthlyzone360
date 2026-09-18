@@ -617,6 +617,7 @@ const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
     catalogue: 'kitchen:nav.groups.catalogue',
     commercial: 'kitchen:nav.groups.commercial',
     operations: 'kitchen:nav.groups.operations',
+    access: 'kitchen:nav.groups.access',
 };
 
 export function KitchenHomeScreen() {

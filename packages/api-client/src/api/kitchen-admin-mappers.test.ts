@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EnergyBand, PlanVariantCell } from '../generated/types.ts';
+import type { AdminCatalogueItem, EnergyBand, PlanVariantCell } from '../generated/types.ts';
 import {
     mapIngredientPublishableStatus,
+    mapMealAdminFromItem,
     mapPlanVariantsFromCells,
 } from './kitchen-admin-mappers.ts';
 
@@ -112,5 +113,72 @@ describe('mapPlanVariantsFromCells', () => {
 
         expect(variants).toHaveLength(1);
         expect(variants[0]?.energyBand).toEqual({ min: 0, max: 0 });
+    });
+});
+
+describe('mapMealAdminFromItem — the finished-stock chain', () => {
+    const ITEM_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b1';
+    const ORG_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b2';
+    const CATALOGUE_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b3';
+    const INGREDIENT_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b4';
+    const UNIT_ID = '019ffc6a-68d2-70d1-9f6c-6ddc160642b5';
+
+    const wire = (overrides: Partial<AdminCatalogueItem> = {}): AdminCatalogueItem => ({
+        id: ITEM_ID,
+        organisation_id: ORG_ID,
+        catalogue_id: CATALOGUE_ID,
+        item_type: 'meal',
+        slug: 'prepared-caesar-salad',
+        name_en: 'Prepared Caesar salad',
+        name_ar: 'سلطة سيزر جاهزة',
+        is_market_priced: false,
+        is_assorted: false,
+        portion_factor: '1.000',
+        sells_from_finished_stock: false,
+        status: 'draft',
+        data_quality_flags: [],
+        lock_version: 0,
+        ...overrides,
+    });
+
+    it('reads the four settings a meal sells from finished stock by', () => {
+        const meal = mapMealAdminFromItem(
+            wire({
+                production_mode: 'production',
+                ingredient_id: INGREDIENT_ID,
+                sells_from_finished_stock: true,
+                net_content_quantity: '0.3000',
+                net_content_unit_id: UNIT_ID,
+            }),
+        );
+
+        expect(meal.productionMode).toBe('production');
+        expect(meal.ingredientId).toBe(INGREDIENT_ID);
+        expect(meal.sellsFromFinishedStock).toBe(true);
+        // The server's own fixed-scale string, not a number. Parsing it here
+        // would lose the fourth place on the way back out, and the editor holds
+        // the person's typed text in any case.
+        expect(meal.netContentQuantity).toBe('0.3000');
+        expect(meal.netContentUnitId).toBe(UNIT_ID);
+    });
+
+    it('reads a meal that explodes its recipe as exactly that', () => {
+        const meal = mapMealAdminFromItem(wire());
+
+        expect(meal.sellsFromFinishedStock).toBe(false);
+        expect(meal.productionMode).toBeNull();
+        expect(meal.ingredientId).toBeNull();
+        expect(meal.netContentQuantity).toBeNull();
+        expect(meal.netContentUnitId).toBeNull();
+    });
+
+    it('reads a payload predating the column as one that explodes its recipe', () => {
+        // Not a server that omits a required field — the column is NOT NULL and
+        // the schema requires it. This is the stored default said again, so a
+        // cached response from before the migration cannot read as an opt-in.
+        const legacy = wire();
+        delete (legacy as Record<string, unknown>).sells_from_finished_stock;
+
+        expect(mapMealAdminFromItem(legacy).sellsFromFinishedStock).toBe(false);
     });
 });

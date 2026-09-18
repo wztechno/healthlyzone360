@@ -20,7 +20,7 @@ import type { ReactNode } from 'react';
 
 import KitchenPriceListsRoute from '../../../app/kitchen/price-lists/index.tsx';
 import {
-    ORGANISATION_OWNER_PERMISSIONS,
+    MEMBER_PERMISSIONS,
     kitchenManagerSession,
     testActiveContext,
     testMeResponse,
@@ -160,6 +160,11 @@ function meal(ordinal: number, overrides: Partial<MealAdmin> = {}): MealAdmin {
         kitchenId: KITCHEN_ID,
         recipeId: null,
         recipeVersionId: null,
+        productionMode: null,
+        ingredientId: null,
+        sellsFromFinishedStock: false,
+        netContentQuantity: null,
+        netContentUnitId: null,
         portionFactor: 1,
         mealTypes: ['lunch'],
         dietClassifications: [],
@@ -267,8 +272,15 @@ function catalogueReads() {
     };
 }
 
-/** An organisation owner: an organisation, a branch, and no catalogue permission at all. */
-function organisationOwnerSession() {
+/**
+ * Somebody who belongs to an organisation and may do nothing in it — the registry's `member` role.
+ *
+ * This was `organisationOwnerSession`, built from a nine-code `ORGANISATION_OWNER_PERMISSIONS` that
+ * happened to lack every catalogue code. An owner holds all forty-three, so the fixture was wrong
+ * and the refusal it proved was an accident of the wrongness. `member` is the role that genuinely
+ * cannot open a kitchen screen, which is what these tests were always reaching for.
+ */
+function organisationMemberSession() {
     return testMeResponse({
         memberships: [
             testMembership({
@@ -280,13 +292,13 @@ function organisationOwnerSession() {
                 roles: [
                     {
                         id: RoleId.unsafe('test-0000-role-0002'),
-                        key: 'organisation_owner',
-                        name: 'Owner',
+                        key: 'member',
+                        name: 'Member',
                     },
                 ],
             }),
         ],
-        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+        activeContext: testActiveContext({ permissions: MEMBER_PERMISSIONS }),
     });
 }
 
@@ -633,7 +645,7 @@ describe('the price-list list', () => {
     it('refuses a role with no catalogue permission', async () => {
         // No repository overrides at all: the gate refuses before the table can ask for anything, so
         // a screen that fetched here would fail loudly with StubNotConfiguredError.
-        await renderStubScreen(<PriceListsScreen />, { session: organisationOwnerSession() });
+        await renderStubScreen(<PriceListsScreen />, { session: organisationMemberSession() });
 
         await untilVisible('kitchen-price-lists-forbidden');
         expect(screen.queryByTestId('kitchen-price-lists-table')).toBeNull();

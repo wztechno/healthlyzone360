@@ -1,5 +1,6 @@
 import type {
     LocalisedText,
+    MeasurementUnitOption,
     ProductAdmin,
     ProductPackVariant,
 } from '@healthy360/api-client/contracts';
@@ -41,6 +42,7 @@ import {
     useSetProductChannelAvailabilityMutation,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useProcurementReferenceQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import {
     ChannelAvailabilityEditor,
@@ -52,7 +54,11 @@ import {
 import type { ChannelDraft, PackDraft } from '../catalogue-row-editors.tsx';
 import { EditorFrame } from '../editor-frame.tsx';
 import { GateRailCard } from '../gate-rail-card.tsx';
-import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    CATALOGUE_MANAGE_PERMISSION,
+    CATALOGUE_VIEW_PERMISSION,
+    INVENTORY_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import {
     dietClassificationKey,
     displayName,
@@ -121,6 +127,16 @@ interface DetailsDraft {
     readonly recipeId: RecipeId | null;
     readonly isMarketPriced: boolean;
     readonly isAssorted: boolean;
+    /**
+     * How much of its ingredient's shelf one sold unit is (PROD1) — `netContentQuantity` is the
+     * person's own text while they type, parsed once on save.
+     *
+     * Every family on this screen sells from **finished stock** by type, so a row on a shelf counted
+     * in kilograms has the same exposure a prepared salad does: without this pair the sale is
+     * refused with `no_net_content` days later, on a customer's order.
+     */
+    readonly netContentQuantity: string;
+    readonly netContentUnitId: string | null;
     readonly packs: readonly PackDraft[];
 }
 
@@ -131,6 +147,8 @@ const EMPTY_DETAILS: DetailsDraft = {
     recipeId: null,
     isMarketPriced: false,
     isAssorted: false,
+    netContentQuantity: '',
+    netContentUnitId: null,
     packs: [],
 };
 
@@ -153,6 +171,8 @@ function detailsFrom(product: ProductAdmin): DetailsDraft {
         recipeId: product.recipeId,
         isMarketPriced: product.isMarketPriced,
         isAssorted: product.isAssorted,
+        netContentQuantity: product.netContentQuantity ?? '',
+        netContentUnitId: product.netContentUnitId,
         packs: packsFrom(product),
     };
 }
@@ -196,8 +216,9 @@ export interface ProductEditScreenProps {
      * Which packaged kind a create makes and which list the screen returns to.
      * The sauces and dressings routes pass theirs; the default is products.
      */
-    readonly itemType?: 'product' | 'sauce' | 'dressing';
-    readonly routeBase?: '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings';
+    readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal';
+    readonly routeBase?:
+        '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings' | '/kitchen/frozen-meals';
     /**
      * Drawn as a cooked item's Selling tab rather than as a page — a sauce's or a dressing's listing,
      * on the page its recipe is.
@@ -361,6 +382,27 @@ function ProductEditor({
 
     const linkedRecipe = recipeRows.find((row) => row.id === details.recipeId) ?? null;
 
+    /*
+     * Net content is stated against a measurement unit **identifier**, and the only read carrying
+     * one is the goods-receipt reference — `useUnitOptions` in `catalogue-row-editors.tsx` builds
+     * its options from `MeasureUnit` *codes*, which is what a pack variant stores and is not what
+     * this column holds. That read is behind `inventory.view_organisation`, so a catalogue-only
+     * role cannot fill the pair in and is told so rather than shown an empty picker.
+     */
+    const canReadUnits = useCan(INVENTORY_VIEW_PERMISSION);
+    const reference = useProcurementReferenceQuery(canReadUnits);
+    const referenceUnits: readonly MeasurementUnitOption[] | undefined =
+        reference.data?.measurementUnits;
+    const unitOptions: readonly SelectOption[] = useMemo(
+        () =>
+            (referenceUnits ?? []).map((unit) => ({
+                value: unit.id,
+                label: unit.code,
+                description: unit.nameEn,
+            })),
+        [referenceUnits],
+    );
+
     /* ── validation ──────────────────────────────────────────────────────────────────────────── */
 
     const packRowErrors = useMemo(
@@ -377,7 +419,28 @@ function ProductEditor({
     const nameMissing = details.name.en.trim() === '';
     const categoryMissing = details.categoryCode.trim() === '';
     const packsBlocked = details.packs.length === 0 || packRowErrors.size > 0;
-    const detailsBlocked = nameMissing || categoryMissing || packsBlocked;
+
+    /*
+     * Net content is all-or-nothing, and that is all this screen can check.
+     *
+     * The meal editor also knows whether the shelf behind the item is counted by weight — it picks
+     * the produced ingredient itself, so it holds the unit. `ProductAdmin` carries no
+     * `ingredientId`, so there is no shelf to ask here, and guessing would either block a legal save
+     * or promise one the server refuses. So the pair is offered as optional and
+     * `CatalogueItemService::requireNetContentOnAWeighedShelf()` stays the authority on when it is
+     * compulsory — its refusal names this field.
+     */
+    const netContentText = details.netContentQuantity.trim();
+    const netContent = netContentText === '' ? null : parseQuantity(netContentText);
+    const netContentInvalid = netContentText !== '' && (netContent === null || netContent <= 0);
+    const netContentUnitMissing = netContentText !== '' && details.netContentUnitId === null;
+
+    const detailsBlocked =
+        nameMissing ||
+        categoryMissing ||
+        packsBlocked ||
+        netContentInvalid ||
+        netContentUnitMissing;
 
     /**
      * The rail's rows, the save button's `disabled`, and the publish gate, from one set of
@@ -424,6 +487,19 @@ function ProductEditor({
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
+    /**
+     * The net-content pair as a request fragment, shared by the create and update branches.
+     *
+     * Sent on every save, `null` included: a cleared net content is a real answer, and a row taken
+     * off a weighed shelf must be able to drop it. A half-typed pair goes as neither — the same
+     * all-or-nothing the column's own CHECK states, said before the round trip rather than after.
+     */
+    const netContentRequest = {
+        netContentQuantity:
+            netContent === null || details.netContentUnitId === null ? null : netContent,
+        netContentUnitId: netContent === null ? null : details.netContentUnitId,
+    };
+
     const saveDetails = () => {
         if (detailsBlocked) return;
 
@@ -438,6 +514,7 @@ function ProductEditor({
                     isAssorted: details.isAssorted,
                     packVariants: packRequest(details.packs),
                     ...(details.recipeId === null ? {} : { recipeId: details.recipeId }),
+                    ...netContentRequest,
                 },
                 {
                     onSuccess: (created) => {
@@ -497,6 +574,7 @@ function ProductEditor({
                     isMarketPriced: details.isMarketPriced,
                     isAssorted: details.isAssorted,
                     packVariants: packRequest(details.packs),
+                    ...netContentRequest,
                 },
             },
             {
@@ -953,6 +1031,70 @@ function ProductEditor({
                                 }}
                             />
                         </Inline>
+
+                        {/*
+                         * What one sold unit takes off the shelf (PROD1).
+                         *
+                         * Every family on this screen sells from **finished stock** — it was made or
+                         * bought earlier and the sale draws the made thing, never its recipe. Where
+                         * that shelf is counted in kilograms or litres, a sold unit has to say how
+                         * much of it it is, or the sale is refused rather than guessed at. A shelf
+                         * counted in pieces needs none, which is why this is offered rather than
+                         * demanded: this screen holds no ingredient link and so cannot tell which
+                         * kind of shelf it is. The server can, and its refusal names this field.
+                         */}
+                        {canReadUnits ? (
+                            <View className="z-auto flex-col gap-base md:flex-row">
+                                <View className="z-auto min-w-0 flex-1">
+                                    <TextInputField
+                                        testID="kitchen-product-net-content"
+                                        id="kitchen-product-net-content"
+                                        label={t('kitchen:products.netContentLabel')}
+                                        hint={t('kitchen:products.netContentHint')}
+                                        value={details.netContentQuantity}
+                                        inputMode="decimal"
+                                        disabled={!canManage}
+                                        {...(netContentInvalid
+                                            ? { error: t('kitchen:products.netContentInvalid') }
+                                            : {})}
+                                        onChangeText={(next) => {
+                                            setDetails({ ...details, netContentQuantity: next });
+                                            markDetailsDirty();
+                                        }}
+                                    />
+                                </View>
+
+                                <View className="z-auto min-w-0 flex-1">
+                                    <Select
+                                        testID="kitchen-product-net-content-unit"
+                                        id="kitchen-product-net-content-unit"
+                                        label={t('kitchen:products.netContentUnitLabel')}
+                                        searchable
+                                        disabled={!canManage}
+                                        options={unitOptions}
+                                        value={details.netContentUnitId ?? ''}
+                                        {...(netContentUnitMissing
+                                            ? {
+                                                  error: t(
+                                                      'kitchen:products.netContentUnitMissing',
+                                                  ),
+                                              }
+                                            : {})}
+                                        onChange={(next) => {
+                                            setDetails({ ...details, netContentUnitId: next });
+                                            markDetailsDirty();
+                                        }}
+                                    />
+                                </View>
+                            </View>
+                        ) : details.netContentQuantity === '' ? null : (
+                            <Callout
+                                testID="kitchen-product-net-content-unavailable"
+                                tone="info"
+                                title={t('kitchen:products.netContentLabel')}
+                                body={t('kitchen:products.netContentUnitsForbidden')}
+                            />
+                        )}
 
                         {embedded || details.recipeId === null ? null : (
                             <Inline space="sm" align="center" wrap>

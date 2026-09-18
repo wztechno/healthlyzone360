@@ -23,7 +23,7 @@ import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import {
-    ORGANISATION_OWNER_PERMISSIONS,
+    MEMBER_PERMISSIONS,
     TEST_BRANCH_ID,
     TEST_ORGANISATION_ID,
     kitchenManagerSession,
@@ -410,8 +410,15 @@ function editorReads(library: () => readonly IngredientAdmin[]) {
     };
 }
 
-/** An organisation owner: an organisation, a branch, and no catalogue permission at all. */
-function organisationOwnerSession() {
+/**
+ * Somebody who belongs to an organisation and may do nothing in it — the registry's `member` role.
+ *
+ * This was `organisationOwnerSession`, built from a nine-code `ORGANISATION_OWNER_PERMISSIONS` that
+ * happened to lack every catalogue code. An owner holds all forty-three, so the fixture was wrong
+ * and the refusal it proved was an accident of the wrongness. `member` is the role that genuinely
+ * cannot open a kitchen screen, which is what these tests were always reaching for.
+ */
+function organisationMemberSession() {
     return testMeResponse({
         memberships: [
             testMembership({
@@ -423,13 +430,13 @@ function organisationOwnerSession() {
                 roles: [
                     {
                         id: RoleId.unsafe('test-0000-role-0002'),
-                        key: 'organisation_owner',
-                        name: 'Owner',
+                        key: 'member',
+                        name: 'Member',
                     },
                 ],
             }),
         ],
-        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+        activeContext: testActiveContext({ permissions: MEMBER_PERMISSIONS }),
     });
 }
 
@@ -491,9 +498,15 @@ describe('entity registry', () => {
             // Restated rather than read from `ENTITY_GROUPS`, on purpose: a test that took the
             // tuple would pass whatever the tuple said, and the point here is that adding a group
             // is a decision somebody looked at.
-            expect(['orderDesk', 'workbench', 'catalogue', 'commercial', 'operations']).toContain(
-                family.group,
-            );
+            expect([
+                'orderDesk',
+                'workbench',
+                'catalogue',
+                'commercial',
+                'operations',
+                // AA1. Added deliberately, which is what this restated list is for.
+                'access',
+            ]).toContain(family.group);
         }
     });
 });
@@ -540,7 +553,7 @@ describe('the kitchen hub', () => {
     it('refuses a signed-in person whose role carries no catalogue permission', async () => {
         // No repository overrides at all: the gate refuses before the grid can ask for anything, so
         // a screen that fetched here would fail loudly with StubNotConfiguredError.
-        await renderStubScreen(<KitchenHomeScreen />, { session: organisationOwnerSession() });
+        await renderStubScreen(<KitchenHomeScreen />, { session: organisationMemberSession() });
 
         await untilVisible('kitchen-home-forbidden');
         expect(screen.queryByTestId('kitchen-home-grid')).toBeNull();

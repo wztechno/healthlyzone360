@@ -135,6 +135,8 @@ it('serves the buy list for a branch, with the holes kept apart from the numbers
         ->assertOk()
         ->assertJsonPath('data.requirements.0.code', 'sku-flour')
         ->assertJsonPath('data.requirements.0.required', '10.000000')
+        ->assertJsonPath('data.requirements.0.on_hand', '2.0000')
+        ->assertJsonPath('data.requirements.0.reserved', '0.0000')
         ->assertJsonPath('data.requirements.0.available', '2.0000')
         ->assertJsonPath('data.requirements.0.short', '8.0000')
         ->assertJsonPath('data.requirements.0.suggested_buy', '8.0000')

@@ -9,8 +9,8 @@ import type {
 } from '@healthy360/domain-types';
 
 import {
+    CONSUMER_PERMISSIONS,
     KITCHEN_MANAGER_PERMISSIONS,
-    ORGANISATION_OWNER_PERMISSIONS,
     testActiveContext,
     testBranch,
     testMeResponse,
@@ -211,15 +211,23 @@ describe('buildAccessState', () => {
 
     it('takes permissions from the server context and never derives them from roles', () => {
         // Deliberately mismatched: the membership carries the *kitchen manager* role while the
-        // server's context grants the *organisation owner* set. Only the context may win — a client
-        // that inferred permissions from the role would grant `catalogue.manage_organisation` and
-        // withhold `organisation.manage_current`, which is exactly backwards.
+        // server's context grants a consumer's own-scope codes and nothing else. Only the context
+        // may win — a client that inferred permissions from the role name would hand this person
+        // the whole kitchen workspace on the strength of a label in a list.
+        //
+        // The pairing was `kitchen_manager` against `ORGANISATION_OWNER_PERMISSIONS` until AA1,
+        // which made the same point weakly and then stopped making it at all: the owner set had
+        // drifted to nine codes, one of them (`organisation.manage_current`) a permission this
+        // platform has never registered. Corrected to the real forty-three, the owner set became a
+        // superset of the kitchen manager's — as it must be, the owner holding every organisation
+        // code — so "the role's codes are absent" was no longer expressible against it. A consumer
+        // context is: it shares nothing with `kitchen_manager` at all.
         const membership = testMembership({ roles: [role('kitchen_manager', 'Kitchen manager')] });
         const me = testMeResponse({
             memberships: [membership],
             activeContext: testActiveContext({
                 membershipId: membership.id,
-                permissions: ORGANISATION_OWNER_PERMISSIONS,
+                permissions: CONSUMER_PERMISSIONS,
                 entitlements: ['feature.multi_branch', 'feature.audit_export'],
             }),
         });
@@ -229,10 +237,26 @@ describe('buildAccessState', () => {
         expect(state.session).toBe('authenticated');
         expect(state.emailVerified).toBe(true);
         expect(state.organisation?.membershipStatus).toBe('active');
-        expect(state.permissions.has('organisation.manage_current')).toBe(true);
+        expect(state.permissions.has('device.manage_own')).toBe(true);
+        // The role says kitchen manager and the context does not, so neither does the state.
         expect(KITCHEN_MANAGER_PERMISSIONS).toContain('catalogue.manage_organisation');
         expect(state.permissions.has('catalogue.manage_organisation')).toBe(false);
+        expect(state.permissions.has('order.manage_organisation')).toBe(false);
         expect([...state.entitlements].every((key) => key.startsWith('feature.'))).toBe(true);
+    });
+
+    it('carries the forced password change straight from /me onto the access state', () => {
+        // The landing resolver reads it here. A provisioned account whose flag never reached the
+        // state would be waved past the one screen it was minted to require.
+        const held = buildAccessState({
+            mode: 'staff',
+            phase: 'ready',
+            me: testMeResponse({ user: { mustChangePassword: true } }),
+        });
+        const free = buildAccessState({ mode: 'staff', phase: 'ready', me: testMeResponse() });
+
+        expect(held.mustChangePassword).toBe(true);
+        expect(free.mustChangePassword).toBe(false);
     });
 
     it('marks a branch-scoped membership as needing a branch, and a single-branch one as not', () => {

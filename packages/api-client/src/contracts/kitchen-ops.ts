@@ -1295,6 +1295,74 @@ export interface MonthlyCostReportRow {
     readonly isSpendComplete: boolean;
     readonly unpricedLineCount: number;
     readonly valuationPendingLineCount: number;
+    /**
+     * What batches ate this month — **not** part of {@link cogsAmount} (PROD1). COGS joins to an
+     * order and a batch has none, so flour that became dressing has not been sold yet.
+     */
+    readonly productionConsumptionAmount: string;
+    /**
+     * What batches lost — input dropped during a run and finished units rejected after one.
+     * **Already inside {@link wasteAmount}**, published as an "of which" breakdown. Adding the two
+     * would count the loss twice.
+     */
+    readonly productionWasteAmount: string;
+    /**
+     * What batches put on the shelf, at the batch unit cost. **Neither revenue nor expense** — money
+     * moving from raw materials into finished goods, the same figure on both sides of the shelf.
+     * Render it as a transformation, never in a total.
+     */
+    readonly productionYieldValueAmount: string;
+    /**
+     * What the month's sales were **expected** to cost, frozen line by line at confirm and never
+     * recomputed — a recipe edited in October must not move September's margin.
+     *
+     * `null` whenever any sold line of the month had no estimate: a total over the priced half reads
+     * exactly like a complete one and is too small. {@link unestimatedLineCount} says how much is
+     * missing, so the null is explained rather than bare.
+     */
+    readonly estimatedCogsAmount: string | null;
+    readonly estimatedMarginAmount: string | null;
+    readonly estimatedMarginPercent: string | null;
+    readonly unestimatedLineCount: number;
+    readonly isEstimateComplete: boolean;
+    /**
+     * `false` when a batch finished this month without a complete valuation. Such a batch put stock
+     * on a shelf whose value nobody could compute, so the finished-goods figures and every sale
+     * drawn from that shelf are understated.
+     *
+     * A **third** flag rather than a widening of the other two, because the three undermine three
+     * different numbers: what the month cost to buy, what it cost to sell, and what it cost to make.
+     */
+    readonly isProductionValuationComplete: boolean;
+    readonly unvaluedBatchCount: number;
+}
+
+/**
+ * What the stock on hand is worth, in one currency (PROD1).
+ *
+ * A **current** valuation, not a period-end one — `asOf` on the page is the instant it was read.
+ * There is no period close in this system and this does not invent one.
+ */
+export interface InventoryValueRow {
+    readonly currencyCode: string;
+    /** Major units. Real and possibly incomplete — see {@link InventoryValue.unvaluedItemCount}. */
+    readonly valueAmount: string;
+    readonly valuedItemCount: number;
+}
+
+/**
+ * The stock valuation, per currency and never as one total.
+ *
+ * `unvaluedItemCount` is ingredients holding quantity with no moving average. They contribute
+ * **nothing** to the amounts rather than zero: a valuation that reads low and complete is worse than
+ * one that reads low and says so.
+ */
+export interface InventoryValue {
+    readonly rows: readonly InventoryValueRow[];
+    /** The instant the figure was read. */
+    readonly asOf: string;
+    readonly unvaluedItemCount: number;
+    readonly isComplete: boolean;
 }
 
 /** Optional inclusive `YYYY-MM` month bounds over the monthly cost report. */
@@ -1436,6 +1504,12 @@ export interface SpendSummaryFilter {
 /**
  * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the backend
  * raises; the client renders it as a human label (i18n) rather than branching on it.
+ *
+ * Three of these are shortfall-shaped and stay separate because they have different remedies.
+ * `insufficient_stock` is an empty shelf — buy more. `reserved_for_production` is a shelf that is
+ * not empty but is claimed by a confirmed batch — talk to the kitchen, or release the claim.
+ * `no_net_content` is an item selling from finished stock without saying how much of the shelf one
+ * sold unit takes, which is a field somebody can go and fill in.
  */
 export const CONSUMPTION_EXCEPTION_REASON_CODES = [
     'no_branch',
@@ -1449,6 +1523,8 @@ export const CONSUMPTION_EXCEPTION_REASON_CODES = [
     'unit_conversion_unsupported',
     'no_ingredient_cost',
     'insufficient_stock',
+    'no_net_content',
+    'reserved_for_production',
 ] as const;
 export type ConsumptionExceptionReasonCode = (typeof CONSUMPTION_EXCEPTION_REASON_CODES)[number];
 
@@ -1498,42 +1574,350 @@ export interface ResolveConsumptionExceptionRequest {
 }
 
 /* ------------------------------------------------------------------------------------------------
- * Production (O5) — no task UI
+ * Internal production — the batch desk (PROD1)
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * Where a batch has got to. Six states, one forward path and two different exits.
+ *
+ * `draft → confirmed → in_production → completed`, with `cancelled` reachable while nothing has been
+ * taken off a shelf and `abandoned` reachable once something has. **`cancelled` never carries stock
+ * movements and `abandoned` always may** — that is the whole distinction, and it is what lets a
+ * screen say "nothing was used" without going and checking.
+ *
+ * `draft` and `in_production` replace the pre-PROD1 `planned` and `in_progress`: the old words
+ * described a schedule, and these describe a commitment. Nothing is reserved under `draft`.
+ */
 export const PRODUCTION_ORDER_STATUSES = [
-    'planned',
-    'in_progress',
+    'draft',
+    'confirmed',
+    'in_production',
     'completed',
     'cancelled',
+    'abandoned',
 ] as const;
 export type ProductionOrderStatus = (typeof PRODUCTION_ORDER_STATUSES)[number];
 
+/** Whether a completed batch could be valued. See {@link ProductionOrder.actualCostStatus}. */
+export const PRODUCTION_COST_STATUSES = ['complete', 'partial', 'unvalued'] as const;
+export type ProductionCostStatus = (typeof PRODUCTION_COST_STATUSES)[number];
+
+/** Formulation or packaging. The two behave differently at completion and are stored apart. */
+export const PRODUCTION_LINE_KINDS = ['ingredient', 'packaging'] as const;
+export type ProductionLineKind = (typeof PRODUCTION_LINE_KINDS)[number];
+
+/**
+ * On whose authority a line was estimated. `none` is a line with no usable figure — **uncosted, not
+ * free** — and it is a separate value rather than a null so a screen has to decide what to render.
+ */
+export const PRODUCTION_COST_SOURCES = ['weekly', 'component', 'fallback', 'none'] as const;
+export type ProductionCostSource = (typeof PRODUCTION_COST_SOURCES)[number];
+
+/**
+ * One batch.
+ *
+ * **The money fields are optional properties, not nullable ones, and the difference carries the
+ * whole redaction model.** A field that is `undefined` was withheld because this reader lacks
+ * `production.view_costs_organisation`; a field that is `null` is one nobody could compute. A screen
+ * renders the first as nothing at all and the second as an em dash, and collapsing them would tell a
+ * kitchen manager a batch was free. `costsVisible` on the list meta says which case applies.
+ *
+ * Every quantity is a **decimal string** and stays one, for the reason every quantity on this client
+ * is: a `numeric` column crossed through IEEE-754 is no longer the number the server computed.
+ *
+ * `usableYieldQuantity` is `produced − rejected` and `yieldVarianceQuantity` is `produced − planned`.
+ * Both are computed server-side and carried rather than re-derived here — rejected units are
+ * **inside** produced, and a client that added them would report a batch that made 39.
+ */
 export interface ProductionOrder {
     readonly id: ProductionOrderId;
-    readonly recipeVersionId: RecipeVersionId;
-    readonly status: ProductionOrderStatus;
+    /** `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. */
+    readonly reference: string | null;
     readonly branchId: BranchId;
+    readonly recipeVersionId: RecipeVersionId;
+    /** What the batch makes — the recipe version's single output. */
+    readonly productionItemIngredientId: string | null;
+    /**
+     * That ingredient's name, carried beside the id: a desk showing a uuid where a name belongs is
+     * a desk nobody can work from. `null` is the ingredient having gone — an em dash, not a blank.
+     */
+    readonly productionItemNameEn: string | null;
+    /** The unit code, so a quantity renders as a quantity. */
+    readonly plannedYieldUnitCode: string | null;
+    readonly status: ProductionOrderStatus;
+    /** How many times over the recipe is being made. */
+    readonly batchFactor: string | null;
+    readonly plannedYield: string | null;
+    readonly plannedYieldUnitId: string | null;
+    /** What came out, **including** anything later rejected. Null before settlement — not zero. */
+    readonly producedQuantity: string | null;
+    readonly rejectedQuantity: string | null;
+    /** `produced − rejected` — what is actually on the shelf. */
+    readonly usableYieldQuantity: string | null;
+    /**
+     * `produced − planned`. Negative is process loss, which never existed as stock and carries no
+     * money of its own: its cost is already absorbed into the unit cost of what *was* produced.
+     */
+    readonly yieldVarianceQuantity: string | null;
+    /** `YYYY-MM-DD`, the branch-local business date. */
+    readonly productionDate: string | null;
+    /** What the cook writes on the tray. Free text, deliberately not {@link reference}. */
+    readonly batchReference: string | null;
+    readonly storageLocation: string | null;
+    readonly expiryDate: string | null;
+    /** A batch with **no** expiry date is not expired — that is "nobody recorded one". */
+    readonly isExpired: boolean;
+    readonly confirmedAt: string | null;
+    readonly startedAt: string | null;
+    readonly completedAt: string | null;
+    readonly cancelledAt: string | null;
+    readonly abandonedAt: string | null;
+    readonly abandonReason: string | null;
+    /** The validator every write carries in `If-Match`. */
+    readonly lockVersion: number;
+    readonly notes: string | null;
+    /** Withheld when any line was uncosted or the lines disagreed about currency. */
+    readonly estimatedCostAmount?: string | null;
+    readonly estimatedCostCurrencyCode?: string | null;
+    readonly weeklyPricePublicationId?: string | null;
+    readonly actualCostAmount?: string | null;
+    readonly actualCostCurrencyCode?: string | null;
+    /** Withheld unless `actualCostStatus` is `complete`. */
+    readonly actualUnitCostAmount?: string | null;
+    readonly actualCostStatus?: ProductionCostStatus | null;
+    readonly valuationNote?: string | null;
 }
 
+/**
+ * One shelf a batch draws on, as planned and as it turned out.
+ *
+ * `consumedQuantity` and `wasteQuantity` **do not overlap**: the shelf fell by their sum, as two
+ * movements with different reasons. A screen that added them to show "taken" is right; one that
+ * showed `consumed` as everything that left is not.
+ */
+export interface ProductionOrderLine {
+    readonly id: string;
+    readonly stockItemId: StockItemId;
+    readonly ingredientId: string;
+    readonly lineKind: ProductionLineKind;
+    readonly unitId: string;
+    /**
+     * The shelf's own code and name, carried beside the id — a batch rendered as a column of uuids
+     * is a batch nobody can cook from. The **stock item's** name rather than the ingredient's,
+     * because a line is a claim on a shelf and the cook walks to the shelf. Null is "nobody can
+     * tell you" and renders as an em dash.
+     */
+    readonly stockItemCode: string | null;
+    readonly stockItemNameEn: string | null;
+    /** The unit's code, so a quantity renders as a quantity rather than a bare number. */
+    readonly unitCode: string | null;
+    readonly requiredQuantity: string;
+    /** What was actually claimed. Below `requiredQuantity` after a correction left the shelf short. */
+    readonly reservedQuantity: string | null;
+    readonly consumedQuantity: string | null;
+    readonly wasteQuantity: string | null;
+    readonly sourceRecipeVersionId: string | null;
+    readonly displayOrder: number;
+    readonly estimatedUnitCostAmount?: string | null;
+    readonly costSource?: Exclude<ProductionCostSource, 'none'> | null;
+    readonly fallbackUnitCostAmount?: string | null;
+    readonly actualUnitCostAmount?: string | null;
+    readonly costCurrencyCode?: string | null;
+}
+
+/**
+ * One shelf a planned batch would draw on, and whether it can.
+ *
+ * `available` is `onHand − reserved` and **may be negative**, where more is claimed than is there.
+ * Render it as it arrives: a shelf somebody over-committed is a real state and clamping it would
+ * hide it. A batch never counts its own claim against itself, so re-opening a confirmed order does
+ * not show it short of everything it already holds.
+ */
+export interface ProductionPlanLine {
+    readonly stockItemId: StockItemId;
+    readonly ingredientId: string;
+    readonly lineKind: ProductionLineKind;
+    readonly unitId: string;
+    /**
+     * The shelf's own code and name, carried beside the id — a batch rendered as a column of uuids
+     * is a batch nobody can cook from. The **stock item's** name rather than the ingredient's,
+     * because a line is a claim on a shelf and the cook walks to the shelf. Null is "nobody can
+     * tell you" and renders as an em dash.
+     */
+    readonly stockItemCode: string | null;
+    readonly stockItemNameEn: string | null;
+    /** The unit's code, so a quantity renders as a quantity rather than a bare number. */
+    readonly unitCode: string | null;
+    readonly required: string;
+    readonly onHand: string;
+    readonly reserved: string;
+    readonly available: string;
+    /** `max(0, required − available)` — the number a buyer acts on. */
+    readonly missing: string;
+    readonly estimatedUnitCostAmount?: string | null;
+    readonly estimatedLineCostAmount?: string | null;
+    readonly currencyCode?: string | null;
+    readonly costSource?: ProductionCostSource;
+    readonly effectiveFrom?: string | null;
+}
+
+/**
+ * Part of a recipe nobody could turn into a quantity.
+ *
+ * **Never render this as a zero in the lines.** "Need nothing for that" and "we could not work out
+ * what this needs" are opposite statements, and the whole reason it arrives separately is that a
+ * client cannot then merge them by accident.
+ */
+export interface ProductionPlanHole {
+    readonly reasonCode: string;
+    readonly detail: string;
+}
+
+/**
+ * What a batch would need, against what the shelves can actually give.
+ *
+ * `estimatedCostAmount` is **withheld rather than partial**: any uncosted line, or two currencies
+ * among the lines, and it is null with `uncostedLineCount` or `currencyConflict` saying why. That
+ * never blocks anything — `isConfirmable` does not consult cost at all, because a kitchen about to
+ * cook is not refused over arithmetic nobody has finished.
+ */
+export interface ProductionPlan {
+    readonly batchFactor: string;
+    readonly ingredients: readonly ProductionPlanLine[];
+    readonly packaging: readonly ProductionPlanLine[];
+    readonly notComputable: readonly ProductionPlanHole[];
+    readonly shortLineCount: number;
+    readonly isConfirmable: boolean;
+    readonly estimatedCostAmount?: string | null;
+    readonly currencyCode?: string | null;
+    readonly uncostedLineCount?: number;
+    readonly currencyConflict?: boolean;
+    readonly weeklyPricePublicationId?: string | null;
+}
+
+/**
+ * A batch with its lines and, while it has none, its live plan.
+ *
+ * A draft reads its plan fresh because it has committed to nothing and the shelves move under it.
+ * From confirm onwards the **lines are the answer**: they are what the kitchen agreed to and what
+ * the reservations were opened against.
+ */
+export interface ProductionOrderDetail {
+    readonly order: ProductionOrder;
+    readonly lines: readonly ProductionOrderLine[];
+    readonly plan: ProductionPlan | null;
+    /** Whether this reader holds `production.view_costs_organisation`. */
+    readonly costsVisible: boolean;
+}
+
+export interface ProductionOrderPage {
+    readonly orders: readonly ProductionOrder[];
+    readonly page: number;
+    readonly perPage: number;
+    /** Stated by the server rather than inferred from a short page. */
+    readonly hasMore: boolean;
+    readonly costsVisible: boolean;
+}
+
+export interface ProductionOrderFilters {
+    /** One of the six states. Omitted, the four open ones. */
+    readonly status?: ProductionOrderStatus | undefined;
+    readonly branchId?: BranchId | undefined;
+    readonly page?: number | undefined;
+}
+
+/**
+ * The four yield figures and what separates them.
+ *
+ * `rejectedQuantity` is **inside** `producedQuantity`, so `usableQuantity` is the difference and
+ * never the sum of anything. `varianceQuantity` is `produced − planned`: negative is process loss,
+ * which never existed as stock and carries no money of its own.
+ */
+export interface ProductionBatchYield {
+    readonly plannedQuantity: string | null;
+    readonly producedQuantity: string | null;
+    readonly rejectedQuantity: string | null;
+    readonly usableQuantity: string | null;
+    readonly varianceQuantity: string | null;
+    readonly unitId: string | null;
+}
+
+/** What a batch's figures were anchored to at confirm. */
+export interface ProductionSheetBasis {
+    readonly recipeVersionId: RecipeVersionId;
+    readonly confirmedAt: string | null;
+    /**
+     * Carried even without the costs code: **which** week priced a batch is not itself a price, and
+     * a reader who cannot see the money can still see that the estimate is anchored.
+     */
+    readonly weeklyPricePublicationId: string | null;
+}
+
+/**
+ * What a batch stood on, read only from what confirm snapshotted.
+ *
+ * The recipe's own sheet answers "what does this cost today" and moves when a price is published or
+ * a formulation is edited. This answers "what did *that batch* stand on" and does not move. Render
+ * the two under different headings, or a reader will take one for the other.
+ *
+ * `nutritionFacts` is passed through as the server's own block. Where the version **withheld** a
+ * nutrient because an ingredient's data was incomplete, it stays withheld — never rendered as zero.
+ */
+export interface ProductionTechnicalSheet {
+    readonly order: ProductionOrder;
+    readonly lines: readonly ProductionOrderLine[];
+    readonly yield: ProductionBatchYield;
+    readonly nutritionFacts: Readonly<Record<string, unknown>> | null;
+    readonly basis: ProductionSheetBasis;
+    readonly costsVisible: boolean;
+}
+
+/**
+ * Open a draft batch. Send `plannedYield` **or** `batchFactor`; the server derives the other from
+ * the version's own yield, because a client doing that conversion would be a second place the
+ * arithmetic lives.
+ */
 export interface CreateProductionOrderRequest {
     readonly branchId: BranchId;
     readonly recipeVersionId: RecipeVersionId;
     readonly plannedYield?: number | null | undefined;
+    readonly batchFactor?: number | null | undefined;
+    readonly notes?: string | null | undefined;
 }
 
-export interface ProductionOrderResult {
-    readonly id: ProductionOrderId;
-    readonly status: ProductionOrderStatus;
-    /**
-     * On a completion: whether the batch arrived on its shelf with a cost. `false` when an input had
-     * no moving average, so the made item's average was left alone rather than built on part of the
-     * batch's cost. `null` on a creation, which books nothing.
-     *
-     * A yes or no, never the figure: booking a batch needs `inventory.manage_organisation`, and what
-     * it cost is `inventory.view_costs_organisation`'s to see.
-     */
-    readonly yieldValued: boolean | null;
+/**
+ * What the cook says actually happened.
+ *
+ * Three yield facts and exactly one of them is free. `rejectedQuantity` is **inside**
+ * `producedQuantity`; `waste` is input discarded, which never became product and is therefore
+ * neither part of `consumed` nor part of the batch's cost; process loss is not reported at all and
+ * is computed from the difference.
+ *
+ * Omitting a shelf from `consumed` means "as planned" rather than "nothing" — a cook who followed
+ * the recipe should not have to retype it. Omitting one from `waste` means zero.
+ */
+export interface CompleteProductionOrderRequest {
+    readonly producedQuantity: number;
+    readonly rejectedQuantity?: number | null | undefined;
+    /** Stock item id to what went into the batch. */
+    readonly consumed?: Readonly<Record<string, number>> | undefined;
+    /** Stock item id to input discarded during the batch. */
+    readonly waste?: Readonly<Record<string, number>> | undefined;
+    readonly productionDate?: string | null | undefined;
+    readonly batchReference?: string | null | undefined;
+    readonly storageLocation?: string | null | undefined;
+    readonly expiryDate?: string | null | undefined;
+    readonly notes?: string | null | undefined;
+}
+
+/**
+ * The completion report plus a required reason.
+ *
+ * The same payload as completing, deliberately: a kitchen that had to retype everything to abandon
+ * would cancel instead and leave the flour unaccounted for.
+ */
+export interface AbandonProductionOrderRequest extends CompleteProductionOrderRequest {
+    readonly reason: string;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -1762,6 +2146,20 @@ export interface KitchenOpsRepository {
     listCostReport(filter?: MonthlyCostReportFilter): Promise<readonly MonthlyCostReportRow[]>;
 
     /**
+     * What the stock on hand is worth right now, per currency (PROD1). A current valuation, never a
+     * period-end one. Needs `inventory.view_costs_organisation`.
+     */
+    getInventoryValue(): Promise<InventoryValue>;
+
+    /**
+     * Batches that finished without a cost the report can trust (PROD1) — the queue behind the
+     * monthly report's third completeness flag. A read; there is no completion write, because
+     * re-valuing a batch later needs to know how much of it is still on the shelf.
+     * Needs `inventory.view_costs_organisation`.
+     */
+    listPendingProductionValuations(): Promise<readonly ProductionOrder[]>;
+
+    /**
      * The consumption-exception review list (INV1.5) — every thing a confirmed order could not deduct
      * honestly, filtered by resolution state and date, cursor-paginated. Needs `inventory.view_organisation`.
      */
@@ -1785,15 +2183,83 @@ export interface KitchenOpsRepository {
      */
     retryConsumptionException(exceptionId: string): Promise<ConsumptionException>;
 
-    /** The most recent fifty production orders, newest first. */
-    listProductionOrders(): Promise<readonly ProductionOrder[]>;
-    createProductionOrder(request: CreateProductionOrderRequest): Promise<ProductionOrderResult>;
     /**
-     * Books a planned batch: its recipe version's lines and packaging leave their shelves, scaled to
-     * the planned yield, and what it makes arrives valued at their cost. Nothing is sent — the server
-     * derives every movement. All or nothing, and idempotent. Needs `inventory.manage_organisation`.
+     * The production desk queue — fifty per page, newest first, `hasMore` stated rather than
+     * inferred. `status` defaults to the four open states, because a desk is a working surface;
+     * narrowing it to one is also how the batch register reads completed runs.
+     * Needs `production.view_organisation`.
      */
-    completeProductionOrder(productionOrderId: ProductionOrderId): Promise<ProductionOrderResult>;
+    listProductionOrders(filters?: ProductionOrderFilters): Promise<ProductionOrderPage>;
+
+    /**
+     * One batch, with its lines and — while it has none — its live plan.
+     * Needs `production.view_organisation`.
+     */
+    getProductionOrder(productionOrderId: ProductionOrderId): Promise<ProductionOrderDetail>;
+
+    /**
+     * What this batch would need against today's shelves. Reads nothing into the future and writes
+     * nothing at all; a confirmed batch's plan excludes its own claim.
+     * Needs `production.view_organisation`.
+     */
+    getProductionOrderPlan(productionOrderId: ProductionOrderId): Promise<ProductionPlan>;
+
+    /**
+     * What this batch stood on, from the confirm-time snapshot alone — not the recipe's live sheet.
+     * A draft answers with empty lines rather than a 404.
+     * Needs `production.view_organisation`.
+     */
+    getProductionTechnicalSheet(
+        productionOrderId: ProductionOrderId,
+    ): Promise<ProductionTechnicalSheet>;
+
+    /** Open a draft batch. A draft claims nothing. Needs `production.manage_organisation`. */
+    createProductionOrder(request: CreateProductionOrderRequest): Promise<ProductionOrderDetail>;
+
+    /**
+     * Commit to the batch: freeze the plan, claim the stock, snapshot the estimate. Refuses a shelf
+     * it cannot claim rather than reserving what it can.
+     * Needs `production.manage_organisation` and the batch's `lockVersion`.
+     */
+    confirmProductionOrder(
+        productionOrderId: ProductionOrderId,
+        lockVersion: number,
+    ): Promise<ProductionOrderDetail>;
+
+    /** Move a confirmed batch to `in_production`. Nothing moves; this is the point after which something may. */
+    startProductionOrder(
+        productionOrderId: ProductionOrderId,
+        lockVersion: number,
+    ): Promise<ProductionOrderDetail>;
+
+    /**
+     * Finish the batch. Never blocked on cost arithmetic — a kitchen that has physically cooked is
+     * not refused because nobody typed a price for the salt.
+     */
+    completeProductionOrder(
+        productionOrderId: ProductionOrderId,
+        lockVersion: number,
+        request: CompleteProductionOrderRequest,
+    ): Promise<ProductionOrderDetail>;
+
+    /**
+     * Give up on a started batch, recording what was used and what came out. `abandoned` carries
+     * movements; `cancelled` never does.
+     */
+    abandonProductionOrder(
+        productionOrderId: ProductionOrderId,
+        lockVersion: number,
+        request: AbandonProductionOrderRequest,
+    ): Promise<ProductionOrderDetail>;
+
+    /**
+     * Call off a batch that took nothing, releasing its claims. Refused with
+     * `production.consumption_recorded` once stock has moved — abandon is the route then.
+     */
+    cancelProductionOrder(
+        productionOrderId: ProductionOrderId,
+        lockVersion: number,
+    ): Promise<ProductionOrderDetail>;
 
     /** The most recent fifty checks, newest first, over both allow-listed subjects. */
     listQualityChecks(): Promise<readonly QualityCheck[]>;

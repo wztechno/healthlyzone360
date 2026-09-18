@@ -25,6 +25,8 @@ namespace Healthy360\Inventory\Services;
  *     unit_id: string|null,
  *     unit_code: string|null,
  *     required: numeric-string,
+ *     on_hand: numeric-string,
+ *     reserved: numeric-string,
  *     available: numeric-string,
  *     short: numeric-string,
  *     suggested_buy: numeric-string,

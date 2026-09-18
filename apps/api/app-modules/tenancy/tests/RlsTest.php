@@ -863,7 +863,7 @@ it('publishes every context change to the session, wherever it happens', functio
         ->and(RuntimeRole::setting('app.branch_id'))->toBe('');
 });
 
-it('protects exactly the eleven declared tables and no others', function (): void {
+it('protects exactly the twelve declared tables and no others', function (): void {
     $protected = DB::table('pg_tables')
         ->where('schemaname', 'public')
         ->where('rowsecurity', true)
@@ -872,13 +872,24 @@ it('protects exactly the eleven declared tables and no others', function (): voi
         ->all();
 
     // Six from the foundation, two from K1.2, one from K1.3, one from K1.5,
-    // one from J1. Pinned so that a new tenant-scoped table has to decide
-    // explicitly whether it joins the set (ADR-0007 review trigger) rather
-    // than inheriting a policy by accident — or, worse, quietly not having
-    // one. K1.4's nine catalogue tables decided *not* to join, and J1's four
-    // customer child tables decided not to either (they are reachable only
-    // through `customer_accounts`, which is here); the pin is what makes those
-    // decisions rather than omissions.
+    // one from J1, one from AA1. Pinned so that a new tenant-scoped table has
+    // to decide explicitly whether it joins the set (ADR-0007 review trigger)
+    // rather than inheriting a policy by accident — or, worse, quietly not
+    // having one. K1.4's nine catalogue tables decided *not* to join, and J1's
+    // four customer child tables decided not to either (they are reachable
+    // only through `customer_accounts`, which is here); the pin is what makes
+    // those decisions rather than omissions.
+    //
+    // PROD1's `stock_reservations` decided *not* to join, following
+    // `stock_levels` beside it: it is `app-scope`, reachable only through
+    // `ReservationService`, which states its branch on every read and never
+    // consults ambient context — which is what lets the same service answer a
+    // controller and a nightly production job identically.
+    //
+    // AA1 brought `role_permissions` in when the access console made it
+    // tenant-writable for the first time. Its sibling `membership_roles` is
+    // still out, deliberately — `PermissionChecker` reads it on a hotter path,
+    // so it waits for its own migration and its own evidence.
     expect($protected)->toBe([
         'audit_logs',
         'consent_grants',
@@ -890,6 +901,7 @@ it('protects exactly the eleven declared tables and no others', function (): voi
         'recipe_cost_snapshots',
         'recipe_version_lines',
         'recipe_versions',
+        'role_permissions',
         'roles',
     ]);
 });
@@ -909,13 +921,19 @@ it('revokes write-back privileges on exactly the three append-only ledgers', fun
     $writable = DB::table('information_schema.table_privileges')
         ->where('grantee', 'healthy360_app')
         ->whereIn('privilege_type', ['UPDATE', 'DELETE'])
-        ->whereIn('table_name', ['audit_logs', 'price_list_items', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines', 'stock_movements'])
+        ->whereIn('table_name', ['audit_logs', 'ingredient_weekly_prices', 'price_list_items', 'recipe_cost_snapshots', 'recipe_versions', 'recipe_version_lines', 'stock_movements', 'weekly_price_publications'])
         ->orderBy('table_name')
         ->pluck('table_name')
         ->unique()
         ->values()
         ->all();
 
+    // PROD1 adds the two weekly-price tables to the same set. A published price
+    // is what a completed production batch pins its estimate to, and what the
+    // finance report reads last month's estimated margin off; a price that could
+    // be edited would make both of those claims about a number that is no longer
+    // there, with nothing on either surface to show it had moved.
+    //
     // `price_list_items` is in the comparison set precisely because it is a
     // near-miss: it is the most confidential table in the schema and it is
     // still not a ledger. Naming it here proves the K1.5 decision rather than
@@ -931,7 +949,25 @@ it('still migrates and seeds under the owner role with row-level security enable
     // of the six protected tables with no session context whatsoever.
     $this->seed();
 
-    // **Nine** platform template roles since C2: the four foundation roles,
+    // **Eleven** platform template roles since the access console: the four
+    // foundation roles, K1.1's kitchen_manager, kitchen_chef, kitchen_staff and
+    // commercial_manager, C2's order_desk_agent, and the console's
+    // procurement_manager and finance_manager.
+    //
+    // The count moved from nine to eleven when the access console landed and
+    // updated `organisationTemplateRoleCodes()` in PermissionRegistryTest
+    // without updating this half of the same pin. All three halves exist so a new
+    // template role has to be a deliberate act; a pin that only part of the suite
+    // enforces is not that. The history below is kept because it is the evidence
+    // for the rule rather than decoration.
+    //
+    // **Three, not two.** This comment said "both halves" and meant
+    // PermissionRegistryTest and this file, which is how the third sat red for a
+    // day after the console: `tests/Feature/DatabaseSeederTest.php` counts the
+    // seeded rows and was never swept. Naming all three here is the only thing
+    // that makes the next sweep findable from any one of them.
+    //
+    // Previously nine since C2: the four foundation roles,
     // K1.1's kitchen_manager, kitchen_chef, kitchen_staff and
     // commercial_manager, and now order_desk_agent. Pinned so a new template
     // role has to be a deliberate act. K1.3 widened three of them with
@@ -948,8 +984,9 @@ it('still migrates and seeds under the owner role with row-level security enable
     // a counter workable, and no existing role is that shape — kitchen_staff
     // holds no order codes at all, and kitchen_manager holds strictly more.
     // `organisationTemplateRoleCodes()` in PermissionRegistryTest names the same
-    // nine and is the other half of this pin.
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(9)
+    // set, and `DatabaseSeederTest` counts what the seeder actually wrote; the
+    // three together are this pin.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(11)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(ConsentDefinition::query()->count())->toBeGreaterThan(1);

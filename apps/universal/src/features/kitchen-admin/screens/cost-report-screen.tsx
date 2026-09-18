@@ -177,6 +177,35 @@ function CostReport() {
                 ['spend', 'columnSpend', (row: MonthlyCostReportRow) => row.spendAmount, 70],
                 ['cogs', 'columnCogs', (row: MonthlyCostReportRow) => row.cogsAmount, 80],
                 ['revenue', 'columnRevenue', (row: MonthlyCostReportRow) => row.revenueAmount, 75],
+                /*
+                 * The three production figures (PROD1), each at a lower priority
+                 * than the four above so they hide first on a narrow viewport —
+                 * a kitchen reads spend, COGS, revenue and margin every day and
+                 * these on the days it made something.
+                 *
+                 * Rendered as columns beside the others and **never** added to
+                 * them. What a batch ate is not cost of goods sold; what it
+                 * wasted is already inside the waste figure; what it yielded is
+                 * neither revenue nor expense.
+                 */
+                [
+                    'productionConsumption',
+                    'columnProductionConsumption',
+                    (row: MonthlyCostReportRow) => row.productionConsumptionAmount,
+                    45,
+                ],
+                [
+                    'productionWaste',
+                    'columnProductionWaste',
+                    (row: MonthlyCostReportRow) => row.productionWasteAmount,
+                    40,
+                ],
+                [
+                    'productionYield',
+                    'columnProductionYield',
+                    (row: MonthlyCostReportRow) => row.productionYieldValueAmount,
+                    35,
+                ],
             ] as const
         ).map(
             ([key, labelKey, read, priority]): ControlledColumn<
@@ -214,6 +243,38 @@ function CostReport() {
                     testID={`kitchen-cost-report-${row.month}-margin`}
                 >
                     {amount(row.grossMarginAmount)}
+                </Text>
+            ),
+        },
+        {
+            /*
+             * The estimated margin, beside the actual one (PROD1). The gap
+             * between them is what a kitchen is actually looking for: it priced
+             * against the estimate and lived with the actual.
+             *
+             * An em dash where the server withheld it, and that is not the same
+             * as a zero margin: the estimate is null whenever any sold line of
+             * the month had no frozen figure, because a total over the priced
+             * half reads exactly like a complete one and is too small.
+             */
+            key: 'estimatedMargin',
+            label: t('kitchen:ops.costReport.columnEstimatedMargin'),
+            width: 110,
+            priority: 55,
+            align: 'end',
+            sort: (left, right, direction) =>
+                compareNumber(
+                    Number(left.estimatedMarginAmount ?? 0),
+                    Number(right.estimatedMarginAmount ?? 0),
+                    direction,
+                ),
+            render: (row) => (
+                <Text
+                    variant="mono"
+                    tone="secondary"
+                    testID={`kitchen-cost-report-${row.month}-estimated-margin`}
+                >
+                    {amount(row.estimatedMarginAmount)}
                 </Text>
             ),
         },

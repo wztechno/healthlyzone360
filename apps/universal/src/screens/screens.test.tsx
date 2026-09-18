@@ -29,6 +29,7 @@ import { DevicesScreen } from './devices-screen.tsx';
 import { ForbiddenScreen } from './forbidden-screen.tsx';
 import { OrganisationPickerScreen } from './organisation-picker-screen.tsx';
 import { ProfileScreen } from './profile-screen.tsx';
+import { ChangePasswordScreen } from './change-password-screen.tsx';
 import { SignInScreen } from './sign-in-screen.tsx';
 import { VerifyEmailScreen } from './verify-email-screen.tsx';
 import { WorkspaceSelectorScreen } from './workspace-selector-screen.tsx';
@@ -323,6 +324,131 @@ describe('SignInScreen', () => {
     });
 });
 
+/**
+ * The split sign-in field (AA1 decision 5).
+ *
+ * A kitchen employee's address is `name@kitchen.healthy360.app` and the half after the `@` is the
+ * same for everyone who works there, so the screen supplies it. What these cases pin is that the
+ * convenience never becomes a cage: the picker stays away when there is nothing to pick, and a
+ * consumer typing a whole address anywhere still signs in.
+ */
+describe('SignInScreen — the staff domain', () => {
+    const domains = (...entries: readonly string[]) => ({
+        accessAdmin: {
+            listStaffSignInDomains: async () =>
+                entries.map((domain) => ({ organisationName: domain, domain })),
+        },
+        auth: {
+            login: async (): Promise<LoginResult> => ({
+                status: 'two_factor_required',
+                challengeId: 'test-challenge-0001',
+                recoveryCodesAvailable: true,
+            }),
+        },
+    });
+
+    it('renders today\u2019s plain address field when no kitchen has a domain', async () => {
+        await renderStubScreen(<SignInScreen />, { repositories: domains() });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('sign-in-email-input')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('sign-in-domain')).toBeNull();
+        expect(screen.queryByTestId('sign-in-local-part-input')).toBeNull();
+    });
+
+    it('fixes the one domain beside the name rather than offering a list of one', async () => {
+        await renderStubScreen(<SignInScreen />, {
+            repositories: domains('verdant.healthy360.app'),
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('sign-in-local-part-input')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('sign-in-domain')).toBeNull();
+        expect(screen.getByTestId('sign-in-domain-fixed')).toHaveTextContent(
+            '@verdant.healthy360.app',
+        );
+    });
+
+    it('offers a picker once there is a second kitchen to choose between', async () => {
+        await renderStubScreen(<SignInScreen />, {
+            repositories: domains('verdant.healthy360.app', 'cedar.healthy360.app'),
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('sign-in-domain')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('sign-in-domain-fixed')).toBeNull();
+    });
+
+    it('composes the name and the domain into the address it submits', async () => {
+        const { repositories } = await renderStubScreen(<SignInScreen />, {
+            repositories: domains('verdant.healthy360.app'),
+        });
+
+        await waitFor(() => screen.getByTestId('sign-in-local-part-input'));
+
+        await fireEvent.changeText(screen.getByTestId('sign-in-local-part-input'), 'ahmad');
+        await fireEvent.changeText(screen.getByTestId('sign-in-password-input'), 'password');
+
+        expect(screen.getByTestId('sign-in-composed')).toHaveTextContent(
+            /ahmad@verdant\.healthy360\.app/,
+        );
+
+        await fireEvent.press(screen.getByTestId('sign-in-submit'));
+
+        await waitFor(() => {
+            expect(repositories.auth.login).toHaveBeenCalled();
+        });
+        expect(repositories.auth.login).toHaveBeenCalledWith(
+            expect.objectContaining({ email: 'ahmad@verdant.healthy360.app' }),
+        );
+    });
+
+    it('lets a whole address typed into the name field through untouched', async () => {
+        // The escape hatch that keeps a consumer out of the trap: a value carrying an `@` is
+        // already an address, so nothing is appended to it.
+        const { repositories } = await renderStubScreen(<SignInScreen />, {
+            repositories: domains('verdant.healthy360.app'),
+        });
+
+        await waitFor(() => screen.getByTestId('sign-in-local-part-input'));
+
+        await fireEvent.changeText(
+            screen.getByTestId('sign-in-local-part-input'),
+            'layla@example.com',
+        );
+        await fireEvent.changeText(screen.getByTestId('sign-in-password-input'), 'password');
+
+        expect(screen.getByTestId('sign-in-composed')).toHaveTextContent(/layla@example\.com/);
+
+        await fireEvent.press(screen.getByTestId('sign-in-submit'));
+
+        await waitFor(() => {
+            expect(repositories.auth.login).toHaveBeenCalled();
+        });
+        expect(repositories.auth.login).toHaveBeenCalledWith(
+            expect.objectContaining({ email: 'layla@example.com' }),
+        );
+    });
+
+    it('gives a consumer an explicit way back to the plain address field', async () => {
+        await renderStubScreen(<SignInScreen />, {
+            repositories: domains('verdant.healthy360.app'),
+        });
+
+        await waitFor(() => screen.getByTestId('sign-in-use-full-email'));
+
+        await fireEvent.press(screen.getByTestId('sign-in-use-full-email'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('sign-in-email-input')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('sign-in-local-part-input')).toBeNull();
+    });
+});
+
 describe('OrganisationPickerScreen', () => {
     it('lists every membership with its roles and status', async () => {
         await renderStubScreen(<OrganisationPickerScreen />, { session: dietitianSession() });
@@ -608,6 +734,97 @@ describe('DevicesScreen', () => {
  * where onboarding is abandoned. So the screen has to accept a typed code, and the endpoints it
  * types into name no challenge — the server holds the only live one.
  */
+/**
+ * Change password, from inside a live session (AA1 decision 6).
+ *
+ * The screen has two voices for one form. An account an administrator opened is carrying a
+ * password somebody else also knows, and the copy says so; anybody arriving by choice gets an
+ * ordinary settings form. The difference is the whole reason the screen is not just the reset one
+ * with the token fields hidden.
+ */
+describe('ChangePasswordScreen', () => {
+    it('states the reason when the change is being forced', async () => {
+        await renderStubScreen(<ChangePasswordScreen />, {
+            session: testMeResponse({ user: { mustChangePassword: true } }),
+        });
+
+        // The route's `<Gate>` holds a restoring session, so in the application the screen never
+        // renders before `/me` has answered. Rendered bare, it settles a tick later.
+        await waitFor(() => {
+            expect(screen.getByTestId('change-password-subtitle')).toHaveTextContent(
+                /somebody else knows/,
+            );
+        });
+    });
+
+    it('reads as an ordinary settings form for somebody who came by choice', async () => {
+        await renderStubScreen(<ChangePasswordScreen />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('change-password-subtitle')).toBeTruthy();
+        });
+        expect(screen.getByTestId('change-password-subtitle')).not.toHaveTextContent(
+            /somebody else knows/,
+        );
+    });
+
+    it('sends the old password with the new one and keeps the session', async () => {
+        // `current_password` is required even when the change is forced: a session is not a
+        // password, and the point of the route is to take the old one away from whoever else has it.
+        const { repositories } = await renderStubScreen(<ChangePasswordScreen />, {
+            session: testMeResponse({ user: { mustChangePassword: true } }),
+            repositories: { auth: { updatePassword: jest.fn().mockResolvedValue(undefined) } },
+        });
+
+        await waitFor(() => screen.getByTestId('change-password-current-input'));
+
+        await fireEvent.changeText(
+            screen.getByTestId('change-password-current-input'),
+            'handed-over-once',
+        );
+        await fireEvent.changeText(
+            screen.getByTestId('change-password-new-input'),
+            'a-much-better-secret-9',
+        );
+        await fireEvent.changeText(
+            screen.getByTestId('change-password-confirmation-input'),
+            'a-much-better-secret-9',
+        );
+        await fireEvent.press(screen.getByTestId('change-password-submit'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('change-password-success-title')).toBeTruthy();
+        });
+        expect(repositories.auth.updatePassword).toHaveBeenCalledWith({
+            currentPassword: 'handed-over-once',
+            password: 'a-much-better-secret-9',
+            passwordConfirmation: 'a-much-better-secret-9',
+        });
+    });
+
+    it('refuses a confirmation that does not match, without asking the server', async () => {
+        const { repositories } = await renderStubScreen(<ChangePasswordScreen />);
+
+        await waitFor(() => screen.getByTestId('change-password-current-input'));
+
+        await fireEvent.changeText(screen.getByTestId('change-password-current-input'), 'old-one');
+        await fireEvent.changeText(
+            screen.getByTestId('change-password-new-input'),
+            'a-much-better-secret-9',
+        );
+        await fireEvent.changeText(
+            screen.getByTestId('change-password-confirmation-input'),
+            'a-much-better-secret-8',
+        );
+        await fireEvent.press(screen.getByTestId('change-password-submit'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('change-password-confirmation-error')).toBeTruthy();
+        });
+        expect(repositories.auth.updatePassword).not.toHaveBeenCalled();
+    });
+});
+
 describe('VerifyEmailScreen', () => {
     const unverified = (): MeResponse => testMeResponse({ user: { emailVerifiedAt: null } });
 

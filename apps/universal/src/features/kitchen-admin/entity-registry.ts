@@ -67,6 +67,21 @@ export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
 export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
 
 /**
+ * The batch desk's own three (PROD1), and deliberately not the inventory codes it used to borrow.
+ *
+ * A production order stopped being a row with a status: it claims stock in advance, carries an
+ * estimated cost, and blends a finished valuation into the basis every sale is costed against.
+ * Whoever may count a shelf is not thereby whoever may commit next Thursday's oil to a batch.
+ *
+ * Costs split off for the reason they split everywhere else in this product: a chef runs the line
+ * and does not see what the line cost. The money is redacted **inside** the payload rather than at
+ * the door, so this code gates fields rather than a screen.
+ */
+export const PRODUCTION_VIEW_PERMISSION = 'production.view_organisation';
+export const PRODUCTION_MANAGE_PERMISSION = 'production.manage_organisation';
+export const PRODUCTION_VIEW_COSTS_PERMISSION = 'production.view_costs_organisation';
+
+/**
  * Placing an order **for somebody else** — the authority the Order Desk's sale wizard needs, and its
  * own code rather than `order.manage_organisation`.
  *
@@ -111,6 +126,27 @@ export const INVENTORY_VIEW_COSTS_PERMISSION = 'inventory.view_costs_organisatio
  * item is `inventory.manage_organisation` — rather than the cost code, because an exception names a
  * sale and a stock gap, not a valuation. No money passes through the review surface.
  */
+/**
+ * The access console's own codes (AA1).
+ *
+ * `role.*` and `membership.*` have been registered since the foundation and granted to
+ * `organisation_owner` since P0; until now nothing named them on this side because nothing could
+ * reach them. The pairs split the way every other pair here does — reading the staff list and
+ * changing somebody's roles are different authorities, and a kitchen may grant the first alone.
+ *
+ * `MEMBERSHIP_INVITE_PERMISSION`, `MEMBERSHIP_END_PERMISSION` and `USER_MANAGE_PERMISSION` name no
+ * family: they gate *controls* inside the two access screens rather than the screens themselves —
+ * the invite button, the End control, the create-a-login fork — so they are `useCan()` checks and
+ * not `EntityFamily` rows.
+ */
+export const ROLE_VIEW_PERMISSION = 'role.view_organisation';
+export const ROLE_MANAGE_PERMISSION = 'role.manage_organisation';
+export const MEMBERSHIP_VIEW_PERMISSION = 'membership.view_organisation';
+export const MEMBERSHIP_UPDATE_PERMISSION = 'membership.update_organisation';
+export const MEMBERSHIP_INVITE_PERMISSION = 'membership.invite_organisation';
+export const MEMBERSHIP_END_PERMISSION = 'membership.end_organisation';
+export const USER_MANAGE_PERMISSION = 'user.manage_organisation';
+
 export const INVENTORY_VIEW_PERMISSION = 'inventory.view_organisation';
 export const INVENTORY_MANAGE_PERMISSION = 'inventory.manage_organisation';
 
@@ -182,6 +218,10 @@ export const ENTITY_GROUPS = [
     'catalogue',
     'commercial',
     'operations',
+    // AA1. Last, because this list is ordered by how immediate a thing is and nobody is waiting on
+    // access administration. Adding the member forces a `GROUP_LABEL_KEYS` entry at compile time,
+    // which is the point of typing that map over this union.
+    'access',
 ] as const;
 export type EntityGroup = (typeof ENTITY_GROUPS)[number];
 
@@ -472,6 +512,20 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        key: 'frozenMeals',
+        kind: 'managed',
+        group: 'catalogue',
+        nameKey: 'kitchen:families.frozenMeals.name',
+        descriptionKey: 'kitchen:families.frozenMeals.description',
+        // The same packaged-goods rectangle sauces and dressings carry: a frozen
+        // meal sells as a packaged good and leaves the freezer as one unit, which
+        // is precisely what separates it from the meal family below.
+        icon: 'device',
+        href: '/kitchen/frozen-meals',
+        permission: CATALOGUE_VIEW_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
         key: 'meals',
         kind: 'managed',
         group: 'catalogue',
@@ -709,14 +763,44 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
     },
     {
         key: 'production',
+        // A family of records with a listing, a create control and a six-state lifecycle — the
+        // plainest `managed` in the workspace. Its three sibling routes (plan, batch, sheet) are
+        // nested under this href rather than families of their own, for the reason the order desk's
+        // siblings are: they are the same records seen closer, not a second book.
         kind: 'managed',
         group: 'operations',
         nameKey: 'kitchen:families.production.name',
         descriptionKey: 'kitchen:families.production.description',
         icon: 'calendar',
-        href: '/kitchen/production',
-        permission: INVENTORY_VIEW_PERMISSION,
-        managePermission: INVENTORY_MANAGE_PERMISSION,
+        // `-desk`, and the old `/kitchen/production` redirects here. The suffix is not decoration:
+        // this is the internal counterpart of `/kitchen/order-desk`, and the two names being a pair
+        // is what tells a manager that one makes food and the other sells it.
+        href: '/kitchen/production-desk',
+        permission: PRODUCTION_VIEW_PERMISSION,
+        managePermission: PRODUCTION_MANAGE_PERMISSION,
+    },
+    {
+        key: 'production-batches',
+        // A view, not a family of records — the order calendar's reading exactly. It is the same
+        // book narrowed to the batches nobody has to move any more, with the expiry dates flagged,
+        // and nothing is created or written from it.
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.productionBatches.name',
+        descriptionKey: 'kitchen:families.productionBatches.description',
+        // `▤`, the ruled sheet — a register is a ruled book. The workspace-wide compromise applies
+        // unchanged: the icon set is a table of typographic characters, and a real icon set retires
+        // it.
+        icon: 'calendar',
+        // Nested under the desk, with the deliberate consequence the order desk's siblings record:
+        // `isKitchenNavActive` matches this against `/kitchen/production-desk` too, and the ops
+        // shell takes the **first** matching family — so the breadcrumb reads "Production" and
+        // leads back to the queue.
+        href: '/kitchen/production-desk/batches',
+        permission: PRODUCTION_VIEW_PERMISSION,
+        // Nothing is written from a register. Every edge a batch has — confirm, start, complete,
+        // abandon, call off — lives on the batch itself, which holds the lock version.
+        managePermission: null,
     },
     {
         key: 'qc',
@@ -729,7 +813,116 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         permission: INVENTORY_VIEW_PERMISSION,
         managePermission: INVENTORY_MANAGE_PERMISSION,
     },
+
+    // ── access (AA1) ────────────────────────────────────────────────────────────────────────────
+    //
+    // Two families, last in the registry, for the reason `ENTITY_GROUPS` puts their group last:
+    // everything above answers "what do I do now" or "where do I go", and these answer "who may".
+    //
+    // They grow `WORKSPACE_PERMISSIONS` by two, which is what makes a permissions administrator's
+    // workspace a workspace rather than a forbidden page — that constant's own docblock promises
+    // exactly this, and until now there was no family it could keep the promise with.
+    {
+        key: 'team',
+        kind: 'managed',
+        group: 'access',
+        nameKey: 'kitchen:families.team.name',
+        descriptionKey: 'kitchen:families.team.description',
+        // `☺`, a person. The one card in this workspace whose records are people rather than
+        // things, and the only glyph in the set that says so.
+        icon: 'user',
+        href: '/kitchen/team',
+        permission: MEMBERSHIP_VIEW_PERMISSION,
+        // Not `membership.end_organisation`, though the screen offers End. `managePermission` is
+        // what the card's edit affordance asks for, and the ordinary edit here is changing where
+        // somebody works — ending them is a separate control behind its own `useCan()`.
+        managePermission: MEMBERSHIP_UPDATE_PERMISSION,
+    },
+    {
+        key: 'roles',
+        kind: 'managed',
+        group: 'access',
+        nameKey: 'kitchen:families.roles.name',
+        descriptionKey: 'kitchen:families.roles.description',
+        // `⊗`, the closed mark — the workspace-wide compromise every other card records applies
+        // unchanged: the icon set is a table of typographic characters, and this is the one in it
+        // that reads as a restriction rather than a thing.
+        icon: 'lock',
+        href: '/kitchen/roles',
+        permission: ROLE_VIEW_PERMISSION,
+        managePermission: ROLE_MANAGE_PERMISSION,
+    },
 ];
+
+/**
+ * Routes whose `<Gate>` asks for a code their family does not name (AA1).
+ *
+ * The registry's promise is that the card, the rail entry and the screen's own guard read one row.
+ * Six routes under `/kitchen` are not a family `href` — five of them are nested under one and ask
+ * for a code that family already names, so the promise holds. Three do not, and this is where they
+ * are written down rather than left to be discovered by somebody wondering why a role with Manage
+ * on a page still gets a forbidden screen inside it:
+ *
+ *  * the sale wizard asks for `order.create_on_behalf_organisation`, which **no family names at
+ *    all** — placing an order in somebody's name is a different authority from working the queue,
+ *    and the order-desk family is gated on reading it;
+ *  * the same wizard asks for `customer.create_on_behalf_organisation` before it will open an
+ *    account for a cold caller, which until now was an exported constant with no reader anywhere in
+ *    this application;
+ *  * unpriced receipts is nested under `/kitchen/procurement` and gated on
+ *    `inventory.view_costs_organisation`, which belongs to a *different* family (purchases) — so
+ *    Procurement→Manage with Purchases→None produces a 403 on a route nested under a page you can
+ *    manage, which is the one combination a page grid would otherwise present as impossible.
+ *
+ * The role editor renders these as indented sub-rows under their parent. With this table in place
+ * every route under `app/kitchen/**` is a family `href`, a path nested under one, or a declared
+ * extra — which `entity-registry.test.ts` walks the directory to assert, so a new screen cannot
+ * arrive with a new gate and no row.
+ */
+export interface PageExtra {
+    /** Stable, and the test id suffix in the role editor. */
+    readonly key: string;
+    /** The family this sub-row is drawn under. */
+    readonly familyKey: string;
+    readonly nameKey: string;
+    readonly href: string;
+    readonly permission: string;
+}
+
+export const PAGE_EXTRAS: readonly PageExtra[] = [
+    {
+        key: 'order-desk-sale',
+        familyKey: 'order-desk',
+        nameKey: 'accessAdmin:extras.orderDeskSale',
+        href: '/kitchen/order-desk/sale',
+        permission: ORDER_CREATE_ON_BEHALF_PERMISSION,
+    },
+    {
+        key: 'order-desk-customer',
+        familyKey: 'order-desk',
+        nameKey: 'accessAdmin:extras.orderDeskCustomer',
+        // The same screen: opening an account is a step inside the sale wizard, not a page of its
+        // own. It is a separate row because it is a separate refusal — a desk that may sell to
+        // somebody already on file is a smaller authority than one that may add people to the file.
+        href: '/kitchen/order-desk/sale',
+        permission: CUSTOMER_CREATE_ON_BEHALF_PERMISSION,
+    },
+    {
+        key: 'unpriced-receipts',
+        familyKey: 'procurement',
+        nameKey: 'accessAdmin:extras.unpricedReceipts',
+        href: '/kitchen/procurement/unpriced-receipts',
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+    },
+];
+
+/** The extras drawn under a family, in registry order. */
+export function extrasForFamily(
+    familyKey: string,
+    extras: readonly PageExtra[] = PAGE_EXTRAS,
+): readonly PageExtra[] {
+    return extras.filter((extra) => extra.familyKey === familyKey);
+}
 
 /** Families in a group, in registry order. */
 export function familiesInGroup(

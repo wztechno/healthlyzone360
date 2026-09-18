@@ -160,6 +160,36 @@ export function TechnicalSheetPanel({
             ? computed.packaging
             : null;
 
+    /*
+     * The weekly estimate, reduced to what the panel draws.
+     *
+     * Withheld entirely when nothing could be priced at this week's figures: a heading over four em
+     * dashes tells a reader less than no heading at all, and the ingredients that need a price are
+     * named by the badge rather than implied by the blanks.
+     *
+     * `effectiveFrom` is the oldest date behind any line, because that is the age of the estimate —
+     * a total resting on one fortnight-old carried price is a fortnight-old total, whatever the
+     * other lines say.
+     */
+    const weeklyBlock = sheet?.weekly ?? null;
+    const weekly =
+        weeklyBlock !== null &&
+        (weeklyBlock.production.total !== null || weeklyBlock.lineSources.length > 0)
+            ? {
+                  block: weeklyBlock,
+                  needingPrice: weeklyBlock.ingredientsNeedingInitialPrice.length,
+                  effectiveFrom: weeklyBlock.lineSources.reduce<string | null>(
+                      (oldest, source) =>
+                          source.effectiveFrom === null
+                              ? oldest
+                              : oldest === null || source.effectiveFrom < oldest
+                                ? source.effectiveFrom
+                                : oldest,
+                      null,
+                  ),
+              }
+            : null;
+
     const totalCost = figures?.totalInputCost ?? version.estimatedCost;
 
     const quantityProduced =
@@ -287,7 +317,7 @@ export function TechnicalSheetPanel({
                     ) : (
                         <Stack space="xs" testID={`${testID}-cost`}>
                             <Inline space="sm">
-                                <Heading level={3}>{t('kitchen:recipes.sheetCostTitle')}</Heading>
+                                <Heading level={3}>{t('kitchen:recipes.sheetCostSaved')}</Heading>
                                 <Badge tone="warning" label={t('kitchen:rollup.confidential')} />
                                 {figures.basisMismatch ? (
                                     <Badge
@@ -377,6 +407,73 @@ export function TechnicalSheetPanel({
                                     value={cost(computed.totalCostPerYieldUnit)}
                                     testID={`${testID}-cost-all-in`}
                                 />
+                            )}
+
+                            {/*
+                             * The weekly estimate, beside the saved figures and never instead of
+                             * them.
+                             *
+                             * The block above is what this sheet was costed at — the prices frozen
+                             * on its own lines, which is why a sheet costed in March still says what
+                             * it said in March. This is the same formulation at the published
+                             * average of what the kitchen is *actually paying*, which is a different
+                             * question and deserves its own heading rather than a quietly updated
+                             * number under the old one.
+                             *
+                             * `effective_from` is on screen for the reason the requirement names it:
+                             * an estimate built on a fortnight-old carried-forward price is usable,
+                             * and a reader has to be able to see how old it is.
+                             */}
+                            {weekly === null ? null : (
+                                <>
+                                    <View className="pt-2">
+                                        <Heading level={3}>
+                                            {t('kitchen:recipes.sheetCostWeekly')}
+                                        </Heading>
+                                    </View>
+
+                                    {weekly.effectiveFrom === null ? null : (
+                                        <DescriptionRow
+                                            label={t('kitchen:recipes.sheetWeeklyEffective')}
+                                            value={formatter.formatDate(weekly.effectiveFrom)}
+                                            testID={`${testID}-weekly-effective-from`}
+                                        />
+                                    )}
+
+                                    <DescriptionRow
+                                        label={t('kitchen:recipes.sheetCostTotal')}
+                                        value={cost(weekly.block.production.total)}
+                                        testID={`${testID}-weekly-total`}
+                                    />
+
+                                    {weekly.block.totalCostPerYieldUnit === null ? null : (
+                                        <DescriptionRow
+                                            label={t('kitchen:recipes.sheetCostAllIn', {
+                                                unit: version.yieldUnit,
+                                            })}
+                                            value={cost(weekly.block.totalCostPerYieldUnit)}
+                                            testID={`${testID}-weekly-all-in`}
+                                        />
+                                    )}
+
+                                    {weekly.block.hasCarriedForwardPrices ? (
+                                        <Badge
+                                            tone="warning"
+                                            label={t('kitchen:recipes.sheetWeeklyCarried')}
+                                            testID={`${testID}-weekly-carried-forward`}
+                                        />
+                                    ) : null}
+
+                                    {weekly.needingPrice > 0 ? (
+                                        <Badge
+                                            tone="warning"
+                                            label={t('kitchen:recipes.sheetWeeklyNeedsPrice', {
+                                                count: weekly.needingPrice,
+                                            })}
+                                            testID={`${testID}-weekly-needs-price`}
+                                        />
+                                    ) : null}
+                                </>
                             )}
                         </Stack>
                     )

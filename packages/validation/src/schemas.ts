@@ -112,6 +112,26 @@ export function makeResetPasswordSchema(t: Translate) {
 }
 
 /**
+ * `PUT /api/v1/auth/user/password` — a password replaced from inside a live session.
+ *
+ * `current_password` is a plain required string rather than a `newPasswordField`: it is being
+ * checked against what the account already holds, and applying this year's strength rules to last
+ * year's password would refuse the very people who most need to change one.
+ */
+export function makeUpdatePasswordSchema(t: Translate) {
+    return confirmPasswordMatches(
+        z.object({
+            current_password: z.string({ error: t(VALIDATION_KEYS.required) }).min(1, {
+                error: t(VALIDATION_KEYS.required),
+            }),
+            password: newPasswordField(t),
+            password_confirmation: z.string({ error: t(VALIDATION_KEYS.required) }),
+        }),
+        t,
+    );
+}
+
+/**
  * `PUT /api/v1/me/context`.
  *
  * Needs no translate function: the fields are opaque identifiers chosen from a list the user was
@@ -129,5 +149,6 @@ export type RegisterValues = z.infer<ReturnType<typeof makeRegisterSchema>>;
 export type RegisterInput = z.input<ReturnType<typeof makeRegisterSchema>>;
 export type ForgotPasswordValues = z.infer<ReturnType<typeof makeForgotPasswordSchema>>;
 export type ResetPasswordValues = z.infer<ReturnType<typeof makeResetPasswordSchema>>;
+export type UpdatePasswordValues = z.infer<ReturnType<typeof makeUpdatePasswordSchema>>;
 export type ContextSelectionValues = z.infer<typeof contextSelectionSchema>;
 export type ContextSelectionInput = z.input<typeof contextSelectionSchema>;

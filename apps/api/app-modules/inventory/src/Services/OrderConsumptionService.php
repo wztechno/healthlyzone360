@@ -120,6 +120,8 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         'no_stock_item',
         'no_stock_unit',
         'insufficient_stock',
+        'reserved_for_production',
+        'no_net_content',
     ];
 
     public function __construct(
@@ -127,6 +129,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         private UnitConversionService $conversion,
         private MealExplosion $explosion,
         private ConsumptionValuation $valuation,
+        private OrderLineEstimator $estimator,
     ) {}
 
     public function consume(Order $order): void
@@ -148,7 +151,26 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         foreach ($order->lines()->get() as $line) {
             /** @var list<ConsumptionFailure> $failures */
             $failures = [];
-            $this->resolveLine($order, $line, (string) $order->branch_id, $failures);
+
+            /** @var list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}> $drawn */
+            $drawn = [];
+
+            $this->resolveLine($order, $line, (string) $order->branch_id, $failures, $drawn);
+
+            /*
+             * Freeze what this line was *expected* to cost, at the prices
+             * standing now (PROD1).
+             *
+             * Not computed later on the report, because later answers a different
+             * question: a recipe edited in October would change September's
+             * estimated margin, and a weekly price published on Monday would
+             * change last month's. Both are wrong and both are silent.
+             *
+             * It runs on the rows the deduction already produced rather than
+             * exploding a second time — this is the confirm path, and the
+             * explosion is the expensive part of it.
+             */
+            $this->estimator->record($order, $line, $drawn);
 
             foreach ($failures as $failure) {
                 $this->persistException($order, $line, $failure['catalogue_item_id'], $failure['reason_code'], $failure['detail']);
@@ -284,7 +306,20 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
         /** @var list<ConsumptionFailure> $failures */
         $failures = [];
-        $this->resolveLine($order, $line, (string) $order->branch_id, $failures);
+
+        /** @var list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}> $drawn */
+        $drawn = [];
+
+        $this->resolveLine($order, $line, (string) $order->branch_id, $failures, $drawn);
+
+        /*
+         * A retry that finally resolves a blocked line is the first moment this
+         * line has an estimate at all, so it is written here too (PROD1). The
+         * unique index makes a second write a no-op, which is what keeps the
+         * *original* estimate — the one at the confirm-time prices — rather than
+         * replacing it with today's.
+         */
+        $this->estimator->record($order, $line, $drawn);
 
         $after = $this->consumeMovementCountForLine($order, $line);
 
@@ -380,8 +415,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
     /**
      * @param  list<ConsumptionFailure>  $failures
+     * @param  list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}>  $drawn  what the line took, collected for the estimate rather than re-derived
      */
-    private function resolveLine(Order $order, OrderLine $line, string $branchId, array &$failures): void
+    private function resolveLine(Order $order, OrderLine $line, string $branchId, array &$failures, array &$drawn): void
     {
         $item = CatalogueItem::withoutTenancy()
             ->where('id', $line->catalogue_item_id)
@@ -394,30 +430,36 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             return;
         }
 
-        match ($item->item_type) {
-            CatalogueItemType::Meal => $this->resolveMeal($order, $line, $item, $branchId, $failures),
+        // The zero-food plan-day line consumes nothing: the real meal and product
+        // lines generated alongside it do the consuming.
+        if ($item->item_type === CatalogueItemType::SubscriptionPlan) {
+            return;
+        }
 
-            // A sauce or dressing consumes like a product because it is made to
-            // *stock*, not to order: the batch was cooked earlier and its raw
-            // materials left the shelf then. Selling one bottle draws one unit
-            // off the shelf its `ingredient_id` names, and exploding it into
-            // mayonnaise here would take that mayonnaise a second time.
-            //
-            // (A meal is the other case — cooked when ordered, so it explodes.
-            // A sauce used *inside* a meal is already covered: the meal's own
-            // explosion draws it off this same shelf as one of its lines.)
-            //
-            // Not to be confused with the reason that used to stand here — that
-            // the v6 catalogue links no formulation lines for these rows. That
-            // is true today and is a data accident, not the argument.
-            CatalogueItemType::Product,
-            CatalogueItemType::Sauce,
-            CatalogueItemType::Dressing => $this->resolveProduct($order, $line, $item, $branchId, $failures),
+        /*
+         * One predicate, two kinds of sale (PROD1).
+         *
+         * A thing **made to stock** — a sauce, a dressing, a frozen meal, a
+         * prepared salad somebody flagged — was cooked earlier and its raw
+         * materials left the shelf then. Selling one draws its own shelf, and
+         * exploding it here would take that mayonnaise a second time.
+         *
+         * A thing **cooked when ordered** explodes: its ingredients leave the
+         * shelf at this moment because that is when they are used.
+         *
+         * This used to branch on `item_type`, which could only ever say the first
+         * for sauces and dressings. `sellsFromFinishedStock()` asks the question
+         * the branch is actually about, so a prepared meal made in advance is
+         * expressible without a new item type — and every meal already in the
+         * catalogue keeps exploding, because the flag behind it defaults false.
+         */
+        if ($item->sellsFromFinishedStock()) {
+            $this->resolveFinishedStock($order, $line, $item, $branchId, $failures, $drawn);
 
-            // The zero-food plan-day line consumes nothing: the real meal and
-            // product lines generated alongside it do the consuming.
-            CatalogueItemType::SubscriptionPlan => null,
-        };
+            return;
+        }
+
+        $this->resolveMeal($order, $line, $item, $branchId, $failures, $drawn);
     }
 
     /**
@@ -430,8 +472,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      * writing is left here.
      *
      * @param  list<ConsumptionFailure>  $failures
+     * @param  list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}>  $drawn
      */
-    private function resolveMeal(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures): void
+    private function resolveMeal(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures, array &$drawn): void
     {
         $explosion = $this->explosion->explode(
             (string) $order->organisation_id,
@@ -465,7 +508,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
                 continue;
             }
 
-            $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, $row['ingredient_id'], $row['quantity'], $failures);
+            $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, $row['ingredient_id'], $row['quantity'], $failures, $drawn);
         }
 
         foreach ($explosion->failures as $failure) {
@@ -474,16 +517,32 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
     }
 
     /**
-     * A resold product has no recipe: it deducts the order-line quantity of its
-     * own stock item, one unit sold for one unit off the shelf, valued at the
-     * product's own moving-average cost.
+     * A sale out of finished stock: one shelf, and the question of how much of it
+     * one sold unit takes.
+     *
+     * No recipe is exploded here. Whatever this is — a resold product, a bottled
+     * dressing, a frozen meal, a prepared salad — the raw materials either never
+     * belonged to this kitchen or left the shelf when the batch was cooked, and
+     * taking them again at the counter is the double count this path exists to
+     * avoid.
+     *
+     * **It never falls back to exploding the recipe when the shelf is short.**
+     * A finished-goods shortage is a real shortage: the tray is not in the
+     * freezer, and cooking one from raw ingredients is a decision for a person
+     * rather than a silent substitution by the consume path. It surfaces as an
+     * ordinary exception on the queue the manager already retries from.
+     *
+     * **Packaging is not drawn again either.** A batch's boxes left the shelf
+     * during production, alongside its ingredients, so the sale takes the
+     * finished unit and nothing else.
      *
      * @param  list<ConsumptionFailure>  $failures
+     * @param  list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}>  $drawn
      */
-    private function resolveProduct(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures): void
+    private function resolveFinishedStock(Order $order, OrderLine $line, CatalogueItem $item, string $branchId, array &$failures, array &$drawn): void
     {
         if ($item->ingredient_id === null) {
-            $failures[] = $this->failure((string) $item->getKey(), 'no_ingredient_link', 'The product links no ingredient, so it has no stock item to deduct.');
+            $failures[] = $this->failure((string) $item->getKey(), 'no_ingredient_link', 'The item links no ingredient, so it has no finished stock to deduct.');
 
             return;
         }
@@ -491,7 +550,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         $stockItem = $this->explosion->resolveStockItem((string) $order->organisation_id, (string) $item->ingredient_id, $branchId);
 
         if (! $stockItem instanceof StockItem) {
-            $failures[] = $this->failure((string) $item->getKey(), 'no_stock_item', 'The product has no stock item at the branch to deduct from.');
+            $failures[] = $this->failure((string) $item->getKey(), 'no_stock_item', 'The item has no stock item at the branch to deduct from.');
 
             return;
         }
@@ -510,13 +569,86 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             return;
         }
 
-        $consumed = $this->round($this->numeric((string) $line->quantity));
+        $perSoldUnit = $this->perSoldUnit($item, $stockUnit, $failures);
+
+        if ($perSoldUnit === null) {
+            return;
+        }
+
+        $consumed = $this->round(bcmul(
+            $this->numeric((string) $line->quantity),
+            $perSoldUnit,
+            self::WORKING_SCALE,
+        ));
 
         if (bccomp($consumed, '0', self::SCALE) <= 0) {
             return;
         }
 
-        $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, (string) $item->ingredient_id, $consumed, $failures);
+        $this->deduct($order, $line, $item, $branchId, $stockItem, $stockUnit, (string) $item->ingredient_id, $consumed, $failures, $drawn);
+    }
+
+    /**
+     * How much of the shelf one sold unit takes, in the shelf's own unit.
+     *
+     * Three cases, and the third is a refusal rather than a default:
+     *
+     * 1. **Net content is declared.** One sold unit *is* this much of the
+     *    produced ingredient — a 350 g tray, a 500 ml bottle — converted into
+     *    whatever unit the shelf counts in. This is the only figure that can
+     *    express a portion against a mass or volume shelf.
+     * 2. **The shelf is a count and nothing is declared.** One unit is one unit,
+     *    scaled by `portion_factor` for the kitchen that sells a half portion of
+     *    the same tray. This is exactly the arithmetic this path had before net
+     *    content existed, so nothing already selling moves.
+     * 3. **The shelf is a mass or a volume and nothing is declared.** Refused.
+     *    Deducting `1` from a shelf counted in kilograms would take a kilogram of
+     *    lasagne for one portion of it — wrong by three orders of magnitude, and
+     *    silently. A missing declaration is a thing somebody has to fill in, not
+     *    a number for this method to invent.
+     *
+     * @param  list<ConsumptionFailure>  $failures
+     * @return numeric-string|null
+     */
+    private function perSoldUnit(CatalogueItem $item, MeasurementUnit $stockUnit, array &$failures): ?string
+    {
+        if ($item->net_content_quantity !== null && $item->net_content_unit_id !== null) {
+            $netUnit = MeasurementUnit::query()->find($item->net_content_unit_id);
+
+            if (! $netUnit instanceof MeasurementUnit) {
+                $failures[] = $this->failure((string) $item->getKey(), 'no_stock_unit', 'The net content of this item names a unit that does not exist.');
+
+                return null;
+            }
+
+            if (! $this->conversion->canConvert($netUnit, $stockUnit)) {
+                $failures[] = $this->failure(
+                    (string) $item->getKey(),
+                    'unit_conversion_unsupported',
+                    'The net content is stated in '.$netUnit->code.' and the shelf counts in '.$stockUnit->code.', which do not convert.',
+                );
+
+                return null;
+            }
+
+            return $this->conversion->convert(
+                $this->numeric((string) $item->net_content_quantity),
+                $netUnit,
+                $stockUnit,
+            );
+        }
+
+        if ($stockUnit->dimension === 'count' || $stockUnit->dimension === 'package' || $stockUnit->dimension === 'serving') {
+            return $this->round($this->numeric((string) $item->portion_factor));
+        }
+
+        $failures[] = $this->failure(
+            (string) $item->getKey(),
+            'no_net_content',
+            'This item sells from a shelf counted in '.$stockUnit->code.' and states no net content, so how much one sold unit takes is unknown.',
+        );
+
+        return null;
     }
 
     /**
@@ -532,6 +664,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      *
      * @param  numeric-string  $consumedInStockUnit
      * @param  list<ConsumptionFailure>  $failures
+     * @param  list<array{ingredient_id: string, stock_unit_id: string, quantity: numeric-string}>  $drawn
      */
     private function deduct(
         Order $order,
@@ -543,7 +676,20 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         string $ingredientId,
         string $consumedInStockUnit,
         array &$failures,
+        array &$drawn,
     ): void {
+        /*
+         * Recorded before the idempotency guard, on purpose: a retry that deducts
+         * nothing still drew this quantity, and an estimate assembled from the
+         * lines a *second* run happened to write would be missing everything the
+         * first one got through.
+         */
+        $drawn[] = [
+            'ingredient_id' => $ingredientId,
+            'stock_unit_id' => (string) $stockUnit->getKey(),
+            'quantity' => $consumedInStockUnit,
+        ];
+
         if ($this->alreadyDeducted($order, $line, $stockItem)) {
             // This (line, ingredient) already came off the shelf on a prior run —
             // a retry must not deduct it a second time, and it is not a failure.
@@ -576,7 +722,24 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         } catch (InsufficientStock $exception) {
             // A confirmed order does not hard-fail on stock math: the movement
             // is refused, nothing is deducted, and the shortfall is surfaced.
-            $failures[] = $this->failure((string) $item->getKey(), 'insufficient_stock', 'Ingredient '.$ingredientId.': not enough stock to deduct '.$consumedInStockUnit.'.');
+            //
+            // Which shortfall matters (PROD1). A shelf that is empty and a shelf
+            // that is full but claimed by a confirmed batch both refuse the
+            // consume, and they are not the same problem: the first is answered by
+            // buying, the second by talking to the kitchen about the batch.
+            // Reporting both as `insufficient_stock` would make a week of
+            // over-eager reservations read as a week of stockouts.
+            $failures[] = $exception->isBlockedByReservation()
+                ? $this->failure(
+                    (string) $item->getKey(),
+                    'reserved_for_production',
+                    'Ingredient '.$ingredientId.': '.$consumedInStockUnit.' could not be deducted because production has claimed the stock.',
+                )
+                : $this->failure(
+                    (string) $item->getKey(),
+                    'insufficient_stock',
+                    'Ingredient '.$ingredientId.': not enough stock to deduct '.$consumedInStockUnit.'.',
+                );
 
             return;
         }

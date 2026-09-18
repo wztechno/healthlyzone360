@@ -79,6 +79,20 @@ final class UserContextHydrator
             'email' => $user->email,
             'email_verified' => $user->hasVerifiedEmail(),
             'two_factor_enabled' => $user->hasEnabledTwoFactorAuthentication(),
+
+            // AA1. True only for an account an administrator opened on
+            // somebody's behalf, and only until they replace the password they
+            // were handed. It sits beside `email_verified` rather than inside
+            // `active_context` because it is a fact about the *identity*, not
+            // about one organisation: the same person is held on the
+            // change-password screen whichever workspace they were heading for.
+            //
+            // The client reads it in `resolveLandingRoute()` and holds them
+            // there; the server does not enforce it, deliberately. A flag that
+            // blocked every endpoint would block the one that clears it, and
+            // an account with a password two people know is a weaker problem
+            // than an account nobody can fix.
+            'must_change_password' => (bool) $user->must_change_password,
         ];
     }
 

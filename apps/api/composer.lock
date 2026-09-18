@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f258658c95c893e831b837b4793867c8",
+    "content-hash": "9e07829d7f3bcaf4b47cf8de5818e27d",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1974,6 +1974,38 @@
                 }
             ],
             "time": "2026-07-17T13:53:03+00:00"
+        },
+        {
+            "name": "healthy360/access-administration",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/access-administration",
+                "reference": "2f260950f07d77b1a493c82416a4fc3e93e13bcc"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Healthy360\\AccessAdministration\\Providers\\AccessAdministrationServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Healthy360\\AccessAdministration\\": "src/",
+                    "Healthy360\\AccessAdministration\\Tests\\": "tests/",
+                    "Healthy360\\AccessAdministration\\Database\\Factories\\": "database/factories/",
+                    "Healthy360\\AccessAdministration\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "healthy360/access-control",

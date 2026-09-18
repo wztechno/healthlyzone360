@@ -326,6 +326,25 @@ final class PermissionRegistry
             // one. Receiving stays on `manage` in a later slice, deliberately —
             // the person unloading the van is rarely the person who ordered it.
             'inventory.order_supplies_organisation' => ['domain' => 'inventory', 'description' => 'Prepare, issue, print and cancel supplier purchase orders'],
+
+            // PROD1. A domain of its own rather than a fifth inventory code, and
+            // the reason is what a production order *is*: the two legacy routes
+            // sat on `inventory.*` when a production order was a row with a
+            // status, and it is now a commitment that claims stock in advance,
+            // carries an estimated cost, and blends a finished valuation into the
+            // basis every sale is costed against. Whoever may count a shelf is
+            // not thereby whoever may commit next Thursday's oil to a batch.
+            //
+            // Split three ways on the lines the rest of the system already draws.
+            // Reading the desk is one authority; running a batch — confirm, start,
+            // complete, abandon, cancel — is another, because each of those moves
+            // real stock or real claims. And money is a third, exactly as
+            // `inventory.view_costs_organisation` and
+            // `recipe.view_costs_organisation` split it: a chef who runs the line
+            // has no business seeing what the line cost.
+            'production.view_organisation' => ['domain' => 'production', 'description' => 'View the production desk, batch details and the batch register'],
+            'production.manage_organisation' => ['domain' => 'production', 'description' => 'Plan, confirm, start, complete, abandon and cancel production batches'],
+            'production.view_costs_organisation' => ['domain' => 'production', 'description' => 'View estimated and actual batch costs, and the money on a production technical sheet'],
         ];
     }
 
@@ -492,10 +511,40 @@ final class PermissionRegistry
                 'name_ar' => 'مالك المنشأة',
                 'permissions' => $all,
             ],
+            /**
+             * The permissions administrator, and the swap that makes the name
+             * true.
+             *
+             * This role used to be "the owner minus `role.manage_organisation`",
+             * which described an administrator who could do everything except
+             * administer. That was defensible while a kitchen's staff list was
+             * a seeder and its roles were nine fixed templates nobody could
+             * edit: there was nothing to administer, so withholding the code
+             * cost nothing. It stopped being defensible the moment roles and
+             * memberships became a console — an administrator who cannot open
+             * the one screen the job is named after is a role that sends every
+             * staffing change to the owner.
+             *
+             * **What leaves in its place is `organisation.update_current`, and
+             * the two are not swapped arbitrarily.** That code writes the legal
+             * identity of the business: its name, its country, its default
+             * currency, the facts on an invoice and in a contract. An
+             * administrator runs the organisation; the owner decides what the
+             * organisation *is*. Every other organisation code stays, so the
+             * practical reach of the role is unchanged in the direction anybody
+             * uses it.
+             *
+             * The substitution is also what keeps the role *distinguishable*.
+             * Granting `role.manage_organisation` without taking something back
+             * would make this list byte-identical to `organisation_owner` — two
+             * template roles that the seeder writes, the console offers and
+             * nobody can tell apart. `PermissionRegistryTest` pins the
+             * difference so it cannot drift back unnoticed.
+             */
             'organisation_admin' => [
                 'name_en' => 'Organisation administrator',
                 'name_ar' => 'مدير المنشأة',
-                'permissions' => array_values(array_diff($all, ['role.manage_organisation'])),
+                'permissions' => array_values(array_diff($all, ['organisation.update_current'])),
             ],
             'branch_manager' => [
                 'name_en' => 'Branch manager',
@@ -606,6 +655,15 @@ final class PermissionRegistry
                     // the chequebook.
                     'inventory.order_supplies_organisation',
 
+                    // PROD1. All three production codes. The kitchen manager is
+                    // the person who decides what gets made and is already the
+                    // one who sees what the shelf is worth, so the costs code
+                    // lands here for the same reason
+                    // `inventory.view_costs_organisation` did.
+                    'production.view_organisation',
+                    'production.manage_organisation',
+                    'production.view_costs_organisation',
+
                     // S1. `subscription.view_organisation` has existed in the
                     // registry since the foundation as a proposal and had no
                     // endpoint until the schedule projection; it is granted here
@@ -650,6 +708,14 @@ final class PermissionRegistry
                     // line the plan draws.
                     'inventory.view_organisation',
                     'inventory.manage_organisation',
+
+                    // PROD1. A chef runs batches — that is the job — so view and
+                    // manage are theirs. Costs are not, on exactly the line drawn
+                    // two comments up: a chef sees what a substitution does to a
+                    // recipe's cost and does not see what the kitchen paid or what
+                    // a batch was worth.
+                    'production.view_organisation',
+                    'production.manage_organisation',
                 ],
             ],
 
@@ -765,6 +831,148 @@ final class PermissionRegistry
                     // owns the numbers; it does not move the stock.
                     'inventory.view_organisation',
                     'inventory.view_costs_organisation',
+                ],
+            ],
+
+            // ── Purchasing and finance (AA1) ─────────────────────────────
+            //
+            // The tenth and eleventh template roles, and the two the kitchen
+            // console needed that nobody had written. Both are assembled
+            // entirely from codes that already existed: neither introduces a
+            // permission, because neither introduces an authority — they name
+            // two jobs the registry had already split the codes for and then
+            // handed, for want of a role, to `kitchen_manager`.
+
+            /**
+             * The role SUP3 wrote the chequebook comment for.
+             *
+             * `inventory.order_supplies_organisation` landed on
+             * `kitchen_manager` "and nowhere else among the operating roles"
+             * because there was no operating role whose job it was. This is
+             * that role, and the note stops being a note. Nothing is taken from
+             * the kitchen manager, who remains the stock-responsible person by
+             * construction; this is a second holder, not a transfer.
+             *
+             * **`inventory.view_costs_organisation` is where this role crosses
+             * the money line, and it is not optional.** Every other operating
+             * role — chef, kitchen staff, desk agent — sits on the quantity
+             * side of INV1's split, and the split exists so somebody can count
+             * a shelf without seeing it in money. A buyer is on the other side
+             * by definition: somebody who may commit the kitchen's money to a
+             * supplier and may not see what the last crate cost is not buying,
+             * they are guessing. It is the one crossing this role makes.
+             *
+             * `inventory.manage_organisation` is here, and SUP3's own comment
+             * is the argument for it rather than against. That comment says
+             * "the person unloading the van is rarely the person who ordered
+             * it", which is a reason for receiving and ordering to be
+             * *separable* codes — not a reason to withhold receiving from the
+             * person who owns the order book and has to close it against a
+             * delivery.
+             *
+             * `catalogue.view_organisation` and not its partner: a supply order
+             * names ingredients and packaging, so without the read the order
+             * builder's picker is a 403 on every line. A buyer does not rename
+             * the food.
+             *
+             * **`price_list.*` stops here, and it is the sharpest line the role
+             * draws.** K1.5's whole argument is that price visibility is
+             * commercial rather than operational. A buyer names what the
+             * kitchen *pays*; what it *charges* is somebody else's, and a role
+             * holding both sides could reconstruct the margin on every dish
+             * from the purchase ledger — which is the K1.3 cost split quietly
+             * undone from the other direction. `recipe.view_costs_organisation`
+             * is absent for the neighbouring reason: that is a *dish's* cost,
+             * and a buyer costs a crate.
+             *
+             * No `order.*` and no `membership.*`. The buy list is derived from
+             * demand, so a buyer reads the shortage rather than the customers
+             * behind it, and has no business reading the staff list.
+             */
+            'procurement_manager' => [
+                'name_en' => 'Purchasing manager',
+                'name_ar' => 'مدير المشتريات',
+                'permissions' => [
+                    'organisation.view_current',
+
+                    // `branch.view_current` rather than the desk agent's
+                    // silence, because a goods receipt is posted at a branch
+                    // and an order is raised for one.
+                    'branch.view_current',
+
+                    'catalogue.view_organisation',
+
+                    'inventory.view_organisation',
+                    'inventory.manage_organisation',
+                    'inventory.view_costs_organisation',
+                    'inventory.order_supplies_organisation',
+                ],
+            ],
+
+            /**
+             * The mirror image of `kitchen_staff`, and the only role on the
+             * platform that is almost entirely reads.
+             *
+             * Every code below is a read but one, and the exception is named
+             * rather than inherited: `recipe.view_costs_organisation` gates the
+             * read *and* the write of line unit costs by design (K1.3 —
+             * "writing a unit cost blind is how a decimal point moves three
+             * places"). Finance is who knows what a thing cost, so this is the
+             * one surface where this role authors, exactly as K1.5 lets the
+             * commercial manager author a tariff.
+             *
+             * `price_list.view_organisation` without its partner. Revenue is
+             * prices, and a finance manager who cannot see the tariff cannot
+             * reconcile a total; but deciding a price is the commercial
+             * manager's, and K1.5 split the pair for precisely this reason.
+             * `recipe.view_organisation` is the price of the cost — a technical
+             * sheet is unreachable without it, which is why
+             * `commercial_manager` holds it too — and reading the formulation
+             * is not deciding it, so `recipe.manage_organisation` and every
+             * publish code stay absent.
+             *
+             * `audit.view_organisation` is the one code no other operating role
+             * holds, and it opens nothing today: no route is gated on it. That
+             * is how this registry has always treated a proposal —
+             * `subscription.view_organisation` "had no endpoint until the
+             * schedule projection" and was granted before it did — and a
+             * finance function that cannot read who changed what is not a
+             * finance function.
+             *
+             * **`order.manage_organisation` stops here, and it costs something
+             * real.** Granting it would let finance cancel somebody's dinner,
+             * which is the line C1 draws for `commercial_manager` and for the
+             * same reason: whether tonight's order gets cooked is an
+             * operational call belonging to whoever is standing in the kitchen.
+             * The price of holding the line is that `/kitchen/order-desk/
+             * cash-report` is gated on the manage code, so this role cannot see
+             * it. That is recorded rather than worked around: finance reads the
+             * ledger, not the till, and re-gating that screen on a code about
+             * money rather than about moving orders is its own decision.
+             *
+             * No `membership.*`, no `role.*`, no `user.manage_organisation`.
+             * Money is not access.
+             */
+            'finance_manager' => [
+                'name_en' => 'Finance manager',
+                'name_ar' => 'المدير المالي',
+                'permissions' => [
+                    'organisation.view_current',
+                    'branch.view_current',
+
+                    'catalogue.view_organisation',
+                    'recipe.view_organisation',
+                    'recipe.view_costs_organisation',
+                    'price_list.view_organisation',
+
+                    'order.view_organisation',
+                    'subscription.view_organisation',
+                    'b2b_quotation.view_organisation',
+
+                    'inventory.view_organisation',
+                    'inventory.view_costs_organisation',
+
+                    'audit.view_organisation',
                 ],
             ],
 

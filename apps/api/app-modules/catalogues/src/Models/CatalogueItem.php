@@ -53,6 +53,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ProductionMode|null $production_mode
  * @property string|null $recipe_id
  * @property numeric-string $portion_factor
+ * @property bool $sells_from_finished_stock made in advance: a sale draws finished stock rather than exploding the recipe
+ * @property numeric-string|null $net_content_quantity how much of the produced ingredient one sold unit is
+ * @property string|null $net_content_unit_id
  * @property string|null $ingredient_id
  * @property string|null $purchasing_unit_id
  * @property string|null $usage_unit_id
@@ -115,12 +118,46 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
             'status' => CatalogueItemStatus::class,
             'is_market_priced' => 'boolean',
             'is_assorted' => 'boolean',
+            'sells_from_finished_stock' => 'boolean',
+            'net_content_quantity' => 'decimal:4',
             'portion_factor' => 'decimal:3',
             'nutrition_facts' => 'array',
             'data_quality_flags' => 'array',
             'seeded_at' => 'immutable_datetime',
             'lock_version' => 'integer',
         ];
+    }
+
+    /**
+     * Whether selling one of these draws **finished stock** rather than exploding
+     * the recipe behind it.
+     *
+     * The one question the consumption path branches on, and it is a behaviour
+     * rather than a type. Two kinds of sale exist: a meal cooked when ordered
+     * takes its raw materials at that moment, and a thing cooked earlier took
+     * them then — so drawing its own shelf is the only way not to take them
+     * twice.
+     *
+     * Products, sauces, dressings and frozen meals are always the second kind,
+     * which is what they were before this predicate existed and is why they are
+     * listed rather than made to carry a flag. Anything else opts in, which is
+     * how a prepared salad made in advance is expressible without becoming its
+     * own item type — and why every meal already in the catalogue keeps
+     * exploding, because the column defaults false.
+     *
+     * A subscription plan is neither: its zero-food day line consumes nothing,
+     * and the real meal and product lines generated beside it do the consuming.
+     */
+    public function sellsFromFinishedStock(): bool
+    {
+        // The type→behaviour half lives on the enum, so the write validator and
+        // this row-level reader cannot drift apart about what a dressing does.
+        //
+        // The flag is coalesced rather than read straight: the column is NOT NULL
+        // with a default, but a model hydrated from a partial select — or built
+        // by a factory that has not round-tripped that default — carries no
+        // attribute at all, and a sale is not the place to discover it.
+        return $this->item_type->sellsFromFinishedStock((bool) ($this->sells_from_finished_stock ?? false));
     }
 
     /**

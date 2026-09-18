@@ -57,6 +57,9 @@ final class CatalogueItemAdminPresenter
      *     recipe_id: string|null,
      *     portion_factor: string,
      *     ingredient_id: string|null,
+     *     sells_from_finished_stock: bool,
+     *     net_content_quantity: string|null,
+     *     net_content_unit_id: string|null,
      *     purchasing_unit_id: string|null,
      *     usage_unit_id: string|null,
      *     is_market_priced: bool,
@@ -98,6 +101,17 @@ final class CatalogueItemAdminPresenter
             // a float on its way to a kitchen's scales.
             'portion_factor' => (string) $item->portion_factor,
             'ingredient_id' => $item->ingredient_id,
+            // What a sale of this item deducts, and how much of it (PROD1). The
+            // flag is the meal's own opt-in and reads false on the types whose
+            // behaviour is a property of what they are — the editor needs the
+            // stored column, not the derived answer, or a save would write the
+            // type's behaviour back as an explicit choice.
+            'sells_from_finished_stock' => (bool) $item->sells_from_finished_stock,
+            // Null-guarded where `portion_factor` above is not: this column is
+            // nullable, and `(string) null` is the empty string, which is neither
+            // a quantity nor an absence.
+            'net_content_quantity' => $item->net_content_quantity === null ? null : (string) $item->net_content_quantity,
+            'net_content_unit_id' => $item->net_content_unit_id,
             'purchasing_unit_id' => $item->purchasing_unit_id,
             'usage_unit_id' => $item->usage_unit_id,
             'is_market_priced' => $item->is_market_priced,

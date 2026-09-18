@@ -50,7 +50,7 @@ import { useDestructiveRow } from './use-destructive-row.ts';
  * Shown reads "18 of 240" rather than claiming the three beside it are catalogue-wide.
  */
 
-export type ProductItemType = 'product' | 'sauce' | 'dressing';
+export type ProductItemType = 'product' | 'sauce' | 'dressing' | 'frozen_meal';
 
 /**
  * The columns a header menu can order by.

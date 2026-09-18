@@ -7,7 +7,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     ErrorState,
     Inline,
@@ -18,7 +17,6 @@ import {
     Stack,
     Table,
     Text,
-    useToast,
 } from '@healthy360/design-system';
 import type { SelectOption, TableColumn } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
@@ -28,7 +26,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Gate, useCan } from '../../../access/gate.tsx';
+import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     recipesFromPages,
@@ -36,43 +34,21 @@ import {
     useRecipeQuery,
     useRecipesQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
-import {
-    useCompleteProductionOrderMutation,
-    useCreateProductionOrderMutation,
-} from '../../../data/kitchen-ops-hooks.ts';
-import { useAccessState } from '../../../session/session-provider.tsx';
 import { batchFactor, displayQuantity, scaleLine, scalePackaging } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
-import {
-    CATALOGUE_VIEW_PERMISSION,
-    INVENTORY_MANAGE_PERMISSION,
-    RECIPE_VIEW_PERMISSION,
-} from '../entity-registry.ts';
+import { CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, parseQuantity, statusKey, statusTone, unitShortKey } from '../format.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { KpiTile } from '../kpi-tile.tsx';
-import { bookedToast } from '../ops-format.ts';
 
 /**
  * `/kitchen/batch` — a recipe, a quantity, and the weigh-out sheet that follows from them.
  *
  * A cook picks a recipe, says how much to produce, and reads off what to weigh and what to pack it
- * in. Money does not appear on this page at all, and a buy list is the requirements screen's —
- * which is why the family is a `workbench` card with no manage permission.
- *
- * ## Booking the batch
- *
- * Once it is cooked, **Book this batch** opens a production order for exactly the quantity on screen
- * and completes it: the server takes these same lines and packaging off the shelves and puts what
- * the recipe makes into stock, valued at what went in. The planner sends a recipe version and a
- * planned yield and nothing else, so what is booked cannot drift from what the cook read here — both
- * are the version scaled by one factor, with packaging rounded up to whole items. Only a member
- * holding `inventory.manage_organisation` sees the button, and only with a branch to book into.
- *
- * A refusal is the server's sentence, shown under the controls: not enough of something on its
- * shelf, or a recipe that makes nothing kept on one (a meal is cooked when it is ordered). The
- * order it opened stays planned on `/kitchen/production`, to be completed there once the shelf is
- * counted.
+ * in. That is the whole surface. It creates nothing, books nothing and costs nothing: a production
+ * *order* is the production screen's, a buy list is the requirements screen's, and money does not
+ * appear on this page at all — which is why the family is a `workbench` card with no manage
+ * permission.
  *
  * ## Every figure is arithmetic on one version
  *
@@ -124,12 +100,6 @@ function BatchPlanner() {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
-    const toast = useToast();
-    const canBook = useCan(INVENTORY_MANAGE_PERMISSION);
-    const branchId = useAccessState().branch?.id ?? null;
-    const createOrder = useCreateProductionOrderMutation();
-    const completeOrder = useCompleteProductionOrderMutation();
-    const [bookingError, setBookingError] = useState<string | null>(null);
 
     const [recipeId, setRecipeId] = useState<RecipeId | null>(null);
     const [modeChoice, setModeChoice] = useState<BatchMode>('yield');
@@ -194,30 +164,6 @@ function BatchPlanner() {
     // "By " with nothing after it is a control that has lost its label.
     const yieldUnitLabel = t(unitShortKey(version?.yieldUnit ?? 'kg'));
 
-    const booking = createOrder.isPending || completeOrder.isPending;
-
-    /** Open the order for the quantity on screen, then book it. Two writes, one press. */
-    const book = async () => {
-        if (version === null || factor === null || branchId === null) return;
-        setBookingError(null);
-
-        try {
-            const order = await createOrder.mutateAsync({
-                branchId,
-                recipeVersionId: version.id,
-                // In the version's yield unit, which is what the server divides by: the same factor
-                // every row on this page is scaled by.
-                plannedYield: factor * version.yieldQuantity,
-            });
-            const booked = await completeOrder.mutateAsync({ productionOrderId: order.id });
-            toast.show(bookedToast(booked.yieldValued, t));
-        } catch (error) {
-            setBookingError(
-                toFailure(error)?.message ?? t('kitchen:ops.production.completeFailed'),
-            );
-        }
-    };
-
     return (
         <Stack space="lg" testID="kitchen-batch-planner-screen">
             <KitchenPageHeader
@@ -232,19 +178,6 @@ function BatchPlanner() {
                             label={t(statusKey(version.status))}
                         />
                     )
-                }
-                actions={
-                    canBook ? (
-                        <Button
-                            testID="kitchen-batch-book"
-                            label={t('kitchen:ops.batch.book')}
-                            loading={booking}
-                            disabled={version === null || factor === null || branchId === null}
-                            onPress={() => {
-                                void book();
-                            }}
-                        />
-                    ) : undefined
                 }
             />
 
@@ -318,20 +251,6 @@ function BatchPlanner() {
                         {t('kitchen:ops.batch.noPiecesHint')}
                     </Text>
                 ) : null}
-
-                {canBook ? (
-                    <Text testID="kitchen-batch-book-hint" variant="caption" tone="secondary">
-                        {branchId === null
-                            ? t('kitchen:ops.production.noBranchBody')
-                            : t('kitchen:ops.batch.bookHint')}
-                    </Text>
-                ) : null}
-
-                {bookingError === null ? null : (
-                    <Text testID="kitchen-batch-book-error" tone="danger">
-                        {bookingError}
-                    </Text>
-                )}
             </View>
 
             <View testID="kitchen-batch-metrics" className="flex-row flex-wrap gap-3">

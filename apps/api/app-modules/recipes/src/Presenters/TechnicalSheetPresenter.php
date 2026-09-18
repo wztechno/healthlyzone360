@@ -9,6 +9,8 @@ use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Recipes\Services\CostComputation;
 use Healthy360\Recipes\Services\PackagingCostComputation;
+use Healthy360\Recipes\Services\WeeklyCostComputation;
+use Healthy360\Recipes\Services\WeeklyLineCost;
 
 /**
  * The **confidential** cost projection of a recipe version — the only
@@ -198,6 +200,54 @@ final class TechnicalSheetPresenter
             // `RecipeCostingService::costPerPackage()` for why a null is kept rather than dropped.
             'packages' => $packages,
         ];
+    }
+
+    /**
+     * The weekly-priced block: what this version costs at what the kitchen is
+     * actually paying now (PROD1).
+     *
+     * A **third** answer beside the two already here, and the three are kept
+     * apart because they answer three different questions:
+     *
+     * - `snapshots` — what we said it cost when we costed it. Pinned.
+     * - `computed` — what it costs at the prices frozen on its own lines.
+     * - this — what it costs at the published weekly average of what was really
+     *   paid, with every line's provenance beside it.
+     *
+     * `line_sources` carries lines that could **not** be costed as well as those
+     * that could, because "which ingredient has no price" is the first thing
+     * somebody asks when the total is withheld. `ingredients_needing_initial_price`
+     * is the requirement's own flag, read straight off those rows rather than
+     * recomputed by a client that might disagree about what counts.
+     *
+     * @return array<string, mixed>
+     */
+    public function weekly(WeeklyCostComputation $weekly): array
+    {
+        $block = $this->computed(
+            $weekly->production,
+            $weekly->packaging,
+            $weekly->totalCostPerYieldUnitAmount,
+        );
+
+        $block['weekly_price_publication_id'] = $weekly->weeklyPricePublicationId;
+        $block['has_carried_forward_prices'] = $weekly->hasCarriedForwardPrices();
+        $block['ingredients_needing_initial_price'] = $weekly->ingredientsNeedingInitialPrice();
+        $block['line_sources'] = array_values(array_map(
+            static fn (WeeklyLineCost $source): array => [
+                'line_number' => $source->lineNumber,
+                'ingredient_id' => $source->ingredientId,
+                'cost_source' => $source->source,
+                'unit_cost_amount' => $source->unitCostAmount,
+                'cost_currency_code' => $source->currencyCode,
+                'effective_from' => $source->effectiveFrom,
+                'source_recipe_version_id' => $source->sourceRecipeVersionId,
+                'carried_forward' => $source->carriedForward,
+            ],
+            $weekly->lineSources,
+        ));
+
+        return $block;
     }
 
     /**

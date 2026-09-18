@@ -78,6 +78,87 @@ final class IngredientCostService
         string $currencyCode,
         ?string $sourceReceiptLineId = null,
     ): IngredientStockCost {
+        return $this->blend(
+            $organisationId,
+            $ingredient,
+            $purchasedQuantity,
+            $purchaseUnit,
+            $unitPriceAmount,
+            $currencyCode,
+            $sourceReceiptLineId,
+            isPurchase: true,
+        );
+    }
+
+    /**
+     * Blend a finished production batch into the produced ingredient's
+     * moving-average cost (PROD1).
+     *
+     * The same blend, and deliberately so: a kitchen that makes a litre of
+     * dressing and a kitchen that buys one both end up with a litre on the shelf
+     * worth what it cost to get there, and two different averages for the same
+     * shelf would be two answers to what that litre is worth. `MealExplosion` and
+     * the COGS valuation read one figure; there is one figure.
+     *
+     * **`last_purchase_cost_amount` is not touched.** That column answers "what
+     * did we last *pay* for this", and a batch is not a payment. Writing a
+     * production unit cost into it would make a supplier-price surface quote a
+     * number no supplier ever quoted.
+     *
+     * The caller is expected to have posted the `yield` movement in the same
+     * transaction, exactly as `GoodsReceiptService` posts its movement beside its
+     * blend, and to call this **only** when the batch's cost is complete: blending
+     * a partial total, or raising the quantity at a zero cost, silently dilutes
+     * the average for every sale afterwards.
+     *
+     * @param  numeric-string  $producedQuantity  in $yieldUnit
+     * @param  numeric-string  $unitCostAmount  the batch's cost per $yieldUnit
+     *
+     * @throws MixedIngredientCostCurrency when the batch currency differs from the ingredient's held cost
+     * @throws StrandedIngredientCostUnit when the held balance's unit cannot be rebased onto the ingredient's current one
+     * @throws UnitConversionUnsupported when the yield unit cannot convert to the ingredient's default unit
+     */
+    public function recordProducedBatch(
+        string $organisationId,
+        Ingredient $ingredient,
+        string $producedQuantity,
+        MeasurementUnit $yieldUnit,
+        string $unitCostAmount,
+        string $currencyCode,
+    ): IngredientStockCost {
+        return $this->blend(
+            $organisationId,
+            $ingredient,
+            $producedQuantity,
+            $yieldUnit,
+            $unitCostAmount,
+            $currencyCode,
+            null,
+            isPurchase: false,
+        );
+    }
+
+    /**
+     * The weighted blend itself, shared by the two ways stock arrives.
+     *
+     * @param  numeric-string  $purchasedQuantity
+     * @param  numeric-string  $unitPriceAmount
+     * @param  bool  $isPurchase  false for a production batch, which must not move `last_purchase_cost_amount`
+     *
+     * @throws MixedIngredientCostCurrency
+     * @throws StrandedIngredientCostUnit
+     * @throws UnitConversionUnsupported
+     */
+    private function blend(
+        string $organisationId,
+        Ingredient $ingredient,
+        string $purchasedQuantity,
+        MeasurementUnit $purchaseUnit,
+        string $unitPriceAmount,
+        string $currencyCode,
+        ?string $sourceReceiptLineId,
+        bool $isPurchase,
+    ): IngredientStockCost {
         $quantity = $this->numeric($purchasedQuantity);
         $unitPrice = $this->numeric($unitPriceAmount);
 
@@ -159,7 +240,13 @@ final class IngredientCostService
 
         $cost->quantity_on_hand = $newQuantityStored;
         $cost->moving_average_cost_amount = $newAverage;
-        $cost->last_purchase_cost_amount = $receivedUnitCost;
+
+        if ($isPurchase) {
+            // "What did we last pay for this" — a question a production batch is
+            // not an answer to.
+            $cost->last_purchase_cost_amount = $receivedUnitCost;
+        }
+
         $cost->currency_code = $currencyCode;
         $cost->unit_id = (string) $ingredientUnit->getKey();
         $cost->save();

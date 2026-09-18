@@ -1,0 +1,322 @@
+{
+    "title": "Access",
+    "team": {
+        "title": "Team",
+        "subtitle": "Everybody who can sign in to this kitchen, and what each of them may reach.",
+        "caption": "The people who work at this kitchen",
+        "columns": {
+            "person": "Person",
+            "email": "Signs in as",
+            "roles": "Roles",
+            "scope": "Works at",
+            "status": "Status"
+        },
+        "organisationWide": "The whole kitchen",
+        "noRoles": "No roles yet",
+        "unnamed": "Name not set",
+        "emptyTitle": "Nobody else works here yet",
+        "emptyBody": "Invite a colleague who has an email address, or create a login for somebody who does not.",
+        "filteredEmptyTitle": "Nobody matches that",
+        "filteredEmptyBody": "Try a different status, or clear the filter.",
+        "showEnded": "Include people who have left",
+        "add": "Add somebody",
+        "open": "Open",
+        "invitations": {
+            "title": "Waiting to be accepted",
+            "subtitle": "Offers that have been sent and not yet taken up.",
+            "caption": "Outstanding invitations",
+            "revoke": "Withdraw",
+            "revoked": "Withdrew the offer to {{email}}.",
+            "sent": "Sent an invitation to {{email}}.",
+            "expires": "Expires {{date}}",
+            "empty": "No outstanding invitations."
+        }
+    },
+    "member": {
+        "title": "{{name}}",
+        "back": "Back to the team",
+        "rolesHeading": "Roles",
+        "rolesHint": "What this person may do. Somebody holding two roles may do what either one allows.",
+        "scopeHeading": "Where they work",
+        "scopeHint": "Leave this on the whole kitchen unless they only ever work one branch.",
+        "scopeWholeKitchen": "The whole kitchen",
+        "scopeSingleBranch": "This kitchen has one branch, so there is nothing to choose.",
+        "permissionsHeading": "What that adds up to",
+        "permissionsHint": "Every action these roles allow, together.",
+        "assignmentFrom": "From {{date}}",
+        "assignmentUntil": "Until {{date}}",
+        "assignmentScheduled": "Not in effect yet",
+        "assignmentExpired": "No longer in effect",
+        "save": "Save changes",
+        "suspend": "Suspend",
+        "suspended": "{{name}} can no longer sign in.",
+        "reactivate": "Let back in",
+        "reactivated": "{{name}} can sign in again.",
+        "end": "Remove from this kitchen",
+        "ended": "{{name}} no longer works here.",
+        "endTitle": "Remove {{name}}?",
+        "endBody": "They stop being able to sign in to this kitchen. Their record stays, so what they did is still attributable.",
+        "endConfirm": "Remove them",
+        "cancel": "Cancel",
+        "lastAdministrator": "Nobody else can manage access. If you remove this person, only the owner will be able to change permissions.",
+        "selfLockout": "You cannot remove your own access. Ask another administrator to do it.",
+        "saved_one": "Saved. {{name}} now holds one role.",
+        "saved_other": "Saved. {{name}} now holds {{count}} roles."
+    },
+    "roles": {
+        "title": "Roles",
+        "subtitle": "What each job title is allowed to reach. Edit a role and everybody holding it changes with it.",
+        "templatesHeading": "Standard roles",
+        "templatesHint": "Defined by Healthy360 and shared by every kitchen. Copy one to make a version of your own.",
+        "ownHeading": "This kitchen's roles",
+        "ownHint": "Roles you have defined. Only these can be edited.",
+        "caption": "Roles available in this kitchen",
+        "columns": {
+            "role": "Role",
+            "holders": "Held by",
+            "pages": "Permissions"
+        },
+        "holdersNone": "Nobody yet",
+        "copy": "Copy",
+        "edit": "Edit",
+        "open": "Open",
+        "create": "New role",
+        "emptyTitle": "You have not defined any roles of your own",
+        "emptyBody": "Copy a standard role to make a version this kitchen can change.",
+        "holders_one": "One person",
+        "holders_other": "{{count}} people",
+        "permissionCount_one": "One permission",
+        "permissionCount_other": "{{count}} permissions"
+    },
+    "role": {
+        "back": "Back to roles",
+        "newTitle": "New role",
+        "copyTitle": "Copy of {{name}}",
+        "nameEn": "Name (English)",
+        "nameAr": "Name (Arabic)",
+        "code": "Reference",
+        "codeHint": "Lowercase words joined by underscores. This cannot be changed later.",
+        "descriptionEn": "What this role is for (English)",
+        "descriptionAr": "What this role is for (Arabic)",
+        "tabs": {
+            "pages": "Pages",
+            "advanced": "Advanced"
+        },
+        "save": "Save role",
+        "saved": "Saved.",
+        "created": "Created {{name}}.",
+        "delete": "Delete role",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteBody": "Nobody holds this role, so nobody loses access.",
+        "deleteConfirm": "Delete it",
+        "deleted": "Deleted {{name}}.",
+        "cancel": "Cancel",
+        "templateNotice": "This is a standard role and cannot be edited. Copy it to make a version this kitchen can change.",
+        "shadowsTemplate": "There is a standard role with this reference. Yours will be used instead of it, everywhere in this kitchen.",
+        "selfLockout": "This would take away your own ability to manage roles, and nobody could give it back to you from here.",
+        "deleteBlocked_one": "One person still holds this role. Give them another one first.",
+        "deleteBlocked_other": "{{count}} people still hold this role. Give them another one first."
+    },
+    "pages": {
+        "hint": "Set what this role can reach, page by page.",
+        "levels": {
+            "none": "No access",
+            "view": "Can look",
+            "manage": "Can change"
+        },
+        "alsoOpens": "Also opens: {{pages}}",
+        "unmappedHeading": "Held, but not shown on any page",
+        "unmappedHint": "These stay exactly as they are when you save from this tab. Open Advanced to change them.",
+        "unmappedCount_one": "One permission",
+        "unmappedCount_other": "{{count}} permissions"
+    },
+    "advanced": {
+        "hint": "Every permission this role can hold. Use Pages unless you need something it cannot express.",
+        "notHeld": "You do not hold this yourself",
+        "selected": "{{count}} of {{total}} selected",
+        "emptyDomain": "Nothing in this group."
+    },
+    "extras": {
+        "orderDeskSale": "Ring up a sale",
+        "orderDeskCustomer": "Open an account for a caller",
+        "unpricedReceipts": "Unpriced receipts"
+    },
+    "add": {
+        "title": "Add somebody",
+        "back": "Back to the team",
+        "modes": {
+            "invite": "Send an invitation",
+            "create": "Create the login here"
+        },
+        "inviteHint": "They choose their own password from a link in the email. Better whenever they have an address of their own.",
+        "createHint": "You choose the first password and hand it over. For somebody who has no work email address.",
+        "email": "Email address",
+        "signInName": "Sign-in name",
+        "signInNameHint": "Lowercase letters and numbers. They will sign in as {{example}}.",
+        "domain": "at",
+        "givenName": "First name",
+        "familyName": "Family name",
+        "password": "First password",
+        "passwordHint": "They will be asked to choose a new one the first time they sign in.",
+        "generate": "Generate one",
+        "role": "Role",
+        "branch": "Works at",
+        "message": "A line for the email (optional)",
+        "submitInvite": "Send the invitation",
+        "submitCreate": "Create the login",
+        "passwordTitle": "Write this down now",
+        "passwordBody": "This is the only time {{name}}'s password is shown. They will be asked to change it when they first sign in.",
+        "passwordAcknowledge": "I have written it down",
+        "created": "{{name}} can now sign in."
+    },
+    "signIn": {
+        "organisation": "Where do you work?",
+        "useFullEmail": "Use my full email address"
+    },
+    "changePassword": {
+        "title": "Choose your own password",
+        "subtitle": "Somebody set this password for you. Replace it with one only you know.",
+        "current": "The password you were given",
+        "password": "New password",
+        "confirmation": "New password again",
+        "submit": "Save it",
+        "done": "Saved. That is your password now."
+    },
+    "status": {
+        "invited": "Invited",
+        "active": "Working",
+        "suspended": "Suspended",
+        "ended": "Left"
+    },
+    "codes": {
+        "audit.view_organisation": {
+            "name": "See the audit trail"
+        },
+        "b2b_quotation.quote_organisation": {
+            "name": "Price a corporate quotation"
+        },
+        "b2b_quotation.view_organisation": {
+            "name": "See corporate quotations"
+        },
+        "branch.manage_current": {
+            "name": "Manage branches and opening hours"
+        },
+        "branch.view_current": {
+            "name": "See branches"
+        },
+        "catalogue.manage_organisation": {
+            "name": "Edit the catalogue"
+        },
+        "catalogue.publish_organisation": {
+            "name": "Decide what is on sale"
+        },
+        "catalogue.view_organisation": {
+            "name": "See the catalogue"
+        },
+        "consent.manage_own": {
+            "name": "Change own consents"
+        },
+        "consent.view_own": {
+            "name": "See own consents"
+        },
+        "customer.create_on_behalf_organisation": {
+            "name": "Open a customer account"
+        },
+        "delivery_zone.manage_organisation": {
+            "name": "Manage delivery areas and slots"
+        },
+        "device.manage_own": {
+            "name": "Manage own devices"
+        },
+        "entitlement.view_organisation": {
+            "name": "See the kitchen’s plan features"
+        },
+        "inventory.manage_organisation": {
+            "name": "Move stock and run production"
+        },
+        "inventory.order_supplies_organisation": {
+            "name": "Order from suppliers"
+        },
+        "inventory.view_costs_organisation": {
+            "name": "See what stock cost"
+        },
+        "inventory.view_organisation": {
+            "name": "See stock and production"
+        },
+        "membership.end_organisation": {
+            "name": "Remove somebody"
+        },
+        "membership.invite_organisation": {
+            "name": "Invite people"
+        },
+        "membership.update_organisation": {
+            "name": "Change where somebody works"
+        },
+        "membership.view_organisation": {
+            "name": "See who works here"
+        },
+        "order.create_on_behalf_organisation": {
+            "name": "Place an order for somebody"
+        },
+        "order.manage_organisation": {
+            "name": "Confirm, fulfil and cancel orders"
+        },
+        "order.view_customer_contact_organisation": {
+            "name": "See a caller’s name and number"
+        },
+        "order.view_organisation": {
+            "name": "See orders"
+        },
+        "organisation.update_current": {
+            "name": "Change the kitchen’s details"
+        },
+        "organisation.view_current": {
+            "name": "See this kitchen"
+        },
+        "plan.manage_organisation": {
+            "name": "Design subscription plans"
+        },
+        "plan.publish_organisation": {
+            "name": "Put subscription plans on sale"
+        },
+        "price_list.manage_organisation": {
+            "name": "Set prices"
+        },
+        "price_list.view_organisation": {
+            "name": "See prices"
+        },
+        "profile.update_own": {
+            "name": "Change own profile"
+        },
+        "profile.view_own": {
+            "name": "See own profile"
+        },
+        "recipe.manage_organisation": {
+            "name": "Write recipes"
+        },
+        "recipe.publish_organisation": {
+            "name": "Publish recipe versions"
+        },
+        "recipe.view_costs_organisation": {
+            "name": "See and set recipe costs"
+        },
+        "recipe.view_organisation": {
+            "name": "See recipes"
+        },
+        "role.manage_organisation": {
+            "name": "Manage roles and who holds them"
+        },
+        "role.view_organisation": {
+            "name": "See roles"
+        },
+        "session.revoke_own": {
+            "name": "Sign out of own sessions"
+        },
+        "subscription.view_organisation": {
+            "name": "See standing subscriptions"
+        },
+        "user.manage_organisation": {
+            "name": "Create logins"
+        }
+    }
+}

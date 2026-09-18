@@ -7,14 +7,12 @@ import type {
     RecipePackagingLine,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { apiFailure, throwFailure } from '@healthy360/api-client/contracts';
-import { IngredientId, KitchenId, ProductionOrderId, RecipeId } from '@healthy360/domain-types';
+import { IngredientId, KitchenId, RecipeId } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import {
-    TEST_BRANCH_ID,
     TEST_ORGANISATION_ID,
     kitchenManagerSession,
     testActiveContext,
@@ -341,146 +339,5 @@ describe('the batch planner', () => {
         // The gate refuses before anything is asked — a page of em dashes where the names go would
         // be the alternative, and `catalogue.view_organisation` is exactly the code that prevents it.
         expect(harness.repositories.kitchenAdmin.getIngredient).not.toHaveBeenCalled();
-    });
-});
-
-/* ------------------------------------------------------------------------------------------------
- * Booking the batch
- * ---------------------------------------------------------------------------------------------- */
-
-const ORDER_ID = ProductionOrderId.unsafe('01935f6d-0000-7000-8000-0000000c0001');
-
-/** Picks the recipe and asks for ten kilograms of it — two and a half batches. */
-async function planTenKilograms() {
-    await untilVisible('kitchen-batch-planner-pick-recipe');
-    await act(async () => {
-        fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
-    });
-    await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
-    await act(async () => {
-        fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
-    });
-    await act(async () => {
-        fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '10');
-    });
-    await untilVisible('kitchen-batch-ingredients');
-}
-
-describe('booking a batch from the planner', () => {
-    it('opens an order for exactly the quantity on screen and books it in the same press', async () => {
-        const harness = await renderStubScreen(<BatchPlannerScreen />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                ...batchRepositories(),
-                kitchenOps: {
-                    createProductionOrder: async () => ({
-                        id: ORDER_ID,
-                        status: 'planned',
-                        yieldValued: null,
-                    }),
-                    completeProductionOrder: async () => ({
-                        id: ORDER_ID,
-                        status: 'completed',
-                        yieldValued: true,
-                    }),
-                },
-            },
-        });
-
-        await planTenKilograms();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-batch-book'));
-        });
-
-        // The version and the planned yield, and nothing else: the server scales the same version by
-        // the same factor, so what is booked is what the page showed.
-        await waitFor(() => {
-            expect(harness.repositories.kitchenOps.completeProductionOrder).toHaveBeenCalledWith(
-                ORDER_ID,
-            );
-        });
-        expect(harness.repositories.kitchenOps.createProductionOrder).toHaveBeenCalledWith({
-            branchId: TEST_BRANCH_ID,
-            recipeVersionId: VERSION_ID,
-            plannedYield: 10,
-        });
-        await untilVisible('kitchen-production-completed-toast');
-    });
-
-    it('says when the batch arrived without a cost', async () => {
-        await renderStubScreen(<BatchPlannerScreen />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                ...batchRepositories(),
-                kitchenOps: {
-                    createProductionOrder: async () => ({
-                        id: ORDER_ID,
-                        status: 'planned',
-                        yieldValued: null,
-                    }),
-                    completeProductionOrder: async () => ({
-                        id: ORDER_ID,
-                        status: 'completed',
-                        yieldValued: false,
-                    }),
-                },
-            },
-        });
-
-        await planTenKilograms();
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-batch-book'));
-        });
-
-        // The stock is right and the cost is missing — a warning, not a success.
-        await untilVisible('kitchen-production-completed-unvalued-toast');
-    });
-
-    it('shows the server’s refusal in its own words', async () => {
-        await renderStubScreen(<BatchPlannerScreen />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                ...batchRepositories(),
-                kitchenOps: {
-                    createProductionOrder: async () => ({
-                        id: ORDER_ID,
-                        status: 'planned',
-                        yieldValued: null,
-                    }),
-                    completeProductionOrder: async () =>
-                        throwFailure(
-                            apiFailure('server', {
-                                message:
-                                    'Not enough Burghul on the shelf for this batch: 0.5 needed, 0.2 held.',
-                            }),
-                        ),
-                },
-            },
-        });
-
-        await planTenKilograms();
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-batch-book'));
-        });
-
-        await untilVisible('kitchen-batch-book-error');
-        expect(screen.getByTestId('kitchen-batch-book-error')).toHaveTextContent(
-            /Not enough Burghul/,
-        );
-    });
-
-    it('offers no booking to a member who may not move stock', async () => {
-        await renderStubScreen(<BatchPlannerScreen />, {
-            session: kitchenManagerSession({
-                activeContext: testActiveContext({
-                    permissions: [RECIPE_VIEW_PERMISSION, 'catalogue.view_organisation'],
-                }),
-            }),
-            repositories: batchRepositories(),
-        });
-
-        await planTenKilograms();
-        expect(screen.queryByTestId('kitchen-batch-book')).toBeNull();
     });
 });

@@ -59,6 +59,7 @@ import type {
     RecipeVersionSummary,
     RollupWarning,
     ServiceArea,
+    RecipeWeeklyCost,
     TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
 import { ALLERGEN_CONTAINMENTS } from '../contracts/kitchen-admin.ts';
@@ -105,6 +106,7 @@ import type {
     DeliveryZoneStatus,
     PriceStatus,
     TechnicalSheet as WireTechnicalSheet,
+    WeeklyCost as WireWeeklyCost,
 } from '../generated/types.ts';
 
 /**
@@ -611,6 +613,10 @@ export function mapProductAdminFromItem(
         isMarketPriced: wire.is_market_priced,
         isAssorted: wire.is_assorted,
         packVariants: options?.packVariants ?? [],
+        // The server's fixed-scale string, passed through: four places survive a
+        // round trip that way, and the editor holds the user's own text anyway.
+        netContentQuantity: wire.net_content_quantity ?? null,
+        netContentUnitId: wire.net_content_unit_id ?? null,
         channelAvailability: options?.channelAvailability ?? [],
         recipeId: wire.recipe_id == null ? null : RecipeId.unsafe(wire.recipe_id),
         dietClassifications: options?.dietClassifications ?? [],
@@ -657,6 +663,17 @@ export function mapMealAdminFromItem(
         // and NOT NULL in the database, and one piece per sold unit is exactly
         // what a row without the column meant.
         portionFactor: wire.portion_factor == null ? 1 : Number(wire.portion_factor),
+        productionMode: wire.production_mode ?? null,
+        ingredientId: wire.ingredient_id ?? null,
+        // The stored flag, passed through. A payload predating the column reads
+        // false, which is what the column's own default says and what every meal
+        // did before it existed.
+        sellsFromFinishedStock: wire.sells_from_finished_stock ?? false,
+        // Left as the server's fixed-scale string rather than parsed to a
+        // number: four places survive a round trip that way, and a form holds
+        // the user's own text regardless.
+        netContentQuantity: wire.net_content_quantity ?? null,
+        netContentUnitId: wire.net_content_unit_id ?? null,
         mealTypes: [],
         dietClassifications: options?.dietClassifications ?? [],
         allergens: options?.allergens ?? [],
@@ -1008,7 +1025,9 @@ function mapCostAmount(
  * `currency_code` is the block's, not each figure's: every amount inside one computation shares it
  * by construction, because a formulation carrying two currencies is refused rather than blended.
  */
-function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeComputedCost | null {
+function mapComputedCost(
+    wire: WireComputedCost | WireWeeklyCost | null | undefined,
+): RecipeComputedCost | null {
     if (wire === null || wire === undefined) return null;
 
     const currency = wire.currency_code;
@@ -1038,7 +1057,7 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
             wastePercent: Number(wire.production.waste_percent),
             uncostedLineNumbers: wire.production.uncosted_line_numbers,
             isComplete: wire.production.is_complete,
-            lines: wire.production.lines.map(lineCostOf),
+            lines: (wire.production.lines ?? []).map(lineCostOf),
         },
         packaging: {
             total: amount(wire.packaging.total_packaging_cost_amount),
@@ -1047,13 +1066,76 @@ function mapComputedCost(wire: WireComputedCost | null | undefined): RecipeCompu
             wastePercent: Number(wire.packaging.waste_percent),
             uncostedLineNumbers: wire.packaging.uncosted_line_numbers,
             isComplete: wire.packaging.is_complete,
-            lines: wire.packaging.lines.map(lineCostOf),
+            lines: (wire.packaging.lines ?? []).map(lineCostOf),
         },
         totalCostPerYieldUnit: amount(wire.total_cost_per_yield_unit_amount),
-        packages: wire.packages.map((line) => ({
+        /*
+         * The weekly block shares this mapper and states neither per-line costs nor per-package
+         * ones: it prices a formulation as a whole at last week's averages, so there is no line to
+         * draw a figure beside. Empty rather than absent, because every reader of these two lists
+         * renders a table and an empty table is the honest answer to "which lines cost what".
+         */
+        packages: ('packages' in wire ? wire.packages : []).map((line) => ({
             lineNumber: line.line_number,
             ingredientId: IngredientId.unsafe(line.ingredient_id),
             cost: amount(line.cost_per_package_amount),
+        })),
+    };
+}
+
+/**
+ * The weekly-priced block.
+ *
+ * Not nullable, unlike `computed`: a formulation nothing could be priced brings back an empty cost
+ * block with its line sources intact, because "which ingredient has no price" is the whole answer in
+ * that case and a null would throw it away.
+ */
+function mapWeeklyCost(wire: WireWeeklyCost): RecipeWeeklyCost {
+    const base = mapComputedCost(wire);
+
+    return {
+        ...(base ?? {
+            currency: null,
+            production: {
+                total: null,
+                costPerYieldUnit: null,
+                costPerYieldUnitWithWaste: null,
+                costPerPiece: null,
+                costPerPieceWithWaste: null,
+                wastePercent: 0,
+                uncostedLineNumbers: [],
+                isComplete: false,
+                lines: [],
+            },
+            packaging: {
+                total: null,
+                costPerYieldUnit: null,
+                costPerYieldUnitWithWaste: null,
+                wastePercent: 0,
+                uncostedLineNumbers: [],
+                isComplete: false,
+                lines: [],
+            },
+            totalCostPerYieldUnit: null,
+            packages: [],
+        }),
+        weeklyPricePublicationId: wire.weekly_price_publication_id ?? null,
+        hasCarriedForwardPrices: wire.has_carried_forward_prices,
+        ingredientsNeedingInitialPrice: wire.ingredients_needing_initial_price.map((id) =>
+            IngredientId.unsafe(id),
+        ),
+        lineSources: wire.line_sources.map((source) => ({
+            lineNumber: source.line_number,
+            ingredientId: IngredientId.unsafe(source.ingredient_id),
+            source: source.cost_source,
+            unitCost: mapCostAmount(source.unit_cost_amount, source.cost_currency_code),
+            effectiveFrom: source.effective_from ?? null,
+            sourceRecipeVersionId:
+                source.source_recipe_version_id === null ||
+                source.source_recipe_version_id === undefined
+                    ? null
+                    : RecipeVersionId.unsafe(source.source_recipe_version_id),
+            carriedForward: source.carried_forward,
         })),
     };
 }
@@ -1098,6 +1180,7 @@ export function mapTechnicalSheetAdmin(wire: WireTechnicalSheet): TechnicalSheet
         asRecorded: mapCostFigures(wire.snapshots.as_recorded),
         recalculated: mapCostFigures(wire.snapshots.recalculated),
         computed: mapComputedCost(wire.computed),
+        weekly: mapWeeklyCost(wire.weekly),
     };
 }
 

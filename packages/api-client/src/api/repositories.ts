@@ -19,6 +19,7 @@ import type {
     ResendVerificationResult,
     TwoFactorChallengeRequest,
     TwoFactorSetup,
+    UpdatePasswordRequest,
 } from '../contracts/auth.ts';
 import { ApiError, apiFailure } from '../contracts/failure.ts';
 import type { Repositories } from '../contracts/index.ts';
@@ -38,6 +39,7 @@ import { generateRequestId } from './config.ts';
 import { createApiAccountRepository } from './account-repository.ts';
 import { createApiB2bApplicationRepository } from './b2b-repository.ts';
 import { createApiGuestRepository } from './guest-repository.ts';
+import { createApiAccessAdminRepository } from './access-admin-repository.ts';
 import { createApiPlatformAdminRepository } from './platform-admin-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
 import { createApiBusinessRepository } from './business-repository.ts';
@@ -306,6 +308,21 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
             });
         },
 
+        async updatePassword(request: UpdatePasswordRequest): Promise<void> {
+            // Not anonymous, and not a reset: Fortify replaces the password on the *authenticated*
+            // user and leaves the session standing, which is what lets a forced first change walk
+            // straight into the workspace instead of back to the sign-in form.
+            await transport.request({
+                method: 'PUT',
+                path: '/auth/user/password',
+                body: {
+                    current_password: request.currentPassword,
+                    password: request.password,
+                    password_confirmation: request.passwordConfirmation,
+                },
+            });
+        },
+
         async verifyEmailStatus(): Promise<EmailVerificationStatus> {
             const payload = await transport.request<WireMePayload>({ method: 'GET', path: '/me' });
             return {
@@ -526,5 +543,6 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         driverJobs: createApiDriverJobsRepository(transport),
         invitations: createApiInvitationsRepository(transport),
         platformAdmin: createApiPlatformAdminRepository(transport),
+        accessAdmin: createApiAccessAdminRepository(transport),
     };
 }

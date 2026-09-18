@@ -77,6 +77,12 @@ class User extends Authenticatable implements MustVerifyEmail
             'status' => UserStatus::class,
             'closed_at' => 'datetime',
             'anonymised_at' => 'datetime',
+
+            // AA1. Deliberately absent from `#[Fillable]`: it is set by
+            // `StaffProvisioning` through `forceFill` and cleared by
+            // `UpdateUserPassword` the same way, and there is no request body
+            // anywhere that should be able to reach it.
+            'must_change_password' => 'boolean',
         ];
     }
 

@@ -155,15 +155,30 @@ it('will not let an order be deleted out from under its own receipt', function (
         'confirmed_by' => $this->tenant->user->getKey(),
     ]);
 
-    // 23001 is `restrict_violation`, which is a stronger thing to pin than the
-    // generic 23503: PostgreSQL raises it for `ON DELETE RESTRICT` and raises
-    // `foreign_key_violation` for `NO ACTION`, so this proves the reference was
-    // written the way the migration says rather than merely that some key
-    // stood in the way. A receipt is the record that money arrived; an order it
-    // points at going missing would leave a takings figure nobody can explain.
-    expect(refusalState(fn () => Order::query()->whereKey($order->getKey())->delete()))->toBe('23001');
+    // A receipt is the record that money arrived; an order it points at going
+    // missing would leave a takings figure nobody can explain.
+    //
+    // `23503` is `foreign_key_violation`, and it is what PostgreSQL raises here.
+    // This assertion used to pin `23001` (`restrict_violation`) on the reasoning
+    // that the two codes discriminate `ON DELETE RESTRICT` from `NO ACTION` —
+    // which is not true of PostgreSQL: `ri_restrict()` serves both and reports
+    // through `ri_ReportViolation()`, which raises `23503` either way. `23001`
+    // exists in `errcodes.txt` for standard completeness and the RI machinery
+    // never emits it, so the old expectation could not have passed against any
+    // schema at all.
+    expect(refusalState(fn () => Order::query()->whereKey($order->getKey())->delete()))->toBe('23503');
 
     expect(Order::query()->whereKey($order->getKey())->exists())->toBeTrue();
+
+    // The guarantee the error code was reaching for, asked of the catalogue
+    // instead, where it is actually recorded: `confdeltype` is `r` for RESTRICT
+    // and `a` for NO ACTION. This is what proves the reference was written the
+    // way the migration says rather than merely that some key stood in the way —
+    // and unlike a SQLSTATE it discriminates the two, so a `->change()` that
+    // quietly downgraded the constraint would fail here.
+    expect(DB::table('pg_constraint')
+        ->where('conname', 'order_payment_receipts_order_id_foreign')
+        ->value('confdeltype'))->toBe('r');
 });
 
 it('will not let the person who confirmed a payment be deleted either', function (): void {

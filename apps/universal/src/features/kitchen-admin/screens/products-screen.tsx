@@ -112,7 +112,8 @@ type SortKey = ProductSortKey;
  */
 export interface GoodsFamily {
     readonly itemType: ProductItemType;
-    readonly routeBase: '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings';
+    readonly routeBase:
+        '/kitchen/products' | '/kitchen/sauces' | '/kitchen/dressings' | '/kitchen/frozen-meals';
     readonly gateTestID: string;
     readonly create: string;
     readonly caption: string;
@@ -133,6 +134,18 @@ export const PRODUCTS_FAMILY: GoodsFamily = {
     emptyBody: 'kitchen:products.emptyBody',
     viewKind: 'kitchen:products.viewKind',
     searchPlaceholder: 'kitchen:products.searchPlaceholder',
+};
+
+export const FROZEN_MEALS_FAMILY: GoodsFamily = {
+    itemType: 'frozen_meal',
+    routeBase: '/kitchen/frozen-meals',
+    gateTestID: 'kitchen-frozen-meals',
+    create: 'kitchen:frozenMeals.create',
+    caption: 'kitchen:frozenMeals.caption',
+    emptyTitle: 'kitchen:frozenMeals.emptyTitle',
+    emptyBody: 'kitchen:frozenMeals.emptyBody',
+    viewKind: 'kitchen:frozenMeals.viewKind',
+    searchPlaceholder: 'kitchen:frozenMeals.searchPlaceholder',
 };
 
 export const SAUCES_FAMILY: GoodsFamily = {

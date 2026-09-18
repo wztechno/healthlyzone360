@@ -41,6 +41,7 @@
         "authz_permission_denied": "Your role does not allow that. Ask an administrator for the permission you need.",
         "resource_not_found": "That record no longer exists. It may have been removed or retired.",
         "resource_conflict": "Somebody else changed this while you were editing it. Reload to see their version before saving.",
+        "access_self_lockout": "That would remove your own access. Ask another administrator to do it.",
         "request_precondition_required": "This change was sent without the version it was based on, so it was not saved. Reload the record and try again.",
         "validation_failed": "Some of the details need correcting.",
         "rate_limit_exceeded": "Too many attempts. Try again in {{seconds}} seconds.",

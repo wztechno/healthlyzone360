@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Database\Seeders\OpsDemoSeeder;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\ProductionMode;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientCostEvent;
 use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
+use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Procurement\Models\GoodsReceipt;
@@ -17,6 +21,10 @@ use Healthy360\Procurement\Models\Supplier;
 use Healthy360\Procurement\Models\SupplierContact;
 use Healthy360\Procurement\Models\SupplierStockItem;
 use Healthy360\Procurement\Services\IngredientCostService;
+use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionLine;
+use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
@@ -38,11 +46,16 @@ use Illuminate\Support\Facades\DB;
 | a null one), and what it must never come near — a moved quantity, a moved
 | preferred supplier, and the weighted ingredient cost behind both.
 |
-| The seeder is also asserted to write no receipts and no purchase orders at
-| all. That is the §8 seeding rule in its blunt form: a fabricated receipt would
-| have to bypass GoodsReceiptService, and from that moment the purchase ledger,
-| the stock movements and the moving-average cost would each hold a different
-| story about the same delivery.
+| The seeder is asserted to write no purchase orders at all, and — since PROD1 —
+| to write its two demonstration receipts **through** `GoodsReceiptService` and
+| exactly once. The old rule was "no receipts", and the reason was right: a
+| fabricated receipt bypasses the service, and from that moment the purchase
+| ledger, the stock movements and the moving-average cost each hold a different
+| story about the same delivery. The objection is to the raw row, not to the
+| receipt, and a demo with no purchase history has no weekly price and therefore
+| no batch estimate to show. So the rule is now about *how*, and the assertions
+| below pin both halves: the movements and the cost events exist behind the
+| receipts, and a second run adds neither.
 |
 */
 
@@ -114,6 +127,13 @@ it('adds not one row when it runs a second time', function (): void {
         'links' => SupplierStockItem::withoutTenancy()->count(),
         'stock items' => StockItem::withoutTenancy()->count(),
         'stock levels' => StockLevel::withoutTenancy()->count(),
+        // PROD1 gave the seeder two receipts and the recipes behind them; a
+        // second run must add none of it either.
+        'goods receipts' => GoodsReceipt::withoutTenancy()->count(),
+        'recipes' => Recipe::withoutTenancy()->count(),
+        'recipe versions' => RecipeVersion::withoutTenancy()->count(),
+        'catalogue items' => CatalogueItem::withoutTenancy()->count(),
+        'ingredients' => Ingredient::withoutTenancy()->count(),
     ];
 
     $before = $counts();
@@ -123,14 +143,39 @@ it('adds not one row when it runs a second time', function (): void {
     expect($counts())->toBe($before);
 });
 
-it('seeds no goods receipt and no purchase order, on any run', function (): void {
-    // §8's seeding rule, stated as an absence. A seeded receipt would be stock
-    // that arrived without a movement and money that was spent without a
-    // ledger entry; a seeded order would be a document nobody issued.
+it('seeds no purchase order, on any run', function (): void {
+    // A seeded order would be a document nobody issued. The demo shows an empty
+    // order book that a demonstrator fills the way a kitchen would.
     $this->seed(OpsDemoSeeder::class);
 
-    expect(GoodsReceipt::withoutTenancy()->count())->toBe(0)
-        ->and(PurchaseOrder::withoutTenancy()->count())->toBe(0);
+    expect(PurchaseOrder::withoutTenancy()->count())->toBe(0);
+});
+
+it('posts its two demonstration receipts through the service, and only once', function (): void {
+    // PROD1. Two completed weeks of priced deliveries, which is the only thing
+    // that can give the demo a weekly average price to estimate a batch
+    // against. What makes them allowable is that they went through the real
+    // receiving path: each one left stock movements and cost events behind it,
+    // so the ledger, the shelf and the moving average tell one story.
+    $receipts = GoodsReceipt::withoutTenancy()->orderBy('document_ref')->get();
+
+    expect($receipts)->toHaveCount(2)
+        ->and($receipts->pluck('document_ref')->all())->toBe(['DEMO-PROD-W1', 'DEMO-PROD-W2']);
+
+    $movements = StockMovement::withoutTenancy()->where('reference_type', 'goods_receipt')->count();
+    $costEvents = IngredientCostEvent::withoutTenancy()->count();
+
+    expect($movements)->toBeGreaterThan(0)
+        ->and($costEvents)->toBeGreaterThan(0);
+
+    $this->seed(OpsDemoSeeder::class);
+
+    // A receipt is stock and money. Posting it a second time would double both,
+    // which is why the guard is on the document reference rather than on a
+    // count somebody has to keep in step.
+    expect(GoodsReceipt::withoutTenancy()->count())->toBe(2)
+        ->and(StockMovement::withoutTenancy()->where('reference_type', 'goods_receipt')->count())->toBe($movements)
+        ->and(IngredientCostEvent::withoutTenancy()->count())->toBe($costEvents);
 });
 
 it('leaves a quantity the demonstration has moved exactly where it moved it', function (): void {
@@ -249,13 +294,82 @@ it('never rewrites an ingredient cost the real purchasing path recorded', functi
     $costsBefore = $rows('ingredient_stock_costs');
     $eventsBefore = $rows('ingredient_cost_events');
 
-    expect($costsBefore)->toHaveCount(1)
-        ->and($eventsBefore)->toHaveCount(1);
+    // The demonstration receipts have already valued their own ingredients, so
+    // the counts are whatever they are; what this test is about is that the
+    // chicken's cost — and every other row beside it — comes back unchanged,
+    // `updated_at` included, so a save that changed nothing still counts.
+    expect($costsBefore)->not->toBeEmpty()
+        ->and($eventsBefore)->not->toBeEmpty();
 
     $this->seed(OpsDemoSeeder::class);
 
     expect($rows('ingredient_stock_costs'))->toBe($costsBefore)
         ->and($rows('ingredient_cost_events'))->toBe($eventsBefore)
-        ->and(IngredientStockCost::withoutTenancy()->count())->toBe(1)
-        ->and(IngredientCostEvent::withoutTenancy()->count())->toBe(1);
+        ->and(IngredientStockCost::withoutTenancy()->count())->toBe(count($costsBefore))
+        ->and(IngredientCostEvent::withoutTenancy()->count())->toBe(count($eventsBefore));
+});
+
+it('seeds a prepared salad that really does sell from finished stock', function (): void {
+    // The case OQ-051 is about, and the one consumption path the demo could not
+    // previously show: an ordinary **meal** made in advance, sold by the unit
+    // off a shelf counted in kilograms.
+    //
+    // Asserted through the real predicate rather than by reading the column, so
+    // that a tightening of the rule breaks the seed rather than quietly
+    // diverging from it. This seeder writes the model directly — as it does for
+    // recipes — so it *states* a world the service would accept rather than
+    // exercising the service; this is what keeps that statement honest.
+    $world = verdantOps();
+
+    $salad = CatalogueItem::withoutTenancy()
+        ->where('organisation_id', $world->organisation->getKey())
+        ->where('slug', 'prepared-caesar-salad')
+        ->sole();
+
+    expect($salad->item_type)->toBe(CatalogueItemType::Meal)
+        ->and($salad->sellsFromFinishedStock())->toBeTrue()
+        ->and($salad->production_mode)->toBe(ProductionMode::Production)
+        // 300 g of a shelf counted in kilograms — the conversion the columns
+        // exist for, and the one `portion_factor` could never have expressed.
+        ->and($salad->net_content_quantity)->toBe('0.3000');
+
+    $shelfUnit = MeasurementUnit::query()
+        ->whereKey(Ingredient::withoutTenancy()->whereKey($salad->ingredient_id)->value('default_unit_id'))
+        ->sole();
+
+    expect($shelfUnit->code)->toBe('kg')
+        ->and(MeasurementUnit::query()->whereKey($salad->net_content_unit_id)->value('code'))->toBe('kg');
+
+    // And the two preconditions the service would have checked: a kitchen that
+    // produces it, and an ingredient a **published** recipe version outputs.
+    expect(RecipeVersionOutput::withoutTenancy()
+        ->join('recipe_versions', 'recipe_versions.id', '=', 'recipe_version_outputs.recipe_version_id')
+        ->where('recipe_version_outputs.ingredient_id', $salad->ingredient_id)
+        ->where('recipe_versions.status', 'published')
+        ->exists())->toBeTrue();
+});
+
+it('puts the Caesar dressing inside a second recipe rather than only making it', function (): void {
+    // An intermediate is only visibly an intermediate once something else draws
+    // on it. The salad lists the dressing at 1.5 l, so the demo shows a batch
+    // taking finished dressing off its shelf instead of re-expanding mayonnaise,
+    // lemon juice and parmesan a second time.
+    $world = verdantOps();
+
+    $dressing = Ingredient::withoutTenancy()
+        ->where('organisation_id', $world->organisation->getKey())
+        ->where('slug', 'caesar-dressing')
+        ->sole();
+
+    $saladVersion = RecipeVersion::withoutTenancy()
+        ->whereIn('recipe_id', Recipe::withoutTenancy()
+            ->where('organisation_id', $world->organisation->getKey())
+            ->where('slug', 'prepared-caesar-salad')
+            ->pluck('id'))
+        ->sole();
+
+    expect(RecipeVersionLine::withoutTenancy()
+        ->where('recipe_version_id', $saladVersion->getKey())
+        ->where('ingredient_id', $dressing->getKey())
+        ->value('quantity'))->toBe('1.5000');
 });

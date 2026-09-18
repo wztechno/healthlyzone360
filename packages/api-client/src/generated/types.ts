@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'unit.conversion_unsupported' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error';
 
 export type Error = {
     code: ErrorCode;
@@ -57,6 +57,23 @@ export type User = {
      * True only once enrolment has been confirmed.
      */
     two_factor_enabled: boolean;
+    /**
+     * True for an account an administrator opened on somebody's behalf,
+     * until they replace the password they were handed. It sits here
+     * rather than in `active_context` because it is a fact about the
+     * identity: the same person is held on the change-password screen
+     * whichever workspace they were heading for.
+     *
+     * The client holds them there; the server does not enforce it. A flag
+     * that blocked every endpoint would block the one that clears it.
+     *
+     * Optional rather than required, although this API always sends it: an
+     * application build outlives a deployment, and a client reading it as
+     * "absent means no" keeps working against an API that predates AA1.
+     * There is nothing for a server without the column to hold anybody for.
+     *
+     */
+    must_change_password?: boolean;
 };
 
 /**
@@ -1327,6 +1344,159 @@ export type TechnicalSheet = {
      *
      */
     computed: ComputedCost | null;
+    weekly: WeeklyCost;
+};
+
+/**
+ * Where one line's estimating figure came from. On the wire beside the
+ * amount rather than inferred from it, because the four sources are not
+ * interchangeable and a reader has to be able to tell them apart.
+ *
+ */
+export type WeeklyCostLineSource = {
+    line_number: number;
+    ingredient_id: string;
+    /**
+     * `weekly` is the published average of what was actually paid.
+     * `component_recipe` means the line names something the kitchen makes,
+     * so the figure is that recipe's own cost per unit of what it produces
+     * — the rule that stops a dressing's oil being counted inside the
+     * dressing and again inside the salad. `ingredient_fallback` is the
+     * operator's typed price, standing in because nothing has been bought
+     * at a recorded price. `none` means no usable figure: the line stays
+     * uncosted and the total is withheld, never zeroed.
+     *
+     */
+    cost_source: 'weekly' | 'component_recipe' | 'ingredient_fallback' | 'none';
+    /**
+     * Major currency units, per the line's own unit. Null when `cost_source` is `none`.
+     */
+    unit_cost_amount: string | null;
+    cost_currency_code: string | null;
+    /**
+     * The Monday this price took effect. Null on a typed or missing price:
+     * a list price has no week and a missing one has no date at all.
+     *
+     */
+    effective_from: string | null;
+    /**
+     * Set only when `cost_source` is `component_recipe`.
+     */
+    source_recipe_version_id: string | null;
+    /**
+     * Whether this week's figure is last week's, carried because the week
+     * could not be averaged. The estimate is usable and its age is not
+     * hidden.
+     *
+     */
+    carried_forward: boolean;
+};
+
+/**
+ * What the version costs at the **published weekly average of what was
+ * really paid**, beside `computed`, which costs it at the prices frozen on
+ * its own lines.
+ *
+ * Two questions, two answers, and deliberately both on the response: *what
+ * did we say this cost when we costed it* and *what does it cost at what we
+ * are actually paying now*. Collapsing them would make one of the two a
+ * lie — a sheet costed in March that silently updated, or a live estimate
+ * that never moved.
+ *
+ * Stated as a whole object rather than composed onto `ComputedCost` with
+ * `allOf`: that schema closes itself with `additionalProperties: false`, so
+ * an `allOf` branch would reject the four properties below and the response
+ * would validate against nothing. The two halves it shares are named
+ * schemas instead, which is the reuse without the trap.
+ *
+ */
+export type WeeklyCost = {
+    currency_code: string | null;
+    production: ComputedCostProduction;
+    packaging: ComputedCostPackaging;
+    total_cost_per_yield_unit_amount: string | null;
+    yield_unit_id: string | null;
+    /**
+     * The publication these figures were read from, when one was pinned.
+     * Null means the standing prices were used.
+     *
+     */
+    weekly_price_publication_id: string | null;
+    has_carried_forward_prices: boolean;
+    /**
+     * Ingredients on this version with no published price behind them — the
+     * requirement's initial-price-entry flag, read off the line sources
+     * rather than recomputed by a client that might disagree about what
+     * counts. A typed fallback is named here too: it is somebody's
+     * expectation of what they expect to pay, and the whole point of the
+     * weekly average is that it is not that.
+     *
+     */
+    ingredients_needing_initial_price: Array<string>;
+    /**
+     * Every line, including the ones that could not be costed — "which
+     * ingredient has no price" is the first thing somebody asks when the
+     * total is withheld.
+     *
+     */
+    line_sources: Array<WeeklyCostLineSource>;
+};
+
+export type ComputedCostProduction = {
+    total_input_cost_amount: string | null;
+    cost_per_yield_unit_amount: string | null;
+    cost_per_yield_unit_with_waste_amount: string | null;
+    cost_per_piece_amount: string | null;
+    cost_per_piece_with_waste_amount: string | null;
+    waste_percent: string;
+    uncosted_line_numbers: Array<number>;
+    is_complete: boolean;
+    /**
+     * Each line's unit cost and line cost, in line order: what a table draws
+     * beside its rows, on the same basis as the totals above. Null amounts are
+     * an unpriced line, never a zero.
+     *
+     * Absent on the weekly block, which prices a formulation as a whole and has
+     * no per-line answer to give.
+     *
+     */
+    lines?: Array<{
+        line_number: number;
+        ingredient_id: string;
+        unit_cost_amount: string | null;
+        line_cost_amount: string | null;
+    }>;
+};
+
+/**
+ * No per-piece figure, deliberately. Packaging is divided by the
+ * recipe's own yield rather than by its container count, and a "cost
+ * per piece of packaging" would be a number with no question behind
+ * it.
+ *
+ */
+export type ComputedCostPackaging = {
+    total_packaging_cost_amount: string | null;
+    cost_per_yield_unit_amount: string | null;
+    cost_per_yield_unit_with_waste_amount: string | null;
+    waste_percent: string;
+    uncosted_line_numbers: Array<number>;
+    is_complete: boolean;
+    /**
+     * Each line's unit cost and line cost, in line order: what a table draws
+     * beside its rows, on the same basis as the totals above. Null amounts are
+     * an unpriced line, never a zero.
+     *
+     * Absent on the weekly block, which prices a formulation as a whole and has
+     * no per-line answer to give.
+     *
+     */
+    lines?: Array<{
+        line_number: number;
+        ingredient_id: string;
+        unit_cost_amount: string | null;
+        line_cost_amount: string | null;
+    }>;
 };
 
 /**
@@ -1341,55 +1511,8 @@ export type TechnicalSheet = {
  */
 export type ComputedCost = {
     currency_code: string | null;
-    production: {
-        total_input_cost_amount: string | null;
-        cost_per_yield_unit_amount: string | null;
-        cost_per_yield_unit_with_waste_amount: string | null;
-        cost_per_piece_amount: string | null;
-        cost_per_piece_with_waste_amount: string | null;
-        waste_percent: string;
-        uncosted_line_numbers: Array<number>;
-        is_complete: boolean;
-        /**
-         * Each line's unit cost and line cost, in line order: what a table draws
-         * beside its rows, on the same basis as the totals above. Null amounts are
-         * an unpriced line, never a zero.
-         *
-         */
-        lines: Array<{
-            line_number: number;
-            ingredient_id: string;
-            unit_cost_amount: string | null;
-            line_cost_amount: string | null;
-        }>;
-    };
-    /**
-     * No per-piece figure, deliberately. Packaging is divided by the
-     * recipe's own yield rather than by its container count, and a "cost
-     * per piece of packaging" would be a number with no question behind
-     * it.
-     *
-     */
-    packaging: {
-        total_packaging_cost_amount: string | null;
-        cost_per_yield_unit_amount: string | null;
-        cost_per_yield_unit_with_waste_amount: string | null;
-        waste_percent: string;
-        uncosted_line_numbers: Array<number>;
-        is_complete: boolean;
-        /**
-         * Each line's unit cost and line cost, in line order: what a table draws
-         * beside its rows, on the same basis as the totals above. Null amounts are
-         * an unpriced line, never a zero.
-         *
-         */
-        lines: Array<{
-            line_number: number;
-            ingredient_id: string;
-            unit_cost_amount: string | null;
-            line_cost_amount: string | null;
-        }>;
-    };
+    production: ComputedCostProduction;
+    packaging: ComputedCostPackaging;
     /**
      * Production-with-waste plus packaging-with-waste. Null unless both
      * halves are complete — a total missing one of them reads exactly like
@@ -1710,12 +1833,18 @@ export type UpdateAllergenClassRequest = {
 /**
  * Which kind of sellable thing an item is — the discriminator that lets
  * products, meals and subscription plans share one table, one price path,
- * one availability table and one publication gate. What genuinely differs
+ * one availability table and one publication gate.
+ *
+ * `frozen_meal` is a *type* and `sells_from_finished_stock` is a
+ * *behaviour*, and they answer different questions. A frozen meal is its
+ * own family and always sells from finished stock; a prepared salad made in
+ * advance sells the same way and is still a meal, so it sets the flag
+ * rather than acquiring a type. What genuinely differs
  * between them is nullable columns and child tables, not the apparatus
  * around them.
  *
  */
-export type CatalogueItemType = 'product' | 'meal' | 'subscription_plan' | 'sauce' | 'dressing';
+export type CatalogueItemType = 'product' | 'meal' | 'subscription_plan' | 'sauce' | 'dressing' | 'frozen_meal';
 
 /**
  * The publication lifecycle of a sellable item — the **same** four-state
@@ -1930,6 +2059,35 @@ export type AdminCatalogueItem = {
      * The ingredient a resold raw good simply is.
      */
     ingredient_id?: Uuid | null;
+    /**
+     * Whether a sale of this item draws finished stock rather than
+     * exploding its recipe (PROD1).
+     *
+     * The **stored column**, not the derived answer. A product, sauce,
+     * dressing or frozen meal always sells from finished stock as a
+     * property of what it is, and reads `false` here unless somebody also
+     * ticked the box — an editor needs the choice a person made, or a save
+     * would write the type's own behaviour back as an explicit one.
+     *
+     */
+    sells_from_finished_stock: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is — a 350 g pack
+     * against a shelf counted in kilograms.
+     *
+     * A fixed-scale decimal string so four places survive the round trip.
+     * **Required in practice wherever the shelf is weighed**: a mass or
+     * volume shelf with no net content refuses every sale with
+     * `no_net_content` rather than guessing, and the write refuses it first.
+     * A shelf counted in pieces needs none — `portion_factor` already means
+     * something there.
+     *
+     */
+    net_content_quantity?: string | null;
+    /**
+     * The unit `net_content_quantity` is in. All-or-nothing with it, by database CHECK.
+     */
+    net_content_unit_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
     /**
@@ -2193,6 +2351,26 @@ export type CreateCatalogueItemRequest = {
      *
      */
     portion_factor?: number;
+    /**
+     * Opt a **meal** into selling from finished stock (PROD1). Refused
+     * unless the meal's `production_mode` is `production` or `both` and its
+     * `ingredient_id` names an ingredient a published recipe version
+     * outputs — there has to be a shelf to deduct from.
+     *
+     * Meaningless on the types that always sell that way; setting it there
+     * is accepted and changes nothing.
+     *
+     */
+    sells_from_finished_stock?: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is. **Required when
+     * the shelf is counted in mass or volume** — the write refuses without
+     * it, because the sale would refuse with `no_net_content` days later on
+     * a customer's order. All-or-nothing with the unit.
+     *
+     */
+    net_content_quantity?: number | null;
+    net_content_unit_id?: Uuid | null;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
@@ -2230,6 +2408,26 @@ export type UpdateCatalogueItemRequest = {
      *
      */
     portion_factor?: number;
+    /**
+     * Opt a **meal** into selling from finished stock (PROD1). Refused
+     * unless the meal's `production_mode` is `production` or `both` and its
+     * `ingredient_id` names an ingredient a published recipe version
+     * outputs — there has to be a shelf to deduct from.
+     *
+     * Meaningless on the types that always sell that way; setting it there
+     * is accepted and changes nothing.
+     *
+     */
+    sells_from_finished_stock?: boolean;
+    /**
+     * How much of the produced ingredient one sold unit is. **Required when
+     * the shelf is counted in mass or volume** — the write refuses without
+     * it, because the sale would refuse with `no_net_content` days later on
+     * a customer's order. All-or-nothing with the unit.
+     *
+     */
+    net_content_quantity?: number | null;
+    net_content_unit_id?: Uuid | null;
     ingredient_id?: Uuid | null;
     purchasing_unit_id?: Uuid | null;
     usage_unit_id?: Uuid | null;
@@ -6289,8 +6487,181 @@ export type SpendSummaryCollection = {
     meta: Meta;
 };
 
+export type InventoryValueRow = {
+    currency_code: string;
+    /**
+     * Major units. Real and possibly **incomplete** — see `meta.unvalued_item_count`.
+     */
+    value_amount: string;
+    /**
+     * Ingredients contributing to this currency's figure.
+     */
+    valued_item_count: number;
+};
+
 /**
- * One month of one kitchen's economics in one currency (INV1.4). Every amount is a major-unit decimal string; figures are never summed across currencies. Two data-quality flags, never merged: one says the month's COGS is understated by unresolved consumption exceptions, the other says its spend is understated because a delivery's invoice has not been entered (SUP6, §3.6). The three spend-completeness fields are month facts rather than currency facts — an unpriced line has no currency — so, like waste_quantity, they repeat across a month's currency rows.
+ * One ingredient's published weekly price (PROD1).
+ *
+ * `average_unit_amount = total_cost_amount ÷ total_quantity`, in
+ * `currency_code` per `unit_id`, over every **priced** receipt line for that
+ * ingredient in the purchase week. Header discount, tax, delivery and other
+ * charges stay out of it and keep being reported separately — they are not
+ * part of what a kilogram of flour cost.
+ *
+ * Null amount is never zero: it is `source: unpriced`, an ingredient nobody
+ * could price, and it is published as a row so a buyer can act on it.
+ *
+ */
+export type WeeklyPrice = {
+    id: Uuid;
+    ingredient_id: Uuid;
+    ingredient_name_en: string | null;
+    weekly_price_publication_id: Uuid;
+    /**
+     * Monday of the week whose purchases were averaged, organisation-local.
+     */
+    purchase_week_start_date: string;
+    purchase_week_end_date: string;
+    /**
+     * The Monday these prices take effect — the week *after* the one they average.
+     */
+    effective_from_date: string;
+    /**
+     * The unit the average is per. Null only on an unpriced row.
+     */
+    unit_id: Uuid | null;
+    unit_code: string | null;
+    /**
+     * Major currency units. Null is "nobody could price this", never zero.
+     */
+    average_unit_amount: string | null;
+    currency_code: string | null;
+    /**
+     * The average's denominator, normalised into `unit_id`.
+     */
+    total_quantity: string | null;
+    /**
+     * The average's numerator — the sum of the week's priced line totals.
+     */
+    total_cost_amount: string | null;
+    receipt_line_count: number;
+    /**
+     * Lines excluded from the average because nobody had entered a price.
+     */
+    unpriced_line_count: number;
+    /**
+     * The average stands on part of the week only, so the estimate is visibly provisional.
+     */
+    has_unpriced_lines: boolean;
+    source: 'computed' | 'carried_forward' | 'unpriced';
+    /**
+     * Why this row carries last week's price rather than computing one.
+     */
+    carry_reason: 'no_purchases' | 'mixed_currency' | 'all_lines_unpriced' | 'not_convertible' | null;
+    carried_from_week_start_date: string | null;
+};
+
+/**
+ * One publishing run (PROD1) — a week's prices and the header committed with
+ * them in a single transaction.
+ *
+ */
+export type WeeklyPricePublication = {
+    id: Uuid;
+    purchase_week_start_date: string;
+    purchase_week_end_date: string;
+    effective_from_date: string;
+    /**
+     * The clock the week boundaries were resolved in.
+     */
+    timezone: string;
+    published_at: string;
+    ingredient_count: number;
+    computed_count: number;
+    carried_count: number;
+    unpriced_count: number;
+    /**
+     * Receipt lines priced after this week was published, which the published rows do not reflect.
+     */
+    late_line_count: number;
+    has_late_receipts: boolean;
+    /**
+     * Set on a recompute — the run this one replaces. The replaced rows are never edited.
+     */
+    supersedes_id: Uuid | null;
+};
+
+export type WeeklyPriceEnvelope = {
+    data: {
+        weekly_prices: Array<WeeklyPrice>;
+    };
+    meta: Meta & {
+        page?: number;
+        per_page?: number;
+        /**
+         * Stated rather than inferred from a short page.
+         */
+        has_more?: boolean;
+        /**
+         * True when no publication was named — the prices in force now.
+         */
+        is_standing?: boolean;
+    };
+};
+
+export type WeeklyPricePublicationEnvelope = {
+    data: {
+        publications: Array<WeeklyPricePublication>;
+    };
+    meta: Meta & {
+        page?: number;
+        per_page?: number;
+        has_more?: boolean;
+    };
+};
+
+export type InventoryValueEnvelope = {
+    data: {
+        inventory_value: Array<InventoryValueRow>;
+    };
+    meta: Meta & {
+        /**
+         * The instant the figure was read. Published rather than implied, so nobody mistakes a live valuation for a closing one.
+         */
+        as_of?: string;
+        unvalued_item_count?: number;
+        valued_item_count?: number;
+        /**
+         * Stated rather than derived from the count, so a client renders "incomplete" without re-deciding what incomplete means.
+         */
+        is_complete?: boolean;
+    };
+};
+
+/**
+ * One month of one kitchen's economics in one currency (INV1.4). Every
+ * amount is a major-unit decimal string; figures are never summed across
+ * currencies. The spend-completeness fields are month facts rather than
+ * currency facts — an unpriced line has no currency — so, like
+ * `waste_quantity`, they repeat across a month's currency rows.
+ *
+ * **Three production figures, and none of them sums with anything** (PROD1).
+ * `production_consumption_amount` is *not* inside `cogs_amount`: COGS joins
+ * to an order and a batch has none, so flour that became dressing has not
+ * been sold yet. `production_waste_amount` *is* inside `waste_amount`,
+ * published as an "of which" breakdown rather than an addition, because the
+ * waste row already counted it. `production_yield_value_amount` is
+ * **neither revenue nor expense** — money moving from raw materials into
+ * finished goods, the same figure on both sides of the shelf — and is named
+ * so nobody adds it to anything.
+ *
+ * **Three completeness flags, never merged**, because they undermine three
+ * different numbers: `is_spend_complete` says what the month cost to buy is
+ * understated, `has_data_quality_flag` says what it cost to sell is, and
+ * `is_production_valuation_complete` says what it cost to *make* is. One
+ * flag covering all three would tell a reader something is wrong and not
+ * what.
+ *
  */
 export type MonthlyCostReportRow = {
     /**
@@ -6354,6 +6725,69 @@ export type MonthlyCostReportRow = {
      */
     other_cogs_amount: string;
     /**
+     * What batches ate this month — Σ consume-movement cost against a
+     * production order, major units. **Not** part of `cogs_amount`: it has
+     * not been sold yet.
+     *
+     */
+    production_consumption_amount: string;
+    /**
+     * What batches lost this month — input discarded during a run and
+     * finished units rejected after one. **Already inside `waste_amount`**;
+     * adding the two would count the loss twice.
+     *
+     */
+    production_waste_amount: string;
+    /**
+     * What batches put on the shelf this month, at the batch unit cost.
+     * **Neither revenue nor expense** — an inventory transformation, stated
+     * so a reader can see the batch happened.
+     *
+     */
+    production_yield_value_amount: string;
+    /**
+     * What this month's sales were **expected** to cost, frozen line by
+     * line when each order was confirmed (PROD1) — never recomputed, or a
+     * recipe edited in October would move September's margin silently.
+     * Null whenever any line of the month could not be estimated: a total
+     * over the priced half reads exactly like a complete one and is too
+     * small.
+     *
+     */
+    estimated_cogs_amount: string | null;
+    /**
+     * Revenue minus `estimated_cogs_amount`. Null on the same terms.
+     */
+    estimated_margin_amount: string | null;
+    /**
+     * The estimated margin as a percentage of revenue; null when revenue is zero or the estimate is withheld.
+     */
+    estimated_margin_percent: string | null;
+    /**
+     * Sold lines with no frozen estimate — no recipe, no price, or two
+     * currencies. Published so the withheld estimate says how much is
+     * missing rather than leaving the null unexplained. A month fact, like
+     * the spend-completeness fields.
+     *
+     */
+    unestimated_line_count: number;
+    /**
+     * True when every sold line of the month carries a frozen estimate.
+     */
+    is_estimate_complete: boolean;
+    /**
+     * False when a batch finished this month without a complete valuation.
+     * Such a batch put stock on a shelf whose value nobody could compute,
+     * so the finished-goods figures and every sale drawn from that shelf are
+     * understated.
+     *
+     */
+    is_production_valuation_complete: boolean;
+    /**
+     * How many batches completed or abandoned this month carry a `partial` or `unvalued` cost. A month fact.
+     */
+    unvalued_batch_count: number;
+    /**
      * True when unresolved consumption exceptions mean this month's COGS is understated.
      */
     has_data_quality_flag: boolean;
@@ -6383,9 +6817,20 @@ export type MonthlyCostReportCollection = {
 };
 
 /**
- * Why a confirmed order could not deduct a line honestly (INV1.2). A closed vocabulary the consumption service raises; a client renders it as a human label rather than branching on it.
+ * Why a confirmed order could not deduct a line honestly (INV1.2). A closed
+ * vocabulary the consumption service raises; a client renders it as a human
+ * label rather than branching on it.
+ *
+ * Three of these are shortfall-shaped and mean different things, so they are
+ * separate codes rather than one. `insufficient_stock` is an empty shelf —
+ * buy more. `reserved_for_production` is a shelf that is not empty but is
+ * spoken for by a confirmed batch — talk to the kitchen, or release the
+ * claim. `no_net_content` is an item that sells from finished stock without
+ * saying how much of the shelf one sold unit takes, which is a field
+ * somebody can go and fill in.
+ *
  */
-export type ConsumptionExceptionReasonCode = 'no_branch' | 'no_catalogue_item' | 'no_recipe_version' | 'no_yield_piece_count' | 'unquantified_recipe_line' | 'no_ingredient_link' | 'no_stock_item' | 'no_stock_unit' | 'unit_conversion_unsupported' | 'no_ingredient_cost' | 'insufficient_stock';
+export type ConsumptionExceptionReasonCode = 'no_branch' | 'no_catalogue_item' | 'no_recipe_version' | 'no_yield_piece_count' | 'unquantified_recipe_line' | 'no_ingredient_link' | 'no_stock_item' | 'no_stock_unit' | 'unit_conversion_unsupported' | 'no_ingredient_cost' | 'insufficient_stock' | 'no_net_content' | 'reserved_for_production';
 
 /**
  * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
@@ -6445,43 +6890,543 @@ export type ResolveConsumptionExceptionRequest = {
     note?: string | null;
 };
 
+/**
+ * Where a batch has got to (PROD1). Six states, one forward path and two
+ * different exits.
+ *
+ * `draft → confirmed → in_production → completed`, with `cancelled`
+ * reachable while nothing has been taken off a shelf and `abandoned`
+ * reachable once something has. **`cancelled` never carries stock movements
+ * and `abandoned` always may** — that is the whole distinction, and it is
+ * what lets a reader trust the status without opening the movement ledger.
+ *
+ * `draft` and `in_production` replace the pre-PROD1 `planned` and
+ * `in_progress`: the old words described a schedule, and these describe a
+ * commitment. Nothing is reserved under `draft`, which is what the word now
+ * says out loud.
+ *
+ */
+export type ProductionOrderStatus = 'draft' | 'confirmed' | 'in_production' | 'completed' | 'cancelled' | 'abandoned';
+
+/**
+ * Whether a completed batch could be valued (PROD1).
+ *
+ * `complete` — every input that moved had a valued cost, all in one
+ * currency. `partial` — at least one input contributed quantity and no
+ * money, so the total is real and **too small**; the unit cost is withheld
+ * rather than published, because a partial total reads exactly like a
+ * complete one. `unvalued` — the inputs disagree about currency, and this
+ * system has no exchange rate and refuses to add unlike money.
+ *
+ */
+export type ProductionCostStatus = 'complete' | 'partial' | 'unvalued';
+
+/**
+ * Whether a batch line is formulation or packaging (PROD1). They behave
+ * differently: a cook reports what actually went into the pot and what was
+ * thrown away, while packaging is taken as planned. The split is also what
+ * stops a finished-stock sale deducting the box a second time.
+ *
+ */
+export type ProductionLineKind = 'ingredient' | 'packaging';
+
+/**
+ * On whose authority a line was estimated (PROD1). `weekly` is the
+ * published weighted average of what was actually paid; `component` is the
+ * recipe that makes the thing, which is what stops a dressing's olive oil
+ * being counted inside the dressing and again inside the salad; `fallback`
+ * is a price somebody typed, real and visibly weaker than the other two.
+ *
+ * A line with no usable figure carries `null` and stays **uncosted** rather
+ * than zero — a zero reads as free, and a kitchen would price against it.
+ *
+ */
+export type ProductionCostSource = 'weekly' | 'component' | 'fallback';
+
+/**
+ * One batch (PROD1).
+ *
+ * **The money keys are absent, not null, without
+ * `production.view_costs_organisation`.** Absent means "this reader may not
+ * see it"; present and null means "nobody could compute it". A surface
+ * renders the first as nothing at all and the second as an em dash, and
+ * collapsing them would tell a kitchen manager a batch was free.
+ *
+ * `usable_yield_quantity` and `yield_variance_quantity` are computed, never
+ * stored: `produced − rejected` and `produced − planned`. Rejected units are
+ * **inside** produced, never beside it — a batch that made 38 and threw one
+ * away produced 38 and has 37 on the shelf.
+ *
+ */
 export type ProductionOrder = {
     id: Uuid;
-    recipe_version_id: Uuid;
-    status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+    /**
+     * The kitchen-facing batch number, `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. Not the label — that is `batch_reference`, which the cook writes.
+     */
+    reference: string | null;
     branch_id: Uuid;
+    recipe_version_id: Uuid;
+    /**
+     * What the batch makes — the recipe version's single output.
+     */
+    production_item_ingredient_id: Uuid | null;
+    /**
+     * That ingredient's name. Carried beside the id because a desk showing a
+     * uuid where a name belongs is a desk nobody can work from. Null means
+     * the ingredient is gone — an em dash, not a blank.
+     *
+     */
+    production_item_name_en: string | null;
+    /**
+     * The unit's code, for rendering a quantity that reads as a quantity.
+     */
+    planned_yield_unit_code: string | null;
+    status: ProductionOrderStatus;
+    /**
+     * How many times over the recipe is being made. Stored rather than re-derived, because a published version can be superseded and a batch confirmed at 2.5× stays a batch of 2.5×.
+     */
+    batch_factor: string | null;
+    /**
+     * How much the batch is meant to make, in `planned_yield_unit_id`.
+     */
+    planned_yield: string | null;
+    planned_yield_unit_id: Uuid | null;
+    /**
+     * What came out, **including** anything later rejected. Null until the batch is settled, which is not the same as zero.
+     */
+    produced_quantity: string | null;
+    /**
+     * Produced and then discarded — inside `produced_quantity`, never beside it.
+     */
+    rejected_quantity: string | null;
+    /**
+     * `produced − rejected` — what is actually on the shelf. Computed, never stored.
+     */
+    usable_yield_quantity: string | null;
+    /**
+     * `produced − planned`. Negative is process loss — evaporation, pot
+     * residue — which never existed as stock, has no movement and no money
+     * of its own. Its cost is already absorbed into the unit cost of what
+     * *was* produced, so no figure is invented for it.
+     *
+     */
+    yield_variance_quantity: string | null;
+    /**
+     * The branch-local business date the batch was made, like `goods_receipts.received_on`.
+     */
+    production_date: string | null;
+    /**
+     * What the cook writes on the tray, in whatever scheme the kitchen already uses. Free text, deliberately not the system reference.
+     */
+    batch_reference: string | null;
+    storage_location: string | null;
+    expiry_date: string | null;
+    /**
+     * Past its date. A batch with **no** expiry date is not expired — that is "nobody recorded one", which is never the same as "it is fine".
+     */
+    is_expired: boolean;
+    confirmed_at: string | null;
+    started_at: string | null;
+    completed_at: string | null;
+    cancelled_at: string | null;
+    abandoned_at: string | null;
+    abandon_reason: string | null;
+    /**
+     * The validator every write carries in `If-Match`.
+     */
+    lock_version: number;
+    notes: string | null;
+    /**
+     * The batch cost at confirm, at the weekly prices of that moment. Null when any line was uncosted or the lines disagreed about currency — withheld rather than published short.
+     */
+    estimated_cost_amount?: string | null;
+    estimated_cost_currency_code?: string | null;
+    /**
+     * The published week the estimate was computed against. What makes a historical estimate reproducible when next Monday lands.
+     */
+    weekly_price_publication_id?: Uuid | null;
+    /**
+     * `Σ consumed input cost` at completion. Input waste is **not** in it: it never became product and is reported as production waste instead.
+     */
+    actual_cost_amount?: string | null;
+    actual_cost_currency_code?: string | null;
+    /**
+     * `actual_cost_amount ÷ produced_quantity`. **Withheld unless `actual_cost_status` is `complete`.**
+     */
+    actual_unit_cost_amount?: string | null;
+    actual_cost_status?: ProductionCostStatus | null;
+    /**
+     * Why the cost is partial or unvalued, in the words a reader needs.
+     */
+    valuation_note?: string | null;
+};
+
+/**
+ * One shelf a batch draws on, as planned and as it turned out (PROD1).
+ *
+ * `consumed_quantity` and `waste_quantity` **do not overlap**. The shelf
+ * falls by their sum, as two movements with different reasons: what went
+ * into the batch is cost of goods, and what was dropped on the floor is
+ * waste. Folding the second into the first would put the loss into the
+ * batch's unit cost, where the monthly report would read it as the price of
+ * the food.
+ *
+ * Money keys follow the batch's rule: absent without
+ * `production.view_costs_organisation`, null when nobody could compute them.
+ *
+ */
+export type ProductionOrderLine = {
+    id: Uuid;
+    stock_item_id: Uuid;
+    ingredient_id: Uuid;
+    line_kind: ProductionLineKind;
+    unit_id: Uuid;
+    /**
+     * The shelf's own code. Null is a shelf that has been deleted or is outside this tenant — "nobody can tell you", which renders as an em dash.
+     */
+    stock_item_code: string | null;
+    /**
+     * The words on the shelf the cook walks to, carried beside the id so a batch never renders as a column of uuids. The stock item's name rather than the ingredient's, matching the buy list.
+     */
+    stock_item_name_en: string | null;
+    /**
+     * The unit's code, so a quantity renders as a quantity.
+     */
+    unit_code: string | null;
+    /**
+     * The plan, in the stock item's own unit.
+     */
+    required_quantity: string;
+    /**
+     * What was actually claimed. Equal to required in the ordinary case; below it after a physical correction left the shelf short, which is precisely what a cook needs to see.
+     */
+    reserved_quantity: string | null;
+    consumed_quantity: string | null;
+    waste_quantity: string | null;
+    /**
+     * The version that supplied a produced component's cost — the one claiming that ingredient's nutrition, so cost and nutrition can never name different versions.
+     */
+    source_recipe_version_id: Uuid | null;
+    display_order: number;
+    estimated_unit_cost_amount?: string | null;
+    cost_source?: ProductionCostSource | null;
+    /**
+     * The figure used when no weekly price existed, so a reader can tell an estimate standing on last week's purchases from one standing on a typed cost.
+     */
+    fallback_unit_cost_amount?: string | null;
+    /**
+     * The moving average at the moment of completion, per `unit_id`.
+     */
+    actual_unit_cost_amount?: string | null;
+    cost_currency_code?: string | null;
+};
+
+/**
+ * One shelf a planned batch would draw on, and whether it can (PROD1).
+ *
+ * Five quantities and no two of them the same question. `available` is
+ * `on_hand − reserved` and **may be negative**, where more is claimed than
+ * is there; a shelf somebody over-committed is a real state and clamping it
+ * would hide it. A batch never counts **its own** claim against itself, so
+ * re-opening a confirmed order does not show it short of everything it
+ * already holds.
+ *
+ */
+export type ProductionPlanLine = {
+    stock_item_id: Uuid;
+    ingredient_id: Uuid;
+    line_kind: ProductionLineKind;
+    unit_id: Uuid;
+    /**
+     * The shelf's own code. Null is a shelf that has been deleted or is outside this tenant — "nobody can tell you", which renders as an em dash.
+     */
+    stock_item_code: string | null;
+    /**
+     * The words on the shelf the cook walks to, carried beside the id so a batch never renders as a column of uuids. The stock item's name rather than the ingredient's, matching the buy list.
+     */
+    stock_item_name_en: string | null;
+    /**
+     * The unit's code, so a quantity renders as a quantity.
+     */
+    unit_code: string | null;
+    required: string;
+    /**
+     * What is physically there, before any claim.
+     */
+    on_hand: string;
+    /**
+     * What **other** confirmed batches have already claimed.
+     */
+    reserved: string;
+    /**
+     * `on_hand − reserved`. May be negative.
+     */
+    available: string;
+    /**
+     * `max(0, required − available)` — the number a buyer acts on.
+     */
+    missing: string;
+    estimated_unit_cost_amount?: string | null;
+    estimated_line_cost_amount?: string | null;
+    currency_code?: string | null;
+    cost_source?: 'weekly' | 'component' | 'fallback' | 'none';
+    /**
+     * The week the weekly price took effect from. Null on a component or fallback figure, which has no week.
+     */
+    effective_from?: string | null;
+};
+
+/**
+ * Part of a recipe nobody could turn into a quantity (PROD1). **Never
+ * folded into the lines as a zero**: "need nothing for that" and "we could
+ * not work out what this needs" are opposite statements, and a plan that
+ * confused them would send somebody to cook with the wrong shopping.
+ *
+ */
+export type ProductionPlanHole = {
+    reason_code: string;
+    detail: string;
+};
+
+/**
+ * What a batch would need, against what the shelves can actually give
+ * (PROD1). Reads nothing into the future and writes nothing at all.
+ *
+ * `estimated_cost_amount` is **withheld** rather than partial: any uncosted
+ * line, or two currencies among the lines, and it is null with
+ * `uncosted_line_count` or `currency_conflict` saying why. A total over the
+ * lines that happened to have prices reads exactly like a complete one and
+ * is smaller, which is the direction that gets a kitchen into trouble.
+ *
+ * That never blocks anything. `is_confirmable` does not consult cost at all,
+ * because a kitchen about to cook is not refused over arithmetic nobody has
+ * finished.
+ *
+ */
+export type ProductionPlan = {
+    batch_factor: string;
+    ingredients: Array<ProductionPlanLine>;
+    packaging: Array<ProductionPlanLine>;
+    not_computable: Array<ProductionPlanHole>;
+    short_line_count: number;
+    is_confirmable: boolean;
+    estimated_cost_amount?: string | null;
+    currency_code?: string | null;
+    uncosted_line_count?: number;
+    currency_conflict?: boolean;
+    weekly_price_publication_id?: Uuid | null;
+};
+
+/**
+ * The four yield figures and what separates them (PROD1).
+ *
+ * `rejected_quantity` is **inside** `produced_quantity`, so `usable` is the
+ * difference and never the sum of anything. `variance_quantity` is
+ * `produced − planned`: negative is process loss, which never existed as
+ * stock and carries no money of its own.
+ *
+ */
+export type ProductionBatchYield = {
+    planned_quantity: string | null;
+    produced_quantity: string | null;
+    rejected_quantity: string | null;
+    usable_quantity: string | null;
+    variance_quantity: string | null;
+    unit_id: Uuid | null;
+};
+
+/**
+ * What the sheet's figures were anchored to at confirm.
+ */
+export type ProductionSheetBasis = {
+    recipe_version_id: Uuid;
+    confirmed_at: string | null;
+    /**
+     * Stated even without the costs code: **which** week priced a batch is
+     * not itself a price, and a reader who cannot see the money can still
+     * see that the estimate is anchored.
+     *
+     */
+    weekly_price_publication_id: Uuid | null;
+};
+
+export type ProductionTechnicalSheetEnvelope = {
+    data: {
+        technical_sheet: {
+            production_order: ProductionOrder;
+            lines: Array<ProductionOrderLine>;
+            yield: ProductionBatchYield;
+            /**
+             * The version's own block, copied at confirm and presented
+             * rather than recomputed. Where the version **withheld** a
+             * nutrient because an ingredient's data was incomplete, it stays
+             * withheld rather than summed into a total that looks whole.
+             *
+             */
+            nutrition_facts: {
+                [key: string]: unknown;
+            } | null;
+            basis: ProductionSheetBasis;
+        };
+    };
+    meta: Meta & {
+        costs_visible?: boolean;
+    };
 };
 
 export type ProductionOrderCollection = {
     data: {
         production_orders: Array<ProductionOrder>;
     };
-    meta: Meta;
-};
-
-export type CreateProductionOrderRequest = {
-    branch_id: Uuid;
-    recipe_version_id: Uuid;
-    planned_yield?: number | null;
+    meta: Meta & {
+        page?: number;
+        per_page?: number;
+        /**
+         * Stated rather than inferred. A bounded list that stops silently is one somebody plans a week against and gets wrong.
+         */
+        has_more?: boolean;
+        /**
+         * Whether this reader holds `production.view_costs_organisation`. It is what tells a surface that an absent money key is redacted rather than uncomputed.
+         */
+        costs_visible?: boolean;
+        /**
+         * The valuation queue's bound. Absent on the desk queue, which pages instead.
+         */
+        limit?: number;
+        /**
+         * The valuation queue's own "there is more" signal, for the same reason `has_more` exists on the desk.
+         */
+        is_truncated?: boolean;
+    };
 };
 
 export type ProductionOrderEnvelope = {
     data: {
-        production_order: {
-            id: Uuid;
-            status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
-            /**
-             * On a completion only: whether the batch arrived with a cost.
-             * False when any input had no moving average to be valued at.
-             * The cost itself is not here — booking a batch is
-             * `inventory.manage_organisation`, and what it cost is
-             * `inventory.view_costs_organisation`'s.
-             *
-             */
-            yield_valued?: boolean;
-        };
+        production_order: ProductionOrder;
+        lines?: Array<ProductionOrderLine>;
+        plan?: ProductionPlan;
     };
     meta: Meta;
+};
+
+/**
+ * A batch with its lines, and — while it has none — its live plan (PROD1).
+ *
+ * A draft has committed to nothing, so it reads its plan fresh: the shelves
+ * move under it. From confirm onwards the **lines are the answer**: they are
+ * what the kitchen agreed to, what the reservations were opened against and
+ * what the estimate was computed from, and re-deriving them would make all
+ * three disagree.
+ *
+ */
+export type ProductionOrderDetailEnvelope = {
+    data: {
+        production_order: ProductionOrder;
+        lines: Array<ProductionOrderLine>;
+        plan?: ProductionPlan;
+    };
+    meta: Meta & {
+        costs_visible?: boolean;
+    };
+};
+
+export type ProductionPlanEnvelope = {
+    data: {
+        plan: ProductionPlan;
+    };
+    meta: Meta & {
+        costs_visible?: boolean;
+    };
+};
+
+/**
+ * Open a draft batch (PROD1). **A draft claims nothing** — that is the whole
+ * reason the state is not called `planned`: a kitchen writing next week's
+ * runs on a Friday afternoon must not be quietly reserving Monday's flour
+ * while it decides.
+ *
+ * `planned_yield` is what a cook thinks in — forty litres of dressing — and
+ * `batch_factor` is what the explosion thinks in — two and a half times
+ * over. Send one; the server derives the other from the version's own yield,
+ * because a client doing that conversion would be a second place the
+ * arithmetic lives.
+ *
+ */
+export type CreateProductionOrderRequest = {
+    branch_id: Uuid;
+    recipe_version_id: Uuid;
+    /**
+     * How much to make, in the output's own unit.
+     */
+    planned_yield?: number | null;
+    /**
+     * How many times over the recipe is made.
+     */
+    batch_factor?: number | null;
+    notes?: string | null;
+};
+
+/**
+ * What the cook says actually happened (PROD1).
+ *
+ * Three yield facts, and exactly one of them is free. **Finished waste** is
+ * `rejected_quantity`: units that were made and then thrown away, inside
+ * `produced_quantity`, carrying the batch's unit cost and leaving the shelf
+ * again as a waste movement. **Input waste** is `waste`, per shelf: raw
+ * material discarded during the batch, which never became product and is
+ * therefore not part of `consumed` and not part of the batch's cost.
+ * **Process loss** is not reported at all — planned forty litres, made
+ * thirty-eight — because it never existed as stock and its cost is already
+ * absorbed into the unit cost of what was produced.
+ *
+ * Omitting a shelf from `consumed` means "as planned" rather than "nothing":
+ * a cook who followed the recipe should not have to retype it. Omitting one
+ * from `waste` means zero, because waste nobody mentioned did not happen.
+ *
+ */
+export type CompleteProductionOrderRequest = {
+    /**
+     * What came out, in the planned yield unit, **including** anything
+     * rejected. Zero is legal and is the batch that went entirely wrong: its
+     * inputs post as waste rather than consumption, nothing reaches a shelf,
+     * and no unit cost is divided.
+     *
+     */
+    produced_quantity: number;
+    rejected_quantity?: number | null;
+    /**
+     * Stock item id to what went into the batch.
+     */
+    consumed?: {
+        [key: string]: number;
+    };
+    /**
+     * Stock item id to input discarded during the batch.
+     */
+    waste?: {
+        [key: string]: number;
+    };
+    production_date?: string | null;
+    batch_reference?: string | null;
+    storage_location?: string | null;
+    expiry_date?: string | null;
+    notes?: string | null;
+};
+
+/**
+ * The completion report plus a required reason (PROD1).
+ *
+ * The same payload as completing, deliberately: what was used was used and
+ * whatever came out came out. A kitchen that had to retype everything to
+ * abandon would cancel instead and leave the flour unaccounted for — and
+ * `cancelled` is the status that promises no stock moved.
+ *
+ */
+export type AbandonProductionOrderRequest = CompleteProductionOrderRequest & {
+    /**
+     * Why the batch was given up. Required, unlike every other field here — an abandoned batch is a loss somebody asks about in a month, and "no reason given" is the answer that makes the record useless.
+     */
+    reason: string;
 };
 
 /**
@@ -7448,15 +8393,33 @@ export type OrderDeskRequirementRow = {
      */
     required: string;
     /**
-     * What the branch holds, at four places. `0` when the shelf has no
-     * level row here — that is a shelf holding none, not an unknown.
+     * What is physically on the shelf, at four places, before any claim is
+     * taken off it. `0` when the shelf has no level row here — that is a
+     * shelf holding none, not an unknown.
+     *
+     */
+    on_hand: string;
+    /**
+     * How much of `on_hand` confirmed production orders have claimed, at
+     * four places. Published beside `available` so the drop between the two
+     * is explained rather than merely applied: a buyer who sees the oil on
+     * the shelf and a buy suggestion anyway needs to know why.
+     *
+     */
+    reserved: string;
+    /**
+     * `on_hand − reserved`, at four places — what the window can actually
+     * draw on. **May be negative**, where more is claimed than is there;
+     * that is a shelf somebody has over-committed and clamping it to zero
+     * would hide the part of the problem a buyer can fix.
      *
      */
     available: string;
     /**
-     * `max(0, required − available)`, at four places. **Compared at four**
-     * so a rounding tail five decimal places down cannot manufacture a
-     * shortfall on a row that balances exactly.
+     * `max(0, required − available)`, at four places, and therefore net of
+     * production's claims too. **Compared at four** so a rounding tail five
+     * decimal places down cannot manufacture a shortfall on a row that
+     * balances exactly.
      *
      */
     short: string;
@@ -10317,6 +11280,336 @@ export type B2bAgreementEnvelope = {
     meta: Meta;
 };
 
+export type CreateStaffAccountRequest = {
+    /**
+     * A full address. Mutually exclusive with `local_part` — a body
+     * carrying both is a client that has not decided, and silently
+     * preferring one would make the other look like it worked.
+     *
+     */
+    email?: string;
+    /**
+     * The left-hand side only. Composed against the organisation's
+     * `staff_email_domain` into an ordinary address, so nothing in the
+     * authentication pipeline learns that this form exists. Refused when
+     * the organisation has no domain set: a generated address nobody
+     * chose is one nobody can be told.
+     *
+     */
+    local_part?: string;
+    given_name: string;
+    family_name: string;
+    /**
+     * Validated exactly as a self-chosen password, so a provisioned
+     * account cannot be weaker than a registered one. Not confirmed —
+     * confirmation catches a typo by somebody who cannot see what they
+     * typed, and this is shown back to the administrator once before they
+     * hand it over.
+     *
+     */
+    password: string;
+    preferred_language_code?: string | null;
+    /**
+     * May be empty. Somebody can be given a login today and duties
+     * tomorrow, which is the ordinary shape of a first morning.
+     *
+     */
+    role_ids: Array<string>;
+    /**
+     * Null means organisation-wide.
+     */
+    branch_id?: string | null;
+};
+
+export type StaffAccountEnvelope = TeamMemberEnvelope & {
+    data?: {
+        /**
+         * **Returned exactly once, here.** Never stored readable,
+         * never audited, never logged, and not on any later read —
+         * the model `InvitationService::issue()` uses for its token.
+         * `must_change_password` on the new account is what makes
+         * that defensible: what the administrator carries out of this
+         * response is a credential good for one sign-in.
+         *
+         */
+        initial_password: string;
+    };
+};
+
+export type StaffSignInDomain = {
+    organisation_name: string;
+    /**
+     * The right-hand side of every staff address this organisation issues.
+     */
+    domain: string;
+};
+
+export type UpdatePasswordRequest = {
+    /**
+     * Required even on a forced first change. A session is not a
+     * password: it survives on a shared terminal and in an unlocked
+     * phone, and the value of this route is that it takes a credential
+     * away from whoever else holds it.
+     *
+     */
+    current_password: string;
+    password: string;
+    password_confirmation: string;
+};
+
+export type PermissionDefinition = {
+    /**
+     * `domain.action_scope`. Only organisation-scoped, assignable codes
+     * ever appear here — the registry is split in two so that no
+     * organisation role can hold a platform code, and a catalogue that
+     * offered one would be a form with a trap in it.
+     *
+     */
+    code: string;
+    /**
+     * The seeded English description. Clients translate the code and fall
+     * back to this when they have no string for it, so a code added on
+     * the backend shows up in the editor rather than as a blank row.
+     *
+     */
+    description: string;
+    /**
+     * Whether the caller holds this code themselves. Information, not a
+     * gate: role management is total, so an administrator may grant an
+     * authority they cannot exercise — this is how the editor marks it
+     * instead of hiding it.
+     *
+     */
+    held_by_caller: boolean;
+};
+
+export type PermissionDomain = {
+    domain: string;
+    permissions: Array<PermissionDefinition>;
+};
+
+export type PermissionCatalogueEnvelope = {
+    data: {
+        domains: Array<PermissionDomain>;
+    };
+    meta: Meta;
+};
+
+export type OrganisationRoleSummary = {
+    id: string;
+    /**
+     * Lowercase words joined by single underscores. Immutable once set:
+     * it is what an invitation's `role_code` resolves against, so
+     * changing it would silently redirect every outstanding offer naming
+     * the old one.
+     *
+     */
+    code: string;
+    name_en: string;
+    name_ar: string;
+    description_en: string | null;
+    description_ar: string | null;
+    /**
+     * A platform template: visible in every tenant, editable in none.
+     * The console offers **Copy** on these rather than Edit — forking one
+     * into a role of your own is how a kitchen changes what a template
+     * means inside its walls, and `MembershipGranter` prefers the fork.
+     *
+     */
+    is_system: boolean;
+    /**
+     * How many memberships hold it. The number that says which roles are
+     * real and which were defined and forgotten — and the one that
+     * decides whether deletion will be refused.
+     *
+     */
+    holder_count: number;
+    permission_count: number;
+    /**
+     * Always `0` on a template, which is never written from here.
+     */
+    lock_version: number;
+    updated_at: string | null;
+};
+
+export type OrganisationRole = OrganisationRoleSummary & {
+    /**
+     * Every code this role grants, in catalogue order rather than the
+     * order they were submitted — so two saves that changed nothing
+     * produce the same list.
+     *
+     */
+    permissions: Array<string>;
+    /**
+     * Who last changed what this role reaches. `created_by` cannot
+     * answer that, and it is the one question an access review asks.
+     *
+     */
+    updated_by_name: string | null;
+};
+
+export type OrganisationRoleEnvelope = {
+    data: {
+        role: OrganisationRole;
+    };
+    meta: Meta & {
+        /**
+         * Present on create. True when this kitchen has defined a role
+         * carrying a platform template's code. Permitted — it is the
+         * mechanism Copy relies on — and reported, because a kitchen
+         * that did it deliberately and one that did it by accident
+         * type exactly the same thing.
+         *
+         */
+        shadows_template?: boolean;
+    };
+};
+
+export type WriteOrganisationRoleRequest = {
+    /**
+     * Required on create, and absent from update — see `code` above.
+     */
+    code?: string;
+    name_en: string;
+    name_ar: string;
+    description_en?: string | null;
+    description_ar?: string | null;
+    /**
+     * The codes this role should end up with. A **replacement**, not an
+     * addition: an additive body could not express "take this away", and
+     * taking things away is the half of a role editor that matters. An
+     * empty array is valid — a role that grants nothing is a legitimate
+     * thing to park.
+     *
+     */
+    permissions: Array<string>;
+};
+
+export type TeamMemberRole = {
+    id: string;
+    code: string;
+    name_en: string;
+    name_ar: string;
+    is_system: boolean;
+};
+
+export type TeamMemberBranch = {
+    id: string;
+    name: string;
+};
+
+export type TeamMemberSummary = {
+    membership_id: string;
+    user_id: string;
+    given_name: string | null;
+    family_name: string | null;
+    /**
+     * In full, unlike `Invitation.email_masked`. That one is read
+     * anonymously, where the address would be a credential; this one is
+     * read by a member of the organisation holding
+     * `membership.view_organisation`, and it is the login identifier —
+     * an administrator who cannot see it cannot tell two people with the
+     * same name apart.
+     *
+     */
+    email: string | null;
+    /**
+     * All four, unlike `Membership.status` on `/me` — that one describes
+     * the caller's own live memberships, and an ended one is not a
+     * workspace they can enter. Here `ended` is listed, because who
+     * *used* to have access is exactly what an access review reads, and a
+     * console that could not answer "did she ever work here" would send
+     * somebody to the database.
+     *
+     */
+    status: 'invited' | 'active' | 'suspended' | 'ended';
+    joined_at: string | null;
+    /**
+     * Null means organisation-wide, which is a value rather than an absence.
+     */
+    branch: TeamMemberBranch | null;
+    roles: Array<TeamMemberRole>;
+    lock_version: number;
+};
+
+export type MembershipRoleAssignment = {
+    role_id: string;
+    starts_at: string | null;
+    expires_at: string | null;
+};
+
+export type TeamMember = TeamMemberSummary & {
+    /**
+     * Every assignment including ones that have not started or have
+     * expired. A console that hid a future assignment could not show
+     * you what you scheduled, and the editor would drop it on the
+     * next save — a `PUT` replaces what it was shown.
+     *
+     */
+    assignments: Array<MembershipRoleAssignment>;
+    /**
+     * What the roles add up to. Computed rather than implied, because
+     * two roles overlapping is the ordinary case and a client that
+     * got the union wrong would be wrong quietly.
+     *
+     */
+    permissions: Array<string>;
+};
+
+export type TeamMemberEnvelope = {
+    data: {
+        membership: TeamMember;
+    };
+    meta: Meta & {
+        /**
+         * How many *other* active memberships could still administer
+         * access. Reported, never enforced: removing the last other
+         * administrator is permitted, because a console that refused
+         * the thing an operator opened it to do is a control that has
+         * made itself unusable. Zero on your own row means nobody
+         * else can.
+         *
+         */
+        remaining_role_administrators: number;
+        /**
+         * The organisation's open branches — the vocabulary the scope
+         * picker needs, served beside the record rather than from a
+         * resource of its own because nothing else a kitchen can
+         * reach lists its branches, and a picker that cannot name one
+         * would drop it on the next save.
+         *
+         * Present on the read *and* on all four writes, which share
+         * one assembler and one client mapper: a field served on only
+         * some of them comes back empty from a save and empties the
+         * picker mid-edit.
+         *
+         * Closed branches are excluded. Empty means a single-branch
+         * kitchen, where there is no scope decision to make.
+         *
+         */
+        branches: Array<TeamMemberBranch>;
+    };
+};
+
+export type ReplaceMembershipRolesRequest = {
+    /**
+     * The whole set. `[]` strips every role while leaving the person a
+     * member — a real state, and not the same as ending their membership.
+     *
+     */
+    roles: Array<MembershipRoleAssignment>;
+};
+
+export type UpdateMembershipScopeRequest = {
+    /**
+     * Null means organisation-wide. Required to be *present* rather than
+     * non-null, because on a `PATCH` "make this person organisation-wide"
+     * and "I forgot the field" are otherwise the same request.
+     *
+     */
+    branch_id: string | null;
+};
+
 export type OrganisationInvitationEnvelope = {
     data: {
         invitation: OrganisationInvitation;
@@ -12195,6 +13488,22 @@ export type B2bCatalogueLanguage = 'en' | 'ar';
 export type OrganisationPath = Uuid;
 
 /**
+ * A role of this organisation, or a platform template. Reads accept
+ * either; writes answer **404** for a template, because from the writing
+ * side there is no role at that identifier belonging to you.
+ *
+ */
+export type RolePath = Uuid;
+
+/**
+ * A membership of this organisation, in any status. An ended one resolves
+ * deliberately — a detail page that 404'd on the row the list just showed
+ * would be a list lying about what it links to.
+ *
+ */
+export type MembershipPath = Uuid;
+
+/**
  * The invitation identifier. Always resolved inside the organisation in the path.
  */
 export type OrganisationInvitationPath = Uuid;
@@ -12612,6 +13921,91 @@ export type ResetPasswordResponses = {
 };
 
 export type ResetPasswordResponse = ResetPasswordResponses[keyof ResetPasswordResponses];
+
+export type UpdateOwnPasswordData = {
+    body: UpdatePasswordRequest;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/auth/user/password';
+};
+
+export type UpdateOwnPasswordErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateOwnPasswordError = UpdateOwnPasswordErrors[keyof UpdateOwnPasswordErrors];
+
+export type UpdateOwnPasswordResponses = {
+    /**
+     * Replaced, and the obligation cleared.
+     */
+    200: {
+        data: {
+            password_updated: boolean;
+            must_change_password: boolean;
+        };
+        meta: Meta;
+    };
+};
+
+export type UpdateOwnPasswordResponse = UpdateOwnPasswordResponses[keyof UpdateOwnPasswordResponses];
+
+export type ListStaffSignInDomainsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/auth/staff-domains';
+};
+
+export type ListStaffSignInDomainsErrors = {
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListStaffSignInDomainsError = ListStaffSignInDomainsErrors[keyof ListStaffSignInDomainsErrors];
+
+export type ListStaffSignInDomainsResponses = {
+    /**
+     * The organisations whose staff sign in with a name.
+     */
+    200: {
+        data: {
+            domains: Array<StaffSignInDomain>;
+        };
+        meta: Meta;
+    };
+};
+
+export type ListStaffSignInDomainsResponse = ListStaffSignInDomainsResponses[keyof ListStaffSignInDomainsResponses];
 
 export type ResendEmailVerificationData = {
     body?: never;
@@ -24722,6 +26116,169 @@ export type GetMonthlyCostReportResponses = {
 
 export type GetMonthlyCostReportResponse = GetMonthlyCostReportResponses[keyof GetMonthlyCostReportResponses];
 
+export type ListWeeklyPricesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * One publishing run's rows. Omit for the standing price per ingredient.
+         */
+        publication_id?: Uuid;
+        page?: number;
+        per_page?: number;
+    };
+    url: '/catalogue/procurement/weekly-prices';
+};
+
+export type ListWeeklyPricesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListWeeklyPricesError = ListWeeklyPricesErrors[keyof ListWeeklyPricesErrors];
+
+export type ListWeeklyPricesResponses = {
+    /**
+     * The published weekly prices.
+     */
+    200: WeeklyPriceEnvelope;
+};
+
+export type ListWeeklyPricesResponse = ListWeeklyPricesResponses[keyof ListWeeklyPricesResponses];
+
+export type ListWeeklyPricePublicationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        page?: number;
+        per_page?: number;
+    };
+    url: '/catalogue/procurement/weekly-prices/publications';
+};
+
+export type ListWeeklyPricePublicationsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListWeeklyPricePublicationsError = ListWeeklyPricePublicationsErrors[keyof ListWeeklyPricePublicationsErrors];
+
+export type ListWeeklyPricePublicationsResponses = {
+    /**
+     * The publishing runs.
+     */
+    200: WeeklyPricePublicationEnvelope;
+};
+
+export type ListWeeklyPricePublicationsResponse = ListWeeklyPricePublicationsResponses[keyof ListWeeklyPricePublicationsResponses];
+
+export type ShowInventoryValueData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/reports/inventory-value';
+};
+
+export type ShowInventoryValueErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowInventoryValueError = ShowInventoryValueErrors[keyof ShowInventoryValueErrors];
+
+export type ShowInventoryValueResponses = {
+    /**
+     * The current stock valuation.
+     */
+    200: InventoryValueEnvelope;
+};
+
+export type ShowInventoryValueResponse = ShowInventoryValueResponses[keyof ShowInventoryValueResponses];
+
 export type ListConsumptionExceptionsData = {
     body?: never;
     headers: {
@@ -24984,7 +26541,7 @@ export type RetryConsumptionExceptionResponses = {
 
 export type RetryConsumptionExceptionResponse = RetryConsumptionExceptionResponses[keyof RetryConsumptionExceptionResponses];
 
-export type ListProductionOrdersData = {
+export type ListPendingProductionValuationsData = {
     body?: never;
     headers: {
         /**
@@ -25002,10 +26559,10 @@ export type ListProductionOrdersData = {
     };
     path?: never;
     query?: never;
-    url: '/catalogue/production/orders';
+    url: '/catalogue/production/valuations-pending';
 };
 
-export type ListProductionOrdersErrors = {
+export type ListPendingProductionValuationsErrors = {
     /**
      * No usable credential was presented.
      */
@@ -25024,11 +26581,76 @@ export type ListProductionOrdersErrors = {
     429: ErrorEnvelope;
 };
 
+export type ListPendingProductionValuationsError = ListPendingProductionValuationsErrors[keyof ListPendingProductionValuationsErrors];
+
+export type ListPendingProductionValuationsResponses = {
+    /**
+     * Batches awaiting a valuation.
+     */
+    200: ProductionOrderCollection;
+};
+
+export type ListPendingProductionValuationsResponse = ListPendingProductionValuationsResponses[keyof ListPendingProductionValuationsResponses];
+
+export type ListProductionOrdersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * One of the six states. Omitted, the four open ones.
+         */
+        status?: ProductionOrderStatus;
+        /**
+         * Narrow to one production site.
+         */
+        branch_id?: Uuid;
+        page?: number;
+    };
+    url: '/catalogue/production/orders';
+};
+
+export type ListProductionOrdersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
 export type ListProductionOrdersError = ListProductionOrdersErrors[keyof ListProductionOrdersErrors];
 
 export type ListProductionOrdersResponses = {
     /**
-     * Recent production orders.
+     * The desk queue.
      */
     200: ProductionOrderCollection;
 };
@@ -25070,6 +26692,18 @@ export type CreateProductionOrderErrors = {
      */
     403: ErrorEnvelope;
     /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -25083,14 +26717,14 @@ export type CreateProductionOrderError = CreateProductionOrderErrors[keyof Creat
 
 export type CreateProductionOrderResponses = {
     /**
-     * The production order was planned.
+     * The draft batch.
      */
     201: ProductionOrderEnvelope;
 };
 
 export type CreateProductionOrderResponse = CreateProductionOrderResponses[keyof CreateProductionOrderResponses];
 
-export type CompleteProductionOrderData = {
+export type ShowProductionOrderData = {
     body?: never;
     headers: {
         /**
@@ -25105,6 +26739,403 @@ export type CompleteProductionOrderData = {
          *
          */
         'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}';
+};
+
+export type ShowProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowProductionOrderError = ShowProductionOrderErrors[keyof ShowProductionOrderErrors];
+
+export type ShowProductionOrderResponses = {
+    /**
+     * The batch.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type ShowProductionOrderResponse = ShowProductionOrderResponses[keyof ShowProductionOrderResponses];
+
+export type ShowProductionOrderPlanData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/plan';
+};
+
+export type ShowProductionOrderPlanErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowProductionOrderPlanError = ShowProductionOrderPlanErrors[keyof ShowProductionOrderPlanErrors];
+
+export type ShowProductionOrderPlanResponses = {
+    /**
+     * The plan.
+     */
+    200: ProductionPlanEnvelope;
+};
+
+export type ShowProductionOrderPlanResponse = ShowProductionOrderPlanResponses[keyof ShowProductionOrderPlanResponses];
+
+export type ShowProductionTechnicalSheetData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/technical-sheet';
+};
+
+export type ShowProductionTechnicalSheetErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowProductionTechnicalSheetError = ShowProductionTechnicalSheetErrors[keyof ShowProductionTechnicalSheetErrors];
+
+export type ShowProductionTechnicalSheetResponses = {
+    /**
+     * The batch's sheet.
+     */
+    200: ProductionTechnicalSheetEnvelope;
+};
+
+export type ShowProductionTechnicalSheetResponse = ShowProductionTechnicalSheetResponses[keyof ShowProductionTechnicalSheetResponses];
+
+export type ConfirmProductionOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/confirm';
+};
+
+export type ConfirmProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ConfirmProductionOrderError = ConfirmProductionOrderErrors[keyof ConfirmProductionOrderErrors];
+
+export type ConfirmProductionOrderResponses = {
+    /**
+     * The batch and its lines, after the move.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type ConfirmProductionOrderResponse = ConfirmProductionOrderResponses[keyof ConfirmProductionOrderResponses];
+
+export type StartProductionOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/start';
+};
+
+export type StartProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StartProductionOrderError = StartProductionOrderErrors[keyof StartProductionOrderErrors];
+
+export type StartProductionOrderResponses = {
+    /**
+     * The batch and its lines, after the move.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type StartProductionOrderResponse = StartProductionOrderResponses[keyof StartProductionOrderResponses];
+
+export type CompleteProductionOrderData = {
+    body: CompleteProductionOrderRequest;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
     };
     path: {
         /**
@@ -25146,6 +27177,14 @@ export type CompleteProductionOrderErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
      * The rate limit for this endpoint was exceeded.
      */
     429: ErrorEnvelope;
@@ -25155,12 +27194,203 @@ export type CompleteProductionOrderError = CompleteProductionOrderErrors[keyof C
 
 export type CompleteProductionOrderResponses = {
     /**
-     * The production order is completed.
+     * The batch and its lines, after the move.
      */
-    200: ProductionOrderEnvelope;
+    200: ProductionOrderDetailEnvelope;
 };
 
 export type CompleteProductionOrderResponse = CompleteProductionOrderResponses[keyof CompleteProductionOrderResponses];
+
+export type AbandonProductionOrderData = {
+    body: AbandonProductionOrderRequest;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/abandon';
+};
+
+export type AbandonProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AbandonProductionOrderError = AbandonProductionOrderErrors[keyof AbandonProductionOrderErrors];
+
+export type AbandonProductionOrderResponses = {
+    /**
+     * The batch and its lines, after the move.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type AbandonProductionOrderResponse = AbandonProductionOrderResponses[keyof AbandonProductionOrderResponses];
+
+export type CancelProductionOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The `lock_version` the caller last read. Mandatory on every batch
+         * write: two people share a production desk and can both see the same
+         * batch, so confirming something somebody else has already started is
+         * not hypothetical. A stale validator is `409 resource.conflict` naming
+         * the current version; a missing header is `428`.
+         *
+         */
+        'If-Match': string;
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The production order identifier.
+         */
+        productionOrder: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/production/orders/{productionOrder}/cancel';
+};
+
+export type CancelProductionOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelProductionOrderError = CancelProductionOrderErrors[keyof CancelProductionOrderErrors];
+
+export type CancelProductionOrderResponses = {
+    /**
+     * The batch and its lines, after the move.
+     */
+    200: ProductionOrderDetailEnvelope;
+};
+
+export type CancelProductionOrderResponse = CancelProductionOrderResponses[keyof CancelProductionOrderResponses];
 
 export type ListQualityChecksData = {
     body?: never;
@@ -32028,6 +34258,1266 @@ export type ReviewKycDocumentResponses = {
 };
 
 export type ReviewKycDocumentResponse = ReviewKycDocumentResponses[keyof ReviewKycDocumentResponses];
+
+export type CreateStaffAccountData = {
+    body: CreateStaffAccountRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/staff';
+};
+
+export type CreateStaffAccountErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The action is sensitive and needs a recent password confirmation.
+     * **HTTP 403, never 423** (plan §13).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateStaffAccountError = CreateStaffAccountErrors[keyof CreateStaffAccountErrors];
+
+export type CreateStaffAccountResponses = {
+    /**
+     * The new membership, and the password — once.
+     */
+    201: StaffAccountEnvelope;
+};
+
+export type CreateStaffAccountResponse = CreateStaffAccountResponses[keyof CreateStaffAccountResponses];
+
+export type ListAssignablePermissionsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/permissions';
+};
+
+export type ListAssignablePermissionsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListAssignablePermissionsError = ListAssignablePermissionsErrors[keyof ListAssignablePermissionsErrors];
+
+export type ListAssignablePermissionsResponses = {
+    /**
+     * The assignable catalogue, grouped by domain.
+     */
+    200: PermissionCatalogueEnvelope;
+};
+
+export type ListAssignablePermissionsResponse = ListAssignablePermissionsResponses[keyof ListAssignablePermissionsResponses];
+
+export type ListOrganisationRolesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles';
+};
+
+export type ListOrganisationRolesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrganisationRolesError = ListOrganisationRolesErrors[keyof ListOrganisationRolesErrors];
+
+export type ListOrganisationRolesResponses = {
+    /**
+     * Every role available in this organisation.
+     */
+    200: {
+        data: Array<OrganisationRoleSummary>;
+        meta: Meta;
+    };
+};
+
+export type ListOrganisationRolesResponse = ListOrganisationRolesResponses[keyof ListOrganisationRolesResponses];
+
+export type CreateOrganisationRoleData = {
+    body: WriteOrganisationRoleRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles';
+};
+
+export type CreateOrganisationRoleErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateOrganisationRoleError = CreateOrganisationRoleErrors[keyof CreateOrganisationRoleErrors];
+
+export type CreateOrganisationRoleResponses = {
+    /**
+     * The role, with its grants and its validator.
+     */
+    201: OrganisationRoleEnvelope;
+};
+
+export type CreateOrganisationRoleResponse = CreateOrganisationRoleResponses[keyof CreateOrganisationRoleResponses];
+
+export type DeleteOrganisationRoleData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A role of this organisation, or a platform template. Reads accept
+         * either; writes answer **404** for a template, because from the writing
+         * side there is no role at that identifier belonging to you.
+         *
+         */
+        role: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles/{role}';
+};
+
+export type DeleteOrganisationRoleErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The role is still assigned to somebody. `membership_roles` cascades on
+     * delete, so the database would take it away from them without a word —
+     * which is the silent revocation this console exists to prevent. The
+     * count and up to twenty identifiers come back so a screen can say
+     * "reassign these six first" rather than "no".
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DeleteOrganisationRoleError = DeleteOrganisationRoleErrors[keyof DeleteOrganisationRoleErrors];
+
+export type DeleteOrganisationRoleResponses = {
+    /**
+     * Deleted. Nothing to describe.
+     */
+    204: void;
+};
+
+export type DeleteOrganisationRoleResponse = DeleteOrganisationRoleResponses[keyof DeleteOrganisationRoleResponses];
+
+export type ShowOrganisationRoleData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A role of this organisation, or a platform template. Reads accept
+         * either; writes answer **404** for a template, because from the writing
+         * side there is no role at that identifier belonging to you.
+         *
+         */
+        role: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles/{role}';
+};
+
+export type ShowOrganisationRoleErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowOrganisationRoleError = ShowOrganisationRoleErrors[keyof ShowOrganisationRoleErrors];
+
+export type ShowOrganisationRoleResponses = {
+    /**
+     * The role.
+     */
+    200: OrganisationRoleEnvelope;
+};
+
+export type ShowOrganisationRoleResponse = ShowOrganisationRoleResponses[keyof ShowOrganisationRoleResponses];
+
+export type UpdateOrganisationRoleData = {
+    body: WriteOrganisationRoleRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A role of this organisation, or a platform template. Reads accept
+         * either; writes answer **404** for a template, because from the writing
+         * side there is no role at that identifier belonging to you.
+         *
+         */
+        role: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/roles/{role}';
+};
+
+export type UpdateOrganisationRoleErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the validator is stale (`resource.conflict`), or the change
+     * would have removed the caller's own access (`access.self_lockout`).
+     *
+     * The two are one status and two codes because the remedies are
+     * different: a stale validator means reload and reapply, and a
+     * self-lockout means ask another administrator. `details.reason` names
+     * which of the self-lockout cases fired.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateOrganisationRoleError = UpdateOrganisationRoleErrors[keyof UpdateOrganisationRoleErrors];
+
+export type UpdateOrganisationRoleResponses = {
+    /**
+     * The role as it now stands.
+     */
+    200: OrganisationRoleEnvelope;
+};
+
+export type UpdateOrganisationRoleResponse = UpdateOrganisationRoleResponses[keyof UpdateOrganisationRoleResponses];
+
+export type ListOrganisationMembershipsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+    };
+    query?: {
+        /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
+        /**
+         * Restrict to one membership status.
+         */
+        status?: 'invited' | 'active' | 'suspended' | 'ended';
+    };
+    url: '/organisations/{organisation}/memberships';
+};
+
+export type ListOrganisationMembershipsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrganisationMembershipsError = ListOrganisationMembershipsErrors[keyof ListOrganisationMembershipsErrors];
+
+export type ListOrganisationMembershipsResponses = {
+    /**
+     * A page of memberships.
+     */
+    200: {
+        data: Array<TeamMemberSummary>;
+        meta: NumberedPaginationMeta;
+    };
+};
+
+export type ListOrganisationMembershipsResponse = ListOrganisationMembershipsResponses[keyof ListOrganisationMembershipsResponses];
+
+export type ShowOrganisationMembershipData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}';
+};
+
+export type ShowOrganisationMembershipErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ShowOrganisationMembershipError = ShowOrganisationMembershipErrors[keyof ShowOrganisationMembershipErrors];
+
+export type ShowOrganisationMembershipResponses = {
+    /**
+     * The membership.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type ShowOrganisationMembershipResponse = ShowOrganisationMembershipResponses[keyof ShowOrganisationMembershipResponses];
+
+export type UpdateOrganisationMembershipScopeData = {
+    body: UpdateMembershipScopeRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}';
+};
+
+export type UpdateOrganisationMembershipScopeErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateOrganisationMembershipScopeError = UpdateOrganisationMembershipScopeErrors[keyof UpdateOrganisationMembershipScopeErrors];
+
+export type UpdateOrganisationMembershipScopeResponses = {
+    /**
+     * The membership as it now stands.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type UpdateOrganisationMembershipScopeResponse = UpdateOrganisationMembershipScopeResponses[keyof UpdateOrganisationMembershipScopeResponses];
+
+export type ReplaceMembershipRolesData = {
+    body: ReplaceMembershipRolesRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}/roles';
+};
+
+export type ReplaceMembershipRolesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the validator is stale (`resource.conflict`), or the change
+     * would have removed the caller's own access (`access.self_lockout`).
+     *
+     * The two are one status and two codes because the remedies are
+     * different: a stale validator means reload and reapply, and a
+     * self-lockout means ask another administrator. `details.reason` names
+     * which of the self-lockout cases fired.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceMembershipRolesError = ReplaceMembershipRolesErrors[keyof ReplaceMembershipRolesErrors];
+
+export type ReplaceMembershipRolesResponses = {
+    /**
+     * The membership, with its new roles and what they add up to.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type ReplaceMembershipRolesResponse = ReplaceMembershipRolesResponses[keyof ReplaceMembershipRolesResponses];
+
+export type SuspendOrganisationMembershipData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}/suspend';
+};
+
+export type SuspendOrganisationMembershipErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the validator is stale (`resource.conflict`), or the change
+     * would have removed the caller's own access (`access.self_lockout`).
+     *
+     * The two are one status and two codes because the remedies are
+     * different: a stale validator means reload and reapply, and a
+     * self-lockout means ask another administrator. `details.reason` names
+     * which of the self-lockout cases fired.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SuspendOrganisationMembershipError = SuspendOrganisationMembershipErrors[keyof SuspendOrganisationMembershipErrors];
+
+export type SuspendOrganisationMembershipResponses = {
+    /**
+     * The suspended membership.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type SuspendOrganisationMembershipResponse = SuspendOrganisationMembershipResponses[keyof SuspendOrganisationMembershipResponses];
+
+export type ReactivateOrganisationMembershipData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}/reactivate';
+};
+
+export type ReactivateOrganisationMembershipErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReactivateOrganisationMembershipError = ReactivateOrganisationMembershipErrors[keyof ReactivateOrganisationMembershipErrors];
+
+export type ReactivateOrganisationMembershipResponses = {
+    /**
+     * The reactivated membership.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type ReactivateOrganisationMembershipResponse = ReactivateOrganisationMembershipResponses[keyof ReactivateOrganisationMembershipResponses];
+
+export type EndOrganisationMembershipData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The organisation identifier. Must match the organisation
+         * `X-Organisation-Id` selected; a mismatch is **404**, never 403 —
+         * confirming that another tenant exists is not something this API does.
+         *
+         */
+        organisation: Uuid;
+        /**
+         * A membership of this organisation, in any status. An ended one resolves
+         * deliberately — a detail page that 404'd on the row the list just showed
+         * would be a list lying about what it links to.
+         *
+         */
+        membership: Uuid;
+    };
+    query?: never;
+    url: '/organisations/{organisation}/memberships/{membership}/end';
+};
+
+export type EndOrganisationMembershipErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * Either the validator is stale (`resource.conflict`), or the change
+     * would have removed the caller's own access (`access.self_lockout`).
+     *
+     * The two are one status and two codes because the remedies are
+     * different: a stale validator means reload and reapply, and a
+     * self-lockout means ask another administrator. `details.reason` names
+     * which of the self-lockout cases fired.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type EndOrganisationMembershipError = EndOrganisationMembershipErrors[keyof EndOrganisationMembershipErrors];
+
+export type EndOrganisationMembershipResponses = {
+    /**
+     * The ended membership, and how many administrators remain.
+     */
+    200: TeamMemberEnvelope;
+};
+
+export type EndOrganisationMembershipResponse = EndOrganisationMembershipResponses[keyof EndOrganisationMembershipResponses];
 
 export type ListOrganisationInvitationsData = {
     body?: never;

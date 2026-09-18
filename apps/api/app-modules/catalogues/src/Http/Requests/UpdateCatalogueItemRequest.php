@@ -50,6 +50,18 @@ class UpdateCatalogueItemRequest extends FormRequest
             // value that would round to `0.000` is a named 422 here rather than
             // a 500 from the `portion_factor > 0` CHECK.
             'portion_factor' => ['sometimes', 'numeric', 'min:0.001', 'max:999.999'],
+            /*
+            | What a kitchen makes for itself and sells off the shelf (PROD1).
+            |
+            | The eligibility rule behind the flag — a production mode, and an
+            | ingredient a published recipe version actually outputs — lives in
+            | the service with every other cross-field refusal, so these three
+            | are plain shape checks and nothing more.
+            */
+            'sells_from_finished_stock' => ['sometimes', 'boolean'],
+            'net_content_quantity' => ['sometimes', 'nullable', 'numeric', 'min:0.0001'],
+            'net_content_unit_id' => ['sometimes', 'nullable', 'uuid'],
+
             'ingredient_id' => ['sometimes', 'nullable', 'uuid'],
             'purchasing_unit_id' => ['sometimes', 'nullable', 'uuid'],
             'usage_unit_id' => ['sometimes', 'nullable', 'uuid'],

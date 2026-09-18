@@ -14,6 +14,7 @@ export {
     makeLoginSchema,
     makeRegisterSchema,
     makeResetPasswordSchema,
+    makeUpdatePasswordSchema,
 } from './schemas.ts';
 export type {
     ContextSelectionInput,
@@ -24,6 +25,7 @@ export type {
     RegisterInput,
     RegisterValues,
     ResetPasswordValues,
+    UpdatePasswordValues,
 } from './schemas.ts';
 
 export { toFormResolver } from './resolver.ts';

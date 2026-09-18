@@ -27,6 +27,7 @@ export const ROUTE_PATHS = {
     root: '/',
     signIn: '/sign-in',
     verifyEmail: '/verify-email',
+    changePassword: '/change-password',
     selectOrganisation: '/select-organisation',
     selectBranch: '/select-branch',
     forbidden: '/forbidden',

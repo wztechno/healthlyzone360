@@ -96,12 +96,20 @@ import { RecipeEditScreen } from './recipe-edit-screen.tsx';
  * shelf a batch of it lands on. Nothing here asks for it, because there is nothing to decide.
  */
 
-type CookedKind = 'meal' | 'sauce' | 'dressing';
+type CookedKind = 'meal' | 'sauce' | 'dressing' | 'frozen_meal';
 
 /** The catalogue-item category each packaged kind files into. `ProductCategorySeeder`'s own codes. */
 const ITEM_CATEGORY = {
     sauce: 'sauce',
     dressing: 'dressing',
+    frozen_meal: 'frozen_meal',
+} as const;
+
+/** The heading each packaged kind files itself under. */
+const CATEGORY_LABEL_KEY = {
+    sauce: 'kitchen:sauces.title',
+    dressing: 'kitchen:dressings.title',
+    frozen_meal: 'kitchen:frozenMeals.title',
 } as const;
 
 /**
@@ -116,6 +124,7 @@ const REFERENCE_SERIES = {
     meal: 'RC-',
     sauce: 'SAC-',
     dressing: 'DRS-',
+    frozen_meal: 'FRZ-',
 } as const satisfies Record<CookedKind, ReferenceSeries>;
 
 /**
@@ -123,10 +132,14 @@ const REFERENCE_SERIES = {
  *
  * Values are the `recipe_category` column's — snake case, matching `cooking_sauce`, which the
  * import already writes for every SC- row. Dressings have no list of their own: the sheets file all
- * fourteen alike, so the route states the category and asks nothing further.
+ * fourteen alike, so the route states the category and asks nothing further, and a frozen meal is
+ * filed the same way — offering an empty select would be a control with nothing behind it.
  */
-function subcategoryOptions(itemType: 'sauce' | 'dressing', t: TFunction): readonly SelectOption[] {
-    if (itemType === 'dressing') return [];
+function subcategoryOptions(
+    itemType: Exclude<CookedKind, 'meal'>,
+    t: TFunction,
+): readonly SelectOption[] {
+    if (itemType !== 'sauce') return [];
 
     return [
         { value: 'cold_sauce_dip', label: t('kitchen:sauces.kindColdSauce') },
@@ -152,6 +165,11 @@ export type CookedItemEditScreenProps =
           readonly item: string | undefined;
           readonly itemType: 'dressing';
           readonly routeBase: '/kitchen/dressings';
+      }
+    | {
+          readonly item: string | undefined;
+          readonly itemType: 'frozen_meal';
+          readonly routeBase: '/kitchen/frozen-meals';
       };
 
 export function CookedItemEditScreen(props: CookedItemEditScreenProps) {
@@ -223,11 +241,7 @@ function CookedItemEditor(props: CookedItemEditScreenProps) {
         props.itemType === 'meal'
             ? undefined
             : {
-                  categoryLabel: t(
-                      props.itemType === 'sauce'
-                          ? 'kitchen:sauces.title'
-                          : 'kitchen:dressings.title',
-                  ),
+                  categoryLabel: t(CATEGORY_LABEL_KEY[props.itemType]),
                   subcategoryLabel: t('kitchen:fields.subcategory'),
                   subcategoryPlaceholder: t('kitchen:fields.subcategoryPlaceholder'),
                   options: subcategoryOptions(props.itemType, t),

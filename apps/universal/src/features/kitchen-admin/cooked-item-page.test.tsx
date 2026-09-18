@@ -220,6 +220,8 @@ function sauce(overrides: Partial<ProductAdmin> = {}): ProductAdmin {
         recipeId: RECIPE_ID,
         dietClassifications: [],
         dataQualityFlags: [],
+        netContentQuantity: null,
+        netContentUnitId: null,
         ...overrides,
     };
 }
@@ -374,6 +376,11 @@ function mealItem(overrides: Partial<MealAdmin> = {}): MealAdmin {
         availability: [],
         imagePlaceholderId: 'meal-bowl',
         marginPercent: null,
+        productionMode: null,
+        ingredientId: null,
+        sellsFromFinishedStock: false,
+        netContentQuantity: null,
+        netContentUnitId: null,
         ...overrides,
     };
 }

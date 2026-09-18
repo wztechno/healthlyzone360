@@ -26,6 +26,12 @@ export interface SessionUser {
     readonly email: string;
     readonly emailVerifiedAt: IsoDateTime | null;
     readonly twoFactorEnabled: boolean;
+    /**
+     * True for an account an administrator opened on somebody's behalf, until they replace the
+     * password they were handed. A credential two people know is good for exactly one sign-in, and
+     * this is what the landing resolver reads to make that true.
+     */
+    readonly mustChangePassword: boolean;
     readonly profile: Profile;
     readonly createdAt: IsoDateTime;
 }

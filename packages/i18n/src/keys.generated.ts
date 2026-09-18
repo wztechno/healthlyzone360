@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 6832 keys across 20 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 7240 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -54,6 +54,200 @@ export interface NamespaceKeys {
     | 'workspaceSelector.open'
     | 'workspaceSelector.subtitle'
     | 'workspaceSelector.title';
+  readonly "accessAdmin":
+    | 'add.back'
+    | 'add.branch'
+    | 'add.createHint'
+    | 'add.created'
+    | 'add.domain'
+    | 'add.email'
+    | 'add.familyName'
+    | 'add.generate'
+    | 'add.givenName'
+    | 'add.inviteHint'
+    | 'add.message'
+    | 'add.modes.create'
+    | 'add.modes.invite'
+    | 'add.password'
+    | 'add.passwordAcknowledge'
+    | 'add.passwordBody'
+    | 'add.passwordHint'
+    | 'add.passwordTitle'
+    | 'add.role'
+    | 'add.signInName'
+    | 'add.signInNameHint'
+    | 'add.submitCreate'
+    | 'add.submitInvite'
+    | 'add.title'
+    | 'advanced.emptyDomain'
+    | 'advanced.hint'
+    | 'advanced.notHeld'
+    | 'advanced.selected'
+    | 'changePassword.confirmation'
+    | 'changePassword.current'
+    | 'changePassword.done'
+    | 'changePassword.password'
+    | 'changePassword.submit'
+    | 'changePassword.subtitle'
+    | 'changePassword.title'
+    | 'codes.audit.view_organisation.name'
+    | 'codes.b2b_quotation.quote_organisation.name'
+    | 'codes.b2b_quotation.view_organisation.name'
+    | 'codes.branch.manage_current.name'
+    | 'codes.branch.view_current.name'
+    | 'codes.catalogue.manage_organisation.name'
+    | 'codes.catalogue.publish_organisation.name'
+    | 'codes.catalogue.view_organisation.name'
+    | 'codes.consent.manage_own.name'
+    | 'codes.consent.view_own.name'
+    | 'codes.customer.create_on_behalf_organisation.name'
+    | 'codes.delivery_zone.manage_organisation.name'
+    | 'codes.device.manage_own.name'
+    | 'codes.entitlement.view_organisation.name'
+    | 'codes.inventory.manage_organisation.name'
+    | 'codes.inventory.order_supplies_organisation.name'
+    | 'codes.inventory.view_costs_organisation.name'
+    | 'codes.inventory.view_organisation.name'
+    | 'codes.membership.end_organisation.name'
+    | 'codes.membership.invite_organisation.name'
+    | 'codes.membership.update_organisation.name'
+    | 'codes.membership.view_organisation.name'
+    | 'codes.order.create_on_behalf_organisation.name'
+    | 'codes.order.manage_organisation.name'
+    | 'codes.order.view_customer_contact_organisation.name'
+    | 'codes.order.view_organisation.name'
+    | 'codes.organisation.update_current.name'
+    | 'codes.organisation.view_current.name'
+    | 'codes.plan.manage_organisation.name'
+    | 'codes.plan.publish_organisation.name'
+    | 'codes.price_list.manage_organisation.name'
+    | 'codes.price_list.view_organisation.name'
+    | 'codes.profile.update_own.name'
+    | 'codes.profile.view_own.name'
+    | 'codes.recipe.manage_organisation.name'
+    | 'codes.recipe.publish_organisation.name'
+    | 'codes.recipe.view_costs_organisation.name'
+    | 'codes.recipe.view_organisation.name'
+    | 'codes.role.manage_organisation.name'
+    | 'codes.role.view_organisation.name'
+    | 'codes.session.revoke_own.name'
+    | 'codes.subscription.view_organisation.name'
+    | 'codes.user.manage_organisation.name'
+    | 'extras.orderDeskCustomer'
+    | 'extras.orderDeskSale'
+    | 'extras.unpricedReceipts'
+    | 'member.assignmentExpired'
+    | 'member.assignmentFrom'
+    | 'member.assignmentScheduled'
+    | 'member.assignmentUntil'
+    | 'member.back'
+    | 'member.cancel'
+    | 'member.end'
+    | 'member.endBody'
+    | 'member.endConfirm'
+    | 'member.endTitle'
+    | 'member.ended'
+    | 'member.lastAdministrator'
+    | 'member.permissionsHeading'
+    | 'member.permissionsHint'
+    | 'member.reactivate'
+    | 'member.reactivated'
+    | 'member.rolesHeading'
+    | 'member.rolesHint'
+    | 'member.save'
+    | 'member.saved'
+    | 'member.scopeHeading'
+    | 'member.scopeHint'
+    | 'member.scopeSingleBranch'
+    | 'member.scopeWholeKitchen'
+    | 'member.selfLockout'
+    | 'member.suspend'
+    | 'member.suspended'
+    | 'member.title'
+    | 'pages.alsoOpens'
+    | 'pages.hint'
+    | 'pages.levels.manage'
+    | 'pages.levels.none'
+    | 'pages.levels.view'
+    | 'pages.unmappedCount'
+    | 'pages.unmappedHeading'
+    | 'pages.unmappedHint'
+    | 'role.back'
+    | 'role.cancel'
+    | 'role.code'
+    | 'role.codeHint'
+    | 'role.copyTitle'
+    | 'role.created'
+    | 'role.delete'
+    | 'role.deleteBlocked'
+    | 'role.deleteBody'
+    | 'role.deleteConfirm'
+    | 'role.deleteTitle'
+    | 'role.deleted'
+    | 'role.descriptionAr'
+    | 'role.descriptionEn'
+    | 'role.nameAr'
+    | 'role.nameEn'
+    | 'role.newTitle'
+    | 'role.save'
+    | 'role.saved'
+    | 'role.selfLockout'
+    | 'role.shadowsTemplate'
+    | 'role.tabs.advanced'
+    | 'role.tabs.pages'
+    | 'role.templateNotice'
+    | 'roles.caption'
+    | 'roles.columns.holders'
+    | 'roles.columns.pages'
+    | 'roles.columns.role'
+    | 'roles.copy'
+    | 'roles.create'
+    | 'roles.edit'
+    | 'roles.emptyBody'
+    | 'roles.emptyTitle'
+    | 'roles.holders'
+    | 'roles.holdersNone'
+    | 'roles.open'
+    | 'roles.ownHeading'
+    | 'roles.ownHint'
+    | 'roles.permissionCount'
+    | 'roles.subtitle'
+    | 'roles.templatesHeading'
+    | 'roles.templatesHint'
+    | 'roles.title'
+    | 'signIn.organisation'
+    | 'signIn.useFullEmail'
+    | 'status.active'
+    | 'status.ended'
+    | 'status.invited'
+    | 'status.suspended'
+    | 'team.add'
+    | 'team.caption'
+    | 'team.columns.email'
+    | 'team.columns.person'
+    | 'team.columns.roles'
+    | 'team.columns.scope'
+    | 'team.columns.status'
+    | 'team.emptyBody'
+    | 'team.emptyTitle'
+    | 'team.filteredEmptyBody'
+    | 'team.filteredEmptyTitle'
+    | 'team.invitations.caption'
+    | 'team.invitations.empty'
+    | 'team.invitations.expires'
+    | 'team.invitations.revoke'
+    | 'team.invitations.revoked'
+    | 'team.invitations.sent'
+    | 'team.invitations.subtitle'
+    | 'team.invitations.title'
+    | 'team.noRoles'
+    | 'team.open'
+    | 'team.organisationWide'
+    | 'team.showEnded'
+    | 'team.subtitle'
+    | 'team.title'
+    | 'team.unnamed'
+    | 'title';
   readonly "account":
     | 'addresses.add'
     | 'addresses.areaHint'
@@ -307,6 +501,18 @@ export interface NamespaceKeys {
     | 'branchPicker.openLabel'
     | 'branchPicker.subtitle'
     | 'branchPicker.title'
+    | 'changePassword.continueLabel'
+    | 'changePassword.currentHint'
+    | 'changePassword.currentLabel'
+    | 'changePassword.optionalSubtitle'
+    | 'changePassword.optionalTitle'
+    | 'changePassword.passwordConfirmationLabel'
+    | 'changePassword.passwordLabel'
+    | 'changePassword.submit'
+    | 'changePassword.subtitle'
+    | 'changePassword.successBody'
+    | 'changePassword.successTitle'
+    | 'changePassword.title'
     | 'devices.current'
     | 'devices.empty'
     | 'devices.emptyBody'
@@ -330,6 +536,9 @@ export interface NamespaceKeys {
     | 'forgotPassword.submit'
     | 'forgotPassword.subtitle'
     | 'forgotPassword.title'
+    | 'login.composedHint'
+    | 'login.domainFull'
+    | 'login.domainLabel'
     | 'login.emailLabel'
     | 'login.emailPlaceholder'
     | 'login.failed'
@@ -340,6 +549,8 @@ export interface NamespaceKeys {
     | 'login.registerLink'
     | 'login.registerPrompt'
     | 'login.rememberLabel'
+    | 'login.signInNameLabel'
+    | 'login.signInNamePlaceholder'
     | 'login.submit'
     | 'login.subtitle'
     | 'login.title'
@@ -353,6 +564,8 @@ export interface NamespaceKeys {
     | 'login.twoFactor.title'
     | 'login.twoFactor.useCode'
     | 'login.twoFactor.useRecovery'
+    | 'login.useFullEmail'
+    | 'login.useSignInName'
     | 'organisationPicker.branchCount'
     | 'organisationPicker.empty'
     | 'organisationPicker.emptyAction'
@@ -1920,6 +2133,7 @@ export interface NamespaceKeys {
     | 'tag.more'
     | 'tag.overflow';
   readonly "errors":
+    | 'failure.access_self_lockout'
     | 'failure.account_verification_required'
     | 'failure.address_area_not_served'
     | 'failure.auth_email_unverified'
@@ -2830,6 +3044,8 @@ export interface NamespaceKeys {
     | 'families.deliveryZones.name'
     | 'families.dressings.description'
     | 'families.dressings.name'
+    | 'families.frozenMeals.description'
+    | 'families.frozenMeals.name'
     | 'families.ingredients.description'
     | 'families.ingredients.name'
     | 'families.meals.description'
@@ -2854,6 +3070,8 @@ export interface NamespaceKeys {
     | 'families.procurement.name'
     | 'families.production.description'
     | 'families.production.name'
+    | 'families.productionBatches.description'
+    | 'families.productionBatches.name'
     | 'families.products.description'
     | 'families.products.name'
     | 'families.purchases.description'
@@ -2866,6 +3084,8 @@ export interface NamespaceKeys {
     | 'families.recipes.name'
     | 'families.review.description'
     | 'families.review.name'
+    | 'families.roles.description'
+    | 'families.roles.name'
     | 'families.sauces.description'
     | 'families.sauces.name'
     | 'families.stock.description'
@@ -2874,6 +3094,8 @@ export interface NamespaceKeys {
     | 'families.suppliers.name'
     | 'families.supplyOrders.description'
     | 'families.supplyOrders.name'
+    | 'families.team.description'
+    | 'families.team.name'
     | 'fields.category'
     | 'fields.categoryHint'
     | 'fields.categoryPlaceholder'
@@ -2908,6 +3130,13 @@ export interface NamespaceKeys {
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
     | 'fields.unitPricePlaceholder'
+    | 'frozenMeals.caption'
+    | 'frozenMeals.create'
+    | 'frozenMeals.emptyBody'
+    | 'frozenMeals.emptyTitle'
+    | 'frozenMeals.searchPlaceholder'
+    | 'frozenMeals.title'
+    | 'frozenMeals.viewKind'
     | 'hub.countUnavailable'
     | 'hub.draftCount'
     | 'hub.emptyBody'
@@ -3088,6 +3317,11 @@ export interface NamespaceKeys {
     | 'meals.emptyTitle'
     | 'meals.filteredEmptyBody'
     | 'meals.filteredEmptyTitle'
+    | 'meals.finishedStockBlockedIngredient'
+    | 'meals.finishedStockBlockedMode'
+    | 'meals.finishedStockOff'
+    | 'meals.finishedStockOn'
+    | 'meals.finishedStockToggleLabel'
     | 'meals.gateCheckName'
     | 'meals.gateCheckSaved'
     | 'meals.gateCheckServiceDays'
@@ -3099,11 +3333,27 @@ export interface NamespaceKeys {
     | 'meals.marginValue'
     | 'meals.mealTypesLabel'
     | 'meals.nameRequired'
+    | 'meals.netContentHint'
+    | 'meals.netContentInvalid'
+    | 'meals.netContentLabel'
+    | 'meals.netContentRequired'
+    | 'meals.netContentUnitLabel'
+    | 'meals.netContentUnitMissing'
+    | 'meals.netContentUnitsForbidden'
     | 'meals.noChannels'
     | 'meals.notVisibleToConsumers'
     | 'meals.portionHint'
     | 'meals.portionInvalid'
     | 'meals.portionLabel'
+    | 'meals.producedIngredientHint'
+    | 'meals.producedIngredientLabel'
+    | 'meals.producedIngredientNone'
+    | 'meals.productionModeBoth'
+    | 'meals.productionModeHint'
+    | 'meals.productionModeLabel'
+    | 'meals.productionModeProduction'
+    | 'meals.productionModeSupplier'
+    | 'meals.productionModeUnset'
     | 'meals.publishAllergensNone'
     | 'meals.publishAllergensTitle'
     | 'meals.publishBlockedTitle'
@@ -3130,6 +3380,8 @@ export interface NamespaceKeys {
     | 'meals.sectionDetails'
     | 'meals.sectionIdentity'
     | 'meals.sectionMargin'
+    | 'meals.sectionProduction'
+    | 'meals.sectionProductionHint'
     | 'meals.sectionRecipe'
     | 'meals.sectionWhen'
     | 'meals.sectionWhenHint'
@@ -3145,6 +3397,7 @@ export interface NamespaceKeys {
     | 'meals.viewPublic'
     | 'meals.viewVisibility'
     | 'meals.visibleToConsumers'
+    | 'nav.groups.access'
     | 'nav.groups.catalogue'
     | 'nav.groups.commercial'
     | 'nav.groups.operations'
@@ -3242,9 +3495,13 @@ export interface NamespaceKeys {
     | 'ops.costReport.chip'
     | 'ops.costReport.cogsMixCenter'
     | 'ops.costReport.columnCogs'
+    | 'ops.costReport.columnEstimatedMargin'
     | 'ops.costReport.columnMargin'
     | 'ops.costReport.columnMarginPercent'
     | 'ops.costReport.columnMonth'
+    | 'ops.costReport.columnProductionConsumption'
+    | 'ops.costReport.columnProductionWaste'
+    | 'ops.costReport.columnProductionYield'
     | 'ops.costReport.columnRevenue'
     | 'ops.costReport.columnSpend'
     | 'ops.costReport.currencyLabel'
@@ -3300,10 +3557,12 @@ export interface NamespaceKeys {
     | 'ops.exceptions.reasons.no_catalogue_item'
     | 'ops.exceptions.reasons.no_ingredient_cost'
     | 'ops.exceptions.reasons.no_ingredient_link'
+    | 'ops.exceptions.reasons.no_net_content'
     | 'ops.exceptions.reasons.no_recipe_version'
     | 'ops.exceptions.reasons.no_stock_item'
     | 'ops.exceptions.reasons.no_stock_unit'
     | 'ops.exceptions.reasons.no_yield_piece_count'
+    | 'ops.exceptions.reasons.reserved_for_production'
     | 'ops.exceptions.reasons.unit_conversion_unsupported'
     | 'ops.exceptions.reasons.unquantified_recipe_line'
     | 'ops.exceptions.resolve'
@@ -3493,36 +3752,173 @@ export interface NamespaceKeys {
     | 'ops.procurement.suppliersTitle'
     | 'ops.procurement.title'
     | 'ops.procurement.unpricedReceipts'
-    | 'ops.production.columnActions'
-    | 'ops.production.columnId'
+    | 'ops.production.abandon'
+    | 'ops.production.abandonReasonHint'
+    | 'ops.production.abandonReasonLabel'
+    | 'ops.production.abandonReasonRequired'
+    | 'ops.production.abandonSubmit'
+    | 'ops.production.abandonSubtitle'
+    | 'ops.production.abandonTitle'
+    | 'ops.production.abandonedAtLabel'
+    | 'ops.production.abandonedToast'
+    | 'ops.production.actualCost'
+    | 'ops.production.actualCostCaption'
+    | 'ops.production.amountRequired'
+    | 'ops.production.asPlanned'
+    | 'ops.production.backToDesk'
+    | 'ops.production.batchFactorHint'
+    | 'ops.production.batchFactorLabel'
+    | 'ops.production.batchFallbackTitle'
+    | 'ops.production.batchReferenceLabel'
+    | 'ops.production.batchTitle'
+    | 'ops.production.cancelBatch'
+    | 'ops.production.cancelBlocked'
+    | 'ops.production.cancelBody'
+    | 'ops.production.cancelSubmit'
+    | 'ops.production.cancelTitle'
+    | 'ops.production.cancelledAtLabel'
+    | 'ops.production.cancelledToast'
+    | 'ops.production.columnBatch'
+    | 'ops.production.columnClaimed'
+    | 'ops.production.columnExpiry'
+    | 'ops.production.columnItem'
+    | 'ops.production.columnMade'
+    | 'ops.production.columnMakes'
     | 'ops.production.columnStatus'
+    | 'ops.production.columnStorage'
+    | 'ops.production.columnUnitCost'
+    | 'ops.production.columnUsed'
+    | 'ops.production.columnWasted'
+    | 'ops.production.columnYield'
     | 'ops.production.complete'
     | 'ops.production.completeFailed'
+    | 'ops.production.completeSubmit'
+    | 'ops.production.completeSubtitle'
+    | 'ops.production.completeTitle'
+    | 'ops.production.completedAtLabel'
     | 'ops.production.completedToast'
     | 'ops.production.completedUnvaluedToast'
+    | 'ops.production.confirm'
+    | 'ops.production.confirmedAtLabel'
+    | 'ops.production.confirmedToast'
+    | 'ops.production.consumedHeading'
+    | 'ops.production.consumedHint'
+    | 'ops.production.costStatusPartial'
+    | 'ops.production.costStatusPartialBody'
+    | 'ops.production.costStatusUnvalued'
+    | 'ops.production.costStatusUnvaluedBody'
+    | 'ops.production.costWithheld'
+    | 'ops.production.costsHiddenBody'
+    | 'ops.production.costsHiddenTitle'
     | 'ops.production.create'
-    | 'ops.production.createFailed'
     | 'ops.production.createSubmit'
-    | 'ops.production.createTitle'
     | 'ops.production.createdToast'
+    | 'ops.production.currencyConflict'
     | 'ops.production.emptyBody'
     | 'ops.production.emptyTitle'
-    | 'ops.production.loadErrorBody'
+    | 'ops.production.estimatedCost'
+    | 'ops.production.estimatedCostCaption'
+    | 'ops.production.expiredBadge'
+    | 'ops.production.expiredNotice'
+    | 'ops.production.expiryDateLabel'
+    | 'ops.production.filterOpen'
+    | 'ops.production.filterStatus'
+    | 'ops.production.headingCost'
+    | 'ops.production.headingLines'
+    | 'ops.production.headingPlan'
+    | 'ops.production.headingRecord'
+    | 'ops.production.headingYield'
+    | 'ops.production.lineKindIngredient'
+    | 'ops.production.lineKindPackaging'
     | 'ops.production.loadErrorTitle'
-    | 'ops.production.metrics.batches'
-    | 'ops.production.metrics.inProgress'
-    | 'ops.production.metrics.yield'
+    | 'ops.production.newSubtitle'
+    | 'ops.production.newTitle'
+    | 'ops.production.nextPage'
     | 'ops.production.noBranchBody'
     | 'ops.production.noBranchTitle'
-    | 'ops.production.ordersHeading'
+    | 'ops.production.noExpiry'
+    | 'ops.production.notFoundBody'
+    | 'ops.production.notFoundTitle'
+    | 'ops.production.notesHint'
+    | 'ops.production.notesLabel'
+    | 'ops.production.openBatch'
+    | 'ops.production.planAvailable'
+    | 'ops.production.planHolesBody'
+    | 'ops.production.planHolesTitle'
+    | 'ops.production.planIngredientsHeading'
+    | 'ops.production.planMissing'
+    | 'ops.production.planOnHand'
+    | 'ops.production.planPackagingHeading'
+    | 'ops.production.planReady'
+    | 'ops.production.planRequired'
+    | 'ops.production.planReserved'
+    | 'ops.production.planShort'
+    | 'ops.production.plannedYieldHint'
+    | 'ops.production.plannedYieldLabel'
+    | 'ops.production.previousPage'
+    | 'ops.production.producedHint'
+    | 'ops.production.producedLabel'
+    | 'ops.production.producedRequired'
+    | 'ops.production.productionDateLabel'
+    | 'ops.production.registerEmptyBody'
+    | 'ops.production.registerEmptyTitle'
+    | 'ops.production.registerTitle'
+    | 'ops.production.rejectedHint'
+    | 'ops.production.rejectedLabel'
+    | 'ops.production.rejectedTooHigh'
+    | 'ops.production.scaleFactor'
+    | 'ops.production.scaleHint'
+    | 'ops.production.scaleLabel'
+    | 'ops.production.scaleYield'
+    | 'ops.production.sheetBasisHeading'
+    | 'ops.production.sheetLink'
+    | 'ops.production.sheetLive'
+    | 'ops.production.sheetNutritionEmpty'
+    | 'ops.production.sheetNutritionHeading'
+    | 'ops.production.sheetPublicationLabel'
+    | 'ops.production.sheetPublicationNone'
+    | 'ops.production.sheetSubtitle'
+    | 'ops.production.sheetTitle'
+    | 'ops.production.sheetUnconfirmedBody'
+    | 'ops.production.sheetUnconfirmedTitle'
+    | 'ops.production.sheetVersionLabel'
+    | 'ops.production.showingCount'
+    | 'ops.production.start'
+    | 'ops.production.startedAtLabel'
+    | 'ops.production.startedToast'
+    | 'ops.production.statCompletedCaption'
+    | 'ops.production.statConfirmedCaption'
+    | 'ops.production.statDraftCaption'
+    | 'ops.production.statExpired'
+    | 'ops.production.statExpiredCaption'
+    | 'ops.production.statInProductionCaption'
+    | 'ops.production.statUnit'
+    | 'ops.production.statUnvalued'
+    | 'ops.production.statUnvaluedCaption'
+    | 'ops.production.status.abandoned'
     | 'ops.production.status.cancelled'
     | 'ops.production.status.completed'
-    | 'ops.production.status.inProgress'
-    | 'ops.production.status.planned'
-    | 'ops.production.subtitle'
+    | 'ops.production.status.confirmed'
+    | 'ops.production.status.draft'
+    | 'ops.production.status.inProduction'
+    | 'ops.production.storageLocationLabel'
     | 'ops.production.title'
+    | 'ops.production.uncostedLines'
+    | 'ops.production.unitCostLabel'
+    | 'ops.production.unreferenced'
     | 'ops.production.versionHint'
     | 'ops.production.versionLabel'
+    | 'ops.production.versionRequired'
+    | 'ops.production.wasteHeading'
+    | 'ops.production.wasteHint'
+    | 'ops.production.yieldPlanned'
+    | 'ops.production.yieldProduced'
+    | 'ops.production.yieldRejected'
+    | 'ops.production.yieldRejectedCaption'
+    | 'ops.production.yieldUsable'
+    | 'ops.production.yieldVariance'
+    | 'ops.production.yieldVarianceLossCaption'
+    | 'ops.production.yieldVarianceOverCaption'
     | 'ops.qc.checksHeading'
     | 'ops.qc.columnActions'
     | 'ops.qc.columnStatus'
@@ -3679,8 +4075,10 @@ export interface NamespaceKeys {
     | 'ops.requirements.branchRequiredTitle'
     | 'ops.requirements.columnAvailable'
     | 'ops.requirements.columnIngredient'
+    | 'ops.requirements.columnOnHand'
     | 'ops.requirements.columnPosition'
     | 'ops.requirements.columnRequired'
+    | 'ops.requirements.columnReserved'
     | 'ops.requirements.columnShort'
     | 'ops.requirements.columnSuggestedBuy'
     | 'ops.requirements.columnUnit'
@@ -4495,6 +4893,12 @@ export interface NamespaceKeys {
     | 'products.marketPricedLabel'
     | 'products.marketPricedShort'
     | 'products.nameRequired'
+    | 'products.netContentHint'
+    | 'products.netContentInvalid'
+    | 'products.netContentLabel'
+    | 'products.netContentUnitLabel'
+    | 'products.netContentUnitMissing'
+    | 'products.netContentUnitsForbidden'
     | 'products.noChannels'
     | 'products.noPacks'
     | 'products.notFoundBody'
@@ -4731,8 +5135,10 @@ export interface NamespaceKeys {
     | 'recipes.sheetCostHidden'
     | 'recipes.sheetCostPerPiece'
     | 'recipes.sheetCostPerUnit'
+    | 'recipes.sheetCostSaved'
     | 'recipes.sheetCostTitle'
     | 'recipes.sheetCostTotal'
+    | 'recipes.sheetCostWeekly'
     | 'recipes.sheetCostWithWaste'
     | 'recipes.sheetDesignation'
     | 'recipes.sheetKind'
@@ -4745,6 +5151,9 @@ export interface NamespaceKeys {
     | 'recipes.sheetRawMaterial'
     | 'recipes.sheetTitle'
     | 'recipes.sheetTotalRow'
+    | 'recipes.sheetWeeklyCarried'
+    | 'recipes.sheetWeeklyEffective'
+    | 'recipes.sheetWeeklyNeedsPrice'
     | 'recipes.sourceKindLabel'
     | 'recipes.statReview'
     | 'recipes.statReviewAction'
@@ -6916,6 +7325,199 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:workspaceSelector.open',
   'access:workspaceSelector.subtitle',
   'access:workspaceSelector.title',
+  'accessAdmin:add.back',
+  'accessAdmin:add.branch',
+  'accessAdmin:add.createHint',
+  'accessAdmin:add.created',
+  'accessAdmin:add.domain',
+  'accessAdmin:add.email',
+  'accessAdmin:add.familyName',
+  'accessAdmin:add.generate',
+  'accessAdmin:add.givenName',
+  'accessAdmin:add.inviteHint',
+  'accessAdmin:add.message',
+  'accessAdmin:add.modes.create',
+  'accessAdmin:add.modes.invite',
+  'accessAdmin:add.password',
+  'accessAdmin:add.passwordAcknowledge',
+  'accessAdmin:add.passwordBody',
+  'accessAdmin:add.passwordHint',
+  'accessAdmin:add.passwordTitle',
+  'accessAdmin:add.role',
+  'accessAdmin:add.signInName',
+  'accessAdmin:add.signInNameHint',
+  'accessAdmin:add.submitCreate',
+  'accessAdmin:add.submitInvite',
+  'accessAdmin:add.title',
+  'accessAdmin:advanced.emptyDomain',
+  'accessAdmin:advanced.hint',
+  'accessAdmin:advanced.notHeld',
+  'accessAdmin:advanced.selected',
+  'accessAdmin:changePassword.confirmation',
+  'accessAdmin:changePassword.current',
+  'accessAdmin:changePassword.done',
+  'accessAdmin:changePassword.password',
+  'accessAdmin:changePassword.submit',
+  'accessAdmin:changePassword.subtitle',
+  'accessAdmin:changePassword.title',
+  'accessAdmin:codes.audit.view_organisation.name',
+  'accessAdmin:codes.b2b_quotation.quote_organisation.name',
+  'accessAdmin:codes.b2b_quotation.view_organisation.name',
+  'accessAdmin:codes.branch.manage_current.name',
+  'accessAdmin:codes.branch.view_current.name',
+  'accessAdmin:codes.catalogue.manage_organisation.name',
+  'accessAdmin:codes.catalogue.publish_organisation.name',
+  'accessAdmin:codes.catalogue.view_organisation.name',
+  'accessAdmin:codes.consent.manage_own.name',
+  'accessAdmin:codes.consent.view_own.name',
+  'accessAdmin:codes.customer.create_on_behalf_organisation.name',
+  'accessAdmin:codes.delivery_zone.manage_organisation.name',
+  'accessAdmin:codes.device.manage_own.name',
+  'accessAdmin:codes.entitlement.view_organisation.name',
+  'accessAdmin:codes.inventory.manage_organisation.name',
+  'accessAdmin:codes.inventory.order_supplies_organisation.name',
+  'accessAdmin:codes.inventory.view_costs_organisation.name',
+  'accessAdmin:codes.inventory.view_organisation.name',
+  'accessAdmin:codes.membership.end_organisation.name',
+  'accessAdmin:codes.membership.invite_organisation.name',
+  'accessAdmin:codes.membership.update_organisation.name',
+  'accessAdmin:codes.membership.view_organisation.name',
+  'accessAdmin:codes.order.create_on_behalf_organisation.name',
+  'accessAdmin:codes.order.manage_organisation.name',
+  'accessAdmin:codes.order.view_customer_contact_organisation.name',
+  'accessAdmin:codes.order.view_organisation.name',
+  'accessAdmin:codes.organisation.update_current.name',
+  'accessAdmin:codes.organisation.view_current.name',
+  'accessAdmin:codes.plan.manage_organisation.name',
+  'accessAdmin:codes.plan.publish_organisation.name',
+  'accessAdmin:codes.price_list.manage_organisation.name',
+  'accessAdmin:codes.price_list.view_organisation.name',
+  'accessAdmin:codes.profile.update_own.name',
+  'accessAdmin:codes.profile.view_own.name',
+  'accessAdmin:codes.recipe.manage_organisation.name',
+  'accessAdmin:codes.recipe.publish_organisation.name',
+  'accessAdmin:codes.recipe.view_costs_organisation.name',
+  'accessAdmin:codes.recipe.view_organisation.name',
+  'accessAdmin:codes.role.manage_organisation.name',
+  'accessAdmin:codes.role.view_organisation.name',
+  'accessAdmin:codes.session.revoke_own.name',
+  'accessAdmin:codes.subscription.view_organisation.name',
+  'accessAdmin:codes.user.manage_organisation.name',
+  'accessAdmin:extras.orderDeskCustomer',
+  'accessAdmin:extras.orderDeskSale',
+  'accessAdmin:extras.unpricedReceipts',
+  'accessAdmin:member.assignmentExpired',
+  'accessAdmin:member.assignmentFrom',
+  'accessAdmin:member.assignmentScheduled',
+  'accessAdmin:member.assignmentUntil',
+  'accessAdmin:member.back',
+  'accessAdmin:member.cancel',
+  'accessAdmin:member.end',
+  'accessAdmin:member.endBody',
+  'accessAdmin:member.endConfirm',
+  'accessAdmin:member.endTitle',
+  'accessAdmin:member.ended',
+  'accessAdmin:member.lastAdministrator',
+  'accessAdmin:member.permissionsHeading',
+  'accessAdmin:member.permissionsHint',
+  'accessAdmin:member.reactivate',
+  'accessAdmin:member.reactivated',
+  'accessAdmin:member.rolesHeading',
+  'accessAdmin:member.rolesHint',
+  'accessAdmin:member.save',
+  'accessAdmin:member.saved',
+  'accessAdmin:member.scopeHeading',
+  'accessAdmin:member.scopeHint',
+  'accessAdmin:member.scopeSingleBranch',
+  'accessAdmin:member.scopeWholeKitchen',
+  'accessAdmin:member.selfLockout',
+  'accessAdmin:member.suspend',
+  'accessAdmin:member.suspended',
+  'accessAdmin:member.title',
+  'accessAdmin:pages.alsoOpens',
+  'accessAdmin:pages.hint',
+  'accessAdmin:pages.levels.manage',
+  'accessAdmin:pages.levels.none',
+  'accessAdmin:pages.levels.view',
+  'accessAdmin:pages.unmappedCount',
+  'accessAdmin:pages.unmappedHeading',
+  'accessAdmin:pages.unmappedHint',
+  'accessAdmin:role.back',
+  'accessAdmin:role.cancel',
+  'accessAdmin:role.code',
+  'accessAdmin:role.codeHint',
+  'accessAdmin:role.copyTitle',
+  'accessAdmin:role.created',
+  'accessAdmin:role.delete',
+  'accessAdmin:role.deleteBlocked',
+  'accessAdmin:role.deleteBody',
+  'accessAdmin:role.deleteConfirm',
+  'accessAdmin:role.deleteTitle',
+  'accessAdmin:role.deleted',
+  'accessAdmin:role.descriptionAr',
+  'accessAdmin:role.descriptionEn',
+  'accessAdmin:role.nameAr',
+  'accessAdmin:role.nameEn',
+  'accessAdmin:role.newTitle',
+  'accessAdmin:role.save',
+  'accessAdmin:role.saved',
+  'accessAdmin:role.selfLockout',
+  'accessAdmin:role.shadowsTemplate',
+  'accessAdmin:role.tabs.advanced',
+  'accessAdmin:role.tabs.pages',
+  'accessAdmin:role.templateNotice',
+  'accessAdmin:roles.caption',
+  'accessAdmin:roles.columns.holders',
+  'accessAdmin:roles.columns.pages',
+  'accessAdmin:roles.columns.role',
+  'accessAdmin:roles.copy',
+  'accessAdmin:roles.create',
+  'accessAdmin:roles.edit',
+  'accessAdmin:roles.emptyBody',
+  'accessAdmin:roles.emptyTitle',
+  'accessAdmin:roles.holders',
+  'accessAdmin:roles.holdersNone',
+  'accessAdmin:roles.open',
+  'accessAdmin:roles.ownHeading',
+  'accessAdmin:roles.ownHint',
+  'accessAdmin:roles.permissionCount',
+  'accessAdmin:roles.subtitle',
+  'accessAdmin:roles.templatesHeading',
+  'accessAdmin:roles.templatesHint',
+  'accessAdmin:roles.title',
+  'accessAdmin:signIn.organisation',
+  'accessAdmin:signIn.useFullEmail',
+  'accessAdmin:status.active',
+  'accessAdmin:status.ended',
+  'accessAdmin:status.invited',
+  'accessAdmin:status.suspended',
+  'accessAdmin:team.add',
+  'accessAdmin:team.caption',
+  'accessAdmin:team.columns.email',
+  'accessAdmin:team.columns.person',
+  'accessAdmin:team.columns.roles',
+  'accessAdmin:team.columns.scope',
+  'accessAdmin:team.columns.status',
+  'accessAdmin:team.emptyBody',
+  'accessAdmin:team.emptyTitle',
+  'accessAdmin:team.filteredEmptyBody',
+  'accessAdmin:team.filteredEmptyTitle',
+  'accessAdmin:team.invitations.caption',
+  'accessAdmin:team.invitations.empty',
+  'accessAdmin:team.invitations.expires',
+  'accessAdmin:team.invitations.revoke',
+  'accessAdmin:team.invitations.revoked',
+  'accessAdmin:team.invitations.sent',
+  'accessAdmin:team.invitations.subtitle',
+  'accessAdmin:team.invitations.title',
+  'accessAdmin:team.noRoles',
+  'accessAdmin:team.open',
+  'accessAdmin:team.organisationWide',
+  'accessAdmin:team.showEnded',
+  'accessAdmin:team.subtitle',
+  'accessAdmin:team.title',
+  'accessAdmin:team.unnamed',
+  'accessAdmin:title',
   'account:addresses.add',
   'account:addresses.areaHint',
   'account:addresses.areaLabel',
@@ -7167,6 +7769,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:branchPicker.openLabel',
   'auth:branchPicker.subtitle',
   'auth:branchPicker.title',
+  'auth:changePassword.continueLabel',
+  'auth:changePassword.currentHint',
+  'auth:changePassword.currentLabel',
+  'auth:changePassword.optionalSubtitle',
+  'auth:changePassword.optionalTitle',
+  'auth:changePassword.passwordConfirmationLabel',
+  'auth:changePassword.passwordLabel',
+  'auth:changePassword.submit',
+  'auth:changePassword.subtitle',
+  'auth:changePassword.successBody',
+  'auth:changePassword.successTitle',
+  'auth:changePassword.title',
   'auth:devices.current',
   'auth:devices.empty',
   'auth:devices.emptyBody',
@@ -7190,6 +7804,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:forgotPassword.submit',
   'auth:forgotPassword.subtitle',
   'auth:forgotPassword.title',
+  'auth:login.composedHint',
+  'auth:login.domainFull',
+  'auth:login.domainLabel',
   'auth:login.emailLabel',
   'auth:login.emailPlaceholder',
   'auth:login.failed',
@@ -7200,6 +7817,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.registerLink',
   'auth:login.registerPrompt',
   'auth:login.rememberLabel',
+  'auth:login.signInNameLabel',
+  'auth:login.signInNamePlaceholder',
   'auth:login.submit',
   'auth:login.subtitle',
   'auth:login.title',
@@ -7213,6 +7832,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.twoFactor.title',
   'auth:login.twoFactor.useCode',
   'auth:login.twoFactor.useRecovery',
+  'auth:login.useFullEmail',
+  'auth:login.useSignInName',
   'auth:organisationPicker.branchCount',
   'auth:organisationPicker.empty',
   'auth:organisationPicker.emptyAction',
@@ -8773,6 +9394,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:tag.join',
   'designSystem:tag.more',
   'designSystem:tag.overflow',
+  'errors:failure.access_self_lockout',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
   'errors:failure.auth_email_unverified',
@@ -9680,6 +10302,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.deliveryZones.name',
   'kitchen:families.dressings.description',
   'kitchen:families.dressings.name',
+  'kitchen:families.frozenMeals.description',
+  'kitchen:families.frozenMeals.name',
   'kitchen:families.ingredients.description',
   'kitchen:families.ingredients.name',
   'kitchen:families.meals.description',
@@ -9704,6 +10328,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.procurement.name',
   'kitchen:families.production.description',
   'kitchen:families.production.name',
+  'kitchen:families.productionBatches.description',
+  'kitchen:families.productionBatches.name',
   'kitchen:families.products.description',
   'kitchen:families.products.name',
   'kitchen:families.purchases.description',
@@ -9716,6 +10342,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.recipes.name',
   'kitchen:families.review.description',
   'kitchen:families.review.name',
+  'kitchen:families.roles.description',
+  'kitchen:families.roles.name',
   'kitchen:families.sauces.description',
   'kitchen:families.sauces.name',
   'kitchen:families.stock.description',
@@ -9724,6 +10352,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.suppliers.name',
   'kitchen:families.supplyOrders.description',
   'kitchen:families.supplyOrders.name',
+  'kitchen:families.team.description',
+  'kitchen:families.team.name',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
   'kitchen:fields.categoryPlaceholder',
@@ -9758,6 +10388,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
   'kitchen:fields.unitPricePlaceholder',
+  'kitchen:frozenMeals.caption',
+  'kitchen:frozenMeals.create',
+  'kitchen:frozenMeals.emptyBody',
+  'kitchen:frozenMeals.emptyTitle',
+  'kitchen:frozenMeals.searchPlaceholder',
+  'kitchen:frozenMeals.title',
+  'kitchen:frozenMeals.viewKind',
   'kitchen:hub.countUnavailable',
   'kitchen:hub.draftCount',
   'kitchen:hub.emptyBody',
@@ -9938,6 +10575,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.emptyTitle',
   'kitchen:meals.filteredEmptyBody',
   'kitchen:meals.filteredEmptyTitle',
+  'kitchen:meals.finishedStockBlockedIngredient',
+  'kitchen:meals.finishedStockBlockedMode',
+  'kitchen:meals.finishedStockOff',
+  'kitchen:meals.finishedStockOn',
+  'kitchen:meals.finishedStockToggleLabel',
   'kitchen:meals.gateCheckName',
   'kitchen:meals.gateCheckSaved',
   'kitchen:meals.gateCheckServiceDays',
@@ -9949,11 +10591,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.marginValue',
   'kitchen:meals.mealTypesLabel',
   'kitchen:meals.nameRequired',
+  'kitchen:meals.netContentHint',
+  'kitchen:meals.netContentInvalid',
+  'kitchen:meals.netContentLabel',
+  'kitchen:meals.netContentRequired',
+  'kitchen:meals.netContentUnitLabel',
+  'kitchen:meals.netContentUnitMissing',
+  'kitchen:meals.netContentUnitsForbidden',
   'kitchen:meals.noChannels',
   'kitchen:meals.notVisibleToConsumers',
   'kitchen:meals.portionHint',
   'kitchen:meals.portionInvalid',
   'kitchen:meals.portionLabel',
+  'kitchen:meals.producedIngredientHint',
+  'kitchen:meals.producedIngredientLabel',
+  'kitchen:meals.producedIngredientNone',
+  'kitchen:meals.productionModeBoth',
+  'kitchen:meals.productionModeHint',
+  'kitchen:meals.productionModeLabel',
+  'kitchen:meals.productionModeProduction',
+  'kitchen:meals.productionModeSupplier',
+  'kitchen:meals.productionModeUnset',
   'kitchen:meals.publishAllergensNone',
   'kitchen:meals.publishAllergensTitle',
   'kitchen:meals.publishBlockedTitle',
@@ -9980,6 +10638,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.sectionDetails',
   'kitchen:meals.sectionIdentity',
   'kitchen:meals.sectionMargin',
+  'kitchen:meals.sectionProduction',
+  'kitchen:meals.sectionProductionHint',
   'kitchen:meals.sectionRecipe',
   'kitchen:meals.sectionWhen',
   'kitchen:meals.sectionWhenHint',
@@ -9995,6 +10655,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.viewPublic',
   'kitchen:meals.viewVisibility',
   'kitchen:meals.visibleToConsumers',
+  'kitchen:nav.groups.access',
   'kitchen:nav.groups.catalogue',
   'kitchen:nav.groups.commercial',
   'kitchen:nav.groups.operations',
@@ -10092,9 +10753,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.chip',
   'kitchen:ops.costReport.cogsMixCenter',
   'kitchen:ops.costReport.columnCogs',
+  'kitchen:ops.costReport.columnEstimatedMargin',
   'kitchen:ops.costReport.columnMargin',
   'kitchen:ops.costReport.columnMarginPercent',
   'kitchen:ops.costReport.columnMonth',
+  'kitchen:ops.costReport.columnProductionConsumption',
+  'kitchen:ops.costReport.columnProductionWaste',
+  'kitchen:ops.costReport.columnProductionYield',
   'kitchen:ops.costReport.columnRevenue',
   'kitchen:ops.costReport.columnSpend',
   'kitchen:ops.costReport.currencyLabel',
@@ -10150,10 +10815,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.reasons.no_catalogue_item',
   'kitchen:ops.exceptions.reasons.no_ingredient_cost',
   'kitchen:ops.exceptions.reasons.no_ingredient_link',
+  'kitchen:ops.exceptions.reasons.no_net_content',
   'kitchen:ops.exceptions.reasons.no_recipe_version',
   'kitchen:ops.exceptions.reasons.no_stock_item',
   'kitchen:ops.exceptions.reasons.no_stock_unit',
   'kitchen:ops.exceptions.reasons.no_yield_piece_count',
+  'kitchen:ops.exceptions.reasons.reserved_for_production',
   'kitchen:ops.exceptions.reasons.unit_conversion_unsupported',
   'kitchen:ops.exceptions.reasons.unquantified_recipe_line',
   'kitchen:ops.exceptions.resolve',
@@ -10343,36 +11010,173 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.suppliersTitle',
   'kitchen:ops.procurement.title',
   'kitchen:ops.procurement.unpricedReceipts',
-  'kitchen:ops.production.columnActions',
-  'kitchen:ops.production.columnId',
+  'kitchen:ops.production.abandon',
+  'kitchen:ops.production.abandonReasonHint',
+  'kitchen:ops.production.abandonReasonLabel',
+  'kitchen:ops.production.abandonReasonRequired',
+  'kitchen:ops.production.abandonSubmit',
+  'kitchen:ops.production.abandonSubtitle',
+  'kitchen:ops.production.abandonTitle',
+  'kitchen:ops.production.abandonedAtLabel',
+  'kitchen:ops.production.abandonedToast',
+  'kitchen:ops.production.actualCost',
+  'kitchen:ops.production.actualCostCaption',
+  'kitchen:ops.production.amountRequired',
+  'kitchen:ops.production.asPlanned',
+  'kitchen:ops.production.backToDesk',
+  'kitchen:ops.production.batchFactorHint',
+  'kitchen:ops.production.batchFactorLabel',
+  'kitchen:ops.production.batchFallbackTitle',
+  'kitchen:ops.production.batchReferenceLabel',
+  'kitchen:ops.production.batchTitle',
+  'kitchen:ops.production.cancelBatch',
+  'kitchen:ops.production.cancelBlocked',
+  'kitchen:ops.production.cancelBody',
+  'kitchen:ops.production.cancelSubmit',
+  'kitchen:ops.production.cancelTitle',
+  'kitchen:ops.production.cancelledAtLabel',
+  'kitchen:ops.production.cancelledToast',
+  'kitchen:ops.production.columnBatch',
+  'kitchen:ops.production.columnClaimed',
+  'kitchen:ops.production.columnExpiry',
+  'kitchen:ops.production.columnItem',
+  'kitchen:ops.production.columnMade',
+  'kitchen:ops.production.columnMakes',
   'kitchen:ops.production.columnStatus',
+  'kitchen:ops.production.columnStorage',
+  'kitchen:ops.production.columnUnitCost',
+  'kitchen:ops.production.columnUsed',
+  'kitchen:ops.production.columnWasted',
+  'kitchen:ops.production.columnYield',
   'kitchen:ops.production.complete',
   'kitchen:ops.production.completeFailed',
+  'kitchen:ops.production.completeSubmit',
+  'kitchen:ops.production.completeSubtitle',
+  'kitchen:ops.production.completeTitle',
+  'kitchen:ops.production.completedAtLabel',
   'kitchen:ops.production.completedToast',
   'kitchen:ops.production.completedUnvaluedToast',
+  'kitchen:ops.production.confirm',
+  'kitchen:ops.production.confirmedAtLabel',
+  'kitchen:ops.production.confirmedToast',
+  'kitchen:ops.production.consumedHeading',
+  'kitchen:ops.production.consumedHint',
+  'kitchen:ops.production.costStatusPartial',
+  'kitchen:ops.production.costStatusPartialBody',
+  'kitchen:ops.production.costStatusUnvalued',
+  'kitchen:ops.production.costStatusUnvaluedBody',
+  'kitchen:ops.production.costWithheld',
+  'kitchen:ops.production.costsHiddenBody',
+  'kitchen:ops.production.costsHiddenTitle',
   'kitchen:ops.production.create',
-  'kitchen:ops.production.createFailed',
   'kitchen:ops.production.createSubmit',
-  'kitchen:ops.production.createTitle',
   'kitchen:ops.production.createdToast',
+  'kitchen:ops.production.currencyConflict',
   'kitchen:ops.production.emptyBody',
   'kitchen:ops.production.emptyTitle',
-  'kitchen:ops.production.loadErrorBody',
+  'kitchen:ops.production.estimatedCost',
+  'kitchen:ops.production.estimatedCostCaption',
+  'kitchen:ops.production.expiredBadge',
+  'kitchen:ops.production.expiredNotice',
+  'kitchen:ops.production.expiryDateLabel',
+  'kitchen:ops.production.filterOpen',
+  'kitchen:ops.production.filterStatus',
+  'kitchen:ops.production.headingCost',
+  'kitchen:ops.production.headingLines',
+  'kitchen:ops.production.headingPlan',
+  'kitchen:ops.production.headingRecord',
+  'kitchen:ops.production.headingYield',
+  'kitchen:ops.production.lineKindIngredient',
+  'kitchen:ops.production.lineKindPackaging',
   'kitchen:ops.production.loadErrorTitle',
-  'kitchen:ops.production.metrics.batches',
-  'kitchen:ops.production.metrics.inProgress',
-  'kitchen:ops.production.metrics.yield',
+  'kitchen:ops.production.newSubtitle',
+  'kitchen:ops.production.newTitle',
+  'kitchen:ops.production.nextPage',
   'kitchen:ops.production.noBranchBody',
   'kitchen:ops.production.noBranchTitle',
-  'kitchen:ops.production.ordersHeading',
+  'kitchen:ops.production.noExpiry',
+  'kitchen:ops.production.notFoundBody',
+  'kitchen:ops.production.notFoundTitle',
+  'kitchen:ops.production.notesHint',
+  'kitchen:ops.production.notesLabel',
+  'kitchen:ops.production.openBatch',
+  'kitchen:ops.production.planAvailable',
+  'kitchen:ops.production.planHolesBody',
+  'kitchen:ops.production.planHolesTitle',
+  'kitchen:ops.production.planIngredientsHeading',
+  'kitchen:ops.production.planMissing',
+  'kitchen:ops.production.planOnHand',
+  'kitchen:ops.production.planPackagingHeading',
+  'kitchen:ops.production.planReady',
+  'kitchen:ops.production.planRequired',
+  'kitchen:ops.production.planReserved',
+  'kitchen:ops.production.planShort',
+  'kitchen:ops.production.plannedYieldHint',
+  'kitchen:ops.production.plannedYieldLabel',
+  'kitchen:ops.production.previousPage',
+  'kitchen:ops.production.producedHint',
+  'kitchen:ops.production.producedLabel',
+  'kitchen:ops.production.producedRequired',
+  'kitchen:ops.production.productionDateLabel',
+  'kitchen:ops.production.registerEmptyBody',
+  'kitchen:ops.production.registerEmptyTitle',
+  'kitchen:ops.production.registerTitle',
+  'kitchen:ops.production.rejectedHint',
+  'kitchen:ops.production.rejectedLabel',
+  'kitchen:ops.production.rejectedTooHigh',
+  'kitchen:ops.production.scaleFactor',
+  'kitchen:ops.production.scaleHint',
+  'kitchen:ops.production.scaleLabel',
+  'kitchen:ops.production.scaleYield',
+  'kitchen:ops.production.sheetBasisHeading',
+  'kitchen:ops.production.sheetLink',
+  'kitchen:ops.production.sheetLive',
+  'kitchen:ops.production.sheetNutritionEmpty',
+  'kitchen:ops.production.sheetNutritionHeading',
+  'kitchen:ops.production.sheetPublicationLabel',
+  'kitchen:ops.production.sheetPublicationNone',
+  'kitchen:ops.production.sheetSubtitle',
+  'kitchen:ops.production.sheetTitle',
+  'kitchen:ops.production.sheetUnconfirmedBody',
+  'kitchen:ops.production.sheetUnconfirmedTitle',
+  'kitchen:ops.production.sheetVersionLabel',
+  'kitchen:ops.production.showingCount',
+  'kitchen:ops.production.start',
+  'kitchen:ops.production.startedAtLabel',
+  'kitchen:ops.production.startedToast',
+  'kitchen:ops.production.statCompletedCaption',
+  'kitchen:ops.production.statConfirmedCaption',
+  'kitchen:ops.production.statDraftCaption',
+  'kitchen:ops.production.statExpired',
+  'kitchen:ops.production.statExpiredCaption',
+  'kitchen:ops.production.statInProductionCaption',
+  'kitchen:ops.production.statUnit',
+  'kitchen:ops.production.statUnvalued',
+  'kitchen:ops.production.statUnvaluedCaption',
+  'kitchen:ops.production.status.abandoned',
   'kitchen:ops.production.status.cancelled',
   'kitchen:ops.production.status.completed',
-  'kitchen:ops.production.status.inProgress',
-  'kitchen:ops.production.status.planned',
-  'kitchen:ops.production.subtitle',
+  'kitchen:ops.production.status.confirmed',
+  'kitchen:ops.production.status.draft',
+  'kitchen:ops.production.status.inProduction',
+  'kitchen:ops.production.storageLocationLabel',
   'kitchen:ops.production.title',
+  'kitchen:ops.production.uncostedLines',
+  'kitchen:ops.production.unitCostLabel',
+  'kitchen:ops.production.unreferenced',
   'kitchen:ops.production.versionHint',
   'kitchen:ops.production.versionLabel',
+  'kitchen:ops.production.versionRequired',
+  'kitchen:ops.production.wasteHeading',
+  'kitchen:ops.production.wasteHint',
+  'kitchen:ops.production.yieldPlanned',
+  'kitchen:ops.production.yieldProduced',
+  'kitchen:ops.production.yieldRejected',
+  'kitchen:ops.production.yieldRejectedCaption',
+  'kitchen:ops.production.yieldUsable',
+  'kitchen:ops.production.yieldVariance',
+  'kitchen:ops.production.yieldVarianceLossCaption',
+  'kitchen:ops.production.yieldVarianceOverCaption',
   'kitchen:ops.qc.checksHeading',
   'kitchen:ops.qc.columnActions',
   'kitchen:ops.qc.columnStatus',
@@ -10529,8 +11333,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.branchRequiredTitle',
   'kitchen:ops.requirements.columnAvailable',
   'kitchen:ops.requirements.columnIngredient',
+  'kitchen:ops.requirements.columnOnHand',
   'kitchen:ops.requirements.columnPosition',
   'kitchen:ops.requirements.columnRequired',
+  'kitchen:ops.requirements.columnReserved',
   'kitchen:ops.requirements.columnShort',
   'kitchen:ops.requirements.columnSuggestedBuy',
   'kitchen:ops.requirements.columnUnit',
@@ -11345,6 +12151,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:products.marketPricedLabel',
   'kitchen:products.marketPricedShort',
   'kitchen:products.nameRequired',
+  'kitchen:products.netContentHint',
+  'kitchen:products.netContentInvalid',
+  'kitchen:products.netContentLabel',
+  'kitchen:products.netContentUnitLabel',
+  'kitchen:products.netContentUnitMissing',
+  'kitchen:products.netContentUnitsForbidden',
   'kitchen:products.noChannels',
   'kitchen:products.noPacks',
   'kitchen:products.notFoundBody',
@@ -11581,8 +12393,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetCostHidden',
   'kitchen:recipes.sheetCostPerPiece',
   'kitchen:recipes.sheetCostPerUnit',
+  'kitchen:recipes.sheetCostSaved',
   'kitchen:recipes.sheetCostTitle',
   'kitchen:recipes.sheetCostTotal',
+  'kitchen:recipes.sheetCostWeekly',
   'kitchen:recipes.sheetCostWithWaste',
   'kitchen:recipes.sheetDesignation',
   'kitchen:recipes.sheetKind',
@@ -11595,6 +12409,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.sheetRawMaterial',
   'kitchen:recipes.sheetTitle',
   'kitchen:recipes.sheetTotalRow',
+  'kitchen:recipes.sheetWeeklyCarried',
+  'kitchen:recipes.sheetWeeklyEffective',
+  'kitchen:recipes.sheetWeeklyNeedsPrice',
   'kitchen:recipes.sourceKindLabel',
   'kitchen:recipes.statReview',
   'kitchen:recipes.statReviewAction',

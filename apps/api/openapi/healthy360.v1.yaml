@@ -311,6 +311,15 @@ tags:
       and every one of them requires `If-Match`. A quotation is a number
       somebody will be held to; two tabs must not be able to submit and
       re-price the same draft.
+  - name: Access administration
+    description: |
+      A kitchen administering itself: the roles it has defined, what each one
+      reaches, who holds which, and how somebody comes to have a login at all.
+
+      The other half of Invitations, and deliberately not Platform
+      administration — that tag is the platform managing *somebody else's*
+      tenant behind `platform.context`, and nothing here carries a platform
+      gate.
   - name: Invitations
     description: |
       Bringing a person into an organisation. The token is returned to nobody:
@@ -783,6 +792,127 @@ paths:
                     $ref: '#/components/schemas/Meta'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/user/password:
+    put:
+      operationId: updateOwnPassword
+      tags: [Authentication]
+      summary: Replace a password you already know
+      description: |
+        Fortify has shipped this controller since the beginning and this API has
+        never registered it, because until an administrator could open an
+        account on somebody else's behalf, every password on the platform was
+        chosen by the person who owned it and replaced through the emailed
+        reset link.
+
+        `POST /organisations/{organisation}/staff` changes that: it hands a
+        working credential to two people, and `must_change_password` on the new
+        account holds them here until this route clears it.
+
+        **`current_password` is required even on a forced first change**, and
+        the shortcut of waiving it — they have just signed in with it — is
+        deliberately not taken. A session is not a password: it survives on a
+        shared terminal and in an unlocked phone. The whole value of this route
+        is that it takes a credential away from whoever else holds it, and a
+        version exercisable from an abandoned session would hand it to the
+        wrong person instead.
+
+        **The session survives**, unlike a reset — which is what lets a forced
+        first change flow straight into the workspace rather than bouncing back
+        to a login form.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordRequest'
+      responses:
+        '200':
+          description: Replaced, and the obligation cleared.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [password_updated, must_change_password]
+                    properties:
+                      password_updated:
+                        type: boolean
+                      must_change_password:
+                        type: boolean
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/staff-domains:
+    get:
+      operationId: listStaffSignInDomains
+      tags: [Authentication]
+      summary: The domains a member of staff signs in under
+      description: |
+        Anonymous by construction: the sign-in screen renders the domain picker
+        before anybody has signed in, so a guarded endpoint could not serve the
+        screen it exists for.
+
+        An anonymous list of tenant names looks inconsistent beside the
+        invitation endpoints, which go to deliberate lengths *not* to confirm
+        that a given organisation exists — so the difference is worth naming.
+        Nothing here is a secret: an organisation's name is already on the
+        public marketplace, and a staff domain is the right-hand side of every
+        address that organisation has ever issued.
+
+        It is narrow in the two ways that matter. Only organisations that have
+        **set** a domain appear, so listing is opt-in by a deliberate act; and
+        only **active** ones, because a suspended tenant's staff cannot sign in
+        and offering the option would be an invitation to a refusal.
+
+        A name and a domain, and nothing else — the picker needs a label and a
+        suffix. Ordered by name, because a picker whose options move is one
+        people mis-click.
+
+        A client renders the picker only when this returns **two or more**
+        entries. With one, the field takes a plain address and appends the
+        single domain when none is typed; with none, nothing about the sign-in
+        screen changes.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The organisations whose staff sign in with a name.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [domains]
+                    properties:
+                      domains:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StaffSignInDomain'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -10140,6 +10270,177 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/procurement/weekly-prices:
+    get:
+      operationId: listWeeklyPrices
+      tags: [Kitchen inventory & production]
+      summary: What a week's purchases averaged to
+      description: |
+        The weighted-average purchase price per ingredient, published every
+        Monday from the previous completed Monday–Sunday week in the kitchen's
+        own timezone (PROD1).
+
+        Without `publication_id`, the **standing** row per ingredient: what the
+        batch estimator is using right now, which is the question a manager asks
+        when an estimate looks wrong. With one, every row that publication
+        carried — the historical record, which does not move, because the table
+        is append-only and a recompute publishes a superseding run rather than
+        correcting rows in place.
+
+        **Unpriced rows are included and are the point.** An ingredient nobody
+        could price this week arrives with `average_unit_amount: null` and
+        `source: unpriced` — the requirement's "flag ingredients with no purchase
+        history". Reading that null as zero would price food at nothing; omitting
+        the row would say the list is complete.
+
+        **A carried row says where it came from and why.** The four
+        `carry_reason` values are different problems with different fixes —
+        nothing was bought, the week's purchases were in two currencies, every
+        line was unpriced, or the ingredient's unit changed to one the old price
+        cannot convert into.
+
+        Requires `inventory.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - name: publication_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Uuid'
+          description: One publishing run's rows. Omit for the standing price per ingredient.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: The published weekly prices.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyPriceEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/weekly-prices/publications:
+    get:
+      operationId: listWeeklyPricePublications
+      tags: [Kitchen inventory & production]
+      summary: The weekly price publishing history
+      description: |
+        A row per publishing run, newest week first (PROD1). The job runs hourly
+        and catches up every completed-but-unpublished week oldest-first, bounded
+        to the last eight weeks, so after an outage this is where a manager sees
+        which weeks were published and what each one found.
+
+        `has_late_receipts` is the one worth reading twice. A published row is
+        never rewritten, so a receipt priced after the week closed cannot move
+        that week's average; the flag says the basis has since moved, which is
+        the honest half of that promise. A deliberate recompute publishes a new
+        run with `supersedes_id` pointing at the one it replaces.
+
+        `timezone` is published rather than implied: "the week of the 14th" spans
+        different instants in Beirut and Dubai, and a reader reconciling a total
+        needs to know which clock drew the boundary.
+
+        Requires `inventory.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: The publishing runs.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyPricePublicationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/reports/inventory-value:
+    get:
+      operationId: showInventoryValue
+      tags: [Kitchen inventory & production]
+      summary: What the stock on hand is worth
+      description: |
+        `Σ quantity_on_hand × moving_average_cost_amount`, one row per currency
+        (PROD1). The one figure the finance requirement names that had nowhere to
+        live: the monthly report says what a month bought, sold, wasted and made,
+        and nothing said what is left.
+
+        **A current valuation, not a period-end one.** There is no period close in
+        this system and this does not invent one — `meta.as_of` is the instant the
+        figure was read, published rather than implied, because a closing
+        valuation would need snapshots nobody takes.
+
+        **Never a single total.** A kitchen holding dollar flour and euro oil has
+        two valuations; this system has no exchange rate and will not acquire one
+        here.
+
+        **Stock nobody can value is counted, not zeroed.**
+        `meta.unvalued_item_count` is ingredients holding quantity with no moving
+        average — never bought at a recorded price, or a batch that finished
+        `partial`. Valuing them at zero would make the total read low *and*
+        complete, which is the worse of the two ways to be wrong.
+
+        Requires `inventory.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The current stock valuation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryValueEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/inventory/consumption-exceptions:
     get:
       operationId: listConsumptionExceptions
@@ -10335,23 +10636,37 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
-  /catalogue/production/orders:
+  /catalogue/production/valuations-pending:
     get:
-      operationId: listProductionOrders
+      operationId: listPendingProductionValuations
       tags: [Kitchen inventory & production]
-      summary: List production orders
+      summary: Batches that finished without a cost
       description: |
-        The most recent 50 orders, newest first. No production tasks are
-        served here (O5) — an order's own checklist is not part of this
-        surface.
+        The work queue behind the monthly report's third completeness flag
+        (PROD1). A batch is on it while `actual_cost_status` is anything but
+        `complete`, and leaves it when that changes — the same definition the
+        report counts, so the badge and the list can never disagree.
 
-        Requires `inventory.view_organisation`.
+        **A read, with deliberately no companion write.** The obvious next
+        endpoint would re-value a batch once the missing input costs arrive and
+        blend the result into the produced ingredient's moving average. Doing that
+        correctly needs something nothing records: how much of the batch is still
+        on the shelf. Blending the full produced quantity would overstate the
+        basis, and blending nothing while clearing the flag would tell a reader
+        the period is trustworthy when it is not. So the batch stays flagged and
+        the queue says which to look at (OQ-052).
+
+        Bounded at 100 with `meta.is_truncated` stated: a queue that silently
+        stops is one somebody works through and believes they finished.
+
+        Requires `inventory.view_costs_organisation` — the queue is entirely about
+        money.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
-          description: Recent production orders.
+          description: Batches awaiting a valuation.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -10365,15 +10680,77 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders:
+    get:
+      operationId: listProductionOrders
+      tags: [Kitchen inventory & production]
+      summary: List production batches
+      description: |
+        The production desk queue (PROD1) — fifty per page, newest first, with
+        `has_more` stated rather than inferred.
+
+        `status` defaults to the four **open** states, because a desk is a working
+        surface and what it is for is the batches somebody still has to do
+        something about. Narrowing it to one state is also how the batch register
+        reads completed runs, out of this endpoint rather than a second one.
+
+        Ordered by creation rather than by status: a queue sorted by a status
+        vocabulary teaches people the vocabulary's order instead of showing them
+        their work.
+
+        Requires `production.view_organisation`. Money is redacted **inside** the
+        payload by `production.view_costs_organisation`, and `meta.costs_visible`
+        says which happened.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: One of the six states. Omitted, the four open ones.
+          schema:
+            $ref: '#/components/schemas/ProductionOrderStatus'
+        - name: branch_id
+          in: query
+          required: false
+          description: Narrow to one production site.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The desk queue.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
     post:
       operationId: createProductionOrder
       tags: [Kitchen inventory & production]
-      summary: Plan a production order
+      summary: Open a draft batch
       description: |
-        Starts an order in `planned`. Nothing is consumed or yielded yet —
-        that is what completing the order does.
+        Starts a batch in `draft` (PROD1). **A draft claims nothing** — that is
+        the whole reason the state is not called `planned`. Confirm is where the
+        commitment happens.
 
-        Requires `inventory.manage_organisation`.
+        Requires `production.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -10385,66 +10762,7 @@ paths:
               $ref: '#/components/schemas/CreateProductionOrderRequest'
       responses:
         '201':
-          description: The production order was planned.
-          headers:
-            X-Correlation-Id:
-              $ref: '#/components/headers/XCorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProductionOrderEnvelope'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/ContextOrPermissionDenied'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-
-  /catalogue/production/orders/{productionOrder}/complete:
-    post:
-      operationId: completeProductionOrder
-      tags: [Kitchen inventory & production]
-      summary: Complete a production order
-      description: |
-        Books the batch into inventory and moves the order to `completed`, in
-        one transaction. There is no body: what the batch consumed and yielded
-        is derived from the order's recipe version and planned yield, never
-        typed.
-
-        - **Consumes.** The version's lines and packaging, scaled by planned ÷
-          stated yield (one batch when no yield is planned), with no waste
-          uplift — the source sheets state process loss on the output.
-          Counted packaging is rounded up to whole items. Each consume is
-          valued at the ingredient's moving average and carries
-          `reference_type: production_order`, which cost of goods does not
-          count.
-        - **Yield.** Onto the shelf of what the version makes: its primary
-          declared output, else the sauce or dressing sold from its recipe.
-          Valued at the inputs' total and blended into that item's moving
-          average — unless any input had no cost, in which case it arrives
-          unvalued and the average is untouched.
-
-        All or nothing: a line with no shelf, a unit that will not convert, a
-        recipe that makes nothing kept on a shelf (`409 resource.conflict`), or
-        a shelf holding too little (`409 inventory.insufficient_stock`, naming
-        it) refuses the whole batch and moves nothing. Completing an order that
-        is already completed books nothing and answers as it stands.
-
-        Requires `inventory.manage_organisation`.
-      parameters:
-        - name: productionOrder
-          in: path
-          required: true
-          description: The production order identifier.
-          schema:
-            $ref: '#/components/schemas/Uuid'
-        - $ref: '#/components/parameters/XOrganisationIdRequired'
-        - $ref: '#/components/parameters/XClientRequestId'
-      responses:
-        '200':
-          description: The production order is completed.
+          description: The draft batch.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -10464,6 +10782,483 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}:
+    get:
+      operationId: showProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Read one batch
+      description: |
+        A batch with its lines and, while it has none, its live plan (PROD1).
+
+        A draft has committed to nothing, so it reads its plan fresh: the shelves
+        move under it, and showing yesterday's availability would be showing a
+        number nobody can act on. From confirm onwards the **lines are the
+        answer** — they are what the kitchen agreed to, what the reservations were
+        opened against and what the estimate was computed from.
+
+        A batch belonging to another kitchen is a **404**, never a 403: telling
+        somebody that a production order exists and is not theirs is itself a
+        disclosure.
+
+        Requires `production.view_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The batch.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/plan:
+    get:
+      operationId: showProductionOrderPlan
+      tags: [Kitchen inventory & production]
+      summary: What this batch would need now
+      description: |
+        The live plan against today's shelves (PROD1). Separate from the batch
+        detail because it answers a *moving* question, and a confirmed batch wants
+        both: what it committed to (its lines) and what the shelves say today.
+
+        A confirmed batch's plan excludes **its own** claim, so it does not appear
+        short of everything it already holds — the one thing that must never
+        happen when somebody re-opens an order to check it.
+
+        Writes nothing.
+
+        Requires `production.view_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The plan.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionPlanEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/technical-sheet:
+    get:
+      operationId: showProductionTechnicalSheet
+      tags: [Kitchen inventory & production]
+      summary: What this batch stood on
+      description: |
+        The batch's technical sheet, read **only** from what confirm snapshotted
+        (PROD1).
+
+        The recipe's own sheet answers "what does this cost today" and moves when
+        a price is published or a formulation is edited. This answers "what did
+        *that batch* stand on", and must not move at all — a publication id alone
+        does not freeze a fallback price, a produced component's chosen version or
+        the version's nutrition, so the order stores each of those and this reads
+        them back.
+
+        Available from confirm onwards. A draft answers with an empty `lines`
+        array rather than a 404: the batch exists, and saying so is more useful
+        than pretending it does not.
+
+        Requires `production.view_organisation`; the money on it additionally
+        requires `production.view_costs_organisation`, redacted field by field.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The batch's sheet.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionTechnicalSheetEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/confirm:
+    post:
+      operationId: confirmProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Commit to a batch
+      description: |
+        Freezes the plan, **claims the stock**, and snapshots the estimate, the
+        price basis and the version's nutrition (PROD1). Everything it writes is
+        frozen: re-deriving any of it later would make the plan, the claims and
+        the estimate disagree with each other.
+
+        It **refuses a shelf it cannot claim** — `409 inventory.insufficient_stock`
+        naming the shelf. That is the point of a reservation: the desk shows
+        `missing` before anybody presses the button, so this is never a surprise,
+        and a confirm that reserved what it could would be a promise the system
+        knows it cannot keep.
+
+        A version that states no output, or more than one, is
+        `422 production.plan_refused`. Co-product allocation needs a policy nobody
+        has chosen, and by mass, by value and by a stated ratio give materially
+        different unit costs.
+
+        **`Idempotency-Key` is optional and is one of three different guards.**
+        `If-Match` catches a stale screen — somebody else moved the batch. This
+        catches a redelivered request. The service's own movement-existence check
+        catches a partial failure, which neither header would save, because a
+        retry after one is a different request with a different key and a fresh
+        lock version.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/start:
+    post:
+      operationId: startProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Start cooking a batch
+      description: |
+        Moves a confirmed batch to `in_production` (PROD1). Nothing moves; this is
+        the point after which something may.
+
+        Requires `production.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/complete:
+    post:
+      operationId: completeProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Finish a batch
+      description: |
+        One transaction (PROD1): consume the inputs against the batch's own claim,
+        record input waste as its own movements, post the yield, take the rejected
+        units back off at the batch unit cost, blend the finished valuation, close
+        the claims.
+
+        **Never blocked on cost arithmetic.** A kitchen that has physically cooked
+        is not refused because nobody typed a price for the salt: the batch
+        carries `actual_cost_status` instead, the unit cost is withheld unless it
+        is `complete`, and the produced ingredient's average is left where it was
+        rather than blended with a partial figure.
+
+        Idempotent at two grains: a completed batch completes again as a no-op,
+        and a movement that already exists for a `(batch, shelf, reason)` is not
+        posted twice — which is what makes a *partial* failure recoverable.
+
+        Requires `production.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteProductionOrderRequest'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/abandon:
+    post:
+      operationId: abandonProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Give up on a started batch
+      description: |
+        The same transaction as completing, with a different ending and a required
+        reason (PROD1). A batch that went wrong after eating four kilos of flour
+        did not un-happen, and recording it as cancelled would leave four kilos
+        missing from a shelf with nothing to explain it.
+
+        **`cancelled` never carries stock movements and `abandoned` always may.**
+        That is the entire distinction, and it is what lets anybody reading a
+        production order trust its status without opening the ledger.
+
+        Requires `production.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AbandonProductionOrderRequest'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/production/orders/{productionOrder}/cancel:
+    post:
+      operationId: cancelProductionOrder
+      tags: [Kitchen inventory & production]
+      summary: Call off a batch that took nothing
+      description: |
+        Releases the claims and deducts nothing (PROD1). A draft has none to
+        release; a confirmed batch does.
+
+        From `in_production` it is permitted **only** when nothing has moved, and
+        that is proven against the movement ledger rather than believed: where
+        movements exist the refusal is
+        `409 production.consumption_recorded`, naming `abandon` as the route
+        rather than leaving the caller to guess.
+
+        Requires `production.manage_organisation`.
+      parameters:
+        - name: productionOrder
+          in: path
+          required: true
+          description: The production order identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: |
+            The `lock_version` the caller last read. Mandatory on every batch
+            write: two people share a production desk and can both see the same
+            batch, so confirming something somebody else has already started is
+            not hypothetical. A stale validator is `409 resource.conflict` naming
+            the current version; a missing header is `428`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The batch and its lines, after the move.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionOrderDetailEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 
   /catalogue/quality-control/checks:
     get:
@@ -16631,6 +17426,772 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /organisations/{organisation}/staff:
+    post:
+      operationId: createStaffAccount
+      tags: [Access administration]
+      summary: Open an account for somebody who cannot open one themselves
+      description: |
+        The invitation flow's sibling, not its replacement. A colleague with a
+        mailbox should still be invited — they choose a password nobody else
+        ever knows. This is for the kitchen hand who has no mailbox, and whose
+        alternative is no account at all.
+
+        **Three departures from self-registration, each deliberate.** The
+        account is created **email-verified**, because a staff area demands a
+        verified address and a provisioned one frequently receives no mail — the
+        administrator standing in front of the person is the verification, the
+        same argument `order.create_on_behalf_organisation` already rests on. It
+        is created **obliged to change its password**, so what the
+        administrator knows is good for one sign-in. And it collects **no
+        consent and opens no customer account**: a kitchen cannot accept terms
+        on an employee's behalf, and a line cook is not a shopper.
+
+        **Two authorities.** `user.manage_organisation` on the route, plus
+        `membership.invite_organisation` checked in the handler — minting a
+        login and granting it a seat are two decisions.
+
+        **`Idempotency-Key` matters here** in a way it does not for a role. A
+        person has no natural key, and an administrator who does not know
+        whether a password was issued must either create a second account or
+        leave somebody unable to sign in.
+
+        **Step-up required**: a recent password confirmation at
+        `POST /auth/confirm-password`. A hijacked session minting itself a
+        second, permanently-privileged account is what that exists for.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStaffAccountRequest'
+      responses:
+        '201':
+          description: The new membership, and the password — once.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffAccountEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/permissions:
+    get:
+      operationId: listAssignablePermissions
+      tags: [Access administration]
+      summary: The vocabulary a role is written in
+      description: |
+        Every organisation-scoped, assignable permission code, grouped by
+        domain.
+
+        **Platform codes never appear here**, and that is a security property
+        rather than a filter. The registry is split in two so that no
+        organisation role can acquire a platform code, and an endpoint that
+        offered `reference.manage_platform` would be a form with a trap in it —
+        the person who ticked the box would rightly read the refusal as a bug.
+        Non-assignable codes are withheld for the neighbouring reason: the
+        permission checker drops them when it works out what somebody may do,
+        so granting one produces a role that reads as carrying an authority and
+        does not.
+
+        Unpaginated. Forty-odd codes, bounded by a constant in the source, read
+        in full by one screen that renders every one of them at once.
+
+        Requires `role.view_organisation` — reading the words a role can be
+        written in is reading roles.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The assignable catalogue, grouped by domain.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionCatalogueEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/roles:
+    get:
+      operationId: listOrganisationRoles
+      tags: [Access administration]
+      summary: The roles this kitchen can assign
+      description: |
+        Platform templates and the kitchen's own, in one list, distinguished by
+        `is_system`.
+
+        One list because from the **assigning** side they are one set: when an
+        administrator picks a role for somebody, a template and a bespoke role
+        are equally valid choices. The roles *screen* draws them as two
+        sections because they are edited differently — templates offer Copy,
+        never Edit — but the member editor draws one picker.
+
+        Templates first, then the kitchen's own by code: a person scanning this
+        is usually looking for the standard role.
+
+        Unpaginated, because every row is an option in a picker that has to be
+        complete to be usable.
+
+        Requires `role.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every role available in this organisation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganisationRoleSummary'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createOrganisationRole
+      tags: [Access administration]
+      summary: Define a role of this kitchen's own
+      description: |
+        **No `Idempotency-Key`**, unlike creating a kitchen on the platform
+        console. A role has a natural key —
+        `(organisation_id, code)`, unique with `NULLS NOT DISTINCT` — so a
+        replayed create hits the index and comes back as a `resource.conflict`
+        naming the field. Idempotency would be machinery for a race the
+        database already settles, and settles with a better message.
+
+        A role carrying a platform template's code is **permitted**, and
+        reported through `meta.shadows_template`. That is the mechanism Copy
+        relies on: acceptance prefers a tenant's own role over the template of
+        the same code, which is how a kitchen changes what a template means
+        inside its walls. Refusing it would break documented behaviour;
+        reporting it is how the form warns, because a kitchen that did it on
+        purpose and one that did it by accident type the same thing.
+
+        `is_system` is not a field. A tenant-created role is by definition not
+        platform-defined, and a body that could set the flag could create a
+        role its own author could never edit.
+
+        Requires `role.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WriteOrganisationRoleRequest'
+      responses:
+        '201':
+          description: The role, with its grants and its validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationRoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/roles/{role}:
+    get:
+      operationId: showOrganisationRole
+      tags: [Access administration]
+      summary: One role and everything it grants
+      description: |
+        A platform template is readable here, deliberately: Copy is "open
+        `kitchen_manager`, see its codes, save them as your own", and a read
+        that refused a template would make the only supported way of changing
+        one impossible.
+
+        The `ETag` is the role's `lock_version` and is what a later `PATCH`
+        must echo in `If-Match`. Served on a template too, where it is always
+        `0` and will never be checked — a client that had to branch on whether
+        a response carried a validator would branch wrongly once.
+
+        Requires `role.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/RolePath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The role.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationRoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateOrganisationRole
+      tags: [Access administration]
+      summary: Rename a role and replace what it grants
+      description: |
+        **`code` is not writable.** It is what an invitation's `role_code`
+        resolves against, so changing it would silently redirect every
+        outstanding offer naming the old one — and on a role shadowing a
+        template, would change which of the two an acceptance resolves to.
+        Neither is a consequence anybody editing a permission list expects from
+        a form that also has a Name field.
+
+        `permissions` is a **replacement**. An additive body could not express
+        "take this away", and a role editor whose whole job is taking things
+        away would need a second endpoint for the half that matters.
+
+        A platform template answers **404**: from the writing side there is no
+        role at that identifier belonging to you. `RolePolicy` and the `roles`
+        row-level-security policy refuse it twice more behind that.
+
+        `If-Match` is required. Two administrators editing one role — one
+        removing `order.manage_organisation` while the other adds a cost code —
+        is the ordinary case on a shared console, and last-write-wins would
+        silently restore a permission somebody believes they revoked.
+
+        **`access.self_lockout`** when the save would leave the caller without
+        `role.manage_organisation`, counting every other role they hold. There
+        is no way back from inside this console: the next request is refused by
+        the same middleware that would have let them undo it.
+
+        Requires `role.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/RolePath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WriteOrganisationRoleRequest'
+      responses:
+        '200':
+          description: The role as it now stands.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationRoleEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AccessWriteConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: deleteOrganisationRole
+      tags: [Access administration]
+      summary: Remove a role nobody holds
+      description: |
+        A real delete. There are no soft deletes on this platform, and a role
+        nobody holds that grants nothing to anybody is a row with no remaining
+        meaning — the history that matters lives in the audit trail and in the
+        memberships that carried it.
+
+        **Refused while anybody still holds it**, with the count and up to
+        twenty membership identifiers in `details`. `membership_roles` cascades
+        on delete, so the database would happily take a role away from six
+        people without a word — which is the silent revocation this console
+        exists to make impossible. Reassign, then delete.
+
+        `If-Match` for the sharper version of the update's problem: somebody
+        may have granted this role to a new starter since the list was read.
+
+        Requires `role.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/RolePath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: Deleted. Nothing to describe.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/RoleStillHeld'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/memberships:
+    get:
+      operationId: listOrganisationMemberships
+      tags: [Access administration]
+      summary: Who works here
+      description: |
+        Every membership by default — active, invited, suspended and ended —
+        and only the `status` filter narrows. Who *used* to have access is
+        exactly what an access review reads, and a screen that could not answer
+        "did she ever work here" would send somebody to the database. The
+        console defaults its own filter to the active ones because that is the
+        common question; the endpoint does not, because the uncommon one has
+        nowhere else to go.
+
+        Numbered pages rather than a cursor: a staff list is a table with a
+        page control under it, not a feed.
+
+        Requires `membership.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          required: false
+          description: Restrict to one membership status.
+          schema:
+            type: string
+            enum: [invited, active, suspended, ended]
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: A page of memberships.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TeamMemberSummary'
+                  meta:
+                    $ref: '#/components/schemas/NumberedPaginationMeta'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/memberships/{membership}:
+    get:
+      operationId: showOrganisationMembership
+      tags: [Access administration]
+      summary: One person, their roles and what those add up to
+      description: |
+        `permissions` is the union of every code the assigned roles grant,
+        computed rather than implied: two roles overlapping is the ordinary
+        case, and a client left to work it out would be wrong quietly.
+
+        `meta.remaining_role_administrators` is served on the **read** as well
+        as the writes, so the page can warn before somebody presses End rather
+        than after. On your own row, zero means nobody else can administer
+        access — which is what you need to know before you go on holiday.
+
+        Requires `membership.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The membership.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      operationId: updateOrganisationMembershipScope
+      tags: [Access administration]
+      summary: Where this person works
+      description: |
+        The only `PATCH` on a membership, and the only part of one that is an
+        ordinary attribute rather than a lifecycle event: branch scope moves
+        both ways and carries no consequence beyond itself. Suspending and
+        ending do, so they are verbs with their own URLs — a single call taking
+        a status string would let a console ship a dropdown in which the one
+        irreversible act sits beside three reversible ones.
+
+        `branch_id: null` means organisation-wide.
+
+        Requires `membership.update_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMembershipScopeRequest'
+      responses:
+        '200':
+          description: The membership as it now stands.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/memberships/{membership}/roles:
+    put:
+      operationId: replaceMembershipRoles
+      tags: [Access administration]
+      summary: This person holds exactly these roles
+      description: |
+        `PUT` and the whole set, because that is the decision an administrator
+        actually makes. Expressed as add-and-remove it becomes three requests
+        with two intermediate states, one of which is "holds nothing" and
+        another "holds both the old role and the new" — and on a permission
+        table an intermediate state is not untidiness, it is authority nobody
+        granted.
+
+        `starts_at`/`expires_at` are written here and nowhere else: a role that
+        begins on Monday, a cover arrangement that ends on Friday. The
+        self-lockout guard deliberately **ignores** them — a guard that counted
+        only currently-effective roles would let an administrator schedule
+        their own to expire tonight.
+
+        `If-Match` carries the *membership's* version even though none of its
+        own columns change, because `membership_roles` is a child table with no
+        version to collide on.
+
+        Gated on `role.manage_organisation`, not
+        `membership.update_organisation`: that code's description reads "roles
+        **and role assignments**", and a kitchen may reasonably let somebody
+        move staff between branches without letting them decide what staff may
+        do.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceMembershipRolesRequest'
+      responses:
+        '200':
+          description: The membership, with its new roles and what they add up to.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AccessWriteConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/memberships/{membership}/suspend:
+    post:
+      operationId: suspendOrganisationMembership
+      tags: [Access administration]
+      summary: Stop somebody signing in, without ending their record
+      description: |
+        Reversible, and the pair of `reactivate`. Only an active or invited
+        membership can be suspended; `ended` is terminal and `suspended` is
+        already the destination, so either answers `resource.conflict` rather
+        than a stale-version error.
+
+        **`access.self_lockout` on your own membership.** The platform console
+        may revoke a kitchen's last owner because it acts from outside —
+        whatever it breaks it can reach in and fix. A tenant administrator is
+        inside the room they would be locking.
+
+        Requires `membership.update_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The suspended membership.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AccessWriteConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/memberships/{membership}/reactivate:
+    post:
+      operationId: reactivateOrganisationMembership
+      tags: [Access administration]
+      summary: Let a suspended member back in
+      description: |
+        Only from `suspended`. `ended` is terminal — somebody who left and came
+        back is a new invitation, not an undo — and `active` is already the
+        destination.
+
+        Alone among the three lifecycle verbs it needs no self-guard: giving
+        somebody their access back cannot take anybody else's away.
+
+        Requires `membership.update_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The reactivated membership.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /organisations/{organisation}/memberships/{membership}/end:
+    post:
+      operationId: endOrganisationMembership
+      tags: [Access administration]
+      summary: End somebody's place here
+      description: |
+        Terminal, and stamped rather than removed: the row survives because
+        orders, audit entries and recipe versions point at the person behind
+        it, and who used to have access is what an access review reads. The
+        same posture `DELETE /invitations/{invitation}` takes next door.
+
+        **`access.self_lockout` on your own membership**, and nothing else is
+        refused. Ending the last *other* administrator is permitted and merely
+        counted through `meta.remaining_role_administrators` — a console that
+        refused the thing an operator opened it to do is a control that has
+        made itself unusable.
+
+        Requires `membership.end_organisation`, shared with revoking an
+        invitation: withdrawing an offer somebody has not accepted and removing
+        somebody who has are the same decision taken at two moments.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/OrganisationPath'
+        - $ref: '#/components/parameters/MembershipPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The ended membership, and how many administrators remain.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AccessWriteConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /organisations/{organisation}/invitations:
     post:
       operationId: createOrganisationInvitation
@@ -19681,6 +21242,28 @@ components:
         confirming that another tenant exists is not something this API does.
       schema:
         $ref: '#/components/schemas/Uuid'
+    RolePath:
+      name: role
+      in: path
+      required: true
+      description: |
+        A role of this organisation, or a platform template. Reads accept
+        either; writes answer **404** for a template, because from the writing
+        side there is no role at that identifier belonging to you.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    MembershipPath:
+      name: membership
+      in: path
+      required: true
+      description: |
+        A membership of this organisation, in any status. An ended one resolves
+        deliberately — a detail page that 404'd on the row the list just showed
+        would be a list lying about what it links to.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
     OrganisationInvitationPath:
       name: invitation
       in: path
@@ -20149,6 +21732,67 @@ components:
               details:
                 required_headers: [If-Match]
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+
+    AccessWriteConflict:
+      description: |
+        Either the validator is stale (`resource.conflict`), or the change
+        would have removed the caller's own access (`access.self_lockout`).
+
+        The two are one status and two codes because the remedies are
+        different: a stale validator means reload and reapply, and a
+        self-lockout means ask another administrator. `details.reason` names
+        which of the self-lockout cases fired.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            staleValidator:
+              summary: Somebody else saved first
+              value:
+                error:
+                  code: resource.conflict
+                  message: This resource changed since you last read it. Reload it and reapply your change.
+                  details:
+                    current_lock_version: 4
+                  correlation_id: 018f2b1c-0000-7000-8000-000000000001
+            selfLockout:
+              summary: The change would lock the caller out
+              value:
+                error:
+                  code: access.self_lockout
+                  message: This change would remove your own access to the administration console.
+                  details:
+                    reason: role_management_removed_from_own_role
+                  correlation_id: 018f2b1c-0000-7000-8000-000000000002
+
+    RoleStillHeld:
+      description: |
+        The role is still assigned to somebody. `membership_roles` cascades on
+        delete, so the database would take it away from them without a word —
+        which is the silent revocation this console exists to prevent. The
+        count and up to twenty identifiers come back so a screen can say
+        "reassign these six first" rather than "no".
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: resource.conflict
+              message: This role is still assigned to people. Reassign them before deleting it.
+              details:
+                membership_count: 2
+                membership_ids:
+                  - 018f2b1c-0000-7000-8000-00000000a001
+                  - 018f2b1c-0000-7000-8000-00000000a002
+              correlation_id: 018f2b1c-0000-7000-8000-000000000003
 
     ResourceConflict:
       description: |
@@ -21097,7 +22741,11 @@ components:
         - record_export.unavailable
         - payment.refund_exceeds_capture
         - inventory.insufficient_stock
+        - production.state_invalid
+        - production.plan_refused
+        - production.consumption_recorded
         - unit.conversion_unsupported
+        - access.self_lockout
         - rate_limit.exceeded
         - server.internal_error
 
@@ -21144,6 +22792,22 @@ components:
         two_factor_enabled:
           type: boolean
           description: True only once enrolment has been confirmed.
+        must_change_password:
+          type: boolean
+          description: |
+            True for an account an administrator opened on somebody's behalf,
+            until they replace the password they were handed. It sits here
+            rather than in `active_context` because it is a fact about the
+            identity: the same person is held on the change-password screen
+            whichever workspace they were heading for.
+
+            The client holds them there; the server does not enforce it. A flag
+            that blocked every endpoint would block the one that clears it.
+
+            Optional rather than required, although this API always sends it: an
+            application build outlives a deployment, and a client reading it as
+            "absent means no" keeps working against an API that predates AA1.
+            There is nothing for a server without the column to hold anybody for.
 
     Profile:
       description: |
@@ -22850,6 +24514,7 @@ components:
           uncosted_line_numbers,
           snapshots,
           computed,
+          weekly,
         ]
       description: The confidential cost projection of one recipe version.
       properties:
@@ -22912,7 +24577,261 @@ components:
             typed in by hand had no cost block at all until this was read. Null
             only when the formulation carries more than one currency, which is
             the one case the live computation refuses outright.
+        weekly:
+          $ref: '#/components/schemas/WeeklyCost'
       additionalProperties: false
+
+    WeeklyCostLineSource:
+      type: object
+      required:
+        [
+          line_number,
+          ingredient_id,
+          cost_source,
+          unit_cost_amount,
+          cost_currency_code,
+          effective_from,
+          source_recipe_version_id,
+          carried_forward,
+        ]
+      description: |
+        Where one line's estimating figure came from. On the wire beside the
+        amount rather than inferred from it, because the four sources are not
+        interchangeable and a reader has to be able to tell them apart.
+      properties:
+        line_number:
+          type: integer
+          minimum: 1
+        ingredient_id:
+          type: string
+          format: uuid
+        cost_source:
+          type: string
+          enum: [weekly, component_recipe, ingredient_fallback, none]
+          description: |
+            `weekly` is the published average of what was actually paid.
+            `component_recipe` means the line names something the kitchen makes,
+            so the figure is that recipe's own cost per unit of what it produces
+            — the rule that stops a dressing's oil being counted inside the
+            dressing and again inside the salad. `ingredient_fallback` is the
+            operator's typed price, standing in because nothing has been bought
+            at a recorded price. `none` means no usable figure: the line stays
+            uncosted and the total is withheld, never zeroed.
+        unit_cost_amount:
+          type: ['string', 'null']
+          description: Major currency units, per the line's own unit. Null when `cost_source` is `none`.
+        cost_currency_code:
+          type: ['string', 'null']
+          minLength: 3
+          maxLength: 3
+        effective_from:
+          type: ['string', 'null']
+          format: date
+          description: |
+            The Monday this price took effect. Null on a typed or missing price:
+            a list price has no week and a missing one has no date at all.
+        source_recipe_version_id:
+          type: ['string', 'null']
+          format: uuid
+          description: Set only when `cost_source` is `component_recipe`.
+        carried_forward:
+          type: boolean
+          description: |
+            Whether this week's figure is last week's, carried because the week
+            could not be averaged. The estimate is usable and its age is not
+            hidden.
+      additionalProperties: false
+
+    WeeklyCost:
+      type: object
+      required:
+        [
+          currency_code,
+          production,
+          packaging,
+          total_cost_per_yield_unit_amount,
+          yield_unit_id,
+          weekly_price_publication_id,
+          has_carried_forward_prices,
+          ingredients_needing_initial_price,
+          line_sources,
+        ]
+      description: |
+        What the version costs at the **published weekly average of what was
+        really paid**, beside `computed`, which costs it at the prices frozen on
+        its own lines.
+
+        Two questions, two answers, and deliberately both on the response: *what
+        did we say this cost when we costed it* and *what does it cost at what we
+        are actually paying now*. Collapsing them would make one of the two a
+        lie — a sheet costed in March that silently updated, or a live estimate
+        that never moved.
+
+        Stated as a whole object rather than composed onto `ComputedCost` with
+        `allOf`: that schema closes itself with `additionalProperties: false`, so
+        an `allOf` branch would reject the four properties below and the response
+        would validate against nothing. The two halves it shares are named
+        schemas instead, which is the reuse without the trap.
+      properties:
+        currency_code:
+          type: ['string', 'null']
+          minLength: 3
+          maxLength: 3
+        production:
+          $ref: '#/components/schemas/ComputedCostProduction'
+        packaging:
+          $ref: '#/components/schemas/ComputedCostPackaging'
+        total_cost_per_yield_unit_amount:
+          type: ['string', 'null']
+        yield_unit_id:
+          type: ['string', 'null']
+          format: uuid
+        weekly_price_publication_id:
+          type: ['string', 'null']
+          format: uuid
+          description: |
+            The publication these figures were read from, when one was pinned.
+            Null means the standing prices were used.
+        has_carried_forward_prices:
+          type: boolean
+        ingredients_needing_initial_price:
+          type: array
+          description: |
+            Ingredients on this version with no published price behind them — the
+            requirement's initial-price-entry flag, read off the line sources
+            rather than recomputed by a client that might disagree about what
+            counts. A typed fallback is named here too: it is somebody's
+            expectation of what they expect to pay, and the whole point of the
+            weekly average is that it is not that.
+          items:
+            type: string
+            format: uuid
+        line_sources:
+          type: array
+          description: |
+            Every line, including the ones that could not be costed — "which
+            ingredient has no price" is the first thing somebody asks when the
+            total is withheld.
+          items:
+            $ref: '#/components/schemas/WeeklyCostLineSource'
+      additionalProperties: false
+
+    ComputedCostProduction:
+        type: object
+        required:
+          [
+            total_input_cost_amount,
+            cost_per_yield_unit_amount,
+            cost_per_yield_unit_with_waste_amount,
+            cost_per_piece_amount,
+            cost_per_piece_with_waste_amount,
+            waste_percent,
+            uncosted_line_numbers,
+            is_complete,
+          ]
+        properties:
+          total_input_cost_amount:
+            type: ['string', 'null']
+          cost_per_yield_unit_amount:
+            type: ['string', 'null']
+          cost_per_yield_unit_with_waste_amount:
+            type: ['string', 'null']
+          cost_per_piece_amount:
+            type: ['string', 'null']
+          cost_per_piece_with_waste_amount:
+            type: ['string', 'null']
+          waste_percent:
+            type: string
+          uncosted_line_numbers:
+            type: array
+            items:
+              type: integer
+              minimum: 1
+          is_complete:
+            type: boolean
+          lines:
+            type: array
+            description: |
+              Each line's unit cost and line cost, in line order: what a table draws
+              beside its rows, on the same basis as the totals above. Null amounts are
+              an unpriced line, never a zero.
+
+              Absent on the weekly block, which prices a formulation as a whole and has
+              no per-line answer to give.
+            items:
+              type: object
+              required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount]
+              properties:
+                line_number:
+                  type: integer
+                  minimum: 1
+                ingredient_id:
+                  type: string
+                  format: uuid
+                unit_cost_amount:
+                  type: ['string', 'null']
+                line_cost_amount:
+                  type: ['string', 'null']
+              additionalProperties: false
+        additionalProperties: false
+
+    ComputedCostPackaging:
+        type: object
+        required:
+          [
+            total_packaging_cost_amount,
+            cost_per_yield_unit_amount,
+            cost_per_yield_unit_with_waste_amount,
+            waste_percent,
+            uncosted_line_numbers,
+            is_complete,
+          ]
+        description: |
+          No per-piece figure, deliberately. Packaging is divided by the
+          recipe's own yield rather than by its container count, and a "cost
+          per piece of packaging" would be a number with no question behind
+          it.
+        properties:
+          total_packaging_cost_amount:
+            type: ['string', 'null']
+          cost_per_yield_unit_amount:
+            type: ['string', 'null']
+          cost_per_yield_unit_with_waste_amount:
+            type: ['string', 'null']
+          waste_percent:
+            type: string
+          uncosted_line_numbers:
+            type: array
+            items:
+              type: integer
+              minimum: 1
+          is_complete:
+            type: boolean
+          lines:
+            type: array
+            description: |
+              Each line's unit cost and line cost, in line order: what a table draws
+              beside its rows, on the same basis as the totals above. Null amounts are
+              an unpriced line, never a zero.
+
+              Absent on the weekly block, which prices a formulation as a whole and has
+              no per-line answer to give.
+            items:
+              type: object
+              required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount]
+              properties:
+                line_number:
+                  type: integer
+                  minimum: 1
+                ingredient_id:
+                  type: string
+                  format: uuid
+                unit_cost_amount:
+                  type: ['string', 'null']
+                line_cost_amount:
+                  type: ['string', 'null']
+              additionalProperties: false
+        additionalProperties: false
 
     ComputedCost:
       type: object
@@ -22939,116 +24858,9 @@ components:
           minLength: 3
           maxLength: 3
         production:
-          type: object
-          required:
-            [
-              total_input_cost_amount,
-              cost_per_yield_unit_amount,
-              cost_per_yield_unit_with_waste_amount,
-              cost_per_piece_amount,
-              cost_per_piece_with_waste_amount,
-              waste_percent,
-              uncosted_line_numbers,
-              is_complete,
-              lines,
-            ]
-          properties:
-            total_input_cost_amount:
-              type: ['string', 'null']
-            cost_per_yield_unit_amount:
-              type: ['string', 'null']
-            cost_per_yield_unit_with_waste_amount:
-              type: ['string', 'null']
-            cost_per_piece_amount:
-              type: ['string', 'null']
-            cost_per_piece_with_waste_amount:
-              type: ['string', 'null']
-            waste_percent:
-              type: string
-            uncosted_line_numbers:
-              type: array
-              items:
-                type: integer
-                minimum: 1
-            is_complete:
-              type: boolean
-            lines:
-              type: array
-              description: |
-                Each line's unit cost and line cost, in line order: what a table draws
-                beside its rows, on the same basis as the totals above. Null amounts are
-                an unpriced line, never a zero.
-              items:
-                type: object
-                required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount]
-                properties:
-                  line_number:
-                    type: integer
-                    minimum: 1
-                  ingredient_id:
-                    type: string
-                    format: uuid
-                  unit_cost_amount:
-                    type: ['string', 'null']
-                  line_cost_amount:
-                    type: ['string', 'null']
-                additionalProperties: false
-          additionalProperties: false
+          $ref: '#/components/schemas/ComputedCostProduction'
         packaging:
-          type: object
-          required:
-            [
-              total_packaging_cost_amount,
-              cost_per_yield_unit_amount,
-              cost_per_yield_unit_with_waste_amount,
-              waste_percent,
-              uncosted_line_numbers,
-              is_complete,
-              lines,
-            ]
-          description: |
-            No per-piece figure, deliberately. Packaging is divided by the
-            recipe's own yield rather than by its container count, and a "cost
-            per piece of packaging" would be a number with no question behind
-            it.
-          properties:
-            total_packaging_cost_amount:
-              type: ['string', 'null']
-            cost_per_yield_unit_amount:
-              type: ['string', 'null']
-            cost_per_yield_unit_with_waste_amount:
-              type: ['string', 'null']
-            waste_percent:
-              type: string
-            uncosted_line_numbers:
-              type: array
-              items:
-                type: integer
-                minimum: 1
-            is_complete:
-              type: boolean
-            lines:
-              type: array
-              description: |
-                Each line's unit cost and line cost, in line order: what a table draws
-                beside its rows, on the same basis as the totals above. Null amounts are
-                an unpriced line, never a zero.
-              items:
-                type: object
-                required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount]
-                properties:
-                  line_number:
-                    type: integer
-                    minimum: 1
-                  ingredient_id:
-                    type: string
-                    format: uuid
-                  unit_cost_amount:
-                    type: ['string', 'null']
-                  line_cost_amount:
-                    type: ['string', 'null']
-                additionalProperties: false
-          additionalProperties: false
+          $ref: '#/components/schemas/ComputedCostPackaging'
         total_cost_per_yield_unit_amount:
           type: ['string', 'null']
           description: |
@@ -23085,6 +24897,7 @@ components:
                 type: ['string', 'null']
             additionalProperties: false
       additionalProperties: false
+
 
     CreateRecipeRequest:
       type: object
@@ -23563,11 +25376,17 @@ components:
 
     CatalogueItemType:
       type: string
-      enum: [product, meal, subscription_plan, sauce, dressing]
+      enum: [product, meal, subscription_plan, sauce, dressing, frozen_meal]
       description: |
         Which kind of sellable thing an item is — the discriminator that lets
         products, meals and subscription plans share one table, one price path,
-        one availability table and one publication gate. What genuinely differs
+        one availability table and one publication gate.
+
+        `frozen_meal` is a *type* and `sells_from_finished_stock` is a
+        *behaviour*, and they answer different questions. A frozen meal is its
+        own family and always sells from finished stock; a prepared salad made in
+        advance sells the same way and is still a meal, so it sets the flag
+        rather than acquiring a type. What genuinely differs
         between them is nullable columns and child tables, not the apparatus
         around them.
 
@@ -23750,6 +25569,7 @@ components:
           is_market_priced,
           is_assorted,
           portion_factor,
+          sells_from_finished_stock,
           status,
           data_quality_flags,
           lock_version,
@@ -23848,6 +25668,35 @@ components:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
           description: The ingredient a resold raw good simply is.
+        sells_from_finished_stock:
+          type: boolean
+          description: |
+            Whether a sale of this item draws finished stock rather than
+            exploding its recipe (PROD1).
+
+            The **stored column**, not the derived answer. A product, sauce,
+            dressing or frozen meal always sells from finished stock as a
+            property of what it is, and reads `false` here unless somebody also
+            ticked the box — an editor needs the choice a person made, or a save
+            would write the type's own behaviour back as an explicit one.
+        net_content_quantity:
+          type: ['string', 'null']
+          pattern: '^\d+\.\d{4}$'
+          description: |
+            How much of the produced ingredient one sold unit is — a 350 g pack
+            against a shelf counted in kilograms.
+
+            A fixed-scale decimal string so four places survive the round trip.
+            **Required in practice wherever the shelf is weighed**: a mass or
+            volume shelf with no net content refuses every sale with
+            `no_net_content` rather than guessing, and the write refuses it first.
+            A shelf counted in pieces needs none — `portion_factor` already means
+            something there.
+        net_content_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The unit `net_content_quantity` is in. All-or-nothing with it, by database CHECK.
         purchasing_unit_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -24227,6 +26076,28 @@ components:
             `minimum` is the column's own three-place precision, so a value
             that would round to zero is refused here rather than by the
             database CHECK.
+        sells_from_finished_stock:
+          type: boolean
+          description: |
+            Opt a **meal** into selling from finished stock (PROD1). Refused
+            unless the meal's `production_mode` is `production` or `both` and its
+            `ingredient_id` names an ingredient a published recipe version
+            outputs — there has to be a shelf to deduct from.
+
+            Meaningless on the types that always sell that way; setting it there
+            is accepted and changes nothing.
+        net_content_quantity:
+          type: ['number', 'null']
+          exclusiveMinimum: 0
+          description: |
+            How much of the produced ingredient one sold unit is. **Required when
+            the shelf is counted in mass or volume** — the write refuses without
+            it, because the sale would refuse with `no_net_content` days later on
+            a customer's order. All-or-nothing with the unit.
+        net_content_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         ingredient_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -24302,6 +26173,28 @@ components:
             read as a reset to `1`. `minimum` is the column's own three-place
             precision, so a value that would round to zero is refused here
             rather than by the database CHECK.
+        sells_from_finished_stock:
+          type: boolean
+          description: |
+            Opt a **meal** into selling from finished stock (PROD1). Refused
+            unless the meal's `production_mode` is `production` or `both` and its
+            `ingredient_id` names an ingredient a published recipe version
+            outputs — there has to be a shelf to deduct from.
+
+            Meaningless on the types that always sell that way; setting it there
+            is accepted and changes nothing.
+        net_content_quantity:
+          type: ['number', 'null']
+          exclusiveMinimum: 0
+          description: |
+            How much of the produced ingredient one sold unit is. **Required when
+            the shelf is counted in mass or volume** — the write refuses without
+            it, because the sale would refuse with `no_net_content` days later on
+            a customer's order. All-or-nothing with the unit.
+        net_content_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         ingredient_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -30200,6 +32093,231 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    InventoryValueRow:
+      type: object
+      required: [currency_code, value_amount, valued_item_count]
+      additionalProperties: false
+      properties:
+        currency_code:
+          type: string
+        value_amount:
+          type: string
+          description: Major units. Real and possibly **incomplete** — see `meta.unvalued_item_count`.
+        valued_item_count:
+          type: integer
+          description: Ingredients contributing to this currency's figure.
+
+    WeeklyPrice:
+      type: object
+      description: |
+        One ingredient's published weekly price (PROD1).
+
+        `average_unit_amount = total_cost_amount ÷ total_quantity`, in
+        `currency_code` per `unit_id`, over every **priced** receipt line for that
+        ingredient in the purchase week. Header discount, tax, delivery and other
+        charges stay out of it and keep being reported separately — they are not
+        part of what a kilogram of flour cost.
+
+        Null amount is never zero: it is `source: unpriced`, an ingredient nobody
+        could price, and it is published as a row so a buyer can act on it.
+      required:
+        [id, ingredient_id, ingredient_name_en, weekly_price_publication_id,
+         purchase_week_start_date, purchase_week_end_date, effective_from_date,
+         unit_id, unit_code, average_unit_amount, currency_code, total_quantity,
+         total_cost_amount, receipt_line_count, unpriced_line_count,
+         has_unpriced_lines, source, carry_reason, carried_from_week_start_date]
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_name_en:
+          type: [string, 'null']
+        weekly_price_publication_id:
+          $ref: '#/components/schemas/Uuid'
+        purchase_week_start_date:
+          type: string
+          format: date
+          description: Monday of the week whose purchases were averaged, organisation-local.
+        purchase_week_end_date:
+          type: string
+          format: date
+        effective_from_date:
+          type: string
+          format: date
+          description: The Monday these prices take effect — the week *after* the one they average.
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The unit the average is per. Null only on an unpriced row.
+        unit_code:
+          type: [string, 'null']
+        average_unit_amount:
+          type: [string, 'null']
+          description: Major currency units. Null is "nobody could price this", never zero.
+        currency_code:
+          type: [string, 'null']
+        total_quantity:
+          type: [string, 'null']
+          description: The average's denominator, normalised into `unit_id`.
+        total_cost_amount:
+          type: [string, 'null']
+          description: The average's numerator — the sum of the week's priced line totals.
+        receipt_line_count:
+          type: integer
+        unpriced_line_count:
+          type: integer
+          description: Lines excluded from the average because nobody had entered a price.
+        has_unpriced_lines:
+          type: boolean
+          description: The average stands on part of the week only, so the estimate is visibly provisional.
+        source:
+          type: string
+          enum: [computed, carried_forward, unpriced]
+        carry_reason:
+          type: [string, 'null']
+          enum: [no_purchases, mixed_currency, all_lines_unpriced, not_convertible, null]
+          description: Why this row carries last week's price rather than computing one.
+        carried_from_week_start_date:
+          type: [string, 'null']
+          format: date
+
+    WeeklyPricePublication:
+      type: object
+      description: |
+        One publishing run (PROD1) — a week's prices and the header committed with
+        them in a single transaction.
+      required:
+        [id, purchase_week_start_date, purchase_week_end_date, effective_from_date,
+         timezone, published_at, ingredient_count, computed_count, carried_count,
+         unpriced_count, late_line_count, has_late_receipts, supersedes_id]
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        purchase_week_start_date:
+          type: string
+          format: date
+        purchase_week_end_date:
+          type: string
+          format: date
+        effective_from_date:
+          type: string
+          format: date
+        timezone:
+          type: string
+          description: The clock the week boundaries were resolved in.
+        published_at:
+          type: string
+          format: date-time
+        ingredient_count:
+          type: integer
+        computed_count:
+          type: integer
+        carried_count:
+          type: integer
+        unpriced_count:
+          type: integer
+        late_line_count:
+          type: integer
+          description: Receipt lines priced after this week was published, which the published rows do not reflect.
+        has_late_receipts:
+          type: boolean
+        supersedes_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Set on a recompute — the run this one replaces. The replaced rows are never edited.
+
+    WeeklyPriceEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [weekly_prices]
+          additionalProperties: false
+          properties:
+            weekly_prices:
+              type: array
+              items:
+                $ref: '#/components/schemas/WeeklyPrice'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                page:
+                  type: integer
+                per_page:
+                  type: integer
+                has_more:
+                  type: boolean
+                  description: Stated rather than inferred from a short page.
+                is_standing:
+                  type: boolean
+                  description: True when no publication was named — the prices in force now.
+
+    WeeklyPricePublicationEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [publications]
+          additionalProperties: false
+          properties:
+            publications:
+              type: array
+              items:
+                $ref: '#/components/schemas/WeeklyPricePublication'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                page:
+                  type: integer
+                per_page:
+                  type: integer
+                has_more:
+                  type: boolean
+
+    InventoryValueEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [inventory_value]
+          additionalProperties: false
+          properties:
+            inventory_value:
+              type: array
+              items:
+                $ref: '#/components/schemas/InventoryValueRow'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                as_of:
+                  type: string
+                  format: date-time
+                  description: The instant the figure was read. Published rather than implied, so nobody mistakes a live valuation for a closing one.
+                unvalued_item_count:
+                  type: integer
+                valued_item_count:
+                  type: integer
+                is_complete:
+                  type: boolean
+                  description: Stated rather than derived from the count, so a client renders "incomplete" without re-deciding what incomplete means.
+
     MonthlyCostReportRow:
       type: object
       required:
@@ -30223,15 +32341,39 @@ components:
         - is_spend_complete
         - unpriced_line_count
         - valuation_pending_line_count
-      description: >-
+        - production_consumption_amount
+        - production_waste_amount
+        - production_yield_value_amount
+        - estimated_cogs_amount
+        - estimated_margin_amount
+        - estimated_margin_percent
+        - unestimated_line_count
+        - is_estimate_complete
+        - is_production_valuation_complete
+        - unvalued_batch_count
+      description: |
         One month of one kitchen's economics in one currency (INV1.4). Every
         amount is a major-unit decimal string; figures are never summed across
-        currencies. Two data-quality flags, never merged: one says the month's
-        COGS is understated by unresolved consumption exceptions, the other says
-        its spend is understated because a delivery's invoice has not been
-        entered (SUP6, §3.6). The three spend-completeness fields are month facts
-        rather than currency facts — an unpriced line has no currency — so, like
-        waste_quantity, they repeat across a month's currency rows.
+        currencies. The spend-completeness fields are month facts rather than
+        currency facts — an unpriced line has no currency — so, like
+        `waste_quantity`, they repeat across a month's currency rows.
+
+        **Three production figures, and none of them sums with anything** (PROD1).
+        `production_consumption_amount` is *not* inside `cogs_amount`: COGS joins
+        to an order and a batch has none, so flour that became dressing has not
+        been sold yet. `production_waste_amount` *is* inside `waste_amount`,
+        published as an "of which" breakdown rather than an addition, because the
+        waste row already counted it. `production_yield_value_amount` is
+        **neither revenue nor expense** — money moving from raw materials into
+        finished goods, the same figure on both sides of the shelf — and is named
+        so nobody adds it to anything.
+
+        **Three completeness flags, never merged**, because they undermine three
+        different numbers: `is_spend_complete` says what the month cost to buy is
+        understated, `has_data_quality_flag` says what it cost to sell is, and
+        `is_production_valuation_complete` says what it cost to *make* is. One
+        flag covering all three would tell a reader something is wrong and not
+        what.
       properties:
         month:
           type: string
@@ -30279,6 +32421,59 @@ components:
         other_cogs_amount:
           type: string
           description: Cost of goods sold not attributed to a meal or product line (e.g. a consume predating INV1.5), major units. The three COGS splits reconcile to cogs_amount.
+        production_consumption_amount:
+          type: string
+          description: |
+            What batches ate this month — Σ consume-movement cost against a
+            production order, major units. **Not** part of `cogs_amount`: it has
+            not been sold yet.
+        production_waste_amount:
+          type: string
+          description: |
+            What batches lost this month — input discarded during a run and
+            finished units rejected after one. **Already inside `waste_amount`**;
+            adding the two would count the loss twice.
+        production_yield_value_amount:
+          type: string
+          description: |
+            What batches put on the shelf this month, at the batch unit cost.
+            **Neither revenue nor expense** — an inventory transformation, stated
+            so a reader can see the batch happened.
+        estimated_cogs_amount:
+          type: [string, 'null']
+          description: |
+            What this month's sales were **expected** to cost, frozen line by
+            line when each order was confirmed (PROD1) — never recomputed, or a
+            recipe edited in October would move September's margin silently.
+            Null whenever any line of the month could not be estimated: a total
+            over the priced half reads exactly like a complete one and is too
+            small.
+        estimated_margin_amount:
+          type: [string, 'null']
+          description: Revenue minus `estimated_cogs_amount`. Null on the same terms.
+        estimated_margin_percent:
+          type: [string, 'null']
+          description: The estimated margin as a percentage of revenue; null when revenue is zero or the estimate is withheld.
+        unestimated_line_count:
+          type: integer
+          description: |
+            Sold lines with no frozen estimate — no recipe, no price, or two
+            currencies. Published so the withheld estimate says how much is
+            missing rather than leaving the null unexplained. A month fact, like
+            the spend-completeness fields.
+        is_estimate_complete:
+          type: boolean
+          description: True when every sold line of the month carries a frozen estimate.
+        is_production_valuation_complete:
+          type: boolean
+          description: |
+            False when a batch finished this month without a complete valuation.
+            Such a batch put stock on a shelf whose value nobody could compute,
+            so the finished-goods figures and every sale drawn from that shelf are
+            understated.
+        unvalued_batch_count:
+          type: integer
+          description: How many batches completed or abandoned this month carry a `partial` or `unvalued` cost. A month fact.
         has_data_quality_flag:
           type: boolean
           description: True when unresolved consumption exceptions mean this month's COGS is understated.
@@ -30320,10 +32515,18 @@ components:
 
     ConsumptionExceptionReasonCode:
       type: string
-      description: >-
+      description: |
         Why a confirmed order could not deduct a line honestly (INV1.2). A closed
         vocabulary the consumption service raises; a client renders it as a human
         label rather than branching on it.
+
+        Three of these are shortfall-shaped and mean different things, so they are
+        separate codes rather than one. `insufficient_stock` is an empty shelf —
+        buy more. `reserved_for_production` is a shelf that is not empty but is
+        spoken for by a confirmed batch — talk to the kitchen, or release the
+        claim. `no_net_content` is an item that sells from finished stock without
+        saying how much of the shelf one sold unit takes, which is a field
+        somebody can go and fill in.
       enum:
         - no_branch
         - no_catalogue_item
@@ -30336,6 +32539,8 @@ components:
         - unit_conversion_unsupported
         - no_ingredient_cost
         - insufficient_stock
+        - no_net_content
+        - reserved_for_production
 
     ConsumptionException:
       type: object
@@ -30459,75 +32664,693 @@ components:
           description: A free-text reason the reviewer typed, or null.
       additionalProperties: false
 
+    ProductionOrderStatus:
+      type: string
+      description: |
+        Where a batch has got to (PROD1). Six states, one forward path and two
+        different exits.
+
+        `draft → confirmed → in_production → completed`, with `cancelled`
+        reachable while nothing has been taken off a shelf and `abandoned`
+        reachable once something has. **`cancelled` never carries stock movements
+        and `abandoned` always may** — that is the whole distinction, and it is
+        what lets a reader trust the status without opening the movement ledger.
+
+        `draft` and `in_production` replace the pre-PROD1 `planned` and
+        `in_progress`: the old words described a schedule, and these describe a
+        commitment. Nothing is reserved under `draft`, which is what the word now
+        says out loud.
+      enum: [draft, confirmed, in_production, completed, cancelled, abandoned]
+
+    ProductionCostStatus:
+      type: string
+      description: |
+        Whether a completed batch could be valued (PROD1).
+
+        `complete` — every input that moved had a valued cost, all in one
+        currency. `partial` — at least one input contributed quantity and no
+        money, so the total is real and **too small**; the unit cost is withheld
+        rather than published, because a partial total reads exactly like a
+        complete one. `unvalued` — the inputs disagree about currency, and this
+        system has no exchange rate and refuses to add unlike money.
+      enum: [complete, partial, unvalued]
+
+    ProductionLineKind:
+      type: string
+      description: |
+        Whether a batch line is formulation or packaging (PROD1). They behave
+        differently: a cook reports what actually went into the pot and what was
+        thrown away, while packaging is taken as planned. The split is also what
+        stops a finished-stock sale deducting the box a second time.
+      enum: [ingredient, packaging]
+
+    ProductionCostSource:
+      type: string
+      description: |
+        On whose authority a line was estimated (PROD1). `weekly` is the
+        published weighted average of what was actually paid; `component` is the
+        recipe that makes the thing, which is what stops a dressing's olive oil
+        being counted inside the dressing and again inside the salad; `fallback`
+        is a price somebody typed, real and visibly weaker than the other two.
+
+        A line with no usable figure carries `null` and stays **uncosted** rather
+        than zero — a zero reads as free, and a kitchen would price against it.
+      enum: [weekly, component, fallback]
+
     ProductionOrder:
       type: object
-      required: [id, recipe_version_id, status, branch_id]
+      description: |
+        One batch (PROD1).
+
+        **The money keys are absent, not null, without
+        `production.view_costs_organisation`.** Absent means "this reader may not
+        see it"; present and null means "nobody could compute it". A surface
+        renders the first as nothing at all and the second as an em dash, and
+        collapsing them would tell a kitchen manager a batch was free.
+
+        `usable_yield_quantity` and `yield_variance_quantity` are computed, never
+        stored: `produced − rejected` and `produced − planned`. Rejected units are
+        **inside** produced, never beside it — a batch that made 38 and threw one
+        away produced 38 and has 37 on the shelf.
+      required:
+        [id, reference, branch_id, recipe_version_id, production_item_ingredient_id,
+         production_item_name_en, planned_yield_unit_code, status,
+         batch_factor, planned_yield, planned_yield_unit_id, produced_quantity, rejected_quantity,
+         usable_yield_quantity, yield_variance_quantity, production_date, batch_reference,
+         storage_location, expiry_date, is_expired, confirmed_at, started_at, completed_at,
+         cancelled_at, abandoned_at, abandon_reason, lock_version, notes]
+      additionalProperties: false
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
-        recipe_version_id:
-          $ref: '#/components/schemas/Uuid'
-        status:
-          type: string
-          enum: [planned, in_progress, completed, cancelled]
+        reference:
+          type: [string, 'null']
+          description: The kitchen-facing batch number, `PB-` plus eight Crockford base-32 characters. Null until confirm mints it. Not the label — that is `batch_reference`, which the cook writes.
         branch_id:
           $ref: '#/components/schemas/Uuid'
+        recipe_version_id:
+          $ref: '#/components/schemas/Uuid'
+        production_item_ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: What the batch makes — the recipe version's single output.
+        production_item_name_en:
+          type: [string, 'null']
+          description: |
+            That ingredient's name. Carried beside the id because a desk showing a
+            uuid where a name belongs is a desk nobody can work from. Null means
+            the ingredient is gone — an em dash, not a blank.
+        planned_yield_unit_code:
+          type: [string, 'null']
+          description: The unit's code, for rendering a quantity that reads as a quantity.
+        status:
+          $ref: '#/components/schemas/ProductionOrderStatus'
+        batch_factor:
+          type: [string, 'null']
+          description: How many times over the recipe is being made. Stored rather than re-derived, because a published version can be superseded and a batch confirmed at 2.5× stays a batch of 2.5×.
+        planned_yield:
+          type: [string, 'null']
+          description: How much the batch is meant to make, in `planned_yield_unit_id`.
+        planned_yield_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        produced_quantity:
+          type: [string, 'null']
+          description: What came out, **including** anything later rejected. Null until the batch is settled, which is not the same as zero.
+        rejected_quantity:
+          type: [string, 'null']
+          description: Produced and then discarded — inside `produced_quantity`, never beside it.
+        usable_yield_quantity:
+          type: [string, 'null']
+          description: '`produced − rejected` — what is actually on the shelf. Computed, never stored.'
+        yield_variance_quantity:
+          type: [string, 'null']
+          description: |
+            `produced − planned`. Negative is process loss — evaporation, pot
+            residue — which never existed as stock, has no movement and no money
+            of its own. Its cost is already absorbed into the unit cost of what
+            *was* produced, so no figure is invented for it.
+        production_date:
+          type: [string, 'null']
+          format: date
+          description: The branch-local business date the batch was made, like `goods_receipts.received_on`.
+        batch_reference:
+          type: [string, 'null']
+          description: What the cook writes on the tray, in whatever scheme the kitchen already uses. Free text, deliberately not the system reference.
+        storage_location:
+          type: [string, 'null']
+        expiry_date:
+          type: [string, 'null']
+          format: date
+        is_expired:
+          type: boolean
+          description: Past its date. A batch with **no** expiry date is not expired — that is "nobody recorded one", which is never the same as "it is fine".
+        confirmed_at:
+          type: [string, 'null']
+          format: date-time
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+        cancelled_at:
+          type: [string, 'null']
+          format: date-time
+        abandoned_at:
+          type: [string, 'null']
+          format: date-time
+        abandon_reason:
+          type: [string, 'null']
+        lock_version:
+          type: integer
+          description: The validator every write carries in `If-Match`.
+        notes:
+          type: [string, 'null']
+        estimated_cost_amount:
+          type: [string, 'null']
+          description: The batch cost at confirm, at the weekly prices of that moment. Null when any line was uncosted or the lines disagreed about currency — withheld rather than published short.
+        estimated_cost_currency_code:
+          type: [string, 'null']
+        weekly_price_publication_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The published week the estimate was computed against. What makes a historical estimate reproducible when next Monday lands.
+        actual_cost_amount:
+          type: [string, 'null']
+          description: '`Σ consumed input cost` at completion. Input waste is **not** in it: it never became product and is reported as production waste instead.'
+        actual_cost_currency_code:
+          type: [string, 'null']
+        actual_unit_cost_amount:
+          type: [string, 'null']
+          description: '`actual_cost_amount ÷ produced_quantity`. **Withheld unless `actual_cost_status` is `complete`.**'
+        actual_cost_status:
+          oneOf:
+            - $ref: '#/components/schemas/ProductionCostStatus'
+            - type: 'null'
+        valuation_note:
+          type: [string, 'null']
+          description: Why the cost is partial or unvalued, in the words a reader needs.
+
+    ProductionOrderLine:
+      type: object
+      description: |
+        One shelf a batch draws on, as planned and as it turned out (PROD1).
+
+        `consumed_quantity` and `waste_quantity` **do not overlap**. The shelf
+        falls by their sum, as two movements with different reasons: what went
+        into the batch is cost of goods, and what was dropped on the floor is
+        waste. Folding the second into the first would put the loss into the
+        batch's unit cost, where the monthly report would read it as the price of
+        the food.
+
+        Money keys follow the batch's rule: absent without
+        `production.view_costs_organisation`, null when nobody could compute them.
+      required:
+        [id, stock_item_id, ingredient_id, line_kind, unit_id, stock_item_code,
+         stock_item_name_en, unit_code, required_quantity,
+         reserved_quantity, consumed_quantity, waste_quantity, source_recipe_version_id, display_order]
       additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        line_kind:
+          $ref: '#/components/schemas/ProductionLineKind'
+        unit_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_code:
+          type: [string, 'null']
+          description: The shelf's own code. Null is a shelf that has been deleted or is outside this tenant — "nobody can tell you", which renders as an em dash.
+        stock_item_name_en:
+          type: [string, 'null']
+          description: The words on the shelf the cook walks to, carried beside the id so a batch never renders as a column of uuids. The stock item's name rather than the ingredient's, matching the buy list.
+        unit_code:
+          type: [string, 'null']
+          description: The unit's code, so a quantity renders as a quantity.
+        required_quantity:
+          type: string
+          description: The plan, in the stock item's own unit.
+        reserved_quantity:
+          type: [string, 'null']
+          description: What was actually claimed. Equal to required in the ordinary case; below it after a physical correction left the shelf short, which is precisely what a cook needs to see.
+        consumed_quantity:
+          type: [string, 'null']
+        waste_quantity:
+          type: [string, 'null']
+        source_recipe_version_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The version that supplied a produced component's cost — the one claiming that ingredient's nutrition, so cost and nutrition can never name different versions.
+        display_order:
+          type: integer
+        estimated_unit_cost_amount:
+          type: [string, 'null']
+        cost_source:
+          oneOf:
+            - $ref: '#/components/schemas/ProductionCostSource'
+            - type: 'null'
+        fallback_unit_cost_amount:
+          type: [string, 'null']
+          description: The figure used when no weekly price existed, so a reader can tell an estimate standing on last week's purchases from one standing on a typed cost.
+        actual_unit_cost_amount:
+          type: [string, 'null']
+          description: The moving average at the moment of completion, per `unit_id`.
+        cost_currency_code:
+          type: [string, 'null']
+
+    ProductionPlanLine:
+      type: object
+      description: |
+        One shelf a planned batch would draw on, and whether it can (PROD1).
+
+        Five quantities and no two of them the same question. `available` is
+        `on_hand − reserved` and **may be negative**, where more is claimed than
+        is there; a shelf somebody over-committed is a real state and clamping it
+        would hide it. A batch never counts **its own** claim against itself, so
+        re-opening a confirmed order does not show it short of everything it
+        already holds.
+      required: [stock_item_id, ingredient_id, line_kind, unit_id, stock_item_code, stock_item_name_en, unit_code, required, on_hand, reserved, available, missing]
+      additionalProperties: false
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        line_kind:
+          $ref: '#/components/schemas/ProductionLineKind'
+        unit_id:
+          $ref: '#/components/schemas/Uuid'
+        stock_item_code:
+          type: [string, 'null']
+          description: The shelf's own code. Null is a shelf that has been deleted or is outside this tenant — "nobody can tell you", which renders as an em dash.
+        stock_item_name_en:
+          type: [string, 'null']
+          description: The words on the shelf the cook walks to, carried beside the id so a batch never renders as a column of uuids. The stock item's name rather than the ingredient's, matching the buy list.
+        unit_code:
+          type: [string, 'null']
+          description: The unit's code, so a quantity renders as a quantity.
+        required:
+          type: string
+        on_hand:
+          type: string
+          description: What is physically there, before any claim.
+        reserved:
+          type: string
+          description: What **other** confirmed batches have already claimed.
+        available:
+          type: string
+          description: '`on_hand − reserved`. May be negative.'
+        missing:
+          type: string
+          description: '`max(0, required − available)` — the number a buyer acts on.'
+        estimated_unit_cost_amount:
+          type: [string, 'null']
+        estimated_line_cost_amount:
+          type: [string, 'null']
+        currency_code:
+          type: [string, 'null']
+        cost_source:
+          type: string
+          enum: [weekly, component, fallback, none]
+        effective_from:
+          type: [string, 'null']
+          format: date
+          description: The week the weekly price took effect from. Null on a component or fallback figure, which has no week.
+
+    ProductionPlanHole:
+      type: object
+      description: |
+        Part of a recipe nobody could turn into a quantity (PROD1). **Never
+        folded into the lines as a zero**: "need nothing for that" and "we could
+        not work out what this needs" are opposite statements, and a plan that
+        confused them would send somebody to cook with the wrong shopping.
+      required: [reason_code, detail]
+      additionalProperties: false
+      properties:
+        reason_code:
+          type: string
+        detail:
+          type: string
+
+    ProductionPlan:
+      type: object
+      description: |
+        What a batch would need, against what the shelves can actually give
+        (PROD1). Reads nothing into the future and writes nothing at all.
+
+        `estimated_cost_amount` is **withheld** rather than partial: any uncosted
+        line, or two currencies among the lines, and it is null with
+        `uncosted_line_count` or `currency_conflict` saying why. A total over the
+        lines that happened to have prices reads exactly like a complete one and
+        is smaller, which is the direction that gets a kitchen into trouble.
+
+        That never blocks anything. `is_confirmable` does not consult cost at all,
+        because a kitchen about to cook is not refused over arithmetic nobody has
+        finished.
+      required: [batch_factor, ingredients, packaging, not_computable, short_line_count, is_confirmable]
+      additionalProperties: false
+      properties:
+        batch_factor:
+          type: string
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionPlanLine'
+        packaging:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionPlanLine'
+        not_computable:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionPlanHole'
+        short_line_count:
+          type: integer
+        is_confirmable:
+          type: boolean
+        estimated_cost_amount:
+          type: [string, 'null']
+        currency_code:
+          type: [string, 'null']
+        uncosted_line_count:
+          type: integer
+        currency_conflict:
+          type: boolean
+        weekly_price_publication_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+
+    ProductionBatchYield:
+      type: object
+      description: |
+        The four yield figures and what separates them (PROD1).
+
+        `rejected_quantity` is **inside** `produced_quantity`, so `usable` is the
+        difference and never the sum of anything. `variance_quantity` is
+        `produced − planned`: negative is process loss, which never existed as
+        stock and carries no money of its own.
+      required: [planned_quantity, produced_quantity, rejected_quantity, usable_quantity, variance_quantity, unit_id]
+      additionalProperties: false
+      properties:
+        planned_quantity:
+          type: [string, 'null']
+        produced_quantity:
+          type: [string, 'null']
+        rejected_quantity:
+          type: [string, 'null']
+        usable_quantity:
+          type: [string, 'null']
+        variance_quantity:
+          type: [string, 'null']
+        unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+
+    ProductionSheetBasis:
+      type: object
+      description: What the sheet's figures were anchored to at confirm.
+      required: [recipe_version_id, confirmed_at, weekly_price_publication_id]
+      additionalProperties: false
+      properties:
+        recipe_version_id:
+          $ref: '#/components/schemas/Uuid'
+        confirmed_at:
+          type: [string, 'null']
+          format: date-time
+        weekly_price_publication_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            Stated even without the costs code: **which** week priced a batch is
+            not itself a price, and a reader who cannot see the money can still
+            see that the estimate is anchored.
+
+    ProductionTechnicalSheetEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [technical_sheet]
+          additionalProperties: false
+          properties:
+            technical_sheet:
+              type: object
+              required: [production_order, lines, yield, nutrition_facts, basis]
+              additionalProperties: false
+              properties:
+                production_order:
+                  $ref: '#/components/schemas/ProductionOrder'
+                lines:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ProductionOrderLine'
+                yield:
+                  $ref: '#/components/schemas/ProductionBatchYield'
+                nutrition_facts:
+                  type: ['object', 'null']
+                  additionalProperties: true
+                  description: |
+                    The version's own block, copied at confirm and presented
+                    rather than recomputed. Where the version **withheld** a
+                    nutrient because an ingredient's data was incomplete, it stays
+                    withheld rather than summed into a total that looks whole.
+                basis:
+                  $ref: '#/components/schemas/ProductionSheetBasis'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                costs_visible:
+                  type: boolean
 
     ProductionOrderCollection:
       type: object
       required: [data, meta]
+      additionalProperties: false
       properties:
         data:
           type: object
           required: [production_orders]
+          additionalProperties: false
           properties:
             production_orders:
               type: array
               items:
                 $ref: '#/components/schemas/ProductionOrder'
         meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                page:
+                  type: integer
+                per_page:
+                  type: integer
+                has_more:
+                  type: boolean
+                  description: Stated rather than inferred. A bounded list that stops silently is one somebody plans a week against and gets wrong.
+                costs_visible:
+                  type: boolean
+                  description: Whether this reader holds `production.view_costs_organisation`. It is what tells a surface that an absent money key is redacted rather than uncomputed.
+                limit:
+                  type: integer
+                  description: The valuation queue's bound. Absent on the desk queue, which pages instead.
+                is_truncated:
+                  type: boolean
+                  description: The valuation queue's own "there is more" signal, for the same reason `has_more` exists on the desk.
+
+    ProductionOrderEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [production_order]
+          additionalProperties: false
+          properties:
+            production_order:
+              $ref: '#/components/schemas/ProductionOrder'
+            lines:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductionOrderLine'
+            plan:
+              $ref: '#/components/schemas/ProductionPlan'
+        meta:
           $ref: '#/components/schemas/Meta'
+
+    ProductionOrderDetailEnvelope:
+      type: object
+      description: |
+        A batch with its lines, and — while it has none — its live plan (PROD1).
+
+        A draft has committed to nothing, so it reads its plan fresh: the shelves
+        move under it. From confirm onwards the **lines are the answer**: they are
+        what the kitchen agreed to, what the reservations were opened against and
+        what the estimate was computed from, and re-deriving them would make all
+        three disagree.
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [production_order, lines]
+          additionalProperties: false
+          properties:
+            production_order:
+              $ref: '#/components/schemas/ProductionOrder'
+            lines:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductionOrderLine'
+            plan:
+              $ref: '#/components/schemas/ProductionPlan'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                costs_visible:
+                  type: boolean
+
+    ProductionPlanEnvelope:
+      type: object
+      required: [data, meta]
+      additionalProperties: false
+      properties:
+        data:
+          type: object
+          required: [plan]
+          additionalProperties: false
+          properties:
+            plan:
+              $ref: '#/components/schemas/ProductionPlan'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                costs_visible:
+                  type: boolean
 
     CreateProductionOrderRequest:
       type: object
+      description: |
+        Open a draft batch (PROD1). **A draft claims nothing** — that is the whole
+        reason the state is not called `planned`: a kitchen writing next week's
+        runs on a Friday afternoon must not be quietly reserving Monday's flour
+        while it decides.
+
+        `planned_yield` is what a cook thinks in — forty litres of dressing — and
+        `batch_factor` is what the explosion thinks in — two and a half times
+        over. Send one; the server derives the other from the version's own yield,
+        because a client doing that conversion would be a second place the
+        arithmetic lives.
       required: [branch_id, recipe_version_id]
+      additionalProperties: false
       properties:
         branch_id:
           $ref: '#/components/schemas/Uuid'
         recipe_version_id:
           $ref: '#/components/schemas/Uuid'
         planned_yield:
-          type: ['number', 'null']
-      additionalProperties: false
+          type: [number, 'null']
+          description: How much to make, in the output's own unit.
+        batch_factor:
+          type: [number, 'null']
+          description: How many times over the recipe is made.
+        notes:
+          type: [string, 'null']
 
-    ProductionOrderEnvelope:
+    CompleteProductionOrderRequest:
       type: object
-      required: [data, meta]
+      description: |
+        What the cook says actually happened (PROD1).
+
+        Three yield facts, and exactly one of them is free. **Finished waste** is
+        `rejected_quantity`: units that were made and then thrown away, inside
+        `produced_quantity`, carrying the batch's unit cost and leaving the shelf
+        again as a waste movement. **Input waste** is `waste`, per shelf: raw
+        material discarded during the batch, which never became product and is
+        therefore not part of `consumed` and not part of the batch's cost.
+        **Process loss** is not reported at all — planned forty litres, made
+        thirty-eight — because it never existed as stock and its cost is already
+        absorbed into the unit cost of what was produced.
+
+        Omitting a shelf from `consumed` means "as planned" rather than "nothing":
+        a cook who followed the recipe should not have to retype it. Omitting one
+        from `waste` means zero, because waste nobody mentioned did not happen.
+      required: [produced_quantity]
+      additionalProperties: false
       properties:
-        data:
+        produced_quantity:
+          type: number
+          minimum: 0
+          description: |
+            What came out, in the planned yield unit, **including** anything
+            rejected. Zero is legal and is the batch that went entirely wrong: its
+            inputs post as waste rather than consumption, nothing reaches a shelf,
+            and no unit cost is divided.
+        rejected_quantity:
+          type: [number, 'null']
+          minimum: 0
+        consumed:
           type: object
-          required: [production_order]
+          additionalProperties:
+            type: number
+            minimum: 0
+          description: Stock item id to what went into the batch.
+        waste:
+          type: object
+          additionalProperties:
+            type: number
+            minimum: 0
+          description: Stock item id to input discarded during the batch.
+        production_date:
+          type: [string, 'null']
+          format: date
+        batch_reference:
+          type: [string, 'null']
+        storage_location:
+          type: [string, 'null']
+        expiry_date:
+          type: [string, 'null']
+          format: date
+        notes:
+          type: [string, 'null']
+
+    AbandonProductionOrderRequest:
+      description: |
+        The completion report plus a required reason (PROD1).
+
+        The same payload as completing, deliberately: what was used was used and
+        whatever came out came out. A kitchen that had to retype everything to
+        abandon would cancel instead and leave the flour unaccounted for — and
+        `cancelled` is the status that promises no stock moved.
+      allOf:
+        - $ref: '#/components/schemas/CompleteProductionOrderRequest'
+        - type: object
+          required: [reason]
           properties:
-            production_order:
-              type: object
-              required: [id, status]
-              properties:
-                id:
-                  $ref: '#/components/schemas/Uuid'
-                status:
-                  type: string
-                  enum: [planned, in_progress, completed, cancelled]
-                yield_valued:
-                  type: boolean
-                  description: |
-                    On a completion only: whether the batch arrived with a cost.
-                    False when any input had no moving average to be valued at.
-                    The cost itself is not here — booking a batch is
-                    `inventory.manage_organisation`, and what it cost is
-                    `inventory.view_costs_organisation`'s.
-        meta:
-          $ref: '#/components/schemas/Meta'
+            reason:
+              type: string
+              maxLength: 255
+              description: Why the batch was given up. Required, unlike every other field here — an abandoned batch is a loss somebody asks about in a month, and "no reason given" is the answer that makes the record useless.
 
     QualityCheckSubjectType:
       type: string
@@ -31784,7 +34607,7 @@ components:
 
     OrderDeskRequirementRow:
       type: object
-      required: [ingredient_id, stock_item_id, code, name_en, unit_id, unit_code, required, available, short, suggested_buy]
+      required: [ingredient_id, stock_item_id, code, name_en, unit_id, unit_code, required, on_hand, reserved, available, short, suggested_buy]
       additionalProperties: false
       properties:
         ingredient_id:
@@ -31816,17 +34639,33 @@ components:
             rather than rounded to the column's four, because truncating a
             computed figure to match what it is compared against would publish a
             rounder number than the arithmetic produced.
+        on_hand:
+          type: string
+          description: |
+            What is physically on the shelf, at four places, before any claim is
+            taken off it. `0` when the shelf has no level row here — that is a
+            shelf holding none, not an unknown.
+        reserved:
+          type: string
+          description: |
+            How much of `on_hand` confirmed production orders have claimed, at
+            four places. Published beside `available` so the drop between the two
+            is explained rather than merely applied: a buyer who sees the oil on
+            the shelf and a buy suggestion anyway needs to know why.
         available:
           type: string
           description: |
-            What the branch holds, at four places. `0` when the shelf has no
-            level row here — that is a shelf holding none, not an unknown.
+            `on_hand − reserved`, at four places — what the window can actually
+            draw on. **May be negative**, where more is claimed than is there;
+            that is a shelf somebody has over-committed and clamping it to zero
+            would hide the part of the problem a buyer can fix.
         short:
           type: string
           description: |
-            `max(0, required − available)`, at four places. **Compared at four**
-            so a rounding tail five decimal places down cannot manufacture a
-            shortfall on a row that balances exactly.
+            `max(0, required − available)`, at four places, and therefore net of
+            production's claims too. **Compared at four** so a rounding tail five
+            decimal places down cannot manufacture a shortfall on a row that
+            balances exactly.
         suggested_buy:
           type: string
           description: |
@@ -35996,6 +38835,478 @@ components:
               $ref: '#/components/schemas/B2bAgreement'
         meta:
           $ref: '#/components/schemas/Meta'
+
+    CreateStaffAccountRequest:
+      type: object
+      required: [given_name, family_name, password, role_ids]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          description: |
+            A full address. Mutually exclusive with `local_part` — a body
+            carrying both is a client that has not decided, and silently
+            preferring one would make the other look like it worked.
+        local_part:
+          type: string
+          pattern: '^[a-z0-9]+([._-][a-z0-9]+)*$'
+          maxLength: 64
+          description: |
+            The left-hand side only. Composed against the organisation's
+            `staff_email_domain` into an ordinary address, so nothing in the
+            authentication pipeline learns that this form exists. Refused when
+            the organisation has no domain set: a generated address nobody
+            chose is one nobody can be told.
+        given_name:
+          type: string
+          maxLength: 255
+        family_name:
+          type: string
+          maxLength: 255
+        password:
+          type: string
+          description: |
+            Validated exactly as a self-chosen password, so a provisioned
+            account cannot be weaker than a registered one. Not confirmed —
+            confirmation catches a typo by somebody who cannot see what they
+            typed, and this is shown back to the administrator once before they
+            hand it over.
+        preferred_language_code:
+          type: ['string', 'null']
+          minLength: 2
+          maxLength: 2
+        role_ids:
+          type: array
+          description: |
+            May be empty. Somebody can be given a login today and duties
+            tomorrow, which is the ordinary shape of a first morning.
+          items:
+            type: string
+            format: uuid
+        branch_id:
+          type: ['string', 'null']
+          format: uuid
+          description: Null means organisation-wide.
+
+    StaffAccountEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/TeamMemberEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [initial_password]
+              properties:
+                initial_password:
+                  type: string
+                  description: |
+                    **Returned exactly once, here.** Never stored readable,
+                    never audited, never logged, and not on any later read —
+                    the model `InvitationService::issue()` uses for its token.
+                    `must_change_password` on the new account is what makes
+                    that defensible: what the administrator carries out of this
+                    response is a credential good for one sign-in.
+
+    StaffSignInDomain:
+      type: object
+      required: [organisation_name, domain]
+      additionalProperties: false
+      properties:
+        organisation_name:
+          type: string
+          example: Verdant Kitchen
+        domain:
+          type: string
+          example: verdant.h360.app
+          description: The right-hand side of every staff address this organisation issues.
+
+    UpdatePasswordRequest:
+      type: object
+      required: [current_password, password, password_confirmation]
+      additionalProperties: false
+      properties:
+        current_password:
+          type: string
+          description: |
+            Required even on a forced first change. A session is not a
+            password: it survives on a shared terminal and in an unlocked
+            phone, and the value of this route is that it takes a credential
+            away from whoever else holds it.
+        password:
+          type: string
+        password_confirmation:
+          type: string
+
+    PermissionDefinition:
+      type: object
+      required: [code, description, held_by_caller]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          example: order.view_organisation
+          description: |
+            `domain.action_scope`. Only organisation-scoped, assignable codes
+            ever appear here — the registry is split in two so that no
+            organisation role can hold a platform code, and a catalogue that
+            offered one would be a form with a trap in it.
+        description:
+          type: string
+          description: |
+            The seeded English description. Clients translate the code and fall
+            back to this when they have no string for it, so a code added on
+            the backend shows up in the editor rather than as a blank row.
+        held_by_caller:
+          type: boolean
+          description: |
+            Whether the caller holds this code themselves. Information, not a
+            gate: role management is total, so an administrator may grant an
+            authority they cannot exercise — this is how the editor marks it
+            instead of hiding it.
+
+    PermissionDomain:
+      type: object
+      required: [domain, permissions]
+      additionalProperties: false
+      properties:
+        domain:
+          type: string
+          example: order
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionDefinition'
+
+    PermissionCatalogueEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [domains]
+          properties:
+            domains:
+              type: array
+              items:
+                $ref: '#/components/schemas/PermissionDomain'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    OrganisationRoleSummary:
+      type: object
+      required: [id, code, name_en, name_ar, description_en, description_ar, is_system, holder_count, permission_count, lock_version, updated_at]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: evening_counter
+          description: |
+            Lowercase words joined by single underscores. Immutable once set:
+            it is what an invitation's `role_code` resolves against, so
+            changing it would silently redirect every outstanding offer naming
+            the old one.
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        description_en:
+          type: ['string', 'null']
+        description_ar:
+          type: ['string', 'null']
+        is_system:
+          type: boolean
+          description: |
+            A platform template: visible in every tenant, editable in none.
+            The console offers **Copy** on these rather than Edit — forking one
+            into a role of your own is how a kitchen changes what a template
+            means inside its walls, and `MembershipGranter` prefers the fork.
+        holder_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many memberships hold it. The number that says which roles are
+            real and which were defined and forgotten — and the one that
+            decides whether deletion will be refused.
+        permission_count:
+          type: integer
+          minimum: 0
+        lock_version:
+          type: integer
+          minimum: 0
+          description: Always `0` on a template, which is never written from here.
+        updated_at:
+          type: ['string', 'null']
+          format: date-time
+
+    OrganisationRole:
+      allOf:
+        - $ref: '#/components/schemas/OrganisationRoleSummary'
+        - type: object
+          required: [permissions, updated_by_name]
+          properties:
+            permissions:
+              type: array
+              description: |
+                Every code this role grants, in catalogue order rather than the
+                order they were submitted — so two saves that changed nothing
+                produce the same list.
+              items:
+                type: string
+            updated_by_name:
+              type: ['string', 'null']
+              description: |
+                Who last changed what this role reaches. `created_by` cannot
+                answer that, and it is the one question an access review asks.
+
+    OrganisationRoleEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [role]
+          properties:
+            role:
+              $ref: '#/components/schemas/OrganisationRole'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              properties:
+                shadows_template:
+                  type: boolean
+                  description: |
+                    Present on create. True when this kitchen has defined a role
+                    carrying a platform template's code. Permitted — it is the
+                    mechanism Copy relies on — and reported, because a kitchen
+                    that did it deliberately and one that did it by accident
+                    type exactly the same thing.
+
+    WriteOrganisationRoleRequest:
+      type: object
+      required: [name_en, name_ar, permissions]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+          maxLength: 64
+          description: Required on create, and absent from update — see `code` above.
+        name_en:
+          type: string
+          maxLength: 120
+        name_ar:
+          type: string
+          maxLength: 120
+        description_en:
+          type: ['string', 'null']
+          maxLength: 500
+        description_ar:
+          type: ['string', 'null']
+          maxLength: 500
+        permissions:
+          type: array
+          description: |
+            The codes this role should end up with. A **replacement**, not an
+            addition: an additive body could not express "take this away", and
+            taking things away is the half of a role editor that matters. An
+            empty array is valid — a role that grants nothing is a legitimate
+            thing to park.
+          items:
+            type: string
+
+    TeamMemberRole:
+      type: object
+      required: [id, code, name_en, name_ar, is_system]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        is_system:
+          type: boolean
+
+    TeamMemberBranch:
+      type: object
+      required: [id, name]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    TeamMemberSummary:
+      type: object
+      required: [membership_id, user_id, given_name, family_name, email, status, joined_at, branch, roles, lock_version]
+      additionalProperties: false
+      properties:
+        membership_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        given_name:
+          type: ['string', 'null']
+        family_name:
+          type: ['string', 'null']
+        email:
+          type: ['string', 'null']
+          format: email
+          description: |
+            In full, unlike `Invitation.email_masked`. That one is read
+            anonymously, where the address would be a credential; this one is
+            read by a member of the organisation holding
+            `membership.view_organisation`, and it is the login identifier —
+            an administrator who cannot see it cannot tell two people with the
+            same name apart.
+        status:
+          type: string
+          enum: [invited, active, suspended, ended]
+          description: |
+            All four, unlike `Membership.status` on `/me` — that one describes
+            the caller's own live memberships, and an ended one is not a
+            workspace they can enter. Here `ended` is listed, because who
+            *used* to have access is exactly what an access review reads, and a
+            console that could not answer "did she ever work here" would send
+            somebody to the database.
+        joined_at:
+          type: ['string', 'null']
+          format: date-time
+        branch:
+          oneOf:
+            - $ref: '#/components/schemas/TeamMemberBranch'
+            - type: 'null'
+          description: Null means organisation-wide, which is a value rather than an absence.
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMemberRole'
+        lock_version:
+          type: integer
+          minimum: 0
+
+    MembershipRoleAssignment:
+      type: object
+      required: [role_id, starts_at, expires_at]
+      additionalProperties: false
+      properties:
+        role_id:
+          type: string
+          format: uuid
+        starts_at:
+          type: ['string', 'null']
+          format: date-time
+        expires_at:
+          type: ['string', 'null']
+          format: date-time
+
+    TeamMember:
+      allOf:
+        - $ref: '#/components/schemas/TeamMemberSummary'
+        - type: object
+          required: [assignments, permissions]
+          properties:
+            assignments:
+              type: array
+              description: |
+                Every assignment including ones that have not started or have
+                expired. A console that hid a future assignment could not show
+                you what you scheduled, and the editor would drop it on the
+                next save — a `PUT` replaces what it was shown.
+              items:
+                $ref: '#/components/schemas/MembershipRoleAssignment'
+            permissions:
+              type: array
+              description: |
+                What the roles add up to. Computed rather than implied, because
+                two roles overlapping is the ordinary case and a client that
+                got the union wrong would be wrong quietly.
+              items:
+                type: string
+
+    TeamMemberEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [membership]
+          properties:
+            membership:
+              $ref: '#/components/schemas/TeamMember'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [remaining_role_administrators, branches]
+              properties:
+                remaining_role_administrators:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    How many *other* active memberships could still administer
+                    access. Reported, never enforced: removing the last other
+                    administrator is permitted, because a console that refused
+                    the thing an operator opened it to do is a control that has
+                    made itself unusable. Zero on your own row means nobody
+                    else can.
+                branches:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TeamMemberBranch'
+                  description: |
+                    The organisation's open branches — the vocabulary the scope
+                    picker needs, served beside the record rather than from a
+                    resource of its own because nothing else a kitchen can
+                    reach lists its branches, and a picker that cannot name one
+                    would drop it on the next save.
+
+                    Present on the read *and* on all four writes, which share
+                    one assembler and one client mapper: a field served on only
+                    some of them comes back empty from a save and empties the
+                    picker mid-edit.
+
+                    Closed branches are excluded. Empty means a single-branch
+                    kitchen, where there is no scope decision to make.
+
+    ReplaceMembershipRolesRequest:
+      type: object
+      required: [roles]
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          description: |
+            The whole set. `[]` strips every role while leaving the person a
+            member — a real state, and not the same as ending their membership.
+          items:
+            $ref: '#/components/schemas/MembershipRoleAssignment'
+
+    UpdateMembershipScopeRequest:
+      type: object
+      required: [branch_id]
+      additionalProperties: false
+      properties:
+        branch_id:
+          type: ['string', 'null']
+          format: uuid
+          description: |
+            Null means organisation-wide. Required to be *present* rather than
+            non-null, because on a `PATCH` "make this person organisation-wide"
+            and "I forgot the field" are otherwise the same request.
 
     OrganisationInvitationEnvelope:
       type: object

@@ -1,9 +1,18 @@
-import { Badge, Button, Dialog, Inline, PageTransition, Stack } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Dialog,
+    Inline,
+    PageTransition,
+    Stack,
+    Text,
+} from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { KitchenPageHeader } from './kitchen-page-header.tsx';
+import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
 /**
@@ -21,10 +30,16 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
  * difference; it is the frame stating something untrue.
  *
  * So this keeps everything an ops editor genuinely needs — back, title, dirty marker, a section for
- * banners, the action bar and the unsaved-changes dialog — and drops the meta line, the status badge
- * and the optimistic-concurrency conflict dialog. No lock version means no conflict to report: two
- * people saving one supplier is a last-write-wins, and a dialog offering to reload would be
- * furniture for a race the server never signals.
+ * banners, the action bar and the unsaved-changes dialog — and drops the meta line and the status
+ * badge, which are the two things an ops record has no honest values for.
+ *
+ * ## The conflict dialog is optional, because ops records split on versioning
+ *
+ * A supplier carries no `lock_version`: two people saving one is a last-write-wins, the server never
+ * signals a race, and a dialog offering to reload would be furniture. A **membership** and a **role**
+ * do carry one, and what a lost race discards there is an authorisation decision. So `concurrency`
+ * is a prop rather than an absence — pass it and the frame draws `EditorFrame`'s dialog with
+ * `EditorFrame`'s testIDs; leave it off and nothing changes for the records that have no version.
  *
  * The testID suffix contract is deliberately identical to `EditorFrame`'s — `-back`, `-title`,
  * `-dirty`, `-actions`, `-save`, `-unsaved-dialog`, `-unsaved-keep`, `-unsaved-discard` — so the
@@ -42,6 +57,12 @@ export interface OpsRecordFrameProps {
     readonly hideSave?: boolean | undefined;
     /** Extra controls beside save — archive, restore, whatever the slice owns. */
     readonly primaryAction?: ReactNode | undefined;
+    /**
+     * Optimistic-concurrency state, for an ops record that carries a `lock_version`.
+     *
+     * Omit it for one that does not — a supplier — and no dialog is drawn. See the class docblock.
+     */
+    readonly concurrency?: OptimisticConcurrency | undefined;
     /** Rendered between the header and the children — callouts, notices, errors. */
     readonly banner?: ReactNode | undefined;
     readonly onBack: () => void;
@@ -60,6 +81,7 @@ export function OpsRecordFrame({
     hideSave = false,
     primaryAction,
     banner,
+    concurrency,
     onBack,
     backLabel,
     children,
@@ -147,6 +169,43 @@ export function OpsRecordFrame({
                         </>
                     }
                 />
+
+                {concurrency === undefined ? null : (
+                    <Dialog
+                        testID={`${testID}-conflict-dialog`}
+                        open={concurrency.conflict !== null}
+                        onClose={concurrency.keepEditing}
+                        dismissOnBackdrop={false}
+                        title={t('kitchen:conflict.title')}
+                        description={t('kitchen:conflict.body')}
+                        actions={
+                            <>
+                                <Button
+                                    testID={`${testID}-conflict-keep`}
+                                    variant="quiet"
+                                    label={t('kitchen:conflict.keepEditing')}
+                                    onPress={concurrency.keepEditing}
+                                />
+                                <Button
+                                    testID={`${testID}-conflict-reload`}
+                                    variant="danger"
+                                    label={t('kitchen:conflict.reload')}
+                                    onPress={concurrency.reload}
+                                />
+                            </>
+                        }
+                    >
+                        {concurrency.conflict === null ? null : (
+                            <Text
+                                testID={`${testID}-conflict-detail`}
+                                tone="secondary"
+                                variant="caption"
+                            >
+                                {concurrency.conflict.failure.message}
+                            </Text>
+                        )}
+                    </Dialog>
+                )}
             </Stack>
         </PageTransition>
     );

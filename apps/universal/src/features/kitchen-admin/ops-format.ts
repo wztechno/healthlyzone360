@@ -45,54 +45,53 @@ export function isOutOfStock(quantity: string): boolean {
 /* ── production orders ──────────────────────────────────────────────────────────────────────── */
 
 const PRODUCTION_STATUS_KEYS: Readonly<Record<ProductionOrderStatus, string>> = {
-    planned: 'kitchen:ops.production.status.planned',
-    in_progress: 'kitchen:ops.production.status.inProgress',
+    draft: 'kitchen:ops.production.status.draft',
+    confirmed: 'kitchen:ops.production.status.confirmed',
+    in_production: 'kitchen:ops.production.status.inProduction',
     completed: 'kitchen:ops.production.status.completed',
     cancelled: 'kitchen:ops.production.status.cancelled',
+    abandoned: 'kitchen:ops.production.status.abandoned',
 };
 
 export function productionStatusKey(status: ProductionOrderStatus): string {
     return PRODUCTION_STATUS_KEYS[status];
 }
 
+/**
+ * The tones say what a reader should feel about the state, not what stage it is.
+ *
+ * `abandoned` is `danger` and `cancelled` is `neutral`, and the difference is the whole point of the
+ * two words: a cancelled batch took nothing and cost nothing, while an abandoned one ate stock and
+ * produced something less than it should have. Giving them the same tone would hide the loss.
+ */
 const PRODUCTION_STATUS_TONES: Readonly<Record<ProductionOrderStatus, BadgeTone>> = {
-    planned: 'neutral',
-    in_progress: 'info',
+    draft: 'neutral',
+    confirmed: 'info',
+    in_production: 'brand',
     completed: 'success',
     cancelled: 'neutral',
+    abandoned: 'danger',
 };
 
 export function productionStatusTone(status: ProductionOrderStatus): BadgeTone {
     return PRODUCTION_STATUS_TONES[status];
 }
 
-/**
- * What a booked batch says, shared with the batch planner so the two places a batch is booked
- * cannot word it differently.
- *
- * An unvalued batch is a warning rather than a success: the stock is right, but what it made will
- * sell at no cost until an ingredient behind it is priced, and nothing else on screen would say so.
- */
-export function bookedToast(
-    yieldValued: boolean | null,
-    t: (key: string) => string,
-): { readonly testID: string; readonly tone: 'success' | 'warning'; readonly message: string } {
-    return yieldValued === false
-        ? {
-              testID: 'kitchen-production-completed-unvalued-toast',
-              tone: 'warning',
-              message: t('kitchen:ops.production.completedUnvaluedToast'),
-          }
-        : {
-              testID: 'kitchen-production-completed-toast',
-              tone: 'success',
-              message: t('kitchen:ops.production.completedToast'),
-          };
+/** `true` while the batch is still moving — what the desk queue shows by default. */
+export function isProductionOrderOpen(status: ProductionOrderStatus): boolean {
+    return status === 'draft' || status === 'confirmed' || status === 'in_production';
 }
 
-/** `true` for a status a "complete" action may still be sent for. */
-export function isProductionOrderOpen(status: ProductionOrderStatus): boolean {
-    return status === 'planned' || status === 'in_progress';
+/**
+ * The edge a batch takes next, or `null` when it is terminal or needs a form.
+ *
+ * `in_production` returns null deliberately: finishing a batch needs what actually came out, and a
+ * one-click "complete" would have to invent a produced quantity. The batch detail screen asks.
+ */
+export function nextProductionEdge(status: ProductionOrderStatus): 'confirm' | 'start' | null {
+    if (status === 'draft') return 'confirm';
+    if (status === 'confirmed') return 'start';
+    return null;
 }
 
 /* ── quality checks ──────────────────────────────────────────────────────────────────────────── */
@@ -767,8 +766,16 @@ export function goodsReceiptRowTestId(goodsReceiptId: string): string {
     return `kitchen-goods-receipt-${goodsReceiptId}`;
 }
 
-export function productionOrderRowTestId(productionOrderId: string): string {
-    return `kitchen-production-order-${productionOrderId}`;
+/**
+ * The stem every id on a batch row and on the batch screen is built from.
+ *
+ * One helper rather than a template literal per call site, for the reason its siblings exist: three
+ * surfaces render the same batch — the desk queue, the register and the batch screen — and a suite
+ * that pointed at two of the three spellings would go green while one of them had quietly stopped
+ * rendering.
+ */
+export function productionBatchTestId(productionOrderId: string): string {
+    return `kitchen-production-batch-${productionOrderId}`;
 }
 
 export function qualityCheckRowTestId(qualityCheckId: string): string {
