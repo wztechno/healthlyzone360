@@ -4,7 +4,9 @@ import { View } from 'react-native';
 
 import { cx } from '../internal/class-names.ts';
 import { webRole } from '../internal/web-props.ts';
+import { AnchoredLayer, PANEL_IS_LIFTED } from './anchored-layer';
 import {
+    ANCHORED_PANEL_FRAME_CLASS,
     anchoredPanelClass,
     useAnchorFlip,
     useDismiss,
@@ -116,7 +118,7 @@ export function Dropdown({
         onOpenChange?.(open);
     }, [open, onOpenChange]);
 
-    useDismiss({ open, onClose: close, containerRef });
+    useDismiss({ open, onClose: close, containerRef, panelRef });
     const resolvedAlign = useAnchorFlip({
         open,
         anchorRef: containerRef,
@@ -146,6 +148,10 @@ export function Dropdown({
          * painted later — covered the panel regardless of how high its own z-index went. The fix is
          * to raise the whole subtree the panel hangs from; `z-base` when closed so a form of twelve
          * fields is not twelve competing layers.
+         *
+         * That still only works on native. On the web every react-native-web view is a stacking
+         * context of its own, so the raise stops at the nearest ancestor — which is why the web
+         * panel is lifted onto `body` instead (`anchored-layer.web.tsx`).
          */
         <View
             ref={containerRef}
@@ -155,24 +161,31 @@ export function Dropdown({
             {trigger(state)}
 
             {open ? (
-                <View
-                    ref={panelRef}
-                    testID={panelId}
-                    nativeID={panelId}
-                    // `listbox` is outside React Native's `Role` union and this panel is a real
-                    // `<div role="listbox">` on the web, where a result list has to announce as
-                    // one. `webRole` is where that mismatch is reconciled.
-                    {...webRole(role)}
-                    accessibilityRole={role === 'menu' ? 'menu' : 'none'}
-                    aria-label={label}
-                    accessibilityLabel={label}
-                    // The swallow is the whole reason this component exists rather than each call
-                    // site composing `Popover` with a list. See `anchored-surface.ts`.
-                    {...swallow}
-                    className={cx(anchoredPanelClass(resolvedAlign), panelClassName)}
-                >
-                    {typeof children === 'function' ? children(state) : children}
-                </View>
+                <AnchoredLayer anchorRef={containerRef} align={resolvedAlign}>
+                    <View
+                        ref={panelRef}
+                        testID={panelId}
+                        nativeID={panelId}
+                        // `listbox` is outside React Native's `Role` union and this panel is a real
+                        // `<div role="listbox">` on the web, where a result list has to announce as
+                        // one. `webRole` is where that mismatch is reconciled.
+                        {...webRole(role)}
+                        accessibilityRole={role === 'menu' ? 'menu' : 'none'}
+                        aria-label={label}
+                        accessibilityLabel={label}
+                        // The swallow is the whole reason this component exists rather than each call
+                        // site composing `Popover` with a list. See `anchored-surface.ts`.
+                        {...swallow}
+                        className={cx(
+                            PANEL_IS_LIFTED
+                                ? ANCHORED_PANEL_FRAME_CLASS
+                                : anchoredPanelClass(resolvedAlign),
+                            panelClassName,
+                        )}
+                    >
+                        {typeof children === 'function' ? children(state) : children}
+                    </View>
+                </AnchoredLayer>
             ) : null}
         </View>
     );
