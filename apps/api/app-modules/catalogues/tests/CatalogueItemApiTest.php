@@ -107,11 +107,16 @@ it('makes no twin for a product, nor for a sauce that already names its ingredie
         ->assertCreated()
         ->assertJsonPath('data.item.ingredient_id', null);
 
+    // A sauce sells from the shelf its ingredient is counted on, so naming one that is weighed
+    // means saying how much a sold unit is (PROD1). Beside the point of this test, and required
+    // before the item can exist at all.
     $this->postJson('/api/v1/catalogue/items', [
         'item_type' => 'sauce',
         'name_en' => 'House Mayonnaise',
         'catalogue_id' => (string) $this->a->catalogue->getKey(),
         'ingredient_id' => (string) $existing->getKey(),
+        'net_content_quantity' => 0.3,
+        'net_content_unit_id' => CatalogueWorld::unit('kg'),
     ], CatalogueWorld::headers($this->a))
         ->assertCreated()
         ->assertJsonPath('data.item.ingredient_id', (string) $existing->getKey());
