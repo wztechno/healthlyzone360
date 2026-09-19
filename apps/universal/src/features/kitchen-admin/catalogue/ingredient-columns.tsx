@@ -1,4 +1,4 @@
-import type { IngredientAdmin } from '@healthy360/api-client/contracts';
+import type { CostAmount, IngredientAdmin } from '@healthy360/api-client/contracts';
 import { Badge, Inline, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -34,6 +34,11 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
  * | Allergens  |   160 |   132 |       30 | secondary, comma run                  |
  * | Status     |   110 |    78 |       80 | badge                                 |
  * | Updated    |    96 |    72 |       20 | secondary, centred, relative          |
+ *
+ * Past those, every other field the record carries is offered as a column too — sub-category,
+ * purchase pack, items per pack, grams per unit, cost per 100 g, the B2B and B2C prices, the
+ * composition and when it last changed. The reader picks which six are drawn (`column-picker.tsx`);
+ * {@link INGREDIENT_DEFAULT_COLUMNS} is the set a first visit shows.
  *
  * `width` is the track a column gets when it is drawn; `min` is what it is charged while the fitter
  * decides. The design's own `min` values come across unchanged — they are the measured floors its
@@ -79,6 +84,22 @@ export interface IngredientColumnDeps {
     readonly categoryName: (code: string) => string;
 }
 
+/**
+ * The six a first visit draws. Allergens stays in — it is the column read for safety — and Unit is
+ * the one that steps out, one pick away with the extra fields.
+ */
+export const INGREDIENT_DEFAULT_COLUMNS: readonly string[] = [
+    'reference',
+    'name',
+    'category',
+    'unitPrice',
+    'allergens',
+    'status',
+];
+
+/** The row's title can be moved past but never dropped — see `column-picker.tsx`. */
+export const INGREDIENT_LOCKED_COLUMNS: readonly string[] = ['name'];
+
 /** Prices render at exactly two decimals, which is the design's `fmt: 2`. */
 const PRICE_DIGITS: Intl.NumberFormatOptions = {
     minimumFractionDigits: 2,
@@ -95,6 +116,43 @@ export function ingredientColumns({
         row.allergens.length === 0
             ? t('kitchen:list.noAllergens')
             : row.allergens.map((mapping) => mapping.allergenCode).join(', ');
+
+    const noValue = t('kitchen:list.noValue');
+
+    const optionalText = <Value,>(value: Value | null, render: (value: Value) => string): string =>
+        value === null ? noValue : render(value);
+
+    const amountLabel = (amount: CostAmount | null): string | null =>
+        amount === null ? null : formatter.formatNumber(amount.amount, PRICE_DIGITS);
+
+    /** A centred mono figure, or the dash. The optional numeric fields all draw like this. */
+    const numberColumn = (
+        key: string,
+        label: string,
+        figure: (row: IngredientAdmin) => string | null,
+    ): CatalogueColumn<IngredientAdmin> => ({
+        key,
+        label,
+        width: 112,
+        min: 84,
+        priority: CATALOGUE_PRIORITY.updated,
+        align: 'center',
+        role: 'meta',
+        mono: true,
+        value: (row) => figure(row) ?? noValue,
+        render: (row) => {
+            const value = figure(row);
+            return (
+                <Text
+                    testID={`${ingredientRowTestId(row.id)}-${key}`}
+                    variant="mono"
+                    tone={value === null ? 'secondary' : 'primary'}
+                >
+                    {value ?? noValue}
+                </Text>
+            );
+        },
+    });
 
     const unitPriceLabel = (row: IngredientAdmin): string =>
         row.unitPrice === null
@@ -295,6 +353,92 @@ export function ingredientColumns({
                     icon={row.meta.status === 'published' ? null : undefined}
                     label={t(statusShortKey(row.meta.status))}
                 />
+            ),
+        },
+
+        {
+            key: 'subcategory',
+            label: t('kitchen:list.columnSubcategory'),
+            width: 160,
+            min: 120,
+            priority: CATALOGUE_PRIORITY.updated,
+            role: 'meta',
+            value: (row) => optionalText(row.subcategoryCode, categoryName),
+            render: (row) => (
+                <Text
+                    testID={`${ingredientRowTestId(row.id)}-subcategory`}
+                    tone={row.subcategoryCode === null ? 'secondary' : 'primary'}
+                >
+                    {optionalText(row.subcategoryCode, categoryName)}
+                </Text>
+            ),
+        },
+        {
+            key: 'purchaseUnit',
+            label: t('kitchen:list.columnPurchaseUnit'),
+            width: 104,
+            min: 80,
+            priority: CATALOGUE_PRIORITY.updated,
+            align: 'center',
+            role: 'meta',
+            value: (row) => optionalText(row.purchaseUnit, (unit) => t(unitShortKey(unit))),
+            render: (row) => (
+                <Text
+                    testID={`${ingredientRowTestId(row.id)}-purchase-unit`}
+                    tone={row.purchaseUnit === null ? 'secondary' : 'primary'}
+                >
+                    {optionalText(row.purchaseUnit, (unit) => t(unitShortKey(unit)))}
+                </Text>
+            ),
+        },
+        numberColumn('itemsPerUnit', t('kitchen:list.columnItemsPerUnit'), (row) =>
+            row.itemsPerUnit === null ? null : formatter.formatNumber(row.itemsPerUnit),
+        ),
+        numberColumn('gramsPerUnit', t('kitchen:list.columnGramsPerUnit'), (row) =>
+            row.gramsPerUnit === null ? null : formatter.formatNumber(row.gramsPerUnit),
+        ),
+        numberColumn('costPer100g', t('kitchen:list.columnCostPer100g'), (row) =>
+            amountLabel(row.costPer100g),
+        ),
+        numberColumn('b2bPrice', t('kitchen:list.columnB2bPrice'), (row) =>
+            amountLabel(row.b2bPrice),
+        ),
+        numberColumn('b2cPrice', t('kitchen:list.columnB2cPrice'), (row) =>
+            amountLabel(row.b2cPrice),
+        ),
+        {
+            key: 'composition',
+            label: t('kitchen:list.columnComposition'),
+            width: 220,
+            min: 160,
+            priority: CATALOGUE_PRIORITY.updated,
+            role: 'meta',
+            value: (row) => row.composition ?? t('kitchen:list.noValue'),
+            render: (row) => (
+                <Text
+                    testID={`${ingredientRowTestId(row.id)}-composition`}
+                    tone={row.composition === null ? 'secondary' : 'primary'}
+                    numberOfLines={2}
+                >
+                    {row.composition ?? t('kitchen:list.noValue')}
+                </Text>
+            ),
+        },
+        {
+            key: 'updatedAt',
+            label: t('kitchen:list.columnUpdated'),
+            width: 120,
+            min: 96,
+            priority: CATALOGUE_PRIORITY.updated,
+            align: 'center',
+            role: 'meta',
+            sortable: true,
+            sortType: 'text',
+            value: (row) => formatter.formatRelativeTime(row.meta.updatedAt),
+            render: (row) => (
+                <Text testID={`${ingredientRowTestId(row.id)}-updated`} tone="secondary">
+                    {formatter.formatRelativeTime(row.meta.updatedAt)}
+                </Text>
             ),
         },
     ];

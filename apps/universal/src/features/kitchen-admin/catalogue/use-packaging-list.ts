@@ -53,7 +53,16 @@ import { useDestructiveRow } from './use-destructive-row.ts';
  * button and a row's Edit reach one place.
  */
 
-export type PackagingSortKey = 'reference' | 'name' | 'category' | 'unit' | 'purchasePrice';
+export type PackagingSortKey =
+    | 'reference'
+    | 'name'
+    | 'category'
+    | 'unit'
+    | 'purchaseUnit'
+    | 'itemsPerUnit'
+    | 'purchasePrice'
+    | 'capacity'
+    | 'waste';
 export type PackagingSortDirection = 'asc' | 'desc';
 
 /**
@@ -201,6 +210,41 @@ export function usePackagingList(): PackagingListState {
             }
             if (sortKey === 'unit') {
                 return factor * left.measurementUnit.localeCompare(right.measurementUnit);
+            }
+            /*
+             * The pack, what it holds and what is thrown away sort rather than filter:
+             * `IngredientAdminFilter` carries no parameter for any of them, and narrowing the
+             * loaded page would misreport every page after it. A blank — not measured, not
+             * recorded — goes last either way, as it does for the price.
+             */
+            if (sortKey === 'purchaseUnit') {
+                return missingLast(
+                    left.purchaseUnit,
+                    right.purchaseUnit,
+                    (a, b) => factor * a.localeCompare(b),
+                );
+            }
+            if (sortKey === 'itemsPerUnit') {
+                return missingLast(
+                    left.itemsPerUnit,
+                    right.itemsPerUnit,
+                    (a, b) => factor * (a - b),
+                );
+            }
+            if (sortKey === 'capacity') {
+                // The unit first, so 0.3 kg and 300 cc are never read as one scale.
+                return missingLast(
+                    left.capacity,
+                    right.capacity,
+                    (a, b) => factor * (a.unit.localeCompare(b.unit) || a.quantity - b.quantity),
+                );
+            }
+            if (sortKey === 'waste') {
+                return missingLast(
+                    left.wastePercent,
+                    right.wastePercent,
+                    (a, b) => factor * (a - b),
+                );
             }
             if (sortKey === 'purchasePrice') {
                 // Numeric, not lexical: lexically 11.00 sorts between 1.90 and 2.00, which is

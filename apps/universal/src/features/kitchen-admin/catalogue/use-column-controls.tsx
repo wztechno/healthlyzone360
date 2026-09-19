@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CatalogueColumnHeader } from './catalogue-column-header.tsx';
+import { MAX_VISIBLE_COLUMNS, useColumnVisibility } from './column-picker.tsx';
+import type { ColumnPickerProps } from './column-picker.tsx';
 
 /**
  * Sort-on-press and filter-from-menu headers for any kitchen table, declared on the column.
@@ -29,11 +31,26 @@ import { CatalogueColumnHeader } from './catalogue-column-header.tsx';
  *
  * ## The header rules it keeps
  *
- * A column sorts **or** filters. A sorting header sorts on the press itself — first press ascending,
- * pressing the sorted column flips it — because a menu asking "ascending or descending" is a second
- * press for what the first already meant. A filtering header opens its values. A column that does
- * neither gets no `renderHeader`, which is what tells `DataList` to draw a plain label rather than a
- * focusable trigger that does nothing.
+ * A sorting header sorts on the press itself — first press ascending, pressing the sorted column
+ * flips it — because a menu asking "ascending or descending" is a second press for what the first
+ * already meant. A filtering header opens its values. A column that does both splits its head: the
+ * label opens the values and the arrow sorts. A column that does neither gets no `renderHeader`,
+ * which is what tells `DataList` to draw a plain label rather than a focusable trigger that does
+ * nothing.
+ *
+ * ## Which columns are drawn
+ *
+ * Every table built on this draws at most {@link MAX_VISIBLE_COLUMNS} columns, and the reader picks
+ * which: the hook returns `picker`, which the screen renders as a `ColumnPicker` in its toolbar (or
+ * above the table where it has none). The six highest-`priority` columns are the default, the title column —
+ * `role: 'title'` where the spec states one, otherwise the first — is locked on, and the choice is
+ * remembered under the table's `testIDPrefix`. Hiding a column that is filtering clears its filter,
+ * so a list is never narrowed by a header the reader can no longer see.
+ *
+ * An in-memory filter column that names no comparator still sorts — by the label of the value each
+ * row matches, which is the text the column shows. On a table whose sort the screen owns, a filter
+ * column sorts only when it says `sort: 'external'`, because only the screen knows whether the
+ * request can order by it.
  */
 
 export type SortDirection = 'asc' | 'desc';
@@ -67,7 +84,7 @@ export interface ColumnControl<Row> {
      * keep blanks last both ways. `'external'` sorts through `options.sort`.
      */
     readonly sort?: ColumnComparator<Row> | 'external' | undefined;
-    /** A column sorts or filters, not both. */
+    /** Filters from the header's label. With a `sort` too, the arrow beside it sorts. */
     readonly filter?: ColumnFilter<Row> | undefined;
 }
 
@@ -84,6 +101,13 @@ export interface ExternalSort {
 export interface ColumnControlsOptions {
     /** Present when the screen owns sorting (a server-sorted list). */
     readonly sort?: ExternalSort | undefined;
+    /** Which columns a first visit draws, and which cannot be dropped. See the module docs. */
+    readonly picker?:
+        | {
+              readonly defaults?: readonly string[] | undefined;
+              readonly locked?: readonly string[] | undefined;
+          }
+        | undefined;
 }
 
 export interface ColumnControls<Row, Base extends DataListColumn<Row>> {
@@ -96,21 +120,73 @@ export interface ColumnControls<Row, Base extends DataListColumn<Row>> {
     /** Changes whenever the in-memory filters do, so a pager can land on page one. */
     readonly key: object;
     readonly clearFilters: () => void;
+    /** The column picker's props — spread onto `ColumnPicker`. */
+    readonly picker: ColumnPickerProps;
 }
 
 export function useColumnControls<Row, Base extends DataListColumn<Row> = DataListColumn<Row>>(
     rows: readonly Row[],
-    columns: readonly ControlledColumn<Row, Base>[],
+    allColumns: readonly ControlledColumn<Row, Base>[],
     testIDPrefix: string,
     options: ColumnControlsOptions = {},
 ): ColumnControls<Row, Base> {
     const { t } = useTranslation();
+
+    const statedLocked = options.picker?.locked;
+    const statedDefaults = options.picker?.defaults;
+    const locked = useMemo(() => {
+        if (statedLocked !== undefined) return statedLocked;
+        const title =
+            allColumns.find((column) => (column as { role?: string }).role === 'title') ??
+            allColumns[0];
+        return title === undefined ? [] : [title.key];
+    }, [statedLocked, allColumns]);
+    // The six the design ranks highest — `priority` is the same ladder the fitter drops columns by
+    // at narrow widths — with the locked column always among them. Drawn in the table's own order.
+    const defaults = useMemo(() => {
+        if (statedDefaults !== undefined) return statedDefaults;
+        const ranked = [...allColumns].sort((left, right) => right.priority - left.priority);
+        return [...new Set([...locked, ...ranked.map((column) => column.key)])].slice(
+            0,
+            MAX_VISIBLE_COLUMNS,
+        );
+    }, [statedDefaults, allColumns, locked]);
+    const visibility = useColumnVisibility(testIDPrefix, allColumns, { defaults, locked });
+    const columns = visibility.visible;
+
     const external = options.sort;
     const [localSort, setLocalSort] = useState<{
         readonly key: string;
         readonly direction: SortDirection;
     } | null>(null);
     const [filters, setFilters] = useState<Readonly<Record<string, string>>>({});
+
+    /*
+     * Each column's in-memory comparator — its own, or for a matching filter column that names
+     * none, one over the label of the value the row matches. The labels are resolved once per row
+     * set rather than per comparison, since a match scan per compare is O(values) inside a sort.
+     */
+    const sorters = useMemo(() => {
+        const resolved = new Map<string, ColumnComparator<Row> | 'external'>();
+        for (const column of columns) {
+            if (column.sort !== undefined) {
+                resolved.set(column.key, column.sort);
+                continue;
+            }
+            const filter = column.filter;
+            if (external !== undefined || filter === undefined || !('match' in filter)) continue;
+            const values = filter.values(rows);
+            const labels = new Map<Row, string>();
+            for (const row of rows) {
+                const value = values.find((candidate) => filter.match(row, candidate.key));
+                if (value !== undefined) labels.set(row, value.label);
+            }
+            resolved.set(column.key, (left, right, direction) =>
+                compareText(labels.get(left), labels.get(right), direction),
+            );
+        }
+        return resolved;
+    }, [rows, columns, external]);
 
     const visible = useMemo(() => {
         const narrowed = rows.filter((row) =>
@@ -121,10 +197,10 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
             }),
         );
         if (localSort === null) return narrowed;
-        const sorter = columns.find((column) => column.key === localSort.key)?.sort;
+        const sorter = sorters.get(localSort.key);
         if (typeof sorter !== 'function') return narrowed;
         return [...narrowed].sort((left, right) => sorter(left, right, localSort.direction));
-    }, [rows, columns, filters, localSort]);
+    }, [rows, columns, filters, localSort, sorters]);
 
     const key = useMemo(() => ({ filters }), [filters]);
 
@@ -136,9 +212,26 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
               : { key: external.key, direction: external.direction };
 
     const controlled = columns.map((column): Base => {
-        const { sort: sorter, filter, ...rest } = column;
+        const { sort: _sort, filter, ...rest } = column;
         const base = rest as unknown as Base;
         const testID = `${testIDPrefix}-column-${column.key}`;
+
+        const sorter = sorters.get(column.key);
+        const sortActive = sorter !== undefined && activeSort?.key === column.key;
+        const direction =
+            sorter === undefined ? undefined : sortActive ? activeSort.direction : null;
+        const toggleSort =
+            sorter === undefined
+                ? undefined
+                : () => {
+                      const next: SortDirection =
+                          sortActive && direction === 'asc' ? 'desc' : 'asc';
+                      if (external === undefined) {
+                          setLocalSort({ key: column.key, direction: next });
+                      } else {
+                          external.onChange(column.key, next);
+                      }
+                  };
 
         if (filter !== undefined) {
             const current =
@@ -184,16 +277,15 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                         align={column.align}
                         sections={items.length === 0 ? [] : [{ items }]}
                         filtered={current !== null}
+                        sortDirection={direction}
+                        onToggleSort={toggleSort}
                         testID={testID}
                     />
                 ),
             };
         }
 
-        if (sorter !== undefined) {
-            const active = activeSort?.key === column.key;
-            const direction = active ? activeSort.direction : null;
-            const next: SortDirection = active && direction === 'asc' ? 'desc' : 'asc';
+        if (toggleSort !== undefined) {
             return {
                 ...base,
                 renderHeader: (): ReactNode => (
@@ -202,13 +294,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                         align={column.align}
                         sections={[]}
                         sortDirection={direction}
-                        onToggleSort={() => {
-                            if (external === undefined) {
-                                setLocalSort({ key: column.key, direction: next });
-                            } else {
-                                external.onChange(column.key, next);
-                            }
-                        }}
+                        onToggleSort={toggleSort}
                         testID={testID}
                     />
                 ),
@@ -225,6 +311,24 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
         key,
         clearFilters: () => {
             setFilters({});
+        },
+        picker: {
+            ...visibility.picker,
+            onToggle: (key) => {
+                const hiding = columns.find((column) => column.key === key);
+                const filter = hiding?.filter;
+                if (filter !== undefined) {
+                    if ('external' in filter) {
+                        if (filter.external.value !== null) filter.external.onChange(null);
+                    } else if (filters[key] !== undefined) {
+                        setFilters((existing) => {
+                            const { [key]: _dropped, ...others } = existing;
+                            return others;
+                        });
+                    }
+                }
+                visibility.picker.onToggle(key);
+            },
         },
     };
 }

@@ -108,6 +108,8 @@ export {
 export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
 export { FormSection } from './forms/form-section.tsx';
 export type { FormSectionProps } from './forms/form-section.tsx';
+export { FormNavigation } from './forms/form-navigation.tsx';
+export type { FormNavigationProps } from './forms/form-navigation.tsx';
 export { SearchInput } from './forms/search-input.tsx';
 export type { SearchInputProps } from './forms/search-input.tsx';
 export { QuantityInput, parseQuantity } from './forms/quantity-input.tsx';
@@ -214,6 +216,10 @@ export type {
 export { SegmentedControl, TABS_VARIANTS, Tabs } from './navigation/tabs.tsx';
 export type { SegmentedControlProps, TabItem, TabsProps, TabsVariant } from './navigation/tabs.tsx';
 export { Stepper } from './navigation/stepper.tsx';
+export { StepProgress } from './navigation/step-progress.tsx';
+export type { StepProgressItem, StepProgressProps } from './navigation/step-progress.tsx';
+export { useFormSteps } from './navigation/use-form-steps.ts';
+export type { FormSteps, FormStepsOptions } from './navigation/use-form-steps.ts';
 export type { StepperProps } from './navigation/stepper.tsx';
 export { BREADCRUMB_TONES, Breadcrumbs } from './navigation/breadcrumbs.tsx';
 export type {

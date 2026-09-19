@@ -923,6 +923,58 @@ describe('the meal list', () => {
             ),
         ).toBe(true);
     });
+
+    it('puts a sort or a filter on every column header, and Channels sorts', async () => {
+        const one = meal({ ordinal: 1, name: 'Alpha bowl' });
+        const two = meal({
+            ordinal: 2,
+            name: 'Beta wrap',
+            overrides: {
+                channelAvailability: [channel('b2c', true), channel('marketplace', true)],
+            },
+        });
+        const none = meal({
+            ordinal: 3,
+            name: 'Gamma salad',
+            overrides: { channelAvailability: [] },
+        });
+
+        await renderStubScreen(<MealsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listMeals: mealListing(() => [one, two, none]),
+                    listAllergenClasses: async () => MEAL_ALLERGEN_CLASSES,
+                },
+            },
+        });
+        await untilVisible('kitchen-meals-table');
+
+        for (const key of ['name', 'channels', 'mealTypes', 'category', 'allergens', 'status']) {
+            expect(screen.getByTestId(`kitchen-meals-column-${key}-trigger`)).toBeTruthy();
+        }
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-meal-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        // `MealAdminFilter` has no channel parameter, so the header orders by how many channels
+        // sell the meal rather than narrowing one page.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-column-channels-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Gamma salad', 'Alpha bowl', 'Beta wrap']);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-meals-column-channels-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Beta wrap', 'Alpha bowl', 'Gamma salad']);
+        });
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -974,8 +1026,13 @@ describe('creating and editing a product', () => {
         /*
          * And a pack, because the save gate counts one. A product with no pack is a record no price
          * list can point at and no order line can measure, so the editor refuses it rather than
-         * writing a row that every downstream screen would then have to special-case.
+         * writing a row that every downstream screen would then have to special-case. Packs are
+         * the form's second step.
          */
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
+        });
+        await untilVisible('kitchen-product-packs-add');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
         });
@@ -1037,6 +1094,10 @@ describe('creating and editing a product', () => {
                     listRecipes: async () => page(NO_RECIPES),
                 },
             },
+        });
+        await untilVisible('kitchen-product-editor-screen-steps-packs');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
         });
         await untilVisible('kitchen-product-packs-add');
 
@@ -1116,6 +1177,10 @@ describe('creating and editing a product', () => {
                 },
             },
         );
+        await untilVisible('kitchen-product-editor-screen-steps-packs');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
+        });
         await untilVisible('kitchen-product-packs-add');
 
         await act(async () => {
@@ -1186,6 +1251,10 @@ describe('creating and editing a product', () => {
                 },
             },
         );
+        await untilVisible('kitchen-product-editor-screen-steps-packs');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
+        });
         await untilVisible('kitchen-product-packs-add');
 
         await act(async () => {
@@ -1240,6 +1309,10 @@ describe('creating and editing a product', () => {
                 },
             },
         );
+        await untilVisible('kitchen-product-editor-screen-steps-channels');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-channels'));
+        });
         await untilVisible('kitchen-product-channel-editor');
 
         // Every channel is a row, including the ones this product is not sold through.
@@ -1413,8 +1486,12 @@ describe('creating and editing a product', () => {
                 lockVersion: 1,
             });
         });
-        // Nothing is deleted: the record comes back retired, and the editor says so.
-        await untilVisible('kitchen-product-archived');
+        // Nothing is deleted: the record comes back retired, and the editor's status says so.
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-product-editor-screen-status')).toHaveTextContent(
+                /Archived/,
+            );
+        });
         expect(stored.meta.status).toBe('retired');
     });
 
@@ -1495,6 +1572,10 @@ describe('creating and editing a product', () => {
                     listRecipes: async () => page(NO_RECIPES),
                 },
             },
+        });
+        await untilVisible('kitchen-product-editor-screen-steps-packs');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-steps-packs'));
         });
         await untilVisible('kitchen-product-packs-add');
 
@@ -1997,7 +2078,11 @@ describe('publishing a meal', () => {
 
         // Retiring *is* the archive: nothing is deleted, the record comes back retired, and the
         // editor drops the claim that a customer can see it.
-        await untilVisible('kitchen-meal-retired');
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-meal-editor-screen-status')).toHaveTextContent(
+                /Archived/,
+            );
+        });
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-meal-view-public')).toBeNull();
         });

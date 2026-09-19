@@ -66,6 +66,16 @@ import type { CombinationDraft, DurationDraft, VariantDraft } from './plan-matri
 import { PlanEditScreen } from './screens/plan-edit-screen.tsx';
 import { PlansScreen } from './screens/plans-screen.tsx';
 
+/*
+ * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
+ * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
+ * suites render at the width the screens are built for.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 /**
  * The plan half of the kitchen workspace, against a world this file declares (K1.6).
  *
@@ -121,6 +131,83 @@ beforeEach(() => {
     routerMock.__push.mockClear();
     routerMock.__replace.mockClear();
 });
+
+/**
+ * Opens one of the plan editor's steps from its progress row (Commercial §3.3). The durations and
+ * the fixed menu each have a step of their own, so a suite that works on them presses it first, as a
+ * person would.
+ */
+async function openPlanStep(step: 'variants' | 'matrix' | 'durations' | 'plan' | 'menu') {
+    await untilVisible(`kitchen-plan-editor-screen-steps-${step}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`kitchen-plan-editor-screen-steps-${step}`));
+    });
+}
+
+/** Sets a duration's kind from its select (Commercial §3.3 draws the kind as a select). */
+async function chooseKind(row: string, kind: 'one_off' | 'fixed_days') {
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`${row}-kind-trigger`));
+    });
+    await untilVisible(`${row}-kind-option-${kind}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`${row}-kind-option-${kind}`));
+    });
+}
+
+/**
+ * Every cell of the plan's grid that no configuration occupies, in the order the grid draws them.
+ *
+ * Derived through the same model the editor draws with rather than hand-listed, so a change to how
+ * rows and columns are assembled cannot leave this suite reading a cell that is not there.
+ */
+function emptyCells(plan: PlanAdmin): readonly string[] {
+    const rows = matrixRows(
+        plan.combinations.map(combinationDraft),
+        plan.variants.map(variantDraft),
+    );
+    const bands = matrixBands(plan.variants.map(variantDraft), []);
+    const sold = new Set(
+        plan.variants.map((row) => `${combinationKey(row)}-${energyBandKey(row.energyBand)}`),
+    );
+
+    return rows
+        .flatMap((row) => bands.map((band) => `${row.key}-${band.key}`))
+        .filter((key) => !sold.has(key));
+}
+
+/**
+ * Adds one configuration through the Configurations step, as a person would: the add button, then
+ * the name and the four coordinates that place it on the matrix. Returns the new row's test id.
+ */
+async function addConfiguration(shape: {
+    readonly name: string;
+    readonly meals: number;
+    readonly snacks: number;
+    readonly min: number;
+    readonly max: number;
+}): Promise<string> {
+    await openPlanStep('variants');
+    await untilVisible('kitchen-plan-variants-add');
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-plan-variants-add'));
+    });
+    const row = 'kitchen-plan-variants-row-variant-1';
+    await untilVisible(row);
+    const fields: readonly (readonly [string, string])[] = [
+        ['name', shape.name],
+        ['meals', String(shape.meals)],
+        ['snacks', String(shape.snacks)],
+        ['energy-min', String(shape.min)],
+        ['energy-max', String(shape.max)],
+    ];
+    for (const [field, value] of fields) {
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${row}-${field}-input`), value);
+        });
+    }
+    return row;
+}
 
 /** Waits for an element, with the same contention headroom the other kitchen suites document. */
 function untilVisible(testID: string) {
@@ -692,27 +779,6 @@ function cellOf(variantRow: PlanVariantAdmin): string {
     )}`;
 }
 
-/**
- * Every cell of the plan's grid that no configuration occupies, in the order the grid draws them.
- *
- * Derived through the same model the editor draws with rather than hand-listed, so a change to how
- * rows and columns are assembled cannot leave this suite pressing a cell that is not there.
- */
-function emptyCells(plan: PlanAdmin): readonly string[] {
-    const rows = matrixRows(
-        plan.combinations.map(combinationDraft),
-        plan.variants.map(variantDraft),
-    );
-    const bands = matrixBands(plan.variants.map(variantDraft), []);
-    const sold = new Set(
-        plan.variants.map((row) => `${combinationKey(row)}-${energyBandKey(row.energyBand)}`),
-    );
-
-    return rows
-        .flatMap((row) => bands.map((band) => `${row.key}-${band.key}`))
-        .filter((key) => !sold.has(key));
-}
-
 const VARIANT_MESSAGES = {
     nameRequired: 'name required',
     servingsRequired: 'servings required',
@@ -1013,21 +1079,21 @@ describe('the plan list', () => {
         const base = `kitchen-plan-${String(spread.id)}`;
         expect(screen.getByTestId(`${base}-name`)).toBeTruthy();
         expect(screen.getByTestId(`${base}-variants-coverage`)).toBeTruthy();
-        expect(screen.getByTestId(`${base}-variants-count`)).toBeTruthy();
-        expect(screen.getByTestId(`${base}-durations-days`)).toBeTruthy();
+        expect(screen.getByTestId(`${base}-variants-coverage`)).toHaveTextContent(
+            new RegExp(String(spread.variants.length)),
+        );
+        expect(screen.getByTestId(`${base}-durations`)).toBeTruthy();
         expect(screen.getByTestId(`${base}-status`)).toBeTruthy();
-        expect(screen.getByTestId(`${base}-updated`)).toBeTruthy();
 
         // The price column arrives from the price lists, and says how many prices are real.
         await waitFor(() => {
-            expect(screen.getByTestId(`${base}-prices-confirmed`)).toBeTruthy();
+            expect(screen.getByTestId(`${base}-prices`)).toHaveTextContent(
+                new RegExp(String(spread.variants.length)),
+            );
         });
-        expect(screen.getByTestId(`${base}-prices-confirmed`)).toHaveTextContent(
-            new RegExp(String(spread.variants.length)),
-        );
     });
 
-    it('states the coverage of the grid rather than only the number of configurations', async () => {
+    it('states the configurations and how many of them are inactive, in one cell', async () => {
         const spread = spreadPlan();
 
         await renderStubScreen(<PlansScreen />, {
@@ -1039,7 +1105,7 @@ describe('the plan list', () => {
         const summary = summarisePlanMatrix(spread);
         expect(
             screen.getByTestId(`kitchen-plan-${String(spread.id)}-variants-coverage`),
-        ).toHaveTextContent(new RegExp(String(summary.cells)));
+        ).toHaveTextContent(new RegExp(`${String(summary.variants)} configuration`));
     });
 
     it('marks a name that is standing in from the other language', async () => {
@@ -1057,6 +1123,78 @@ describe('the plan list', () => {
         expect(
             screen.getByTestId(`kitchen-plan-${String(untranslated.id)}-missing-arabic`),
         ).toBeTruthy();
+    });
+
+    it('puts a sort or a filter on every column header', async () => {
+        await renderStubScreen(<PlansScreen />, {
+            session: kitchenManagerSession(),
+            repositories: listRepositories([spreadPlan(), stackedPlan()]),
+        });
+        await untilVisible('kitchen-plans-table');
+
+        for (const key of ['name', 'variants', 'durations', 'prices', 'status', 'updatedAt']) {
+            expect(screen.getByTestId(`kitchen-plans-column-${key}-trigger`)).toBeTruthy();
+        }
+    });
+
+    it('sorts by the number of configurations from its header', async () => {
+        const empty = spreadPlan({
+            id: planIdentifier(3),
+            name: { en: 'Empty shell', ar: 'هيكل فارغ' },
+            variants: [],
+        });
+        await renderStubScreen(<PlansScreen />, {
+            session: kitchenManagerSession(),
+            repositories: listRepositories([spreadPlan(), empty, stackedPlan()]),
+        });
+        await untilVisible('kitchen-plans-table');
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-plan-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plans-column-variants-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()[0]).toBe('Empty shell');
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plans-column-variants-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()[2]).toBe('Empty shell');
+        });
+    });
+
+    it('reaches Archived from the Status header, which the segments do not offer', async () => {
+        const retired = stackedPlan({ meta: meta({ status: 'retired' }) });
+        await renderStubScreen(<PlansScreen />, {
+            session: kitchenManagerSession(),
+            repositories: listRepositories([spreadPlan(), retired]),
+        });
+        await untilVisible('kitchen-plans-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plans-column-status-trigger'));
+        });
+        await untilVisible('kitchen-plans-column-status-retired');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plans-column-status-retired'));
+        });
+
+        // One wait for both: the refetch passes through a loading frame with no rows at all.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`kitchen-plan-${String(retired.id)}-name`)).toBeTruthy();
+                expect(
+                    screen.queryByTestId(`kitchen-plan-${String(spreadPlan().id)}-name`),
+                ).toBeNull();
+            },
+            { timeout: 10_000 },
+        );
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {
@@ -1139,10 +1277,12 @@ describe('editing the matrix', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('matrix');
         await untilVisible('kitchen-plan-matrix-grid');
 
         const sold = cellOf(spread.variants[0]!);
-        expect(screen.getByTestId(sold)).toBeTruthy();
+        // At desk width the grid draws the cell's frame and its toggle under one id prefix.
+        expect(screen.getAllByTestId(sold).length).toBeGreaterThan(0);
         expect(screen.getByTestId(`${sold}-control`).props.accessibilityState?.checked).toBe(true);
 
         // A cell the plan does not sell exists too — that is what makes the matrix a matrix.
@@ -1162,6 +1302,7 @@ describe('editing the matrix', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('matrix');
         await untilVisible('kitchen-plan-matrix-grid');
 
         expect(screen.getByTestId(`${cellOf(stacked.variants[0]!)}-count`)).toHaveTextContent(
@@ -1169,7 +1310,7 @@ describe('editing the matrix', () => {
         );
     });
 
-    it('switches an empty cell on, saves it, and the repository holds the new configuration', async () => {
+    it('adds a configuration, saves it, and the matrix sells its cell', async () => {
         const spread = spreadPlan();
         const world = planWorld(spread, pricedVariants(spread));
 
@@ -1180,31 +1321,21 @@ describe('editing the matrix', () => {
                 repositories: world.overrides,
             },
         );
+        await openPlanStep('matrix');
         await untilVisible('kitchen-plan-matrix-grid');
 
-        // The first cell in the grid that nothing occupies.
-        const target = emptyCells(spread)[0];
-        if (target === undefined)
-            throw new Error('The authored plan fills every cell of its grid.');
+        // The matrix is read-only: nothing on it is a control.
+        const sold = cellOf(spread.variants[0]!);
+        expect(screen.getByTestId(`${sold}-control`).props.onPress).toBeUndefined();
 
-        const cell = `kitchen-plan-matrix-grid-cell-${target}`;
-        expect(screen.getByTestId(`${cell}-control`).props.accessibilityState?.checked).toBe(false);
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${cell}-control`));
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId(`${cell}-control`).props.accessibilityState?.checked).toBe(
-                true,
-            );
-        });
+        const shape = { meals: 2, snacks: 0, min: 900, max: 1100 };
+        await addConfiguration({ name: 'Light 900', ...shape });
         // Editing arms the guard, which is the visible half of the unsaved-changes contract.
         expect(screen.getByTestId('kitchen-plan-editor-screen-dirty')).toBeTruthy();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-variants-save'));
         });
-
         await waitFor(() => {
             expect(world.read().variants).toHaveLength(spread.variants.length + 1);
         });
@@ -1215,16 +1346,21 @@ describe('editing the matrix', () => {
             expect.objectContaining({ lockVersion: spread.meta.lockVersion }),
         );
 
-        // The server minted an identifier for the configuration the cell created.
         const added = world.read().variants[world.read().variants.length - 1]!;
         expect(String(added.id)).not.toBe('');
-        expect(`${combinationKey(added)}-${energyBandKey(added.energyBand)}`).toBe(target);
+
+        // …and the matrix draws it back: its cell is sold.
+        await openPlanStep('matrix');
+        await untilVisible('kitchen-plan-matrix-grid');
+        expect(
+            screen.getByTestId(`${cellOf(added)}-control`).props.accessibilityState?.checked,
+        ).toBe(true);
     });
 
     /**
      * Identity survives a second save, which is what stops a saved configuration losing its price.
      *
-     * A configuration a cell created goes up with `id: null` and comes back with the identifier the
+     * A configuration added here goes up with `id: null` and comes back with the identifier the
      * server minted. `setPlanVariants` is a whole-set replacement, so a row still carrying `null` on
      * the *next* save is minted a **fresh identifier** — the count would look right and every price
      * list entry pointing at the old one would silently be orphaned, because a plan variant is
@@ -1232,7 +1368,7 @@ describe('editing the matrix', () => {
      *
      * The whole-record rebuild that would otherwise refresh the drafts is deliberately skipped while
      * another section is still dirty — it has to be, or it would discard unsaved work — so this
-     * drives exactly that state: a dirty duration row, a saved cell, and a second save.
+     * drives exactly that state: a dirty duration row, a saved configuration, and a second save.
      */
     it('keeps a saved configuration’s identifier when another section is still unsaved', async () => {
         const spread = spreadPlan();
@@ -1242,21 +1378,17 @@ describe('editing the matrix', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('matrix');
         await untilVisible('kitchen-plan-matrix-grid');
 
-        const empty = screen
-            .getAllByTestId(/^kitchen-plan-matrix-grid-cell-.*-control$/, { exact: false })
-            .find((node) => node.props.accessibilityState?.checked === false);
-        if (empty === undefined) throw new Error('The authored plan fills every cell of its grid.');
-
-        await act(async () => {
-            fireEvent.press(empty);
-        });
+        await addConfiguration({ name: 'Light 900', meals: 2, snacks: 0, min: 900, max: 1100 });
         // A second section left dirty is what suppresses the whole-record rebuild.
+        await openPlanStep('durations');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-durations-add'));
         });
 
+        await openPlanStep('variants');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-variants-save'));
         });
@@ -1282,7 +1414,7 @@ describe('editing the matrix', () => {
         );
     });
 
-    it('switches a sold cell off, saves it, and the configuration is gone', async () => {
+    it('removes a configuration, saves it, and its cell is no longer sold', async () => {
         const spread = spreadPlan();
         const world = planWorld(spread, pricedVariants(spread));
 
@@ -1290,56 +1422,27 @@ describe('editing the matrix', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
-        await untilVisible('kitchen-plan-matrix-grid');
+        await openPlanStep('variants');
+        await untilVisible('kitchen-plan-variants');
 
         const first = spread.variants[0]!;
+        const firstRow = firstVariantRow(spread);
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`${cellOf(first)}-control`));
+            fireEvent.press(screen.getByTestId(`${firstRow}-remove`));
         });
-        // A cell can hold several configurations, so the removal is undoable rather than final.
-        await untilVisible('kitchen-plan-matrix-undo');
+        expect(screen.queryByTestId(firstRow)).toBeNull();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-variants-save'));
         });
-
         await waitFor(() => {
             expect(world.read().variants.some((row) => row.id === first.id)).toBe(false);
         });
         expect(world.read().variants).toHaveLength(spread.variants.length - 1);
     });
 
-    it('puts an undone cell back rather than losing the configurations that were in it', async () => {
-        const stacked = stackedPlan();
-        const world = planWorld(stacked);
-
-        await renderStubScreen(<PlanEditScreen plan={String(stacked.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: world.overrides,
-        });
-        await untilVisible('kitchen-plan-matrix-grid');
-
-        const cell = cellOf(stacked.variants[0]!);
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${cell}-control`));
-        });
-        expect(screen.getByTestId('kitchen-plan-matrix-removed')).toHaveTextContent(
-            new RegExp(String(stacked.variants.length)),
-        );
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-matrix-undo'));
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId(`${cell}-control`).props.accessibilityState?.checked).toBe(
-                true,
-            );
-        });
-    });
-
-    it('moves a configuration with an announcement, removes one and undoes it in place', async () => {
+    it('removes a configuration and undoes it in place', async () => {
         const spread = spreadPlan();
         const world = planWorld(spread, pricedVariants(spread));
 
@@ -1347,19 +1450,10 @@ describe('editing the matrix', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('variants');
         await untilVisible('kitchen-plan-variants');
 
         const firstRow = firstVariantRow(spread);
-        const secondRow = `kitchen-plan-variants-row-seed-variant-1-${String(
-            spread.variants[1]!.id,
-        )}`;
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${secondRow}-move-up`));
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-plan-variants-announcer')).toHaveTextContent(/1/);
-        });
 
         await act(async () => {
             fireEvent.press(screen.getByTestId(`${firstRow}-remove`));
@@ -1380,11 +1474,12 @@ describe('editing the matrix', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('variants');
         await untilVisible('kitchen-plan-variants');
 
         const row = firstVariantRow(spread);
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId(`${row}-name-en-input`), '');
+            fireEvent.changeText(screen.getByTestId(`${row}-name-input`), '');
         });
 
         await waitFor(() => {
@@ -1403,6 +1498,7 @@ describe('editing the matrix', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('matrix');
         await untilVisible('kitchen-plan-matrix-grid');
 
         // Another writer saves first: the record keeps one configuration and moves its version on,
@@ -1413,8 +1509,13 @@ describe('editing the matrix', () => {
             variants: spread.variants.slice(0, 1),
         });
 
+        await openPlanStep('variants');
+        await untilVisible('kitchen-plan-variants');
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`${cellOf(spread.variants[0]!)}-control`));
+            fireEvent.changeText(
+                screen.getByTestId(`${firstVariantRow(spread)}-name-input`),
+                'Renamed',
+            );
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-variants-save'));
@@ -1434,6 +1535,7 @@ describe('editing the matrix', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('durations');
         await untilVisible('kitchen-plan-durations-add');
 
         await act(async () => {
@@ -1468,14 +1570,13 @@ describe('editing the durations', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('durations');
         await untilVisible('kitchen-plan-duration-rows');
 
         const row = firstDurationRow(spread);
         expect(screen.getByTestId(`${row}-days-input`).props.value).not.toBe('');
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${row}-kind-one_off`));
-        });
+        await chooseKind(row, 'one_off');
 
         // Removed rather than greyed — the K1.5 pattern, for the same two reasons.
         await waitFor(() => {
@@ -1483,9 +1584,7 @@ describe('editing the durations', () => {
         });
         expect(screen.getByTestId(`${row}-days-absent`)).toBeTruthy();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${row}-kind-fixed_days`));
-        });
+        await chooseKind(row, 'fixed_days');
         await waitFor(() => {
             expect(screen.getByTestId(`${row}-days-input`).props.value).toBe('');
         });
@@ -1515,6 +1614,7 @@ describe('editing the durations', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('durations');
         await untilVisible('kitchen-plan-durations-add');
 
         await act(async () => {
@@ -1549,6 +1649,7 @@ describe('editing the durations', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('durations');
         await untilVisible('kitchen-plan-duration-rows');
 
         const row = firstDurationRow(spread);
@@ -1563,7 +1664,9 @@ describe('editing the durations', () => {
         await waitFor(() => {
             expect(screen.getByTestId(`${row}-discount-state`)).toHaveTextContent(/unknown/i);
         });
-        expect(screen.getByTestId(`${row}-badge`)).toHaveTextContent(/not set/i);
+        // The empty field reads "Not set" in its own placeholder — never a 0.
+        expect(screen.getByTestId(`${row}-discount-input`).props.value).toBe('');
+        expect(screen.getByTestId(`${row}-discount-input`).props.placeholder).toMatch(/not set/i);
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-durations-save'));
@@ -1587,6 +1690,7 @@ describe('editing the durations', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('durations');
         await untilVisible('kitchen-plan-durations-add');
 
         const existing = spread.durations[0]!.days!;
@@ -1609,7 +1713,7 @@ describe('editing the durations', () => {
         });
     });
 
-    it('moves a duration with an announcement, removes one and undoes it in place', async () => {
+    it('removes a duration and undoes it in place', async () => {
         const spread = spreadPlan();
         const world = planWorld(spread, pricedVariants(spread));
 
@@ -1617,23 +1721,10 @@ describe('editing the durations', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('durations');
         await untilVisible('kitchen-plan-duration-rows');
 
         const first = firstDurationRow(spread);
-        const second = spread.durations[1]!;
-        const secondRow = `kitchen-plan-duration-rows-row-seed-duration-1-${second.kind}-${String(
-            second.days ?? 'x',
-        )}`;
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${secondRow}-move-up`));
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-plan-duration-rows-announcer')).toHaveTextContent(
-                /1/,
-            );
-        });
-
         await act(async () => {
             fireEvent.press(screen.getByTestId(`${first}-remove`));
         });
@@ -1673,6 +1764,7 @@ describe('editing the fixed menu', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('menu');
         await untilVisible('kitchen-plan-menu-days');
 
         // Seven cards for a seven-day rotation. A blank Thursday is a fact about the menu, so it
@@ -1706,6 +1798,7 @@ describe('editing the fixed menu', () => {
                 repositories: world.overrides,
             },
         );
+        await openPlanStep('menu');
         await untilVisible('kitchen-plan-menu-days');
 
         await act(async () => {
@@ -1749,6 +1842,7 @@ describe('editing the fixed menu', () => {
             session: kitchenManagerSession(),
             repositories: world.overrides,
         });
+        await openPlanStep('menu');
         await untilVisible('kitchen-plan-menu-days');
 
         const picker = `${rowTestId(0, 'menu-1')}-meal`;
@@ -1784,12 +1878,12 @@ describe('editing the fixed menu', () => {
                 repositories: world.overrides,
             },
         );
+        await openPlanStep('menu');
         await untilVisible('kitchen-plan-menu');
 
-        // A plan with no menu says so, has nothing to withdraw, and is not warned about anything.
+        // A plan with no menu has nothing to withdraw, and is not warned about anything.
         expect(screen.queryByTestId('kitchen-plan-menu-cutover')).toBeNull();
         expect(screen.queryByTestId('kitchen-plan-menu-withdraw')).toBeNull();
-        expect(screen.getByTestId('kitchen-plan-menu-no-withdrawal')).toBeTruthy();
 
         // Giving the rotation a length is already enough to make this a menu — and a cutover.
         await act(async () => {
@@ -1819,6 +1913,7 @@ describe('editing the fixed menu', () => {
                 repositories: world.overrides,
             },
         );
+        await openPlanStep('menu');
         await untilVisible('kitchen-plan-menu-days');
 
         // Seven days down to two, one press at a time.
@@ -1854,6 +1949,7 @@ describe('editing the fixed menu', () => {
                 repositories: world.overrides,
             },
         );
+        await openPlanStep('menu');
         await untilVisible('kitchen-plan-menu-withdraw');
 
         await act(async () => {
@@ -1916,11 +2012,17 @@ describe('publishing a plan', () => {
                 },
             },
         });
+        // Opens on the configurations; the plan's own details have a step of their own.
+        await untilVisible('kitchen-plan-variants');
+        await openPlanStep('plan');
         await untilVisible('kitchen-plan-details');
 
-        // Nothing below the details is offered until the record exists — there is no identifier to
-        // hang `setPlanVariants` on, and a matrix nobody could save would be a lie.
-        expect(screen.getByTestId('kitchen-plan-matrix-unavailable')).toBeTruthy();
+        // A new plan is the whole editor with nothing in it (Commercial §3.3): the matrix,
+        // configurations and durations are offered now and written by the one Save. Only the menu
+        // waits for a record, and publication is never offered before one exists.
+        expect(screen.getByTestId('kitchen-plan-editor-screen-steps-matrix')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-plan-editor-screen-steps-durations')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-plan-editor-screen-steps-menu')).toBeNull();
         expect(screen.queryByTestId('kitchen-plan-publish')).toBeNull();
 
         await act(async () => {
@@ -2120,6 +2222,14 @@ describe('publishing a plan', () => {
         await waitFor(() => {
             expect(world.read().meta.status).toBe('retired');
         });
-        await untilVisible('kitchen-plan-retired');
+        // The record-facts line states the new status; there is no separate notice for it.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-plan-editor-screen-status')).toHaveTextContent(
+                    /archived/i,
+                );
+            },
+            { timeout: 20_000 },
+        );
     });
 });

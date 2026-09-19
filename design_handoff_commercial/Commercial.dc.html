@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Wellness Green token roles, light theme — packages/design-tokens/src/colour.ts (themeLight + semanticLight). */
+  :root {
+    --sBase:#f7fcf9; --sRaised:#ffffff; --sSunken:#edf6f0;
+    --tPri:#1f2937; --tSec:#5b6673; --tDis:#646e7c; --tOnBrand:#ffffff;
+    --bSub:#cceeda; --bDef:#aaddc0;
+    --brand:#157043; --brandHover:#11532e; --brandSub:#dcfce7; --onBrandSub:#14532d;
+    --okSub:#dcfce7; --okOn:#14532d;
+    --warnSub:#fdf2d6; --warnOn:#79480a; --warnBd:#f0dca8;
+    --badSub:#fde5e3; --badOn:#8f1f1a; --badBd:#d16a64;
+    --infoSub:#e2f1fb; --infoOn:#0b4a6f; --infoBd:#cde3f2;
+    --neuSub:#f1f5f9; --neuOn:#4b5563;
+    --overlay:#14231ccc; --ph:#94a3b8;
+    --pop:0 6px 20px -4px rgba(16,42,30,.24);
+    --skelA:#e4f0e9; --skelB:#eef6f1;
+  }
+  [data-theme="dark"] {
+    --sBase:#0e1712; --sRaised:#16241b; --sSunken:#0a110b;
+    --tPri:#eef4ee; --tSec:#bcc7be; --tDis:#8b968c; --tOnBrand:#06160c;
+    --bSub:#26352b; --bDef:#3a4b3f;
+    --brand:#86efac; --brandHover:#b7e2c6; --brandSub:#153a26; --onBrandSub:#b6e8c2;
+    --okSub:#16301f; --okOn:#9fd6b3;
+    --warnSub:#33240a; --warnOn:#e8c073; --warnBd:#8a6a2a;
+    --badSub:#3a1512; --badOn:#efa19a; --badBd:#a85049;
+    --infoSub:#0e2636; --infoOn:#9fcdec; --infoBd:#3f80ad;
+    --neuSub:#1b2620; --neuOn:#bcc7be;
+    --overlay:#000000b3; --ph:#8b968c;
+    --pop:0 6px 20px -4px rgba(0,0,0,.55);
+    --skelA:#1e2d23; --skelB:#182219;
+  }
+  html, body { margin:0; padding:0; background:var(--sBase); }
+  * { box-sizing: border-box; }
+  body { font-family:'Schibsted Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  input, select, textarea, button { font-family: inherit; color: inherit; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { color: var(--brandHover); text-decoration: underline; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  ::placeholder { color: var(--ph); }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background: var(--bSub); border-radius:6px; }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes cmshimmer { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes cmfade { from{opacity:0} to{opacity:1} }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes cmpop { from{opacity:0; transform:translateY(6px) scale(.985)} to{opacity:1; transform:none} }
+</style>
+</helmet>
+
+<div dir="{{ dir }}" data-theme="{{ theme }}" style="display:flex; height:100vh; min-height:700px; background:var(--sBase); color:var(--tPri)">
+
+  <nav style="width: {{ navWidth }}; flex: 0 0 {{ navWidth }}; overflow:hidden; background:var(--sSunken); border-inline-end:1px solid var(--bSub); display:flex; flex-direction:column; padding:12px 0; transition: width 160ms ease, flex-basis 160ms ease">
+    <div style="flex:0 0 auto; display:flex; align-items:center; justify-content: {{ navJustify }}; gap:8px; padding:0 {{ navPad }} 12px">
+      <div style="flex:0 0 auto; width:22px; height:22px; border-radius:5px; background:var(--brand); color:var(--tOnBrand); display:grid; place-items:center; font-size:11px; font-weight:700">H</div>
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <span style="font-size:13px; font-weight:600; letter-spacing:-0.01em; white-space:nowrap">Kitchen ops</span>
+      </sc-if>
+    </div>
+
+    <div style="flex:1 1 auto; min-height:0; overflow:hidden auto; display:flex; flex-direction:column; gap:2px; padding:0 {{ navRailPad }}">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="5">
+        <div style="display:flex; flex-direction:column; gap:1px; padding-top:6px">
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:0 8px 3px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap">{{ group.label }}</div>
+          </sc-if>
+          <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+            <div role="button" tabindex="0" onClick="{{ expandNav }}" title="{{ group.label }}" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:5px; cursor:pointer" style-hover="background: var(--brandSub)">
+              <span aria-hidden="true" style="font-size:15px; line-height:1; color:var(--tSec)">{{ group.glyph }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="5">
+              <sc-if value="{{ item.active }}" hint-placeholder-val="{{ false }}">
+                <div role="button" tabindex="0" onClick="{{ item.go }}" title="{{ item.label }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; cursor:pointer; font-size:12px; font-weight:600; color:var(--onBrandSub); background:var(--brandSub)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--onBrandSub)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ item.here }}" hint-placeholder-val="{{ false }}">
+                <div role="button" tabindex="0" onClick="{{ item.go }}" title="{{ item.label }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; cursor:pointer; font-size:12px; color:var(--tPri)" style-hover="background: var(--brandSub)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tSec)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ item.away }}" hint-placeholder-val="{{ true }}">
+                <div title="{{ item.awayTitle }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; font-size:12px; color:var(--tDis)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tDis)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex:0 0 auto; margin-top:8px; padding:10px {{ navPad }} 0; border-top:1px solid var(--bSub); font-size:10px; line-height:15px; color:var(--tSec); text-align: {{ navFootAlign }}">
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="font-weight:600; color:var(--tPri); white-space:nowrap">Beirut Central</div>
+        <div style="white-space:nowrap">Commercial · Asia/Beirut</div>
+      </sc-if>
+      <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+        <div title="Beirut Central · Commercial" style="font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--tPri)">BC</div>
+      </sc-if>
+    </div>
+  </nav>
+
+  <main style="flex:1 1 auto; min-width:0; display:flex; flex-direction:column; overflow:hidden; position:relative">
+
+    <header style="flex:0 0 auto; padding:14px 20px 0">
+      <div style="display:flex; align-items:center; gap:8px; height:20px">
+        <span role="button" tabindex="0" onClick="{{ toggleNav }}" title="{{ navToggleTitle }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; margin-inline-start:-4px; border-radius:4px; font-size:14px; color:var(--tSec); cursor:pointer; flex:0 0 auto" style-hover="background: var(--sSunken); color: var(--tPri)">☰</span>
+        <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--tSec)">
+          <span>Kitchen</span><span style="color:var(--bDef)">/</span>
+          <span style="color:var(--tSec)">Commercial</span><span style="color:var(--bDef)">/</span>
+          <span role="button" tabindex="0" onClick="{{ backToList }}" style="cursor:pointer; color:var(--brand)">{{ crumbFamily }}</span>
+          <sc-if value="{{ showLeaf }}" hint-placeholder-val="{{ false }}">
+            <span style="color:var(--bDef)">/</span><span style="color:var(--tPri)">{{ crumbLeaf }}</span>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:4px">
+        <div style="min-width:0">
+          <div style="display:flex; align-items:center; gap:8px">
+            <h1 style="margin:0; font-size:16px; line-height:22px; font-weight:600; letter-spacing:-0.01em">{{ pageTitle }}</h1>
+            <sc-if value="{{ showPageChip }}" hint-placeholder-val="{{ true }}">
+              <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background: {{ pageChipBg }}; color: {{ pageChipFg }}">{{ pageChip }}</span>
+            </sc-if>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; padding-top:2px">
+          <sc-if value="{{ isEditing }}" hint-placeholder-val="{{ false }}">
+            <button type="button" onClick="{{ backToList }}" style="height:32px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap" style-hover="background: var(--sSunken)">{{ backLabel }}</button>
+            <button type="button" style="height:32px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap" style-hover="background: var(--brandHover)">{{ saveLabel }}</button>
+          </sc-if>
+          <sc-if value="{{ showCreate }}" hint-placeholder-val="{{ true }}">
+            <button type="button" onClick="{{ openCreate }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">
+              <span style="font-size:13px; line-height:1">+</span><span style="white-space:nowrap">{{ createLabel }}</span>
+            </button>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ showSummaryCards }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(148px, 1fr)); gap:8px; margin-top:10px; max-width:920px">
+          <sc-for list="{{ summaryCards }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex; flex-direction:column; gap:1px; padding:7px 10px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised)">
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.label }}</span>
+              <div style="display:flex; align-items:baseline; gap:4px; min-width:0">
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:18px; line-height:24px; font-weight:600; color: {{ c.fg }}">{{ c.value }}</span>
+                <span style="font-size:10px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.unit }}</span>
+              </div>
+              <span style="font-size:10px; line-height:14px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.caption }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showSummaryLine }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:var(--tSec)">
+          <span>{{ summaryLine }}</span>
+        </div>
+      </sc-if>
+    </header>
+
+    <!-- ══════════════════ LIST (every family shares this idiom) ══════════════════ -->
+    <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 20px; flex-wrap:wrap">
+        <div style="position:relative; width:240px; flex:0 0 240px">
+          <span style="position:absolute; inset-inline-start:8px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--tSec); pointer-events:none">⌕</span>
+          <input value="{{ q }}" onChange="{{ setQ }}" placeholder="{{ searchPlaceholder }}" style="width:100%; height:28px; padding-inline:22px 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+        </div>
+        <div style="display:inline-flex; align-items:center; gap:6px">
+          <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Status</span>
+          <div style="display:inline-flex; height:28px; padding:2px; gap:2px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised)">
+            <sc-for list="{{ statusTabs }}" as="t" hint-placeholder-count="4">
+              <button type="button" onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+          <span role="button" tabindex="0" onClick="{{ clearFilters }}" style="font-size:11px; font-weight:500; color:var(--brand); cursor:pointer">Clear the filters</span>
+        </sc-if>
+        <div style="flex:1 1 auto"></div>
+      </div>
+
+      <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:0 20px 16px">
+        <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; border:1px solid var(--warnBd); border-radius:6px; background:var(--warnSub)">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--warnOn)">◌</span>
+            <div style="font-size:11px; line-height:16px; color:var(--warnOn); text-wrap:pretty">
+              <span style="font-weight:600">You are offline.</span> This list stopped refreshing itself at 14:32 — what you see is the last copy that arrived. Nothing has been lost, and nothing can be saved until you are back.
+              <span role="button" tabindex="0" onClick="{{ retry }}" style="margin-inline-start:4px; font-weight:600; color:var(--brand); cursor:pointer">Try again</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ truncatedOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+            <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">
+              <span style="font-weight:600">Showing the first 50 records.</span> More matched than this view will ever show, and there is no second page — narrow the search or the status to reach the rest.
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ confidentialOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; border:1px solid var(--badBd); border-radius:6px; background:var(--badSub)">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--badOn)">◉</span>
+            <div style="font-size:11px; line-height:16px; color:var(--badOn); text-wrap:pretty">
+              <span style="font-weight:600">Negotiated prices are on this screen.</span> These rates belong inside one buyer relationship. They are never shown outside it, never quoted to another customer, and never reach a public surface.
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top:1px solid var(--bDef)">
+            <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="9">
+              <div style="display:grid; grid-template-columns: {{ grid }}; align-items:center; column-gap:14px; min-width: {{ gridMin }}; height:32px; padding:0 8px; border-bottom:1px solid var(--bSub)">
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: cmshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelB); animation: cmshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: cmshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelB); animation: cmshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: cmshimmer 1.3s ease-in-out infinite"></div>
+                <div></div>
+              </div>
+            </sc-for>
+            <div style="padding:10px 8px 0; font-size:11px; color:var(--tSec)">Reading this kitchen's records…</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ errored }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--badSub); color:var(--badOn)">Not loaded</span>
+            <div style="font-size:13px; font-weight:600; margin-top:2px">{{ errorTitle }}</div>
+            <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:48ch; text-wrap:pretty">No record was changed by this, and nothing has been lost.</div>
+            <button type="button" onClick="{{ retry }}" style="margin-top:4px; height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ emptyOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+            <div style="font-size:13px; font-weight:600">{{ emptyTitle }}</div>
+            <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:56ch; text-wrap:pretty">{{ emptyBody }}</div>
+            <div style="display:flex; gap:6px; margin-top:4px">
+              <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ clearFilters }}" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Clear the filters</button>
+              </sc-if>
+              <sc-if value="{{ showCreate }}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{ openCreate }}" style="height:28px; padding:0 10px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">{{ createLabel }}</button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tableOn }}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x:auto; padding-bottom:10px">
+            <div style="display:grid; grid-template-columns: {{ grid }}; align-items:center; column-gap:14px; min-width: {{ gridMin }}; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef); position:sticky; top:0; background:var(--sBase); z-index:2">
+              <sc-for list="{{ columns }}" as="c" hint-placeholder-count="6">
+                <span style="{{ c.style }}">{{ c.label }}</span>
+              </sc-for>
+            </div>
+
+            <sc-for list="{{ rows }}" as="row" hint-placeholder-count="6">
+              <div role="button" tabindex="0" onClick="{{ row.edit }}" style="display:grid; grid-template-columns: {{ grid }}; align-items:center; column-gap:14px; min-width: {{ gridMin }}; min-height:32px; padding:5px 8px; border-bottom:1px solid var(--bSub); cursor:pointer" style-hover="background: var(--sSunken)">
+                <span style="min-width:0">
+                  <span style="display:block; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.title }}</span>
+                  <span style="display:block; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.meta }}</span>
+                </span>
+                <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4">
+                  <span style="{{ cell.style }}">{{ cell.value }}</span>
+                </sc-for>
+                <span style="display:flex; align-items:center; justify-content:flex-end; gap:4px">
+                  <span style="{{ row.statusStyle }}">{{ row.status }}</span>
+                  <span role="button" tabindex="0" onClick="{{ row.view }}" title="View" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.2 7C2.6 4.7 4.6 3.5 7 3.5s4.4 1.2 5.8 3.5c-1.4 2.3-3.4 3.5-5.8 3.5S2.6 9.3 1.2 7Z"></path><circle cx="7" cy="7" r="1.6"></circle></svg></span>
+                  <span style="position:relative; display:inline-flex">
+                    <span role="button" tabindex="0" onClick="{{ row.openMenu }}" onPointerDown="{{ swallow }}" title="Row actions" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; border:1px solid var(--bDef); border-radius:4px; background: {{ row.menuTriggerBg }}; font-size:12px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3.2 7h.01"></path><path d="M7 7h.01"></path><path d="M10.8 7h.01"></path></svg></span>
+                    <sc-if value="{{ row.menuOpen }}" hint-placeholder-val="{{ false }}">
+                      <span role="menu" onClick="{{ swallow }}" onPointerDown="{{ swallow }}" style="position:absolute; top:26px; inset-inline-end:0; z-index:30; display:flex; flex-direction:column; min-width:150px; padding:4px; border:1px solid var(--bDef); border-radius:6px; background:var(--sRaised); box-shadow:var(--pop)">
+                        <span role="menuitem" tabindex="0" onClick="{{ row.viewFromMenu }}" style="display:flex; align-items:center; gap:8px; height:28px; padding:0 8px; border-radius:4px; font-size:12px; color:var(--tPri); cursor:pointer; white-space:nowrap" style-hover="background: var(--sSunken)">
+                          <span style="flex:0 0 14px; display:inline-flex; justify-content:center; color:var(--tSec)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.2 7C2.6 4.7 4.6 3.5 7 3.5s4.4 1.2 5.8 3.5c-1.4 2.3-3.4 3.5-5.8 3.5S2.6 9.3 1.2 7Z"></path><circle cx="7" cy="7" r="1.6"></circle></svg></span>View
+                        </span>
+                        <span role="menuitem" tabindex="0" onClick="{{ row.editFromMenu }}" style="display:flex; align-items:center; gap:8px; height:28px; padding:0 8px; border-radius:4px; font-size:12px; color:var(--tPri); cursor:pointer; white-space:nowrap" style-hover="background: var(--sSunken)">
+                          <span style="flex:0 0 14px; display:inline-flex; justify-content:center; color:var(--tSec)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 2.1l2.3 2.3-6.5 6.5-3 .7.7-3 6.5-6.5Z"></path><path d="M8.4 3.3l2.3 2.3"></path></svg></span>Edit
+                        </span>
+                        <span role="menuitem" tabindex="0" onClick="{{ row.archive }}" style="display:flex; align-items:center; gap:8px; height:28px; padding:0 8px; border-radius:4px; font-size:12px; color:var(--tPri); cursor:pointer; white-space:nowrap" style-hover="background: var(--sSunken)">
+                          <span style="flex:0 0 14px; display:inline-flex; justify-content:center; color:var(--tSec)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.6 4.8h10.8v6.4H1.6z"></path><path d="M0.9 2.6h12.2v2.2H0.9z"></path><path d="M5.5 7.4h3"></path></svg></span>Archive
+                        </span>
+                      </span>
+                    </sc-if>
+                  </span>
+                </span>
+              </div>
+            </sc-for>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; min-width: {{ gridMin }}; padding:10px 8px 0">
+              <span style="font-size:11px; color:var(--tSec)">{{ pagerRange }}</span>
+              <div style="display:flex; gap:4px">
+                <span role="button" tabindex="0" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); font-size:11px; color:var(--tDis)">‹</span>
+                <span role="button" tabindex="0" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); font-size:11px; color:var(--tDis)">›</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════════════════ EDITOR ══════════════════ -->
+    <sc-if value="{{ isEditing }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ hasTabs }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:0 0 auto; display:flex; align-items:flex-end; gap:2px; padding:10px 20px 0; border-bottom:1px solid var(--bDef); overflow-x:auto">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <button type="button" onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:14px 20px 24px">
+
+        <!-- Price list editor -->
+        <sc-if value="{{ edPrice }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:16px; border:1px solid var(--badBd); border-radius:6px; background:var(--badSub); max-width:96ch">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--badOn)">◉</span>
+            <div style="font-size:11px; line-height:16px; color:var(--badOn); text-wrap:pretty"><span style="font-weight:600">Negotiated prices are on this screen.</span> These rates belong inside one buyer relationship. They are never shown outside it, never quoted to another customer, and never reach a public surface.</div>
+          </div>
+
+          <section style="margin-bottom:22px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">What this list is</h2>
+              <span style="font-size:11px; color:var(--tSec)">Read only</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Name</span>
+                <div style="display:flex; align-items:center; height:28px; padding:0 8px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken); font-size:12px">Retail · USD</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Currency</span>
+                <div style="display:flex; align-items:center; height:28px; padding:0 8px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken); font-family:'IBM Plex Mono', monospace; font-size:12px">USD</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Channels</span>
+                <div style="display:flex; align-items:center; gap:4px; height:28px; padding:0 6px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken)">
+                  <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--sRaised); color:var(--tSec)">Storefront</span>
+                  <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--sRaised); color:var(--tSec)">POS</span>
+                </div>
+              </div>
+            </div>
+            <p style="margin:10px 0 0; font-size:11px; line-height:16px; color:var(--tSec); max-width:92ch; text-wrap:pretty">The name, currency, kitchen and channels of a price list are set where it is created and cannot be changed here: the management API publishes no update for them. One list is one currency, and every amount below is in it.</p>
+          </section>
+
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:4px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Entries</h2>
+              <span style="font-size:11px; color:var(--tSec)">4 entries · 2 confirmed · 1 pending price · 1 priced daily</span>
+            </div>
+            <p style="margin:0 0 12px; font-size:11px; line-height:16px; color:var(--tSec); max-width:96ch; text-wrap:pretty">Saving replaces the whole set. A confirmed entry needs an amount; a pending or daily-priced one must not carry one, and the field is cleared and disabled the moment you choose either.</p>
+
+            <div style="overflow-x:auto">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 128px 152px 120px 148px 148px 28px; align-items:center; column-gap:12px; min-width:1000px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">What is being priced</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Pack</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Why this price</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Amount (USD)</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">In effect from</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Until</span>
+                <span></span>
+              </div>
+              <sc-for list="{{ priceEntries }}" as="e" hint-placeholder-count="4">
+                <div style="min-width:1000px; border-bottom:1px solid var(--bSub); padding:8px">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) 128px 152px 120px 148px 148px 28px; align-items:center; column-gap:12px">
+                    <span style="min-width:0; display:flex; align-items:center; gap:6px">
+                      <span style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ e.item }}</span>
+                      <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--neuSub); color:var(--neuOn); white-space:nowrap">{{ e.kind }}</span>
+                    </span>
+                    <span style="font-size:12px; color:var(--tSec)">{{ e.pack }}</span>
+                    <select value="{{ e.status }}" style="height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer">
+                      <option value="confirmed">Confirmed</option>
+                      <option value="placeholder">Pending price</option>
+                      <option value="market">Priced daily</option>
+                    </select>
+                    <input value="{{ e.amount }}" placeholder="{{ e.amountPh }}" style="{{ e.amountStyle }}">
+                    <span style="position:relative; display:inline-flex; align-items:center; width:100%">
+                      <input type="date" value="{{ e.from }}" style="width:100%; height:28px; padding-inline:8px 26px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.1 3.5h9.8v8.4H2.1z"></path><path d="M2.1 6.1h9.8"></path><path d="M4.7 2.1v2.2"></path><path d="M9.3 2.1v2.2"></path></svg></span>
+                    </span>
+                    <span style="position:relative; display:inline-flex; align-items:center; width:100%">
+                      <input type="date" value="{{ e.until }}" style="width:100%; height:28px; padding-inline:8px 26px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.1 3.5h9.8v8.4H2.1z"></path><path d="M2.1 6.1h9.8"></path><path d="M4.7 2.1v2.2"></path><path d="M9.3 2.1v2.2"></path></svg></span>
+                    </span>
+                    <span role="button" tabindex="0" title="Remove" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); font-size:11px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--badOn)">✕</span>
+                  </div>
+                  <div style="{{ e.explainerStyle }}">{{ e.explainer }}</div>
+                </div>
+              </sc-for>
+              <div style="display:flex; align-items:center; gap:8px; min-width:1000px; padding:10px 8px 0">
+                <button type="button" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; font-weight:500; color:var(--brand); cursor:pointer" style-hover="background: var(--sSunken)">+ Add an entry</button>
+                <button type="button" style="height:28px; padding:0 10px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">Save entries</button>
+              </div>
+            </div>
+          </section>
+
+          <section style="margin-top:22px; max-width:96ch">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Publication</h2>
+            </div>
+            <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:12px; border:1px solid var(--warnBd); border-radius:6px; background:var(--warnSub)">
+              <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--warnOn)">!</span>
+              <div style="font-size:11px; line-height:16px; color:var(--warnOn); text-wrap:pretty">
+                <span style="font-weight:600">This price list cannot be published yet.</span> 2 entries disagree with their price status — a confirmed price needs an amount, and nothing else may carry one.
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px">
+              <button type="button" disabled style="height:32px; padding:0 12px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken); color:var(--tDis); font-size:12px; font-weight:500; cursor:not-allowed">Publish this price list</button>
+              <span style="font-size:11px; color:var(--tSec); text-wrap:pretty">1 pending and 1 daily-priced entry carry no amount. They are excluded from every customer-facing price, before and after this publish.</span>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- Quotation editor -->
+        <sc-if value="{{ edQuote }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:16px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub); max-width:96ch">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+            <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty"><span style="font-weight:600">Every line needs a price.</span> Prices are in USD, which the buyer's agreement fixed — you are not choosing it. Sending is refused until every line carries a price; zero is accepted.</div>
+          </div>
+
+          <section style="margin-bottom:22px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">The request</h2>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <div style="display:flex; flex-direction:column; gap:3px">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Programme</span>
+                <span style="font-size:12px">Corporate lunch · Q4 2026</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:3px">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Currency</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px">USD</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:3px">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Submitted</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px">2026-09-02</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:3px">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Expires</span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:12px">2026-09-20</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:3px; grid-column:span 2">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Buyer's note</span>
+                <span style="font-size:12px; line-height:18px; text-wrap:pretty">Forty covers a day, Monday to Thursday, delivered to the Hamra office by 12:15. No pork, two vegan covers.</span>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:0">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Lines</h2>
+              <span style="font-size:11px; color:var(--tSec)">4 lines · 1 not priced</span>
+            </div>
+            <div style="overflow-x:auto">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 110px 140px 140px; align-items:center; column-gap:14px; min-width:720px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Line</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Quantity</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Unit price</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Line total</span>
+              </div>
+              <sc-for list="{{ quoteLines }}" as="l" hint-placeholder-count="4">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 110px 140px 140px; align-items:center; column-gap:14px; min-width:720px; min-height:40px; padding:6px 8px; border-bottom:1px solid var(--bSub)">
+                  <span style="font-size:12px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ l.name }}</span>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ l.qty }}</span>
+                  <input value="{{ l.price }}" placeholder="Not priced" style="{{ l.priceStyle }}">
+                  <span style="{{ l.totalStyle }}">{{ l.total }}</span>
+                </div>
+              </sc-for>
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 110px 140px 140px; align-items:center; column-gap:14px; min-width:720px; height:36px; padding:0 8px; border-top:1px solid var(--bDef)">
+                <span style="font-size:12px; font-weight:600">Total</span>
+                <span></span><span></span>
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:600; text-align:end">Not priced yet</span>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:14px">
+              <button type="button" disabled style="height:32px; padding:0 12px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken); color:var(--tDis); font-size:12px; font-weight:500; cursor:not-allowed">Send prices</button>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- Plan editor -->
+        <sc-if value="{{ edPlanMatrix }}" hint-placeholder-val="{{ false }}">
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:4px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">The matrix</h2>
+              <span style="font-size:11px; color:var(--tSec)">9 of 12 cells sold</span>
+            </div>
+            <p style="margin:0 0 14px; font-size:11px; line-height:16px; color:var(--tSec); max-width:96ch; text-wrap:pretty">Which configurations this plan sells, by combination and energy band. A band exists because a configuration carries it — there is no separate energy-band record in this catalogue.</p>
+            <div style="overflow-x:auto">
+              <div style="display:grid; grid-template-columns:220px repeat(4, minmax(120px, 1fr)); column-gap:8px; min-width:760px; align-items:end; height:32px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); padding-bottom:6px">Combination</span>
+                <sc-for list="{{ planBands }}" as="b" hint-placeholder-count="4">
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--tSec); text-align:center; padding-bottom:6px">{{ b.label }}</span>
+                </sc-for>
+              </div>
+              <sc-for list="{{ planMatrix }}" as="r" hint-placeholder-count="3">
+                <div style="display:grid; grid-template-columns:220px repeat(4, minmax(120px, 1fr)); column-gap:8px; min-width:760px; align-items:center; min-height:44px; padding:6px 0; border-bottom:1px solid var(--bSub)">
+                  <span style="min-width:0">
+                    <span style="display:block; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.label }}</span>
+                    <span style="display:block; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tSec)">{{ r.code }}</span>
+                  </span>
+                  <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="4">
+                    <span role="button" tabindex="0" onClick="{{ c.toggle }}" title="{{ c.title }}" style="{{ c.style }}">{{ c.label }}</span>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ edPlanVariants }}" hint-placeholder-val="{{ false }}">
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:4px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Every configuration in full</h2>
+              <span style="font-size:11px; color:var(--tSec)">9 configurations · 1 inactive</span>
+            </div>
+            <p style="margin:0 0 14px; font-size:11px; line-height:16px; color:var(--tSec); max-width:96ch; text-wrap:pretty">The cells on the matrix say which configurations exist; these rows say what each one is. Meals, snacks and the energy band are the cell a configuration sits in, so changing one moves it.</p>
+            <sc-for list="{{ planVariants }}" as="pv" hint-placeholder-count="3">
+              <div style="padding:12px 0; border-bottom:1px solid var(--bSub)">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ pv.number }}</span>
+                  <span style="{{ pv.badgeStyle }}">{{ pv.badge }}</span>
+                  <div style="flex:1 1 auto"></div>
+                  <span role="button" tabindex="0" title="Remove" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); font-size:11px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--badOn)">✕</span>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+                  <label style="display:flex; flex-direction:column; gap:4px; grid-column:span 2">
+                    <span style="font-size:12px; font-weight:500">Configuration name</span>
+                    <input value="{{ pv.name }}" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+                  </label>
+                  <label style="display:flex; flex-direction:column; gap:4px">
+                    <span style="font-size:12px; font-weight:500">Offer this configuration</span>
+                    <select value="{{ pv.active }}" style="height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer">
+                      <option value="yes">Active</option><option value="no">Inactive</option>
+                    </select>
+                    <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">An inactive configuration stays in the catalogue and stops being offered. It is not a deletion.</span>
+                  </label>
+                  <label style="display:flex; flex-direction:column; gap:4px">
+                    <span style="font-size:12px; font-weight:500">Meals a day</span>
+                    <input value="{{ pv.meals }}" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                    <span style="font-size:11px; color:var(--tSec)">With the energy band, this is the cell of the matrix.</span>
+                  </label>
+                  <label style="display:flex; flex-direction:column; gap:4px">
+                    <span style="font-size:12px; font-weight:500">Snacks a day</span>
+                    <input value="{{ pv.snacks }}" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                  </label>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+                    <label style="display:flex; flex-direction:column; gap:4px">
+                      <span style="font-size:12px; font-weight:500">Energy from</span>
+                      <input value="{{ pv.emin }}" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                    </label>
+                    <label style="display:flex; flex-direction:column; gap:4px">
+                      <span style="font-size:12px; font-weight:500">Energy to</span>
+                      <input value="{{ pv.emax }}" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ edPlanDurations }}" hint-placeholder-val="{{ false }}">
+          <section style="max-width:1000px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:4px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Durations</h2>
+              <span style="font-size:11px; color:var(--tSec)">4 durations</span>
+            </div>
+            <p style="margin:0 0 12px; font-size:11px; line-height:16px; color:var(--tSec); max-width:96ch; text-wrap:pretty">How long a commitment runs. A one-off is a single delivery and carries no day count; everything else is a positive number of days.</p>
+            <div style="display:grid; grid-template-columns:150px 110px 130px minmax(0,1fr) 28px; align-items:center; column-gap:12px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Kind</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Days</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Discount</span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">What that means</span>
+              <span></span>
+            </div>
+            <sc-for list="{{ planDurations }}" as="d" hint-placeholder-count="4">
+              <div style="display:grid; grid-template-columns:150px 110px 130px minmax(0,1fr) 28px; align-items:center; column-gap:12px; min-height:40px; padding:6px 8px; border-bottom:1px solid var(--bSub)">
+                <select value="{{ d.kind }}" style="height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer">
+                  <option value="fixed">A fixed number of days</option><option value="oneoff">One-off</option>
+                </select>
+                <input value="{{ d.days }}" placeholder="{{ d.daysPh }}" style="{{ d.daysStyle }}">
+                <input value="{{ d.discount }}" placeholder="Not set" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">{{ d.explainer }}</span>
+                <span role="button" tabindex="0" title="Remove" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); font-size:11px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--badOn)">✕</span>
+              </div>
+            </sc-for>
+            <div style="display:flex; gap:8px; padding:10px 8px 0">
+              <button type="button" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; font-weight:500; color:var(--brand); cursor:pointer" style-hover="background: var(--sSunken)">+ Add a duration</button>
+              <button type="button" style="height:28px; padding:0 10px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">Save durations</button>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- Delivery zone editor -->
+        <sc-if value="{{ edZoneDetails }}" hint-placeholder-val="{{ false }}">
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">The zone</h2>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Name</span>
+                <input value="Achrafieh & Gemmayzeh" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+              </label>
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Currency</span>
+                <div style="display:flex; align-items:center; height:28px; padding:0 8px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken); font-family:'IBM Plex Mono', monospace; font-size:12px">USD</div>
+                <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">Fixed at creation — the contract has no way to change a zone's currency.</span>
+              </div>
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Estimated delivery time</span>
+                <input value="45" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                <span style="font-size:11px; color:var(--tSec)">Minutes from order to doorstep, as advertised.</span>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Delivery fee (USD)</span>
+                <input value="3.00" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">A charge will be shown to the customer. Empty is not the same as free delivery.</span>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Minimum order (USD)</span>
+                <input value="" placeholder="—" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">Nothing recorded — this is not the same as no minimum.</span>
+              </label>
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Branches serving this zone</span>
+                <div style="display:flex; align-items:center; gap:4px; min-height:28px; padding:3px 6px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken); flex-wrap:wrap">
+                  <span style="display:inline-flex; align-items:center; height:19px; padding:0 7px; border-radius:9px; font-size:11px; background:var(--sRaised); border:1px solid var(--bSub)">Beirut Central</span>
+                  <span style="display:inline-flex; align-items:center; height:19px; padding:0 7px; border-radius:9px; font-size:11px; background:var(--sRaised); border:1px solid var(--bSub)">Hamra</span>
+                </div>
+                <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">Read only here: this contract publishes no branch list, and a picker missing a branch would drop it from the zone.</span>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ edZoneAreas }}" hint-placeholder-val="{{ false }}">
+          <section style="max-width:900px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:4px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Areas covered</h2>
+              <span style="font-size:11px; color:var(--tSec)">4 areas chosen</span>
+            </div>
+            <p style="margin:0 0 12px; font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">Areas come from the platform gazetteer. A customer address points at one of these rather than carrying free text a match has to guess about.</p>
+            <div style="margin-bottom:14px">
+              <div style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); margin-bottom:6px">Chosen areas</div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px">
+                <sc-for list="{{ chosenAreas }}" as="a" hint-placeholder-count="4">
+                  <span style="display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 6px 0 9px; border-radius:12px; font-size:11px; background:var(--brandSub); color:var(--onBrandSub)">
+                    {{ a.label }}
+                    <span role="button" tabindex="0" title="Remove" style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:8px; font-size:9px; cursor:pointer" style-hover="background: var(--sRaised)">✕</span>
+                  </span>
+                </sc-for>
+              </div>
+            </div>
+            <div style="position:relative; width:280px; margin-bottom:10px">
+              <span style="position:absolute; inset-inline-start:8px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--tSec); pointer-events:none">⌕</span>
+              <input placeholder="Area or governorate" style="width:100%; height:28px; padding-inline:22px 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+            </div>
+            <div style="border-top:1px solid var(--bDef)">
+              <sc-for list="{{ areaGroups }}" as="g" hint-placeholder-count="2">
+                <div>
+                  <div style="padding:8px 8px 4px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); background:var(--sSunken)">{{ g.label }}</div>
+                  <sc-for list="{{ g.areas }}" as="a" hint-placeholder-count="4">
+                    <div role="button" tabindex="0" style="display:grid; grid-template-columns:20px minmax(0,1fr) auto; align-items:center; column-gap:10px; height:28px; padding:0 8px; border-bottom:1px solid var(--bSub); cursor:pointer" style-hover="background: var(--sSunken)">
+                      <span style="{{ a.boxStyle }}">{{ a.mark }}</span>
+                      <span style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ a.label }}</span>
+                      <sc-if value="{{ a.inactive }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--neuSub); color:var(--neuOn)">No longer active</span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex; gap:8px; padding-top:12px">
+              <button type="button" style="height:28px; padding:0 10px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">Save the areas</button>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ edZoneWindows }}" hint-placeholder-val="{{ false }}">
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:4px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Delivery windows</h2>
+              <span style="font-size:11px; color:var(--tSec)">3 windows · 6 days covered · 1 day uncovered</span>
+            </div>
+            <p style="margin:0 0 12px; font-size:11px; line-height:16px; color:var(--tSec); max-width:96ch; text-wrap:pretty">One window is one rule — a label, a pair of times and the weekdays it runs on. Splitting it into a row per day is what makes an inconsistent Wednesday possible.</p>
+            <div style="overflow-x:auto">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 260px 108px 108px 104px 96px 28px; align-items:center; column-gap:12px; min-width:992px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Window name</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Days it runs</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Starts</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Ends</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Capacity</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Offered</span>
+                <span></span>
+              </div>
+              <sc-for list="{{ zoneWindows }}" as="w" hint-placeholder-count="3">
+                <div style="min-width:992px; padding:8px; border-bottom:1px solid var(--bSub)">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) 260px 108px 108px 104px 96px 28px; align-items:center; column-gap:12px">
+                    <input value="{{ w.label }}" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+                    <div style="display:flex; gap:3px">
+                      <sc-for list="{{ w.days }}" as="d" hint-placeholder-count="7">
+                        <span role="button" tabindex="0" onClick="{{ d.toggle }}" title="{{ d.title }}" style="{{ d.style }}">{{ d.label }}</span>
+                      </sc-for>
+                    </div>
+                    <span style="position:relative; display:inline-flex; align-items:center; width:100%">
+                      <input type="time" value="{{ w.starts }}" style="width:100%; height:28px; padding-inline:8px 26px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="5.1"></circle><path d="M7 4.3V7l2 1.3"></path></svg></span>
+                    </span>
+                    <span style="position:relative; display:inline-flex; align-items:center; width:100%">
+                      <input type="time" value="{{ w.ends }}" style="width:100%; height:28px; padding-inline:8px 26px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="5.1"></circle><path d="M7 4.3V7l2 1.3"></path></svg></span>
+                    </span>
+                    <input value="{{ w.capacity }}" placeholder="Uncapped" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                    <select value="{{ w.active }}" style="height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer">
+                      <option value="yes">Yes</option><option value="no">Not offered</option>
+                    </select>
+                    <span role="button" tabindex="0" title="Remove" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); font-size:11px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--badOn)">✕</span>
+                  </div>
+                  <div style="{{ w.noteStyle }}">{{ w.note }}</div>
+                </div>
+              </sc-for>
+              <div style="display:flex; gap:8px; min-width:992px; padding:10px 8px 0">
+                <button type="button" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; font-weight:500; color:var(--brand); cursor:pointer" style-hover="background: var(--sSunken)">+ Add a window</button>
+                <button type="button" style="height:28px; padding:0 10px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">Save the windows</button>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- Opening hours: one record, seven rows -->
+        <sc-if value="{{ edHours }}" hint-placeholder-val="{{ false }}">
+          <section style="margin-bottom:20px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">The branch this applies to</h2>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+              <span style="display:inline-flex; align-items:center; height:19px; padding:0 8px; border-radius:9px; font-size:11px; font-weight:500; background:var(--brandSub); color:var(--onBrandSub)">Beirut Central (BC-01)</span>
+              <span style="display:inline-flex; align-items:center; height:19px; padding:0 8px; border-radius:9px; font-size:11px; background:var(--sSunken); color:var(--tSec)">Times are read in Asia/Beirut</span>
+              <span style="font-size:11px; color:var(--tSec); text-wrap:pretty">These hours belong to the branch in context. To edit another branch, switch branch from the workspace switcher.</span>
+            </div>
+          </section>
+
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:4px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">The trading week</h2>
+              <span style="font-size:11px; color:var(--tSec)">Open 6 days a week · 4 days have an order cut-off</span>
+            </div>
+            <p style="margin:0 0 12px; font-size:11px; line-height:16px; color:var(--tSec); max-width:96ch; text-wrap:pretty">All seven days, always. A closed day is a day somebody has answered, not a day nobody filled in.</p>
+            <div style="overflow-x:auto">
+              <div style="display:grid; grid-template-columns:120px 108px 116px 116px 150px minmax(0,1fr); align-items:center; column-gap:14px; min-width:1060px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Day</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Trading</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Opens</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Closes</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Last same-day order</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">What that day says</span>
+              </div>
+              <sc-for list="{{ weekRows }}" as="d" hint-placeholder-count="7">
+                <div style="display:grid; grid-template-columns:120px 108px 116px 116px 150px minmax(0,1fr); align-items:center; column-gap:14px; min-width:1060px; min-height:40px; padding:6px 8px; border-bottom:1px solid var(--bSub)">
+                  <span style="display:flex; align-items:center; gap:6px">
+                    <span style="font-size:13px; font-weight:600">{{ d.day }}</span>
+                    <sc-if value="{{ d.closed }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--neuSub); color:var(--neuOn)">Closed</span>
+                    </sc-if>
+                  </span>
+                  <select value="{{ d.trading }}" onChange="{{ d.setTrading }}" style="height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer">
+                    <option value="open">Open</option><option value="closed">Closed</option>
+                  </select>
+                  <span style="position:relative; display:inline-flex; align-items:center; width:100%">
+                      <input type="time" value="{{ d.opens }}" style="{{ d.timeStyle }}">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="5.1"></circle><path d="M7 4.3V7l2 1.3"></path></svg></span>
+                    </span>
+                  <span style="position:relative; display:inline-flex; align-items:center; width:100%">
+                      <input type="time" value="{{ d.closes }}" style="{{ d.timeStyle }}">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="5.1"></circle><path d="M7 4.3V7l2 1.3"></path></svg></span>
+                    </span>
+                  <span style="position:relative; display:inline-flex; align-items:center; width:100%">
+                      <input type="time" value="{{ d.cutOff }}" style="{{ d.timeStyle }}">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="5.1"></circle><path d="M7 4.3V7l2 1.3"></path></svg></span>
+                    </span>
+                  <span style="display:flex; align-items:center; gap:8px; min-width:0">
+                    <span style="font-size:11px; line-height:16px; color:var(--tSec); min-width:0; text-wrap:pretty">{{ d.note }}</span>
+                    <sc-if value="{{ d.canCopy }}" hint-placeholder-val="{{ true }}">
+                      <span role="button" tabindex="0" style="flex:0 0 auto; font-size:11px; font-weight:500; color:var(--brand); cursor:pointer; white-space:nowrap">Copy to every open day</span>
+                    </sc-if>
+                  </span>
+                </div>
+              </sc-for>
+              <div style="display:flex; align-items:center; gap:8px; min-width:1060px; padding:12px 8px 0">
+                <button type="button" style="height:32px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">Save the week</button>
+                <span style="font-size:11px; color:var(--tSec)">The cut-off cannot be after closing time — nobody would be there to cook it.</span>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════════════════ VIEW WINDOW (replaces the side drawer) ══════════════════ -->
+    <sc-if value="{{ windowOpen }}" hint-placeholder-val="{{ false }}">
+      <div role="presentation" onClick="{{ closeWindow }}" style="position:absolute; inset:0; z-index:40; display:grid; place-items:center; padding:32px; background:var(--overlay); animation: cmfade 120ms ease">
+        <div role="dialog" aria-modal="true" onClick="{{ swallow }}" onPointerDown="{{ swallow }}" style="display:flex; flex-direction:column; width:min(720px, 100%); max-height:100%; border:1px solid var(--bDef); border-radius:8px; background:var(--sRaised); box-shadow:var(--pop); overflow:hidden; animation: cmpop 160ms cubic-bezier(.2,.7,.3,1)">
+          <div style="flex:0 0 auto; display:flex; align-items:center; gap:10px; height:44px; padding-inline:16px 10px; border-bottom:1px solid var(--bSub)">
+            <span style="font-size:13px; line-height:18px; font-weight:600; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ windowTitle }}</span>
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--sSunken); color:var(--tSec); white-space:nowrap">{{ windowKind }}</span>
+            <span style="{{ windowStatusStyle }}">{{ windowStatus }}</span>
+            <div style="flex:1 1 auto"></div>
+            <span role="button" tabindex="0" onClick="{{ closeWindow }}" title="Close" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:4px; font-size:12px; color:var(--tSec); cursor:pointer; flex:0 0 auto" style-hover="background: var(--sSunken); color: var(--tPri)">✕</span>
+          </div>
+
+          <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:14px 16px 16px">
+            <sc-if value="{{ windowNote }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:14px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+                <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+                <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">{{ windowNoteText }}</div>
+              </div>
+            </sc-if>
+
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <sc-for list="{{ windowFields }}" as="f" hint-placeholder-count="8">
+                <div style="display:flex; flex-direction:column; gap:3px; min-width:0">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ f.label }}</span>
+                  <span style="{{ f.style }}">{{ f.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ windowHasChips }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:16px; padding:10px 12px; border:1px solid var(--bSub); border-radius:8px; background:var(--sSunken)">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ windowChipsLabel }}</span>
+                  <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--infoSub); color:var(--infoOn)">From database</span>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px">
+                  <sc-for list="{{ windowChips }}" as="c" hint-placeholder-count="3">
+                    <span style="display:inline-flex; align-items:center; height:19px; padding:0 7px; border-radius:9px; font-size:11px; background:var(--sRaised); border:1px solid var(--bSub); color:var(--tPri)">{{ c.label }}</span>
+                  </sc-for>
+                </div>
+                <div style="margin-top:8px; font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">{{ windowChipsCaption }}</div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="flex:0 0 auto; display:flex; align-items:center; justify-content:flex-end; gap:6px; height:48px; padding-inline:16px; border-top:1px solid var(--bSub); background:var(--sRaised)">
+            <button type="button" onClick="{{ closeWindow }}" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Close</button>
+            <button type="button" onClick="{{ editFromWindow }}" style="height:28px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">{{ windowAction }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:860},&quot;dataState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;error&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;truncated&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ltr&quot;,&quot;rtl&quot;],&quot;default&quot;:&quot;ltr&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const NAV = [
+  { key: 'orderDesk', label: 'Order desk', glyph: '▤', items: [
+    { key: 'queue', label: 'Order desk', count: '8' },
+    { key: 'calendar', label: 'Order calendar' },
+    { key: 'requirements', label: 'Requirements', count: '4' },
+    { key: 'cash', label: 'Cash taken' },
+  ]},
+  { key: 'workbench', label: 'Workbench', glyph: '⌕', items: [
+    { key: 'review', label: 'Needs review', count: '6' },
+    { key: 'analytics', label: 'Analytics' },
+    { key: 'cost', label: 'Cost report' },
+    { key: 'exceptions', label: 'Consumption exceptions', count: '3' },
+  ]},
+  { key: 'catalogue', label: 'Catalogue', glyph: '◉', items: [
+    { key: 'ingredients', label: 'Ingredients' },
+    { key: 'packaging', label: 'Packaging' },
+    { key: 'recipes', label: 'Recipes' },
+    { key: 'products', label: 'Resale' },
+    { key: 'sauces', label: 'Sauces & marinations' },
+    { key: 'dressings', label: 'Dressings' },
+    { key: 'meals', label: 'Meals' },
+    { key: 'allergens', label: 'Allergen classes' },
+  ]},
+  { key: 'commercial', label: 'Commercial', glyph: '☰', here: true, items: [
+    { key: 'prices', label: 'Price lists' },
+    { key: 'quotations', label: 'Quotations', count: '2' },
+    { key: 'plans', label: 'Plans' },
+    { key: 'zones', label: 'Delivery zones' },
+    { key: 'operating', label: 'Opening hours' },
+  ]},
+  { key: 'operations', label: 'Operations', glyph: '▣', items: [
+    { key: 'orders', label: 'Orders' },
+    { key: 'stock', label: 'Stock' },
+    { key: 'supply', label: 'Supply orders' },
+    { key: 'suppliers', label: 'Suppliers' },
+    { key: 'procurement', label: 'Procurement' },
+    { key: 'purchases', label: 'Purchases ledger' },
+    { key: 'batch', label: 'Batch planner' },
+    { key: 'production', label: 'Production' },
+    { key: 'qc', label: 'Quality control' },
+  ]},
+];
+
+const TONE_BG = { ok:'var(--okSub)', warn:'var(--warnSub)', bad:'var(--badSub)', info:'var(--infoSub)', neutral:'var(--neuSub)', brand:'var(--brandSub)' };
+const TONE_FG = { ok:'var(--okOn)', warn:'var(--warnOn)', bad:'var(--badOn)', info:'var(--infoOn)', neutral:'var(--neuOn)', brand:'var(--onBrandSub)' };
+const badge = (tone) => 'display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; background:' + TONE_BG[tone] + '; color:' + TONE_FG[tone];
+const seg = (on) => 'display:inline-flex; align-items:center; height:22px; padding:0 9px; border:0; border-radius:3px; font-size:11px; font-weight:500; cursor:pointer; white-space:nowrap; background:' + (on ? 'var(--brandSub)' : 'transparent') + '; color:' + (on ? 'var(--onBrandSub)' : 'var(--tSec)');
+const tabStyle = (on) => 'height:28px; padding:0 12px; border:0; border-bottom:2px solid ' + (on ? 'var(--brand)' : 'transparent') + '; background:transparent; font-size:12px; font-weight:' + (on ? '600' : '500') + '; color:' + (on ? 'var(--brand)' : 'var(--tSec)') + '; cursor:pointer; white-space:nowrap; margin-bottom:-1px';
+const micro = 'font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)';
+const microEnd = micro + '; text-align:end';
+const cellText = 'font-size:12px; color:var(--tPri); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis';
+const cellMeta = 'font-size:12px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis';
+const cellMono = 'font-family:\'IBM Plex Mono\', monospace; font-size:12px; color:var(--tPri); text-align:end';
+const inputBase = 'height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:\'IBM Plex Mono\', monospace; font-size:12px; text-align:end';
+const inputOff = 'height:28px; padding:0 8px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken); color:var(--tDis); font-family:\'IBM Plex Mono\', monospace; font-size:12px; text-align:end';
+const explainer = 'margin-top:6px; font-size:11px; line-height:16px; color:var(--tSec); max-width:88ch; text-wrap:pretty';
+
+const SCREENS = {
+  prices: {
+    family: 'Price lists', title: 'Price lists',
+    chip: 'Confidential', chipTone: 'bad', create: null,
+    search: 'Name, currency or channel',
+    summary: '4 of 4 shown · 1 draft · 2 rows disagree with their status',
+    emptyTitle: 'This kitchen has no price lists yet',
+    emptyBody: 'Price lists arrive with the catalogue import. They cannot be created from this workspace — the management API publishes no create endpoint for them.',
+    errorTitle: 'Price lists could not be loaded',
+    grid: 'minmax(0,1.4fr) 96px 190px 190px 130px 150px',
+    gridMin: '1040px',
+    columns: ['Price list','Currency','Channels','Entries','Last changed',''],
+    saveLabel: 'Save entries', backLabel: 'Back to price lists', confidential: true,
+  },
+  quotations: {
+    family: 'Quotations', title: 'Quotations',
+    chip: 'Priced per agreement', chipTone: 'warn', create: null,
+    search: 'Reference or programme',
+    summary: '5 received · 2 awaiting a price · 2 priced · 1 closed',
+    emptyTitle: 'No quotations yet',
+    emptyBody: 'When a corporate buyer submits a request against one of this kitchen\'s programmes, it arrives here.',
+    errorTitle: 'Quotations could not be loaded',
+    grid: 'minmax(0,1.4fr) 96px 130px 90px 130px 150px',
+    gridMin: '960px',
+    columns: ['Reference','Currency','Submitted','Lines','Total',''],
+    saveLabel: 'Send prices', backLabel: 'Back to quotations',
+  },
+  plans: {
+    family: 'Plans', title: 'Plans',
+    chip: 'Subscriptions', chipTone: 'brand', create: 'New plan',
+    search: 'Plan name',
+    summary: '3 of 3 shown · 1 draft · 1 plan prices nothing yet',
+    emptyTitle: 'This kitchen sells no plans yet',
+    emptyBody: 'Create the first one, or wait for the import to bring them in.',
+    errorTitle: 'Plans could not be loaded',
+    grid: 'minmax(0,1.4fr) 190px 150px 170px 130px 150px',
+    gridMin: '1060px',
+    columns: ['Plan','Configurations','Durations','Prices','Last changed',''],
+    saveLabel: 'Save the plan', backLabel: 'Back to plans', createTitle: 'New plan',
+    tabs: [['matrix','Matrix'],['variants','Configurations'],['durations','Durations']],
+  },
+  zones: {
+    family: 'Delivery zones', title: 'Delivery zones',
+    chip: 'No publication state', chipTone: 'neutral', create: 'New zone',
+    search: 'Zone or area',
+    summary: '4 of 4 shown · 1 archived · 1 zone has no windows',
+    emptyTitle: 'This kitchen has no delivery zones yet',
+    emptyBody: 'Add the first one to say where deliveries can go.',
+    errorTitle: 'Delivery zones could not be loaded',
+    grid: 'minmax(0,1.3fr) 200px 180px 170px 120px 150px',
+    gridMin: '1090px',
+    columns: ['Zone','Areas covered','Fee and minimum','Delivery windows','Estimated time',''],
+    saveLabel: 'Save the zone', backLabel: 'Back to delivery zones', createTitle: 'New delivery zone',
+    tabs: [['details','The zone'],['areas','Areas covered'],['windows','Delivery windows']],
+  },
+  operating: {
+    family: 'Opening hours', title: 'Opening hours and cut-offs',
+    chip: 'One record per branch', chipTone: 'neutral', create: null,
+    single: true,
+    summary: 'Beirut Central · open 6 days a week · 4 days have an order cut-off',
+    saveLabel: 'Save the week', backLabel: 'Back to the workspace',
+  },
+};
+
+const PRICE_ROWS = [
+  { title: 'Retail · USD', meta: 'PL-0003', cells: ['USD','Storefront, POS','12 entries · 10 confirmed','5 days ago by Sara Nassar'], status: 'Draft', tone: 'warn', bad: true },
+  { title: 'Corporate · Fresh Co · USD', meta: 'PL-0007 · Agreement', cells: ['USD','B2B','8 entries · 8 confirmed','2 days ago by Omar Fares'], status: 'Published', tone: 'ok' },
+  { title: 'Marketplace · LBP', meta: 'PL-0004', cells: ['LBP','Marketplace','16 entries · 13 confirmed','a week ago by the import'], status: 'Published', tone: 'ok' },
+  { title: 'Staff · USD', meta: 'PL-0009', cells: ['USD','On no channel','Nothing priced yet','3 weeks ago by the import'], status: 'Draft', tone: 'warn' },
+];
+
+const QUOTE_ROWS = [
+  { title: 'QTN-2026-0041', meta: 'Fresh Co · Corporate lunch Q4', cells: ['USD','2026-09-02','4','Not priced yet'], status: 'Awaiting a price', tone: 'warn' },
+  { title: 'QTN-2026-0039', meta: 'Beirut Media House · Breakfast trays', cells: ['USD','2026-08-30','6','Not priced yet'], status: 'Awaiting a price', tone: 'warn' },
+  { title: 'QTN-2026-0036', meta: 'Levant Bank · Board lunches', cells: ['USD','2026-08-24','3','4 860.00'], status: 'Priced', tone: 'info' },
+  { title: 'QTN-2026-0031', meta: 'Cedars Clinic · Patient meals', cells: ['LBP','2026-08-18','9','1 180 000 000'], status: 'Accepted', tone: 'ok' },
+  { title: 'QTN-2026-0027', meta: 'Hamra Tech · Team dinners', cells: ['USD','2026-08-11','5','2 240.00'], status: 'Expired', tone: 'neutral' },
+];
+
+const PLAN_ROWS = [
+  { title: 'Balanced weekly', meta: 'PLN-0001', cells: ['9 configurations · 1 inactive','4 durations','9 of 12 cells sold','yesterday by Omar Fares'], status: 'Published', tone: 'ok' },
+  { title: 'Lean & green', meta: 'PLN-0004', cells: ['6 configurations','3 durations','6 of 9 cells sold','4 days ago by Rana Khalil'], status: 'Published', tone: 'ok' },
+  { title: 'Performance', meta: 'PLN-0007', cells: ['4 configurations','No durations yet','Nothing priced yet','2 weeks ago by the import'], status: 'Draft', tone: 'warn' },
+];
+
+const ZONE_ROWS = [
+  { title: 'Achrafieh & Gemmayzeh', meta: 'ZON-0001', cells: ['4 areas','Fee: 3.00 · Minimum: none','3 windows · 6 days covered','45 min'], status: 'Published', tone: 'ok' },
+  { title: 'Hamra & Ras Beirut', meta: 'ZON-0002', cells: ['3 areas','Fee: 3.50 · Minimum: 15.00','2 windows · 5 days covered','50 min'], status: 'Published', tone: 'ok' },
+  { title: 'Badaro & Furn el Chebbak', meta: 'ZON-0005', cells: ['2 areas · 1 area is no longer active','Fee: free · no minimum recorded','No windows','Not estimated'], status: 'Draft', tone: 'warn' },
+  { title: 'Jounieh', meta: 'ZON-0008', cells: ['5 areas','no fee recorded · Minimum: 25.00','1 window · None of them are active','Not estimated'], status: 'Archived', tone: 'neutral' },
+];
+
+const PRICE_ENTRIES = [
+  { item: 'Grilled chicken quinoa bowl', kind: 'Meal', pack: '—', status: 'confirmed', amount: '8.50', from: '2026-09-01', until: '',
+    explainer: 'A confirmed price is the one a customer is charged.' },
+  { item: 'Green detox juice 330 ml', kind: 'Product', pack: '330 ml', status: 'confirmed', amount: '2.25', from: '2026-09-01', until: '2026-12-31',
+    explainer: 'A confirmed price is the one a customer is charged.' },
+  { item: 'Balanced weekly', kind: 'Subscription plan', pack: 'The plan itself', status: 'placeholder', amount: '', from: '2026-09-01', until: '',
+    explainer: 'Nobody has decided this price yet. The row is kept so the item is not forgotten, it carries no number, and it never reaches a customer.' },
+  { item: 'Sea bass, whole', kind: 'Product', pack: 'per kg', status: 'market', amount: '', from: '2026-09-01', until: '',
+    explainer: 'This is charged at the day’s market rate. There is no standing number to record, and the row never reaches a customer as a price.' },
+];
+
+const QUOTE_LINES = [
+  { name: 'Grilled chicken quinoa bowl', qty: '160', price: '8.00', total: '1 280.00' },
+  { name: 'Falafel power wrap (vegan)', qty: '32', price: '6.50', total: '208.00' },
+  { name: 'Green detox juice 330 ml', qty: '160', price: '2.00', total: '320.00' },
+  { name: 'Seasonal fruit platter', qty: '16', price: '', total: 'Not priced' },
+];
+
+const PLAN_BANDS = [
+  { label: '1200–1500 kcal' }, { label: '1500–1800 kcal' }, { label: '1800–2200 kcal' }, { label: '2200–2600 kcal' },
+];
+const PLAN_MATRIX = [
+  { label: 'Standard · 3 meals 1 snack', code: 'STANDARD-3M1S', sold: [true, true, true, false] },
+  { label: 'Premium · 3 meals 2 snacks', code: 'PREMIUM-3M2S', sold: [false, true, true, true] },
+  { label: 'Light · 2 meals 1 snack', code: 'LIGHT-2M1S', sold: [true, true, false, false] },
+];
+const PLAN_VARIANTS = [
+  { name: 'Standard 1500', active: 'yes', meals: '3', snacks: '1', emin: '1500', emax: '1800' },
+  { name: 'Premium 2200', active: 'yes', meals: '3', snacks: '2', emin: '2200', emax: '2600' },
+  { name: 'Light 1200', active: 'no', meals: '2', snacks: '1', emin: '1200', emax: '1500' },
+];
+const PLAN_DURATIONS = [
+  { kind: 'oneoff', days: '', discount: '', explainer: 'A one-off is a single delivery, so it has no day count at all — not zero, none.' },
+  { kind: 'fixed', days: '5', discount: '0', explainer: 'This duration earns no discount. That is a decision, not a blank.' },
+  { kind: 'fixed', days: '20', discount: '5', explainer: 'This duration takes 5% off.' },
+  { kind: 'fixed', days: '60', discount: '', explainer: 'No discount has been decided for this duration. It is stored as “unknown”, not as zero.' },
+];
+
+const CHOSEN_AREAS = [{ label: 'Achrafieh' }, { label: 'Gemmayzeh' }, { label: 'Mar Mikhael' }, { label: 'Sursock' }];
+const AREA_GROUPS = [
+  { label: 'Beirut', areas: [
+    { label: 'Achrafieh', on: true }, { label: 'Gemmayzeh', on: true }, { label: 'Mar Mikhael', on: true },
+    { label: 'Hamra', on: false }, { label: 'Badaro', on: false },
+  ]},
+  { label: 'Mount Lebanon', areas: [
+    { label: 'Sursock', on: true }, { label: 'Jounieh', on: false }, { label: 'Antelias', on: false, inactive: true },
+  ]},
+];
+
+const DAY_LETTERS = ['M','T','W','T','F','S','S'];
+const ZONE_WINDOWS = [
+  { label: 'Morning', days: [1,1,1,1,1,0,0], starts: '09:00', ends: '12:00', capacity: '40', active: 'yes', note: '' },
+  { label: 'Midday', days: [1,1,1,1,1,1,0], starts: '12:00', ends: '15:30', capacity: '', active: 'yes', note: 'Uncapped — the window takes as many deliveries as arrive.' },
+  { label: 'Evening', days: [0,0,1,1,1,1,0], starts: '18:00', ends: '21:00', capacity: '25', active: 'no', note: 'Turning it off keeps the rule and stops offering the times.' },
+];
+
+const WEEK = [
+  { day: 'Monday', trading: 'open', opens: '08:00', closes: '22:00', cutOff: '20:30' },
+  { day: 'Tuesday', trading: 'open', opens: '08:00', closes: '22:00', cutOff: '20:30' },
+  { day: 'Wednesday', trading: 'open', opens: '08:00', closes: '22:00', cutOff: '20:30' },
+  { day: 'Thursday', trading: 'open', opens: '08:00', closes: '23:00', cutOff: '21:30' },
+  { day: 'Friday', trading: 'open', opens: '09:00', closes: '23:00', cutOff: '' },
+  { day: 'Saturday', trading: 'open', opens: '09:00', closes: '23:00', cutOff: '' },
+  { day: 'Sunday', trading: 'closed', opens: '', closes: '', cutOff: '' },
+];
+
+const ROWS = { prices: PRICE_ROWS, quotations: QUOTE_ROWS, plans: PLAN_ROWS, zones: ZONE_ROWS };
+
+const CARD_FG = { ok:'var(--okOn)', warn:'var(--warnOn)', bad:'var(--badOn)', info:'var(--infoOn)' };
+const toCards = (list) => (list ?? []).map((c) => ({
+  label: c.label, value: c.value, unit: c.unit ?? '', caption: c.caption ?? '',
+  fg: c.tone ? CARD_FG[c.tone] : 'var(--tPri)',
+}));
+
+/** Card buckets per family. Counts are computed over the rows actually shown, so the strip can
+ *  never contradict the pager beneath it. `match` is tested against the row's lowercased status. */
+const CARDS = {
+  prices: [
+    { label: 'Published', match: ['published'], unit: 'price lists', caption: 'charging customers', tone: 'ok' },
+    { label: 'Draft', match: ['draft'], unit: 'price lists', caption: 'not published yet', tone: 'warn' },
+  ],
+  quotations: [
+    { label: 'Awaiting a price', match: ['awaiting a price'], unit: 'quotations', caption: 'a buyer is waiting', tone: 'warn' },
+    { label: 'Priced', match: ['priced'], unit: 'quotations', caption: 'sent back', tone: 'info' },
+    { label: 'Decided', match: ['accepted', 'declined', 'expired'], unit: 'quotations', caption: 'closed either way' },
+  ],
+  plans: [
+    { label: 'Published', match: ['published'], unit: 'plans', caption: 'on sale', tone: 'ok' },
+    { label: 'Draft', match: ['draft'], unit: 'plans', caption: 'half-built', tone: 'warn' },
+  ],
+  zones: [
+    { label: 'Published', match: ['published'], unit: 'zones', caption: 'deliveries can go there', tone: 'ok' },
+    { label: 'Draft', match: ['draft'], unit: 'zones', caption: 'not offered yet', tone: 'warn' },
+    { label: 'Archived', match: ['archived'], unit: 'zones', caption: 'off every branch' },
+  ],
+};
+
+class Component extends DCLogic {
+  state = {
+    screen: 'prices', mode: 'list', tab: null,
+    navOpen: true, q: '', status: 'all',
+    themeOverride: null, view: null, record: null, menuRow: null, week: WEEK, windows: ZONE_WINDOWS, matrix: PLAN_MATRIX,
+  };
+
+  componentDidMount() {
+    this.onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (this.state.menuRow) this.setState({ menuRow: null });
+      else if (this.state.view) this.setState({ view: null });
+    };
+    this.onDown = () => { if (this.state.menuRow) this.setState({ menuRow: null }); };
+    document.addEventListener('keydown', this.onKey);
+    document.addEventListener('pointerdown', this.onDown);
+  }
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.onKey);
+    document.removeEventListener('pointerdown', this.onDown);
+  }
+
+  go(screen) {
+    const meta = SCREENS[screen];
+    this.setState({
+      screen, view: null, record: null, menuRow: null, q: '', status: 'all',
+      mode: meta.single ? 'edit' : 'list',
+      tab: meta.tabs ? meta.tabs[0][0] : null,
+    });
+  }
+
+  renderVals() {
+    const p = this.props, s = this.state;
+    const dataState = p.dataState ?? 'normal';
+    const screen = s.screen, meta = SCREENS[screen];
+    const v = {};
+
+    v.dir = p.direction ?? 'ltr';
+    v.theme = s.themeOverride ?? (p.theme ?? 'light');
+
+    v.navOpen = s.navOpen; v.navClosed = !s.navOpen;
+    v.navWidth = s.navOpen ? '208px' : '52px';
+    v.navPad = s.navOpen ? '14px' : '0';
+    v.navRailPad = s.navOpen ? '8px' : '10px';
+    v.navJustify = s.navOpen ? 'flex-start' : 'center';
+    v.navFootAlign = s.navOpen ? 'start' : 'center';
+    v.navToggleTitle = 'Show or hide the navigation';
+    v.toggleNav = () => this.setState({ navOpen: !s.navOpen });
+    v.expandNav = () => this.setState({ navOpen: true });
+    v.navGroups = NAV.map((g) => ({
+      label: g.label, glyph: g.glyph,
+      items: g.items.map((it) => ({
+        label: it.label, count: it.count ?? '', showCount: !!it.count,
+        active: !!g.here && it.key === screen,
+        here: !!g.here && it.key !== screen,
+        away: !g.here,
+        awayTitle: it.label + ' — designed in the ' + g.label + ' file',
+        go: g.here ? () => this.go(it.key) : () => {},
+      })),
+    }));
+
+    const editing = s.mode === 'edit';
+    v.isList = !editing;
+    v.isEditing = editing;
+    v.crumbFamily = meta.family;
+    const firstRow = (ROWS[screen] ?? [{ title: meta.family }])[0];
+    const leaf = s.record ? s.record.title : (meta.createTitle ?? firstRow.title);
+    v.showLeaf = editing && !meta.single;
+    v.crumbLeaf = editing && !meta.single ? leaf : '';
+    v.pageTitle = editing && !meta.single ? leaf : meta.title;
+    v.showPageChip = true;
+    if (editing && !meta.single) {
+      const rec = s.record;
+      v.pageChip = rec ? rec.status : (meta.createChip ?? meta.chip);
+      const chipTone = rec ? rec.tone : 'brand';
+      v.pageChipBg = TONE_BG[chipTone];
+      v.pageChipFg = TONE_FG[chipTone];
+      v.summaryLine = rec
+        ? [rec.meta].concat(rec.cells.slice(0, 2)).join(' · ')
+        : 'Nothing is saved until you save it. Leaving this screen discards what you have typed.';
+      v.summaryCards = [];
+      v.showSummaryCards = false;
+      v.showSummaryLine = true;
+    } else {
+      v.pageChip = meta.chip;
+      v.pageChipBg = TONE_BG[meta.chipTone];
+      v.pageChipFg = TONE_FG[meta.chipTone];
+      v.summaryLine = '';
+      v.summaryCards = [];
+      v.showSummaryCards = false;
+      v.showSummaryLine = false;
+    }
+    v.saveLabel = meta.saveLabel;
+    v.backLabel = meta.backLabel;
+    v.backToList = () => this.setState({ mode: meta.single ? 'edit' : 'list', view: null });
+    v.showCreate = !editing && !!meta.create;
+    v.createLabel = meta.create ?? '';
+    v.openCreate = () => this.setState({ mode: 'edit', record: null, tab: meta.tabs ? meta.tabs[0][0] : null });
+
+    v.hasTabs = editing && !!meta.tabs;
+    v.tabs = (meta.tabs ?? []).map(([k, label]) => ({
+      label, style: tabStyle(s.tab === k), go: () => this.setState({ tab: k }),
+    }));
+
+    v.edPrice = editing && screen === 'prices';
+    v.edQuote = editing && screen === 'quotations';
+    v.edPlanMatrix = editing && screen === 'plans' && s.tab === 'matrix';
+    v.edPlanVariants = editing && screen === 'plans' && s.tab === 'variants';
+    v.edPlanDurations = editing && screen === 'plans' && s.tab === 'durations';
+    v.edZoneDetails = editing && screen === 'zones' && s.tab === 'details';
+    v.edZoneAreas = editing && screen === 'zones' && s.tab === 'areas';
+    v.edZoneWindows = editing && screen === 'zones' && s.tab === 'windows';
+    v.edHours = editing && screen === 'operating';
+
+    // ── list plumbing
+    v.loading = dataState === 'loading';
+    v.errored = dataState === 'error';
+    v.isOffline = dataState === 'offline';
+    v.truncatedOn = !!p.truncated;
+    v.confidentialOn = screen === 'prices';
+    v.retry = () => {};
+    v.skeletonRows = [1,2,3,4,5,6,7,8,9];
+    v.searchPlaceholder = meta.search ?? 'Search';
+    v.errorTitle = meta.errorTitle ?? 'This list could not be loaded';
+    v.emptyTitle = meta.emptyTitle ?? 'Nothing here yet';
+    v.emptyBody = meta.emptyBody ?? '';
+    v.grid = meta.grid ?? 'minmax(0,1fr)';
+    v.gridMin = meta.gridMin ?? '900px';
+    v.columns = (meta.columns ?? []).map((label, i) => ({
+      label, style: (i === 1 || i === 0) ? micro : (label === 'Total' || label === 'Lines' || label === 'Estimated time' ? micro : micro),
+    }));
+    v.q = s.q;
+    v.setQ = (e) => this.setState({ q: e.target.value });
+    v.statusTabs = [['all','All'],['live','Live'],['draft','Draft'],['archived','Archived']].map(([k, label]) => ({
+      label, style: seg(s.status === k), go: () => this.setState({ status: k }),
+    }));
+    v.anyFilter = s.q.trim() !== '' || s.status !== 'all';
+    v.clearFilters = () => this.setState({ q: '', status: 'all' });
+
+    const source = ROWS[screen] ?? [];
+    const q = s.q.trim().toLowerCase();
+    const filtered = source.filter((r) => {
+      if (q && !(r.title.toLowerCase().includes(q) || r.meta.toLowerCase().includes(q))) return false;
+      if (s.status === 'live') return r.status === 'Published' || r.status === 'Accepted' || r.status === 'Priced';
+      if (s.status === 'draft') return r.status === 'Draft' || r.status === 'Awaiting a price';
+      if (s.status === 'archived') return r.status === 'Archived' || r.status === 'Expired';
+      return true;
+    });
+    v.rows = filtered.map((r) => ({
+      title: r.title, meta: r.meta, status: r.status, statusStyle: badge(r.tone),
+      cells: r.cells.map((value, i) => ({
+        value,
+        style: i === 0 && (screen === 'quotations' || screen === 'prices') ? 'font-family:\'IBM Plex Mono\', monospace; font-size:12px' : (i === r.cells.length - 1 ? cellMeta : cellText),
+      })),
+      view: (e) => { if (e) e.stopPropagation(); this.setState({ view: r, menuRow: null }); },
+      edit: () => this.setState({ mode: 'edit', record: r, menuRow: null, tab: meta.tabs ? meta.tabs[0][0] : null }),
+      openMenu: (e) => { if (e) e.stopPropagation(); this.setState({ menuRow: s.menuRow === r.meta ? null : r.meta }); },
+      menuOpen: s.menuRow === r.meta,
+      menuTriggerBg: s.menuRow === r.meta ? 'var(--sSunken)' : 'var(--sRaised)',
+      viewFromMenu: (e) => { if (e) e.stopPropagation(); this.setState({ view: r, menuRow: null }); },
+      editFromMenu: (e) => { if (e) e.stopPropagation(); this.setState({ mode: 'edit', record: r, menuRow: null, tab: meta.tabs ? meta.tabs[0][0] : null }); },
+      archive: (e) => { if (e) e.stopPropagation(); this.setState({ menuRow: null }); },
+    }));
+    v.pagerRange = 'Showing 1–' + filtered.length + ' of ' + source.length;
+    // Counted over the rows in hand, so the strip and the pager can never disagree.
+    if (!editing) {
+      const count = (m) => filtered.filter((r) => m.includes(r.status.toLowerCase())).length;
+      v.summaryCards = [{
+        label: 'Shown', value: String(filtered.length), unit: 'of ' + source.length,
+        caption: v.anyFilter ? 'filtered' : 'no filters applied', fg: 'var(--tPri)',
+      }].concat((CARDS[screen] ?? []).map((cd) => {
+        const n = count(cd.match);
+        return {
+          label: cd.label, value: String(n), unit: cd.unit, caption: cd.caption,
+          fg: n > 0 && cd.tone ? CARD_FG[cd.tone] : 'var(--tPri)',
+        };
+      }));
+      v.showSummaryCards = true;
+    }
+    v.emptyOn = v.isList && dataState !== 'loading' && dataState !== 'error' && (dataState === 'empty' || filtered.length === 0);
+    v.tableOn = v.isList && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty' && filtered.length > 0;
+
+    // ── price list editor
+    v.priceEntries = PRICE_ENTRIES.map((e) => ({
+      item: e.item, kind: e.kind, pack: e.pack, status: e.status,
+      amount: e.amount, amountPh: e.status === 'confirmed' ? '0.00' : 'No amount',
+      amountStyle: e.status === 'confirmed' ? inputBase : inputOff,
+      from: e.from, until: e.until,
+      explainer: e.explainer, explainerStyle: explainer,
+    }));
+
+    // ── quotation editor
+    v.quoteLines = QUOTE_LINES.map((l) => ({
+      name: l.name, qty: l.qty, price: l.price,
+      priceStyle: l.price ? inputBase : (inputBase + '; border-color:var(--badBd)'),
+      total: l.total,
+      totalStyle: l.price ? cellMono : 'font-size:12px; color:var(--badOn); text-align:end',
+    }));
+
+    // ── plan editor
+    v.planBands = PLAN_BANDS;
+    v.planMatrix = s.matrix.map((r, ri) => ({
+      label: r.label, code: r.code,
+      cells: r.sold.map((on, ci) => ({
+        label: on ? 'Sold' : 'Not sold',
+        title: (on ? 'Sold' : 'Not sold') + ' — ' + r.label + ' at ' + PLAN_BANDS[ci].label,
+        style: 'display:flex; align-items:center; justify-content:center; height:32px; border-radius:5px; font-size:11px; font-weight:500; cursor:pointer; border:1px solid ' +
+          (on ? 'var(--brand)' : 'var(--bSub)') + '; background:' + (on ? 'var(--brandSub)' : 'var(--sRaised)') +
+          '; color:' + (on ? 'var(--onBrandSub)' : 'var(--tDis)'),
+        toggle: () => {
+          const next = s.matrix.map((row, i) => i === ri ? { ...row, sold: row.sold.map((x, j) => j === ci ? !x : x) } : row);
+          this.setState({ matrix: next });
+        },
+      })),
+    }));
+    v.planVariants = PLAN_VARIANTS.map((pv, i) => ({
+      ...pv, number: 'Configuration ' + (i + 1),
+      badge: pv.active === 'yes' ? 'Active' : 'Inactive',
+      badgeStyle: badge(pv.active === 'yes' ? 'ok' : 'neutral'),
+    }));
+    v.planDurations = PLAN_DURATIONS.map((d) => ({
+      kind: d.kind, days: d.days, discount: d.discount, explainer: d.explainer,
+      daysPh: d.kind === 'oneoff' ? 'None' : '0',
+      daysStyle: d.kind === 'oneoff' ? inputOff : inputBase,
+    }));
+
+    // ── zone editor
+    v.chosenAreas = CHOSEN_AREAS;
+    v.areaGroups = AREA_GROUPS.map((g) => ({
+      label: g.label,
+      areas: g.areas.map((a) => ({
+        label: a.label, inactive: !!a.inactive, mark: a.on ? '✓' : '',
+        boxStyle: 'display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:3px; font-size:9px; border:1px solid ' +
+          (a.on ? 'var(--brand)' : 'var(--bDef)') + '; background:' + (a.on ? 'var(--brand)' : 'var(--sRaised)') + '; color:var(--tOnBrand)',
+      })),
+    }));
+    v.zoneWindows = s.windows.map((w, wi) => ({
+      label: w.label, starts: w.starts, ends: w.ends, capacity: w.capacity, active: w.active,
+      note: w.note, noteStyle: w.note ? explainer : 'display:none',
+      days: w.days.map((on, di) => ({
+        label: DAY_LETTERS[di],
+        title: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][di],
+        style: 'display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:5px; font-size:11px; font-weight:500; cursor:pointer; border:1px solid ' +
+          (on ? 'var(--brand)' : 'var(--bDef)') + '; background:' + (on ? 'var(--brandSub)' : 'var(--sRaised)') +
+          '; color:' + (on ? 'var(--onBrandSub)' : 'var(--tSec)'),
+        toggle: () => {
+          const next = s.windows.map((row, i) => i === wi ? { ...row, days: row.days.map((x, j) => j === di ? (x ? 0 : 1) : x) } : row);
+          this.setState({ windows: next });
+        },
+      })),
+    }));
+
+    // ── opening hours
+    const timeOn = 'width:100%; height:28px; padding-inline:8px 28px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:\'IBM Plex Mono\', monospace; font-size:12px';
+    const timeOff = 'width:100%; height:28px; padding-inline:8px 28px; border:1px solid var(--bSub); border-radius:5px; background:var(--sSunken); color:var(--tDis); font-family:\'IBM Plex Mono\', monospace; font-size:12px';
+    if (meta.single) {
+      const open = s.week.filter((d) => d.trading === 'open');
+      v.summaryCards = [
+        { label: 'Trading', value: String(open.length), unit: 'days a week', caption: 'Beirut Central', fg: 'var(--tPri)' },
+        { label: 'Closed', value: String(7 - open.length), unit: open.length === 6 ? 'day' : 'days', caption: 'answered, not left blank', fg: 'var(--tPri)' },
+        { label: 'Order cut-off', value: String(s.week.filter((d) => d.cutOff).length), unit: 'days', caption: 'last same-day order set', fg: 'var(--tPri)' },
+      ];
+      v.showSummaryCards = true;
+      v.showSummaryLine = false;
+    }
+    v.weekRows = s.week.map((d, i) => {
+      const closed = d.trading === 'closed';
+      return {
+        day: d.day, trading: d.trading, closed,
+        opens: d.opens, closes: d.closes, cutOff: d.cutOff,
+        timeStyle: closed ? timeOff : timeOn,
+        cutOffPh: closed ? '—' : 'No cut-off',
+        note: closed
+          ? 'Closed all day. No hours are recorded and no same-day order is accepted.'
+          : (d.cutOff ? 'Open ' + d.opens + '–' + d.closes + ', last same-day order ' + d.cutOff + '.' : 'No same-day cut-off recorded for this day.'),
+        canCopy: !closed,
+        setTrading: (e) => {
+          const val = e.target.value;
+          const next = s.week.map((row, j) => j === i
+            ? (val === 'closed' ? { ...row, trading: 'closed', opens: '', closes: '', cutOff: '' } : { ...row, trading: 'open', opens: '09:00', closes: '22:00' })
+            : row);
+          this.setState({ week: next });
+        },
+      };
+    });
+
+    // ── view window
+    const mono = 'font-family:\'IBM Plex Mono\', monospace; font-size:12px; color:var(--tPri)';
+    const plain = 'font-size:12px; line-height:18px; color:var(--tPri); text-wrap:pretty';
+    const r = s.view;
+    v.windowOpen = !!r;
+    v.closeWindow = () => this.setState({ view: null });
+    v.swallow = (e) => { e.stopPropagation(); };
+    v.editFromWindow = () => this.setState({ view: null, mode: 'edit', record: s.view, tab: meta.tabs ? meta.tabs[0][0] : null });
+    v.windowTitle = r ? r.title : '';
+    v.windowKind = meta.family.replace(/s$/, '');
+    v.windowStatus = r ? r.status : '';
+    v.windowStatusStyle = r ? badge(r.tone) : 'display:none';
+    v.windowAction = 'Edit';
+    v.windowNote = false; v.windowNoteText = '';
+    v.windowHasChips = false; v.windowChips = []; v.windowChipsLabel = ''; v.windowChipsCaption = '';
+    v.windowFields = [];
+
+    if (r) {
+      const labels = meta.columns ? meta.columns.slice(1, -1) : [];
+      v.windowFields = [{ label: 'Reference', value: r.meta, style: mono }]
+        .concat(r.cells.map((value, i) => ({
+          label: labels[i] ?? 'Field ' + (i + 1),
+          value,
+          style: (i === 0 && (screen === 'prices' || screen === 'quotations')) ? mono : plain,
+        })));
+      if (screen === 'prices') {
+        v.windowNote = true;
+        v.windowNoteText = 'The name, currency, kitchen and channels of a price list are set where it is created and cannot be changed here. Only the entries are editable.';
+        v.windowHasChips = true;
+        v.windowChipsLabel = 'Price statuses on this list';
+        v.windowChips = [{ label: 'Confirmed price' }, { label: 'Pending price' }, { label: 'Priced daily' }];
+        v.windowChipsCaption = 'Only a confirmed price reaches a customer. The other two are kept so the item is not forgotten.';
+      } else if (screen === 'quotations') {
+        v.windowNote = r.status === 'Awaiting a price';
+        v.windowNoteText = 'Prices are in the currency the buyer’s agreement fixed — you are not choosing it. Sending is refused until every line carries a price; zero is accepted.';
+        v.windowAction = r.status === 'Awaiting a price' ? 'Price it' : 'Open';
+      } else if (screen === 'zones') {
+        v.windowHasChips = true;
+        v.windowChipsLabel = 'Areas covered';
+        v.windowChips = CHOSEN_AREAS;
+        v.windowChipsCaption = 'Areas come from the platform gazetteer. A customer address points at one of these rather than carrying free text.';
+      } else if (screen === 'plans') {
+        v.windowNote = true;
+        v.windowNoteText = 'A plan is a matrix, a set of commitments and a set of prices. Each of the three can be half-built independently of the others.';
+      }
+    }
+
+    return v;
+  }
+}
+
+</script>
+</body>
+</html>

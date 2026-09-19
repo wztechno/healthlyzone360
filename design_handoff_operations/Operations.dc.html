@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Wellness Green token roles — packages/design-tokens/src/colour.ts (themeLight/themeDark + semanticLight/semanticDark). */
+  :root {
+    --sBase:#f7fcf9; --sRaised:#ffffff; --sSunken:#edf6f0;
+    --tPri:#1f2937; --tSec:#5b6673; --tDis:#646e7c; --tOnBrand:#ffffff;
+    --bSub:#cceeda; --bDef:#aaddc0;
+    --brand:#157043; --brandHover:#11532e; --brandSub:#dcfce7; --onBrandSub:#14532d;
+    --okSub:#dcfce7; --okOn:#14532d;
+    --warnSub:#fdf2d6; --warnOn:#79480a; --warnBd:#f0dca8;
+    --badSub:#fde5e3; --badOn:#8f1f1a; --badBd:#d16a64;
+    --infoSub:#e2f1fb; --infoOn:#0b4a6f; --infoBd:#cde3f2;
+    --neuSub:#f1f5f9; --neuOn:#4b5563;
+    --overlay:#14231ccc; --ph:#94a3b8;
+    --pop:0 6px 20px -4px rgba(16,42,30,.24);
+    --skelA:#e4f0e9; --skelB:#eef6f1;
+  }
+  [data-theme="dark"] {
+    --sBase:#0e1712; --sRaised:#16241b; --sSunken:#0a110b;
+    --tPri:#eef4ee; --tSec:#bcc7be; --tDis:#8b968c; --tOnBrand:#06160c;
+    --bSub:#26352b; --bDef:#3a4b3f;
+    --brand:#86efac; --brandHover:#b7e2c6; --brandSub:#153a26; --onBrandSub:#b6e8c2;
+    --okSub:#16301f; --okOn:#9fd6b3;
+    --warnSub:#33240a; --warnOn:#e8c073; --warnBd:#8a6a2a;
+    --badSub:#3a1512; --badOn:#efa19a; --badBd:#a85049;
+    --infoSub:#0e2636; --infoOn:#9fcdec; --infoBd:#3f80ad;
+    --neuSub:#1b2620; --neuOn:#bcc7be;
+    --overlay:#000000b3; --ph:#8b968c;
+    --pop:0 6px 20px -4px rgba(0,0,0,.55);
+    --skelA:#1e2d23; --skelB:#182219;
+  }
+  html, body { margin:0; padding:0; background:var(--sBase); }
+  * { box-sizing: border-box; }
+  body { font-family:'Schibsted Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  input, select, textarea, button { font-family: inherit; color: inherit; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { color: var(--brandHover); text-decoration: underline; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible,
+  [tabindex]:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  ::placeholder { color: var(--ph); }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background: var(--bSub); border-radius:6px; }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes opshimmer { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes opfade { from{opacity:0} to{opacity:1} }
+  /* Date and time fields: the drawn button is the picker trigger. The native indicator is made
+     invisible and stretched over the button's box, so it takes the click — no second glyph, no JS. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute; inset-inline-end: 0; top: 0; width: 28px; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button, input[type="month"]::-webkit-inner-spin-button,
+  input[type="time"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button,
+  input[type="month"]::-webkit-clear-button, input[type="time"]::-webkit-clear-button { display: none; }
+  input[type="date"], input[type="month"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+  @keyframes oppop { from{opacity:0; transform:translateY(6px) scale(.985)} to{opacity:1; transform:none} }
+</style>
+</helmet>
+
+<div dir="{{ dir }}" data-theme="{{ theme }}" style="display:flex; height:100vh; min-height:700px; background:var(--sBase); color:var(--tPri)">
+
+  <nav style="width: {{ navWidth }}; flex: 0 0 {{ navWidth }}; overflow:hidden; background:var(--sSunken); border-inline-end:1px solid var(--bSub); display:flex; flex-direction:column; padding:12px 0; transition: width 160ms ease, flex-basis 160ms ease">
+    <div style="flex:0 0 auto; display:flex; align-items:center; justify-content: {{ navJustify }}; gap:8px; padding:0 {{ navPad }} 12px">
+      <div style="flex:0 0 auto; width:22px; height:22px; border-radius:5px; background:var(--brand); color:var(--tOnBrand); display:grid; place-items:center; font-size:11px; font-weight:700">H</div>
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <span style="font-size:13px; font-weight:600; letter-spacing:-0.01em; white-space:nowrap">Kitchen ops</span>
+      </sc-if>
+    </div>
+
+    <div style="flex:1 1 auto; min-height:0; overflow:hidden auto; display:flex; flex-direction:column; gap:2px; padding:0 {{ navRailPad }}">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="5">
+        <div style="display:flex; flex-direction:column; gap:1px; padding-top:6px">
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:0 8px 3px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap">{{ group.label }}</div>
+          </sc-if>
+          <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+            <div role="button" tabindex="0" onClick="{{ expandNav }}" title="{{ group.label }}" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:5px; cursor:pointer" style-hover="background: var(--brandSub)">
+              <span aria-hidden="true" style="font-size:15px; line-height:1; color:var(--tSec)">{{ group.glyph }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="5">
+              <sc-if value="{{ item.active }}" hint-placeholder-val="{{ false }}">
+                <div role="button" tabindex="0" onClick="{{ item.go }}" title="{{ item.label }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; cursor:pointer; font-size:12px; font-weight:600; color:var(--onBrandSub); background:var(--brandSub)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--onBrandSub)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ item.here }}" hint-placeholder-val="{{ false }}">
+                <div role="button" tabindex="0" onClick="{{ item.go }}" title="{{ item.label }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; cursor:pointer; font-size:12px; color:var(--tPri)" style-hover="background: var(--brandSub)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tSec)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ item.away }}" hint-placeholder-val="{{ true }}">
+                <div title="{{ item.awayTitle }}" style="display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border-radius:5px; font-size:12px; color:var(--tDis)">
+                  <span style="flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ item.label }}</span>
+                  <sc-if value="{{ item.showCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tDis)">{{ item.count }}</span>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex:0 0 auto; margin-top:8px; padding:10px {{ navPad }} 0; border-top:1px solid var(--bSub); font-size:10px; line-height:15px; color:var(--tSec); text-align: {{ navFootAlign }}">
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="font-weight:600; color:var(--tPri); white-space:nowrap">Beirut Central</div>
+        <div style="white-space:nowrap">Operations · stock is per branch</div>
+      </sc-if>
+      <sc-if value="{{ navClosed }}" hint-placeholder-val="{{ false }}">
+        <div title="Beirut Central · Operations" style="font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--tPri)">BC</div>
+      </sc-if>
+    </div>
+  </nav>
+
+  <main style="flex:1 1 auto; min-width:0; display:flex; flex-direction:column; overflow:hidden; position:relative">
+
+    <header style="flex:0 0 auto; padding:14px 20px 0">
+      <div style="display:flex; align-items:center; gap:8px; height:20px">
+        <span role="button" tabindex="0" onClick="{{ toggleNav }}" title="{{ navToggleTitle }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; margin-inline-start:-4px; border-radius:4px; font-size:14px; color:var(--tSec); cursor:pointer; flex:0 0 auto" style-hover="background: var(--sSunken); color: var(--tPri)">☰</span>
+        <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--tSec)">
+          <span>Kitchen</span><span style="color:var(--bDef)">/</span>
+          <span style="color:var(--tSec)">Operations</span><span style="color:var(--bDef)">/</span>
+          <span role="button" tabindex="0" onClick="{{ backToList }}" style="cursor:pointer; color:var(--brand)">{{ crumbFamily }}</span>
+          <sc-if value="{{ showLeaf }}" hint-placeholder-val="{{ false }}">
+            <span style="color:var(--bDef)">/</span><span style="color:var(--tPri)">{{ crumbLeaf }}</span>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:4px">
+        <div style="min-width:0">
+          <div style="display:flex; align-items:center; gap:8px">
+            <h1 style="margin:0; font-size:16px; line-height:22px; font-weight:600; letter-spacing:-0.01em">{{ pageTitle }}</h1>
+            <sc-if value="{{ showPageChip }}" hint-placeholder-val="{{ true }}">
+              <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background: {{ pageChipBg }}; color: {{ pageChipFg }}">{{ pageChip }}</span>
+            </sc-if>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; padding-top:2px">
+          <sc-if value="{{ isEditing }}" hint-placeholder-val="{{ false }}">
+            <button type="button" onClick="{{ backToList }}" style="height:32px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap" style-hover="background: var(--sSunken)">{{ backLabel }}</button>
+            <button type="button" style="height:32px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap" style-hover="background: var(--brandHover)">{{ saveLabel }}</button>
+          </sc-if>
+          <sc-if value="{{ showCreate }}" hint-placeholder-val="{{ true }}">
+            <button type="button" onClick="{{ openCreate }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">
+              <span style="font-size:13px; line-height:1">+</span><span style="white-space:nowrap">{{ createLabel }}</span>
+            </button>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ showSummaryCards }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(148px, 1fr)); gap:8px; margin-top:10px; max-width:920px">
+          <sc-for list="{{ summaryCards }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex; flex-direction:column; gap:1px; padding:7px 10px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised)">
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.label }}</span>
+              <div style="display:flex; align-items:baseline; gap:4px; min-width:0">
+                <span style="font-family:'IBM Plex Mono', monospace; font-size:18px; line-height:24px; font-weight:600; color: {{ c.fg }}">{{ c.value }}</span>
+                <span style="font-size:10px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.unit }}</span>
+              </div>
+              <span style="font-size:10px; line-height:14px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.caption }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showSummaryLine }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:var(--tSec)">
+          <span>{{ summaryLine }}</span>
+        </div>
+      </sc-if>
+    </header>
+
+    <!-- ══════════════════ LIST ══════════════════ -->
+    <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 20px; flex-wrap:wrap">
+        <div style="position:relative; width:240px; flex:0 0 240px">
+          <span style="position:absolute; inset-inline-start:8px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--tSec); pointer-events:none">⌕</span>
+          <input value="{{ q }}" onChange="{{ setQ }}" placeholder="{{ searchPlaceholder }}" style="width:100%; height:28px; padding-inline:22px 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+        </div>
+        <sc-if value="{{ hasKindTabs }}" hint-placeholder-val="{{ false }}">
+          <div style="display:inline-flex; height:28px; padding:2px; gap:2px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised)">
+            <sc-for list="{{ kindTabs }}" as="t" hint-placeholder-count="2">
+              <button type="button" onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="display:inline-flex; align-items:center; gap:6px">
+          <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ statusLabel }}</span>
+          <div style="display:inline-flex; height:28px; padding:2px; gap:2px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised)">
+            <sc-for list="{{ statusTabs }}" as="t" hint-placeholder-count="4">
+              <button type="button" onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+          <span role="button" tabindex="0" onClick="{{ clearFilters }}" style="font-size:11px; font-weight:500; color:var(--brand); cursor:pointer">Clear filters</span>
+        </sc-if>
+        <div style="flex:1 1 auto"></div>
+      </div>
+
+      <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:0 20px 16px">
+        <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; border:1px solid var(--warnBd); border-radius:6px; background:var(--warnSub)">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--warnOn)">◌</span>
+            <div style="font-size:11px; line-height:16px; color:var(--warnOn); text-wrap:pretty">
+              <span style="font-weight:600">You are offline.</span> This list stopped refreshing itself at 14:32 — what you see is the last copy that arrived. Stock cannot be moved and nothing can be posted until you are back.
+              <span role="button" tabindex="0" onClick="{{ retry }}" style="margin-inline-start:4px; font-weight:600; color:var(--brand); cursor:pointer">Try again</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ truncatedOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+            <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">
+              <span style="font-weight:600">Showing the first 50 rows.</span> More matched than this view will ever show, and there is no second page — narrow the search or the filters to reach the rest.
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ costNoteOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; border:1px solid var(--badBd); border-radius:6px; background:var(--badSub)">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--badOn)">◉</span>
+            <div style="font-size:11px; line-height:16px; color:var(--badOn); text-wrap:pretty">
+              <span style="font-weight:600">This ledger is the valuation.</span> It is gated on <span style="font-family:'IBM Plex Mono', monospace">inventory.view_costs_organisation</span> — a kitchen hand who counts stock and posts receipts does not thereby see what those receipts cost.
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ statStrip }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; max-width:800px; margin-bottom:14px">
+            <sc-for list="{{ stats }}" as="c" hint-placeholder-count="4">
+              <div style="display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.label }}</span>
+                <div style="display:flex; align-items:baseline; gap:5px">
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:22px; line-height:26px; font-weight:600; color: {{ c.fg }}">{{ c.value }}</span>
+                  <span style="font-size:11px; color:var(--tSec)">{{ c.unit }}</span>
+                </div>
+                <span style="font-size:10px; line-height:14px; color:var(--tSec)">{{ c.caption }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top:1px solid var(--bDef)">
+            <sc-for list="{{ skeletonRows }}" as="s" hint-placeholder-count="9">
+              <div style="display:grid; grid-template-columns: {{ grid }}; align-items:center; column-gap:14px; min-width: {{ gridMin }}; height:32px; padding:0 8px; border-bottom:1px solid var(--bSub)">
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: opshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelB); animation: opshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: opshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelB); animation: opshimmer 1.3s ease-in-out infinite"></div>
+                <div style="height:9px; border-radius:4px; background:var(--skelA); animation: opshimmer 1.3s ease-in-out infinite"></div>
+                <div></div>
+              </div>
+            </sc-for>
+            <div style="padding:10px 8px 0; font-size:11px; color:var(--tSec)">Reading this branch's books…</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ errored }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--badSub); color:var(--badOn)">Not loaded</span>
+            <div style="font-size:13px; font-weight:600; margin-top:2px">{{ errorTitle }}</div>
+            <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:48ch; text-wrap:pretty">Nothing was moved, posted or written off by this. Check your connection and try again.</div>
+            <button type="button" onClick="{{ retry }}" style="margin-top:4px; height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ emptyOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:48px 0; text-align:center">
+            <div style="font-size:13px; font-weight:600">{{ emptyTitle }}</div>
+            <div style="font-size:11px; line-height:16px; color:var(--tSec); max-width:56ch; text-wrap:pretty">{{ emptyBody }}</div>
+            <div style="display:flex; gap:6px; margin-top:4px">
+              <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ clearFilters }}" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Clear filters</button>
+              </sc-if>
+              <sc-if value="{{ showCreate }}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{ openCreate }}" style="height:28px; padding:0 10px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">{{ createLabel }}</button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tableOn }}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x:auto; padding-bottom:10px">
+            <div style="display:grid; grid-template-columns: {{ grid }}; align-items:center; column-gap:14px; min-width: {{ gridMin }}; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef); position:sticky; top:0; background:var(--sBase); z-index:2">
+              <sc-for list="{{ columns }}" as="c" hint-placeholder-count="6">
+                <span style="{{ c.style }}">{{ c.label }}</span>
+              </sc-for>
+            </div>
+
+            <sc-for list="{{ rows }}" as="row" hint-placeholder-count="7">
+              <div role="button" tabindex="0" onClick="{{ row.edit }}" style="display:grid; grid-template-columns: {{ grid }}; align-items:center; column-gap:14px; min-width: {{ gridMin }}; min-height:32px; padding:5px 8px; border-bottom:1px solid var(--bSub); cursor:pointer" style-hover="background: var(--sSunken)">
+                <span style="min-width:0">
+                  <span style="display:block; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.title }}</span>
+                  <span style="display:block; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--tSec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ row.meta }}</span>
+                </span>
+                <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4">
+                  <span style="{{ cell.style }}">{{ cell.value }}</span>
+                </sc-for>
+                <span style="display:flex; align-items:center; justify-content:flex-end; gap:4px">
+                  <span style="{{ row.statusStyle }}">{{ row.status }}</span>
+                  <span role="button" tabindex="0" onClick="{{ row.view }}" title="View" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; border:1px solid var(--bDef); border-radius:4px; background:var(--sRaised); color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.2 7C2.6 4.7 4.6 3.5 7 3.5s4.4 1.2 5.8 3.5c-1.4 2.3-3.4 3.5-5.8 3.5S2.6 9.3 1.2 7Z"></path><circle cx="7" cy="7" r="1.6"></circle></svg></span>
+                  <span style="position:relative; display:inline-flex">
+                    <span role="button" tabindex="0" onClick="{{ row.openMenu }}" onPointerDown="{{ swallow }}" title="Row actions" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; border:1px solid var(--bDef); border-radius:4px; background: {{ row.menuTriggerBg }}; font-size:12px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3.2 7h.01"></path><path d="M7 7h.01"></path><path d="M10.8 7h.01"></path></svg></span>
+                    <sc-if value="{{ row.menuOpen }}" hint-placeholder-val="{{ false }}">
+                      <span role="menu" onClick="{{ swallow }}" onPointerDown="{{ swallow }}" style="position:absolute; top:26px; inset-inline-end:0; z-index:30; display:flex; flex-direction:column; min-width:150px; padding:4px; border:1px solid var(--bDef); border-radius:6px; background:var(--sRaised); box-shadow:var(--pop)">
+                        <span role="menuitem" tabindex="0" onClick="{{ row.viewFromMenu }}" style="display:flex; align-items:center; gap:8px; height:28px; padding:0 8px; border-radius:4px; font-size:12px; color:var(--tPri); cursor:pointer; white-space:nowrap" style-hover="background: var(--sSunken)">
+                          <span style="flex:0 0 14px; display:inline-flex; justify-content:center; color:var(--tSec)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.2 7C2.6 4.7 4.6 3.5 7 3.5s4.4 1.2 5.8 3.5c-1.4 2.3-3.4 3.5-5.8 3.5S2.6 9.3 1.2 7Z"></path><circle cx="7" cy="7" r="1.6"></circle></svg></span>View
+                        </span>
+                        <span role="menuitem" tabindex="0" onClick="{{ row.editFromMenu }}" style="display:flex; align-items:center; gap:8px; height:28px; padding:0 8px; border-radius:4px; font-size:12px; color:var(--tPri); cursor:pointer; white-space:nowrap" style-hover="background: var(--sSunken)">
+                          <span style="flex:0 0 14px; display:inline-flex; justify-content:center; color:var(--tSec)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 2.1l2.3 2.3-6.5 6.5-3 .7.7-3 6.5-6.5Z"></path><path d="M8.4 3.3l2.3 2.3"></path></svg></span>Edit
+                        </span>
+                        <span role="menuitem" tabindex="0" onClick="{{ row.archive }}" style="display:flex; align-items:center; gap:8px; height:28px; padding:0 8px; border-radius:4px; font-size:12px; color:var(--tPri); cursor:pointer; white-space:nowrap" style-hover="background: var(--sSunken)">
+                          <span style="flex:0 0 14px; display:inline-flex; justify-content:center; color:var(--tSec)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.6 4.8h10.8v6.4H1.6z"></path><path d="M0.9 2.6h12.2v2.2H0.9z"></path><path d="M5.5 7.4h3"></path></svg></span>Archive
+                        </span>
+                      </span>
+                    </sc-if>
+                  </span>
+                </span>
+              </div>
+            </sc-for>
+
+            <div style="display:flex; align-items:center; gap:12px; min-width: {{ gridMin }}; padding:10px 8px 0">
+              <span style="font-size:11px; color:var(--tSec)">{{ pagerRange }}</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════════════════ EDITORS ══════════════════ -->
+    <sc-if value="{{ isEditing }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ hasTabs }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:0 0 auto; display:flex; align-items:flex-end; gap:2px; padding:10px 20px 0; border-bottom:1px solid var(--bDef); overflow-x:auto">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <button type="button" onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:14px 20px 24px">
+
+        <!-- Order detail -->
+        <sc-if value="{{ edOrder }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start">
+            <div style="flex:1 1 460px; min-width:340px; display:flex; flex-direction:column; gap:20px">
+              <section>
+                <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:0">
+                  <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Items</h2>
+                  <span style="font-size:11px; color:var(--tSec)">3 lines</span>
+                </div>
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 70px 96px 106px; align-items:center; column-gap:12px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Item</span>
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Qty</span>
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Unit price</span>
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Line total</span>
+                </div>
+                <sc-for list="{{ orderLines }}" as="l" hint-placeholder-count="3">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) 70px 96px 106px; align-items:center; column-gap:12px; min-height:32px; padding:4px 8px; border-bottom:1px solid var(--bSub)">
+                    <span style="font-size:12px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ l.name }}</span>
+                    <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ l.qty }}</span>
+                    <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end; color:var(--tSec)">{{ l.unit }}</span>
+                    <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ l.total }}</span>
+                  </div>
+                </sc-for>
+              </section>
+
+              <section>
+                <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+                  <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Delivery</h2>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+                  <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Requested day</span><span style="font-family:'IBM Plex Mono', monospace; font-size:12px">2026-09-14</span></div>
+                  <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Window</span><span style="font-size:12px">Midday · 12:00–15:30</span></div>
+                  <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Area</span><span style="font-size:12px">Achrafieh</span></div>
+                  <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Delivery zone</span><span style="font-size:12px">Achrafieh &amp; Gemmayzeh</span></div>
+                  <div style="display:flex; flex-direction:column; gap:3px; grid-column:span 2"><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Address</span><span style="font-size:12px; line-height:18px">Rue Sursock, Building 12, 3rd floor</span></div>
+                </div>
+              </section>
+
+              <section>
+                <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+                  <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Timeline</h2>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px">
+                  <sc-for list="{{ orderTimeline }}" as="t" hint-placeholder-count="3">
+                    <div style="display:grid; grid-template-columns:130px minmax(0,1fr); align-items:baseline; column-gap:12px">
+                      <span style="font-size:12px; font-weight:500">{{ t.label }}</span>
+                      <span style="{{ t.style }}">{{ t.value }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+            </div>
+
+            <aside style="flex:0 0 300px; width:300px; display:flex; flex-direction:column; gap:14px; padding:14px; border:1px solid var(--bSub); border-radius:8px; background:var(--sRaised)">
+              <div>
+                <div style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); margin-bottom:8px">Totals</div>
+                <div style="display:flex; flex-direction:column; gap:6px">
+                  <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px"><span style="font-size:12px; color:var(--tSec)">Subtotal</span><span style="font-family:'IBM Plex Mono', monospace; font-size:12px">21.50</span></div>
+                  <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px"><span style="font-size:12px; color:var(--tSec)">Delivery fee</span><span style="font-family:'IBM Plex Mono', monospace; font-size:12px">3.00</span></div>
+                  <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding-top:6px; border-top:1px solid var(--bSub)"><span style="font-size:12px; font-weight:600">Total</span><span style="font-family:'IBM Plex Mono', monospace; font-size:16px; font-weight:600">24.50</span></div>
+                  <span style="font-size:11px; color:var(--tSec)">USD — one currency per order, never mixed.</span>
+                </div>
+              </div>
+              <div style="padding-top:12px; border-top:1px solid var(--bSub)">
+                <div style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); margin-bottom:8px">What can be done</div>
+                <div style="display:flex; flex-direction:column; gap:6px">
+                  <button type="button" style="height:32px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">Confirm</button>
+                  <button type="button" style="height:32px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--sSunken)">Mark fulfilled</button>
+                  <button type="button" style="height:32px; border:1px solid var(--badBd); border-radius:5px; background:var(--sRaised); color:var(--badOn); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--badSub)">Cancel order</button>
+                  <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">Cancelling is final — the order cannot be confirmed or fulfilled afterwards, and it needs a reason.</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </sc-if>
+
+        <!-- Supply order builder -->
+        <sc-if value="{{ edSupply }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:16px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub); max-width:100ch">
+            <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+            <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">
+              <span style="font-weight:600">Read at 14:32.</span> Counted live from this branch's shelves. Re-reading replaces this list — quantities you have typed on items that are still short are kept; anything else is lost.
+              <span role="button" tabindex="0" style="margin-inline-start:4px; font-weight:600; color:var(--brand); cursor:pointer">Refresh</span>
+            </div>
+          </div>
+
+          <section>
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:0">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Needs ordering</h2>
+              <span style="font-size:11px; color:var(--tSec)">6 items need ordering · 2 out of stock</span>
+            </div>
+            <div style="overflow-x:auto">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 96px 120px 120px 220px 96px; align-items:center; column-gap:12px; min-width:1000px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Item</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">On hand</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Reorder at / Par</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Order quantity</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">From</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Ordering</span>
+              </div>
+              <sc-for list="{{ supplyRows }}" as="r" hint-placeholder-count="6">
+                <div style="min-width:1000px; padding:7px 8px; border-bottom:1px solid var(--bSub)">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) 96px 120px 120px 220px 96px; align-items:center; column-gap:12px">
+                    <span style="display:flex; align-items:center; gap:6px; min-width:0">
+                      <span style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.item }}</span>
+                      <span style="{{ r.levelStyle }}">{{ r.level }}</span>
+                    </span>
+                    <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ r.onHand }}</span>
+                    <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end; color:var(--tSec)">{{ r.levels }}</span>
+                    <input value="{{ r.qty }}" placeholder="—" style="{{ r.qtyStyle }}">
+                    <select value="{{ r.supplier }}" style="{{ r.supplierStyle }}">
+                      <option value="none">Choose a supplier</option>
+                      <option value="s1">Beqaa Fresh Produce · Preferred</option>
+                      <option value="s2">Levant Dry Goods</option>
+                      <option value="s3">Tripoli Dairy</option>
+                    </select>
+                    <span style="{{ r.orderingStyle }}">{{ r.ordering }}</span>
+                  </div>
+                  <div style="{{ r.noteStyle }}">{{ r.note }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+
+          <section style="margin-top:20px; max-width:760px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Ready to order</h2>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px">
+              <sc-for list="{{ supplyGroups }}" as="g" hint-placeholder-count="2">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:7px 10px; border:1px solid var(--bSub); border-radius:6px; background:var(--sRaised)">
+                  <span style="font-size:12px; font-weight:500">{{ g.supplier }}</span>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--tSec)">{{ g.count }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:12px">
+              <span style="font-size:11px; color:var(--warnOn); background:var(--warnSub); border:1px solid var(--warnBd); border-radius:6px; padding:6px 9px; text-wrap:pretty">1 item won't be ordered — no supplier chosen.</span>
+              <span style="font-size:11px; color:var(--tSec); padding:0 9px; text-wrap:pretty">1 item left out — no quantity entered.</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px">
+              <button type="button" style="height:32px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">Create 2 draft orders</button>
+              <span style="font-size:11px; color:var(--tSec); text-wrap:pretty">One draft order per supplier. Nothing is sent to anyone yet — you can review, edit and issue each order afterwards.</span>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- Stock movement / threshold -->
+        <sc-if value="{{ edStock }}" hint-placeholder-val="{{ false }}">
+          <section style="max-width:900px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Reorder threshold</h2>
+              <span style="font-size:11px; color:var(--tSec)">Tahini, dark roast · Beirut Central</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Reorder threshold</span>
+                <input value="8" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">Flag as low when on-hand falls to or below this. Leave blank for no threshold.</span>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Par level (optional)</span>
+                <input value="24" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                <span style="font-size:11px; color:var(--tSec)">The level to restock back up to.</span>
+              </label>
+            </div>
+          </section>
+
+          <section style="margin-top:22px; max-width:900px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Movement</h2>
+              <span style="font-size:11px; color:var(--tSec)">Every movement is a ledger entry — there is no editing a level directly</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Direction</span>
+                <select style="height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer">
+                  <option>Increase</option><option>Decrease</option><option>Waste</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Quantity</span>
+                <input placeholder="0.000" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+                <span style="font-size:11px; color:var(--tSec)">Enter how much to add or remove. Unit: kg.</span>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px; grid-column:span 2">
+                <span style="font-size:12px; font-weight:500">Why <span style="font-weight:400; color:var(--tSec)">Optional</span></span>
+                <input placeholder="One sentence. It stays on the movement." style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+              </label>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- Production batch -->
+        <sc-if value="{{ edProduction }}" hint-placeholder-val="{{ false }}">
+          <section style="max-width:900px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">Start a production batch</h2>
+              <span style="font-size:11px; color:var(--tSec)">Beirut Central — batches are branch-scoped</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <label style="display:flex; flex-direction:column; gap:4px; grid-column:span 2">
+                <span style="font-size:12px; font-weight:500">Recipe version</span>
+                <div style="position:relative">
+                  <span style="position:absolute; inset-inline-start:8px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--tSec); pointer-events:none">⌕</span>
+                  <input placeholder="Search published recipe versions" style="width:100%; height:28px; padding-inline:22px 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px">
+                </div>
+                <span style="font-size:11px; line-height:16px; color:var(--tSec); text-wrap:pretty">Only published versions can be produced. A draft has no label and no settled figures.</span>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Planned quantity</span>
+                <input placeholder="0.000" style="height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:12px; font-weight:500">Planned for</span>
+                <span style="position:relative; display:inline-flex; align-items:center; width:100%">
+                      <input type="date" value="2026-09-15" style="width:100%; height:28px; padding-inline:8px 26px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:'IBM Plex Mono', monospace; font-size:12px">
+                      <span aria-hidden="true" style="pointer-events:none; position:absolute; inset-inline-end:3px; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--tSec); cursor:pointer" style-hover="background: var(--sSunken); color: var(--tPri)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.1 3.5h9.8v8.4H2.1z"></path><path d="M2.1 6.1h9.8"></path><path d="M4.7 2.1v2.2"></path><path d="M9.3 2.1v2.2"></path></svg></span>
+                    </span>
+              </label>
+            </div>
+          </section>
+
+          <section style="margin-top:22px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:4px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">What it will consume</h2>
+              <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--infoSub); color:var(--infoOn)">From database</span>
+            </div>
+            <p style="margin:0 0 10px; font-size:11px; line-height:16px; color:var(--tSec); max-width:96ch; text-wrap:pretty">Scaled from the recipe version against this branch's shelves. Nothing here is typed, and nothing is deducted until the batch is completed.</p>
+            <div style="overflow-x:auto">
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 110px 110px 110px 150px; align-items:center; column-gap:14px; min-width:820px; height:24px; padding:0 8px; border-bottom:1px solid var(--bDef)">
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Ingredient</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Required</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Available</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Short</span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Position</span>
+              </div>
+              <sc-for list="{{ batchLines }}" as="l" hint-placeholder-count="5">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 110px 110px 110px 150px; align-items:center; column-gap:14px; min-width:820px; min-height:32px; padding:4px 8px; border-bottom:1px solid var(--bSub)">
+                  <span style="font-size:12px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ l.name }}</span>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ l.required }}</span>
+                  <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end; color:var(--tSec)">{{ l.available }}</span>
+                  <span style="{{ l.shortStyle }}">{{ l.short }}</span>
+                  <span style="{{ l.positionStyle }}">{{ l.position }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- Generic read-only record body for the families designed at list depth -->
+        <sc-if value="{{ edGeneric }}" hint-placeholder-val="{{ false }}">
+          <section style="max-width:900px">
+            <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--bSub); margin-bottom:12px">
+              <h2 style="margin:0; font-size:13px; line-height:18px; font-weight:600; letter-spacing:0.02em; text-transform:uppercase">{{ genericTitle }}</h2>
+            </div>
+            <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:16px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+              <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+              <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">{{ genericNote }}</div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <sc-for list="{{ genericFields }}" as="f" hint-placeholder-count="6">
+                <div style="display:flex; flex-direction:column; gap:3px; min-width:0">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ f.label }}</span>
+                  <span style="{{ f.style }}">{{ f.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════════════════ VIEW WINDOW (replaces the side drawer) ══════════════════ -->
+    <sc-if value="{{ windowOpen }}" hint-placeholder-val="{{ false }}">
+      <div role="presentation" onClick="{{ closeWindow }}" style="position:absolute; inset:0; z-index:40; display:grid; place-items:center; padding:32px; background:var(--overlay); animation: opfade 120ms ease">
+        <div role="dialog" aria-modal="true" onClick="{{ swallow }}" onPointerDown="{{ swallow }}" style="display:flex; flex-direction:column; width:min(720px, 100%); max-height:100%; border:1px solid var(--bDef); border-radius:8px; background:var(--sRaised); box-shadow:var(--pop); overflow:hidden; animation: oppop 160ms cubic-bezier(.2,.7,.3,1)">
+          <div style="flex:0 0 auto; display:flex; align-items:center; gap:10px; height:44px; padding-inline:16px 10px; border-bottom:1px solid var(--bSub)">
+            <span style="font-size:13px; line-height:18px; font-weight:600; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ windowTitle }}</span>
+            <span style="display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; background:var(--sSunken); color:var(--tSec); white-space:nowrap">{{ windowKind }}</span>
+            <span style="{{ windowStatusStyle }}">{{ windowStatus }}</span>
+            <div style="flex:1 1 auto"></div>
+            <span role="button" tabindex="0" onClick="{{ closeWindow }}" title="Close" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:4px; font-size:12px; color:var(--tSec); cursor:pointer; flex:0 0 auto" style-hover="background: var(--sSunken); color: var(--tPri)">✕</span>
+          </div>
+
+          <div style="flex:1 1 auto; min-height:0; overflow:auto; padding:14px 16px 16px">
+            <sc-if value="{{ windowNote }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:14px; border:1px solid var(--infoBd); border-radius:6px; background:var(--infoSub)">
+                <span aria-hidden="true" style="font-size:11px; line-height:16px; color:var(--infoOn)">i</span>
+                <div style="font-size:11px; line-height:16px; color:var(--infoOn); text-wrap:pretty">{{ windowNoteText }}</div>
+              </div>
+            </sc-if>
+
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 280px)); justify-content:start; gap:12px 16px">
+              <sc-for list="{{ windowFields }}" as="f" hint-placeholder-count="7">
+                <div style="display:flex; flex-direction:column; gap:3px; min-width:0">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ f.label }}</span>
+                  <span style="{{ f.style }}">{{ f.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ windowHasLines }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:16px">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">{{ windowLinesLabel }}</span>
+                </div>
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 90px 110px; align-items:center; column-gap:12px; height:22px; border-bottom:1px solid var(--bDef)">
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)">Item</span>
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">Qty</span>
+                  <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec); text-align:end">{{ windowLinesLast }}</span>
+                </div>
+                <sc-for list="{{ windowLines }}" as="l" hint-placeholder-count="3">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) 90px 110px; align-items:center; column-gap:12px; min-height:28px; border-bottom:1px solid var(--bSub)">
+                    <span style="font-size:12px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ l.name }}</span>
+                    <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ l.qty }}</span>
+                    <span style="font-family:'IBM Plex Mono', monospace; font-size:12px; text-align:end">{{ l.total }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:6px; height:48px; padding-inline:16px; border-top:1px solid var(--bSub); background:var(--sRaised)">
+            <span style="font-size:11px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ windowFoot }}</span>
+            <div style="display:flex; gap:6px; flex:0 0 auto">
+              <button type="button" onClick="{{ closeWindow }}" style="height:28px; padding:0 10px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer" style-hover="background: var(--sSunken)">Close</button>
+              <button type="button" onClick="{{ editFromWindow }}" style="height:28px; padding:0 12px; border:1px solid var(--brand); border-radius:5px; background:var(--brand); color:var(--tOnBrand); font-size:12px; font-weight:500; cursor:pointer" style-hover="background: var(--brandHover)">{{ windowAction }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:860},&quot;dataState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;error&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;truncated&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ltr&quot;,&quot;rtl&quot;],&quot;default&quot;:&quot;ltr&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const NAV = [
+  { key: 'orderDesk', label: 'Order desk', glyph: '▤', items: [
+    { key: 'queue', label: 'Order desk', count: '8' },
+    { key: 'calendar', label: 'Order calendar' },
+    { key: 'requirements', label: 'Requirements', count: '4' },
+    { key: 'cash', label: 'Cash taken' },
+  ]},
+  { key: 'workbench', label: 'Workbench', glyph: '⌕', items: [
+    { key: 'review', label: 'Needs review', count: '6' },
+    { key: 'analytics', label: 'Analytics' },
+    { key: 'cost', label: 'Cost report' },
+    { key: 'exceptions', label: 'Consumption exceptions', count: '3' },
+  ]},
+  { key: 'catalogue', label: 'Catalogue', glyph: '◉', items: [
+    { key: 'ingredients', label: 'Ingredients' },
+    { key: 'packaging', label: 'Packaging' },
+    { key: 'recipes', label: 'Recipes' },
+    { key: 'products', label: 'Resale' },
+    { key: 'sauces', label: 'Sauces & marinations' },
+    { key: 'dressings', label: 'Dressings' },
+    { key: 'meals', label: 'Meals' },
+    { key: 'allergens', label: 'Allergen classes' },
+  ]},
+  { key: 'commercial', label: 'Commercial', glyph: '☰', items: [
+    { key: 'prices', label: 'Price lists' },
+    { key: 'quotations', label: 'Quotations', count: '2' },
+    { key: 'plans', label: 'Plans' },
+    { key: 'zones', label: 'Delivery zones' },
+    { key: 'operating', label: 'Opening hours' },
+  ]},
+  { key: 'operations', label: 'Operations', glyph: '▣', here: true, items: [
+    { key: 'orders', label: 'Orders', count: '12' },
+    { key: 'stock', label: 'Stock', count: '6' },
+    { key: 'supply', label: 'Supply orders' },
+    { key: 'suppliers', label: 'Suppliers' },
+    { key: 'procurement', label: 'Procurement', count: '2' },
+    { key: 'purchases', label: 'Purchases ledger' },
+    { key: 'batch', label: 'Batch planner' },
+    { key: 'production', label: 'Production' },
+    { key: 'qc', label: 'Quality control', count: '1' },
+  ]},
+];
+
+const TONE_BG = { ok:'var(--okSub)', warn:'var(--warnSub)', bad:'var(--badSub)', info:'var(--infoSub)', neutral:'var(--neuSub)', brand:'var(--brandSub)' };
+const TONE_FG = { ok:'var(--okOn)', warn:'var(--warnOn)', bad:'var(--badOn)', info:'var(--infoOn)', neutral:'var(--neuOn)', brand:'var(--onBrandSub)' };
+const badge = (tone) => 'display:inline-flex; align-items:center; height:17px; padding:0 6px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; background:' + TONE_BG[tone] + '; color:' + TONE_FG[tone];
+const seg = (on) => 'display:inline-flex; align-items:center; height:22px; padding:0 9px; border:0; border-radius:3px; font-size:11px; font-weight:500; cursor:pointer; white-space:nowrap; background:' + (on ? 'var(--brandSub)' : 'transparent') + '; color:' + (on ? 'var(--onBrandSub)' : 'var(--tSec)');
+const tabStyle = (on) => 'height:28px; padding:0 12px; border:0; border-bottom:2px solid ' + (on ? 'var(--brand)' : 'transparent') + '; background:transparent; font-size:12px; font-weight:' + (on ? '600' : '500') + '; color:' + (on ? 'var(--brand)' : 'var(--tSec)') + '; cursor:pointer; white-space:nowrap; margin-bottom:-1px';
+const micro = 'font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--tSec)';
+const cellText = 'font-size:12px; color:var(--tPri); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis';
+const cellMeta = 'font-size:12px; color:var(--tSec); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis';
+const cellMono = 'font-family:\'IBM Plex Mono\', monospace; font-size:12px; color:var(--tPri); text-align:end';
+const inputEnd = 'height:28px; padding:0 8px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-family:\'IBM Plex Mono\', monospace; font-size:12px; text-align:end';
+const inputWarn = inputEnd + '; border-color:var(--warnBd)';
+const selectBase = 'height:28px; padding:0 6px; border:1px solid var(--bDef); border-radius:5px; background:var(--sRaised); font-size:12px; cursor:pointer; min-width:0';
+const selectWarn = selectBase + '; border-color:var(--warnBd)';
+const explainer = 'margin-top:6px; font-size:11px; line-height:16px; color:var(--tSec); max-width:90ch; text-wrap:pretty';
+
+const SCREENS = {
+  orders: {
+    family: 'Orders', title: 'Orders',
+    chip: 'Confirming deducts stock', chipTone: 'warn',
+    search: 'Part of an order number, for example 0148',
+    statusLabel: 'Status', statuses: [['all','All'],['placed','Placed'],['confirmed','Confirmed'],['fulfilled','Fulfilled']],
+    summary: '12 loaded · 5 awaiting confirmation · 6 confirmed',
+    emptyTitle: 'No orders yet', emptyBody: 'Orders customers place arrive here with the day and window they asked for.',
+    errorTitle: 'Orders could not be loaded',
+    grid: 'minmax(0,1.1fr) 130px 190px 70px 110px 190px',
+    gridMin: '1020px',
+    columns: ['Order','Placed','Delivery','Items','Total',''],
+    foot: 'Newest first. Cancelling is final and needs a reason.',
+    editor: 'order', saveLabel: 'Confirm', backLabel: 'Back to orders',
+    stats: [
+      { label: 'Loaded', value: '12', unit: 'orders', caption: 'this page', tone: 'pri' },
+      { label: 'Awaiting confirmation', value: '5', unit: 'orders', caption: 'somebody is waiting', tone: 'warn' },
+      { label: 'Confirmed', value: '6', unit: 'orders', caption: 'in the kitchen', tone: 'pri' },
+    ],
+  },
+  stock: {
+    family: 'Stock', title: 'Stock',
+    chip: 'Counted per branch', chipTone: 'neutral',
+    search: 'Item name or reference',
+    statusLabel: 'Level', statuses: [['all','All'],['low','Low'],['out','Out'],['ok','In stock']],
+    kinds: [['ingredients','Ingredients'],['products','Resale']],
+    summary: 'Beirut Central · 248 ingredients · 31 resale items · 6 at or below their reorder point',
+    emptyTitle: 'No stock items yet', emptyBody: 'Stock follows your ingredients and the products you buy in — add one of those and it appears here.',
+    errorTitle: 'Stock could not be loaded',
+    grid: 'minmax(0,1.2fr) 110px 80px 130px 210px 170px',
+    gridMin: '1060px',
+    columns: ['Item','Quantity','Unit','Reorder at / Par','Last purchase',''],
+    foot: 'Counted per branch. Every movement is a ledger entry — there is no editing a level directly.',
+    editor: 'stock', saveLabel: 'Post the movement', backLabel: 'Back to stock',
+    stats: [
+      { label: 'With stock', value: '213', unit: 'items', caption: 'something on the shelf', tone: 'pri' },
+      { label: 'Low stock', value: '6', unit: 'items', caption: 'at or below reorder point', tone: 'warn' },
+      { label: 'Out of stock', value: '2', unit: 'items', caption: 'empty shelf', tone: 'bad' },
+    ],
+  },
+  supply: {
+    family: 'Supply orders', title: 'Supply orders',
+    chip: 'Counted per branch', chipTone: 'neutral', create: 'Prepare order',
+    search: 'Order number or supplier',
+    statusLabel: 'Status', statuses: [['all','All'],['draft','Draft'],['issued','Issued'],['received','Received']],
+    summary: '9 orders · 2 drafts · 3 issued · 6 items need ordering right now',
+    emptyTitle: 'No orders yet', emptyBody: 'Orders you prepare appear here, with what you asked for and who you asked.',
+    errorTitle: 'Supply orders could not be loaded',
+    grid: 'minmax(0,1fr) 210px 120px 70px 150px 180px',
+    gridMin: '1000px',
+    columns: ['Order','Supplier','Made on','Items','Their reference',''],
+    foot: 'Issuing freezes the items, the quantities and the supplier’s details. Nothing is sent anywhere.',
+    editor: 'supply', saveLabel: 'Create draft orders', backLabel: 'Back to supply orders',
+    createTitle: 'Prepare a supply order',
+    createChip: 'Nothing sent yet',
+  },
+  suppliers: {
+    family: 'Suppliers', title: 'Suppliers',
+    chip: 'List depth', chipTone: 'neutral', create: 'New supplier',
+    search: 'Matches the name in either language, and the code',
+    statusLabel: 'Show', statuses: [['all','Active'],['archived','Archived']],
+    summary: '14 suppliers · 2 archived',
+    emptyTitle: 'This kitchen has no suppliers yet', emptyBody: 'Add the first one to record who deliveries come from.',
+    errorTitle: 'Suppliers could not be loaded',
+    grid: 'minmax(0,1.2fr) 230px 190px 130px 150px 150px',
+    gridMin: '1080px',
+    columns: ['Supplier','Main contact','Terms','Items supplied','Invoices in',''],
+    foot: 'Reading the book is inventory.view_organisation; every write is inventory.manage_organisation.',
+    editor: 'generic', saveLabel: 'Save supplier', backLabel: 'Back to suppliers',
+    createTitle: 'New supplier',
+  },
+  procurement: {
+    family: 'Procurement', title: 'Procurement',
+    chip: 'Posts into stock', chipTone: 'warn', create: 'Post receipt',
+    search: 'Supplier or document reference',
+    statusLabel: 'Prices', statuses: [['all','All'],['unpriced','No prices'],['partial','Some prices'],['complete','Priced']],
+    summary: '38 receipts · 214 lines received · 2 waiting on their prices',
+    emptyTitle: 'No goods receipts yet', emptyBody: 'Post a receipt against stock items. Stock rises as soon as you post.',
+    errorTitle: 'Goods receipts could not be loaded',
+    grid: 'minmax(0,1fr) 210px 130px 70px 150px 190px',
+    gridMin: '1000px',
+    columns: ['Receipt','Supplier','Received','Lines','References',''],
+    foot: 'Stock rises the moment a receipt is posted; prices can be added afterwards.',
+    editor: 'generic', saveLabel: 'Post receipt', backLabel: 'Back to procurement',
+    createTitle: 'Post a goods receipt',
+  },
+  purchases: {
+    family: 'Purchases ledger', title: 'Purchases ledger',
+    chip: 'Costs', chipTone: 'bad',
+    search: 'Item or supplier',
+    statusLabel: 'Read as', statuses: [['detail','Lines'],['weekly','By week'],['monthly','By month']],
+    summary: 'Showing 2026-08-01 to 2026-08-31 · 214 lines · 4 with no price yet',
+    emptyTitle: 'No purchases yet', emptyBody: 'Posted goods receipts appear here, newest first, once stock has been received.',
+    errorTitle: 'The ledger could not be loaded',
+    grid: 'minmax(0,1fr) 190px 110px 100px 120px 170px',
+    gridMin: '1000px',
+    columns: ['Item','Supplier','Date','Quantity','Line total',''],
+    foot: 'There is nothing to write from a ledger.',
+    editor: 'generic', saveLabel: 'Close', backLabel: 'Back to the ledger', costNote: true,
+  },
+  batch: {
+    family: 'Batch planner', title: 'Batch planner',
+    chip: 'Read only', chipTone: 'neutral',
+    search: 'Recipe name or reference',
+    statusLabel: 'Show', statuses: [['all','All'],['short','Short']],
+    summary: 'A plan, not an order — everything this page suggests is committed on the production screen',
+    emptyTitle: 'Nothing to scale yet', emptyBody: 'Publish a recipe version and it can be scaled here.',
+    errorTitle: 'The planner could not be loaded',
+    grid: 'minmax(0,1.2fr) 130px 110px 130px 190px 150px',
+    gridMin: '1010px',
+    columns: ['Recipe','Current version','Yield','Portions','Last changed',''],
+    foot: 'Nothing is written from a batch sheet.',
+    editor: 'production', saveLabel: 'Open production', backLabel: 'Back to the planner',
+  },
+  production: {
+    family: 'Production', title: 'Production',
+    chip: 'Posts on completion', chipTone: 'warn', create: 'New batch',
+    search: 'Order number or recipe',
+    statusLabel: 'Status', statuses: [['all','All'],['planned','Planned'],['progress','In progress'],['completed','Completed']],
+    summary: '18 batches · 3 open · 15 completed',
+    emptyTitle: 'No production batches yet', emptyBody: 'Create a batch from a published recipe version. Completed batches show here with their status.',
+    errorTitle: 'Production orders could not be loaded',
+    grid: 'minmax(0,1.1fr) 230px 130px 110px 130px 180px',
+    gridMin: '1020px',
+    columns: ['Order','Recipe version','Planned for','Quantity','Branch',''],
+    foot: 'Consume and yield movements post when a batch is completed.',
+    editor: 'production', saveLabel: 'Create batch', backLabel: 'Back to production',
+    createTitle: 'Start a production batch',
+    createChip: 'Nothing deducted yet',
+  },
+  qc: {
+    family: 'Quality control', title: 'Quality control',
+    chip: 'A hold stops the stock', chipTone: 'bad', create: 'New check',
+    search: 'Subject id or reference',
+    statusLabel: 'Status', statuses: [['all','All'],['pending','Pending'],['hold','On hold'],['released','Released']],
+    summary: '11 checks · 2 pending · 1 on hold · 8 released',
+    emptyTitle: 'No quality checks yet', emptyBody: 'Open a check against a goods receipt or production batch, then hold or release it.',
+    errorTitle: 'Quality checks could not be loaded',
+    grid: 'minmax(0,1.1fr) 190px 130px 150px 150px 180px',
+    gridMin: '1000px',
+    columns: ['Subject','Kind','Opened','Opened by','Outcome',''],
+    foot: 'A hold stops the stock being used; a release lets it through.',
+    editor: 'generic', saveLabel: 'Release', backLabel: 'Back to quality control',
+    createTitle: 'Open a quality check',
+  },
+};
+
+const ORDERS = [
+  { title: 'Order 0148', meta: '0148 · Nadia Haddad', cells: ['2026-09-14 13:02','Delivery · Achrafieh','3','24.50'], status: 'Placed', tone: 'warn' },
+  { title: 'Order 0151', meta: '0151 · Rami Aoun', cells: ['2026-09-14 13:18','Delivery · Badaro','6','42.00'], status: 'Confirmed', tone: 'ok' },
+  { title: 'Order 0153', meta: '0153 · Layla Mansour', cells: ['2026-09-14 13:40','Collection · counter','4','12.75'], status: 'Confirmed', tone: 'ok' },
+  { title: 'Order 0154', meta: '0154 · Georges Khoury', cells: ['2026-09-14 13:47','Delivery · Hamra','8','1 275 000 000'], status: 'Placed', tone: 'warn' },
+  { title: 'Order 0157', meta: '0157 · Hiba Saad', cells: ['2026-09-14 14:05','Delivery · Achrafieh','5','31.20'], status: 'Confirmed', tone: 'ok' },
+  { title: 'Order 0141', meta: '0141 · Fresh Co', cells: ['2026-09-13 11:12','Delivery · Hamra','40','320.00'], status: 'Fulfilled', tone: 'info' },
+  { title: 'Order 0136', meta: '0136 · Karim Zein', cells: ['2026-09-13 09:58','Collection · counter','2','8.50'], status: 'Cancelled', tone: 'neutral' },
+];
+
+const STOCK = [
+  { title: 'Tahini, dark roast', meta: 'ING-0187', cells: ['6.400','kg','8 / 24','12.40 USD per kg · Levant Dry Goods · 2026-08-22'], status: 'Low', tone: 'warn' },
+  { title: 'Chicken breast, fresh', meta: 'ING-0031', cells: ['0.000','kg','10 / 40','7.80 USD per kg · Beqaa Fresh · 2026-09-10'], status: 'Empty', tone: 'bad' },
+  { title: 'Quinoa, white', meta: 'ING-0104', cells: ['31.250','kg','12 / 30','4.10 USD per kg · Levant Dry Goods · 2026-09-02'], status: 'In stock', tone: 'ok' },
+  { title: 'Zaatar blend, house', meta: 'ING-0412', cells: ['2.100','kg','3 / 10','Never bought'], status: 'Low', tone: 'warn' },
+  { title: 'Labneh, full fat', meta: 'ING-0220', cells: ['18.000','kg','No threshold','6.25 USD per kg · Tripoli Dairy · 2026-09-11'], status: 'In stock', tone: 'ok' },
+  { title: 'Olive oil, extra virgin', meta: 'ING-0009', cells: ['48.500','L','20 / 60','9.90 USD per L · Beqaa Fresh · 2026-08-30'], status: 'In stock', tone: 'ok' },
+  { title: 'Sea bass, whole', meta: 'ING-0533', cells: ['0.000','kg','5 / 15','Never stocked'], status: 'Empty', tone: 'bad' },
+];
+
+const SUPPLY = [
+  { title: 'SO-2026-0042', meta: 'SO-2026-0042', cells: ['Beqaa Fresh Produce','2026-09-13','7','—'], status: 'Draft', tone: 'warn' },
+  { title: 'SO-2026-0041', meta: 'SO-2026-0041', cells: ['Levant Dry Goods','2026-09-13','4','—'], status: 'Draft', tone: 'warn' },
+  { title: 'SO-2026-0038', meta: 'SO-2026-0038', cells: ['Tripoli Dairy','2026-09-10','3','TD-88214'], status: 'Issued', tone: 'info' },
+  { title: 'SO-2026-0035', meta: 'SO-2026-0035', cells: ['Beqaa Fresh Produce','2026-09-06','9','BF-5521'], status: 'Partly received', tone: 'warn' },
+  { title: 'SO-2026-0031', meta: 'SO-2026-0031', cells: ['Levant Dry Goods','2026-09-02','6','LDG-9004'], status: 'Received', tone: 'ok' },
+  { title: 'SO-2026-0028', meta: 'SO-2026-0028', cells: ['Coastal Seafood','2026-08-28','2','—'], status: 'Cancelled', tone: 'neutral' },
+];
+
+const SUPPLIERS = [
+  { title: 'Beqaa Fresh Produce', meta: 'BEQAA-FRESH', cells: ['Samir Daher · +961 3 221 004','net 30 · 1 day lead time','42 items','USD'], status: 'Active', tone: 'ok' },
+  { title: 'Levant Dry Goods', meta: 'LEVANT-DRY', cells: ['Office line · +961 1 448 200','net 60 · 3 days lead time','88 items','USD'], status: 'Active', tone: 'ok' },
+  { title: 'Tripoli Dairy', meta: 'TRIPOLI-DAIRY', cells: ['Nour Haddad · +961 6 410 552','cash on delivery · same morning','16 items','LBP'], status: 'Active', tone: 'ok' },
+  { title: 'Coastal Seafood', meta: 'COASTAL-SEA', cells: ['No contact recorded','No terms recorded','4 items','Not recorded'], status: 'Archived', tone: 'neutral' },
+];
+
+const PROCUREMENT = [
+  { title: 'GR-2026-0211', meta: 'GR-2026-0211', cells: ['Beqaa Fresh Produce','2026-09-12','9','DN-4471 · INV-8820'], status: 'Priced', tone: 'ok' },
+  { title: 'GR-2026-0209', meta: 'GR-2026-0209', cells: ['Tripoli Dairy','2026-09-11','3','DN-2210 · no invoice number'], status: 'No prices', tone: 'warn' },
+  { title: 'GR-2026-0206', meta: 'GR-2026-0206', cells: ['Levant Dry Goods','2026-09-09','12','DN-9915 · INV-3301'], status: 'Some prices', tone: 'warn' },
+  { title: 'GR-2026-0201', meta: 'GR-2026-0201', cells: ['Beqaa Fresh Produce','2026-09-05','7','DN-4402 · INV-8790'], status: 'Priced', tone: 'ok' },
+];
+
+const PURCHASES = [
+  { title: 'Chicken breast, fresh', meta: 'ING-0031 · 7.80 USD per kg', cells: ['Beqaa Fresh Produce','2026-09-10','24.000 kg','187.20'], status: 'Priced', tone: 'ok' },
+  { title: 'Labneh, full fat', meta: 'ING-0220 · 6.25 USD per kg', cells: ['Tripoli Dairy','2026-09-11','12.000 kg','75.00'], status: 'Priced', tone: 'ok' },
+  { title: 'Quinoa, white', meta: 'ING-0104 · no price yet', cells: ['Levant Dry Goods','2026-09-09','40.000 kg','—'], status: 'No price', tone: 'warn' },
+  { title: 'Olive oil, extra virgin', meta: 'ING-0009 · 9.90 USD per L', cells: ['Beqaa Fresh Produce','2026-08-30','30.000 L','297.00'], status: 'Priced', tone: 'ok' },
+  { title: 'Sea bass, whole', meta: 'ING-0533 · waiting on a currency decision', cells: ['Coastal Seafood','2026-08-28','8.000 kg','—'], status: 'Pending FX', tone: 'info' },
+];
+
+const BATCH = [
+  { title: 'Grilled chicken quinoa bowl', meta: 'RCP-0031', cells: ['v4 · Published','1.700 kg','6 portions','yesterday by Omar Fares'], status: 'Published', tone: 'ok' },
+  { title: 'Baked salmon & greens', meta: 'RCP-0044', cells: ['v2 · Published','2.400 kg','8 portions','3 days ago by Rana Khalil'], status: 'Published', tone: 'ok' },
+  { title: 'Lentil & spinach soup', meta: 'RCP-0052', cells: ['v6 · Published','5.000 L','20 portions','a week ago by the import'], status: 'Published', tone: 'ok' },
+  { title: 'Halloumi breakfast plate', meta: 'RCP-0018', cells: ['v1 · Draft','—','—','2 weeks ago by the import'], status: 'Draft', tone: 'warn' },
+];
+
+const PRODUCTION = [
+  { title: 'PB-2026-0118', meta: 'PB-2026-0118', cells: ['Grilled chicken quinoa bowl v4','2026-09-15','24.000 kg','Beirut Central'], status: 'Planned', tone: 'info' },
+  { title: 'PB-2026-0117', meta: 'PB-2026-0117', cells: ['Lentil & spinach soup v6','2026-09-14','40.000 L','Beirut Central'], status: 'In progress', tone: 'warn' },
+  { title: 'PB-2026-0116', meta: 'PB-2026-0116', cells: ['Baked salmon & greens v2','2026-09-14','18.000 kg','Hamra'], status: 'In progress', tone: 'warn' },
+  { title: 'PB-2026-0111', meta: 'PB-2026-0111', cells: ['Grilled chicken quinoa bowl v4','2026-09-12','24.000 kg','Beirut Central'], status: 'Completed', tone: 'ok' },
+  { title: 'PB-2026-0104', meta: 'PB-2026-0104', cells: ['Falafel power wrap v3','2026-09-09','30.000 kg','Beirut Central'], status: 'Cancelled', tone: 'neutral' },
+];
+
+const QC = [
+  { title: 'Goods receipt GR-2026-0209', meta: 'QC-0044', cells: ['Goods receipt','2026-09-11','Rana Khalil','Held — smell off on two crates'], status: 'Hold', tone: 'bad' },
+  { title: 'Production order PB-2026-0117', meta: 'QC-0043', cells: ['Production order','2026-09-14','Omar Fares','Not decided yet'], status: 'Pending', tone: 'warn' },
+  { title: 'Goods receipt GR-2026-0211', meta: 'QC-0042', cells: ['Goods receipt','2026-09-12','Rana Khalil','Not decided yet'], status: 'Pending', tone: 'warn' },
+  { title: 'Production order PB-2026-0111', meta: 'QC-0039', cells: ['Production order','2026-09-12','Omar Fares','Released'], status: 'Released', tone: 'ok' },
+];
+
+const ROWS = { orders: ORDERS, stock: STOCK, supply: SUPPLY, suppliers: SUPPLIERS, procurement: PROCUREMENT, purchases: PURCHASES, batch: BATCH, production: PRODUCTION, qc: QC };
+
+const ORDER_LINES = [
+  { name: 'Grilled chicken quinoa bowl', qty: '2', unit: '8.50', total: '17.00' },
+  { name: 'Green detox juice 330 ml', qty: '1', unit: '2.25', total: '2.25' },
+  { name: 'Sparkling water 500 ml', qty: '2', unit: '1.13', total: '2.25' },
+];
+
+const SUPPLY_ROWS = [
+  { item: 'Chicken breast, fresh', level: 'Out', tone: 'bad', onHand: '0.000', levels: '10 / 40', qty: '40', supplier: 's1', ordering: 'Order', note: '' },
+  { item: 'Tahini, dark roast', level: 'Low', tone: 'warn', onHand: '6.400', levels: '8 / 24', qty: '18', supplier: 's2', ordering: 'Order', note: '' },
+  { item: 'Sea bass, whole', level: 'Out', tone: 'bad', onHand: '0.000', levels: '5 / 15', qty: '15', supplier: 'none', ordering: 'Not ordering',
+    note: 'Every supplier linked to this item is archived. Restore one, or link another.' },
+  { item: 'Zaatar blend, house', level: 'Low', tone: 'warn', onHand: '2.100', levels: '3 / 10', qty: '', supplier: 's2', ordering: 'Not ordering',
+    note: 'Enter a quantity, or remove the item.' },
+  { item: 'Quinoa, white', level: 'Low', tone: 'warn', onHand: '11.250', levels: '12 / 30', qty: '20', supplier: 's2', ordering: 'Order', note: '' },
+  { item: 'Labneh, full fat', level: 'Low', tone: 'warn', onHand: '4.000', levels: '6 / 20', qty: '16', supplier: 's3', ordering: 'Order', note: '' },
+];
+
+const BATCH_LINES = [
+  { name: 'Chicken breast, fresh', required: '9.600', available: '0.000', short: '9.600', covered: false },
+  { name: 'Quinoa, white', required: '4.800', available: '31.250', short: '—', covered: true },
+  { name: 'Olive oil, extra virgin', required: '0.720', available: '48.500', short: '—', covered: true },
+  { name: 'Zaatar blend, house', required: '0.240', available: '2.100', short: '—', covered: true },
+  { name: 'Labneh, full fat', required: '1.200', available: '4.000', short: '—', covered: true },
+];
+
+const CARD_FG = { ok:'var(--okOn)', warn:'var(--warnOn)', bad:'var(--badOn)', info:'var(--infoOn)' };
+const toCards = (list) => (list ?? []).map((c) => ({
+  label: c.label, value: c.value, unit: c.unit ?? '', caption: c.caption ?? '',
+  fg: c.tone ? CARD_FG[c.tone] : 'var(--tPri)',
+}));
+
+/** Card buckets per family. Counts are computed over the rows actually shown, so the strip can
+ *  never contradict the pager beneath it. `match` is tested against the row's lowercased status. */
+const CARDS = {
+  orders: [
+    { label: 'Awaiting confirmation', match: ['placed'], unit: 'orders', caption: 'somebody is waiting', tone: 'warn' },
+    { label: 'Confirmed', match: ['confirmed'], unit: 'orders', caption: 'in the kitchen', tone: 'ok' },
+    { label: 'Fulfilled', match: ['fulfilled'], unit: 'orders', caption: 'handed over' },
+  ],
+  stock: [
+    { label: 'Low stock', match: ['low'], unit: 'items', caption: 'at or below reorder point', tone: 'warn' },
+    { label: 'Out of stock', match: ['empty'], unit: 'items', caption: 'empty shelf', tone: 'bad' },
+    { label: 'In stock', match: ['in stock'], unit: 'items', caption: 'above reorder point', tone: 'ok' },
+  ],
+  supply: [
+    { label: 'Draft', match: ['draft'], unit: 'orders', caption: 'nothing sent yet', tone: 'warn' },
+    { label: 'Issued', match: ['issued', 'partly received'], unit: 'orders', caption: 'a delivery is expected' },
+    { label: 'Received', match: ['received'], unit: 'orders', caption: 'stock has risen', tone: 'ok' },
+  ],
+  suppliers: [
+    { label: 'Active', match: ['active'], unit: 'suppliers', caption: 'offered on every picker', tone: 'ok' },
+    { label: 'Archived', match: ['archived'], unit: 'suppliers', caption: 'kept for past receipts' },
+  ],
+  procurement: [
+    { label: 'No prices', match: ['no prices'], unit: 'receipts', caption: 'invoice not entered', tone: 'warn' },
+    { label: 'Some prices', match: ['some prices'], unit: 'receipts', caption: 'part-invoiced', tone: 'warn' },
+    { label: 'Priced', match: ['priced'], unit: 'receipts', caption: 'complete', tone: 'ok' },
+  ],
+  purchases: [
+    { label: 'No price yet', match: ['no price'], unit: 'lines', caption: 'spend is understated', tone: 'warn' },
+    { label: 'Pending FX', match: ['pending fx'], unit: 'lines', caption: 'waiting on a rate', tone: 'info' },
+    { label: 'Priced', match: ['priced'], unit: 'lines', caption: 'valued', tone: 'ok' },
+  ],
+  batch: [
+    { label: 'Published', match: ['published'], unit: 'versions', caption: 'can be produced', tone: 'ok' },
+    { label: 'Draft', match: ['draft'], unit: 'versions', caption: 'no settled figures', tone: 'warn' },
+  ],
+  production: [
+    { label: 'Planned', match: ['planned'], unit: 'batches', caption: 'not started', tone: 'info' },
+    { label: 'In progress', match: ['in progress'], unit: 'batches', caption: 'nothing deducted yet', tone: 'warn' },
+    { label: 'Completed', match: ['completed'], unit: 'batches', caption: 'consume and yield posted', tone: 'ok' },
+  ],
+  qc: [
+    { label: 'Pending', match: ['pending'], unit: 'checks', caption: 'not decided yet', tone: 'warn' },
+    { label: 'On hold', match: ['hold'], unit: 'checks', caption: 'stock cannot be used', tone: 'bad' },
+    { label: 'Released', match: ['released'], unit: 'checks', caption: 'let through', tone: 'ok' },
+  ],
+};
+
+class Component extends DCLogic {
+  state = {
+    screen: 'orders', mode: 'list', tab: null,
+    navOpen: true, q: '', status: 'all', kind: 'ingredients',
+    themeOverride: null, view: null, menuRow: null,
+  };
+
+  componentDidMount() {
+    this.onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (this.state.menuRow) this.setState({ menuRow: null });
+      else if (this.state.view) this.setState({ view: null });
+    };
+    this.onDown = () => { if (this.state.menuRow) this.setState({ menuRow: null }); };
+    document.addEventListener('keydown', this.onKey);
+    document.addEventListener('pointerdown', this.onDown);
+  }
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.onKey);
+    document.removeEventListener('pointerdown', this.onDown);
+  }
+
+  go(screen) {
+    const meta = SCREENS[screen];
+    this.setState({ screen, view: null, menuRow: null, q: '', mode: 'list', tab: null, status: meta.statuses ? meta.statuses[0][0] : 'all' });
+  }
+
+  renderVals() {
+    const p = this.props, s = this.state;
+    const dataState = p.dataState ?? 'normal';
+    const screen = s.screen, meta = SCREENS[screen];
+    const v = {};
+
+    v.dir = p.direction ?? 'ltr';
+    v.theme = s.themeOverride ?? (p.theme ?? 'light');
+
+    v.navOpen = s.navOpen; v.navClosed = !s.navOpen;
+    v.navWidth = s.navOpen ? '208px' : '52px';
+    v.navPad = s.navOpen ? '14px' : '0';
+    v.navRailPad = s.navOpen ? '8px' : '10px';
+    v.navJustify = s.navOpen ? 'flex-start' : 'center';
+    v.navFootAlign = s.navOpen ? 'start' : 'center';
+    v.navToggleTitle = 'Show or hide the navigation';
+    v.toggleNav = () => this.setState({ navOpen: !s.navOpen });
+    v.expandNav = () => this.setState({ navOpen: true });
+    v.navGroups = NAV.map((g) => ({
+      label: g.label, glyph: g.glyph,
+      items: g.items.map((it) => ({
+        label: it.label, count: it.count ?? '', showCount: !!it.count,
+        active: !!g.here && it.key === screen,
+        here: !!g.here && it.key !== screen,
+        away: !g.here,
+        awayTitle: it.label + ' — designed in the ' + g.label + ' file',
+        go: g.here ? () => this.go(it.key) : () => {},
+      })),
+    }));
+
+    const editing = s.mode === 'edit';
+    v.isList = !editing;
+    v.isEditing = editing;
+    v.crumbFamily = meta.family;
+    v.showLeaf = editing;
+    const first = (ROWS[screen] ?? [{ title: meta.family }])[0];
+    const leaf = s.view ? s.view.title : (meta.createTitle ?? first.title);
+    v.crumbLeaf = editing ? leaf : '';
+    v.pageTitle = editing ? leaf : meta.title;
+    v.showPageChip = true;
+    if (editing) {
+      const rec = s.view;
+      v.pageChip = rec ? rec.status : (meta.createChip ?? meta.chip);
+      const chipTone = rec ? rec.tone : 'brand';
+      v.pageChipBg = TONE_BG[chipTone];
+      v.pageChipFg = TONE_FG[chipTone];
+      v.summaryLine = rec
+        ? [rec.meta].concat(rec.cells.slice(0, 2)).join(' · ')
+        : 'Nothing is saved until you save it. Leaving this screen discards what you have typed.';
+      v.summaryCards = [];
+      v.showSummaryCards = false;
+      v.showSummaryLine = true;
+    } else {
+      v.pageChip = meta.chip;
+      v.pageChipBg = TONE_BG[meta.chipTone];
+      v.pageChipFg = TONE_FG[meta.chipTone];
+      v.summaryLine = '';
+      v.summaryCards = [];
+      v.showSummaryCards = false;
+      v.showSummaryLine = false;
+    }
+    v.saveLabel = meta.saveLabel;
+    v.backLabel = meta.backLabel;
+    v.backToList = () => this.setState({ mode: 'list', view: null });
+    v.showCreate = !editing && !!meta.create;
+    v.createLabel = meta.create ?? '';
+    v.openCreate = () => this.setState({ mode: 'edit' });
+    v.hasTabs = false;
+    v.tabs = [];
+
+    v.edOrder = editing && meta.editor === 'order';
+    v.edSupply = editing && meta.editor === 'supply';
+    v.edStock = editing && meta.editor === 'stock';
+    v.edProduction = editing && meta.editor === 'production';
+    v.edGeneric = editing && meta.editor === 'generic';
+
+    // ── list plumbing
+    v.loading = dataState === 'loading';
+    v.errored = dataState === 'error';
+    v.isOffline = dataState === 'offline';
+    v.truncatedOn = !!p.truncated;
+    v.costNoteOn = !!meta.costNote;
+    v.retry = () => {};
+    v.skeletonRows = [1,2,3,4,5,6,7,8,9];
+    v.searchPlaceholder = meta.search;
+    v.errorTitle = meta.errorTitle;
+    v.emptyTitle = meta.emptyTitle;
+    v.emptyBody = meta.emptyBody;
+    v.grid = meta.grid;
+    v.gridMin = meta.gridMin;
+    v.footNote = meta.foot;
+    v.columns = meta.columns.map((label) => ({ label, style: micro }));
+    v.statusLabel = meta.statusLabel;
+    v.q = s.q;
+    v.setQ = (e) => this.setState({ q: e.target.value });
+    v.statusTabs = meta.statuses.map(([k, label]) => ({
+      label, style: seg(s.status === k), go: () => this.setState({ status: k }),
+    }));
+    v.hasKindTabs = !!meta.kinds;
+    v.kindTabs = (meta.kinds ?? []).map(([k, label]) => ({
+      label, style: seg(s.kind === k), go: () => this.setState({ kind: k }),
+    }));
+    const firstStatus = meta.statuses[0][0];
+    v.anyFilter = s.q.trim() !== '' || s.status !== firstStatus;
+    v.clearFilters = () => this.setState({ q: '', status: firstStatus });
+
+    v.statStrip = false; // superseded by the header summary cards
+    v.stats = (meta.stats ?? []).map((c) => ({
+      ...c, fg: c.tone === 'warn' ? 'var(--warnOn)' : c.tone === 'bad' ? 'var(--badOn)' : 'var(--tPri)',
+    }));
+
+    const source = ROWS[screen] ?? [];
+    const q = s.q.trim().toLowerCase();
+    const filtered = source.filter((r) => {
+      if (q && !(r.title.toLowerCase().includes(q) || r.meta.toLowerCase().includes(q))) return false;
+      if (s.status === firstStatus) return true;
+      const st = r.status.toLowerCase();
+      if (s.status === 'low') return st === 'low';
+      if (s.status === 'out') return st === 'empty';
+      if (s.status === 'ok') return st === 'in stock';
+      if (s.status === 'placed') return st === 'placed';
+      if (s.status === 'confirmed') return st === 'confirmed';
+      if (s.status === 'fulfilled') return st === 'fulfilled';
+      if (s.status === 'draft') return st === 'draft';
+      if (s.status === 'issued') return st === 'issued';
+      if (s.status === 'received') return st === 'received' || st === 'partly received';
+      if (s.status === 'archived') return st === 'archived';
+      if (s.status === 'unpriced') return st === 'no prices' || st === 'no price';
+      if (s.status === 'partial') return st === 'some prices';
+      if (s.status === 'complete') return st === 'priced';
+      if (s.status === 'planned') return st === 'planned';
+      if (s.status === 'progress') return st === 'in progress';
+      if (s.status === 'completed') return st === 'completed';
+      if (s.status === 'pending') return st === 'pending';
+      if (s.status === 'hold') return st === 'hold';
+      if (s.status === 'released') return st === 'released';
+      if (s.status === 'short') return false;
+      return true;
+    });
+    v.rows = filtered.map((r) => ({
+      title: r.title, meta: r.meta, status: r.status, statusStyle: badge(r.tone),
+      cells: r.cells.map((value, i) => ({
+        style: /^[\d\s.,—-]+$/.test(String(value)) ? cellMono : (i === r.cells.length - 1 ? cellMeta : cellText),
+        value,
+      })),
+      view: (e) => { if (e) e.stopPropagation(); this.setState({ view: r, menuRow: null }); },
+      edit: () => this.setState({ mode: 'edit', view: r, menuRow: null }),
+      openMenu: (e) => { if (e) e.stopPropagation(); this.setState({ menuRow: s.menuRow === r.meta ? null : r.meta }); },
+      menuOpen: s.menuRow === r.meta,
+      menuTriggerBg: s.menuRow === r.meta ? 'var(--sSunken)' : 'var(--sRaised)',
+      viewFromMenu: (e) => { if (e) e.stopPropagation(); this.setState({ view: r, menuRow: null }); },
+      editFromMenu: (e) => { if (e) e.stopPropagation(); this.setState({ mode: 'edit', view: r, menuRow: null }); },
+      archive: (e) => { if (e) e.stopPropagation(); this.setState({ menuRow: null }); },
+    }));
+    v.pagerRange = 'Showing 1–' + filtered.length + ' of ' + source.length;
+    // Counted over the rows in hand, so the strip and the pager can never disagree.
+    if (!editing) {
+      const count = (m) => filtered.filter((r) => m.includes(r.status.toLowerCase())).length;
+      v.summaryCards = [{
+        label: 'Shown', value: String(filtered.length), unit: 'of ' + source.length,
+        caption: v.anyFilter ? 'filtered' : 'no filters applied', fg: 'var(--tPri)',
+      }].concat((CARDS[screen] ?? []).map((c) => {
+        const n = count(c.match);
+        return {
+          label: c.label, value: String(n), unit: c.unit, caption: c.caption,
+          fg: n > 0 && c.tone ? CARD_FG[c.tone] : 'var(--tPri)',
+        };
+      }));
+      v.showSummaryCards = v.summaryCards.length > 0;
+    }
+    v.emptyOn = v.isList && dataState !== 'loading' && dataState !== 'error' && (dataState === 'empty' || filtered.length === 0);
+    v.tableOn = v.isList && dataState !== 'loading' && dataState !== 'error' && dataState !== 'empty' && filtered.length > 0;
+
+    // ── order detail
+    v.orderLines = ORDER_LINES;
+    v.orderTimeline = [
+      { label: 'Placed', value: '2026-09-14 13:02', style: 'font-family:\'IBM Plex Mono\', monospace; font-size:12px' },
+      { label: 'Confirmed', value: 'Not recorded', style: 'font-size:12px; color:var(--tSec)' },
+      { label: 'Fulfilled', value: 'Not recorded', style: 'font-size:12px; color:var(--tSec)' },
+    ];
+
+    // ── supply builder
+    v.supplyRows = SUPPLY_ROWS.map((r) => ({
+      item: r.item, level: r.level, levelStyle: badge(r.tone),
+      onHand: r.onHand, levels: r.levels, qty: r.qty,
+      qtyStyle: r.qty ? inputEnd : inputWarn,
+      supplier: r.supplier,
+      supplierStyle: r.supplier === 'none' ? selectWarn : selectBase,
+      ordering: r.ordering,
+      orderingStyle: r.ordering === 'Order' ? badge('ok') : badge('neutral'),
+      note: r.note, noteStyle: r.note ? explainer : 'display:none',
+    }));
+    v.supplyGroups = [
+      { supplier: 'Beqaa Fresh Produce', count: '1 item' },
+      { supplier: 'Levant Dry Goods', count: '2 items' },
+      { supplier: 'Tripoli Dairy', count: '1 item' },
+    ];
+
+    // ── batch lines
+    v.batchLines = BATCH_LINES.map((l) => ({
+      name: l.name, required: l.required, available: l.available, short: l.short,
+      shortStyle: l.covered ? 'font-family:\'IBM Plex Mono\', monospace; font-size:12px; text-align:end; color:var(--tSec)' : 'font-family:\'IBM Plex Mono\', monospace; font-size:12px; font-weight:500; text-align:end; color:var(--badOn)',
+      position: l.covered ? 'Covered' : 'Short',
+      positionStyle: badge(l.covered ? 'ok' : 'bad'),
+    }));
+
+    // ── generic editor body
+    const mono = 'font-family:\'IBM Plex Mono\', monospace; font-size:12px; color:var(--tPri)';
+    const plain = 'font-size:12px; line-height:18px; color:var(--tPri); text-wrap:pretty';
+    const labels = meta.columns.slice(1, -1);
+    const record = s.view ?? first;
+    v.genericTitle = meta.family.replace(/s$/, '') + ' record';
+    v.genericNote = 'This family is designed at list depth in this pass: the columns, the filters and the view window are the decisions. Its full editor is the next slice, and it inherits every control on this screen unchanged.';
+    v.genericFields = [{ label: 'Reference', value: record.meta, style: mono }]
+      .concat((record.cells ?? []).map((value, i) => ({
+        label: labels[i] ?? 'Field ' + (i + 1), value,
+        style: /^[\d\s.,—-]+$/.test(String(value)) ? mono : plain,
+      })))
+      .concat([{ label: 'Status', value: record.status ?? '—', style: plain }]);
+
+    // ── view window
+    const r = s.view;
+    v.windowOpen = !!r && !editing;
+    v.closeWindow = () => this.setState({ view: null });
+    v.swallow = (e) => { e.stopPropagation(); };
+    v.editFromWindow = () => this.setState({ mode: 'edit' });
+    v.windowTitle = r ? r.title : '';
+    v.windowKind = meta.family.replace(/s$/, '');
+    v.windowStatus = r ? r.status : '';
+    v.windowStatusStyle = r ? badge(r.tone) : 'display:none';
+    v.windowAction = screen === 'orders' ? 'Open the order' : screen === 'stock' ? 'Adjust' : 'Edit';
+    v.windowNote = false; v.windowNoteText = '';
+    v.windowHasLines = false; v.windowLines = []; v.windowLinesLabel = ''; v.windowLinesLast = 'Total';
+    v.windowFields = [];
+    v.windowFoot = '';
+
+    if (r) {
+      v.windowFields = [{ label: 'Reference', value: r.meta, style: mono }]
+        .concat(r.cells.map((value, i) => ({
+          label: labels[i] ?? 'Field ' + (i + 1), value,
+          style: /^[\d\s.,—-]+$/.test(String(value)) ? mono : plain,
+        })));
+      if (screen === 'orders') {
+        v.windowHasLines = true;
+        v.windowLinesLabel = 'Items';
+        v.windowLines = ORDER_LINES;
+        v.windowFoot = 'Cancelling is final and needs a reason.';
+        v.windowNote = r.status === 'Placed';
+        v.windowNoteText = 'This order is placed but not confirmed. Nothing has been deducted from stock and the kitchen has not been told to cook it.';
+      } else if (screen === 'stock') {
+        v.windowFoot = 'Every movement is a ledger entry — there is no editing a level directly.';
+        v.windowNote = r.status !== 'In stock';
+        v.windowNoteText = r.status === 'Empty'
+          ? 'The shelf is empty at this branch. A sale of anything that consumes it will raise a consumption exception rather than guess a quantity.'
+          : 'On hand is at or below this item’s reorder point, so it shows on the supply-order builder as needing ordering.';
+      } else if (screen === 'purchases') {
+        v.windowFoot = 'There is nothing to write from a ledger.';
+        v.windowNote = r.status !== 'Priced';
+        v.windowNoteText = r.status === 'Pending FX'
+          ? 'This price is recorded, but it cannot be valued yet: it was bought in a different currency from the one this item is costed in, and this system never invents an exchange rate.'
+          : 'This line has no usable price yet, so the month’s purchasing spend is understated by whatever it cost.';
+      } else if (screen === 'qc') {
+        v.windowFoot = 'A hold stops the stock being used; a release lets it through.';
+        v.windowNote = r.status === 'Hold';
+        v.windowNoteText = 'This subject is on hold. Nothing it produced may be sold or consumed until somebody releases it.';
+      } else if (screen === 'supply') {
+        v.windowFoot = 'Issuing freezes the items, the quantities and the supplier’s details.';
+        v.windowNote = r.status === 'Draft';
+        v.windowNoteText = 'This order is a draft. Nothing is sent anywhere: issuing freezes what is on it and opens the printable sheet, which you hand over.';
+      }
+    }
+
+    return v;
+  }
+}
+
+</script>
+</body>
+</html>

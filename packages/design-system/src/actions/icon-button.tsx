@@ -1,12 +1,14 @@
-import { Pressable, Text as RNText, View } from 'react-native';
+import { Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { PressableProps } from 'react-native';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { CONTAINER_VARIANT, LABEL_VARIANT } from './button-shared.ts';
+import { showFloatingLabel } from './floating-label.ts';
+import type { FloatingLabel } from './floating-label.ts';
 import type { ButtonSize, ButtonVariant } from './button-shared.ts';
 
 /**
@@ -90,13 +92,24 @@ export function IconButton({
      * The label, drawn while the pointer rests on the glyph.
      *
      * An icon-only control's name is `aria-label` for a screen reader and nothing for a mouse: a
-     * row of four glyphs asks the reader to guess. Hover is the mouse's own way of asking, so the
-     * label sits above the glyph for as long as the pointer stays. Above rather than below, because
-     * react-native-web paints siblings in source order and a label hanging *under* a table row would
-     * be covered by the row after it. Native never fires hover, so nothing changes there.
+     * row of four glyphs asks the reader to guess. Hover is the mouse's own way of asking.
+     *
+     * On the web the label is a floating element on the document body (`floating-label.ts`), because
+     * a child of the control is clipped and out-ranked by its ancestors — under a table's header
+     * edge, over a top bar's border. Elsewhere it stays an in-tree child; native never fires hover.
      */
     const [hovered, setHovered] = useState(false);
-    const showLabel = hovered && !disabled;
+    const floating = useRef<FloatingLabel | null>(null);
+    const hideFloating = useCallback(() => {
+        floating.current?.hide();
+        floating.current = null;
+    }, []);
+    // Gone on unmount, and the moment the control is disabled under the pointer.
+    useEffect(() => hideFloating, [hideFloating]);
+    useEffect(() => {
+        if (disabled) hideFloating();
+    }, [disabled, hideFloating]);
+    const showLabel = hovered && !disabled && Platform.OS !== 'web';
 
     return (
         <Pressable
@@ -109,13 +122,29 @@ export function IconButton({
             accessibilityState={{ disabled }}
             aria-disabled={disabled}
             disabled={disabled}
-            onPress={disabled ? undefined : onPress}
+            onPress={
+                disabled || onPress === undefined || onPress === null
+                    ? undefined
+                    : (event) => {
+                          hideFloating();
+                          onPress(event);
+                      }
+            }
             onHoverIn={(event) => {
                 setHovered(true);
+                if (Platform.OS === 'web' && !disabled) {
+                    hideFloating();
+                    floating.current = showFloatingLabel(
+                        (event as unknown as { currentTarget?: unknown }).currentTarget,
+                        label,
+                        testID === undefined ? undefined : `${testID}-hover-label`,
+                    );
+                }
                 onHoverIn?.(event);
             }}
             onHoverOut={(event) => {
                 setHovered(false);
+                hideFloating();
                 onHoverOut?.(event);
             }}
             className={cx(
@@ -134,9 +163,9 @@ export function IconButton({
                     // reached, and it says nothing a screen reader has not already been told.
                     style={{ pointerEvents: 'none' }}
                     aria-hidden
-                    className="absolute bottom-full end-0 z-tooltip mb-1 rounded-sm bg-surface-canopy-deep px-2 py-1"
+                    className="absolute top-full end-0 z-tooltip mt-1 rounded-sm bg-surface-brand px-2 py-1"
                 >
-                    <RNText numberOfLines={1} className="text-role-caption text-content-on-canopy">
+                    <RNText numberOfLines={1} className="text-role-caption text-content-on-brand">
                         {label}
                     </RNText>
                 </View>

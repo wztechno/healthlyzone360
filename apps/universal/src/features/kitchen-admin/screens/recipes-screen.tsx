@@ -1,13 +1,4 @@
-import {
-    Badge,
-    Button,
-    Dialog,
-    Icon,
-    Inline,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Dialog, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { PublishableStatus, RecipeAdminSummary } from '@healthy360/api-client/contracts';
 import type { KitchenId } from '@healthy360/domain-types';
@@ -28,8 +19,8 @@ import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
@@ -45,6 +36,7 @@ import {
     statusShortKey,
     statusTone,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/recipes` — the recipe list, drawn the way `/kitchen/ingredients` is.
@@ -163,6 +155,50 @@ function RecipesList() {
     const viewed = list.viewing;
     const viewedAllergens = viewedDetail.data?.currentVersion.allergens ?? [];
 
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    if (viewed !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-recipes-view"
+                kind={t('kitchen:recipes.viewKind')}
+                reference={viewed.slug}
+                title={displayName(viewed.name, locale).value}
+                status={{
+                    tone: statusTone(viewed.meta.status),
+                    label: t(statusShortKey(viewed.meta.status)),
+                }}
+                fields={viewFields(viewed, t, formatter, kitchenName)}
+                onBack={list.closeView}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-recipes-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewed.id));
+                    },
+                }}
+                {...(viewedAllergens.length === 0
+                    ? {}
+                    : {
+                          chipsLabel: t('kitchen:recipes.columnAllergens'),
+                          chipsSourceBadge: t('kitchen:recipes.viewAllergensSource'),
+                          chipsCaption: t('kitchen:recipes.viewAllergensCaption'),
+                          chips: viewedAllergens.map((declaration) => ({
+                              key: declaration.allergenCode,
+                              label: declaration.allergenCode,
+                              tone:
+                                  declaration.containment === 'contains'
+                                      ? ('danger' as const)
+                                      : ('warning' as const),
+                          })),
+                      })}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-recipes-screen">
             {/*
@@ -189,6 +225,7 @@ function RecipesList() {
                 status={segments.value}
                 onStatusChange={segments.onChange}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-recipes-toolbar" />
@@ -234,48 +271,6 @@ function RecipesList() {
                     rowActions={(row) => rowActions(row, list, t, toast, canManage)}
                 />
             </CatalogueListBody>
-
-            <CatalogueViewDrawer
-                testID="kitchen-recipes-view"
-                open={viewed !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:recipes.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
-                }}
-                {...(viewed === null ? {} : { reference: viewed.slug })}
-                title={viewed === null ? '' : displayName(viewed.name, locale).value}
-                status={
-                    viewed === null ? undefined : (
-                        <Badge
-                            tone={statusTone(viewed.meta.status)}
-                            label={t(statusShortKey(viewed.meta.status))}
-                        />
-                    )
-                }
-                fields={viewed === null ? [] : viewFields(viewed, t, formatter, kitchenName)}
-                {...(viewed === null || viewedAllergens.length === 0
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:recipes.columnAllergens'),
-                          chipsSource: t('kitchen:recipes.viewAllergensSource'),
-                          chipsCaption: t('kitchen:recipes.viewAllergensCaption'),
-                          chips: viewedAllergens.map((declaration) => (
-                              <Badge
-                                  key={declaration.allergenCode}
-                                  tone={
-                                      declaration.containment === 'contains' ? 'danger' : 'warning'
-                                  }
-                                  label={declaration.allergenCode}
-                              />
-                          )),
-                      })}
-            />
 
             {/*
              * Retiring *is* the archive: the contract has no `archiveRecipe`, and nothing is
@@ -359,7 +354,7 @@ function rowActions(
         },
         {
             key: 'edit',
-            label: t('kitchen:recipes.open'),
+            label: t('kitchen:catalogue.edit'),
             icon: CATALOGUE_ROW_ICONS.edit,
             testID: `${testID}-open`,
             onSelect: () => {
@@ -575,6 +570,7 @@ function columnControl(
     }
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     RECIPE_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -592,6 +588,7 @@ function columnControl(
     }
     if (key === 'kitchen') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     list.kitchens.map((entry) => ({

@@ -16,7 +16,7 @@ import {
     useAllergenClassesQuery,
     useRetireMealMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { displayName } from '../format.ts';
+import { availableChannels, displayName } from '../format.ts';
 import { useListPage } from '../use-list-page.ts';
 import { useCatalogueFilters } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
@@ -55,7 +55,7 @@ import { useDestructiveRow } from './use-destructive-row.ts';
  * not claim to be catalogue-wide.
  */
 
-export type MealSortKey = 'name' | 'category' | 'status' | 'updatedAt';
+export type MealSortKey = 'name' | 'channels' | 'category' | 'status' | 'updatedAt';
 export type MealSortDirection = 'asc' | 'desc';
 
 export interface MealListState {
@@ -165,6 +165,17 @@ export function useMealList(): MealListState {
                 return (
                     factor *
                     (left.kitchenCategory ?? '').localeCompare(right.kitchenCategory ?? '', locale)
+                );
+            }
+            if (sortKey === 'channels') {
+                // Sorts, because `MealAdminFilter` carries no channel parameter to filter by: by how
+                // many channels sell the meal, then by their codes, so equal counts stay grouped.
+                const leftChannels = availableChannels(left.channelAvailability);
+                const rightChannels = availableChannels(right.channelAvailability);
+                return (
+                    factor *
+                    (leftChannels.length - rightChannels.length ||
+                        leftChannels.join(',').localeCompare(rightChannels.join(',')))
                 );
             }
             if (sortKey === 'status') {

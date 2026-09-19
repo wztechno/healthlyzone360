@@ -1,14 +1,5 @@
 import type { MealAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Dialog,
-    Icon,
-    Inline,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Dialog, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { MEAL_TYPES } from '@healthy360/domain-types';
 import type { MealType } from '@healthy360/domain-types';
@@ -30,8 +21,8 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { mealColumns } from '../catalogue/meal-columns.tsx';
 import type { MealListState, MealSortKey } from '../catalogue/use-meal-list.ts';
@@ -47,6 +38,7 @@ import {
     statusShortKey,
     statusTone,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/meals` — the dishes this kitchen sells, and which of them a shopper can see.
@@ -132,6 +124,56 @@ function MealsList() {
 
     const segments = statusSegments(list.statuses, list.setStatuses, t);
 
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    const viewing = list.viewing;
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-meals-view"
+                kind={t('kitchen:meals.viewKind')}
+                title={displayName(viewing.name, locale).value}
+                status={{
+                    tone: statusTone(viewing.meta.status),
+                    label: t(statusShortKey(viewing.meta.status)),
+                }}
+                fields={viewFields(viewing, t, formatter)}
+                onBack={list.closeView}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-meals-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewing.id));
+                    },
+                }}
+                /*
+                 * Drawn even when the set is empty. The label is frozen from the recipe version at
+                 * publication and cannot be edited on a meal, so an empty set here is a real
+                 * declaration — and on the one field a kitchen reads for safety, "this meal declares
+                 * none" and "nobody has looked" are the two answers that most need telling apart.
+                 */
+                chipsLabel={t('kitchen:meals.columnAllergens')}
+                chipsSourceBadge={t('kitchen:meals.viewAllergensSource')}
+                chipsCaption={t('kitchen:meals.viewAllergensCaption')}
+                chips={viewing.allergens.map((code) => ({
+                    key: String(code),
+                    label: String(code),
+                    tone: 'danger' as const,
+                }))}
+                {...(viewing.allergens.length === 0
+                    ? {
+                          chipsContent: (
+                              <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
+                          ),
+                      }
+                    : {})}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-meals-screen">
             <Stack space="xs">
@@ -151,6 +193,7 @@ function MealsList() {
                 status={segments.value}
                 onStatusChange={segments.onChange}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-meals-toolbar" />
@@ -201,7 +244,7 @@ function MealsList() {
                         },
                         {
                             key: 'edit',
-                            label: t('kitchen:list.open'),
+                            label: t('kitchen:catalogue.edit'),
                             icon: CATALOGUE_ROW_ICONS.edit,
                             testID: `${mealRowTestId(String(row.id))}-open`,
                             onSelect: () => {
@@ -240,57 +283,6 @@ function MealsList() {
                     {t('kitchen:meals.tableProvenance')}
                 </Text>
             </CatalogueListBody>
-
-            <CatalogueViewDrawer
-                testID="kitchen-meals-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:meals.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    const viewed = list.viewing;
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
-                }}
-                title={list.viewing === null ? '' : displayName(list.viewing.name, locale).value}
-                status={
-                    list.viewing === null ? undefined : (
-                        <Badge
-                            tone={statusTone(list.viewing.meta.status)}
-                            label={t(statusShortKey(list.viewing.meta.status))}
-                        />
-                    )
-                }
-                fields={list.viewing === null ? [] : viewFields(list.viewing, t, formatter)}
-                /*
-                 * Drawn even when the set is empty. The label is frozen from the recipe version at
-                 * publication and cannot be edited on a meal, so an empty set here is a real
-                 * declaration — and on the one field a kitchen reads for safety, "this meal declares
-                 * none" and "nobody has looked" are the two answers that most need telling apart.
-                 */
-                {...(list.viewing === null
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:meals.columnAllergens'),
-                          chipsSource: t('kitchen:meals.viewAllergensSource'),
-                          chipsCaption: t('kitchen:meals.viewAllergensCaption'),
-                          chips:
-                              list.viewing.allergens.length === 0 ? (
-                                  <Text tone="secondary">{t('kitchen:list.noAllergens')}</Text>
-                              ) : (
-                                  list.viewing.allergens.map((code) => (
-                                      <Badge
-                                          key={String(code)}
-                                          tone="danger"
-                                          label={String(code)}
-                                      />
-                                  ))
-                              ),
-                      })}
-            />
 
             {/*
              * Withdrawing is what removes a meal from every consumer surface. The dialog says exactly
@@ -494,8 +486,8 @@ function viewFields(
 /**
  * What one column's header does — handed to `useColumnControls`, which draws it.
  *
- * Only what `MealAdminFilter` carries — `statuses`, `mealTypes`, `allergenCodes` — all sent with
- * the request. Channels and the filing pair have no parameter, so their headers stay plain:
+ * Filters are only what `MealAdminFilter` carries — `statuses`, `mealTypes`, `allergenCodes` — all
+ * sent with the request. Channels and the filing pair have no parameter, so they sort instead:
  * narrowing one loaded page would misreport every page after it. The allergen filter has to be
  * the server's: a meal's label is derived at read time, so nothing on the row could be matched.
  */
@@ -507,6 +499,7 @@ function columnControl(
 ): ColumnControl<MealAdmin> {
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     MEAL_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -564,5 +557,11 @@ function columnControl(
 }
 
 function isMealAdminSortKey(key: string): key is MealSortKey {
-    return key === 'name' || key === 'category' || key === 'status' || key === 'updatedAt';
+    return (
+        key === 'name' ||
+        key === 'channels' ||
+        key === 'category' ||
+        key === 'status' ||
+        key === 'updatedAt'
+    );
 }

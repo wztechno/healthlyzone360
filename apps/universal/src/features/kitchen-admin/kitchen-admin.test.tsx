@@ -40,6 +40,7 @@ import { ENTITY_FAMILIES, WORKSPACE_PERMISSIONS, permittedFamilies } from './ent
 import { AllergenClassesScreen } from './screens/allergen-classes-screen.tsx';
 import { IngredientEditScreen } from './screens/ingredient-edit-screen.tsx';
 import { IngredientsScreen } from './screens/ingredients-screen.tsx';
+import { forgetColumnChoice } from './catalogue/column-picker.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 
 /**
@@ -114,6 +115,17 @@ function untilVisible(testID: string) {
         },
         { timeout: 10_000 },
     );
+}
+
+/**
+ * Opens one step of the ingredient editor. The editor is a multi-step form that opens on Identity, so
+ * a field on any later section is one press on the step row away.
+ */
+async function openIngredientStep(key: string) {
+    await untilVisible(`kitchen-ingredient-steps-${key}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`kitchen-ingredient-steps-${key}`));
+    });
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -635,6 +647,59 @@ describe('the ingredient list at desk width', () => {
 });
 
 describe('the ingredient list', () => {
+    beforeEach(() => {
+        forgetColumnChoice('kitchen-ingredients');
+    });
+
+    it('lets the reader choose up to six columns, keeping Item', async () => {
+        const row = ingredient(1);
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { listIngredients: ingredientListing(() => [row]) },
+            },
+        });
+        await untilVisible('kitchen-ingredients-table');
+        const cell = (suffix: string) => `kitchen-ingredient-${String(row.id)}-${suffix}`;
+
+        // The six defaults: Allergens in, Unit one pick away.
+        expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
+        expect(screen.queryByTestId(cell('unit'))).toBeNull();
+        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(/6\/6/);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-trigger'));
+        });
+        await untilVisible('kitchen-ingredients-columns-unit');
+
+        // Full: an unticked column cannot be added, and Item can never be dropped.
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true, checked: false }));
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-name').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true, checked: true }));
+
+        // Drop Allergens, which frees the slot Unit then takes.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens'));
+        });
+        expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: false }));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit'));
+        });
+        expect(screen.getByTestId(cell('unit'))).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-reset'));
+        });
+        expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
+        expect(screen.queryByTestId(cell('unit'))).toBeNull();
+    });
+
     it('answers a search nothing matches with the filtered empty state', async () => {
         await renderStubScreen(<IngredientsScreen />, {
             session: kitchenManagerSession(),
@@ -823,6 +888,26 @@ describe('the ingredient editor', () => {
         });
     });
 
+    it('opens the step holding a missing required field when Save is pressed from another', async () => {
+        const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+
+        await openIngredientStep('measurement');
+        await untilVisible('kitchen-ingredient-items-per-unit-input');
+        expect(screen.queryByTestId('kitchen-ingredient-name-en-input')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        // The name is required and lives on Identity: the press opens that step rather than
+        // doing nothing, and writes nothing.
+        await untilVisible('kitchen-ingredient-name-en-input');
+        expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+    });
+
     it('keeps a platform-library record read-only and offers the fork as the writable path', async () => {
         const record = platformIngredient(5, {
             meta: meta({ status: 'published' }),
@@ -854,6 +939,9 @@ describe('the ingredient editor', () => {
          * the banner above.
          */
         await untilVisible('kitchen-ingredient-fork');
+        await openIngredientStep('allergens');
+        // The last step draws no Save either: the footer mirrors the header.
+        expect(screen.queryByTestId('kitchen-ingredient-editor-screen-steps-save')).toBeNull();
         // The determination is still *shown*, as a chip on the read-only panel — read-only is not
         // the same as hidden, and a kitchen deciding whether to fork needs to see what it is
         // forking.
@@ -1067,6 +1155,7 @@ describe('the ingredient editor', () => {
             },
         });
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-grams-per-unit-input');
         expect(screen.getByTestId('kitchen-ingredient-grams-per-unit-input').props.value).toBe(
             '1080',
@@ -1086,6 +1175,7 @@ describe('the ingredient editor', () => {
             },
         });
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-items-per-unit-input');
         expect(screen.queryByTestId('kitchen-ingredient-grams-per-unit')).toBeNull();
     });
@@ -1110,6 +1200,7 @@ describe('the ingredient editor', () => {
             },
         );
 
+        await openIngredientStep('measurement');
         await untilVisible('kitchen-ingredient-grams-per-unit-input');
 
         await act(async () => {
@@ -1178,6 +1269,7 @@ describe('nutrition per 100 g', () => {
             },
         });
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrient-energy-input');
 
         expect(screen.getByTestId('kitchen-ingredient-nutrient-energy-input').props.value).toBe(
@@ -1213,6 +1305,7 @@ describe('nutrition per 100 g', () => {
             },
         );
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrient-energy-input');
 
         await act(async () => {
@@ -1284,6 +1377,7 @@ describe('nutrition per 100 g', () => {
             },
         );
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrient-fibre-input');
 
         // One figure emptied out of seven. The roll-up would read the gap as nothing at all rather
@@ -1340,6 +1434,7 @@ describe('nutrition per 100 g', () => {
             },
         );
 
+        await openIngredientStep('nutrition');
         await untilVisible('kitchen-ingredient-nutrition-panel');
 
         // Not "the inputs are disabled" — they are not rendered, which is the difference between a
@@ -1409,6 +1504,7 @@ describe('composition and allergens, read-only', () => {
             },
         );
 
+        await openIngredientStep('allergens');
         await untilVisible('kitchen-ingredient-composition');
 
         // Both claims are drawn. `contains` and `may_contain` are two different statements and
@@ -1601,5 +1697,57 @@ describe('the allergen class reference', () => {
         expect(
             screen.queryByTestId(`kitchen-allergen-class-${String(first?.code)}-archive`),
         ).toBeNull();
+    });
+
+    it('narrows to one market from the Markets header, and counts what it narrowed to', async () => {
+        // Lupin is the one class only the EU requires; molluscs are required by no market at all.
+        const classes = ALLERGEN_CLASSES.map((entry) =>
+            String(entry.code) === 'lupin'
+                ? { ...entry, markets: ['EU'] }
+                : String(entry.code) === 'molluscs'
+                  ? { ...entry, markets: [] }
+                  : entry,
+        );
+        await renderStubScreen(<AllergenClassesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listAllergenClasses: async () => classes } },
+        });
+        await untilVisible('kitchen-allergen-classes-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-trigger'));
+        });
+        await untilVisible('kitchen-allergen-classes-column-markets-GCC');
+        expect(screen.getByTestId('kitchen-allergen-classes-column-markets-EU')).toBeTruthy();
+        // "No market requires it" is offered because a class really is in that position.
+        expect(screen.getByTestId('kitchen-allergen-classes-column-markets-none')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-GCC'));
+        });
+
+        // Every class but the EU-only one and the unregulated one: twelve, and Shown says twelve.
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-allergen-class-lupin-name')).toBeNull();
+        });
+        expect(screen.queryByTestId('kitchen-allergen-class-molluscs-name')).toBeNull();
+        expect(screen.getByTestId('kitchen-allergen-class-gluten-name')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
+            /^12$/,
+        );
+
+        // A filter value leaves the menu open, so the next market is one press away.
+        await untilVisible('kitchen-allergen-classes-column-markets-none');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-none'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-allergen-class-molluscs-name')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-allergen-class-gluten-name')).toBeNull();
+        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
+            /^1$/,
+        );
     });
 });

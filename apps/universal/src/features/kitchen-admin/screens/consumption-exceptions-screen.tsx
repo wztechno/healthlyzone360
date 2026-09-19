@@ -6,7 +6,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    RecordWindow,
     SegmentedControl,
     Skeleton,
     Stack,
@@ -34,6 +33,8 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
@@ -248,6 +249,27 @@ function ConsumptionExceptions() {
             label: t('kitchen:ops.exceptions.columnStatus'),
             width: 190,
             priority: 95,
+            /*
+             * The toolbar's status cut, offered again where the column is: the same state, so the
+             * two never disagree, and sent with the request as `resolved` — the list is cursor-paged,
+             * and narrowing the page in hand would misreport every page after it.
+             */
+            filter: {
+                values: () =>
+                    (
+                        [
+                            ['unresolved', 'kitchen:ops.exceptions.filterUnresolved'],
+                            ['resolved', 'kitchen:ops.exceptions.filterResolved'],
+                        ] as const
+                    ).map(([key, labelKey]) => ({ key, label: t(labelKey) })),
+                external: {
+                    value: status === 'all' ? null : status,
+                    onChange: (next) => {
+                        setStatus(next === 'resolved' || next === 'unresolved' ? next : 'all');
+                        refilter();
+                    },
+                },
+            },
             render: (row) => (
                 <View className="flex-row flex-wrap items-center gap-1.5">
                     {row.resolved ? (
@@ -279,6 +301,84 @@ function ConsumptionExceptions() {
     const controls = useColumnControls(rows, columns, 'kitchen-consumption-exceptions-table');
     const failure = toFailure(exceptions.error);
     const hasData = !exceptions.isPending && failure === null;
+
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-consumption-exceptions-window"
+                onBack={() => {
+                    setViewing(null);
+                }}
+                title={t('kitchen:ops.exceptions.window.title', { order: orderLabel(viewing) })}
+                kind={t('kitchen:ops.exceptions.window.kind')}
+                status={
+                    viewing.resolved
+                        ? { label: t('kitchen:ops.exceptions.resolvedBadge'), tone: 'success' }
+                        : { label: t('kitchen:ops.exceptions.openBadge'), tone: 'danger' }
+                }
+                {...(viewing.resolved ? {} : { note: t('kitchen:ops.exceptions.window.openNote') })}
+                fields={[
+                    {
+                        key: 'item',
+                        label: t('kitchen:ops.exceptions.window.fieldItem'),
+                        value: itemLabel(viewing),
+                    },
+                    {
+                        key: 'branch',
+                        label: t('kitchen:ops.exceptions.columnBranch'),
+                        value: viewing.branchName ?? t('kitchen:list.noValue'),
+                    },
+                    {
+                        key: 'reason',
+                        label: t('kitchen:ops.exceptions.columnReason'),
+                        value: t(`kitchen:ops.exceptions.reasons.${viewing.reasonCode}`),
+                    },
+                    {
+                        key: 'raised',
+                        label: t('kitchen:ops.exceptions.columnRaised'),
+                        value: raisedLabel(viewing),
+                        mono: true,
+                    },
+                    ...(viewing.detail === null
+                        ? []
+                        : [
+                              {
+                                  key: 'detail',
+                                  label: t('kitchen:ops.exceptions.window.fieldDetail'),
+                                  value: viewing.detail,
+                              },
+                          ]),
+                    ...(viewing.resolutionNote === null
+                        ? []
+                        : [
+                              {
+                                  key: 'resolutionNote',
+                                  label: t('kitchen:ops.exceptions.window.fieldResolutionNote'),
+                                  value: viewing.resolutionNote,
+                              },
+                          ]),
+                    {
+                        key: 'money',
+                        label: t('kitchen:ops.exceptions.window.fieldMoney'),
+                        value: t('kitchen:ops.exceptions.window.moneyValue'),
+                    },
+                ]}
+                primaryAction={
+                    viewing.resolved || !canManage
+                        ? undefined
+                        : {
+                              label: t('kitchen:ops.exceptions.window.retry'),
+                              icon: 'refresh',
+                              onPress: () => {
+                                  const row = viewing;
+                                  setViewing(null);
+                                  runRetry(row);
+                              },
+                          }
+                }
+            />
+        );
+    }
 
     return (
         <Stack space="md" testID="kitchen-consumption-exceptions-screen">
@@ -394,15 +494,17 @@ function ConsumptionExceptions() {
                 />
             ) : (
                 <View className="flex-col gap-2.5">
-                    <CatalogueList<ConsumptionException>
-                        testID="kitchen-consumption-exceptions-table"
-                        label={t('kitchen:ops.exceptions.title')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => row.id}
-                        onRowPress={setViewing}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
+                    <WithColumnPicker picker={controls.picker}>
+                        <CatalogueList<ConsumptionException>
+                            testID="kitchen-consumption-exceptions-table"
+                            label={t('kitchen:ops.exceptions.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.id}
+                            onRowPress={setViewing}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    </WithColumnPicker>
                     <View className="flex-row flex-wrap items-center justify-between gap-snug">
                         <Text variant="caption" tone="secondary">
                             {t('kitchen:ops.exceptions.showingCount', { count: rows.length })}
@@ -421,84 +523,6 @@ function ConsumptionExceptions() {
                         ) : null}
                     </View>
                 </View>
-            )}
-
-            {viewing === null ? null : (
-                <RecordWindow
-                    testID="kitchen-consumption-exceptions-window"
-                    open
-                    onClose={() => {
-                        setViewing(null);
-                    }}
-                    title={t('kitchen:ops.exceptions.window.title', { order: orderLabel(viewing) })}
-                    kind={t('kitchen:ops.exceptions.window.kind')}
-                    status={
-                        viewing.resolved
-                            ? { label: t('kitchen:ops.exceptions.resolvedBadge'), tone: 'success' }
-                            : { label: t('kitchen:ops.exceptions.openBadge'), tone: 'danger' }
-                    }
-                    {...(viewing.resolved
-                        ? {}
-                        : { note: t('kitchen:ops.exceptions.window.openNote') })}
-                    fields={[
-                        {
-                            key: 'item',
-                            label: t('kitchen:ops.exceptions.window.fieldItem'),
-                            value: itemLabel(viewing),
-                        },
-                        {
-                            key: 'branch',
-                            label: t('kitchen:ops.exceptions.columnBranch'),
-                            value: viewing.branchName ?? t('kitchen:list.noValue'),
-                        },
-                        {
-                            key: 'reason',
-                            label: t('kitchen:ops.exceptions.columnReason'),
-                            value: t(`kitchen:ops.exceptions.reasons.${viewing.reasonCode}`),
-                        },
-                        {
-                            key: 'raised',
-                            label: t('kitchen:ops.exceptions.columnRaised'),
-                            value: raisedLabel(viewing),
-                            mono: true,
-                        },
-                        ...(viewing.detail === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'detail',
-                                      label: t('kitchen:ops.exceptions.window.fieldDetail'),
-                                      value: viewing.detail,
-                                  },
-                              ]),
-                        ...(viewing.resolutionNote === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'resolutionNote',
-                                      label: t('kitchen:ops.exceptions.window.fieldResolutionNote'),
-                                      value: viewing.resolutionNote,
-                                  },
-                              ]),
-                        {
-                            key: 'money',
-                            label: t('kitchen:ops.exceptions.window.fieldMoney'),
-                            value: t('kitchen:ops.exceptions.window.moneyValue'),
-                        },
-                    ]}
-                    primaryAction={
-                        viewing.resolved || !canManage
-                            ? undefined
-                            : {
-                                  label: t('kitchen:ops.exceptions.window.retry'),
-                                  onPress: () => {
-                                      const row = viewing;
-                                      setViewing(null);
-                                      runRetry(row);
-                                  },
-                              }
-                    }
-                />
             )}
 
             <Dialog

@@ -101,6 +101,9 @@ export function CatalogueToolbar<Status extends string = string>({
         onStatusChange !== undefined;
 
     /*
+     * On the same raised panel as the list under it and the cards above — border, fill and the card
+     * cast — so the page reads as three objects rather than two and a loose row of controls.
+     *
      * `min-h-`, not `h-`. The row was a fixed 28px because it held nothing but `sm` controls; the
      * page's one primary is the `md` (32px) exception the handoff names, and now that it sits on
      * this line a fixed 28px row would clip it. The floor keeps the row's height where it was on a
@@ -109,7 +112,7 @@ export function CatalogueToolbar<Status extends string = string>({
     return (
         <View
             testID={testID}
-            className="min-h-control-sm flex-row items-center justify-center gap-tight"
+            className="min-h-control-sm flex-row items-center justify-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
         >
             {/*
              * The search is what absorbs the row.

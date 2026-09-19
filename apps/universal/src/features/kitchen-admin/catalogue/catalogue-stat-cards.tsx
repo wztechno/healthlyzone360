@@ -44,7 +44,7 @@ import { View } from 'react-native';
 
 export interface CatalogueStatCard {
     readonly key: string;
-    /** Translated. Rendered on the `micro` step — 10px. */
+    /** Translated. Rendered on the `title` step — 16px at 600. */
     readonly label: string;
     /** The figure. Already formatted, because the caller owns the numbering system. */
     readonly value: string;
@@ -81,12 +81,6 @@ const CAPTION_TONE: Readonly<Record<CatalogueStatTone, TextTone>> = {
 };
 
 /**
- * Fill. Only `warning` takes one — see the note above on spending the fill once.
- *
- * `raised` rather than `default`: in the compact ladder `raised` is the white card on the page's
- * off-white ground and casts no shadow, which is the flat elevation §1.3 allows.
- */
-/**
  * Ink for the corner mark.
  *
  * `className`, not a `tone` prop: an icon here is a typographic glyph on React Native's own `Text`,
@@ -101,6 +95,12 @@ const MARK_CLASS: Readonly<Record<CatalogueStatTone, string>> = {
     danger: 'text-danger-strong',
 };
 
+/**
+ * Fill. Only `warning` takes one — see the note above on spending the fill once.
+ *
+ * `raised` rather than `default`: in the compact ladder `raised` is the white card on the page's
+ * off-white ground with the card cast, where `default` is the ground itself and stays flat.
+ */
 const CARD_TONE: Readonly<Record<CatalogueStatTone, CardTone>> = {
     default: 'raised',
     brand: 'raised',
@@ -182,7 +182,7 @@ function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly
     return (
         <Card
             tone={CARD_TONE[tone]}
-            padding="sm"
+            padding="md"
             interactive={card.onPress !== undefined}
             onPress={card.onPress}
             accessibilityLabel={card.accessibilityLabel}
@@ -190,17 +190,17 @@ function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly
         >
             {/*
              * One child, so `Card`'s own 8px gap between children never applies: these three lines
-             * are a single block at 4px, which is what makes the card 70px rather than 96px.
+             * are a single block at 4px.
              */}
             <View className="flex-col gap-hair">
                 <View className="flex-row items-baseline justify-between gap-tight">
-                    <Text variant="micro" tone="secondary" numberOfLines={1}>
+                    <Text variant="title" tone="secondary" numberOfLines={1}>
                         {card.label}
                     </Text>
-                    <Icon name={card.mark} size="sm" className={MARK_CLASS[tone]} />
+                    <Icon name={card.mark} size="md" className={MARK_CLASS[tone]} />
                 </View>
 
-                <View className="flex-row items-baseline gap-hair">
+                <View className="flex-row flex-wrap items-baseline gap-tight">
                     {/*
                      * `display` (20/26, 700), not the `mono` role. The design sets these figures
                      * in IBM Plex Mono, and CLAUDE.md's sequencing decision defers that family
@@ -210,14 +210,18 @@ function StatCard({ card, testID }: { readonly card: CatalogueStatCard; readonly
                     <Text variant="display" tone={VALUE_TONE[tone]} testID={`${testID}-value`}>
                         {card.value}
                     </Text>
+                    {/*
+                     * The unit on the figure's own step, so "18 of 18" and "1 records" read as
+                     * one phrase at one size — ink, not size, separates the count from its noun.
+                     */}
                     {card.unit === undefined ? null : (
-                        <Text variant="caption" tone="secondary">
+                        <Text variant="display" tone="secondary">
                             {card.unit}
                         </Text>
                     )}
                 </View>
 
-                <Text variant="caption" tone={CAPTION_TONE[tone]} numberOfLines={2}>
+                <Text variant="body" tone={CAPTION_TONE[tone]} numberOfLines={2}>
                     {card.caption}
                 </Text>
             </View>

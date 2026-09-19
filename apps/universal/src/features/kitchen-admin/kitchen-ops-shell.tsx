@@ -15,7 +15,8 @@ import {
 } from './kitchen-nav.ts';
 
 /**
- * Kitchen area content chrome — the density, a trail back to the hub, and the gap between them.
+ * Kitchen area chrome — the density around every page, and the trail back to the hub that the top
+ * bar draws.
  *
  * ## This is where the admin becomes compact
  *
@@ -37,10 +38,7 @@ import {
  *
  * `AppShell`'s content container already insets the page (`p-4 lg:p-7`). This component used to add
  * `p-4 md:p-5` on top, so every kitchen route sat ~48px from the rail instead of ~28px and the fold
- * lost a row and a half to gutters. The inset belongs to the shell that owns the scroll port; this
- * one contributes the gap between the trail and the page, and nothing else — and that gap is one
- * 4px step, because the trail is an 11px line rather than a heading and anything larger reads as a
- * band of nothing between the page's name and the page.
+ * lost a row and a half to gutters. The inset belongs to the shell that owns the scroll port.
  *
  * ## Why there is a trail at all
  *
@@ -50,8 +48,21 @@ import {
  * `/kitchen`. Editors had "back to list" and lists had nothing, so the hub was reachable only by the
  * browser's back button, which native does not have at all.
  *
- * It sits here rather than in the thirteen screens because this component already wraps every
- * kitchen route, so a family added tomorrow gets its trail without anybody remembering to add one.
+ * It sits here rather than in the thirteen screens because the kitchen layout wraps every kitchen
+ * route in {@link KitchenTrailProvider}, so a family added tomorrow gets its trail without anybody
+ * remembering to add one.
+ *
+ * ## In the top bar, not above the page
+ *
+ * The trail used to be its own line at the head of the content, which spent a row of every page on
+ * an 11px line and put the page's location below the bar whose job is to say where you are. It is
+ * now {@link KitchenTrail}, drawn in the bar in place of the area title. Its state therefore lives
+ * in a provider above `AreaShell` rather than in `KitchenOpsShell`, which is only the content: a
+ * screen deep in the content names the leaf, and the bar — a sibling of the content, not an
+ * ancestor — reads it.
+ *
+ * The trail keeps `DensityProvider value="compact"` of its own, because the bar sits outside
+ * `KitchenOpsShell`'s provider. Its links are not underlined on the compact ladder (`Breadcrumbs`).
  * The labels come from the same entity registry the hub cards and the `<Gate>`s read, which is what
  * stops a crumb naming a page differently from the card that led to it.
  *
@@ -104,7 +115,7 @@ const KitchenTrailContext = createContext<KitchenTrailState | undefined>(undefin
  * stays two crumbs until then. Calling this is what makes the family crumb above it a link, so a
  * detail screen that wants a way back to its list wants this hook.
  *
- * Outside `KitchenOpsShell` it does nothing at all rather than throwing: every one of these screens
+ * Outside `KitchenTrailProvider` it does nothing at all rather than throwing: every one of these screens
  * also renders in unit tests with no shell around it, and a screen that will not mount is a worse
  * failure than a trail that is not there to update.
  */
@@ -121,16 +132,26 @@ export function useKitchenTrailLeaf(leaf: string | null): void {
     }, [setLeaf, leaf]);
 }
 
-export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
+/** Holds the trail's leaf for everything under the kitchen layout — the top bar and the page. */
+export function KitchenTrailProvider({ children }: { readonly children: ReactNode }) {
+    const [leaf, setLeaf] = useState<string | null>(null);
+    const trail = useMemo<KitchenTrailState>(() => ({ leaf, setLeaf }), [leaf]);
+
+    return <KitchenTrailContext.Provider value={trail}>{children}</KitchenTrailContext.Provider>;
+}
+
+/**
+ * The crumbs for the current kitchen route. Empty on the hub, where a trail naming the page you
+ * are on is furniture — which is the caller's signal to draw the area title instead.
+ */
+export function useKitchenTrail(): readonly BreadcrumbItem[] {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
     const accessState = useAccessState();
+    const leaf = useContext(KitchenTrailContext)?.leaf ?? null;
 
-    const [leaf, setLeaf] = useState<string | null>(null);
-    const trail = useMemo<KitchenTrailState>(() => ({ leaf, setLeaf }), [leaf]);
-
-    const crumbs = useMemo<readonly BreadcrumbItem[]>(() => {
+    return useMemo<readonly BreadcrumbItem[]>(() => {
         // The hub is its own page; a trail that says "Kitchen workspace" on the kitchen workspace
         // is furniture.
         if (isKitchenNavActive(pathname, OVERVIEW_HREF)) return [];
@@ -178,19 +199,25 @@ export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
                 : [{ key: 'leaf', label: leaf, testID: 'kitchen-crumb-leaf' }]),
         ];
     }, [accessState, pathname, router, t, leaf]);
+}
 
+/** The trail as the top bar draws it. `kitchen-breadcrumbs` is a print-stylesheet contract. */
+export function KitchenTrail({ crumbs }: { readonly crumbs: readonly BreadcrumbItem[] }) {
     return (
         <DensityProvider value="compact">
-            <KitchenTrailContext.Provider value={trail}>
-                <View testID="kitchen-ops-shell" className="min-h-0 flex-1 gap-hair">
-                    {crumbs.length === 0 ? null : (
-                        <Breadcrumbs testID="kitchen-breadcrumbs" items={crumbs} />
-                    )}
-                    <View testID="kitchen-ops-content" className="min-h-0 min-w-0 flex-1">
-                        {children}
-                    </View>
+            <Breadcrumbs testID="kitchen-breadcrumbs" items={crumbs} />
+        </DensityProvider>
+    );
+}
+
+export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
+    return (
+        <DensityProvider value="compact">
+            <View testID="kitchen-ops-shell" className="min-h-0 flex-1">
+                <View testID="kitchen-ops-content" className="min-h-0 min-w-0 flex-1">
+                    {children}
                 </View>
-            </KitchenTrailContext.Provider>
+            </View>
         </DensityProvider>
     );
 }

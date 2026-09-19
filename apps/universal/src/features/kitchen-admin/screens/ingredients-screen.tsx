@@ -19,7 +19,12 @@ import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-action
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { ingredientColumns } from '../catalogue/ingredient-columns.tsx';
+import {
+    INGREDIENT_DEFAULT_COLUMNS,
+    INGREDIENT_LOCKED_COLUMNS,
+    ingredientColumns,
+} from '../catalogue/ingredient-columns.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import type { IngredientListState, IngredientSortKey } from '../catalogue/use-ingredient-list.ts';
 import { useIngredientList } from '../catalogue/use-ingredient-list.ts';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
@@ -121,7 +126,10 @@ function IngredientsList() {
 
     const controls = useColumnControls<IngredientAdmin, CatalogueColumn<IngredientAdmin>>(
         list.rows,
-        columns.map((column) => ({ ...column, ...columnControl(column.key, list, t, locale) })),
+        columns.map((column) => ({
+            ...column,
+            ...columnControl(column.key, list, t, locale),
+        })),
         'kitchen-ingredients',
         {
             sort: {
@@ -131,6 +139,8 @@ function IngredientsList() {
                     if (isIngredientSortKey(key)) list.setSort(key, direction);
                 },
             },
+            // Every field is a column; the reader keeps up to six of them.
+            picker: { defaults: INGREDIENT_DEFAULT_COLUMNS, locked: INGREDIENT_LOCKED_COLUMNS },
         },
     );
 
@@ -145,14 +155,16 @@ function IngredientsList() {
      * page, sort and filters on the way out. The cost is that the record is not deep-linkable — see
      * `ingredient-detail.tsx` for what that would take.
      */
-    if (list.viewing !== null) {
+    const viewing = list.viewing;
+    if (viewing !== null) {
         return (
             <Stack space="md" testID="kitchen-ingredients-screen">
                 <IngredientDetail
                     testID="kitchen-ingredients-detail"
-                    ingredient={list.viewing}
+                    ingredient={viewing}
                     categoryName={categoryName}
                     onBack={list.closeView}
+                    {...(canManage ? { onEdit: () => list.openEditor(String(viewing.id)) } : {})}
                 />
             </Stack>
         );
@@ -194,6 +206,7 @@ function IngredientsList() {
                 onStatusChange={segments.onChange}
             >
                 <Inline space="xs" align="center">
+                    <ColumnPicker {...controls.picker} />
                     {canManage ? (
                         <CatalogueTransferActions testID="kitchen-ingredients-toolbar" />
                     ) : null}
@@ -249,7 +262,7 @@ function IngredientsList() {
                         },
                         {
                             key: 'edit',
-                            label: t('kitchen:list.open'),
+                            label: t('kitchen:catalogue.edit'),
                             icon: CATALOGUE_ROW_ICONS.edit,
                             testID: `${ingredientRowTestId(row.id)}-open`,
                             onSelect: () => {
@@ -424,6 +437,7 @@ function columnControl(
 ): ColumnControl<IngredientAdmin> {
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     INGREDIENT_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -465,6 +479,7 @@ function columnControl(
 
     if (key === 'category') {
         return {
+            sort: 'external',
             filter: {
                 // The catalogue's own names now that the tree is on the contract — `humaniseCode`
                 // renders `baking-starch` as "Baking Starch" where the category is "Baking & Starch".

@@ -73,6 +73,10 @@
     "stepper": {
         "progress": "الخطوة {{current}} من {{total}}"
     },
+    "stepProgress": {
+        "step": "الخطوة {{current}} من {{total}}: {{label}}",
+        "stepDone": "الخطوة {{current}} من {{total}}: {{label}}، مكتملة"
+    },
     "numberStepper": {
         "increase": "زيادة {{label}}",
         "decrease": "إنقاص {{label}}"
@@ -125,7 +129,10 @@
     "shell": {
         "primaryNavigation": "التنقّل الرئيسي",
         "openNavigation": "فتح التنقّل الرئيسي",
-        "skipToContent": "الانتقال إلى المحتوى الرئيسي"
+        "skipToContent": "الانتقال إلى المحتوى الرئيسي",
+        "hideNavigation": "إغلاق لوحة الصفحات",
+        "showNavigation": "فتح لوحة الصفحات",
+        "modules": "الوحدات"
     },
     "showcase": {
         "title": "نظام التصميم",

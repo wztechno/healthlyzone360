@@ -37,8 +37,12 @@ export type { CatalogueListItemProps } from './catalogue-list-item.tsx';
 export { DerivedPanel } from './derived-panel.tsx';
 export type { DerivedFigure, DerivedPanelProps } from './derived-panel.tsx';
 
-export { CatalogueViewDrawer } from './catalogue-view-drawer.tsx';
-export type { CatalogueViewDrawerProps, CatalogueViewField } from './catalogue-view-drawer.tsx';
+export { RecordViewPage } from './record-view-page.tsx';
+export type {
+    CatalogueViewField,
+    RecordViewPageProps,
+    RecordViewSection,
+} from './record-view-page.tsx';
 
 export { CataloguePager } from './catalogue-pager.tsx';
 export type { CataloguePagerProps } from './catalogue-pager.tsx';

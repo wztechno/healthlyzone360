@@ -27,6 +27,16 @@ import {
 import { SupplierDetailScreen } from './screens/supplier-detail-screen.tsx';
 import { SuppliersScreen } from './screens/suppliers-screen.tsx';
 
+/*
+ * The Operations lists are desk surfaces: at desk width a row draws every column the spec declares.
+ * Jest's default window is phone-sized, where the same list collapses to two-line rows, so these
+ * suites render at the width the screens are built for.
+ */
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+    __esModule: true,
+    default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
+}));
+
 /**
  * The supplier book and the supplier record (SUP1), against a world this file authors.
  *
@@ -92,6 +102,15 @@ function untilVisible(testID: string) {
         },
         { timeout: 10_000 },
     );
+}
+
+/** The record is a multi-step form: a later section is only drawn once its step is opened. */
+async function openSupplierStep(step: 'contacts' | 'items') {
+    const testID = `kitchen-supplier-screen-steps-${step}`;
+    await untilVisible(testID);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(testID));
+    });
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -289,7 +308,7 @@ describe('suppliers list', () => {
         });
 
         await untilVisible('kitchen-suppliers-table');
-        const search = screen.getByTestId('kitchen-suppliers-search-input');
+        const search = screen.getByTestId('kitchen-suppliers-toolbar-search-input');
 
         await act(async () => {
             fireEvent.changeText(search, 'bekaa');
@@ -332,7 +351,7 @@ describe('suppliers list', () => {
         expect(repositories.kitchenOps.listSuppliers).toHaveBeenCalledWith({});
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-suppliers-archived-filter'));
+            fireEvent.press(screen.getByTestId('kitchen-suppliers-toolbar-status-withArchived'));
         });
 
         await waitFor(() => {
@@ -373,7 +392,12 @@ describe('supplier detail', () => {
         // Displayed, never picked — every purchase is booked in one currency.
         expect(screen.getByTestId('kitchen-supplier-currency-value')).toHaveTextContent('USD');
 
+        // One step at a time: Contacts is not drawn until its step is opened.
+        expect(screen.queryByTestId('kitchen-supplier-contacts')).toBeNull();
+        await openSupplierStep('contacts');
+
         expect(screen.getByTestId('kitchen-supplier-contacts')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-supplier-details')).toBeNull();
         const card = supplierContactRowTestId(String(contactId(1)));
         expect(screen.getByTestId(`${card}-name-input`).props.value).toBe('Samir Haddad');
         expect(screen.getByTestId(`${card}-primary-badge`)).toBeTruthy();
@@ -453,6 +477,7 @@ describe('supplier detail', () => {
             },
         );
 
+        await openSupplierStep('contacts');
         await untilVisible('kitchen-supplier-contacts');
 
         await act(async () => {
@@ -528,11 +553,32 @@ describe('supplier detail', () => {
         expect(screen.getByTestId('kitchen-supplier-restore')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-supplier-archive')).toBeNull();
         expect(screen.queryByTestId('kitchen-supplier-screen-save')).toBeNull();
-        expect(screen.queryByTestId('kitchen-supplier-contacts-save')).toBeNull();
-        expect(screen.queryByTestId('kitchen-supplier-contacts-add')).toBeNull();
 
         // Every field is locked rather than merely unsaveable.
         expect(screen.getByTestId('kitchen-supplier-code-input').props.editable).toBe(false);
+
+        await openSupplierStep('contacts');
+        await untilVisible('kitchen-supplier-contacts');
+        expect(screen.queryByTestId('kitchen-supplier-contacts-save')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supplier-contacts-add')).toBeNull();
+
+        // The last step offers no save either.
+        await openSupplierStep('items');
+        await untilVisible('kitchen-supplier-supplied-items');
+        expect(screen.queryByTestId('kitchen-supplier-screen-steps-save')).toBeNull();
+    });
+
+    it('is one step — details — until the first save, so it draws no progress row', async () => {
+        await renderStubScreen(<SupplierDetailScreen supplier="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: {} },
+        });
+
+        await untilVisible('kitchen-supplier-details');
+
+        expect(screen.queryByTestId('kitchen-supplier-screen-steps')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supplier-contacts')).toBeNull();
     });
 
     it('shows the designed not-found state for a parameter that is not an identifier', async () => {
@@ -571,6 +617,7 @@ describe('supplied items', () => {
             repositories: itemOverrides(),
         });
 
+        await openSupplierStep('items');
         await untilVisible('kitchen-supplier-items-table');
 
         // 1. A real price, with its currency and its unit — 2.50 alone is not a price. Regexes,
@@ -611,6 +658,7 @@ describe('supplied items', () => {
             },
         );
 
+        await openSupplierStep('items');
         await untilVisible('kitchen-supplier-items-table');
 
         // The row that already holds the flag does not offer to set it again.
@@ -656,6 +704,7 @@ describe('supplied items', () => {
             },
         );
 
+        await openSupplierStep('items');
         await untilVisible('kitchen-supplier-item-picker');
 
         // `-trigger` is the button; the bare testID is the field wrapper, which opens nothing.
@@ -704,6 +753,7 @@ describe('supplied items', () => {
             },
         );
 
+        await openSupplierStep('items');
         await untilVisible('kitchen-supplier-items-table');
 
         await act(async () => {
@@ -737,6 +787,7 @@ describe('supplied items', () => {
             repositories: { kitchenOps: { getSupplier: async () => GULF_WITH_ITEMS } },
         });
 
+        await openSupplierStep('items');
         await untilVisible('kitchen-supplier-items-table');
 
         // Read-only: no picker, no row actions, and no link into a ledger that would refuse them.

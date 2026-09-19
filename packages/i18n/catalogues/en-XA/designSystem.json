@@ -69,6 +69,10 @@
   "stepper": {
     "progress": "[[Šţéþ {{current}} óƒ {{total}} āēīōūāēīōūāē]]"
   },
+  "stepProgress": {
+    "step": "[[Šţéþ {{current}} óƒ {{total}}: {{label}} āēīōūāēīōūāēīōūā]]",
+    "stepDone": "[[Šţéþ {{current}} óƒ {{total}}: {{label}}, çóɱþłéţéð āēīōūāēīōūāēīōūāēīōūā]]"
+  },
   "numberStepper": {
     "increase": "[[Íñçŕéášé {{label}} āēīōūāēī]]",
     "decrease": "[[Ðéçŕéášé {{label}} āēīōūāēī]]"
@@ -117,7 +121,10 @@
   "shell": {
     "primaryNavigation": "[[Ṁáíñ ñáṽíĝáţíóñ āēīōūā]]",
     "openNavigation": "[[Óþéñ ţĥé ɱáíñ ñáṽíĝáţíóñ āēīōūāēīōū]]",
-    "skipToContent": "[[Šķíþ ţó ţĥé ɱáíñ çóñţéñţ āēīōūāēīōū]]"
+    "skipToContent": "[[Šķíþ ţó ţĥé ɱáíñ çóñţéñţ āēīōūāēīōū]]",
+    "hideNavigation": "[[Çłóšé ţĥé þáĝéš þáñéł āēīōūāēīō]]",
+    "showNavigation": "[[Óþéñ ţĥé þáĝéš þáñéł āēīōūāēī]]",
+    "modules": "[[Ṁóðúłéš āēī]]"
   },
   "showcase": {
     "title": "[[Ðéšíĝñ šýšţéɱ āēīōūā]]",

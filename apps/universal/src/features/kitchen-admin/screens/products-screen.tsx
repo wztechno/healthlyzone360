@@ -29,8 +29,8 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { productColumns } from '../catalogue/product-columns.tsx';
 import type {
@@ -52,6 +52,7 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/products` — what this kitchen sells as goods rather than as a dish on a menu — and the
@@ -224,6 +225,45 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
 
     const segments = statusSegments(list.statuses, list.setStatuses, t);
 
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    const viewing = list.viewing;
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-products-view"
+                kind={t(family.viewKind)}
+                title={displayName(viewing.name, locale).value}
+                status={{
+                    tone: statusTone(viewing.meta.status),
+                    label: t(statusShortKey(viewing.meta.status)),
+                }}
+                fields={viewFields(viewing, t, formatter, locale, categoryName)}
+                onBack={list.closeView}
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-products-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewing.id));
+                    },
+                }}
+                /*
+                 * The channels as badges, and drawn even when the set is empty. On the row they are
+                 * a comma run — twenty-five rows of coloured pills drown the names beside them —
+                 * but here there is one record and room to look at it. An empty set says so in
+                 * words, because "on no channel" and "nobody has looked" are the two answers a
+                 * reader most needs told apart.
+                 */
+                chipsLabel={t('kitchen:products.columnChannels')}
+                chipsCaption={t('kitchen:products.viewChannelsCaption')}
+                chipsContent={channelChips(viewing, t)}
+            />
+        );
+    }
+
     return (
         <Stack space="md" testID="kitchen-products-screen">
             {/*
@@ -252,6 +292,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                 status={segments.value}
                 onStatusChange={segments.onChange}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-products-toolbar" />
@@ -304,7 +345,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                         },
                         {
                             key: 'edit',
-                            label: t('kitchen:list.open'),
+                            label: t('kitchen:catalogue.edit'),
                             icon: CATALOGUE_ROW_ICONS.edit,
                             testID: `${productRowTestId(String(row.id))}-open`,
                             onSelect: () => {
@@ -330,50 +371,6 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                     ]}
                 />
             </CatalogueListBody>
-
-            <CatalogueViewDrawer
-                testID="kitchen-products-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t(family.viewKind)}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    const viewed = list.viewing;
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
-                }}
-                title={list.viewing === null ? '' : displayName(list.viewing.name, locale).value}
-                status={
-                    list.viewing === null ? undefined : (
-                        <Badge
-                            tone={statusTone(list.viewing.meta.status)}
-                            label={t(statusShortKey(list.viewing.meta.status))}
-                        />
-                    )
-                }
-                fields={
-                    list.viewing === null
-                        ? []
-                        : viewFields(list.viewing, t, formatter, locale, categoryName)
-                }
-                /*
-                 * The channels as badges, and drawn even when the set is empty. On the row they are
-                 * a comma run — twenty-five rows of coloured pills drown the names beside them —
-                 * but here there is one record and room to look at it. An empty set says so in
-                 * words, because "on no channel" and "nobody has looked" are the two answers a
-                 * reader most needs told apart.
-                 */
-                {...(list.viewing === null
-                    ? {}
-                    : {
-                          chipsLabel: t('kitchen:products.columnChannels'),
-                          chipsCaption: t('kitchen:products.viewChannelsCaption'),
-                          chips: channelChips(list.viewing, t),
-                      })}
-            />
 
             {/*
              * Archiving is the only lifecycle action the contract gives this family. The dialog says
@@ -614,6 +611,7 @@ function columnControl(
 ): ColumnControl<ProductAdmin> {
     if (key === 'status') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     PRODUCT_STATUS_FILTERS.map((status: PublishableStatus) => ({
@@ -631,6 +629,7 @@ function columnControl(
     }
     if (key === 'category') {
         return {
+            sort: 'external',
             filter: {
                 // A value with no id is not offered: the endpoint narrows by id, so a code the read
                 // could not pair with one would send no constraint while the header claimed a filter.

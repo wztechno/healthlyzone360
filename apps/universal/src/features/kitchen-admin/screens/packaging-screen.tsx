@@ -1,14 +1,5 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Dialog,
-    Icon,
-    Inline,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Dialog, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -29,9 +20,10 @@ import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
-import { CatalogueViewDrawer } from '../catalogue/catalogue-view-drawer.tsx';
-import type { CatalogueViewField } from '../catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import {
+    PACKAGING_DEFAULT_COLUMNS,
     packagingColumns,
     packagingRowTestId,
     packagingStatusKey,
@@ -42,6 +34,7 @@ import type { PackagingListState, PackagingSortKey } from '../catalogue/use-pack
 import { usePackagingList } from '../catalogue/use-packaging-list.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, humaniseCode, unitShortKey } from '../format.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/packaging` — bags, boxes, lids, cutlery and labels, and what each costs.
@@ -155,10 +148,43 @@ function PackagingList() {
                     if (isIngredientAdminSortKey(key)) list.setSort(key, direction);
                 },
             },
+            picker: { defaults: PACKAGING_DEFAULT_COLUMNS },
         },
     );
 
     const segments = statusSegments(list.statuses, list.setStatuses, t, packagingStatusKey);
+
+    /*
+     * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
+     * route of its own — Back is a state change, so the list's page, sort and filters survive it.
+     */
+    const viewing = list.viewing;
+    if (viewing !== null) {
+        return (
+            <RecordViewPage
+                testID="kitchen-packaging-view"
+                kind={t('kitchen:packaging.viewKind')}
+                {...(viewing.reference === null ? {} : { reference: viewing.reference })}
+                title={displayName(viewing.name, locale).value}
+                status={{
+                    tone: packagingStatusTone(viewing.meta.status),
+                    label: t(packagingStatusKey(viewing.meta.status)),
+                }}
+                fields={viewFields(viewing, t, formatter, categoryName)}
+                onBack={list.closeView}
+                // Deciding to edit after looking is one control, not a back and a hunt back down
+                // the table for the row.
+                primaryAction={{
+                    label: t('kitchen:catalogue.edit'),
+                    testID: 'kitchen-packaging-view-edit',
+                    onPress: () => {
+                        list.closeView();
+                        list.openEditor(String(viewing.id));
+                    },
+                }}
+            />
+        );
+    }
 
     return (
         <Stack space="md" testID="kitchen-packaging-screen">
@@ -182,6 +208,7 @@ function PackagingList() {
                 status={segments.value}
                 onStatusChange={segments.onChange}
             >
+                <ColumnPicker {...controls.picker} />
                 {canManage ? (
                     <Inline space="xs" align="center">
                         <CatalogueTransferActions testID="kitchen-packaging-toolbar" />
@@ -248,7 +275,7 @@ function PackagingList() {
                         // family's series, category and back-link.
                         {
                             key: 'edit',
-                            label: t('kitchen:list.open'),
+                            label: t('kitchen:catalogue.edit'),
                             icon: CATALOGUE_ROW_ICONS.edit,
                             testID: `${packagingRowTestId(row.id)}-open`,
                             onSelect: () => {
@@ -276,41 +303,6 @@ function PackagingList() {
                     ]}
                 />
             </CatalogueListBody>
-
-            <CatalogueViewDrawer
-                testID="kitchen-packaging-view"
-                open={list.viewing !== null}
-                onClose={list.closeView}
-                kindLabel={t('kitchen:packaging.viewKind')}
-                fieldsLabel={t('kitchen:list.viewFields')}
-                closeLabel={t('kitchen:catalogue.close')}
-                // Deciding to edit after looking is one control, not a close and a hunt back down
-                // the table for the row.
-                editLabel={t('kitchen:catalogue.edit')}
-                onEdit={() => {
-                    const viewed = list.viewing;
-                    if (viewed === null) return;
-                    list.closeView();
-                    list.openEditor(String(viewed.id));
-                }}
-                {...(list.viewing === null || list.viewing.reference === null
-                    ? {}
-                    : { reference: list.viewing.reference })}
-                title={list.viewing === null ? '' : displayName(list.viewing.name, locale).value}
-                status={
-                    list.viewing === null ? undefined : (
-                        <Badge
-                            tone={packagingStatusTone(list.viewing.meta.status)}
-                            label={t(packagingStatusKey(list.viewing.meta.status))}
-                        />
-                    )
-                }
-                fields={
-                    list.viewing === null
-                        ? []
-                        : viewFields(list.viewing, t, formatter, categoryName)
-                }
-            />
 
             {/*
              * Archiving takes the item out of use. The dialog says what that costs — a recipe that
@@ -421,7 +413,8 @@ function statCards(list: PackagingListState, t: TFunction): readonly CatalogueSt
  *
  * Two columns filter, the two `PackagingAdminFilter` carries: Status, and Category through its
  * `categoryCode`. Category offers *sub-categories* on purpose — the branch is the same on every
- * row here, so offering it would narrow nothing. Unit, capacity and waste do neither.
+ * row here, so offering it would narrow nothing. Every other column sorts through the list hook:
+ * the pack unit is a closed set, but the filter has no parameter for it, so it sorts too.
  */
 function columnControl(
     key: string,
@@ -448,6 +441,7 @@ function columnControl(
     }
     if (key === 'category') {
         return {
+            sort: 'external',
             filter: {
                 values: () =>
                     list.categories.map((entry) => ({
@@ -467,7 +461,16 @@ function columnControl(
 }
 
 function isIngredientAdminSortKey(key: string): key is PackagingSortKey {
-    return key === 'reference' || key === 'name' || key === 'category' || key === 'purchasePrice';
+    return (
+        key === 'reference' ||
+        key === 'name' ||
+        key === 'category' ||
+        key === 'purchaseUnit' ||
+        key === 'itemsPerUnit' ||
+        key === 'purchasePrice' ||
+        key === 'capacity' ||
+        key === 'waste'
+    );
 }
 
 /**

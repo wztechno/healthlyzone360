@@ -2,6 +2,7 @@ import { apiFailure, rateLimitFailure, validationFailure } from '@healthy360/api
 import {
     Accordion,
     ActionSheet,
+    AppShell,
     Avatar,
     Badge,
     BADGE_TONES,
@@ -25,6 +26,7 @@ import {
     ListSummaryCards,
     PickerField,
     RecordWindow,
+    RecordWindowFieldGrid,
     DensityProvider,
     Dialog,
     Drawer,
@@ -36,6 +38,7 @@ import {
     FilterChip,
     FormField,
     FormGrid,
+    FormNavigation,
     FormSection,
     Heading,
     Icon,
@@ -70,6 +73,7 @@ import {
     Spinner,
     Stack,
     StatusBadge,
+    StepProgress,
     Stepper,
     Switch,
     Table,
@@ -85,6 +89,7 @@ import {
     TextInputField,
     UNDROPPABLE_PRIORITY,
     useAnimatedNumber,
+    useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import type {
@@ -110,7 +115,7 @@ import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
-import { CatalogueViewDrawer } from '../features/kitchen-admin/catalogue/catalogue-view-drawer.tsx';
+import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
@@ -363,6 +368,100 @@ const LIST_BODY_BASE: CatalogueListBodyState = {
     setPage: () => undefined,
 };
 
+/**
+ * The multi-step form's three parts — `useFormSteps` for the state, `StepProgress` in its states, then
+ * `FormNavigation`. The interactive pair at the bottom is the reference wiring for any "New …" form.
+ *
+ * What to check: the track runs dot-centre to dot-centre and fills to the current dot; a completed
+ * dot carries a check, the current one a brand ring, a future one a neutral ring; labels drop below
+ * `sm`; in Arabic the fill grows from the right. The interactive row walks the same five steps the
+ * recipe editor draws, with Previous disabled on the first and Next swapped out on the last.
+ */
+const STORY_STEPS = [
+    { key: 'description', label: 'Description' },
+    { key: 'production', label: 'Production' },
+    { key: 'packaging', label: 'Packaging' },
+    { key: 'costing', label: 'Costing' },
+    { key: 'sheet', label: 'Technical sheet' },
+] as const;
+const STORY_STEP_KEYS = STORY_STEPS.map((step) => step.key);
+
+function StepsStory({ prefix }: { readonly prefix: string }) {
+    const form = useFormSteps(STORY_STEP_KEYS, { initial: 'production' });
+    const id = (suffix: string) => `${prefix}-${suffix}`;
+    const steps = STORY_STEPS;
+
+    return (
+        <Stack space="sm">
+            <StepProgress
+                testID={id('step-progress-first')}
+                label="First step"
+                steps={steps}
+                current={0}
+                completed={new Set()}
+            />
+            <StepProgress
+                testID={id('step-progress-middle')}
+                label="Middle step"
+                steps={steps}
+                current={2}
+                completed={new Set([0, 1])}
+            />
+            <StepProgress
+                testID={id('step-progress-last')}
+                label="Last step"
+                steps={steps}
+                current={4}
+                completed={new Set([0, 1, 2, 3])}
+            />
+            {/* A step ahead of an unpassed check: drawn, not reachable — the New sale's rule. */}
+            <StepProgress
+                testID={id('step-progress-gated')}
+                label="Gated"
+                steps={steps.map((step, index) => ({ ...step, disabled: index > 2 }))}
+                current={2}
+                completed={new Set([0, 1])}
+                onSelect={() => undefined}
+            />
+            <StepProgress
+                testID={id('step-progress-live')}
+                label="Interactive"
+                steps={steps}
+                current={form.index}
+                completed={form.completed}
+                onSelect={form.goToIndex}
+                divided
+            />
+            <FormNavigation
+                testID={id('form-navigation')}
+                previousTestID={id('form-navigation-previous')}
+                previousLabel="Previous"
+                previousDisabled={form.isFirst}
+                onPrevious={form.previous}
+                counter={`Step ${String(form.index + 1)} of ${String(form.total)} · ${steps[form.index]?.label ?? ''}`}
+                actions={
+                    <>
+                        <Button
+                            testID={id('form-navigation-draft')}
+                            variant="secondary"
+                            label="Save draft"
+                            onPress={() => undefined}
+                        />
+                        <Button
+                            testID={id('form-navigation-next')}
+                            label={form.isLast ? 'Save and publish' : 'Next'}
+                            {...(form.isLast
+                                ? {}
+                                : { iconEnd: <Icon name="chevronEnd" size="sm" /> })}
+                            onPress={form.next}
+                        />
+                    </>
+                }
+            />
+        </Stack>
+    );
+}
+
 function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [search, setSearch] = useState('zaatar');
     const [quantity, setQuantity] = useState('1.750');
@@ -372,13 +471,13 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [segment, setSegment] = useState('all');
     const [toolbarSearch, setToolbarSearch] = useState('');
     const [toolbarStatus, setToolbarStatus] = useState('all');
-    const [viewOpen, setViewOpen] = useState(false);
     const [recordOpen, setRecordOpen] = useState(false);
     const [pickerMonth, setPickerMonth] = useState('2026-08');
     const [pickerDate, setPickerDate] = useState('2026-08-01');
     const [pickerTime, setPickerTime] = useState('08:30');
     const [pressedRow, setPressedRow] = useState<string | null>(null);
     const [kinds, setKinds] = useState<readonly string[]>(['paste']);
+    const [kindSort, setKindSort] = useState<'asc' | 'desc' | null>(null);
 
     const id = (name: string) => `${prefix}-${name}`;
 
@@ -394,34 +493,20 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
      * the three density copies of the list below — the menu is the same menu in each.
      */
     /*
-     * A column header with its sort-and-filter menu, in the shape every Catalogue list now draws.
-     * `kinds` is the filter, so pressing a value here flips the header from its idle `⌄` to the
-     * filter mark — which is the whole point of the component and the thing the previous header
-     * had no way of saying.
+     * A column header that filters and sorts, in the shape every Catalogue list now draws: the
+     * label opens the values, the arrow beside it flips the order. `kinds` is the filter, so
+     * pressing a value adds the filter mark beside the label.
      */
     const columnMenu = (scope: string) => (
         <CatalogueColumnHeader
             label="Kind"
-            sortDirection={null}
+            sortDirection={kindSort}
+            onToggleSort={() => {
+                setKindSort((current) => (current === 'asc' ? 'desc' : 'asc'));
+            }}
             filtered={kinds.length > 0}
             testID={id(`${scope}-column-menu`)}
             sections={[
-                {
-                    items: [
-                        {
-                            key: 'asc',
-                            label: 'Sort ascending',
-                            icon: 'chevronUp',
-                            onSelect: () => undefined,
-                        },
-                        {
-                            key: 'desc',
-                            label: 'Sort descending',
-                            icon: 'chevronDown',
-                            onSelect: () => undefined,
-                        },
-                    ],
-                },
                 {
                     label: 'Kind',
                     items: [
@@ -1121,6 +1206,14 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 </FormSection>
             </Stack>
 
+            {/* The multi-step form: step progress in four states, and the footer that walks it. */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Step progress
+                </Text>
+                <StepsStory prefix={prefix} />
+            </Stack>
+
             {/*
              * Select at the Catalogue's density — 28px trigger, 28px rows, the panel anchored under
              * the field rather than a modal over the form. The searchable one is the same control
@@ -1583,51 +1676,139 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             </Stack>
 
             {/*
-             * The read-only record panel behind a row's View action. The chip run stands in for
-             * the allergens an ingredient resolves from the database and cannot override here.
+             * The workspace sidebar: the module panel filled with the primary green, white items,
+             * and the active item as a white pill in #16A34A text. Framed at a fixed height so the shell
+             * sits inside the page rather than taking it over; the sidebar itself appears from
+             * `lg` up, as it does in the product.
              */}
             <Stack space="xs">
                 <Text variant="section" tone="secondary">
-                    View drawer
+                    Workspace sidebar
                 </Text>
-                <Inline space="sm" align="center">
-                    <Button
-                        testID={id('view-drawer-open')}
-                        size="sm"
-                        variant="secondary"
-                        label="Open the view drawer"
-                        onPress={() => setViewOpen(true)}
-                    />
-                </Inline>
-                <CatalogueViewDrawer
-                    testID={id('view-drawer')}
-                    open={viewOpen}
-                    onClose={() => setViewOpen(false)}
-                    onEdit={() => setViewOpen(false)}
-                    kindLabel="Ingredient"
-                    fieldsLabel="Fields"
-                    closeLabel="Close"
-                    editLabel="Edit"
+                <View
+                    className="overflow-hidden rounded border border-stroke-subtle"
+                    style={{ height: 320 }}
+                >
+                    <AppShell
+                        testID={id('sidebar-shell')}
+                        variant="workspace"
+                        title="Kitchen workspace"
+                        navigation={[
+                            {
+                                key: 'home',
+                                label: 'Overview',
+                                icon: 'home',
+                                active: true,
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'ingredients',
+                                label: 'Ingredients',
+                                icon: 'basket',
+                                group: 'Catalogue',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'recipes',
+                                label: 'Recipes',
+                                icon: 'plate',
+                                group: 'Catalogue',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'batch',
+                                label: 'Batch planner',
+                                icon: 'calendar',
+                                group: 'Operations',
+                                onPress: () => undefined,
+                            },
+                        ]}
+                    >
+                        <Text tone="secondary">Page content</Text>
+                    </AppShell>
+                </View>
+            </Stack>
+
+            {/*
+             * The read-only record page behind every kitchen-admin row's View
+             * (`IngredientView.dc.html`): a main column of cards beside a status rail, which drops
+             * under the main column below `xl`. Back and Edit are inert here.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Record view page
+                </Text>
+                <RecordViewPage
+                    testID={id('record-view')}
+                    onBack={() => undefined}
+                    kind="Ingredient"
                     reference="ING-0142"
                     title="Tahini paste"
-                    status={<Badge tone="success" label="Live" />}
+                    status={{ label: 'Live', tone: 'success' }}
+                    fieldsTitle="Identification"
+                    fieldsSubtitle="Catalogue record and costing"
                     fields={[
                         { key: 'reference', label: 'Reference', value: 'ING-0142', mono: true },
-                        { key: 'category', label: 'Category', value: 'Condiments' },
+                        { key: 'name', label: 'Designation', value: 'Tahini paste' },
+                        { key: 'category', label: 'Category', value: 'Sauces' },
                         { key: 'unit', label: 'Unit', value: 'kg' },
-                        { key: 'price', label: 'Unit price', value: 'AED 7.80', mono: true },
-                        { key: 'status', label: 'Status', value: 'Live' },
-                        { key: 'updated', label: 'Updated', value: '8 days ago' },
+                        { key: 'cost', label: 'Unit cost', value: 'AED 4.57', mono: true },
+                        { key: 'sellable', label: 'Available for sale', value: 'No' },
                     ]}
-                    chipsLabel="Allergens"
-                    chipsSource="From database"
-                    chipsCaption="Resolved from the ingredient database. Correct it on the record itself, not here."
-                    chips={
-                        <>
-                            <Badge tone="danger" label="Sesame" />
-                            <Badge tone="warning" label="Nuts" />
-                        </>
+                    sections={[
+                        {
+                            key: 'nutrition',
+                            title: 'Nutrition per 100 g',
+                            subtitle: 'Share of the adult reference intake, 2,000 kcal',
+                            content: (
+                                <Stack space="sm">
+                                    <MeterBar
+                                        label="Energy"
+                                        value={595}
+                                        target={2000}
+                                        unit="kcal"
+                                    />
+                                    <MeterBar label="Protein" value={17} target={50} unit="g" />
+                                    <MeterBar label="Fat" value={54} target={70} unit="g" />
+                                </Stack>
+                            ),
+                        },
+                    ]}
+                    statusLines={['Updated 3 days ago by Dina Haddad', 'Version 7']}
+                    // `statusContent` — a node above the action, as the order desk draws its
+                    // driver's word beside Fulfil.
+                    statusContent={
+                        <Text variant="caption" tone="primary">
+                            Two open recipes use this ingredient.
+                        </Text>
                     }
+                    chipsLabel="Allergens & diets"
+                    chipsSourceBadge="From database"
+                    chipsCaption="Resolved from the ingredient database. Correct it on the record itself, not here."
+                    chips={[
+                        { key: 'sesame', label: 'Sesame', tone: 'danger' },
+                        { key: 'vegan', label: 'Vegan', tone: 'brand' },
+                    ]}
+                    rail={[
+                        {
+                            key: 'sourcing',
+                            title: 'Pack & sourcing',
+                            content: (
+                                <RecordWindowFieldGrid
+                                    fields={[
+                                        { key: 'purchase', label: 'Purchase unit', value: 'Tub' },
+                                        {
+                                            key: 'pack',
+                                            label: 'Pack contents',
+                                            value: '5 kg',
+                                            mono: true,
+                                        },
+                                    ]}
+                                />
+                            ),
+                        },
+                    ]}
+                    primaryAction={{ label: 'Edit ingredient', onPress: () => undefined }}
                 />
             </Stack>
 
@@ -1792,6 +1973,24 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         />
                     </Stack>
                 ))}
+                <Text variant="caption" tone="secondary">
+                    framed
+                </Text>
+                {/*
+                 * The Catalogue's frame, as `CatalogueList` draws it: the header takes the top
+                 * corners and the last row the bottom ones; no row draws a rule of its own.
+                 */}
+                <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
+                    <DataList
+                        testID={id('data-list-framed')}
+                        label="Ingredients, framed"
+                        framed
+                        columns={catalogueColumns('list-framed')}
+                        rows={CATALOGUE_ROWS}
+                        rowKey={(row) => row.key}
+                        onRowPress={(row) => setPressedRow(row.key)}
+                    />
+                </View>
                 <Text testID={id('data-list-pressed')} variant="caption" tone="secondary">
                     Last row pressed: {pressedRow ?? 'none'}
                 </Text>

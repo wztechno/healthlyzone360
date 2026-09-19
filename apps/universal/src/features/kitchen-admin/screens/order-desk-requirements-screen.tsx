@@ -28,6 +28,7 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import { WithColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -420,14 +421,16 @@ function OrderDeskRequirements() {
                             body={t('kitchen:ops.requirements.noRowsBody')}
                         />
                     ) : (
-                        <CatalogueList<OrderDeskRequirement>
-                            testID="kitchen-order-desk-requirements-table"
-                            label={t('kitchen:ops.requirements.title')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => row.stockItemId}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
+                        <WithColumnPicker picker={controls.picker}>
+                            <CatalogueList<OrderDeskRequirement>
+                                testID="kitchen-order-desk-requirements-table"
+                                label={t('kitchen:ops.requirements.title')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => row.stockItemId}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                            />
+                        </WithColumnPicker>
                     )}
                 </View>
             )}

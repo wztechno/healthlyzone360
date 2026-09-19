@@ -129,14 +129,17 @@ function untilVisible(testID: string) {
 /* ------------------------------------------------------------------------------------------------
  * Driving the editor
  *
- * The recipe editor is five tabs, not one long form, and its line table is driven by an inline
+ * The recipe editor is five steps, not one long form, and its line table is driven by an inline
  * picker rather than an Add button. Both are recent and both changed how every test below reaches
  * a control, so the two moves live here rather than being spelled out fifteen times.
  * ---------------------------------------------------------------------------------------------- */
 
 type EditorTab = 'description' | 'production' | 'packaging' | 'costing' | 'sheet';
 
-/** Switches tabs. Only the active tab's sections are mounted, so this is how a control is reached. */
+/**
+ * Jumps to a step from the progress row — the testIDs kept their `tab` names through the move from
+ * tabs to steps. Only the active step's sections are mounted, so this is how a control is reached.
+ */
 async function openTab(tab: EditorTab) {
     await act(async () => {
         fireEvent.press(screen.getByTestId(`kitchen-recipe-tab-${tab}`));
@@ -1698,7 +1701,7 @@ describe('the line editor', () => {
  * The tab row as a sequence
  * ---------------------------------------------------------------------------------------------- */
 
-describe('stepping through the tabs', () => {
+describe('the steps', () => {
     it('walks forward and back, and stops at both ends', async () => {
         const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
 
@@ -1729,10 +1732,104 @@ describe('stepping through the tabs', () => {
         });
         await untilVisible('kitchen-recipe-lines-table');
 
+        // On the last step Next gives way to the form's final commit rather than going disabled.
         await openTab('sheet');
+        expect(screen.queryByTestId('kitchen-recipe-tab-next')).toBeNull();
+        expect(screen.getByTestId('kitchen-recipe-publish')).toBeTruthy();
+    });
+
+    it('opens Production with the yield and Packaging with both waste coefficients', async () => {
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible('kitchen-recipe-yield-quantity');
+        expect(screen.getByTestId('kitchen-recipe-yield-pieces')).toBeTruthy();
+        // The waste figures moved together, so neither is left behind beside the yield.
+        expect(screen.queryByTestId('kitchen-recipe-waste')).toBeNull();
+
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-packaging-coefficients');
+        expect(screen.getByTestId('kitchen-recipe-waste')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipe-packaging-waste')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipe-yield-quantity')).toBeNull();
+    });
+
+    it('checks the draft on the technical sheet before anything is saved', async () => {
+        await renderStubScreen(<RecipeEditScreen recipe="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: ingredientListing(() => LIBRARY),
+                    nextReference: async () => 'RC-0010',
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        expect(screen.getByTestId('kitchen-recipe-editor-screen-mode')).toHaveTextContent(/New/);
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Hummus');
+        });
+
+        await openTab('sheet');
+        await untilVisible('kitchen-recipe-publish-checks');
+
+        // Read off the draft: an English-only name, no lines, and the default one-kilogram yield.
         expect(
-            screen.getByTestId('kitchen-recipe-tab-next').props.accessibilityState.disabled,
-        ).toBe(true);
+            screen.getByTestId('kitchen-recipe-sheet-summary-designation-value'),
+        ).toHaveTextContent('Hummus');
+        expect(screen.getByTestId('kitchen-recipe-check-languages-note')).toHaveTextContent(
+            'Add the designation in both English and Arabic',
+        );
+        expect(screen.getByTestId('kitchen-recipe-check-costed-note')).toHaveTextContent(
+            'Add at least one raw material on the Production step',
+        );
+        expect(screen.getByTestId('kitchen-recipe-check-yield-note')).toHaveTextContent(
+            '1 Kg per batch',
+        );
+
+        // Nothing to publish before the first save makes a version: the last step commits a create.
+        expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
+        expect(screen.getByTestId('kitchen-recipe-create')).toBeTruthy();
+    });
+
+    it('writes unsaved edits before it opens the publish dialog', async () => {
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        updateRecipe: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Mujadara');
+        });
+
+        await openTab('sheet');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
+        });
+
+        await untilVisible('kitchen-recipe-publish-dialog');
+        expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(
+            stored.id,
+            expect.objectContaining({ name: { en: 'Mujadara', ar: stored.name.ar } }),
+        );
     });
 });
 
@@ -2442,6 +2539,9 @@ describe('publishing', () => {
             },
         );
 
+        // Save and publish is the last step's commit, so the walk to it comes first.
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('sheet');
         await untilVisible('kitchen-recipe-publish');
         // Not published yet, and the editor says so rather than implying it.
         expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
@@ -2471,7 +2571,8 @@ describe('publishing', () => {
         });
 
         // …and the editor rebases onto the answer: a published version is immutable, so the only
-        // control left is the successor draft.
+        // control left is the successor draft — on the Description step, beside the version list.
+        await openTab('description');
         await untilVisible('kitchen-recipe-immutable');
         await waitFor(() => {
             // The editor's header badge takes the Catalogue's short status vocabulary, the same
@@ -2502,6 +2603,8 @@ describe('publishing', () => {
             },
         });
 
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('sheet');
         await untilVisible('kitchen-recipe-publish');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
@@ -2550,6 +2653,7 @@ describe('publishing', () => {
             /Review/,
         );
 
+        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
         });
@@ -2652,8 +2756,8 @@ describe('safety', () => {
         // fields know nothing about, which is exactly the edit a person is most likely to lose.
         await addLine(String(UNMAPPED_INGREDIENT.id));
 
-        // Discard is the way out now — the header is the design's Discard · Save draft · Publish,
-        // and Back went with the two-pane frame. It routes through the same guard.
+        // Cancel is the way out now — the header is the design's Cancel · Save, and Back went with
+        // the two-pane frame. It routes through the same guard.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-discard'));
         });

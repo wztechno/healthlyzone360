@@ -20,7 +20,7 @@
   --h360-color-border-default: 170 221 192;
   --h360-color-border-strong: 95 143 118;
   --h360-color-focus-ring: 21 112 67;
-  --h360-color-brand-surface: 21 112 67;
+  --h360-color-brand-surface: 22 163 74;
   --h360-color-brand-surface-subtle: 220 252 231;
   --h360-color-on-brand-surface-subtle: 20 83 45;
   --h360-color-accent-surface: 109 40 217;
@@ -29,6 +29,11 @@
   --h360-color-surface-canopy-deep: 18 79 51;
   --h360-color-on-canopy: 255 255 255;
   --h360-color-on-canopy-muted: 220 252 231;
+  --h360-color-surface-sidebar: 22 163 74;
+  --h360-color-on-sidebar: 255 255 255;
+  --h360-color-on-sidebar-muted: 255 255 255;
+  --h360-color-sidebar-active: 255 255 255;
+  --h360-color-on-sidebar-active: 22 163 74;
   --h360-color-accent-subtle: 241 235 253;
   --h360-color-on-accent-subtle: 76 29 149;
   --h360-color-rating-star: 181 125 13;
@@ -253,6 +258,11 @@
   --h360-color-surface-canopy-deep: 23 64 44;
   --h360-color-on-canopy: 255 255 255;
   --h360-color-on-canopy-muted: 220 252 231;
+  --h360-color-surface-sidebar: 22 36 27;
+  --h360-color-on-sidebar: 188 199 190;
+  --h360-color-on-sidebar-muted: 139 150 140;
+  --h360-color-sidebar-active: 21 58 38;
+  --h360-color-on-sidebar-active: 134 239 172;
   --h360-color-accent-subtle: 37 27 61;
   --h360-color-on-accent-subtle: 205 188 247;
   --h360-color-rating-star: 224 169 42;
@@ -321,6 +331,11 @@
     --h360-color-surface-canopy-deep: 23 64 44;
     --h360-color-on-canopy: 255 255 255;
     --h360-color-on-canopy-muted: 220 252 231;
+    --h360-color-surface-sidebar: 22 36 27;
+    --h360-color-on-sidebar: 188 199 190;
+    --h360-color-on-sidebar-muted: 139 150 140;
+    --h360-color-sidebar-active: 21 58 38;
+    --h360-color-on-sidebar-active: 134 239 172;
     --h360-color-accent-subtle: 37 27 61;
     --h360-color-on-accent-subtle: 205 188 247;
     --h360-color-rating-star: 224 169 42;

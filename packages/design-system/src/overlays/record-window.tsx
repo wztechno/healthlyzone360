@@ -1,7 +1,14 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, Text as RNText, ScrollView, View } from 'react-native';
+import {
+    Modal,
+    Pressable,
+    Text as RNText,
+    ScrollView,
+    View,
+    useWindowDimensions,
+} from 'react-native';
 import { Button } from '../actions/button.tsx';
 import { IconButton } from '../actions/icon-button.tsx';
 import { Badge } from '../content/badge.tsx';
@@ -15,7 +22,7 @@ import { Text } from '../primitives/text.tsx';
  * RecordWindow — the centred, read-only view of one record (Workbench handoff §0, §3.1).
  *
  * ```
- * ┌──────────────────────────────────────────────────── 720 ┐
+ * ┌──────────────────────────────────── 640 × 640, square ┐
  * │ Zaatar blend, house  [ INGREDIENT ] [ BLOCKED ]       ✕ │  44
  * ├─────────────────────────────────────────────────────────┤
  * │ ⓘ Nothing is resolved from this window. …               │
@@ -85,7 +92,14 @@ export interface RecordWindowProps {
         | undefined;
     readonly testID?: string | undefined;
 }
-/* The panel is capped at the design's `min(720px, 100%)` — `max-w-[720px]` on the entrance wrapper. */
+/**
+ * The panel is a square: one side, `RECORD_WINDOW_SIDE`, or less when the viewport is smaller —
+ * never more than the viewport minus the backdrop's `p-8` gutter on either axis. The size is set in
+ * pixels rather than as `max-w-*`: the entrance wrapper is animated, and a class cap on it did not hold,
+ * which let the window run the width of the page. The body scrolls; header and footer stay pinned.
+ */
+export const RECORD_WINDOW_SIDE = 640;
+const RECORD_WINDOW_GUTTER = 32;
 export function RecordWindow({
     open,
     onClose,
@@ -108,6 +122,15 @@ export function RecordWindow({
     const generated = useId();
     const base = testID ?? `record-window-${generated.replace(/:/g, '')}`;
     const titleId = `${base}-title`;
+    const viewport = useWindowDimensions();
+    const side = Math.max(
+        0,
+        Math.min(
+            RECORD_WINDOW_SIDE,
+            viewport.width - RECORD_WINDOW_GUTTER * 2,
+            viewport.height - RECORD_WINDOW_GUTTER * 2,
+        ),
+    );
     return (
         <Modal
             visible={open}
@@ -128,92 +151,94 @@ export function RecordWindow({
                     onPress={onClose}
                     className="absolute inset-0 bg-overlay"
                 />
-                <FadeIn className="w-full max-w-[720px]">
-                    <View
-                        testID={base}
-                        role="dialog"
-                        aria-modal
-                        aria-labelledby={titleId}
-                        className="max-h-[90vh] min-h-0 w-full shrink flex-col overflow-hidden rounded border border-stroke bg-surface-raised shadow-elevation-4"
-                    >
-                        <View className="h-11 flex-row items-center gap-2.5 border-b border-stroke-subtle pe-2.5 ps-base">
-                            <RNText
-                                nativeID={titleId}
-                                testID={`${base}-title`}
-                                accessibilityRole="header"
-                                aria-level={2}
-                                numberOfLines={1}
-                                className="min-w-0 shrink text-role-strong text-content-primary text-start"
-                            >
-                                {title}
-                            </RNText>
-                            <Badge tone="neutral" label={kind} testID={`${base}-kind`} />
-                            {status === undefined ? null : (
-                                <Badge
-                                    tone={status.tone}
-                                    label={status.label}
-                                    testID={`${base}-status`}
-                                />
-                            )}
-                            {titleAside}
-                            <View className="flex-1" />
-                            <IconButton
-                                testID={`${base}-close-icon`}
-                                variant="ghost"
-                                size="sm"
-                                label={t('common:action.close')}
-                                icon={<Icon name="close" size="sm" />}
-                                onPress={onClose}
-                            />
-                        </View>
-                        <ScrollView
-                            testID={`${base}-body`}
-                            className="min-h-0 shrink"
-                            contentContainerClassName="flex-col gap-base px-base pb-base pt-3.5"
+                <FadeIn>
+                    <View style={{ width: side, height: side }}>
+                        <View
+                            testID={base}
+                            role="dialog"
+                            aria-modal
+                            aria-labelledby={titleId}
+                            className="h-full w-full flex-col overflow-hidden rounded border border-stroke bg-surface-raised shadow-elevation-4"
                         >
-                            {note === undefined ? null : (
-                                <Callout
-                                    testID={`${base}-note`}
-                                    tone="info"
-                                    role="note"
-                                    title={note}
+                            <View className="h-11 flex-row items-center gap-2.5 border-b border-stroke-subtle pe-2.5 ps-base">
+                                <RNText
+                                    nativeID={titleId}
+                                    testID={`${base}-title`}
+                                    accessibilityRole="header"
+                                    aria-level={2}
+                                    numberOfLines={1}
+                                    className="min-w-0 shrink text-role-strong text-content-primary text-start"
+                                >
+                                    {title}
+                                </RNText>
+                                <Badge tone="neutral" label={kind} testID={`${base}-kind`} />
+                                {status === undefined ? null : (
+                                    <Badge
+                                        tone={status.tone}
+                                        label={status.label}
+                                        testID={`${base}-status`}
+                                    />
+                                )}
+                                {titleAside}
+                                <View className="flex-1" />
+                                <IconButton
+                                    testID={`${base}-close-icon`}
+                                    variant="ghost"
+                                    size="sm"
+                                    label={t('common:action.close')}
+                                    icon={<Icon name="close" size="sm" />}
+                                    onPress={onClose}
                                 />
-                            )}
-                            <RecordWindowFieldGrid fields={fields} testID={`${base}-field`} />
-                            {chips === undefined || chipsLabel === undefined ? null : (
-                                <DerivedChipPanel
-                                    testID={`${base}-chips`}
-                                    label={chipsLabel}
-                                    badge={chipsSourceBadge}
-                                    chips={chips}
-                                    caption={chipsCaption}
+                            </View>
+                            <ScrollView
+                                testID={`${base}-body`}
+                                className="min-h-0 flex-1"
+                                contentContainerClassName="flex-col gap-base px-base pb-base pt-3.5"
+                            >
+                                {note === undefined ? null : (
+                                    <Callout
+                                        testID={`${base}-note`}
+                                        tone="info"
+                                        role="note"
+                                        title={note}
+                                    />
+                                )}
+                                <RecordWindowFieldGrid fields={fields} testID={`${base}-field`} />
+                                {chips === undefined || chipsLabel === undefined ? null : (
+                                    <DerivedChipPanel
+                                        testID={`${base}-chips`}
+                                        label={chipsLabel}
+                                        badge={chipsSourceBadge}
+                                        chips={chips}
+                                        caption={chipsCaption}
+                                    />
+                                )}
+                                {lines}
+                            </ScrollView>
+                            <View className="h-12 flex-row items-center gap-control-sm border-t border-stroke-subtle px-base">
+                                <View className="min-w-0 flex-1">
+                                    {footNote === undefined ? null : (
+                                        <Text variant="caption" tone="secondary" numberOfLines={2}>
+                                            {footNote}
+                                        </Text>
+                                    )}
+                                </View>
+                                <Button
+                                    testID={`${base}-close`}
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('common:action.close')}
+                                    onPress={onClose}
                                 />
-                            )}
-                            {lines}
-                        </ScrollView>
-                        <View className="h-12 flex-row items-center gap-control-sm border-t border-stroke-subtle px-base">
-                            <View className="min-w-0 flex-1">
-                                {footNote === undefined ? null : (
-                                    <Text variant="caption" tone="secondary" numberOfLines={2}>
-                                        {footNote}
-                                    </Text>
+                                {primaryAction === undefined ? null : (
+                                    <Button
+                                        testID={primaryAction.testID ?? `${base}-primary`}
+                                        size="sm"
+                                        label={primaryAction.label}
+                                        onPress={primaryAction.onPress}
+                                    />
                                 )}
                             </View>
-                            <Button
-                                testID={`${base}-close`}
-                                variant="secondary"
-                                size="sm"
-                                label={t('common:action.close')}
-                                onPress={onClose}
-                            />
-                            {primaryAction === undefined ? null : (
-                                <Button
-                                    testID={primaryAction.testID ?? `${base}-primary`}
-                                    size="sm"
-                                    label={primaryAction.label}
-                                    onPress={primaryAction.onPress}
-                                />
-                            )}
                         </View>
                     </View>
                 </FadeIn>
@@ -229,6 +254,11 @@ const FIELD_TRACK = 280;
  * Two 280px tracks that do not stretch: the design's `repeat(2, minmax(0, 280px)); justify-content:
  * start`. A wrapping row of fixed cells is that grid in flexbox — a narrow window drops to one column
  * rather than squeezing two.
+ *
+ * The label outranks the value: `strong` (13px, 600, primary ink) over a 12px value, so a reader
+ * scanning the record finds "Name" first and "Tomato" under it. It used to be the other way round —
+ * a 10px secondary label under a larger value — which made a page of pairs read as a column of
+ * loose values with captions nobody could find.
  */
 export function RecordWindowFieldGrid({
     fields,
@@ -246,7 +276,10 @@ export function RecordWindowFieldGrid({
                     className="min-w-0 flex-col gap-0.5"
                     style={{ width: FIELD_TRACK, maxWidth: '100%' }}
                 >
-                    <Text variant="micro" tone="secondary">
+                    <Text
+                        variant="strong"
+                        testID={testID === undefined ? undefined : `${testID}-${field.key}-label`}
+                    >
                         {field.label}
                     </Text>
                     <Text

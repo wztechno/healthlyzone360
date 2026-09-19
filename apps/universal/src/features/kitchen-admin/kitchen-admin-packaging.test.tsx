@@ -23,6 +23,11 @@ import {
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { PackagingScreen } from './screens/packaging-screen.tsx';
+import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
+
+afterEach(() => {
+    forgetColumnChoice('kitchen-packaging');
+});
 
 /**
  * `/kitchen/packaging`, against a world this file authors.
@@ -360,6 +365,14 @@ describe('the packaging list', () => {
     });
 
     it('draws a sort arrow on every column that sorts, and a filter mark once one is applied', async () => {
+        // Six columns are drawn at most; these are the ones this test reads, Item being locked on.
+        rememberColumnChoice('kitchen-packaging', [
+            'reference',
+            'purchaseUnit',
+            'itemsPerUnit',
+            'capacity',
+            'status',
+        ]);
         await renderStubScreen(<PackagingScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -388,18 +401,16 @@ describe('the packaging list', () => {
         const glyph = (testID: string) => screen.getByTestId(testID, hidden).props.children;
 
         // The list opens sorted by reference, so that column carries the black arrow and every
-        // other sortable column carries the grey one. A column with no menu carries neither, which
-        // is what makes the mark worth anything.
+        // other sortable column carries the grey one. Every column has a control now — the pack,
+        // what it holds and the waste sort, since the request cannot filter by them.
         expect(
             screen.getByTestId('kitchen-packaging-column-reference-sorted', hidden),
         ).toBeTruthy();
-        expect(screen.getByTestId('kitchen-packaging-column-name-affordance', hidden)).toBeTruthy();
-        expect(
-            screen.queryByTestId('kitchen-packaging-column-capacity-trigger', hidden),
-        ).toBeNull();
-        expect(
-            screen.queryByTestId('kitchen-packaging-column-capacity-affordance', hidden),
-        ).toBeNull();
+        for (const key of ['name', 'purchaseUnit', 'itemsPerUnit', 'capacity']) {
+            expect(
+                screen.getByTestId(`kitchen-packaging-column-${key}-affordance`, hidden),
+            ).toBeTruthy();
+        }
 
         // Status filters but does not sort on this list, so its arrow is never the black one a
         // sorted column earns — and, until something is applied, it points up like every other
@@ -434,6 +445,50 @@ describe('the packaging list', () => {
 
         await waitFor(() => {
             expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↑');
+        });
+    });
+
+    it('sorts by what a box holds from its header, with an unmeasured box last both ways', async () => {
+        await renderStubScreen(<PackagingScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: packagingListing(() => [
+                        item({ ordinal: 1, name: 'Unmeasured bag', overrides: { capacity: null } }),
+                        item({
+                            ordinal: 2,
+                            name: 'Large box',
+                            overrides: { capacity: { quantity: 0.75, unit: 'kg' } },
+                        }),
+                        item({
+                            ordinal: 3,
+                            name: 'Small box',
+                            overrides: { capacity: { quantity: 0.3, unit: 'kg' } },
+                        }),
+                    ]),
+                    listIngredientCategories: async () => CATEGORIES,
+                },
+            },
+        });
+        await untilVisible('kitchen-packaging-table');
+
+        const names = () =>
+            screen
+                .getAllByTestId(/^kitchen-packaging-row-.+-name$/)
+                .map((node) => node.props.children as string);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-packaging-column-capacity-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Small box', 'Large box', 'Unmeasured bag']);
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-packaging-column-capacity-trigger'));
+        });
+        await waitFor(() => {
+            expect(names()).toEqual(['Large box', 'Small box', 'Unmeasured bag']);
         });
     });
 
@@ -529,7 +584,7 @@ describe('the packaging list', () => {
         expect(screen.queryByTestId(`${base}-archive`)).toBeNull();
     });
 
-    it('reads the whole record in the View panel, and edits it from the panel footer', async () => {
+    it('reads the whole record on the View page, and edits it from the page header', async () => {
         const row = item({ ordinal: 1, name: 'Kraft lunch box' });
 
         await renderStubScreen(<PackagingScreen />, {

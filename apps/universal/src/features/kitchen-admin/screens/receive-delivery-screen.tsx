@@ -8,7 +8,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Heading,
+    FormSection,
     Inline,
     Select,
     Skeleton,
@@ -31,7 +31,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_MANAGE_PERMISSION } from '../entity-registry.ts';
-import { OpsPanel } from '../ops-panel.tsx';
+import { EditorFrame } from '../editor-frame.tsx';
 import {
     exceedsOutstanding,
     initialLines,
@@ -44,9 +44,16 @@ import type {
     ReceiveHeaderDraft,
     ReceiveLineDraft,
 } from '../receive-delivery-model.ts';
+import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
+import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
  * `/kitchen/procurement/receive` — booking in a delivery against an issued order (SUP5, §7).
+ *
+ * Drawn in the editor frame since the Operations handoff: title, the "Posts into stock" chip, Back
+ * and the one primary (Post receipt, which opens the confirmation) on the header row, and the form
+ * as section rules — the delivery, its lines, the invoice charges. A delivery has no record meta
+ * until it is posted, so the order's own facts fill the header's summary slot instead.
  *
  * ## The prices are visible to everyone who may post
  *
@@ -114,6 +121,14 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
     const branchId = access.branch?.id ?? null;
 
     const orders = useReceivableOrdersQuery(branchId);
+    const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+    // Nothing here is lock-versioned — a receipt is created, never updated — so a conflict cannot
+    // arise; the frame still takes the handle, and a reload is a refetch of the open orders.
+    const concurrency = useOptimisticConcurrency({
+        onReload: () => {
+            void orders.refetch();
+        },
+    });
     const postReceipt = usePostGoodsReceiptMutation();
 
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(order ?? null);
@@ -231,14 +246,49 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
     const failure = toFailure(orders.error);
 
     return (
-        <Stack space="lg" testID="kitchen-receive-screen">
-            <OpsPanel
-                testID="kitchen-receive-panel"
-                titleKey="kitchen:ops.receiving.title"
-                subtitleKey="kitchen:ops.receiving.subtitle"
-                metrics={[]}
-                emptyTitleKey="kitchen:ops.receiving.emptyTitle"
-                emptyBodyKey="kitchen:ops.receiving.emptyBody"
+        <>
+            <EditorFrame
+                testID="kitchen-receive-screen"
+                title={t('kitchen:ops.receiving.title')}
+                titleChip={{ label: t('kitchen:ops.receiving.chipPostsStock'), tone: 'warning' }}
+                meta={null}
+                summary={
+                    selectedOrder === null ? (
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:ops.receiving.subtitle')}
+                        </Text>
+                    ) : (
+                        <Inline
+                            space="sm"
+                            align="center"
+                            wrap
+                            testID="kitchen-receive-order-header"
+                        >
+                            <Text variant="mono">{selectedOrder.number}</Text>
+                            <Text variant="caption" tone="secondary">
+                                {selectedOrder.supplier?.nameEn ??
+                                    t('kitchen:ops.procurement.noSupplier')}
+                            </Text>
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:ops.receiving.outstandingLineCount', {
+                                    count: selectedOrder.outstandingLineCount,
+                                })}
+                            </Text>
+                        </Inline>
+                    )
+                }
+                guard={guard}
+                concurrency={concurrency}
+                onSaveDraft={() => {
+                    setConfirming(true);
+                }}
+                saveLabel={t('kitchen:ops.receiving.post')}
+                saveDisabled={branchId === null || selectedOrder === null || !state.canSubmit}
+                hideSave={selectedOrder === null}
+                onBack={() => {
+                    router.push('/kitchen/procurement' as never);
+                }}
+                backLabel={t('kitchen:ops.receiving.backToProcurement')}
             >
                 {orders.isPending ? (
                     <Stack space="sm" testID="kitchen-receive-loading">
@@ -262,21 +312,27 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         body={t('kitchen:ops.receiving.emptyBody')}
                     />
                 ) : (
-                    <Stack space="lg" testID="kitchen-receive-content">
+                    <Stack space="none" testID="kitchen-receive-content">
                         {/*
                          * With `?order=` the supplier and branch are fixed from the order (§7) and
                          * the header states them rather than offering them; without it, this is the
                          * picker. Either way there is exactly one order on screen.
                          */}
                         {order === undefined ? (
-                            <Select
-                                testID="kitchen-receive-order-picker"
-                                label={t('kitchen:ops.receiving.fieldOrder')}
-                                options={orderOptions}
-                                value={selectedOrderId}
-                                onChange={setSelectedOrderId}
-                                searchable
-                            />
+                            <FormSection
+                                first
+                                testID="kitchen-receive-order-section"
+                                title={t('kitchen:ops.receiving.sectionOrder')}
+                            >
+                                <Select
+                                    testID="kitchen-receive-order-picker"
+                                    label={t('kitchen:ops.receiving.fieldOrder')}
+                                    options={orderOptions}
+                                    value={selectedOrderId}
+                                    onChange={setSelectedOrderId}
+                                    searchable
+                                />
+                            </FormSection>
                         ) : selectedOrder === null ? (
                             <EmptyState
                                 testID="kitchen-receive-order-missing"
@@ -286,286 +342,303 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         ) : null}
 
                         {selectedOrder === null ? null : (
-                            <Stack space="lg" testID="kitchen-receive-form">
-                                <Stack space="xs" testID="kitchen-receive-order-header">
-                                    <Heading level={2}>{selectedOrder.number}</Heading>
-                                    <Text variant="caption" tone="secondary">
-                                        {selectedOrder.supplier?.nameEn ??
-                                            t('kitchen:ops.procurement.noSupplier')}
-                                    </Text>
-                                    <Text variant="caption" tone="secondary">
-                                        {t('kitchen:ops.receiving.outstandingLineCount', {
-                                            count: selectedOrder.outstandingLineCount,
-                                        })}
-                                    </Text>
-                                </Stack>
+                            <Stack space="none" testID="kitchen-receive-form">
+                                <FormSection
+                                    first={order !== undefined}
+                                    testID="kitchen-receive-delivery-section"
+                                    title={t('kitchen:ops.receiving.sectionDelivery')}
+                                >
+                                    <Inline space="sm" align="start" wrap>
+                                        <DateField
+                                            testID="kitchen-receive-received-on"
+                                            label={t('kitchen:ops.receiving.fieldReceivedOn')}
+                                            hint={t('kitchen:ops.receiving.fieldReceivedOnHint')}
+                                            value={header.receivedOn}
+                                            max={todayIsoDate()}
+                                            onChange={(next) => {
+                                                setHeader((current) => ({
+                                                    ...current,
+                                                    receivedOn: next ?? '',
+                                                }));
+                                            }}
+                                        />
+                                        <TextInputField
+                                            testID="kitchen-receive-document-ref"
+                                            label={t('kitchen:ops.receiving.fieldDocumentRef')}
+                                            hint={t('kitchen:ops.receiving.fieldDocumentRefHint')}
+                                            value={header.documentRef}
+                                            onChangeText={(next) => {
+                                                setHeader((current) => ({
+                                                    ...current,
+                                                    documentRef: next,
+                                                }));
+                                            }}
+                                            className="min-w-[180px] flex-1"
+                                        />
+                                        <TextInputField
+                                            testID="kitchen-receive-invoice-ref"
+                                            label={t('kitchen:ops.receiving.fieldInvoiceRef')}
+                                            hint={t('kitchen:ops.receiving.fieldInvoiceRefHint')}
+                                            value={header.supplierInvoiceRef}
+                                            onChangeText={(next) => {
+                                                setHeader((current) => ({
+                                                    ...current,
+                                                    supplierInvoiceRef: next,
+                                                }));
+                                            }}
+                                            className="min-w-[180px] flex-1"
+                                        />
+                                        <DateField
+                                            testID="kitchen-receive-invoice-date"
+                                            label={t('kitchen:ops.receiving.fieldInvoiceDate')}
+                                            value={header.invoiceDate}
+                                            onChange={(next) => {
+                                                setHeader((current) => ({
+                                                    ...current,
+                                                    invoiceDate: next ?? '',
+                                                }));
+                                            }}
+                                        />
+                                    </Inline>
+                                </FormSection>
 
-                                <Inline space="sm" align="start" wrap>
-                                    <DateField
-                                        testID="kitchen-receive-received-on"
-                                        label={t('kitchen:ops.receiving.fieldReceivedOn')}
-                                        hint={t('kitchen:ops.receiving.fieldReceivedOnHint')}
-                                        value={header.receivedOn}
-                                        max={todayIsoDate()}
-                                        onChange={(next) => {
-                                            setHeader((current) => ({
-                                                ...current,
-                                                receivedOn: next ?? '',
-                                            }));
-                                        }}
-                                    />
-                                    <TextInputField
-                                        testID="kitchen-receive-document-ref"
-                                        label={t('kitchen:ops.receiving.fieldDocumentRef')}
-                                        hint={t('kitchen:ops.receiving.fieldDocumentRefHint')}
-                                        value={header.documentRef}
-                                        onChangeText={(next) => {
-                                            setHeader((current) => ({
-                                                ...current,
-                                                documentRef: next,
-                                            }));
-                                        }}
-                                        className="min-w-[180px] flex-1"
-                                    />
-                                    <TextInputField
-                                        testID="kitchen-receive-invoice-ref"
-                                        label={t('kitchen:ops.receiving.fieldInvoiceRef')}
-                                        hint={t('kitchen:ops.receiving.fieldInvoiceRefHint')}
-                                        value={header.supplierInvoiceRef}
-                                        onChangeText={(next) => {
-                                            setHeader((current) => ({
-                                                ...current,
-                                                supplierInvoiceRef: next,
-                                            }));
-                                        }}
-                                        className="min-w-[180px] flex-1"
-                                    />
-                                    <DateField
-                                        testID="kitchen-receive-invoice-date"
-                                        label={t('kitchen:ops.receiving.fieldInvoiceDate')}
-                                        value={header.invoiceDate}
-                                        onChange={(next) => {
-                                            setHeader((current) => ({
-                                                ...current,
-                                                invoiceDate: next ?? '',
-                                            }));
-                                        }}
-                                    />
-                                </Inline>
+                                <FormSection
+                                    testID="kitchen-receive-lines-section"
+                                    title={t('kitchen:ops.receiving.linesTitle')}
+                                >
+                                    <Stack space="sm" testID="kitchen-receive-lines">
+                                        {lines.map((line, index) => (
+                                            <Stack
+                                                key={line.purchaseOrderLineId ?? line.stockItemId}
+                                                space="xs"
+                                                testID={`kitchen-receive-line-${String(index)}`}
+                                            >
+                                                <Inline space="sm" align="center" wrap>
+                                                    <Text
+                                                        variant="bodyStrong"
+                                                        className="min-w-[200px] flex-1"
+                                                    >
+                                                        {line.itemLabel}
+                                                    </Text>
+                                                    <Text variant="caption" tone="secondary">
+                                                        {t(
+                                                            'kitchen:ops.receiving.outstandingLabel',
+                                                            {
+                                                                quantity: line.outstandingQuantity,
+                                                                unit: line.unitCode,
+                                                            },
+                                                        )}
+                                                    </Text>
+                                                </Inline>
+                                                <Inline space="sm" align="start" wrap>
+                                                    <TextInputField
+                                                        testID={`kitchen-receive-line-${String(index)}-quantity`}
+                                                        label={t(
+                                                            'kitchen:ops.receiving.fieldLineQuantity',
+                                                            { unit: line.unitCode },
+                                                        )}
+                                                        value={line.quantity}
+                                                        keyboardType="decimal-pad"
+                                                        onChangeText={(next) => {
+                                                            patchLine(index, { quantity: next });
+                                                        }}
+                                                        className="min-w-[140px]"
+                                                    />
+                                                    {/*
+                                                     * Visible to every manage holder — §5's blind-write
+                                                     * model, and the reversal of the old dialog's
+                                                     * `canViewCosts` gate on the inputs. Reads stay
+                                                     * redacted; writing what the paper says does not.
+                                                     */}
+                                                    <TextInputField
+                                                        testID={`kitchen-receive-line-${String(index)}-price`}
+                                                        label={t(
+                                                            'kitchen:ops.receiving.fieldLineUnitPrice',
+                                                            { currency: RECEIPT_CURRENCY },
+                                                        )}
+                                                        hint={t(
+                                                            'kitchen:ops.receiving.fieldLineUnitPriceHint',
+                                                        )}
+                                                        value={line.unitPrice}
+                                                        keyboardType="decimal-pad"
+                                                        onChangeText={(next) => {
+                                                            patchLine(index, { unitPrice: next });
+                                                        }}
+                                                        className="min-w-[140px]"
+                                                    />
+                                                </Inline>
+                                                {exceedsOutstanding(line) ? (
+                                                    <Text
+                                                        tone="danger"
+                                                        variant="caption"
+                                                        testID={`kitchen-receive-line-${String(index)}-over`}
+                                                    >
+                                                        {t(
+                                                            'kitchen:ops.receiving.lineOverReceipt',
+                                                            {
+                                                                quantity: line.outstandingQuantity,
+                                                                unit: line.unitCode,
+                                                            },
+                                                        )}
+                                                    </Text>
+                                                ) : null}
+                                            </Stack>
+                                        ))}
+                                    </Stack>
 
-                                <Stack space="sm" testID="kitchen-receive-lines">
-                                    <Heading level={3}>
-                                        {t('kitchen:ops.receiving.linesTitle')}
-                                    </Heading>
-                                    {lines.map((line, index) => (
-                                        <Stack
-                                            key={line.purchaseOrderLineId ?? line.stockItemId}
-                                            space="xs"
-                                            testID={`kitchen-receive-line-${String(index)}`}
+                                    {state.hasOverReceipt ? (
+                                        <Callout
+                                            tone="warning"
+                                            testID="kitchen-receive-over-receipt"
+                                            title={t('kitchen:ops.receiving.overReceiptTitle')}
                                         >
-                                            <Inline space="sm" align="center" wrap>
-                                                <Text
-                                                    variant="bodyStrong"
-                                                    className="min-w-[200px] flex-1"
-                                                >
-                                                    {line.itemLabel}
+                                            <Stack space="sm">
+                                                <Text>
+                                                    {t('kitchen:ops.receiving.overReceiptBody')}
                                                 </Text>
-                                                <Text variant="caption" tone="secondary">
-                                                    {t('kitchen:ops.receiving.outstandingLabel', {
-                                                        quantity: line.outstandingQuantity,
-                                                        unit: line.unitCode,
-                                                    })}
-                                                </Text>
-                                            </Inline>
-                                            <Inline space="sm" align="start" wrap>
-                                                <TextInputField
-                                                    testID={`kitchen-receive-line-${String(index)}-quantity`}
+                                                <Checkbox
+                                                    testID="kitchen-receive-over-confirm"
+                                                    checked={confirmations.overReceiptConfirmed}
                                                     label={t(
-                                                        'kitchen:ops.receiving.fieldLineQuantity',
-                                                        { unit: line.unitCode },
+                                                        'kitchen:ops.receiving.overReceiptConfirm',
                                                     )}
-                                                    value={line.quantity}
-                                                    keyboardType="decimal-pad"
-                                                    onChangeText={(next) => {
-                                                        patchLine(index, { quantity: next });
+                                                    onChange={(checked) => {
+                                                        setConfirmations((current) => ({
+                                                            ...current,
+                                                            overReceiptConfirmed: checked,
+                                                        }));
                                                     }}
-                                                    className="min-w-[140px]"
                                                 />
-                                                {/*
-                                                 * Visible to every manage holder — §5's blind-write
-                                                 * model, and the reversal of the old dialog's
-                                                 * `canViewCosts` gate on the inputs. Reads stay
-                                                 * redacted; writing what the paper says does not.
-                                                 */}
-                                                <TextInputField
-                                                    testID={`kitchen-receive-line-${String(index)}-price`}
-                                                    label={t(
-                                                        'kitchen:ops.receiving.fieldLineUnitPrice',
-                                                        { currency: RECEIPT_CURRENCY },
-                                                    )}
-                                                    hint={t(
-                                                        'kitchen:ops.receiving.fieldLineUnitPriceHint',
-                                                    )}
-                                                    value={line.unitPrice}
-                                                    keyboardType="decimal-pad"
-                                                    onChangeText={(next) => {
-                                                        patchLine(index, { unitPrice: next });
-                                                    }}
-                                                    className="min-w-[140px]"
-                                                />
-                                            </Inline>
-                                            {exceedsOutstanding(line) ? (
-                                                <Text
-                                                    tone="danger"
-                                                    variant="caption"
-                                                    testID={`kitchen-receive-line-${String(index)}-over`}
-                                                >
-                                                    {t('kitchen:ops.receiving.lineOverReceipt', {
-                                                        quantity: line.outstandingQuantity,
-                                                        unit: line.unitCode,
-                                                    })}
-                                                </Text>
-                                            ) : null}
-                                        </Stack>
-                                    ))}
-                                </Stack>
+                                            </Stack>
+                                        </Callout>
+                                    ) : null}
 
-                                {state.hasOverReceipt ? (
-                                    <Callout
-                                        tone="warning"
-                                        testID="kitchen-receive-over-receipt"
-                                        title={t('kitchen:ops.receiving.overReceiptTitle')}
-                                    >
-                                        <Stack space="sm">
-                                            <Text>
-                                                {t('kitchen:ops.receiving.overReceiptBody')}
-                                            </Text>
+                                    {state.hasOverReceipt || state.hasUnplannedLine ? (
+                                        <TextInputField
+                                            testID="kitchen-receive-variance-note"
+                                            label={t('kitchen:ops.receiving.fieldVarianceNote')}
+                                            hint={t('kitchen:ops.receiving.fieldVarianceNoteHint')}
+                                            required
+                                            value={confirmations.varianceNote}
+                                            onChangeText={(next) => {
+                                                setConfirmations((current) => ({
+                                                    ...current,
+                                                    varianceNote: next,
+                                                }));
+                                            }}
+                                        />
+                                    ) : null}
+
+                                    {state.hasShortfall ? (
+                                        <Stack space="sm" testID="kitchen-receive-close-short">
                                             <Checkbox
-                                                testID="kitchen-receive-over-confirm"
-                                                checked={confirmations.overReceiptConfirmed}
-                                                label={t(
-                                                    'kitchen:ops.receiving.overReceiptConfirm',
+                                                testID="kitchen-receive-close-short-toggle"
+                                                checked={confirmations.closeShort}
+                                                label={t('kitchen:ops.receiving.closeShortLabel')}
+                                                description={t(
+                                                    'kitchen:ops.receiving.closeShortHint',
                                                 )}
                                                 onChange={(checked) => {
                                                     setConfirmations((current) => ({
                                                         ...current,
-                                                        overReceiptConfirmed: checked,
+                                                        closeShort: checked,
                                                     }));
                                                 }}
                                             />
-                                        </Stack>
-                                    </Callout>
-                                ) : null}
-
-                                {state.hasOverReceipt || state.hasUnplannedLine ? (
-                                    <TextInputField
-                                        testID="kitchen-receive-variance-note"
-                                        label={t('kitchen:ops.receiving.fieldVarianceNote')}
-                                        hint={t('kitchen:ops.receiving.fieldVarianceNoteHint')}
-                                        required
-                                        value={confirmations.varianceNote}
-                                        onChangeText={(next) => {
-                                            setConfirmations((current) => ({
-                                                ...current,
-                                                varianceNote: next,
-                                            }));
-                                        }}
-                                    />
-                                ) : null}
-
-                                {state.hasShortfall ? (
-                                    <Stack space="sm" testID="kitchen-receive-close-short">
-                                        <Checkbox
-                                            testID="kitchen-receive-close-short-toggle"
-                                            checked={confirmations.closeShort}
-                                            label={t('kitchen:ops.receiving.closeShortLabel')}
-                                            description={t('kitchen:ops.receiving.closeShortHint')}
-                                            onChange={(checked) => {
-                                                setConfirmations((current) => ({
-                                                    ...current,
-                                                    closeShort: checked,
-                                                }));
-                                            }}
-                                        />
-                                        {confirmations.closeShort ? (
-                                            <TextInputField
-                                                testID="kitchen-receive-close-short-reason"
-                                                label={t(
-                                                    'kitchen:ops.receiving.fieldCloseShortReason',
-                                                )}
-                                                required
-                                                value={confirmations.closeShortReason}
-                                                onChangeText={(next) => {
-                                                    setConfirmations((current) => ({
-                                                        ...current,
-                                                        closeShortReason: next,
-                                                    }));
-                                                }}
-                                            />
-                                        ) : null}
-                                    </Stack>
-                                ) : null}
-
-                                <Stack space="sm" testID="kitchen-receive-charges">
-                                    <Button
-                                        testID="kitchen-receive-charges-toggle"
-                                        size="sm"
-                                        variant="ghost"
-                                        label={
-                                            chargesOpen
-                                                ? t('kitchen:ops.receiving.hideCharges')
-                                                : t('kitchen:ops.receiving.showCharges')
-                                        }
-                                        onPress={() => {
-                                            setChargesOpen((open) => !open);
-                                        }}
-                                    />
-                                    {chargesOpen ? (
-                                        <Stack space="sm" testID="kitchen-receive-charges-fields">
-                                            <Text variant="caption" tone="secondary">
-                                                {t('kitchen:ops.receiving.chargesHint')}
-                                            </Text>
-                                            <Inline space="sm" align="start" wrap>
-                                                {(
-                                                    [
-                                                        ['discountAmount', 'fieldDiscount'],
-                                                        ['taxAmount', 'fieldTax'],
-                                                        ['deliveryAmount', 'fieldDelivery'],
-                                                        ['otherChargesAmount', 'fieldOtherCharges'],
-                                                        ['invoiceTotalAmount', 'fieldInvoiceTotal'],
-                                                    ] as const
-                                                ).map(([field, labelKey]) => (
-                                                    <TextInputField
-                                                        key={field}
-                                                        testID={`kitchen-receive-${field}`}
-                                                        label={t(
-                                                            `kitchen:ops.receiving.${labelKey}`,
-                                                            { currency: RECEIPT_CURRENCY },
-                                                        )}
-                                                        value={header[field]}
-                                                        keyboardType="decimal-pad"
-                                                        onChangeText={(next) => {
-                                                            setHeader((current) => ({
-                                                                ...current,
-                                                                [field]: next,
-                                                            }));
-                                                        }}
-                                                        className="min-w-[140px]"
-                                                    />
-                                                ))}
-                                            </Inline>
+                                            {confirmations.closeShort ? (
+                                                <TextInputField
+                                                    testID="kitchen-receive-close-short-reason"
+                                                    label={t(
+                                                        'kitchen:ops.receiving.fieldCloseShortReason',
+                                                    )}
+                                                    required
+                                                    value={confirmations.closeShortReason}
+                                                    onChangeText={(next) => {
+                                                        setConfirmations((current) => ({
+                                                            ...current,
+                                                            closeShortReason: next,
+                                                        }));
+                                                    }}
+                                                />
+                                            ) : null}
                                         </Stack>
                                     ) : null}
-                                </Stack>
+                                </FormSection>
 
-                                {postReceipt.error === null ? null : (
-                                    <Text testID="kitchen-receive-error-message" tone="danger">
-                                        {toFailure(postReceipt.error)?.message ??
-                                            t('kitchen:ops.receiving.postFailed')}
-                                    </Text>
-                                )}
+                                <FormSection
+                                    testID="kitchen-receive-charges-section"
+                                    title={t('kitchen:ops.receiving.sectionCharges')}
+                                >
+                                    <Stack space="sm" testID="kitchen-receive-charges">
+                                        <Button
+                                            testID="kitchen-receive-charges-toggle"
+                                            size="sm"
+                                            variant="ghost"
+                                            label={
+                                                chargesOpen
+                                                    ? t('kitchen:ops.receiving.hideCharges')
+                                                    : t('kitchen:ops.receiving.showCharges')
+                                            }
+                                            onPress={() => {
+                                                setChargesOpen((open) => !open);
+                                            }}
+                                        />
+                                        {chargesOpen ? (
+                                            <Stack
+                                                space="sm"
+                                                testID="kitchen-receive-charges-fields"
+                                            >
+                                                <Text variant="caption" tone="secondary">
+                                                    {t('kitchen:ops.receiving.chargesHint')}
+                                                </Text>
+                                                <Inline space="sm" align="start" wrap>
+                                                    {(
+                                                        [
+                                                            ['discountAmount', 'fieldDiscount'],
+                                                            ['taxAmount', 'fieldTax'],
+                                                            ['deliveryAmount', 'fieldDelivery'],
+                                                            [
+                                                                'otherChargesAmount',
+                                                                'fieldOtherCharges',
+                                                            ],
+                                                            [
+                                                                'invoiceTotalAmount',
+                                                                'fieldInvoiceTotal',
+                                                            ],
+                                                        ] as const
+                                                    ).map(([field, labelKey]) => (
+                                                        <TextInputField
+                                                            key={field}
+                                                            testID={`kitchen-receive-${field}`}
+                                                            label={t(
+                                                                `kitchen:ops.receiving.${labelKey}`,
+                                                                { currency: RECEIPT_CURRENCY },
+                                                            )}
+                                                            value={header[field]}
+                                                            keyboardType="decimal-pad"
+                                                            onChangeText={(next) => {
+                                                                setHeader((current) => ({
+                                                                    ...current,
+                                                                    [field]: next,
+                                                                }));
+                                                            }}
+                                                            className="min-w-[140px]"
+                                                        />
+                                                    ))}
+                                                </Inline>
+                                            </Stack>
+                                        ) : null}
+                                    </Stack>
 
-                                <Inline space="sm" align="center" justify="between" wrap>
+                                    {postReceipt.error === null ? null : (
+                                        <Text testID="kitchen-receive-error-message" tone="danger">
+                                            {toFailure(postReceipt.error)?.message ??
+                                                t('kitchen:ops.receiving.postFailed')}
+                                        </Text>
+                                    )}
+                                </FormSection>
+
+                                <Inline space="sm" align="center" wrap>
                                     <Text
                                         variant="caption"
                                         tone="secondary"
@@ -576,20 +649,12 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             skipped: state.skippedLineCount,
                                         })}
                                     </Text>
-                                    <Button
-                                        testID="kitchen-receive-submit"
-                                        label={t('kitchen:ops.receiving.post')}
-                                        disabled={branchId === null || !state.canSubmit}
-                                        onPress={() => {
-                                            setConfirming(true);
-                                        }}
-                                    />
                                 </Inline>
                             </Stack>
                         )}
                     </Stack>
                 )}
-            </OpsPanel>
+            </EditorFrame>
 
             {/*
              * §7: the confirmation distinguishes stock quantity from financial values and states
@@ -677,6 +742,6 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                     </Text>
                 </Stack>
             </Dialog>
-        </Stack>
+        </>
     );
 }
