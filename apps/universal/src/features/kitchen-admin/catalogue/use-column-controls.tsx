@@ -106,6 +106,8 @@ export interface ColumnControlsOptions {
         | {
               readonly defaults?: readonly string[] | undefined;
               readonly locked?: readonly string[] | undefined;
+              /** A worksheet's own cap, in place of the catalogue's six. See the module docs. */
+              readonly max?: number | undefined;
           }
         | undefined;
 }
@@ -134,6 +136,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
 
     const statedLocked = options.picker?.locked;
     const statedDefaults = options.picker?.defaults;
+    const max = options.picker?.max ?? MAX_VISIBLE_COLUMNS;
     const locked = useMemo(() => {
         if (statedLocked !== undefined) return statedLocked;
         const title =
@@ -146,12 +149,9 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
     const defaults = useMemo(() => {
         if (statedDefaults !== undefined) return statedDefaults;
         const ranked = [...allColumns].sort((left, right) => right.priority - left.priority);
-        return [...new Set([...locked, ...ranked.map((column) => column.key)])].slice(
-            0,
-            MAX_VISIBLE_COLUMNS,
-        );
-    }, [statedDefaults, allColumns, locked]);
-    const visibility = useColumnVisibility(testIDPrefix, allColumns, { defaults, locked });
+        return [...new Set([...locked, ...ranked.map((column) => column.key)])].slice(0, max);
+    }, [statedDefaults, allColumns, locked, max]);
+    const visibility = useColumnVisibility(testIDPrefix, allColumns, { defaults, locked, max });
     const columns = visibility.visible;
 
     const external = options.sort;

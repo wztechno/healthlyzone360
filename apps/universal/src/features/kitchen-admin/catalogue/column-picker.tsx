@@ -37,6 +37,14 @@ import { createKeyValueStore } from '../../../session/storage.ts';
  * and every row's accessible name are built from. They show ticked and disabled, and count toward
  * the six.
  *
+ * ## The cap is the catalogue's, and a worksheet may state its own
+ *
+ * Six is a browsing rule: a catalogue row carries more fields than anyone reads at once, so the
+ * table offers all of them and the reader keeps six. A worksheet is the other case — the order
+ * desk's requirements table is eight columns of one arithmetic, and hiding two of them leaves the
+ * buyer deriving a figure the row already holds. Such a table passes its own `max` and draws every
+ * column; the picker still lets the reader put one away.
+ *
  * ## Remembered per table, per device
  *
  * The choice is kept under `h360.table-columns.<table>` in the same non-sensitive key/value store the
@@ -70,6 +78,11 @@ export interface ColumnVisibilityOptions {
     readonly defaults: readonly string[];
     /** Columns that are always drawn and cannot be unticked. They count toward the maximum. */
     readonly locked?: readonly string[] | undefined;
+    /**
+     * How many columns may be drawn at once. {@link MAX_VISIBLE_COLUMNS} unless a table states
+     * otherwise, which the ops worksheets do — see the opt-out note above.
+     */
+    readonly max?: number | undefined;
 }
 
 export interface ColumnVisibility<Column extends PickableColumn> {
@@ -99,19 +112,20 @@ function normalise(
     keys: readonly string[],
     locked: readonly string[],
     known: ReadonlySet<string>,
+    max: number,
 ): readonly string[] {
     const ordered = [...locked, ...keys].filter((key) => known.has(key));
-    return [...new Set(ordered)].slice(0, MAX_VISIBLE_COLUMNS);
+    return [...new Set(ordered)].slice(0, max);
 }
 
 export function useColumnVisibility<Column extends PickableColumn>(
     tableId: string,
     columns: readonly Column[],
-    { defaults, locked = [] }: ColumnVisibilityOptions,
+    { defaults, locked = [], max = MAX_VISIBLE_COLUMNS }: ColumnVisibilityOptions,
 ): ColumnVisibility<Column> {
     const known = useMemo(() => new Set(columns.map((column) => column.key)), [columns]);
     const [chosen, setChosen] = useState<readonly string[]>(() =>
-        normalise(readStored(tableId, known) ?? defaults, locked, known),
+        normalise(readStored(tableId, known) ?? defaults, locked, known, max),
     );
 
     const commit = useCallback(
@@ -122,20 +136,24 @@ export function useColumnVisibility<Column extends PickableColumn>(
         [tableId],
     );
 
-    const shown = useMemo(() => new Set(normalise(chosen, locked, known)), [chosen, locked, known]);
+    const shown = useMemo(
+        () => new Set(normalise(chosen, locked, known, max)),
+        [chosen, locked, known, max],
+    );
 
     const visible = useMemo(
         () => columns.filter((column) => shown.has(column.key)),
         [columns, shown],
     );
 
-    const full = shown.size >= MAX_VISIBLE_COLUMNS;
+    const full = shown.size >= max;
 
     return {
         visible,
         picker: {
             testID: `${tableId}-columns`,
             shown: shown.size,
+            max,
             options: columns.map((column) => {
                 const isLocked = locked.includes(column.key);
                 const isShown = shown.has(column.key);
@@ -155,7 +173,7 @@ export function useColumnVisibility<Column extends PickableColumn>(
                 }
             },
             onReset: () => {
-                commit(normalise(defaults, locked, known));
+                commit(normalise(defaults, locked, known, max));
             },
         },
     };
@@ -171,13 +189,15 @@ export interface ColumnPickerOption {
 export interface ColumnPickerProps {
     readonly options: readonly ColumnPickerOption[];
     readonly shown: number;
+    /** The table's own cap, which the heading and the button both state. */
+    readonly max: number;
     readonly onToggle: (key: string) => void;
     readonly onReset: () => void;
     readonly testID: string;
 }
 
 /** The toolbar button and its menu of columns. Toggling keeps the menu open. */
-export function ColumnPicker({ options, shown, onToggle, onReset, testID }: ColumnPickerProps) {
+export function ColumnPicker({ options, shown, max, onToggle, onReset, testID }: ColumnPickerProps) {
     const { t } = useTranslation();
 
     return (
@@ -188,7 +208,7 @@ export function ColumnPicker({ options, shown, onToggle, onReset, testID }: Colu
             className="z-sticky"
             sections={[
                 {
-                    label: t('kitchen:catalogue.columnsHeading', { max: MAX_VISIBLE_COLUMNS }),
+                    label: t('kitchen:catalogue.columnsHeading', { max }),
                     items: options.map((option) => ({
                         key: option.key,
                         label: option.label,
@@ -215,10 +235,7 @@ export function ColumnPicker({ options, shown, onToggle, onReset, testID }: Colu
                     {...triggerProps}
                     testID={`${testID}-trigger`}
                     variant="secondary"
-                    label={t('kitchen:catalogue.columnsButton', {
-                        shown,
-                        max: MAX_VISIBLE_COLUMNS,
-                    })}
+                    label={t('kitchen:catalogue.columnsButton', { shown, max })}
                     iconEnd={<Icon name="chevronDown" size="sm" />}
                     onPress={toggle}
                 />
